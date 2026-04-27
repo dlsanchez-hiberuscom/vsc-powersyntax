@@ -1,0 +1,118 @@
+{
+  "name": "vsc-powersyntax",
+  "displayName": "VSC PowerSyntax",
+  "description": "Base inicial de extensión para PowerBuilder y PowerScript con arquitectura cliente + servidor LSP.",
+  "version": "0.1.0",
+  "publisher": "lopez",
+  "author": "David Lopez",
+  "license": "MIT",
+  "main": "./out/client/extension.js",
+  "homepage": "https://github.com/dlsanchez-hiberuscom/vsc-powersyntax#readme",
+  "bugs": {
+    "url": "https://github.com/dlsanchez-hiberuscom/vsc-powersyntax/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dlsanchez-hiberuscom/vsc-powersyntax"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": false
+    },
+    "untrustedWorkspaces": {
+      "supported": "limited"
+    }
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "powerbuilder",
+    "powerscript",
+    "pb",
+    "appeon",
+    "lsp"
+  ],
+  "icon": "icons/powerbuilder.png",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "powerbuilder",
+        "aliases": [
+          "PowerBuilder",
+          "PowerScript",
+          "pb"
+        ],
+        "extensions": [
+          ".sru",
+          ".srw",
+          ".srm",
+          ".sra",
+          ".srs",
+          ".srf",
+          ".srd",
+          ".srp",
+          ".srj",
+          ".srq"
+        ],
+        "firstLine": "^((HA)?(?=\\$)|forward)",
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "dark": "./icons/powerbuilder.png",
+          "light": "./icons/powerbuilder.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "powerbuilder",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.powerbuilder.codeblock",
+        "path": "./syntaxes/powerbuilder.markdown.tmLanguage.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.powerbuilder": "powerbuilder"
+        }
+      }
+    ]
+  },
+  
+
+"scripts": {
+  "vscode:prepublish": "npm run compile",
+  "compile": "npm run compile:client && npm run compile:server",
+  "compile:client": "tsc -p tsconfig.client.json",
+  "compile:server": "tsc -p tsconfig.server.json",
+  "watch:client": "tsc -watch -p tsconfig.client.json",
+  "watch:server": "tsc -watch -p tsconfig.server.json",
+  "watch": "echo \"Usa 'npm run watch:client' y 'npm run watch:server' en terminales separadas\"",
+  "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
+  "rebuild": "npm run clean && npm run compile",
+  "test": "npm run build:test && npm run test:run-compiled",
+  "build:test": "tsc -p tsconfig.test.json",
+  "test:run-compiled": "node ./scripts/run-compiled-tests.cjs"
+},
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "@types/vscode": "^1.100.0",
+    "typescript": "^5.9.2",
+    "ts-node": "^10.9.1"
+  }
+}

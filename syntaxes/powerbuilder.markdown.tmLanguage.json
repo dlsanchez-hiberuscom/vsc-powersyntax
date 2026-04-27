@@ -1,0 +1,35 @@
+{
+  "scopeName": "markdown.powerbuilder.codeblock",
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [
+    {
+      "include": "#fenced-powerbuilder"
+    }
+  ],
+  "repository": {
+    "fenced-powerbuilder": {
+      "name": "markup.fenced_code.block.powerbuilder.markdown",
+      "begin": "^([\\t ]*)(`{3,}|~{3,})\\s*((?i:powerbuilder|powerscript|pb))\\s*$",
+      "beginCaptures": {
+        "2": {
+          "name": "punctuation.definition.fenced.markdown"
+        },
+        "3": {
+          "name": "fenced_code.block.language.markdown"
+        }
+      },
+      "end": "^([\\t ]*)(`{3,}|~{3,})\\s*$",
+      "endCaptures": {
+        "2": {
+          "name": "punctuation.definition.fenced.markdown"
+        }
+      },
+      "contentName": "meta.embedded.block.powerbuilder",
+      "patterns": [
+        {
+          "include": "source.powerbuilder"
+        }
+      ]
+    }
+  }
+}
