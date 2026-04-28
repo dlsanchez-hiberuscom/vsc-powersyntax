@@ -47,12 +47,17 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 - diagnósticos estructurales con validación de bloques;
 - análisis por documento con caché en memoria;
 - scheduling de diagnósticos con debounce;
-- vigilancia de archivos de proyecto PowerBuilder (`.pbw`, `.pbt`, `.pbproj`, `.pbsln`).
+- **descubrimiento automático de workspace y roots** (`.pbw`, `.pbt`, `.pbl`);
+- **runtime consolidado** con observabilidad, métricas de rendimiento y `TaskScheduler`;
+- **índice global incremental** (KnowledgeBase) con caché documental (DocumentCache).
 
 ### Base técnica actual
 
 - **Cliente:** `src/client/extension.ts`
 - **Servidor:** `src/server/server.ts`
+- **Runtime & Concurrencia:** `src/server/runtime/*`
+- **Descubrimiento & FS:** `src/server/workspace/*`, `src/server/system/*`
+- **Pipeline de Conocimiento:** `src/server/knowledge/*`, `src/server/indexer/*`
 - **Parseo inicial:** `src/server/parsing/*`
 - **Análisis documental:** `src/server/analysis/*`
 - **Features LSP actuales:** `src/server/features/*`
@@ -62,7 +67,7 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 
 Todavía no deben asumirse como implementadas o completas estas áreas:
 
-- índice global incremental;
+- navegación global Go to Definition (en curso);
 - binder, scopes y resolver semántico robusto;
 - AST formal completo;
 - `definition`, `references`, `rename`;
