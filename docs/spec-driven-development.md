@@ -148,14 +148,17 @@ Ubicación recomendada:
 
 ```text
 /docs
-  constitution.md
+  ai-agents-catalog.md
+  ai-orchestrator.md
+  ai-strategy.md
   architecture.md
-  roadmap.md
   backlog.md
+  constitution.md
   current-focus.md
-  testing.md
   performance-budget.md
+  roadmap.md
   spec-driven-development.md
+  testing.md
 ```
 
 ### 7.2 Specs por feature

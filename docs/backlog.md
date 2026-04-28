@@ -52,48 +52,48 @@ Trabajo específico del ecosistema PowerBuilder y de apertura controlada a tooli
 
 ## P0 — Crítico / base inmediata
 
-### B001. Cerrar activación perezosa definitiva
-Garantizar que la extensión no hace trabajo pesado al inicio y que la activación responde solo a uso real.
+### ~~B001. Cerrar activación perezosa definitiva~~ ✅ CERRADA
+La extensión se activa por contribución declarativa del lenguaje (`onLanguage:powerbuilder` implícito). No hay `activationEvents` globales. El cliente no hace trabajo pesado al arranque.
 
-### B002. Consolidar wiring cliente ↔ servidor LSP
-Dejar el bootstrap del LSP limpio, estable, observable y fácil de mantener.
+### ~~B002. Consolidar wiring cliente ↔ servidor LSP~~ ✅ CERRADA
+El wiring está limpio, estable y con manejo correcto de errores de arranque y parada. Cliente ligero (~130 líneas) sin semántica ni parseo.
 
-### B003. Medición base de cold start y primer archivo
-Añadir forma repetible de medir tiempos reales de carga y tiempo hasta primer servicio útil.
+### ~~B003. Medición base de cold start y primer archivo~~ ✅ CERRADA
+Medición implementada en `timing.ts` y reportada en el output channel para todos los handlers. Baseline documentada en `002-baseline.md`.
 
-### B004. Formalizar prioridad estricta del archivo activo
-Aplicar una política real de prioridad para archivo abierto frente al análisis global.
+### ~~B004. Formalizar prioridad estricta del archivo activo~~ ✅ CERRADA
+El documento actual se registra en `server.ts` y se priorizan las operaciones utilizando `TaskPriority.Interactive`.
 
-### B005. Añadir scheduler mínimo con prioridades y cancelación
-Introducir coordinación básica del trabajo pesado para proteger el flujo interactivo.
+### ~~B005. Añadir scheduler mínimo con prioridades y cancelación~~ ✅ CERRADA
+Implementado `TaskScheduler` con 2 prioridades (Interactive y Background) y cancelación cooperativa a través de `cancellation.ts`. Las tareas background se cancelan automáticamente si llega un handler interactivo.
 
-### B006. Descubrimiento de workspace y política básica de roots
-Detectar roots, archivos relevantes, exclusiones y contexto mínimo del proyecto.
+### ~~B006. Descubrimiento de workspace y política básica de roots~~ ✅ CERRADA
+Crawler asíncrono y cooperativo implementado en `discovery.ts`. Detecta roots, archivos relevantes (`.sr*`), y exclusiones sin bloquear el event loop usando abstracción `IFileSystem`.
 
-### B007. Observabilidad mínima del runtime
-Exponer métricas básicas de arranque, tiempo hasta primer servicio y operaciones costosas visibles.
+### ~~B007. Observabilidad mínima del runtime~~ ✅ CERRADA
+Tiempos de activación del Extension Host y del Language Client (`start()`) añadidos al Output Channel.
 
-### B008. Endurecer ciclo de vida del servidor
-Cubrir start / stop / restart / fallos básicos del servidor sin degradar la experiencia de uso.
+### ~~B008. Endurecer ciclo de vida del servidor~~ ✅ CERRADA
+Handlers protegidos con try/catch en `server.ts`. Añadido comando `vscPowerSyntax.restartServer` para reiniciar el cliente/servidor limpiamente sin recargar la ventana.
 
-### B009. Alinear documentación canónica de base
-Asegurar que README, architecture, roadmap, backlog y current-focus reflejan el estado real del bootstrap.
+### ~~B009. Alinear documentación canónica de base~~ ✅ CERRADA
+Auditoría completa realizada. Documentación canónica alineada y Spec 002 documentada correctamente.
 
-### B010. Normalizar validación base del repositorio
-Dejar tests y validación mínima repetible integrados en el flujo normal del proyecto.
+### ~~B010. Normalizar validación base del repositorio~~ ✅ CERRADA
+Framework de tests configurado. Completados unit tests de runtime (`timing`, `cancellation`, `scheduler`), smoke test de extensión y test de rendimiento documentando base de performance.
 
 ---
 
 ## P1 — Núcleo de valor inmediato
 
-### B011. Pipeline de parseo incremental usable
-Transformar cambios de archivos en conocimiento reutilizable sin rehacer todo el workspace.
+### ~~B011. Pipeline de parseo incremental usable~~ ✅ CERRADA
+Refactorizado `analyzeDocument` para generar `Facts` semánticos. Integrado con `workspaceIndexer.ts` para procesamiento asíncrono y cooperativo.
 
-### B012. Caché documental por archivo
-Introducir caché básica por documento con invalidación por versión o fingerprint.
+### ~~B012. Caché documental por archivo~~ ✅ CERRADA
+Implementado `DocumentCache.ts` con persistencia en memoria e invalidación por hash MD5 del contenido. Evita re-parseos innecesarios durante la indexación y el uso interactivo.
 
-### B013. Esqueleto de índice incremental
-Introducir la base del índice e invalidación fina sin cerrar todavía toda la semántica avanzada.
+### ~~B013. Esqueleto de índice incremental~~ ✅ CERRADA
+Implementada `KnowledgeBase.ts` como almacén global de entidades (Funciones, Tipos, Eventos). Soporta inserción/borrado incremental por URI y búsquedas globales case-insensitive.
 
 ### B014. Document symbols robustos
 Mejorar extracción y estabilidad de símbolos documentales con cobertura útil sobre casos frecuentes.

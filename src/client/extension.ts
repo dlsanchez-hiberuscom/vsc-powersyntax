@@ -18,6 +18,8 @@ let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  const activationStart = performance.now();
+
   outputChannel = vscode.window.createOutputChannel('VSC PowerSyntax');
   context.subscriptions.push(outputChannel);
 
@@ -71,11 +73,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     clientOptions
   );
 
+  // ---- Commands -----------------------------------------------------------
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.restartServer', async () => {
+      outputChannel?.appendLine('[VSC PowerSyntax] Reiniciando servidor...');
+      await restartClient(context);
+    })
+  );
+
+  // ---- Disposable ---------------------------------------------------------
+
   context.subscriptions.push({
     dispose: () => {
       void stopClient();
     }
   });
+
+  // ---- Start --------------------------------------------------------------
+
+  const clientStartTime = performance.now();
 
   try {
     outputChannel.appendLine(
@@ -84,6 +101,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     await client.start();
 
+    const clientElapsed = performance.now() - clientStartTime;
+    const totalElapsed = performance.now() - activationStart;
+
+    outputChannel.appendLine(
+      `[TIMING] LSP client start: ${clientElapsed.toFixed(2)}ms`
+    );
+    outputChannel.appendLine(
+      `[TIMING] Client activation total: ${totalElapsed.toFixed(2)}ms`
+    );
     outputChannel.appendLine(
       '[VSC PowerSyntax] Cliente LSP activado correctamente.'
     );
@@ -106,6 +132,28 @@ export async function deactivate(): Promise<void> {
   await stopClient();
 }
 
+async function restartClient(context: vscode.ExtensionContext): Promise<void> {
+  const restartStart = performance.now();
+
+  try {
+    await stopClient();
+    await activate(context);
+
+    const elapsed = performance.now() - restartStart;
+    outputChannel?.appendLine(
+      `[TIMING] Server restart total: ${elapsed.toFixed(2)}ms`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(
+      `[VSC PowerSyntax] ERROR al reiniciar: ${message}`
+    );
+    vscode.window.showErrorMessage(
+      `Error al reiniciar VSC PowerSyntax: ${message}`
+    );
+  }
+}
+
 async function stopClient(): Promise<void> {
   if (client) {
     try {
@@ -121,10 +169,5 @@ async function stopClient(): Promise<void> {
     } finally {
       client = undefined;
     }
-  }
-
-  if (outputChannel) {
-    outputChannel.dispose();
-    outputChannel = undefined;
   }
 }

@@ -322,11 +322,14 @@ A fecha de esta constitución, los documentos que forman parte del núcleo docum
 
 - `docs/ai-agents-catalog.md`
 - `docs/ai-orchestrator.md`
+- `docs/ai-strategy.md`
 - `docs/architecture.md`
 - `docs/backlog.md`
 - `docs/constitution.md`
 - `docs/current-focus.md`
+- `docs/performance-budget.md`
 - `docs/roadmap.md`
 - `docs/spec-driven-development.md`
+- `docs/testing.md`
 
 Este listado no sustituye la obligación general de revisar cualquier otro artefacto afectado por un cambio.

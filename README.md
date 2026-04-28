@@ -1,19 +1,34 @@
 # Hiberus PowerSyntax
 
-Plugin profesional de **Visual Studio Code** para **PowerBuilder** y **PowerScript**, diseñado para ser **rápido**, **mantenible** y **escalable** sobre proyectos grandes y código legacy.
+Plugin profesional de **Visual Studio Code** para **PowerBuilder** y **PowerScript**, diseñado para ser **ultra-rápido**, **mantenible** y **escalable** sobre proyectos grandes y código legacy.
 
 > Este repositorio desarrolla el **plugin**, no una aplicación PowerBuilder de negocio. Los archivos PowerBuilder presentes en fixtures o corpus se usan como **casos de validación y prueba**.
 
 ---
 
+## Por qué este plugin
+
+PowerBuilder sigue siendo un pilar en muchas organizaciones con bases de código extensas y legacy. Sin embargo, su ecosistema de herramientas modernas es limitado y los LLMs actuales carecen de conocimiento profundo del lenguaje.
+
+Este plugin se construye con una visión clara:
+
+- **Ultra-rápido**: cliente mínimo, servidor LSP separado, activación perezosa, análisis incremental y cancelable.
+- **Proyectos grandes y legacy**: diseñado desde el inicio para escalar sobre workspaces reales con miles de objetos.
+- **Profesional y mantenible**: arquitectura Clean/Hexagonal con core agnóstico del editor, separación fuerte de responsabilidades y documentación viva.
+- **Preparado para IA**: el plugin construye un modelo semántico profundo de PowerBuilder que podrá exponer a agentes IA para que entiendan, naveguen y asistan sobre código PowerBuilder con precisión — algo que ningún LLM puede hacer por sí solo hoy.
+- **Catálogo oficial del lenguaje**: el plugin aspira a mantener un catálogo del lenguaje, objetos y runtime de PowerBuilder como activo estratégico propio.
+
+---
+
 ## Objetivo
 
-Ofrecer una base moderna para trabajar con PowerBuilder en VS Code mediante:
+Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de VS Code:
 
-- soporte declarativo del lenguaje;
-- arquitectura **cliente VS Code + servidor LSP**;
-- evolución incremental hacia análisis semántico más rico;
-- validación sobre corpus reales.
+- soporte declarativo completo del lenguaje;
+- arquitectura **cliente VS Code + servidor LSP** profesional;
+- evolución incremental hacia análisis semántico profundo y reutilizable;
+- validación sobre corpus reales;
+- y preparación estructural para que la IA pueda consumir conocimiento semántico del proyecto.
 
 ---
 
@@ -23,13 +38,16 @@ Ofrecer una base moderna para trabajar con PowerBuilder en VS Code mediante:
 
 - contribución declarativa del lenguaje;
 - `language-configuration.json`;
-- gramática TextMate principal;
-- gramática para bloques PowerBuilder en Markdown;
-- estructura inicial **cliente + servidor LSP**;
-- `Document Symbols` básicos;
-- `Hover` básico;
-- diagnósticos estructurales iniciales;
-- análisis por documento con caché en memoria.
+- gramática TextMate principal para PowerScript;
+- gramática para bloques PowerBuilder en Markdown (syntax highlighting en docs `.md`);
+- activación perezosa por contribución declarativa;
+- estructura **cliente ligero + servidor LSP separado**;
+- `Document Symbols` con extracción de variables, funciones, eventos y tipos;
+- `Hover` básico con contexto por símbolo;
+- diagnósticos estructurales con validación de bloques;
+- análisis por documento con caché en memoria;
+- scheduling de diagnósticos con debounce;
+- vigilancia de archivos de proyecto PowerBuilder (`.pbw`, `.pbt`, `.pbproj`, `.pbsln`).
 
 ### Base técnica actual
 

@@ -13,26 +13,59 @@ import {
 } from '../parsing/matchers';
 import { eventSelectionStart, firstNonWhitespace } from '../utils/helpers';
 
+import { Fact, EntityKind } from '../knowledge/types';
+
 export interface DocumentAnalysis {
   uri: string;
   version: number;
   lines: string[];
   sections: SectionRange[];
   facts: SymbolFact[];
+  semanticFacts: Fact[];
 }
 
 export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   const lines = document.getText().split(/\r?\n/);
   const sections = findSections(lines);
   const facts = collectFacts(lines, sections);
+  const semanticFacts = mapToSemanticFacts(facts, document.uri);
 
   return {
     uri: document.uri,
     version: document.version,
     lines,
     sections,
-    facts
+    facts,
+    semanticFacts
   };
+}
+
+function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
+  const semanticFacts: Fact[] = [];
+
+  for (const f of facts) {
+    if (f.kind === 'section') continue;
+
+    let entityKind: EntityKind;
+    switch (f.kind) {
+      case 'function': entityKind = EntityKind.Function; break;
+      case 'subroutine': entityKind = EntityKind.Subroutine; break;
+      case 'event': entityKind = EntityKind.Event; break;
+      case 'variable': entityKind = EntityKind.Variable; break;
+      case 'type': entityKind = EntityKind.Type; break;
+      default: continue;
+    }
+
+    semanticFacts.push({
+      id: f.name.toLowerCase(),
+      name: f.name,
+      kind: entityKind,
+      uri: uri,
+      signature: f.detail
+    });
+  }
+
+  return semanticFacts;
 }
 
 function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {

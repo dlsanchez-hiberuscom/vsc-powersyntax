@@ -16,84 +16,101 @@ Este documento no describe aspiraciones a largo plazo, sino el **trabajo inmedia
 
 ---
 
-## 2. Foco actual
+## 2. Estado real del proyecto
+
+### Capacidades ya implementadas
+
+El proyecto dispone actualmente de una base funcional que incluye:
+
+- **cliente ligero** en `src/client/extension.ts` (~130 líneas, sin semántica ni parseo),
+- **servidor LSP separado** en `src/server/server.ts` con wiring limpio,
+- **activación perezosa** por contribución declarativa del lenguaje (sin `activationEvents` explícitos; VS Code activa automáticamente vía `onLanguage:powerbuilder`),
+- **Document Symbols** funcionales con extracción de hechos: variables, funciones, subrutinas, eventos, tipos,
+- **Hover básico** con contexto por símbolo,
+- **Diagnósticos estructurales** con validación de bloques abiertos/cerrados,
+- **Caché de análisis** por documento con invalidación por cierre,
+- **Scheduling de diagnósticos** con debounce para no saturar al editar,
+- **Parseo** de secciones, declaraciones y cabeceras de implementación,
+- **Gramática TextMate** principal y gramática para bloques PowerBuilder en Markdown,
+- **FileSystemWatcher** para archivos de proyecto PowerBuilder (`.pbw`, `.pbt`, `.pbproj`, `.pbsln`),
+- y **base de tests** con estructura smoke / unit / integration / performance.
+
+### Fases del roadmap completadas o en curso
+
+- **Fase 0** (bootstrap profesional): **cerrada**.
+- **Fase 1** (base operativa rápida): **cerrada**. El cliente es ligero, el servidor se levanta correctamente, la activación es perezosa y la consolidación del runtime (Spec 002) introdujo medición formal (B003), prioridad estricta del archivo activo (B004), scheduler formal (B005) y ciclo de vida (B008).
+- **Fase 2** (workspace, runtime y observabilidad): **en curso**. Tenemos scheduling con debounce, caché por documento y observabilidad de métricas (B007). Falta descubrimiento formal de workspace (B006).
+- **Capacidades adelantadas**: Document Symbols, Hover y Diagnósticos ya funcionan (Fases 4–6 del roadmap), pero sobre la capa bootstrap, no sobre el knowledge pipeline objetivo.
+
+---
+
+## 3. Foco actual
 
 ### Prioridad operativa
 
-Fortalecer la **base operativa del plugin** para que la carga, la activación, el ciclo de vida del LSP y la estructura inicial del runtime sean profesionales, rápidos, observables y fiables.
-
-La prioridad inmediata no es ampliar superficie funcional, sino asegurar que el plugin se comporta correctamente como extensión de VS Code: **cliente ligero**, **activación perezosa**, **trabajo pesado fuera del Extension Host** y **prioridad real del archivo activo**. VS Code recomienda activar solo cuando el usuario realmente necesita la extensión, y la guía de Language Server justifica ejecutar el análisis costoso fuera del host para proteger CPU, memoria y responsividad del editor. 
+**Estabilizar la Extracción Semántica y habilitar Cross-File Navigation (B014, B015).**
+Con la infraestructura de KnowledgeBase y Caché operativa (Spec 004), el servidor ya tiene un índice global. El siguiente paso es refinar la precisión de los símbolos detectados y habilitar la navegación entre archivos (Go to Definition global).
 
 ### Fase del roadmap en foco
 
-El foco actual corresponde a:
+- **Fase 3**: Interfaz del KnowledgeBase (Completada).
+- **Fase 4**: Semántica de lenguaje (B014, B015, B016).
 
-- cierre efectivo de **Fase 0**,
-- consolidación fuerte de **Fase 1**,
-- y preparación mínima de la **Fase 2**.
-
-Todavía **no** estamos en fase de ampliar agresivamente semántica avanzada, automatización externa ni ecosistema PowerBuilder profundo.
+Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
 
 ---
 
-## 3. Backlog que debe cerrarse ahora
+## 4. Backlog que debe cerrarse ahora
 
-### Objetivos inmediatos en curso
+### Entradas ya cerradas o resueltas de facto
 
-El foco operativo actual debe concentrarse en estas entradas del backlog:
+- ~~**B001. Cerrar activación perezosa definitiva**~~ → **Cerrada.**
+- ~~**B002. Consolidar wiring cliente ↔ servidor LSP**~~ → **Cerrada.**
+- ~~**B003. Medición base de cold start y primer archivo**~~ → **Cerrada.**
+- ~~**B004. Formalizar prioridad estricta del archivo activo**~~ → **Cerrada.**
+- ~~**B005. Añadir scheduler mínimo con prioridades y cancelación**~~ → **Cerrada.**
+- ~~**B006. Descubrimiento de workspace y política básica de roots**~~ → **Cerrada.**
+- ~~**B007. Observabilidad mínima del runtime**~~ → **Cerrada.**
+- ~~**B008. Endurecer ciclo de vida del servidor**~~ → **Cerrada.**
+- ~~**B009. Alinear documentación canónica de base**~~ → **Cerrada.**
+- ~~**B010. Normalizar validación base del repositorio**~~ → **Cerrada.**
+- ~~**B011. Pipeline de parseo incremental usable**~~ → **Cerrada.**
+- ~~**B012. Caché documental por archivo**~~ → **Cerrada.**
+- ~~**B013. Esqueleto de índice incremental**~~ → **Cerrada.**
 
-- **B001. Cerrar activación perezosa definitiva**
-- **B002. Consolidar wiring cliente ↔ servidor LSP**
-- **B003. Medición base de cold start y primer archivo**
-- **B004. Formalizar prioridad estricta del archivo activo**
-- **B005. Añadir scheduler mínimo con prioridades y cancelación**
-- **B006. Descubrimiento de workspace y política básica de roots**
-- **B007. Observabilidad mínima del runtime**
-- **B008. Endurecer ciclo de vida del servidor**
-- **B009. Alinear documentación canónica de base**
-- **B010. Normalizar validación base del repositorio**
+### Entradas pendientes prioritarias
+
+- **B014. Document symbols robustos** — Pendiente. Mejorar extracción y estabilidad sobre casos frecuentes.
+- **B015. Navegación global (Go to Definition)** — Pendiente. Utilizar la KnowledgeBase para saltar entre archivos.
+- **B016. Resolver de tipos básico** — Pendiente. Entender herencia básica para resolver miembros.
 
 ### Orden operativo recomendado
 
-1. cerrar activación perezosa y arranque limpio, 
-2. dejar el wiring cliente/servidor estable y observable, 
-3. medir cold start, primer archivo y primer servicio útil, 
-4. imponer prioridad estricta al archivo activo, 
-5. introducir scheduler mínimo, prioridades y cancelación, 
-6. formalizar descubrimiento de workspace y roots, 
-7. cerrar observabilidad mínima y validación base, 
-8. dejar documentación canónica alineada. 
+1. document symbols robustos (B014),
+2. navegación global (B015),
+3. resolver de tipos básico (B016).
 
 ---
 
-## 4. Qué sí debe hacerse ahora
+## 5. Qué sí debe hacerse ahora
 
 ### Trabajo permitido y prioritario
 
-- endurecer bootstrap del cliente,
-- estabilizar ciclo de vida del servidor,
-- eliminar trabajo pesado del arranque,
-- reforzar la separación entre cliente ligero y runtime de análisis, 
-- preparar métricas mínimas de activación, primer archivo y primer servicio útil, 
-- introducir scheduler mínimo y cancelación cooperativa,
-- formalizar prioridad del archivo abierto,
-- preparar descubrimiento básico de workspace,
-- mantener toda la documentación canónica actualizada con el estado real,
-- y dejar lista la base para pasar a parsing incremental y caché documental, pero sin adelantar todavía una semántica más grande de la que la base puede sostener. 
+- refinar la precisión del parser para Document Symbols (B014),
+- implementar la navegación global Go to Definition (B015) utilizando la KnowledgeBase,
+- sentar las bases del sistema de resolución de tipos (B016),
+- y asegurar que las nuevas features semánticas utilicen la DocumentCache para mantener el rendimiento.
 
 ### Resultado esperado de esta etapa
 
-Al final del foco actual, el plugin debe:
+Al final del foco actual (Spec 003), el plugin debe:
 
-- arrancar sin trabajo pesado innecesario, 
-- levantar el servidor solo cuando corresponde, 
-- priorizar el archivo activo frente al trabajo global, 
-- permitir medir tiempos base de carga y primer servicio, 
-- y dejar una base suficiente para pasar a parseo incremental y caché con menor riesgo de refactorización. 
+- conocer todos los roots y archivos relevantes del workspace sin indexar todavía su contenido profundo,
+- registrar el tiempo de descubrimiento del workspace y asegurar que no bloquea la activación interactiva del archivo actual.
 
 ---
 
-## 5. Qué no debe hacerse ahora salvo causa clara
+## 6. Qué no debe hacerse ahora salvo causa clara
 
 ### Trabajo explícitamente fuera de foco
 
@@ -102,9 +119,9 @@ No debe hacerse ahora, salvo bug, deuda bloqueante o necesidad muy justificada:
 - reabrir arquitectura general sin motivo,
 - meter features vistosas antes de consolidar base,
 - ampliar demasiado la superficie funcional,
-- introducir complejidad innecesaria en el cliente, 
-- adelantar semántica fuerte si todavía no están cerrados arranque, ciclo de vida, prioridades, observabilidad y validación base, 
-- abrir aún integraciones como PBAutoBuild, OrcaScript/ORCA, DataWindow avanzado o API local, porque pertenecen a fases posteriores del roadmap. 
+- introducir complejidad innecesaria en el cliente,
+- adelantar semántica fuerte (binder, resolver, índice global) si todavía no están cerrados prioridades, observabilidad y validación base,
+- abrir aún integraciones como PBAutoBuild, OrcaScript/ORCA, DataWindow avanzado o API local, porque pertenecen a fases posteriores del roadmap.
 
 ### No tocar todavía salvo necesidad real
 
@@ -120,73 +137,70 @@ Todo eso tiene valor, pero **no es el foco inmediato**.
 
 ---
 
-## 6. Riesgos actuales a vigilar
+## 7. Riesgos actuales a vigilar
 
 ### Riesgos principales
 
-- exceso de lógica en el Extension Host, 
-- activación demasiado amplia, 
-- arranque del servidor más pronto o con más coste del necesario, 
-- indexación temprana agresiva,
-- crecimiento desordenado de módulos provisionales,
-- falta de separación entre runtime y lógica semántica,
-- y documentación desalineada con implementación real. 
+- crecimiento desordenado de las features bootstrap sin pasar por el knowledge pipeline,
+- falta de medición formal que permita detectar regresiones de rendimiento,
+- conversión inadvertida de la capa `analysis/` en estructura permanente,
+- falta de separación entre runtime y lógica semántica a medida que crezca el servidor,
+- y documentación que vuelva a desalinearse si no se mantiene sincronizada con los cambios.
 
 ### Riesgo estructural específico
 
-El principal riesgo técnico de esta etapa es convertir capas provisionales o bootstrap en estructuras permanentes sin diseño explícito. El foco actual debe evitar precisamente eso: construir base operativa sin convertir el bootstrap en el destino final del sistema. 
+El principal riesgo técnico de esta etapa es consolidar las features existentes (Document Symbols, Hover, Diagnósticos) sobre la capa bootstrap sin preparar la migración al knowledge pipeline objetivo. El foco actual debe fortalecer la base operativa para que esa migración sea progresiva y no un big bang.
 
 ---
 
-## 7. Evidencia mínima que debe salir de este foco
+## 8. Evidencia mínima que debe salir de este foco
 
-Antes de mover el foco, esta etapa debe dejar evidencia razonable de que la base realmente ha mejorado.
+Antes de mover el foco, esta etapa debe dejar evidencia razonable de mejora.
 
 ### Evidencias mínimas esperadas
 
 - medición repetible de activación del cliente,
 - medición repetible de tiempo hasta primer archivo útil,
 - medición repetible de tiempo hasta primer servicio visible,
-- comprobación de que el arranque no ejecuta trabajo pesado innecesario,
 - comprobación de que el archivo activo tiene prioridad real,
+- cobertura mínima de tests sobre features existentes,
 - validación básica del ciclo de vida del servidor,
-- y documentación actualizada reflejando el estado real. 
+- y documentación actualizada reflejando el estado real.
 
 ---
 
-## 8. Siguiente paso natural
+## 9. Siguiente paso natural
 
 El siguiente paso natural del proyecto, una vez cerrado este foco, es:
 
-1. pasar a **parseo incremental usable**,  
-2. introducir **caché documental e invalidación fina**,  
-3. preparar el **esqueleto del índice incremental**,  
-4. y después comenzar el **backbone semántico inicial** del archivo activo. 
+1. formalizar el **pipeline de parseo incremental** sobre la base de parsing existente,
+2. introducir **caché documental con invalidación fina** (mejorar la caché existente),
+3. preparar el **esqueleto del índice incremental** de símbolos,
+4. y comenzar el **backbone semántico inicial** reutilizable del archivo activo.
 
-Es decir: primero base operativa sólida, después parseo/caché, y solo entonces semántica compartida reutilizable.
+Es decir: primero base operativa medida y observable, después parseo/caché formales, y solo entonces semántica compartida reutilizable. Las features funcionales existentes (Document Symbols, Hover, Diagnósticos) migrarán progresivamente al knowledge pipeline a medida que este madure.
 
 ---
 
-## 9. Condición para mover el foco
+## 10. Condición para mover el foco
 
 El foco actual solo debe cambiar cuando:
 
-- la activación esté razonablemente cerrada, 
-- el arranque no bloquee el editor, 
-- el wiring cliente/servidor sea estable y observable, 
-- existan mediciones mínimas de rendimiento, 
-- la prioridad del archivo activo esté impuesta de verdad, 
+- existan mediciones mínimas repetibles de rendimiento,
+- la prioridad del archivo activo esté impuesta de verdad,
+- el scheduler mínimo funcione con cancelación cooperativa,
+- el descubrimiento de workspace esté formalizado,
 - la validación base del repositorio sea repetible,
-- y la estructura documental quede alineada con el estado real del repositorio. 
+- y la estructura documental quede alineada con el estado real del repositorio.
 
 Si estas condiciones no se cumplen, no debe abrirse de forma agresiva la siguiente capa del roadmap.
 
 ---
 
-## 10. Regla final de foco
+## 11. Regla final de foco
 
 Mientras este documento siga vigente, la regla operativa es:
 
 > **no abrir más superficie funcional de la que la base actual puede sostener sin comprometer carga, estabilidad, claridad arquitectónica o documentación viva.**
 
-La prioridad inmediata es dejar una base profesional y fiable sobre la que luego sí pueda crecer el backbone semántico, la escala sobre corpus grandes y el valor diferencial del ecosistema PowerBuilder. 
+La prioridad inmediata es medir, observar y formalizar la base ya existente para que el crecimiento futuro sea seguro y sostenible.

@@ -84,6 +84,13 @@
           "meta.embedded.block.powerbuilder": "powerbuilder"
         }
       }
+    ],
+    "commands": [
+      {
+        "command": "vscPowerSyntax.restartServer",
+        "title": "PowerSyntax: Restart Language Server",
+        "category": "VSC PowerSyntax"
+      }
     ]
   },
   "files": [
@@ -101,9 +108,7 @@
     "watch": "tsc -b -w",
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
     "rebuild": "npm run clean && npm run compile",
-
     "build:test": "tsc -p tsconfig.test.json",
-
     "test": "npm run build:test && vscode-test --label smoke --label unit --label integration",
     "test:smoke": "npm run build:test && vscode-test --label smoke",
     "test:unit": "npm run build:test && vscode-test --label unit",
@@ -113,16 +118,17 @@
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.11"
+    "vscode-languageserver-textdocument": "^1.0.11",
+    "vscode-uri": "^3.1.0"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.17",
     "@types/vscode": "^1.100.0",
-    "typescript": "^5.9.2",
-    "ts-node": "^10.9.1",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "mocha": "^10.7.3",
-    "@types/mocha": "^10.0.10"
+    "ts-node": "^10.9.1",
+    "typescript": "^5.9.2"
   }
 }
