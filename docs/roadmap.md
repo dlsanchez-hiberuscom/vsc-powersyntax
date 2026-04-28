@@ -85,7 +85,7 @@ Se considera una línea estratégica explícita del producto construir y mantene
 
 ## 5. Fases del roadmap
 
-## Fase 0 — Bootstrap profesional y gobierno del repositorio
+## ~~Fase 0 — Bootstrap profesional y gobierno del repositorio~~ ✅ COMPLETADA
 
 ### Objetivo
 Dejar una base limpia, profesional y gobernable para crecer sin deuda estructural innecesaria.
@@ -109,7 +109,7 @@ Dejar una base limpia, profesional y gobernable para crecer sin deuda estructura
 
 ---
 
-## Fase 1 — Base operativa rápida y segura
+## ~~Fase 1 — Base operativa rápida y segura~~ ✅ COMPLETADA
 
 ### Objetivo
 Asegurar que el plugin es ligero, estable al arrancar y correctamente desacoplado del Extension Host.
@@ -135,7 +135,7 @@ Asegurar que el plugin es ligero, estable al arrancar y correctamente desacoplad
 
 ---
 
-## Fase 2 — Workspace, runtime y observabilidad
+## ~~Fase 2 — Workspace, runtime y observabilidad~~ ✅ COMPLETADA
 
 ### Objetivo
 Construir la base operativa real para proyectos grandes: descubrimiento, scheduling, invalidación y medición.
@@ -165,7 +165,7 @@ Construir la base operativa real para proyectos grandes: descubrimiento, schedul
 
 ---
 
-## Fase 3 — Parsing, caché e invalidación reutilizable
+## ~~Fase 3 — Parsing, caché e invalidación reutilizable~~ ✅ COMPLETADA
 
 ### Objetivo
 Construir un pipeline de parseo incremental útil y reutilizable, con caché razonable e invalidación fina.
@@ -191,7 +191,7 @@ Construir un pipeline de parseo incremental útil y reutilizable, con caché raz
 
 ---
 
-## Fase 4 — Backbone semántico inicial y catálogo oficial
+## Fase 4 — Backbone semántico inicial y catálogo oficial (EN CURSO)
 
 ### Objetivo
 Introducir la base canónica del conocimiento compartido: símbolos, scopes, binding inicial, índice y consultas comunes, apoyada además en un catálogo oficial del lenguaje y runtime.
