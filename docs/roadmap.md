@@ -288,12 +288,16 @@ Subir de nivel la confianza del plugin para soportar operaciones de mayor riesgo
 - code actions básicas,
 - resolución más fuerte (apoyada en el porting de `InheritanceGraph` de `plugin_old`),
 - mejora del modelo de dependencias (topología basada en `.pbw` y `.pbt` extrayendo el `PbLibraryGraph` de `plugin_old`),
+- reglas de visibilidad de símbolos (`public`/`protected`/`private`) portando `symbolVisibility.ts` de `plugin_old`,
+- CodeLens sobre funciones y eventos (conteo de referencias, indicación de herencia),
 - mayor precisión en referencias y usos,
 - endurecimiento de caché e invalidación para cambios complejos.
 
 ### Capacidades principales
 - renombrado seguro,  
 - code actions básicas,  
+- reglas de visibilidad de miembros (public/protected/private),  
+- CodeLens sobre callables y herencia,  
 - consolidación del modelo de dependencias.  
 
 ### Criterio de salida
@@ -311,6 +315,8 @@ Asegurar que el plugin escala bien en proyectos grandes y aporta visión global 
 - explorador semántico del proyecto,
 - métricas y análisis de complejidad,
 - validación continua sobre corpus grandes y reales,
+- centralización de regex en un módulo canónico `grammar.ts` (portando el patrón de tablas declarativas de `pbLanguageGrammar.ts` de `plugin_old`),
+- patrón de batch update en `KnowledgeBase` (`beginBatchUpdate`/`endBatchUpdate`) para evitar cascadas de notificación durante indexación masiva,
 - optimización de memoria,
 - optimización de warm indexing,
 - endurecimiento de tiempo de respuesta en workspaces grandes,
