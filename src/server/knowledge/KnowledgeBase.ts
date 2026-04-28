@@ -87,6 +87,17 @@ export class KnowledgeBase {
   }
 
   /**
+   * Devuelve todas las entidades del índice (para Workspace Symbols).
+   */
+  getAllEntities(): Entity[] {
+    const result: Entity[] = [];
+    for (const entities of this.globalSymbols.values()) {
+      result.push(...entities);
+    }
+    return result;
+  }
+
+  /**
    * Limpia toda la base de conocimiento.
    */
   clear(): void {

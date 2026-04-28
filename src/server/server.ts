@@ -20,6 +20,8 @@ import {
 } from './analysis/diagnosticScheduler';
 import { extractDocumentSymbols } from './features/documentSymbols';
 import { provideHover } from './features/hover';
+import { provideWorkspaceSymbols } from './features/workspaceSymbols';
+import { provideDefinition } from './features/definition';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { NodeFileSystem } from './system/fileSystem';
@@ -68,7 +70,9 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       documentSymbolProvider: true,
-      hoverProvider: true
+      hoverProvider: true,
+      workspaceSymbolProvider: true,
+      definitionProvider: true
     }
   };
 });
@@ -188,6 +192,49 @@ connection.onHover((params) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     connection.console.error(`[ERROR] hover: ${message}`);
+    return null;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Features — Workspace Symbols
+// ---------------------------------------------------------------------------
+
+connection.onWorkspaceSymbol((params) => {
+  try {
+    const { result, elapsedMs } = measureMs(() => provideWorkspaceSymbols(params.query, knowledgeBase));
+    connection.console.log(formatTiming('workspaceSymbol', elapsedMs));
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    connection.console.error(`[ERROR] workspaceSymbol: ${message}`);
+    return [];
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Features — Go to Definition
+// ---------------------------------------------------------------------------
+
+connection.onDefinition((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return null;
+  }
+
+  try {
+    const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase));
+
+    if (firstInvocation.isFirst('definition')) {
+      const sinceStart = performance.now() - serverStartTime;
+      connection.console.log(formatTiming('First definition (since server start)', sinceStart));
+    }
+
+    connection.console.log(formatTiming('definition', elapsedMs));
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    connection.console.error(`[ERROR] definition: ${message}`);
     return null;
   }
 });

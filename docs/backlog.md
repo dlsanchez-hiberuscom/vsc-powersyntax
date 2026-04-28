@@ -98,13 +98,13 @@ Implementada `KnowledgeBase.ts` como almacén global de entidades (Funciones, Ti
 ### B014. Document symbols robustos
 Mejorar extracción y estabilidad de símbolos documentales con cobertura útil sobre casos frecuentes.
 
-### B015. Workspace symbols base
+### ~~B015. Workspace symbols base~~ ✅ CERRADA
 Permitir búsqueda global razonable de símbolos sobre el índice básico del workspace.
 
 ### B016. Hover base con contexto útil
 Ofrecer información útil y no trivial a partir de parsing, symbols y catálogo oficial disponible.
 
-### B017. Go to definition fiable en casos base
+### ~~B017. Go to definition fiable en casos base~~ ✅ CERRADA
 Resolver navegación a definición en escenarios iniciales frecuentes y controlados.
 
 ### B018. Diagnósticos iniciales bien delimitados
