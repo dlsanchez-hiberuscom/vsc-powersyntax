@@ -1,0 +1,1648 @@
+{
+  "schemaVersion": "1.0.0",
+  "kind": "powerbuilder-system-symbol-backlog",
+  "sourceOfTruth": true,
+  "language": "es",
+  "plugin": {
+    "name": "almunia-powersyntax",
+    "languageId": "powerbuilder"
+  },
+  "closureAudit": {
+    "scope": "system-events-and-statements",
+    "status": "CLOSED_DEFINITIVE",
+    "officialCoverage": {
+      "systemEvents": {
+        "measurement": "name-owner",
+        "officialCount": 788,
+        "coveredCount": 788,
+        "missingCount": 0
+      },
+      "statements": {
+        "measurement": "name",
+        "officialCount": 16,
+        "coveredCount": 16,
+        "missingCount": 0
+      }
+    },
+    "consistency": {
+      "issueCount": 0
+    },
+    "suiteValidation": {
+      "command": "npm test",
+      "passing": 345,
+      "failing": 0,
+      "status": "GREEN"
+    }
+  },
+  "catalogStatus": {
+    "globalFunctions": {
+      "status": "PARTIAL_HIGH",
+      "priority": "HIGH",
+      "coverageNotes": [
+        "Cobertura ya útil y transversal para hover, completion, signature help y linter.",
+        "Sigue lejos del runtime global completo.",
+        "Es el mejor candidato para una ampliación sistemática controlada."
+      ]
+    },
+    "objectFunctions": {
+      "status": "PARTIAL",
+      "priority": "HIGH",
+      "coverageNotes": [
+        "Base útil para foco, visual/layout, texto y eventos básicos.",
+        "MF-04A ya cubrió edición de texto owner-aware con firmas claras y bajo riesgo.",
+        "MF-04B y MF-04C ya amplían contexto, selección, líneas y scroll sobre controles editables frecuentes.",
+        "Todavía demasiado corto para un plugin premium."
+      ]
+    },
+    "dataWindowFunctions": {
+      "status": "PARTIAL_HIGH",
+      "priority": "HIGH",
+      "coverageNotes": [
+        "Núcleo DataWindow bastante sólido.",
+        "Muy útil para completion, hover y signature help.",
+        "Todavía parcial frente al universo DataWindow completo."
+      ]
+    },
+    "systemEvents": {
+      "status": "CLOSED_OFFICIAL",
+      "priority": "LOW",
+      "coverageNotes": [
+        "La cobertura oficial generated cierra system events con 788/788 y 0 faltantes reales.",
+        "El manual-core queda congelado en 43 entradas curadas premium, pero ya no representa un gap oficial bloqueante.",
+        "No requiere otro slice prioritario salvo mantenimiento puntual del pipeline generated."
+      ]
+    },
+    "dataWindowEvents": {
+      "status": "PARTIAL_HIGH",
+      "priority": "MEDIUM_HIGH",
+      "coverageNotes": [
+        "Buen bloque de interacción, edición, retrieve/update y errores.",
+        "Todavía no representa el catálogo DataWindow completo."
+      ]
+    },
+    "statements": {
+      "status": "CLOSED_OFFICIAL",
+      "priority": "LOW",
+      "coverageNotes": [
+        "La cobertura oficial generated cierra statements con 16/16 y 0 faltantes reales.",
+        "HALT permanece como entrada curada histórica del manual-core, pero el catálogo vivo integra 15 statements oficiales adicionales.",
+        "El linter de modernización ya no depende de abrir otra microfase manual para declarar cierre del dominio."
+      ]
+    }
+  },
+  "implementedSummary": {
+    "globalFunctions": {
+      "categoriesCovered": [
+        "UI",
+        "Eventos",
+        "Validación",
+        "Strings",
+        "Conversión",
+        "Fecha y hora",
+        "Matemáticas",
+        "Objetos",
+        "Errores",
+        "Archivos",
+        "Diálogos",
+        "Configuración",
+        "Sistema",
+        "Proyecto / IDE",
+        "Web / HTTP"
+      ],
+      "implementedSymbols": [
+        "MessageBox",
+        "Clipboard",
+        "Beep",
+        "TriggerEvent",
+        "PostEvent",
+        "IsNull",
+        "IsValid",
+        "IsNumber",
+        "IsDate",
+        "IsTime",
+        "SetNull",
+        "Trim",
+        "TrimW",
+        "LeftTrim",
+        "RightTrim",
+        "Left",
+        "Right",
+        "Mid",
+        "Len",
+        "Pos",
+        "LastPos",
+        "Match",
+        "Upper",
+        "Lower",
+        "WordCap",
+        "Replace",
+        "Space",
+        "Fill",
+        "Asc",
+        "Char",
+        "Length",
+        "Reverse",
+        "String",
+        "Integer",
+        "Long",
+        "Double",
+        "Dec",
+        "Date",
+        "Time",
+        "Blob",
+        "BlobMid",
+        "IntHigh",
+        "IntLow",
+        "ToAnsi",
+        "ToUnicode",
+        "Today",
+        "Now",
+        "Year",
+        "Month",
+        "Day",
+        "DayName",
+        "DayNumber",
+        "DaysAfter",
+        "Hour",
+        "Minute",
+        "Second",
+        "SecondsAfter",
+        "Abs",
+        "ACos",
+        "ASin",
+        "ATan",
+        "Ceiling",
+        "Round",
+        "Mod",
+        "Sqrt",
+        "Max",
+        "Min",
+        "Log",
+        "LogTen",
+        "Exp",
+        "Fact",
+        "Sin",
+        "Cos",
+        "Tan",
+        "Sign",
+        "Truncate",
+        "Rand",
+        "Randomize",
+        "TypeOf",
+        "ClassName",
+        "Handle",
+        "GetApplication",
+        "GetFocus",
+        "PopulateError",
+        "SignalError",
+        "FileOpen",
+        "FileClose",
+        "FileRead",
+        "FileWrite",
+        "FileExists",
+        "FileCopy",
+        "FileDelete",
+        "FileMove",
+        "FileLength",
+        "GetCurrentDirectory",
+        "ChangeDirectory",
+        "DirectoryExists",
+        "CreateDirectory",
+        "RemoveDirectory",
+        "GetFileOpenName",
+        "GetFileSaveName",
+        "GetFolder",
+        "ProfileInt",
+        "ProfileString",
+        "SetProfileString",
+        "RGB",
+        "KeyDown",
+        "Idle",
+        "Yield",
+        "Run",
+        "OpenWithParm",
+        "CloseWithReturn",
+        "Restart",
+        "Cpu",
+        "DBHandle",
+        "DebugBreak",
+        "GarbageCollect",
+        "GarbageCollectGetTimeLimit",
+        "GarbageCollectSetTimeLimit",
+        "Sleep",
+        "Timer",
+        "CommandParm",
+        "GetEnvironment",
+        "GetInstalledRuntimes",
+        "IsRunningAsSolution",
+        "AddToLibraryList",
+        "GetLibraryList",
+        "SetLibraryList",
+        "RegistryDelete",
+        "RegistryGet",
+        "RegistryKeys",
+        "RegistrySet",
+        "RegistryValues",
+        "RelativeDate",
+        "RelativeTime",
+        "Pi",
+        "FileReadEx",
+        "FileWriteEx",
+        "FileSeek",
+        "FileSeek64",
+        "FileLength64",
+        "FileEncoding",
+        "PointerX",
+        "PointerY",
+        "SetPointer",
+        "WorkSpaceHeight",
+        "WorkSpaceWidth",
+        "WorkSpaceX",
+        "WorkSpaceY",
+        "PixelsToUnits",
+        "UnitsToPixels",
+        "LenW",
+        "LeftTrimW",
+        "RightTrimW",
+        "LeftW",
+        "RightW",
+        "MidW",
+        "PosW",
+        "MatchW",
+        "FillW",
+        "ReplaceW",
+        "ChooseColor",
+        "ShowHelp",
+        "ShowPopupHelp",
+        "OpenURL",
+        "TraceBegin",
+        "TraceClose",
+        "TraceDisableActivity",
+        "TraceEnableActivity",
+        "TraceEnd",
+        "TraceError",
+        "TraceOpen",
+        "TraceUser",
+        "PBGetMenuString",
+        "Open",
+        "Close"
+      ]
+    },
+    "objectFunctions": {
+      "implementedSymbols": [
+        "SetFocus",
+        "Show",
+        "Hide",
+        "Move",
+        "Resize",
+        "SetRedraw",
+        "GetText",
+        "SetText",
+        "CanUndo",
+        "Clear",
+        "Copy",
+        "Cut",
+        "Paste",
+        "ReplaceText",
+        "SelectText",
+        "Undo",
+        "ClassName",
+        "GetParent",
+        "PointerX",
+        "PointerY",
+        "Position",
+        "SelectedLength",
+        "SelectedStart",
+        "SelectedText",
+        "TypeOf",
+        "LineCount",
+        "LineLength",
+        "Scroll",
+        "SelectedLine",
+        "TextLine",
+        "GetParent",
+        "ParentWindow",
+        "PointerX",
+        "PointerY",
+        "Print",
+        "TypeOf",
+        "WorkSpaceHeight",
+        "WorkSpaceWidth",
+        "WorkSpaceX",
+        "WorkSpaceY",
+        "PostEvent",
+        "TriggerEvent"
+      ]
+    },
+    "dataWindowFunctions": {
+      "implementedSymbols": [
+        "AcceptText",
+        "Describe",
+        "GetItemDate",
+        "GetItemDateTime",
+        "GetItemDecimal",
+        "GetItemString",
+        "GetRow",
+        "Modify",
+        "DeleteRow",
+        "InsertRow",
+        "Find",
+        "Filter",
+        "SetFilter",
+        "SetRow",
+        "SetSort",
+        "Sort",
+        "GroupCalc",
+        "RowsMove",
+        "ScrollToRow",
+        "Reset",
+        "Retrieve",
+        "RowCount",
+        "SetItem",
+        "SetItemStatus",
+        "SetTransObject",
+        "Update",
+        "Show",
+        "Hide",
+        "Move",
+        "Resize",
+        "SetRedraw",
+        "GetItemNumber",
+        "GetItemTime",
+        "GetNextModified",
+        "GetRowFromRowId",
+        "GetRowIdFromRow",
+        "GetSelectedRow",
+        "GetSQLSelect",
+        "GetText",
+        "GetValidate",
+        "GetValue",
+        "ClearValues",
+        "GetChild",
+        "GetClickedColumn",
+        "GetClickedRow",
+        "GetColumn",
+        "GetColumnName",
+        "GetFormat",
+        "SetColumn",
+        "SetFormat",
+        "SetValue",
+        "DeletedCount",
+        "FilteredCount",
+        "ModifiedCount",
+        "GetChanges",
+        "GetFullState",
+        "GetStateStatus",
+        "ResetUpdate",
+        "RowsCopy",
+        "RowsDiscard",
+        "SetChanges",
+        "DBCancel",
+        "GetTrans",
+        "ResetTransObject",
+        "ReselectRow",
+        "SetSQLSelect",
+        "SetTrans",
+        "ShareData",
+        "ShareDataOff",
+        "SaveAs",
+        "SaveNativePDFToBlob",
+        "ExportJson",
+        "ExportRowAsJson",
+        "ImportClipboard",
+        "ImportFile",
+        "ImportJson",
+        "ImportJsonByKey",
+        "ImportRowFromJson",
+        "ImportString",
+        "Print",
+        "PrintCancel",
+        "ClassName",
+        "GetContextService",
+        "GetParent",
+        "TypeOf",
+        "GetBorderStyle",
+        "SetBorderStyle",
+        "SetDetailHeight",
+        "SetPosition",
+        "Expand",
+        "ExpandAll",
+        "CanUndo",
+        "Clear",
+        "Copy",
+        "Cut",
+        "Paste",
+        "ReplaceText",
+        "SelectText",
+        "Undo",
+        "Position",
+        "Scroll",
+        "FindNext",
+        "GetBandAtPointer",
+        "GetObjectAtPointer",
+        "PointerX",
+        "PointerY",
+        "SelectedLength",
+        "SelectedLine",
+        "SelectedStart",
+        "SelectedText",
+        "TextLine",
+        "ScrollNextPage",
+        "ScrollNextRow",
+        "ScrollPriorPage",
+        "ScrollPriorRow",
+        "SetFocus",
+        "SetTabOrder",
+        "SetRowFocusIndicator",
+        "SelectTextAll",
+        "SelectTextLine",
+        "SelectTextWord"
+      ]
+    },
+    "systemEvents": {
+      "implementedSymbols": [
+        "Constructor",
+        "Destructor",
+        "Open",
+        "Close",
+        "Activate",
+        "CloseQuery",
+        "Deactivate",
+        "Hide",
+        "Show",
+        "Clicked",
+        "DoubleClicked",
+        "GetFocus",
+        "LoseFocus",
+        "KeyDown",
+        "KeyUp",
+        "Modified",
+        "Timer",
+        "Resize",
+        "SystemError"
+      ]
+    },
+    "dataWindowEvents": {
+      "implementedSymbols": [
+        "Clicked",
+        "DoubleClicked",
+        "ButtonClicked",
+        "ItemChanged",
+        "ItemError",
+        "ItemFocusChanged",
+        "RowFocusChanged",
+        "RowFocusChanging",
+        "DBError",
+        "RetrieveStart",
+        "RetrieveRow",
+        "RetrieveEnd",
+        "UpdateStart",
+        "UpdateEnd"
+      ]
+    },
+    "statements": {
+      "implementedSymbols": [
+        "HALT"
+      ]
+    }
+  },
+  "obsoleteReplacements": {
+    "implemented": [
+      {
+        "name": "TrimW",
+        "replacement": "Trim",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "LeftTrimW",
+        "replacement": "LeftTrim",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "RightTrimW",
+        "replacement": "RightTrim",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "LeftW",
+        "replacement": "Left",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "LenW",
+        "replacement": "Len",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "RightW",
+        "replacement": "Right",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "MidW",
+        "replacement": "Mid",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "PosW",
+        "replacement": "Pos",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "MatchW",
+        "replacement": "Match",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "FillW",
+        "replacement": "Fill",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      },
+      {
+        "name": "ReplaceW",
+        "replacement": "Replace",
+        "status": "IMPLEMENTED",
+        "linterReady": true,
+        "quickFixReady": true
+      }
+    ],
+    "rules": [
+      "Toda entrada nueva con obsolete=true y replacement no vacío debe revisarse automáticamente para linter.",
+      "Toda entrada nueva con obsolete=true y replacement no vacío debe evaluarse para quick fix mecánico seguro.",
+      "Toda entrada nueva con obsolete=true y replacement no vacío debe tener tests específicos si se integra en diagnostics."
+    ]
+  },
+  "catalogMetrics": {
+    "currentAuditedCounts": {
+      "globalFunctions": 176,
+      "objectFunctions": 207,
+      "dataWindowFunctions": 209,
+      "systemEvents": 43,
+      "dataWindowEvents": 14,
+      "statements": 1,
+      "manualCoreTotal": 650
+    },
+    "currentIntegratedCounts": {
+      "globalFunctions": 285,
+      "objectFunctions": 990,
+      "dataWindowFunctions": 240,
+      "systemEvents": 184,
+      "dataWindowEvents": 14,
+      "statements": 16,
+      "integratedTotal": 1729
+    },
+    "officialClosure": {
+      "systemEvents": {
+        "measurement": "name-owner",
+        "officialCount": 788,
+        "coveredCount": 788,
+        "missingCount": 0
+      },
+      "statements": {
+        "measurement": "name",
+        "officialCount": 16,
+        "coveredCount": 16,
+        "missingCount": 0
+      },
+      "consistencyIssueCount": 0,
+      "fullSuitePassing": 345,
+      "fullSuiteFailing": 0
+    },
+    "progressTo500": {
+      "baselineBeforeMf01": 168,
+      "addedInMf01": 25,
+      "addedInMf02Batch1": 35,
+      "addedInMf03": 15,
+      "addedInV2AuditSlice": 2,
+      "addedInMf04a": 8,
+      "addedInMf04b": 9,
+      "addedInMf04c": 5,
+      "addedInMf04d": 10,
+      "addedInMf05": 90,
+      "addedInMf06": 112,
+      "addedInMf07": 88,
+      "addedInMf09r": 15,
+      "currentTotal": 650,
+      "targetSupportedSymbols": 500,
+      "remainingGap": 0,
+      "surpassedTargetBy": 150
+    }
+  },
+  "microphases": [
+    {
+      "id": "P2-09-MF-01",
+      "title": "Globales curadas: obsoletas, archivos y entorno ligero",
+      "status": "COMPLETED",
+      "addedSymbols": 25,
+      "targetTotalSymbols": 193,
+      "targetGlobalFunctions": 124,
+      "focus": [
+        "global-functions",
+        "obsolete-with-replacement"
+      ],
+      "symbols": [
+        "LenW",
+        "LeftTrimW",
+        "RightTrimW",
+        "MatchW",
+        "FillW",
+        "FileSeek",
+        "FileSeek64",
+        "FileReadEx",
+        "FileWriteEx",
+        "FileLength64",
+        "FileEncoding",
+        "CommandParm",
+        "GetEnvironment",
+        "PointerX",
+        "PointerY",
+        "SetPointer",
+        "WorkSpaceHeight",
+        "WorkSpaceWidth",
+        "WorkSpaceX",
+        "WorkSpaceY",
+        "PixelsToUnits",
+        "UnitsToPixels",
+        "RelativeDate",
+        "RelativeTime",
+        "Pi"
+      ],
+      "validation": [
+        "npm run compile",
+        "builtinFunctions.test",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-02",
+      "title": "Globales core de entorno, registro y utilidades frecuentes",
+      "status": "COMPLETED",
+      "addedSymbols": 35,
+      "executedSymbolsCount": 35,
+      "remainingToCloseMicrophase": 0,
+      "targetTotalSymbols": 228,
+      "currentTotalSymbols": 228,
+      "targetGlobalFunctions": 159,
+      "currentGlobalFunctions": 159,
+      "focus": [
+        "global-functions"
+      ],
+      "symbols": [
+        "Length",
+        "Reverse",
+        "BlobMid",
+        "IntHigh",
+        "IntLow",
+        "ToAnsi",
+        "ToUnicode",
+        "DaysAfter",
+        "SecondsAfter",
+        "ACos",
+        "ASin",
+        "ATan",
+        "Ceiling",
+        "LogTen",
+        "Fact",
+        "Sign",
+        "Truncate",
+        "Randomize",
+        "GetFocus",
+        "DBHandle",
+        "DebugBreak",
+        "GarbageCollectGetTimeLimit",
+        "GarbageCollectSetTimeLimit",
+        "Sleep",
+        "Timer",
+        "GetInstalledRuntimes",
+        "IsRunningAsSolution",
+        "AddToLibraryList",
+        "GetLibraryList",
+        "SetLibraryList",
+        "RegistryDelete",
+        "RegistryGet",
+        "RegistryKeys",
+        "RegistrySet",
+        "RegistryValues"
+      ],
+      "validation": [
+        "npm run compile",
+        "builtinFunctions.test",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-03",
+      "title": "Globales de proceso, diálogos y diagnósticos faltantes",
+      "status": "COMPLETED",
+      "addedSymbols": 15,
+      "executedSymbolsCount": 15,
+      "remainingToCloseMicrophase": 0,
+      "targetTotalSymbols": 243,
+      "currentTotalSymbols": 243,
+      "targetGlobalFunctions": 174,
+      "currentGlobalFunctions": 174,
+      "focus": [
+        "global-functions"
+      ],
+      "symbols": [
+        "ChooseColor",
+        "ShowHelp",
+        "ShowPopupHelp",
+        "OpenURL",
+        "TraceBegin",
+        "TraceClose",
+        "TraceDisableActivity",
+        "TraceEnableActivity",
+        "TraceEnd",
+        "TraceError",
+        "TraceOpen",
+        "TraceUser",
+        "PBGetMenuString",
+        "Open",
+        "Close"
+      ],
+      "validation": [
+        "npm run compile",
+        "builtinFunctions.test",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-V2-AUDIT",
+      "title": "Curación V2 estricta: taxonomía y globales inequívocas",
+      "status": "COMPLETED",
+      "addedSymbols": 2,
+      "targetTotalSymbols": 245,
+      "currentTotalSymbols": 245,
+      "targetGlobalFunctions": 176,
+      "currentGlobalFunctions": 176,
+      "focus": [
+        "global-functions",
+        "catalog-internal"
+      ],
+      "symbols": [
+        "ProfileInt",
+        "GetFolder"
+      ],
+      "notes": [
+        "OpenURL se recategoriza a Web / HTTP para evitar el cajón de sastre en Sistema.",
+        "GetInstalledRuntimes, IsRunningAsSolution y la family list pasan a Proyecto / IDE para reflejar mejor su dominio real."
+      ],
+      "validation": [
+        "npm run compile",
+        "BuiltinFunctions (MOCHA_GREP)",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-04A",
+      "title": "Object methods owner-aware: edición de texto base",
+      "status": "COMPLETED",
+      "addedSymbols": 8,
+      "targetTotalSymbols": 253,
+      "currentTotalSymbols": 253,
+      "targetObjectFunctions": 18,
+      "currentObjectFunctions": 18,
+      "focus": [
+        "object-functions"
+      ],
+      "symbols": [
+        "CanUndo",
+        "Clear",
+        "Copy",
+        "Cut",
+        "Paste",
+        "ReplaceText",
+        "SelectText",
+        "Undo"
+      ],
+      "notes": [
+        "Primer sub-bloque de MF-04 centrado en controles editables de texto con owner-awareness claro.",
+        "No toca linter ni quick fixes porque no introduce obsolescencia ni replacements."
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-04B",
+      "title": "Object methods owner-aware: contexto, puntero y selección",
+      "status": "COMPLETED",
+      "addedSymbols": 9,
+      "targetTotalSymbols": 262,
+      "currentTotalSymbols": 262,
+      "targetObjectFunctions": 27,
+      "currentObjectFunctions": 27,
+      "focus": [
+        "object-functions"
+      ],
+      "symbols": [
+        "ClassName",
+        "GetParent",
+        "PointerX",
+        "PointerY",
+        "Position",
+        "SelectedLength",
+        "SelectedStart",
+        "SelectedText",
+        "TypeOf"
+      ],
+      "notes": [
+        "Segundo sub-bloque de MF-04 centrado en métodos de contexto y estado de selección sobre SingleLineEdit, EditMask y MultiLineEdit.",
+        "Incluye homónimos relevantes como TypeOf y PointerX sin degradar la resolución owner-aware."
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-04C",
+      "title": "Object methods owner-aware: líneas y scroll",
+      "status": "COMPLETED",
+      "addedSymbols": 5,
+      "targetTotalSymbols": 267,
+      "currentTotalSymbols": 267,
+      "targetObjectFunctions": 32,
+      "currentObjectFunctions": 32,
+      "focus": [
+        "object-functions"
+      ],
+      "symbols": [
+        "LineCount",
+        "LineLength",
+        "Scroll",
+        "SelectedLine",
+        "TextLine"
+      ],
+      "notes": [
+        "Tercer sub-bloque de MF-04 centrado en soporte multilinea sobre EditMask y MultiLineEdit.",
+        "Mantiene el frente acotado al runtime de object methods sin abrir todavía el dominio DataWindow."
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-04D",
+      "title": "Object methods owner-aware: ventana, parent y workspace",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 277,
+      "currentTotalSymbols": 277,
+      "targetObjectFunctions": 42,
+      "currentObjectFunctions": 42,
+      "focus": [
+        "object-functions"
+      ],
+      "symbols": [
+        "GetParent",
+        "ParentWindow",
+        "PointerX",
+        "PointerY",
+        "Print",
+        "TypeOf",
+        "WorkSpaceHeight",
+        "WorkSpaceWidth",
+        "WorkSpaceX",
+        "WorkSpaceY"
+      ],
+      "notes": [
+        "Cuarto sub-bloque de MF-04 centrado en ventana base con homónimos relevantes frente a globales del runtime.",
+        "Mantiene el patrón owner-aware sin añadir wiring específico en resolución o providers."
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-04",
+      "title": "Object methods base owner-aware (macrofase en curso)",
+      "status": "IN_PROGRESS",
+      "addedSymbols": 45,
+      "currentTotalSymbols": 277,
+      "targetTotalSymbols": 290,
+      "currentObjectFunctions": 42,
+      "focus": [
+        "object-functions"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05A",
+      "title": "DataWindow core: getters tipados y row identity",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 287,
+      "currentTotalSymbols": 287,
+      "targetDataWindowFunctions": 41,
+      "currentDataWindowFunctions": 41,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "GetItemNumber",
+        "GetItemTime",
+        "GetNextModified",
+        "GetRowFromRowId",
+        "GetRowIdFromRow",
+        "GetSelectedRow",
+        "GetSQLSelect",
+        "GetText",
+        "GetValidate",
+        "GetValue"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05B",
+      "title": "DataWindow core: columnas, child reports y formato",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 297,
+      "currentTotalSymbols": 297,
+      "targetDataWindowFunctions": 51,
+      "currentDataWindowFunctions": 51,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "ClearValues",
+        "GetChild",
+        "GetClickedColumn",
+        "GetClickedRow",
+        "GetColumn",
+        "GetColumnName",
+        "GetFormat",
+        "SetColumn",
+        "SetFormat",
+        "SetValue"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05C",
+      "title": "DataWindow core: buffers, cambios y blobs de estado",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 307,
+      "currentTotalSymbols": 307,
+      "targetDataWindowFunctions": 61,
+      "currentDataWindowFunctions": 61,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "DeletedCount",
+        "FilteredCount",
+        "ModifiedCount",
+        "GetChanges",
+        "GetFullState",
+        "GetStateStatus",
+        "ResetUpdate",
+        "RowsCopy",
+        "RowsDiscard",
+        "SetChanges"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05D",
+      "title": "DataWindow core: transacciones, share y persistencia",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 317,
+      "currentTotalSymbols": 317,
+      "targetDataWindowFunctions": 71,
+      "currentDataWindowFunctions": 71,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "DBCancel",
+        "GetTrans",
+        "ResetTransObject",
+        "ReselectRow",
+        "SetSQLSelect",
+        "SetTrans",
+        "ShareData",
+        "ShareDataOff",
+        "SaveAs",
+        "SaveNativePDFToBlob"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05E",
+      "title": "DataWindow core: importación, exportación e impresión",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 327,
+      "currentTotalSymbols": 327,
+      "targetDataWindowFunctions": 81,
+      "currentDataWindowFunctions": 81,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "ExportJson",
+        "ExportRowAsJson",
+        "ImportClipboard",
+        "ImportFile",
+        "ImportJson",
+        "ImportJsonByKey",
+        "ImportRowFromJson",
+        "ImportString",
+        "Print",
+        "PrintCancel"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05F",
+      "title": "DataWindow core: contexto, layout y expansión",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 337,
+      "currentTotalSymbols": 337,
+      "targetDataWindowFunctions": 91,
+      "currentDataWindowFunctions": 91,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "ClassName",
+        "GetContextService",
+        "GetParent",
+        "TypeOf",
+        "GetBorderStyle",
+        "SetBorderStyle",
+        "SetDetailHeight",
+        "SetPosition",
+        "Expand",
+        "ExpandAll"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05G",
+      "title": "DataWindow core: edición de texto sobre control",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 347,
+      "currentTotalSymbols": 347,
+      "targetDataWindowFunctions": 101,
+      "currentDataWindowFunctions": 101,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "CanUndo",
+        "Clear",
+        "Copy",
+        "Cut",
+        "Paste",
+        "ReplaceText",
+        "SelectText",
+        "Undo",
+        "Position",
+        "Scroll"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05H",
+      "title": "DataWindow core: puntero, selección y RichText",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 357,
+      "currentTotalSymbols": 357,
+      "targetDataWindowFunctions": 111,
+      "currentDataWindowFunctions": 111,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "FindNext",
+        "GetBandAtPointer",
+        "GetObjectAtPointer",
+        "PointerX",
+        "PointerY",
+        "SelectedLength",
+        "SelectedLine",
+        "SelectedStart",
+        "SelectedText",
+        "TextLine"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05I",
+      "title": "DataWindow core: navegación visual y selección avanzada",
+      "status": "COMPLETED",
+      "addedSymbols": 10,
+      "targetTotalSymbols": 367,
+      "currentTotalSymbols": 367,
+      "targetDataWindowFunctions": 121,
+      "currentDataWindowFunctions": 121,
+      "focus": [
+        "datawindow"
+      ],
+      "symbols": [
+        "ScrollNextPage",
+        "ScrollNextRow",
+        "ScrollPriorPage",
+        "ScrollPriorRow",
+        "SetFocus",
+        "SetTabOrder",
+        "SetRowFocusIndicator",
+        "SelectTextAll",
+        "SelectTextLine",
+        "SelectTextWord"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-05",
+      "title": "DataWindow core ampliado: datos, buffers, edición, navegación y persistencia",
+      "status": "COMPLETED",
+      "addedSymbols": 90,
+      "targetTotalSymbols": 367,
+      "currentTotalSymbols": 367,
+      "currentDataWindowFunctions": 121,
+      "focus": [
+        "datawindow"
+      ]
+    },
+    {
+      "id": "P2-09-MF-06",
+      "title": "Object runtime owner-aware ampliado: Window, ListBox, Tab, ListView y TreeView",
+      "status": "COMPLETED",
+      "addedSymbols": 112,
+      "targetTotalSymbols": 479,
+      "currentTotalSymbols": 479,
+      "targetObjectFunctions": 154,
+      "currentObjectFunctions": 154,
+      "focus": [
+        "object-functions"
+      ],
+      "symbols": [
+        "ArrangeSheets",
+        "OpenSheet",
+        "SaveDockingState",
+        "AddItem",
+        "SelectItem",
+        "OpenTab",
+        "AddColumn",
+        "SetOverlayPicture",
+        "AddPicture",
+        "SetLevelPictures"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-07",
+      "title": "DataWindow runtime avanzado y graph: core extendido, RichText y chart methods",
+      "status": "COMPLETED",
+      "addedSymbols": 88,
+      "targetTotalSymbols": 567,
+      "currentTotalSymbols": 567,
+      "targetDataWindowFunctions": 209,
+      "currentDataWindowFunctions": 209,
+      "focus": [
+        "datawindow",
+        "graph"
+      ],
+      "symbols": [
+        "CollapseAll",
+        "Create",
+        "GetItemStatus",
+        "SetFullState",
+        "SetText",
+        "CategoryCount",
+        "GetDataValue",
+        "SetDataStyle",
+        "ObjectAtPointer",
+        "ResetDataColors"
+      ],
+      "validation": [
+        "npm run compile",
+        "npm test"
+      ]
+    },
+    {
+      "id": "P2-09-MF-08",
+      "title": "System events y gaps runtime transversales premium",
+      "status": "COMPLETED",
+      "addedSymbols": 30,
+      "currentTotalSymbols": 597,
+      "targetTotalSymbols": 597,
+      "currentSystemEvents": 43,
+      "targetSystemEvents": 43,
+      "focus": [
+        "system-events",
+        "cross-runtime"
+      ],
+      "symbols": [
+        "Activate",
+        "CloseQuery",
+        "Deactivate",
+        "Hide",
+        "Show",
+        "Resize",
+        "DragDrop",
+        "DragEnter",
+        "DragLeave",
+        "DragWithin",
+        "Help",
+        "Key",
+        "MenuChanged",
+        "MouseDown",
+        "MouseMove",
+        "MouseUp",
+        "Other",
+        "RButtonDown",
+        "SystemKey",
+        "ToolbarMoved",
+        "HotLinkAlarm",
+        "RemoteExec",
+        "RemoteHotLinkStart",
+        "RemoteHotLinkStop",
+        "RemoteRequest",
+        "RemoteSend",
+        "SelectionChanged",
+        "SelectionChanging",
+        "RightClicked",
+        "RightDoubleClicked"
+      ],
+      "notes": [
+        "MF-08A arranca por Window control porque Appeon documenta ahi una lista oficial de eventos con alto valor observable para herencia, hover y completion.",
+        "MF-08B amplia Window con eventos oficiales de drag, ayuda, teclado y raton sin duplicar Clicked ni DoubleClicked, ya presentes como eventos genericos.",
+        "MF-08C cierra los eventos oficiales residuales no obsoletos de Window con Other, RButtonDown, SystemKey y ToolbarMoved.",
+        "MF-08D incorpora tambien los 6 eventos DDE obsoletos de Window con metadata de obsolescencia, manteniendo el catalogo historico sin tocar resolvers ni providers.",
+        "MF-08E completa la diana de system events premium con SelectionChanged, SelectionChanging, RightClicked y RightDoubleClicked para controles jerarquicos y de pestañas."
+      ],
+      "validation": [
+        "npm run compile"
+      ]
+    },
+    {
+      "id": "P2-09-MF-09",
+      "title": "Cierre residual premium y frontera manual-core/generated",
+      "status": "COMPLETED",
+      "addedSymbols": 53,
+      "currentTotalSymbols": 650,
+      "targetTotalSymbols": 650,
+      "focus": [
+        "cross-runtime",
+        "catalog-internal"
+      ],
+      "symbols": [
+        "DeleteLargePicture",
+        "DeleteLargePictures",
+        "DeleteSmallPicture",
+        "DeleteSmallPictures",
+        "DeleteStatePicture",
+        "DeleteStatePictures",
+        "Sort",
+        "TotalColumns",
+        "Drag",
+        "SelectedIndex",
+        "TotalItems",
+        "TotalSelected",
+        "Print",
+        "SetPosition",
+        "TypeOf",
+        "DeletePicture",
+        "DeletePictures",
+        "DeleteStatePicture",
+        "DeleteStatePictures",
+        "ClassName",
+        "SetOverlayPicture",
+        "SortAll",
+        "CommitDocking",
+        "LoadDockingState",
+        "OpenSheetAsDocument",
+        "OpenSheetDocked",
+        "OpenSheetFromDockingState",
+        "OpenSheetInTabGroup",
+        "OpenSheetWithParmAsDocument",
+        "OpenSheetWithParmDocked",
+        "OpenSheetWithParmFromDockingState",
+        "OpenSheetWithParmInTabGroup"
+      ],
+      "notes": [
+        "MF-09A abre el cierre residual premium con 8 funciones owner-aware de ListView sobre image lists, ordenacion y recuento de columnas.",
+        "MF-09B..MF-09C completan el bloque residual especifico de ListView con arrastre, seleccion, totalizadores, impresion, orden Z y tipo runtime.",
+        "MF-09D..MF-09F drenan el residual premium de TreeView con picture lists, ordenacion jerarquica, overlay y funciones de contexto/salida.",
+        "MF-09G abre ya el residual de Window con ClassName y SetPosition.",
+        "MF-09H..MF-09Q añaden 10 helpers oficiales de docking y MDI con metadata de obsolescencia para dockable windows, manteniendo el frente dentro de manual-core premium sin abrir todavia generated/imported.",
+        "MF-09R cierra la familia DDE legacy de Window con 15 helpers obsoletos adicionales y deja el manual-core en 650 simbolos con 207 object functions auditadas.",
+        "MF-10 cerró después la parity oficial de system events y statements con 0 faltantes reales, 0 inconsistencias reales y suite completa verde."
+      ],
+      "validation": [
+        "npm run compile"
+      ]
+    }
+  ],
+  "backlogItems": [
+    {
+      "id": "catalog-global-functions-expansion",
+      "title": "Ampliación sistemática de global functions",
+      "status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "domain": "global-functions",
+      "strategy": "SYSTEMATIC_EXPANSION",
+      "impact": [
+        "HOVER",
+        "COMPLETION",
+        "SIGNATURE",
+        "LINTER"
+      ],
+      "goal": "Ampliar primero las funciones globales con mejor retorno inmediato para UX y cobertura del runtime.",
+      "selectionCriteria": [
+        "Muy usadas en código real",
+        "Firmas claras",
+        "Valor alto para hover y completion",
+        "Valor añadido para linter cuando aplique"
+      ],
+      "notes": [
+        "Es el mejor candidato para una ampliación incremental controlada.",
+        "MF-01 ya completó un primer lote curado de 25 funciones globales.",
+        "MF-02 y MF-03 ya quedan cerradas, y el follow-up V2 actualiza taxonomía y añade ProfileInt y GetFolder hasta 245 símbolos auditados."
+      ]
+    },
+    {
+      "id": "catalog-obsolete-with-replacement-expansion",
+      "title": "Ampliación de obsoletas con replacement",
+      "status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "domain": "cross-runtime",
+      "strategy": "MANUAL_CURATED",
+      "impact": [
+        "LINTER",
+        "HOVER",
+        "COMPLETION"
+      ],
+      "goal": "Añadir más símbolos obsoletos con replacement claro, mecánico y seguro.",
+      "selectionCriteria": [
+        "Replacement exacto",
+        "Cambio mecánico seguro",
+        "Aporta diagnóstico útil",
+        "Puede dar quick fix seguro"
+      ],
+      "notes": [
+        "Es uno de los bloques más rentables porque multiplica valor sobre el slice de modernización ya implementado.",
+        "MF-01 amplió el bloque implementado con LenW, LeftTrimW, RightTrimW, MatchW y FillW."
+      ]
+    },
+    {
+      "id": "catalog-statements-for-linter",
+      "title": "Ampliación de statements relevantes para linter",
+      "status": "COMPLETED",
+      "priority": "LOW",
+      "domain": "statements",
+      "strategy": "MANUAL_CURATED",
+      "impact": [
+        "LINTER",
+        "HOVER"
+      ],
+      "goal": "Cerrado dentro del alcance actual: statements oficiales materializados en generated y consumibles desde el catálogo vivo.",
+      "candidateSymbols": [
+        "GOTO",
+        "HALT"
+      ],
+      "notes": [
+        "El catálogo vivo integra 16 statements con officialCoverage 16/16 y 0 faltantes reales.",
+        "HALT permanece como statement curado histórico y el resto del dominio lo cubre el pipeline generated oficial."
+      ]
+    },
+    {
+      "id": "catalog-object-functions-expansion",
+      "title": "Ampliación de object functions comunes",
+      "status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "domain": "object-functions",
+      "strategy": "SYSTEMATIC_EXPANSION",
+      "impact": [
+        "COMPLETION",
+        "HOVER",
+        "SIGNATURE"
+      ],
+      "goal": "Completar mejor el runtime de objetos visuales y no visuales más frecuentes.",
+      "selectionCriteria": [
+        "Funciones comunes en ventanas y controles",
+        "Métodos de runtime de objetos base",
+        "Valor claro para owner-aware completion"
+      ],
+      "notes": [
+        "MF-04A ya añadió un primer bloque curado de edición de texto sobre SingleLineEdit, EditMask y MultiLineEdit.",
+        "MF-04B ya añadió contexto, puntero y selección sobre controles editables frecuentes.",
+        "MF-04C ya añadió línea y scroll sobre EditMask y MultiLineEdit.",
+        "MF-04D ya amplió ventana base con parent/workspace methods y deja MF-04 cerca de su cierre operativo."
+      ]
+    },
+    {
+      "id": "catalog-datawindow-core-expansion",
+      "title": "Ampliación incremental del núcleo DataWindow",
+      "status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "domain": "datawindow",
+      "strategy": "MANUAL_CURATED_AND_SYSTEMATIC",
+      "impact": [
+        "COMPLETION",
+        "HOVER",
+        "SIGNATURE",
+        "LINTER"
+      ],
+      "goal": "Seguir ampliando el catálogo DataWindow más rentable sin abrir todavía un frente completo de DataWindow.",
+      "selectionCriteria": [
+        "Métodos de edición",
+        "Navegación",
+        "Datos",
+        "Eventos frecuentes",
+        "Transacciones"
+      ],
+      "notes": [
+        "MF-05A..MF-05I ya añadieron 90 métodos DataWindow curados con foco en datos, buffers, edición, navegación, import/export y persistencia.",
+        "El siguiente corte rentable ya no es el core inmediato, sino eventos DataWindow y helpers residuales antes de abrir cobertura masiva adicional."
+      ]
+    },
+    {
+      "id": "catalog-system-events-expansion",
+      "title": "Ampliación de system events comunes",
+      "status": "COMPLETED",
+      "priority": "LOW",
+      "domain": "system-events",
+      "strategy": "SYSTEMATIC_EXPANSION",
+      "impact": [
+        "COMPLETION",
+        "HOVER",
+        "DEFINITION"
+      ],
+      "goal": "Cerrado dentro del alcance actual: system events oficiales materializados en generated y validados contra la baseline oficial.",
+      "selectionCriteria": [
+        "Eventos oficiales de Appeon con owner claro",
+        "Valor directo para herencia y navegacion de eventos",
+        "Preferencia por Window control y gaps ya visibles en el repo"
+      ],
+      "notes": [
+        "MF-08A ya añade Activate, CloseQuery, Deactivate, Hide, Show y Resize para window.",
+        "MF-08B ya añade DragDrop, DragEnter, DragLeave, DragWithin, Help, Key, MenuChanged, MouseDown, MouseMove y MouseUp para window.",
+        "MF-08C ya añade Other, RButtonDown, SystemKey y ToolbarMoved para window.",
+        "MF-08D ya añade HotLinkAlarm, RemoteExec, RemoteHotLinkStart, RemoteHotLinkStop, RemoteRequest y RemoteSend como eventos DDE obsoletos de window.",
+        "MF-08E ya añade SelectionChanged, SelectionChanging, RightClicked y RightDoubleClicked con owner-aware sobre treeview, tab, listview y listbox.",
+        "MF-08 queda cerrado en manual-core y MF-10 cierra después el dominio oficial completo con 788/788 y 0 faltantes reales."
+      ]
+    },
+    {
+      "id": "catalog-premium-docs-metadata",
+      "title": "Catálogo premium para documentación automática de clases",
+      "status": "PENDING",
+      "priority": "MEDIUM",
+      "domain": "cross-runtime",
+      "strategy": "MANUAL_CURATED",
+      "impact": [
+        "DOCS",
+        "HOVER"
+      ],
+      "goal": "Enriquecer entradas premium para alimentar documentación automática de clases y salidas markdown más ricas."
+    },
+    {
+      "id": "catalog-runtime-coverage-classification",
+      "title": "Clasificación de cobertura del runtime",
+      "status": "PENDING",
+      "priority": "MEDIUM",
+      "domain": "catalog-internal",
+      "strategy": "SUPPORT",
+      "impact": [
+        "DOCS"
+      ],
+      "goal": "Poder responder con claridad qué hay implementado, qué está parcial y qué falta."
+    },
+    {
+      "id": "catalog-generated-imported-preparation",
+      "title": "Preparación de generated/imported",
+      "status": "PENDING",
+      "priority": "MEDIUM",
+      "domain": "catalog-internal",
+      "strategy": "GENERATED_CANDIDATE",
+      "impact": [
+        "DOCS",
+        "COMPLETION",
+        "HOVER",
+        "SIGNATURE",
+        "LINTER"
+      ],
+      "goal": "Preparar el modelo para una futura ampliación semi-automática del runtime sin hacerlo todo manualmente."
+    },
+    {
+      "id": "catalog-wide-runtime-coverage",
+      "title": "Cobertura amplia del runtime (~1000 símbolos)",
+      "status": "PENDING",
+      "priority": "MEDIUM",
+      "domain": "cross-runtime",
+      "strategy": "MIXED",
+      "impact": [
+        "HOVER",
+        "COMPLETION",
+        "SIGNATURE",
+        "DEFINITION",
+        "REFERENCES",
+        "LINTER",
+        "DOCS"
+      ],
+      "goal": "Llegar a una cobertura mucho más amplia del runtime manteniendo calidad, validación y owner-awareness."
+    }
+  ],
+  "recommendedSliceOrder": [
+    {
+      "order": 1,
+      "id": "catalog-global-functions-expansion"
+    },
+    {
+      "order": 2,
+      "id": "catalog-obsolete-with-replacement-expansion"
+    },
+    {
+      "order": 3,
+      "id": "catalog-object-functions-expansion"
+    },
+    {
+      "order": 4,
+      "id": "catalog-datawindow-core-expansion"
+    }
+  ],
+  "maintenanceRules": [
+    "Este JSON es la fuente de verdad para el backlog manual-core y la gobernanza de cierre del catálogo semántico.",
+    "El archivo docs/catalog-backlog.md debe ser una vista ejecutiva derivada de este JSON.",
+    "Los conteos del catálogo deben auditarse primero contra coverageReport.generated.json, catalogConsistencyReport.generated.json y el catálogo vivo (`listSystem*`) antes de actualizar docs o roadmap.",
+    "No convertir este backlog en una copia manual de la documentación oficial.",
+    "Toda entrada nueva obsolete=true con replacement debe revisarse también para linter y quick fixes.",
+    "manual-core debe mantenerse reservado a entradas premium y curadas.",
+    "generated ya se usa como cobertura oficial amplia del runtime y debe mantenerse sincronizado con sus auditorías.",
+    "Cada vez que se abra un slice específico de ampliación del catálogo, este archivo debe actualizarse en la misma sesión."
+  ],
+  "nextRecommendedAction": {
+    "type": "CATALOG_MAINTENANCE",
+    "title": "Mantener pipeline generated y backlog manual-core sin reabrir MF-10",
+    "focus": [
+      "catalog-governance",
+      "generated-pipeline",
+      "datawindow-events"
+    ],
+    "reason": "MF-10 ya cerró de forma definitiva system events y statements con 0 faltantes oficiales reales, 0 inconsistencias reales y suite completa verde. El backlog catalográfico pasa a mantenimiento puntual y solo debería reabrirse si aparece un gap oficial nuevo o si datawindow-events vuelve a justificar inversión."
+  }
+}

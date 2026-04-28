@@ -1,0 +1,28 @@
+export const PFC_EXAMPLES_PBPROJ_FIXTURE = `
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<Project>
+    <Type Name="pb"/>
+    <Application Name="pfcexamp"/>
+    <DeployConfigurations OutputDirectory="Build\\bin\\$(ConfigurationName)">
+        <DeployConfiguration Name="p_pfcexamp_exe" Path="examples\\appexamp.pbl\\p_pfcexamp_exe.srj"/>
+    </DeployConfigurations>
+    <Libraries AppEntry="examples\\appexamp.pbl">
+        <Library Path="examples\\appexamp.pbl"/>
+        <Library Path="examples\\appexmdw.pbl"/>
+        <Library Path="examples\\appexmfe.pbl"/>
+        <Library Path="examples\\exmmain.pbl"/>
+        <Library Path="examples\\exmutil.pbl"/>
+        <Library Path="examples\\exmwnsrv.pbl"/>
+        <Library Path="pfc libs\\pfeapsrv.pbl"/>
+        <Library Path="pfc libs\\pfedwsrv.pbl"/>
+        <Library Path="pfc libs\\pfemain.pbl"/>
+        <Library Path="pfc libs\\pfeutil.pbl"/>
+        <Library Path="pfc libs\\pfewnsrv.pbl"/>
+        <Library Path="pfc libs\\pfcapsrv.pbl"/>
+        <Library Path="pfc libs\\pfcdwsrv.pbl"/>
+        <Library Path="pfc libs\\pfcmain.pbl"/>
+        <Library Path="pfc libs\\pfcutil.pbl"/>
+        <Library Path="pfc libs\\pfcwnsrv.pbl"/>
+    </Libraries>
+</Project>
+`.trim();

@@ -1,0 +1,1 @@
+export { normalizeSystemSymbolName } from '../knowledge/normalization';

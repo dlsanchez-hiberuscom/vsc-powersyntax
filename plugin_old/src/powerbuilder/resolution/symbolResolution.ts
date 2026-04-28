@@ -1,0 +1,27 @@
+export type {
+    OccurrenceMatchArgs,
+    PbResolutionContext,
+    PbSymbolResolutionContext,
+    ResolvePreferredSymbolsArgs,
+} from '../semantic/ranking/symbolResolutionCore';
+export {
+    canSearchTextOccurrences,
+    filterSymbolsToPreferredProject,
+    filterSymbolsVisibleFromPosition,
+    getContainingCallableSymbol,
+    getImplicitOwnerNamesAtPosition,
+    getLogicalSymbolKey,
+    getMemberVariableScope,
+    getNormalizedOwnerNames,
+    getResolvedOwnerNames,
+    isCallableScopedSymbol,
+    isCallableSymbol,
+    isMemberVariableSymbol,
+    isSymbolInProject,
+    isSymbolVisibleFromPosition,
+    occurrenceMatchesResolvedSymbols,
+    resolvePreferredSymbols,
+    sortSymbolsByProjectPreference,
+    symbolMatchesOwnerNames,
+    toResolutionContext,
+} from '../semantic/ranking/symbolResolutionCore';

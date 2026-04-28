@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-04-23T10:34:46.650Z",
+  "validation": {
+    "ok": true,
+    "issueCount": 0,
+    "byCode": {}
+  },
+  "slices": [
+    {
+      "key": "manual-core:global-functions",
+      "count": 176
+    },
+    {
+      "key": "manual-core:object-functions",
+      "count": 207
+    },
+    {
+      "key": "manual-core:datawindow-functions",
+      "count": 209
+    },
+    {
+      "key": "manual-core:system-events",
+      "count": 43
+    },
+    {
+      "key": "manual-core:datawindow-events",
+      "count": 14
+    },
+    {
+      "key": "manual-core:statements",
+      "count": 1
+    },
+    {
+      "key": "generated:global-functions",
+      "count": 109
+    },
+    {
+      "key": "generated:object-functions",
+      "count": 783
+    },
+    {
+      "key": "generated:datawindow-functions",
+      "count": 31
+    },
+    {
+      "key": "generated:system-events",
+      "count": 141
+    },
+    {
+      "key": "generated:statements",
+      "count": 15
+    }
+  ],
+  "provenance": {
+    "byKind": {
+      "manual": 650,
+      "generated": 1079
+    },
+    "byAuthority": {
+      "curated": 650,
+      "official": 1079
+    },
+    "withVersion": 1729,
+    "withGeneratedAt": 1079,
+    "missingGeneratedAt": 0
+  },
+  "overlaps": {
+    "exactIdentityAcrossDatasets": 0,
+    "sharedNamesAcrossDatasets": 92,
+    "sharedNamesByDomain": {
+      "object-functions": 68,
+      "datawindow-functions": 9,
+      "system-events": 15
+    }
+  }
+}

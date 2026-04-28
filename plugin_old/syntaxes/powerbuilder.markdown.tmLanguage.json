@@ -1,0 +1,32 @@
+{
+  "scopeName": "markdown.powerbuilder.codeblock",
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [
+    {
+      "include": "#powerbuilder-code-block"
+    }
+  ],
+  "repository": {
+    "powerbuilder-code-block": {
+      "begin": "(^|\\G)(\\s*)(`)(``)(?i:(powerbuilder|pb|powerscript))\\s*$",
+      "end": "(^|\\G)(\\2|\\s{0,3})(````*)\\s*$",
+      "beginCaptures": {
+        "4": { "name": "punctuation.definition.markdown" },
+        "5": { "name": "fenced_code.block.language.markdown" }
+      },
+      "endCaptures": {
+        "3": { "name": "punctuation.definition.markdown" }
+      },
+      "patterns": [
+        {
+          "begin": "(^|\\G)(\\s*)(.*)",
+          "while": "(^|\\G)(?!\\s*(````*)\\s*$)",
+          "contentName": "meta.embedded.block.powerbuilder",
+          "patterns": [
+            { "include": "source.powerbuilder" }
+          ]
+        }
+      ]
+    }
+  }
+}

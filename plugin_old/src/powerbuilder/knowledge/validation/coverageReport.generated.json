@@ -1,0 +1,90 @@
+{
+  "generatedAt": "2026-04-23T10:34:46.650Z",
+  "totalEntries": 1729,
+  "totalByDataset": {
+    "manual-core": 650,
+    "generated": 1079
+  },
+  "totalByNamespace": {
+    "powerscript": 301,
+    "object": 1174,
+    "datawindow": 254
+  },
+  "families": [
+    {
+      "domain": "global-functions",
+      "integratedCount": 285,
+      "byDataset": {
+        "manual-core": 176,
+        "generated": 109
+      }
+    },
+    {
+      "domain": "object-functions",
+      "integratedCount": 990,
+      "byDataset": {
+        "manual-core": 207,
+        "generated": 783
+      }
+    },
+    {
+      "domain": "datawindow-functions",
+      "integratedCount": 240,
+      "byDataset": {
+        "manual-core": 209,
+        "generated": 31
+      }
+    },
+    {
+      "domain": "system-events",
+      "integratedCount": 184,
+      "byDataset": {
+        "manual-core": 43,
+        "generated": 141
+      },
+      "officialCoverage": {
+        "measurement": "name-owner",
+        "officialCount": 788,
+        "coveredCount": 788,
+        "missingCount": 0
+      }
+    },
+    {
+      "domain": "datawindow-events",
+      "integratedCount": 14,
+      "byDataset": {
+        "manual-core": 14
+      }
+    },
+    {
+      "domain": "statements",
+      "integratedCount": 16,
+      "byDataset": {
+        "manual-core": 1,
+        "generated": 15
+      },
+      "officialCoverage": {
+        "measurement": "name",
+        "officialCount": 16,
+        "coveredCount": 16,
+        "missingCount": 0
+      }
+    }
+  ],
+  "objectEventCount": 184,
+  "dataWindowEventCount": 14,
+  "combinedEventCount": 198,
+  "ownerTypeUniverseCount": 156,
+  "ownerTypeUniverseByDataset": {
+    "manual-core": 27,
+    "generated": 156
+  },
+  "metadata": {
+    "obsoleteCount": 44,
+    "replacementCount": 11,
+    "aliasCount": 15,
+    "sourceUrlCount": 1729,
+    "provenanceVersionCount": 1729,
+    "generatedAtCount": 1079
+  }
+}
