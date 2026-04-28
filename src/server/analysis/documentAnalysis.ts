@@ -71,7 +71,8 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       character: f.startCharacter,
       signature: f.detail,
       containerName: f.containerName,
-      baseTypeName: f.baseTypeName
+      baseTypeName: f.baseTypeName,
+      datatype: f.datatype
     });
   }
 
@@ -108,6 +109,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
             name: variable.name,
             kind: 'variable',
             detail: `${variable.type}${variable.modifiers ? ` (${variable.modifiers})` : ''}`,
+            datatype: variable.type,
             line: i,
             startCharacter: line.indexOf(variable.name),
             endCharacter: line.indexOf(variable.name) + variable.name.length

@@ -27,6 +27,7 @@ export interface SymbolFact {
   declarationOnly?: boolean;
   containerName?: string;
   baseTypeName?: string;
+  datatype?: string;
   line: number;
   startCharacter: number;
   endCharacter: number;

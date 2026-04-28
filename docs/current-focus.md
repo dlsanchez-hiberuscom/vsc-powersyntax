@@ -51,13 +51,14 @@ El proyecto dispone actualmente de una base funcional que incluye:
 
 ### Prioridad operativa
 
-**Implementar Navegación Global Exacta (B015).**
-Hemos cerrado los Diagnósticos Iniciales (B018) y construido el `InheritanceGraph` (B016) para la resolución de tipos. El siguiente paso natural es aprovechar este grafo de herencia y la `KnowledgeBase` para permitir que el "Go to Definition" salte entre archivos de forma precisa, comprendiendo cuándo una función es sobrescrita o pertenece a un ancestro.
+**Consolidar Queries del Knowledge Layer (B021).**
+Hemos habilitado la navegación global exacta (B015) utilizando la KnowledgeBase y el InheritanceGraph. Ahora es momento de consolidar estas consultas (Definition, Hover, etc.) en servicios comunes de la KnowledgeBase (B021) para eliminar lógica dispersa y sentar la base para Signature Help y Completions.
 
 ### Fase del roadmap en foco
 
-- **Fase 4**: Semántica de lenguaje (B014, B016 completados, B015 en curso).
+- **Fase 4**: Semántica de lenguaje (B014, B015, B016 completados).
 - **Fase 6**: Diagnósticos y productividad semántica base (B018 completado).
+- **Fase 4-6**: Preparando Backbone (B021).
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
 
@@ -86,16 +87,17 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 - ~~**B014. Document symbols robustos y jerárquicos**~~ → **Cerrada.**
 - ~~**B018. Diagnósticos iniciales**~~ → **Cerrada.**
 - ~~**B016. Resolver de tipos básico e InheritanceGraph**~~ → **Cerrada.**
+- ~~**B015. Navegación global exacta (Go to Definition)**~~ → **Cerrada.**
 
 ### Entradas pendientes prioritarias
 
-- **B015. Navegación global (Go to Definition)** — Pendiente. Utilizar la KnowledgeBase para saltar entre archivos de forma precisa, apoyándose en la resolución de tipos y en el `InheritanceGraph` recién implementado.
-- **B021. Queries compartidas del knowledge layer** — Pendiente. Crear servicios comunes para consolidar Definition y Hover.
+- **B021. Queries compartidas del knowledge layer** — Pendiente. Crear servicios comunes para consolidar Definition, Hover, y futuros Completions.
+- **B020. Base de scopes y binding inicial** — Pendiente. Preparar representación semántica para contextos locales.
 
 ### Orden operativo recomendado
 
-1. navegación global exacta (B015),
-2. consolidación de queries (B021).
+1. consolidación de queries (B021),
+2. base de scopes (B020).
 
 ---
 

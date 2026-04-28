@@ -34,6 +34,8 @@ export interface Entity {
   containerName?: string;
   /** Nombre del tipo base/ancestro (ej. 'window' en `type w_main from window`). Clave para el futuro InheritanceGraph. */
   baseTypeName?: string;
+  /** Tipo de dato de la variable (ej. 'integer', 'n_cst_string'). Fundamental para resolución de métodos. */
+  datatype?: string;
 }
 
 /**

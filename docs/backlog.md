@@ -98,8 +98,8 @@ Implementada `KnowledgeBase.ts` como almacén global de entidades (Funciones, Ti
 ### ~~B014. Document symbols robustos y jerárquicos~~ ✅ CERRADA
 Extracción jerárquica completada, detectando y anidando variables, funciones, subrutinas, eventos y tipos correctamente según su contenedor.
 
-### ~~B015. Workspace symbols base~~ ✅ CERRADA
-Permitir búsqueda global razonable de símbolos sobre el índice básico del workspace.
+### ~~B015. Navegación global exacta (Go to Definition)~~ ✅ CERRADA
+Utilizando la KnowledgeBase y el InheritanceGraph, ahora es capaz de resolver la herencia y saltar a la definición correcta de métodos invocados mediante `this`, `super`, variables tipeadas o sin cualificador.
 
 ### ~~B016. Resolver de tipos básico e InheritanceGraph~~ ✅ CERRADA
 Implementado `InheritanceGraph` para calcular ancestros y miembros considerando la jerarquía (Phase 4).
