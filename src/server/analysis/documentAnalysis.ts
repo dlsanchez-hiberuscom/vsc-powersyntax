@@ -69,7 +69,8 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       uri: uri,
       line: f.line,
       character: f.startCharacter,
-      signature: f.detail
+      signature: f.detail,
+      containerName: f.containerName
     });
   }
 
@@ -167,6 +168,8 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
     }
   }
 
+  let currentContainerName: string | undefined;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const enclosingSection = findEnclosingSection(i, sections);
@@ -180,10 +183,14 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
 
     const typeMatch = matchTypeDefinition(line);
     if (typeMatch) {
+      if (enclosingSection?.kind !== 'forward') {
+        currentContainerName = typeMatch.name;
+      }
       facts.push({
         name: typeMatch.name,
         kind: 'type',
         declarationOnly: enclosingSection?.kind === 'forward',
+        containerName: typeMatch.container, // Si tiene un within explícito
         detail: typeMatch.container
           ? `type from ${typeMatch.ancestor} within ${typeMatch.container}`
           : `type from ${typeMatch.ancestor}`,
@@ -201,6 +208,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
           name: fn.name,
           kind: fn.kind,
           declarationOnly: false,
+          containerName: currentContainerName,
           detail:
             fn.kind === 'function'
               ? `function : ${fn.returnType}`
@@ -221,6 +229,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
           name: ev.name,
           kind: 'event',
           declarationOnly: false,
+          containerName: currentContainerName,
           detail: ev.detail,
           line: i,
           startCharacter: start,

@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 
 suite('smoke/extension', () => {
   test('la extensión se activa en menos de 500ms', async () => {
-    const ext = vscode.extensions.getExtension('dlsanchez-hiberuscom.vsc-powersyntax');
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(ext, 'La extensión debería estar presente');
 
     const start = performance.now();

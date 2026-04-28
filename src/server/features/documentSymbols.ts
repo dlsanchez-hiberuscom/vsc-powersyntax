@@ -24,6 +24,9 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
     symbols.push(createSectionSymbol(lines, section));
   }
 
+  const typeSymbolsMap = new Map<string, DocumentSymbol>();
+  let currentContainerName: string | undefined;
+
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
@@ -39,10 +42,12 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
 
     const typeMatch = matchTypeDefinition(line);
     if (typeMatch) {
+      if (enclosingSection?.kind !== 'forward') {
+        currentContainerName = typeMatch.name.toLowerCase();
+      }
       const endLine = findBlockEnd(lines, i, [/^\s*end\s+type\b/i]);
       if (endLine > i) {
-        symbols.push(
-          createSymbol(
+        const sym = createSymbol(
             typeMatch.name,
             SymbolKind.Class,
             i,
@@ -52,8 +57,26 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
             typeMatch.container
               ? `type from ${typeMatch.ancestor} within ${typeMatch.container}`
               : `type from ${typeMatch.ancestor}`
-          )
         );
+
+        // Truco para LSP: expandir el rango del contenedor hasta el EOF
+        // para que VS Code permita anidar funciones y eventos que están más abajo.
+        sym.range.end.line = lines.length - 1;
+        sym.range.end.character = lines[lines.length - 1].length;
+
+        typeSymbolsMap.set(typeMatch.name.toLowerCase(), sym);
+
+        if (typeMatch.container) {
+          const parent = typeSymbolsMap.get(typeMatch.container.toLowerCase());
+          if (parent) {
+            parent.children!.push(sym);
+          } else {
+            symbols.push(sym);
+          }
+        } else {
+          symbols.push(sym);
+        }
+
         i = endLine + 1;
         continue;
       }
@@ -69,8 +92,7 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
 
         const endLine = findBlockEnd(lines, i, endPatterns);
         if (endLine > i) {
-          symbols.push(
-            createSymbol(
+          const sym = createSymbol(
               fn.name,
               SymbolKind.Function,
               i,
@@ -80,8 +102,19 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
               fn.kind === 'function'
                 ? `function : ${fn.returnType}`
                 : 'subroutine'
-            )
           );
+
+          if (currentContainerName) {
+            const parent = typeSymbolsMap.get(currentContainerName);
+            if (parent) {
+              parent.children!.push(sym);
+            } else {
+              symbols.push(sym);
+            }
+          } else {
+            symbols.push(sym);
+          }
+
           i = endLine + 1;
           continue;
         }
@@ -97,8 +130,7 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
         ]);
 
         if (endLine > i) {
-          symbols.push(
-            createSymbol(
+          const sym = createSymbol(
               ev.name,
               SymbolKind.Event,
               i,
@@ -106,8 +138,19 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
               endLine,
               lines[endLine].length,
               ev.detail
-            )
           );
+
+          if (currentContainerName) {
+            const parent = typeSymbolsMap.get(currentContainerName);
+            if (parent) {
+              parent.children!.push(sym);
+            } else {
+              symbols.push(sym);
+            }
+          } else {
+            symbols.push(sym);
+          }
+
           i = endLine + 1;
           continue;
         }

@@ -16,7 +16,17 @@ suite('unit/documentSymbols', () => {
     );
 
     const symbols = extractDocumentSymbols(document);
-    const names = symbols.map((symbol) => symbol.name);
+
+    const names: string[] = [];
+    const extractNames = (syms: typeof symbols) => {
+      for (const sym of syms) {
+        names.push(sym.name);
+        if (sym.children && sym.children.length > 0) {
+          extractNames(sym.children);
+        }
+      }
+    };
+    extractNames(symbols);
 
     assert.ok(symbols.length > 0, 'Debe devolver símbolos.');
     assert.ok(names.includes('forward'));
@@ -29,5 +39,10 @@ suite('unit/documentSymbols', () => {
       names.includes('uf_dame_empresas_filtradas'),
       'No se detectó ningún símbolo funcional esperado del fixture.'
     );
+
+    // Verificar que los símbolos funcionales NO están en la raíz, 
+    // demostrando que se están anidando en el contenedor jerárquico.
+    const rootNames = symbols.map(s => s.name);
+    assert.ok(!rootNames.includes('uf_inicializar'));
   });
 });

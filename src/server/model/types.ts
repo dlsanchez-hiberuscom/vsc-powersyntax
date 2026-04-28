@@ -20,6 +20,7 @@ export interface SymbolFact {
   kind: 'type' | 'function' | 'subroutine' | 'event' | 'section' | 'variable';
   detail?: string;
   declarationOnly?: boolean;
+  containerName?: string;
   line: number;
   startCharacter: number;
   endCharacter: number;

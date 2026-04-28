@@ -28,6 +28,10 @@ export interface Entity {
   character: number;
   /** Representación del signature (e.g. `(integer a, string b) returns boolean`) */
   signature?: string;
+  /** Documentación asociada */
+  documentation?: string;
+  /** Nombre del contenedor/objeto padre (ej. 'w_main'), útil para Scopes */
+  containerName?: string;
 }
 
 /**
