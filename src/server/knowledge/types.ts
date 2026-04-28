@@ -32,6 +32,8 @@ export interface Entity {
   documentation?: string;
   /** Nombre del contenedor/objeto padre (ej. 'w_main'), útil para Scopes */
   containerName?: string;
+  /** Nombre del tipo base/ancestro (ej. 'window' en `type w_main from window`). Clave para el futuro InheritanceGraph. */
+  baseTypeName?: string;
 }
 
 /**

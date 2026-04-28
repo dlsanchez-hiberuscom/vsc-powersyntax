@@ -70,7 +70,8 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       line: f.line,
       character: f.startCharacter,
       signature: f.detail,
-      containerName: f.containerName
+      containerName: f.containerName,
+      baseTypeName: f.baseTypeName
     });
   }
 
@@ -156,6 +157,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
             name: ty.name,
             kind: 'type',
             declarationOnly: true,
+            baseTypeName: ty.ancestor,
             detail: ty.container
               ? `type from ${ty.ancestor} within ${ty.container}`
               : `type from ${ty.ancestor}`,
@@ -191,6 +193,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
         kind: 'type',
         declarationOnly: enclosingSection?.kind === 'forward',
         containerName: typeMatch.container, // Si tiene un within explícito
+        baseTypeName: typeMatch.ancestor,
         detail: typeMatch.container
           ? `type from ${typeMatch.ancestor} within ${typeMatch.container}`
           : `type from ${typeMatch.ancestor}`,

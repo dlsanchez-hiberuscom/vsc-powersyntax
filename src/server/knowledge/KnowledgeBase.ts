@@ -24,6 +24,38 @@ export class KnowledgeBase {
   private documentSymbols: Map<string, Set<string>> = new Map();
 
   /**
+   * Profundidad de batch update. Mientras sea > 0, las operaciones
+   * de upsert/remove no disparan efectos colaterales costosos.
+   * Patrón portado del plugin_old (SymbolIndex.beginBatchUpdate).
+   */
+  private batchDepth = 0;
+
+  /**
+   * Inicia un batch update. Mientras esté activo, los consumidores
+   * pueden evitar reaccionar a cada cambio individual.
+   */
+  beginBatchUpdate(): void {
+    this.batchDepth++;
+  }
+
+  /**
+   * Finaliza un batch update. Solo cuando batchDepth vuelve a 0
+   * el sistema considera que la actualización masiva terminó.
+   */
+  endBatchUpdate(): void {
+    if (this.batchDepth > 0) {
+      this.batchDepth--;
+    }
+  }
+
+  /**
+   * Indica si hay un batch update activo.
+   */
+  get isBatchUpdating(): boolean {
+    return this.batchDepth > 0;
+  }
+
+  /**
    * Inserta o actualiza el conocimiento aportado por un documento.
    * Elimina primero el conocimiento previo del mismo archivo para evitar duplicados estancados.
    */

@@ -112,6 +112,33 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
         stack.push({ kind: 'event', line: i, text: raw });
         continue;
       }
+
+      // --- Bloques ejecutables (portado de plugin_old pbLanguageGrammar.ts) ---
+      // Solo IF multi-línea (termina en THEN al final de línea, no IF inline)
+      if (/^if\b.*\bthen\s*$/i.test(line)) {
+        stack.push({ kind: 'if', line: i, text: raw });
+        continue;
+      }
+
+      if (/^for\b/i.test(line)) {
+        stack.push({ kind: 'for', line: i, text: raw });
+        continue;
+      }
+
+      if (/^do\b/i.test(line)) {
+        stack.push({ kind: 'do', line: i, text: raw });
+        continue;
+      }
+
+      if (/^choose\s+case\b/i.test(line)) {
+        stack.push({ kind: 'choose-case', line: i, text: raw });
+        continue;
+      }
+
+      if (/^try\b/i.test(line)) {
+        stack.push({ kind: 'try', line: i, text: raw });
+        continue;
+      }
     }
   }
 
@@ -131,6 +158,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
 }
 
 function matchClosingBlock(line: string): BlockKind | null {
+  // --- Bloques estructurales ---
   if (/^end\s+forward\b/i.test(line)) return 'forward';
   if (/^end\s+prototypes\b/i.test(line)) return 'prototypes';
   if (/^end\s+variables\b/i.test(line)) return 'variables';
@@ -138,5 +166,11 @@ function matchClosingBlock(line: string): BlockKind | null {
   if (/^end\s+function\b/i.test(line)) return 'function';
   if (/^end\s+subroutine\b/i.test(line)) return 'subroutine';
   if (/^end\s+event\b/i.test(line) || /^end\s+on\b/i.test(line)) return 'event';
+  // --- Bloques ejecutables (portado de plugin_old pbLanguageGrammar.ts) ---
+  if (/^end\s+if\b/i.test(line)) return 'if';
+  if (/^next\b/i.test(line)) return 'for';
+  if (/^loop\b/i.test(line)) return 'do';
+  if (/^end\s+choose\b/i.test(line)) return 'choose-case';
+  if (/^end\s+try\b/i.test(line)) return 'try';
   return null;
 }

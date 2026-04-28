@@ -25,12 +25,13 @@ El proyecto dispone actualmente de una base funcional que incluye:
 - **cliente ligero** en `src/client/extension.ts` (~130 líneas, sin semántica ni parseo),
 - **servidor LSP separado** en `src/server/server.ts` con wiring limpio,
 - **activación perezosa** por contribución declarativa del lenguaje (sin `activationEvents` explícitos; VS Code activa automáticamente vía `onLanguage:powerbuilder`),
-- **Document Symbols** funcionales con extracción de hechos: variables, funciones, subrutinas, eventos, tipos,
+- **Document Symbols jerárquicos** funcionales con anidación correcta de funciones/eventos dentro de sus contenedores (clases/tipos),
 - **Hover básico** con contexto por símbolo,
-- **Diagnósticos estructurales** con validación de bloques abiertos/cerrados,
+- **Diagnósticos estructurales** con validación de bloques abiertos/cerrados (ampliado a bloques ejecutables como IF/FOR/DO),
 - **Caché de análisis** por documento con invalidación por cierre,
 - **Scheduling de diagnósticos** con debounce para no saturar al editar,
 - **Parseo** de secciones, declaraciones y cabeceras de implementación,
+- **KnowledgeBase** con soporte para indexación global y actualizaciones en lote (batch updates),
 - **Gramática TextMate** principal y gramática para bloques PowerBuilder en Markdown,
 - **FileSystemWatcher** para archivos de proyecto PowerBuilder (`.pbw`, `.pbt`, `.pbproj`, `.pbsln`),
 - y **base de tests** con estructura smoke / unit / integration / performance.
@@ -48,13 +49,15 @@ El proyecto dispone actualmente de una base funcional que incluye:
 
 ### Prioridad operativa
 
-**Estabilizar la Extracción Semántica y habilitar Cross-File Navigation (B014, B015).**
-Con la infraestructura de KnowledgeBase y Caché operativa (Spec 004), el servidor ya tiene un índice global. El siguiente paso es refinar la precisión de los símbolos detectados y habilitar la navegación entre archivos (Go to Definition global).
+### Prioridad operativa
+
+**Cerrar Diagnósticos Iniciales (B018) y preparar Resolución de Herencia (B016).**
+Hemos completado los Document Symbols jerárquicos (B014) y añadido mejoras tempranas desde el análisis del `plugin_old` (tipo base, batch updates, bloques ejecutables). El siguiente paso natural es implementar la lógica de diagnósticos semánticos tempranos (B018) y comenzar a integrar el grafo de herencia (B016) aprovechando el `baseTypeName` recién introducido.
 
 ### Fase del roadmap en foco
 
-- **Fase 3**: Interfaz del KnowledgeBase (Completada).
-- **Fase 4**: Semántica de lenguaje (B014, B015, B016).
+- **Fase 4**: Semántica de lenguaje (B014 completado, B015, B016 en curso).
+- **Fase 6**: Diagnósticos y productividad semántica base (B018).
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
 
@@ -80,15 +83,19 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Entradas pendientes prioritarias
 
-- **B014. Document symbols robustos** — Pendiente. Mejorar extracción y estabilidad sobre casos frecuentes.
-- **B015. Navegación global (Go to Definition)** — Pendiente. Utilizar la KnowledgeBase para saltar entre archivos.
-- **B016. Resolver de tipos básico** — Pendiente. Entender herencia básica para resolver miembros.
+- ~~**B014. Document symbols robustos y jerárquicos**~~ → **Cerrada.**
+
+### Entradas pendientes prioritarias
+
+- **B018. Diagnósticos iniciales** — Pendiente. Implementar validación estructural y semántica temprana usando la infraestructura actual.
+- **B016. Resolver de tipos básico e InheritanceGraph** — Pendiente. Construir el grafo de herencia para resolver miembros aprovechando el campo `baseTypeName`.
+- **B015. Navegación global (Go to Definition)** — Pendiente. Utilizar la KnowledgeBase para saltar entre archivos de forma precisa, apoyándose en la resolución de tipos.
 
 ### Orden operativo recomendado
 
-1. document symbols robustos (B014),
-2. navegación global (B015),
-3. resolver de tipos básico (B016).
+1. diagnósticos iniciales (B018),
+2. resolver de tipos básico e InheritanceGraph (B016),
+3. navegación global exacta (B015).
 
 ---
 

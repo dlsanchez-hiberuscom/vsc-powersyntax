@@ -95,8 +95,8 @@ Implementado `DocumentCache.ts` con persistencia en memoria e invalidación por 
 ### ~~B013. Esqueleto de índice incremental~~ ✅ CERRADA
 Implementada `KnowledgeBase.ts` como almacén global de entidades (Funciones, Tipos, Eventos). Soporta inserción/borrado incremental por URI y búsquedas globales case-insensitive.
 
-### B014. Document symbols robustos
-Mejorar extracción y estabilidad de símbolos documentales con cobertura útil sobre casos frecuentes.
+### ~~B014. Document symbols robustos y jerárquicos~~ ✅ CERRADA
+Extracción jerárquica completada, detectando y anidando variables, funciones, subrutinas, eventos y tipos correctamente según su contenedor.
 
 ### ~~B015. Workspace symbols base~~ ✅ CERRADA
 Permitir búsqueda global razonable de símbolos sobre el índice básico del workspace.

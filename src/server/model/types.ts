@@ -13,7 +13,12 @@ export type BlockKind =
   | 'type'
   | 'function'
   | 'subroutine'
-  | 'event';
+  | 'event'
+  | 'if'
+  | 'for'
+  | 'do'
+  | 'choose-case'
+  | 'try';
 
 export interface SymbolFact {
   name: string;
@@ -21,6 +26,7 @@ export interface SymbolFact {
   detail?: string;
   declarationOnly?: boolean;
   containerName?: string;
+  baseTypeName?: string;
   line: number;
   startCharacter: number;
   endCharacter: number;
