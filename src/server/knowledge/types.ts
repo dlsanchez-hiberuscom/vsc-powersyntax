@@ -22,6 +22,10 @@ export interface Entity {
   kind: EntityKind;
   /** URI del archivo donde está definida */
   uri: string;
+  /** Línea donde está definida (0-indexed) */
+  line: number;
+  /** Columna donde empieza el nombre (0-indexed) */
+  character: number;
   /** Representación del signature (e.g. `(integer a, string b) returns boolean`) */
   signature?: string;
 }

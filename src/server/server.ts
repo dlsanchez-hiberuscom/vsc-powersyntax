@@ -11,7 +11,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { SERVER_NAME } from '../shared/types';
-import { invalidateDocumentAnalysis, clearDocumentAnalysisCache } from './analysis/analysisCache';
+import { invalidateDocumentAnalysis, clearDocumentAnalysisCache, setAnalysisBackends } from './analysis/analysisCache';
 import {
   cancelScheduledDiagnostics,
   clearAllScheduledDiagnostics,
@@ -43,6 +43,9 @@ const fs = new NodeFileSystem();
 const workspaceState = new WorkspaceState();
 const documentCache = new DocumentCache();
 const knowledgeBase = new KnowledgeBase();
+
+// Conectar caché interactiva con backends globales para evitar doble parseo
+setAnalysisBackends(documentCache, knowledgeBase);
 
 let activeDocumentUri: string | null = null;
 let workspaceFolders: string[] = [];
@@ -104,7 +107,7 @@ connection.onInitialized(() => {
           connection.console.log(`[WORKSPACE] Iniciando indexación de ${filesCount} archivos...`);
           
           const { elapsedMs: indexingMs } = await measureMsAsync(async () => {
-            await indexWorkspace(fs, documentCache, knowledgeBase, workspaceState, token);
+            await indexWorkspace(fs, documentCache, knowledgeBase, workspaceState, token, (msg) => connection.console.error(msg));
           });
 
           if (!token.isCancelled) {

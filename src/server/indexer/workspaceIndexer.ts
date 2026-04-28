@@ -1,19 +1,14 @@
-import * as crypto from 'crypto';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { CancellationToken } from '../runtime/cancellation';
 import { IFileSystem } from '../system/fileSystem';
+import { calculateHash } from '../system/hash';
 import { DocumentCache } from '../knowledge/DocumentCache';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { WorkspaceState } from '../workspace/workspaceState';
 import { analyzeDocument } from '../analysis/documentAnalysis';
 import { extractDocumentSymbols } from '../features/documentSymbols';
 
-/**
- * Calcula un hash rápido MD5 del contenido de un archivo para la caché.
- */
-export function calculateHash(content: string): string {
-  return crypto.createHash('md5').update(content).digest('hex');
-}
+export type IndexerLogger = (msg: string) => void;
 
 /**
  * Procesa todos los archivos descubiertos en el workspace e inicializa el índice global.
@@ -23,8 +18,10 @@ export async function indexWorkspace(
   cache: DocumentCache,
   kb: KnowledgeBase,
   workspaceState: WorkspaceState,
-  token: CancellationToken
+  token: CancellationToken,
+  logger?: IndexerLogger
 ): Promise<void> {
+  const log = logger || (() => {});
   const files = workspaceState.getAllSourceFiles();
   let processedCount = 0;
 
@@ -63,8 +60,7 @@ export async function indexWorkspace(
         await new Promise(resolve => setImmediate(resolve));
       }
     } catch (e) {
-      // Si un archivo falla, lo ignoramos y seguimos (logging sutil)
-      console.error(`[INDEXER] Error procesando ${uri}: ${String(e)}`);
+      log(`[INDEXER] Error procesando ${uri}: ${String(e)}`);
     }
   }
 }

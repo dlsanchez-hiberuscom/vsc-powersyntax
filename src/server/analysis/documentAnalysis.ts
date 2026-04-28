@@ -41,7 +41,7 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
 }
 
 function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
-  const semanticFacts: Fact[] = [];
+  const factMap = new Map<string, Fact>();
 
   for (const f of facts) {
     if (f.kind === 'section') continue;
@@ -56,16 +56,24 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       default: continue;
     }
 
-    semanticFacts.push({
-      id: f.name.toLowerCase(),
+    const id = f.name.toLowerCase();
+    const existing = factMap.get(id);
+
+    // Si ya tenemos este símbolo como implementación, no lo sobreescribimos con un prototipo
+    if (existing && f.declarationOnly) continue;
+
+    factMap.set(id, {
+      id,
       name: f.name,
       kind: entityKind,
       uri: uri,
+      line: f.line,
+      character: f.startCharacter,
       signature: f.detail
     });
   }
 
-  return semanticFacts;
+  return Array.from(factMap.values());
 }
 
 function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {

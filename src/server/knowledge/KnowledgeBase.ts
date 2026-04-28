@@ -4,14 +4,17 @@ import { Entity, Fact } from './types';
 /**
  * Índice semántico global del workspace.
  * Transforma una lista de "Facts" por archivo en mapas consultables globalmente.
+ *
+ * Soporta múltiples entidades con el mismo nombre (frecuente en PB:
+ * distintos objetos pueden definir funciones como `of_SetData`).
  */
 export class KnowledgeBase {
   /**
    * Mapa de Símbolos Globales.
    * Key: Normalizado (id en minúsculas).
-   * Value: La entidad.
+   * Value: Array de entidades con ese nombre (puede haber varias en archivos distintos).
    */
-  private globalSymbols: Map<string, Entity> = new Map();
+  private globalSymbols: Map<string, Entity[]> = new Map();
 
   /**
    * Índice inverso para saber qué símbolos aporta cada archivo.
@@ -26,16 +29,17 @@ export class KnowledgeBase {
    */
   upsertDocument(uri: string, facts: Fact[]): void {
     const normalizedUri = normalizeUri(uri);
-    
+
     // 1. Limpiar rastro previo de este documento
     this.removeDocument(normalizedUri);
 
     // 2. Indexar nuevos facts
     const symbolIds = new Set<string>();
-    
+
     for (const fact of facts) {
-      // Como Fact actualmente es alias de Entity, lo guardamos en globalSymbols
-      this.globalSymbols.set(fact.id, fact);
+      const existing = this.globalSymbols.get(fact.id) || [];
+      existing.push(fact);
+      this.globalSymbols.set(fact.id, existing);
       symbolIds.add(fact.id);
     }
 
@@ -44,24 +48,42 @@ export class KnowledgeBase {
 
   /**
    * Elimina del índice global todo el conocimiento aportado por un archivo.
+   * Solo elimina las entidades que pertenecen a ese archivo, preservando las de otros.
    */
   removeDocument(uri: string): void {
     const normalizedUri = normalizeUri(uri);
-    const existingSymbols = this.documentSymbols.get(normalizedUri);
-    
-    if (existingSymbols) {
-      for (const id of existingSymbols) {
-        this.globalSymbols.delete(id);
+    const existingSymbolIds = this.documentSymbols.get(normalizedUri);
+
+    if (existingSymbolIds) {
+      for (const id of existingSymbolIds) {
+        const entities = this.globalSymbols.get(id);
+        if (entities) {
+          const filtered = entities.filter(e => normalizeUri(e.uri) !== normalizedUri);
+          if (filtered.length > 0) {
+            this.globalSymbols.set(id, filtered);
+          } else {
+            this.globalSymbols.delete(id);
+          }
+        }
       }
       this.documentSymbols.delete(normalizedUri);
     }
   }
 
   /**
-   * Busca una definición global por su nombre (case-insensitive).
+   * Busca la primera definición global por nombre (case-insensitive).
    */
   findDefinition(symbolName: string): Entity | null {
-    return this.globalSymbols.get(symbolName.toLowerCase()) || null;
+    const entities = this.globalSymbols.get(symbolName.toLowerCase());
+    return entities && entities.length > 0 ? entities[0] : null;
+  }
+
+  /**
+   * Busca todas las definiciones globales de un símbolo (case-insensitive).
+   * Necesario para "Go to Definition" cuando hay múltiples coincidencias.
+   */
+  findAllDefinitions(symbolName: string): Entity[] {
+    return this.globalSymbols.get(symbolName.toLowerCase()) || [];
   }
 
   /**
@@ -76,8 +98,12 @@ export class KnowledgeBase {
    * Retorna estadísticas del índice.
    */
   getStats() {
+    let totalEntities = 0;
+    for (const entities of this.globalSymbols.values()) {
+      totalEntities += entities.length;
+    }
     return {
-      totalEntities: this.globalSymbols.size,
+      totalEntities,
       indexedDocuments: this.documentSymbols.size
     };
   }

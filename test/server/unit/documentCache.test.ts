@@ -10,7 +10,7 @@ suite('unit/knowledge', () => {
       const entry = {
         version: 'hash1',
         symbols: [],
-        facts: [{ id: 'f_test', name: 'f_test', kind: EntityKind.Function, uri }]
+        facts: [{ id: 'f_test', name: 'f_test', kind: EntityKind.Function, uri, line: 0, character: 0 }]
       };
 
       cache.set(uri, entry);
