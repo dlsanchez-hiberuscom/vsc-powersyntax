@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 
 import { findSections } from '../../../src/server/parsing/sections';
 
@@ -16,11 +15,13 @@ const sampleLines = [
   'end variables'
 ];
 
-test('findSections detecta FORWARD, PROTOTYPES y VARIABLES', () => {
-  const sections = findSections(sampleLines);
+suite('unit/sections', () => {
+  test('findSections detecta FORWARD, PROTOTYPES y VARIABLES', () => {
+    const sections = findSections(sampleLines);
 
-  assert.equal(sections.length, 3);
-  assert.equal(sections[0].kind, 'forward');
-  assert.equal(sections[1].kind, 'prototypes');
-  assert.equal(sections[2].kind, 'variables');
+    assert.equal(sections.length, 3);
+    assert.equal(sections[0].kind, 'forward');
+    assert.equal(sections[1].kind, 'prototypes');
+    assert.equal(sections[2].kind, 'variables');
+  });
 });

@@ -1,7 +1,7 @@
 {
   "name": "vsc-powersyntax",
   "displayName": "VSC PowerSyntax",
-  "description": "Base inicial de extensión para PowerBuilder y PowerScript con arquitectura cliente + servidor LSP.",
+  "description": "Extensión para PowerBuilder y PowerScript con cliente ligero y servidor LSP separado.",
   "version": "0.1.0",
   "publisher": "lopez",
   "author": "David Lopez",
@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dlsanchez-hiberuscom/vsc-powersyntax"
+    "url": "https://github.com/dlsanchez-hiberuscom/vsc-powersyntax.git"
   },
   "engines": {
     "vscode": "^1.100.0"
@@ -40,7 +40,6 @@
     "lsp"
   ],
   "icon": "icons/powerbuilder.png",
-  "activationEvents": [],
   "contributes": {
     "languages": [
       {
@@ -62,7 +61,6 @@
           ".srj",
           ".srq"
         ],
-        "firstLine": "^((HA)?(?=\\$)|forward)",
         "configuration": "./language-configuration.json",
         "icon": {
           "dark": "./icons/powerbuilder.png",
@@ -88,22 +86,30 @@
       }
     ]
   },
-  
+  "files": [
+    "out/**",
+    "syntaxes/**",
+    "icons/**",
+    "language-configuration.json",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
+    "rebuild": "npm run clean && npm run compile",
 
-"scripts": {
-  "vscode:prepublish": "npm run compile",
-  "compile": "npm run compile:client && npm run compile:server",
-  "compile:client": "tsc -p tsconfig.client.json",
-  "compile:server": "tsc -p tsconfig.server.json",
-  "watch:client": "tsc -watch -p tsconfig.client.json",
-  "watch:server": "tsc -watch -p tsconfig.server.json",
-  "watch": "echo \"Usa 'npm run watch:client' y 'npm run watch:server' en terminales separadas\"",
-  "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
-  "rebuild": "npm run clean && npm run compile",
-  "test": "npm run build:test && npm run test:run-compiled",
-  "build:test": "tsc -p tsconfig.test.json",
-  "test:run-compiled": "node ./scripts/run-compiled-tests.cjs"
-},
+    "build:test": "tsc -p tsconfig.test.json",
+
+    "test": "npm run build:test && vscode-test --label smoke --label unit --label integration",
+    "test:smoke": "npm run build:test && vscode-test --label smoke",
+    "test:unit": "npm run build:test && vscode-test --label unit",
+    "test:integration": "npm run build:test && vscode-test --label integration",
+    "test:performance": "npm run build:test && vscode-test --label performance"
+  },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
@@ -113,6 +119,10 @@
     "@types/node": "^22.19.17",
     "@types/vscode": "^1.100.0",
     "typescript": "^5.9.2",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "mocha": "^10.7.3",
+    "@types/mocha": "^10.0.10"
   }
 }

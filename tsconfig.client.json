@@ -1,14 +1,23 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "out",
+    "rootDir": "src/client",
+    "outDir": "out/client",
     "types": [
       "node",
       "vscode"
-    ]
+    ],
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "tsBuildInfoFile": "out/.tsbuildinfo/client.tsbuildinfo"
   },
   "include": [
-    "src/client/**/*.ts",
-    "src/shared/**/*.ts"
+    "src/client/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.shared.json"
+    }
   ]
 }

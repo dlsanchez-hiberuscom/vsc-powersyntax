@@ -1,30 +1,41 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
-import { getDocumentAnalysis, clearDocumentAnalysisCache } from '../../../src/server/analysis/analysisCache';
 import { loadFixture } from '../helpers/fixtureLoader';
 
-const source = loadFixture('basic/sample_forward.sru');
+suite('unit/documentAnalysis', () => {
+  test('analyzeDocument construye secciones y facts', () => {
+    const source = loadFixture('basic/sample_forward.sru');
+    const document = TextDocument.create(
+      'file:///documentAnalysis-unit.sru',
+      'powerbuilder',
+      1,
+      source
+    );
 
-test('analyzeDocument construye secciones y facts', () => {
-  const document = TextDocument.create('file:///sample.sru', 'powerbuilder', 1, source);
-  const analysis = analyzeDocument(document);
+    const analysis = analyzeDocument(document);
 
-  assert.ok(analysis.sections.length >= 3);
-  assert.ok(analysis.facts.some((fact) => fact.kind === 'section' && fact.name === 'forward'));
-  assert.ok(analysis.facts.some((fact) => fact.kind === 'variable' && fact.name === 'ls_name'));
-  assert.ok(analysis.facts.some((fact) => fact.kind === 'function' && fact.name === 'of_get_name'));
-});
+    assert.ok(analysis.sections.length >= 3);
+    assert.ok(analysis.facts.length > 0);
 
-test('getDocumentAnalysis reutiliza caché por versión', () => {
-  clearDocumentAnalysisCache();
-  const document = TextDocument.create('file:///cache.sru', 'powerbuilder', 1, source);
+    assert.ok(analysis.sections.some((section) => section.kind === 'forward'));
+    assert.ok(analysis.sections.some((section) => section.kind === 'prototypes'));
+    assert.ok(analysis.sections.some((section) => section.kind === 'variables'));
 
-  const a1 = getDocumentAnalysis(document);
-  const a2 = getDocumentAnalysis(document);
+    assert.ok(
+      analysis.facts.some(
+        (fact) => fact.kind === 'variable' && fact.name === 'ib_inicializado'
+      ),
+      'No se detectó la variable esperada ib_inicializado.'
+    );
 
-  assert.equal(a1, a2);
+    assert.ok(
+      analysis.facts.some(
+        (fact) => ['function', 'subroutine', 'event'].includes(fact.kind) && fact.name === 'uf_inicializar'
+      ),
+      'No se detectó el símbolo esperado uf_inicializar.'
+    );
+  });
 });

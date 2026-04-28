@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 
 import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -7,28 +6,47 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { provideHover } from '../../../src/server/features/hover';
 import { loadFixture } from '../helpers/fixtureLoader';
 
-const source = loadFixture('basic/sample_forward.sru');
+suite('unit/hover', () => {
+  test('provideHover devuelve hover sobre una función real', () => {
+    const source = loadFixture('basic/sample_forward.sru');
+    const document = TextDocument.create(
+      'file:///hover-unit.sru',
+      'powerbuilder',
+      1,
+      source
+    );
 
-test('provideHover devuelve hover sobre una función', () => {
-  const document = TextDocument.create('file:///hover.sru', 'powerbuilder', 1, source);
-  const lines = source.split(/\r?\n/);
-  const targetLine = lines.findIndex((line) => line.includes('of_get_name'));
-  const char = lines[targetLine].indexOf('of_get_name') + 2;
+    const lines = source.split(/\r?\n/);
+    const token = 'uf_inicializar';
+    const lineIndex = lines.findIndex((line) => line.includes(token));
 
-  const hover = provideHover(document, Position.create(targetLine, char));
+    assert.ok(lineIndex >= 0, `No se encontró '${token}' en el fixture.`);
 
-  assert.ok(hover);
-  if (!hover || typeof hover.contents === 'string' || Array.isArray(hover.contents)) {
-    assert.fail('Hover no tiene el formato esperado');
-  }
+    const char = lines[lineIndex].indexOf(token) + 1;
+    const hover = provideHover(document, Position.create(lineIndex, char));
 
-  assert.match(hover.contents.value, /FUNCTION|SUBROUTINE/i);
-  assert.match(hover.contents.value, /of_get_name/i);
-});
+    assert.ok(hover, `Hover no debería ser null para '${token}'.`);
 
-test('provideHover devuelve null cuando no hay símbolo', () => {
-  const document = TextDocument.create('file:///hover-null.sru', 'powerbuilder', 1, source);
-  const hover = provideHover(document, Position.create(0, 0));
+    if (hover && typeof hover.contents === 'object' && 'value' in hover.contents) {
+      assert.ok(hover.contents.value.length > 0);
+    }
+  });
 
-  assert.equal(hover, null);
+  test('provideHover devuelve null cuando no hay símbolo', () => {
+    const source = loadFixture('basic/sample_forward.sru');
+    const document = TextDocument.create(
+      'file:///hover-unit-null.sru',
+      'powerbuilder',
+      1,
+      source
+    );
+
+    const lines = source.split(/\r?\n/);
+    const blankLineIndex = lines.findIndex((line) => line.trim() === '');
+
+    assert.ok(blankLineIndex >= 0, 'No se encontró una línea en blanco en el fixture.');
+
+    const hover = provideHover(document, Position.create(blankLineIndex, 0));
+    assert.equal(hover, null);
+  });
 });

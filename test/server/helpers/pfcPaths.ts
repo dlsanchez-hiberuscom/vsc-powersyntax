@@ -1,37 +1,71 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import * as fs from 'fs';
+import * as path from 'path';
+import { resolveRepoRoot } from './fixtureLoader';
+
+function resolvePfcPath(folderName: string): string {
+  return path.join(resolveRepoRoot(), 'fixtures-local', 'pfc', folderName);
+}
+
+export const pfcWorkspacePath = resolvePfcPath('2025-Workspace');
+export const pfcSolutionPath = resolvePfcPath('2025-Solution');
+
+export const PFC_WORKSPACE_PATH = pfcWorkspacePath;
+export const PFC_SOLUTION_PATH = pfcSolutionPath;
 
 export function getPfcWorkspacePath(): string {
-  return path.resolve(process.cwd(), 'fixtures-local', 'pfc', '2025-Workspace');
+  return pfcWorkspacePath;
 }
 
 export function getPfcSolutionPath(): string {
-  return path.resolve(process.cwd(), 'fixtures-local', 'pfc', '2025-Solution');
+  return pfcSolutionPath;
 }
 
 export function hasPfcWorkspace(): boolean {
-  return fs.existsSync(getPfcWorkspacePath());
+  return fs.existsSync(pfcWorkspacePath);
 }
 
 export function hasPfcSolution(): boolean {
-  return fs.existsSync(getPfcSolutionPath());
+  return fs.existsSync(pfcSolutionPath);
 }
 
-export function listFilesRecursive(root: string, extensions: string[]): string[] {
-  const result: string[] = [];
+export function listFilesRecursive(rootPath: string, extensions?: string[]): string[] {
+  if (!fs.existsSync(rootPath)) {
+    return [];
+  }
 
-  function visit(current: string): void {
-    const entries = fs.readdirSync(current, { withFileTypes: true });
+  const normalizedExtensions = extensions?.map(ext =>
+    ext.startsWith('.') ? ext.toLowerCase() : `.${ext.toLowerCase()}`
+  );
+
+  const results: string[] = [];
+
+  function walk(currentPath: string): void {
+    const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+
     for (const entry of entries) {
-      const fullPath = path.join(current, entry.name);
+      const fullPath = path.join(currentPath, entry.name);
+
       if (entry.isDirectory()) {
-        visit(fullPath);
-      } else if (extensions.some((ext) => entry.name.toLowerCase().endsWith(ext))) {
-        result.push(fullPath);
+        walk(fullPath);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      if (!normalizedExtensions || normalizedExtensions.length === 0) {
+        results.push(fullPath);
+        continue;
+      }
+
+      const ext = path.extname(entry.name).toLowerCase();
+      if (normalizedExtensions.includes(ext)) {
+        results.push(fullPath);
       }
     }
   }
 
-  visit(root);
-  return result;
+  walk(rootPath);
+  return results;
 }

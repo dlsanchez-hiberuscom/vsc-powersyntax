@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 
 import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -7,15 +6,46 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { provideHover } from '../../../src/server/features/hover';
 import { loadFixture } from '../helpers/fixtureLoader';
 
-const source = loadFixture('basic/sample_forward.sru');
+suite('integration/hover', () => {
+  test('hover funciona sobre fixture real', () => {
+    const source = loadFixture('basic/sample_forward.sru');
+    const document = TextDocument.create(
+      'file:///integration-hover.sru',
+      'powerbuilder',
+      1,
+      source
+    );
 
-test('integración: hover funciona sobre fixture real', () => {
-  const document = TextDocument.create('file:///integration-hover.sru', 'powerbuilder', 1, source);
-  const lines = source.split(/\r?\n/);
-  const lineIndex = lines.findIndex((line) => line.includes('ue_refresh'));
-  const char = lines[lineIndex].indexOf('ue_refresh') + 1;
+    const lines = source.split(/\r?\n/);
+    const candidates = [
+      'uf_inicializar',
+      'constructor',
+      'destructor',
+      'uf_dame_empresas_filtradas'
+    ];
 
-  const hover = provideHover(document, Position.create(lineIndex, char));
+    let token: string | undefined;
+    let lineIndex = -1;
 
-  assert.ok(hover);
+    for (const candidate of candidates) {
+      const idx = lines.findIndex((line) => line.includes(candidate));
+      if (idx >= 0) {
+        token = candidate;
+        lineIndex = idx;
+        break;
+      }
+    }
+
+    assert.ok(token, 'No se encontró ningún símbolo usable en el fixture.');
+    assert.ok(lineIndex >= 0, `No se encontró línea para el símbolo '${token}'.`);
+
+    const char = lines[lineIndex].indexOf(token!) + 1;
+    const hover = provideHover(document, Position.create(lineIndex, char));
+
+    assert.ok(hover, `Hover no debería ser null para '${token}'.`);
+
+    if (hover && typeof hover.contents === 'object' && 'value' in hover.contents) {
+      assert.ok(hover.contents.value.length > 0);
+    }
+  });
 });

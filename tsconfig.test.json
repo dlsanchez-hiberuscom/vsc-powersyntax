@@ -1,9 +1,17 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "out/test",
     "rootDir": ".",
-    "types": ["node"]
+    "outDir": "out",
+    "types": [
+      "node",
+      "vscode",
+      "mocha"
+    ],
+    "declaration": false,
+    "tsBuildInfoFile": "out/.tsbuildinfo/test.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "test/**/*.ts"
+  ]
 }

@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -21,36 +20,38 @@ class FakeConnection {
 
 const source = loadFixture('basic/sample.sru');
 
-test('publishDiagnosticsNow publica inmediatamente', () => {
-  const connection = new FakeConnection();
-  const document = TextDocument.create('file:///scheduler-now.sru', 'powerbuilder', 1, source);
+suite('unit/diagnosticScheduler', () => {
+  test('publishDiagnosticsNow publica inmediatamente', () => {
+    const connection = new FakeConnection();
+    const document = TextDocument.create('file:///scheduler-now.sru', 'powerbuilder', 1, source);
 
-  publishDiagnosticsNow(connection as never, document);
+    publishDiagnosticsNow(connection as never, document);
 
-  assert.equal(connection.calls.length, 1);
-  assert.equal(connection.calls[0].uri, document.uri);
-});
+    assert.equal(connection.calls.length, 1);
+    assert.equal(connection.calls[0].uri, document.uri);
+  });
 
-test('scheduleDiagnostics publica tras el retardo', async () => {
-  const connection = new FakeConnection();
-  const document = TextDocument.create('file:///scheduler-delay.sru', 'powerbuilder', 1, source);
+  test('scheduleDiagnostics publica tras el retardo', async () => {
+    const connection = new FakeConnection();
+    const document = TextDocument.create('file:///scheduler-delay.sru', 'powerbuilder', 1, source);
 
-  scheduleDiagnostics(connection as never, document, 10);
+    scheduleDiagnostics(connection as never, document, 10);
 
-  await new Promise((resolve) => setTimeout(resolve, 30));
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
-  assert.equal(connection.calls.length, 1);
-});
+    assert.equal(connection.calls.length, 1);
+  });
 
-test('cancelScheduledDiagnostics cancela una publicación pendiente', async () => {
-  const connection = new FakeConnection();
-  const document = TextDocument.create('file:///scheduler-cancel.sru', 'powerbuilder', 1, source);
+  test('cancelScheduledDiagnostics cancela una publicación pendiente', async () => {
+    const connection = new FakeConnection();
+    const document = TextDocument.create('file:///scheduler-cancel.sru', 'powerbuilder', 1, source);
 
-  scheduleDiagnostics(connection as never, document, 20);
-  cancelScheduledDiagnostics(document.uri);
+    scheduleDiagnostics(connection as never, document, 20);
+    cancelScheduledDiagnostics(document.uri);
 
-  await new Promise((resolve) => setTimeout(resolve, 40));
+    await new Promise((resolve) => setTimeout(resolve, 40));
 
-  assert.equal(connection.calls.length, 0);
-  clearAllScheduledDiagnostics();
+    assert.equal(connection.calls.length, 0);
+    clearAllScheduledDiagnostics();
+  });
 });

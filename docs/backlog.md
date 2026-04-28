@@ -2,7 +2,7 @@
 
 ## 1. Propósito
 
-Este backlog contiene trabajo pendiente priorizado del proyecto.
+Este backlog contiene el trabajo pendiente priorizado del proyecto.
 
 Debe mantenerse siempre alineado con:
 
@@ -12,23 +12,47 @@ Debe mantenerse siempre alineado con:
 - el current focus,
 - y el estado real del código.
 
+El backlog no debe comportarse como una lista estática de deseos, sino como una cola viva y realista de trabajo ejecutable por fases pequeñas, con prioridad clara y validación suficiente.
+
 ---
 
 ## 2. Reglas de gestión
 
 - No se listan features ya cerradas como si siguieran pendientes.
-- No se reabre trabajo cerrado salvo bug o deuda real.
-- Toda entrada debe ser concreta y accionable.
+- No se reabre trabajo cerrado salvo bug, regresión o deuda real claramente justificada.
+- Toda entrada debe ser concreta, accionable y revisable.
 - El backlog debe priorizar la base antes que mejoras periféricas.
 - Las features grandes deben dividirse en slices pequeños.
+- Ninguna entrada debe introducir duplicación de semántica si puede apoyarse en servicios comunes.
+- No se priorizan features avanzadas de IA ni automatización externa antes de consolidar la base.
+- Toda entrada que afecte a arquitectura, rendimiento o documentación debe reflejarse también en los artefactos canónicos correspondientes.
 
 ---
 
-## 3. Backlog priorizado actual
+## 3. Estructura de prioridades
+
+### P0 — Crítico / base inmediata
+Trabajo necesario para que el plugin tenga una base profesional, rápida y mantenible.
+
+### P1 — Núcleo de valor inmediato
+Trabajo que ya aporta valor visible al desarrollador y se apoya en base razonablemente estable.
+
+### P2 — Backbone semántico y escalabilidad
+Trabajo que endurece la semántica, la precisión, el índice y la escala del plugin.
+
+### P3 — Profesionalización avanzada
+Trabajo de alto valor que requiere núcleo más maduro y validación mayor.
+
+### P4 — Ecosistema PowerBuilder y automatización
+Trabajo específico del ecosistema PowerBuilder y de apertura controlada a tooling/automatización.
+
+---
+
+## 4. Backlog priorizado actual
 
 ## P0 — Crítico / base inmediata
 
-### B001. Ajustar activación perezosa definitiva
+### B001. Cerrar activación perezosa definitiva
 Garantizar que la extensión no hace trabajo pesado al inicio y que la activación responde solo a uso real.
 
 ### B002. Consolidar wiring cliente ↔ servidor LSP
@@ -37,54 +61,224 @@ Dejar el bootstrap del LSP limpio, estable, observable y fácil de mantener.
 ### B003. Medición base de cold start y primer archivo
 Añadir forma repetible de medir tiempos reales de carga y tiempo hasta primer servicio útil.
 
-### B004. Estrategia de prioridad para archivo activo
-Formalizar y aplicar prioridad estricta del archivo abierto frente al análisis global.
+### B004. Formalizar prioridad estricta del archivo activo
+Aplicar una política real de prioridad para archivo abierto frente al análisis global.
 
-### B005. Esqueleto de índice incremental
-Introducir la base del índice e invalidación fina sin todavía cerrar toda la semántica avanzada.
+### B005. Añadir scheduler mínimo con prioridades y cancelación
+Introducir coordinación básica del trabajo pesado para proteger el flujo interactivo.
 
-## P1 — Núcleo de valor inmediato
+### B006. Descubrimiento de workspace y política básica de roots
+Detectar roots, archivos relevantes, exclusiones y contexto mínimo del proyecto.
 
-### B006. Document symbols robustos
-### B007. Workspace symbols base
-### B008. Go to definition fiable en casos base
-### B009. Hover base con contexto útil
-### B010. Diagnósticos iniciales bien delimitados
+### B007. Observabilidad mínima del runtime
+Exponer métricas básicas de arranque, tiempo hasta primer servicio y operaciones costosas visibles.
 
-## P2 — Semántica y escalabilidad
+### B008. Endurecer ciclo de vida del servidor
+Cubrir start / stop / restart / fallos básicos del servidor sin degradar la experiencia de uso.
 
-### B011. Referencias seguras
-### B012. Rename controlado
-### B013. Caché persistente por workspace
-### B014. Cancelación y debounce de tareas costosas
-### B015. Validación sobre workspace grande real
+### B009. Alinear documentación canónica de base
+Asegurar que README, architecture, roadmap, backlog y current-focus reflejan el estado real del bootstrap.
 
-## P3 — Profesionalización avanzada
-
-### B016. Semantic tokens por scope
-### B017. Signature help robusto
-### B018. Owner-aware navigation
-### B019. Diagnóstico de variables no usadas
-### B020. Detección de shadowing
+### B010. Normalizar validación base del repositorio
+Dejar tests y validación mínima repetible integrados en el flujo normal del proyecto.
 
 ---
 
-## 4. Entradas candidatas futuras
+## P1 — Núcleo de valor inmediato
+
+### B011. Pipeline de parseo incremental usable
+Transformar cambios de archivos en conocimiento reutilizable sin rehacer todo el workspace.
+
+### B012. Caché documental por archivo
+Introducir caché básica por documento con invalidación por versión o fingerprint.
+
+### B013. Esqueleto de índice incremental
+Introducir la base del índice e invalidación fina sin cerrar todavía toda la semántica avanzada.
+
+### B014. Document symbols robustos
+Mejorar extracción y estabilidad de símbolos documentales con cobertura útil sobre casos frecuentes.
+
+### B015. Workspace symbols base
+Permitir búsqueda global razonable de símbolos sobre el índice básico del workspace.
+
+### B016. Hover base con contexto útil
+Ofrecer información útil y no trivial a partir de parsing, symbols y catálogo oficial disponible.
+
+### B017. Go to definition fiable en casos base
+Resolver navegación a definición en escenarios iniciales frecuentes y controlados.
+
+### B018. Diagnósticos iniciales bien delimitados
+Publicar diagnósticos sintácticos y estructurales sin invadir todavía semántica avanzada.
+
+### B019. Introducir primer catálogo oficial del lenguaje
+Modelar funciones, keywords y elementos oficiales de PowerBuilder que aporten valor temprano a hover, ayuda y validación.
+
+### B020. Base de scopes y binding inicial
+Preparar una representación semántica compartida para que las features dejen de depender solo de heurísticas.
+
+---
+
+## P2 — Backbone semántico y escalabilidad
+
+### B021. Queries compartidas del knowledge layer
+Crear servicios comunes de consulta para hover, definition, references y diagnostics.
+
+### B022. Modelo de dependencias básico
+Relacionar símbolos y objetos entre sí para entender impacto y contexto.
+
+### B023. Búsqueda de referencias segura en casos base
+Introducir find references sobre la misma plataforma de conocimiento común.
+
+### B024. Caché persistente por workspace
+Persistir metadatos útiles para acelerar reinicios y warm-up.
+
+### B025. Invalidación fina por impacto
+Mejorar el recálculo para que solo se reanalice lo afectado por cambios locales.
+
+### B026. Navegación por herencia y owner-awareness
+Añadir soporte inicial de ancestros, descendientes y relaciones más propias de PowerBuilder.
+
+### B027. Semantic tokens por rol y scope
+Enriquecer el editor usando el backbone de símbolos y roles semánticos compartidos.
+
+### B028. Signature help base
+Introducir ayuda de firmas sobre catálogo y resolución suficientemente fiables.
+
+### B029. Completado contextual base
+Ofrecer sugerencias útiles apoyadas en el índice, scopes y catálogo oficial.
+
+### B030. Validación sobre workspace grande real
+Ejecutar y medir el plugin sobre un corpus grande real de PowerBuilder para detectar cuellos de botella y falsos positivos.
+
+---
+
+## P3 — Profesionalización avanzada
+
+### B031. Referencias más precisas y robustas
+Ampliar cobertura de referencias sobre más escenarios semánticos y estructurales.
+
+### B032. Rename controlado
+Permitir renombrado seguro en escenarios acotados con suficiente fiabilidad.
+
+### B033. Diagnósticos semánticos iniciales
+Detectar incoherencias de más valor cuando la base de resolución ya sea razonablemente fiable.
+
+### B034. Diagnóstico de variables no usadas
+Introducir regla semántica clara y útil de productividad.
+
+### B035. Detección de shadowing
+Detectar sombreado de variables o identificadores cuando exista soporte suficiente en scopes.
+
+### B036. Code actions básicas
+Añadir correcciones automáticas pequeñas apoyadas en diagnósticos ya consolidados.
+
+### B037. Explorador semántico del proyecto
+Presentar el sistema por conceptos lógicos y no solo por archivos.
+
+### B038. Métricas y análisis de complejidad
+Aportar visión de riesgo y mantenibilidad sobre el proyecto real.
+
+### B039. Validación continua sobre corpus reales
+Convertir la validación sobre PFC u otros corpus en práctica repetible y mantenida en el tiempo.
+
+### B040. Optimización sobre workspaces grandes y legacy
+Reducir coste de memoria, latencias y puntos de bloqueo en escenarios enterprise reales.
+
+---
+
+## P4 — Ecosistema PowerBuilder y automatización
+
+### B041. Catálogo y navegación de DataWindow
+Tratar DataWindow y DataStore con una base de conocimiento comparable al lenguaje general.
+
+### B042. Soporte avanzado de DataWindow
+Ampliar cobertura específica de expresiones, funciones, objetos y patrones DataWindow.
+
+### B043. Integración con PBAutoBuild
+Permitir compilar y validar proyectos desde el backend oficial de automatización PowerBuilder.
+
+### B044. Estado de build y salud del workspace
+Detectar precondiciones, configuración y problemas de compilación antes de lanzar automatizaciones.
+
+### B045. Auditoría de arquitectura y convenciones
+Permitir revisar consistencia técnica y reglas del equipo sobre una plataforma ya madura.
+
+### B046. Contratos públicos de API local
+Preparar una frontera desacoplada y versionable para consumo externo.
+
+### B047. Consultas automatizables para herramientas externas
+Exponer conocimiento útil del proyecto sin contaminar el dominio interno.
+
+### B048. Integración con OrcaScript/ORCA
+Añadir compatibilidad con automatizaciones avanzadas o legacy del ecosistema PowerBuilder.
+
+### B049. Asistencia a refactorización más avanzada
+Aprovechar el backbone semántico para cambios más complejos y guiados.
+
+### B050. Capacidades avanzadas para automatización e IA
+Permitir que agentes externos consuman la plataforma mediante contratos limpios y estables.
+
+---
+
+## 5. Entradas candidatas futuras
 
 Estas entradas no deben pasar a prioridad alta sin justificación:
 
 - vistas adicionales no esenciales,
 - capacidades ornamentales sin valor técnico claro,
 - features avanzadas de IA sin base consolidada,
-- automatizaciones que no estén apoyadas en una arquitectura ya estable.
+- automatizaciones que no estén apoyadas en una arquitectura ya estable,
+- integraciones específicas de bajo retorno si no existe todavía valor suficiente en el núcleo del plugin.
 
 ---
 
-## 5. Regla de cierre
+## 6. Relación con fases del roadmap
+
+### Fase 0–1
+- B001–B010
+
+### Fase 2–3
+- B011–B020
+
+### Fase 4–6
+- B021–B030
+
+### Fase 7–8
+- B031–B040
+
+### Fase 9–11
+- B041–B050
+
+---
+
+## 7. Regla de promoción entre prioridades
+
+Una entrada no debe subir de prioridad si:
+
+- depende de otra base no cerrada,
+- no tiene criterio de validación razonable,
+- no tiene impacto o alcance entendible,
+- o empuja al plugin a crecer por atajos fuera del backbone semántico común.
+
+---
+
+## 8. Regla de cierre
 
 Una entrada del backlog solo puede cerrarse si:
 
 - existe implementación real,
 - pasa validación suficiente,
 - la documentación afectada está actualizada,
-- y su cierre queda reflejado en current-focus / roadmap si corresponde.
+- su cierre queda reflejado en current-focus / roadmap si corresponde,
+- y no deja deuda crítica oculta sin registrar.
+
+---
+
+## 9. Observación operativa
+
+Este backlog debe revisarse frecuentemente para que:
+
+- no arrastre trabajo ya cerrado,
+- no mezcle trabajo real con ideas futuras vagas,
+- no desordene la prioridad base → semántica → escala → ecosistema,
+- y siga siendo una herramienta operativa de ejecución, no solo una lista aspiracional.
