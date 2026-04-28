@@ -7,6 +7,8 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { provideHover } from '../../../src/server/features/hover';
 import { extractDocumentSymbols } from '../../../src/server/features/documentSymbols';
 import { validateStructure } from '../../../src/server/features/diagnostics';
+import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { getPfcWorkspacePath, hasPfcWorkspace, listFilesRecursive } from '../helpers/pfcPaths';
 
 test('PFC Workspace smoke: hover, symbols y diagnostics sobre un archivo real', { skip: !hasPfcWorkspace() }, () => {
@@ -21,7 +23,7 @@ test('PFC Workspace smoke: hover, symbols y diagnostics sobre un archivo real', 
 
   const symbols = extractDocumentSymbols(document);
   const diagnostics = validateStructure(document);
-  const hover = provideHover(document, { line: 0, character: 0 });
+  const hover = provideHover(document, { line: 0, character: 0 }, new KnowledgeBase(), new SystemCatalog());
 
   assert.ok(Array.isArray(symbols));
   assert.ok(Array.isArray(diagnostics));

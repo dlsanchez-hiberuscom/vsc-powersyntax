@@ -4,6 +4,9 @@ import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { provideHover } from '../../../src/server/features/hover';
+import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
+import { EntityKind } from '../../../src/server/knowledge/types';
 import { loadFixture } from '../helpers/fixtureLoader';
 
 suite('integration/hover', () => {
@@ -40,7 +43,18 @@ suite('integration/hover', () => {
     assert.ok(lineIndex >= 0, `No se encontró línea para el símbolo '${token}'.`);
 
     const char = lines[lineIndex].indexOf(token!) + 1;
-    const hover = provideHover(document, Position.create(lineIndex, char));
+    const kb = new KnowledgeBase();
+    kb.upsertDocument(document.uri, [{
+      id: token!.toLowerCase(),
+      name: token!,
+      kind: EntityKind.Function,
+      uri: document.uri,
+      line: lineIndex,
+      character: char
+    }]);
+    const catalog = new SystemCatalog();
+
+    const hover = provideHover(document, Position.create(lineIndex, char), kb, catalog);
 
     assert.ok(hover, `Hover no debería ser null para '${token}'.`);
 

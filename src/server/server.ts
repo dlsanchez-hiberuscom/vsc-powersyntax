@@ -29,6 +29,7 @@ import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
 import { DocumentCache } from './knowledge/DocumentCache';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
+import { SystemCatalog } from './knowledge/system/SystemCatalog';
 import { indexWorkspace } from './indexer/workspaceIndexer';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,7 @@ const fs = new NodeFileSystem();
 const workspaceState = new WorkspaceState();
 const documentCache = new DocumentCache();
 const knowledgeBase = new KnowledgeBase();
+const systemCatalog = new SystemCatalog();
 
 // Conectar caché interactiva con backends globales para evitar doble parseo
 setAnalysisBackends(documentCache, knowledgeBase);
@@ -178,7 +180,7 @@ connection.onHover((params) => {
       id: `hover-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
-        const { result, elapsedMs } = measureMs(() => provideHover(document, params.position));
+        const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog));
 
         if (firstInvocation.isFirst('hover')) {
           const sinceStart = performance.now() - serverStartTime;

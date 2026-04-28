@@ -101,7 +101,7 @@ Mejorar extracción y estabilidad de símbolos documentales con cobertura útil 
 ### ~~B015. Workspace symbols base~~ ✅ CERRADA
 Permitir búsqueda global razonable de símbolos sobre el índice básico del workspace.
 
-### B016. Hover base con contexto útil
+### ~~B016. Hover base con contexto útil~~ ✅ CERRADA
 Ofrecer información útil y no trivial a partir de parsing, symbols y catálogo oficial disponible.
 
 ### ~~B017. Go to definition fiable en casos base~~ ✅ CERRADA
@@ -110,7 +110,7 @@ Resolver navegación a definición en escenarios iniciales frecuentes y controla
 ### B018. Diagnósticos iniciales bien delimitados
 Publicar diagnósticos sintácticos y estructurales sin invadir todavía semántica avanzada.
 
-### B019. Introducir primer catálogo oficial del lenguaje
+### ~~B019. Introducir primer catálogo oficial del lenguaje~~ ✅ CERRADA
 Modelar funciones, keywords y elementos oficiales de PowerBuilder que aporten valor temprano a hover, ayuda y validación.
 
 ### B020. Base de scopes y binding inicial
