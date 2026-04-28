@@ -802,3 +802,17 @@ La mejora recomendada no cambia la dirección base del proyecto, pero sí endure
 7. y medir siempre el impacto en activación, archivo activo, workspaces grandes y memoria. 
 
 Con esta revisión, la arquitectura queda mejor preparada para crecer en semántica fuerte, soportar proyectos legacy grandes y abrir más adelante capacidades consumibles externamente sin rediseñar el core. 
+
+---
+
+## 17. Evolución y Herencia (Insights de `plugin_old`)
+
+La arquitectura actual, fuertemente basada en inyección de dependencias y servicios acotados (como `KnowledgeBase` y `SystemCatalog`), está diseñada deliberadamente para soportar y absorber progresivamente la complejidad técnica que residía en el `plugin_old`.
+
+A medida que el proyecto avance hacia fases semánticas fuertes (Fase 6 y 7), se planea el porting e integración de los siguientes artefactos clave del antiguo plugin:
+
+1.  **`PbLibraryGraph` (Workspace Topology):** Extender el motor de indexación para que deje de ser agnóstico a las carpetas, parseando los `.pbw` y `.pbt` para entender el concepto de *Library List*. Esto resolverá conflictos de objetos duplicados y shadowing.
+2.  **`InheritanceGraph`:** Incorporar el grafo de herencia de objetos dentro de la capa `knowledge`. Esto es vital para que las capas de `application` y `features` puedan resolver herencias complejas y determinar si un método es accesible desde clases descendientes.
+3.  **`SemanticEngine` y Ranking de Completado:** Adoptar el avanzado algoritmo de scoring del viejo plugin (`getCompletionScore`), el cual aplica puntajes basados en la distancia de herencia, visibilidad (global, shared, local) y *owner context*.
+
+Estas adiciones no romperán el diseño actual; se conectarán como nuevos "proveedores de contexto" dentro del `semantic backbone` (`knowledge/`), manteniendo intactos a los clientes finales (las features LSP).

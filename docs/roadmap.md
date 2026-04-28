@@ -257,7 +257,7 @@ Construir la primera capa profesional de productividad semántica reutilizando e
 - diagnósticos sintácticos y estructurales,
 - diagnósticos semánticos iniciales,
 - semantic tokens,
-- completado contextual básico,
+- completado contextual básico (adaptando reglas de *Scoring* de `plugin_old`),
 - ayuda de firmas básica,
 - cobertura creciente del catálogo oficial en hover/completion/signature help,
 - validación de latencia en archivo activo,
@@ -286,8 +286,8 @@ Subir de nivel la confianza del plugin para soportar operaciones de mayor riesgo
 ### Entregables esperados
 - renombrado seguro,
 - code actions básicas,
-- resolución más fuerte,
-- mejora del modelo de dependencias,
+- resolución más fuerte (apoyada en el porting de `InheritanceGraph` de `plugin_old`),
+- mejora del modelo de dependencias (topología basada en `.pbw` y `.pbt` extrayendo el `PbLibraryGraph` de `plugin_old`),
 - mayor precisión en referencias y usos,
 - endurecimiento de caché e invalidación para cambios complejos.
 
