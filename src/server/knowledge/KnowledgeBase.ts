@@ -24,6 +24,13 @@ export class KnowledgeBase {
   private documentSymbols: Map<string, Set<string>> = new Map();
 
   /**
+   * Versión del índice. Se incrementa con cada mutación (salvo en batch updates,
+   * donde se incrementa una vez al terminar).
+   * Permite a las cachés externas invalidarse fácilmente.
+   */
+  private currentVersion = 0;
+
+  /**
    * Profundidad de batch update. Mientras sea > 0, las operaciones
    * de upsert/remove no disparan efectos colaterales costosos.
    * Patrón portado del plugin_old (SymbolIndex.beginBatchUpdate).
@@ -45,6 +52,9 @@ export class KnowledgeBase {
   endBatchUpdate(): void {
     if (this.batchDepth > 0) {
       this.batchDepth--;
+      if (this.batchDepth === 0) {
+        this.currentVersion++;
+      }
     }
   }
 
@@ -53,6 +63,13 @@ export class KnowledgeBase {
    */
   get isBatchUpdating(): boolean {
     return this.batchDepth > 0;
+  }
+
+  /**
+   * Devuelve la versión actual del índice.
+   */
+  get version(): number {
+    return this.currentVersion;
   }
 
   /**
@@ -76,6 +93,10 @@ export class KnowledgeBase {
     }
 
     this.documentSymbols.set(normalizedUri, symbolIds);
+
+    if (!this.isBatchUpdating) {
+      this.currentVersion++;
+    }
   }
 
   /**
@@ -99,6 +120,10 @@ export class KnowledgeBase {
         }
       }
       this.documentSymbols.delete(normalizedUri);
+
+      if (!this.isBatchUpdating) {
+        this.currentVersion++;
+      }
     }
   }
 
@@ -135,6 +160,7 @@ export class KnowledgeBase {
   clear(): void {
     this.globalSymbols.clear();
     this.documentSymbols.clear();
+    this.currentVersion++;
   }
 
   /**

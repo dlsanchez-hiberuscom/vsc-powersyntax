@@ -51,13 +51,13 @@ El proyecto dispone actualmente de una base funcional que incluye:
 
 ### Prioridad operativa
 
-**Cerrar Diagnósticos Iniciales (B018) y preparar Resolución de Herencia (B016).**
-Hemos completado los Document Symbols jerárquicos (B014) y añadido mejoras tempranas desde el análisis del `plugin_old` (tipo base, batch updates, bloques ejecutables). El siguiente paso natural es implementar la lógica de diagnósticos semánticos tempranos (B018) y comenzar a integrar el grafo de herencia (B016) aprovechando el `baseTypeName` recién introducido.
+**Implementar Navegación Global Exacta (B015).**
+Hemos cerrado los Diagnósticos Iniciales (B018) y construido el `InheritanceGraph` (B016) para la resolución de tipos. El siguiente paso natural es aprovechar este grafo de herencia y la `KnowledgeBase` para permitir que el "Go to Definition" salte entre archivos de forma precisa, comprendiendo cuándo una función es sobrescrita o pertenece a un ancestro.
 
 ### Fase del roadmap en foco
 
-- **Fase 4**: Semántica de lenguaje (B014 completado, B015, B016 en curso).
-- **Fase 6**: Diagnósticos y productividad semántica base (B018).
+- **Fase 4**: Semántica de lenguaje (B014, B016 completados, B015 en curso).
+- **Fase 6**: Diagnósticos y productividad semántica base (B018 completado).
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
 
@@ -84,18 +84,18 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 ### Entradas pendientes prioritarias
 
 - ~~**B014. Document symbols robustos y jerárquicos**~~ → **Cerrada.**
+- ~~**B018. Diagnósticos iniciales**~~ → **Cerrada.**
+- ~~**B016. Resolver de tipos básico e InheritanceGraph**~~ → **Cerrada.**
 
 ### Entradas pendientes prioritarias
 
-- **B018. Diagnósticos iniciales** — Pendiente. Implementar validación estructural y semántica temprana usando la infraestructura actual.
-- **B016. Resolver de tipos básico e InheritanceGraph** — Pendiente. Construir el grafo de herencia para resolver miembros aprovechando el campo `baseTypeName`.
-- **B015. Navegación global (Go to Definition)** — Pendiente. Utilizar la KnowledgeBase para saltar entre archivos de forma precisa, apoyándose en la resolución de tipos.
+- **B015. Navegación global (Go to Definition)** — Pendiente. Utilizar la KnowledgeBase para saltar entre archivos de forma precisa, apoyándose en la resolución de tipos y en el `InheritanceGraph` recién implementado.
+- **B021. Queries compartidas del knowledge layer** — Pendiente. Crear servicios comunes para consolidar Definition y Hover.
 
 ### Orden operativo recomendado
 
-1. diagnósticos iniciales (B018),
-2. resolver de tipos básico e InheritanceGraph (B016),
-3. navegación global exacta (B015).
+1. navegación global exacta (B015),
+2. consolidación de queries (B021).
 
 ---
 

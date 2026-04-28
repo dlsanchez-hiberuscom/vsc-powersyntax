@@ -101,14 +101,14 @@ Extracción jerárquica completada, detectando y anidando variables, funciones, 
 ### ~~B015. Workspace symbols base~~ ✅ CERRADA
 Permitir búsqueda global razonable de símbolos sobre el índice básico del workspace.
 
-### ~~B016. Hover base con contexto útil~~ ✅ CERRADA
-Ofrecer información útil y no trivial a partir de parsing, symbols y catálogo oficial disponible.
+### ~~B016. Resolver de tipos básico e InheritanceGraph~~ ✅ CERRADA
+Implementado `InheritanceGraph` para calcular ancestros y miembros considerando la jerarquía (Phase 4).
 
 ### ~~B017. Go to definition fiable en casos base~~ ✅ CERRADA
 Resolver navegación a definición en escenarios iniciales frecuentes y controlados.
 
-### B018. Diagnósticos iniciales bien delimitados
-Publicar diagnósticos sintácticos y estructurales sin invadir todavía semántica avanzada.
+### ~~B018. Diagnósticos iniciales bien delimitados~~ ✅ CERRADA
+Publicados diagnósticos sintácticos y estructurales (`validateStructure`) cubriendo bloques ejecutables y declarativos sin penalizar semántica avanzada (Phase 6).
 
 ### ~~B019. Introducir primer catálogo oficial del lenguaje~~ ✅ CERRADA
 Modelar funciones, keywords y elementos oficiales de PowerBuilder que aporten valor temprano a hover, ayuda y validación.
