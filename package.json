@@ -88,7 +88,7 @@
     "commands": [
       {
         "command": "vscPowerSyntax.restartServer",
-        "title": "PowerSyntax: Restart Language Server",
+        "title": "PowerSyntax: Reiniciar Servidor de Lenguaje",
         "category": "VSC PowerSyntax"
       }
     ]

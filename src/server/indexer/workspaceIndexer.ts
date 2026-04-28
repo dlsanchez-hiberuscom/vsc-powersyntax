@@ -47,11 +47,12 @@ export async function indexWorkspace(
       cache.set(uri, {
         version: hash,
         facts: analysis.semanticFacts,
-        symbols: symbols
+        symbols: symbols,
+        scopes: analysis.scopes
       });
 
       // Actualizar KnowledgeBase
-      kb.upsertDocument(uri, analysis.semanticFacts);
+      kb.upsertDocument(uri, analysis.semanticFacts, analysis.scopes);
 
       processedCount++;
 

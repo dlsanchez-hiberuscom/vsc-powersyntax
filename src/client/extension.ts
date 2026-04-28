@@ -73,7 +73,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     clientOptions
   );
 
-  // ---- Commands -----------------------------------------------------------
+  // ---- Comandos -----------------------------------------------------------
 
   context.subscriptions.push(
     vscode.commands.registerCommand('vscPowerSyntax.restartServer', async () => {
@@ -82,7 +82,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
-  // ---- Disposable ---------------------------------------------------------
+  // ---- Limpieza (Disposable) ----------------------------------------------
 
   context.subscriptions.push({
     dispose: () => {
@@ -90,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
-  // ---- Start --------------------------------------------------------------
+  // ---- Inicio --------------------------------------------------------------
 
   const clientStartTime = performance.now();
 
@@ -105,10 +105,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const totalElapsed = performance.now() - activationStart;
 
     outputChannel.appendLine(
-      `[TIMING] LSP client start: ${clientElapsed.toFixed(2)}ms`
+      `[TIEMPO] Inicio del cliente LSP: ${clientElapsed.toFixed(2)}ms`
     );
     outputChannel.appendLine(
-      `[TIMING] Client activation total: ${totalElapsed.toFixed(2)}ms`
+      `[TIEMPO] Activación total del cliente: ${totalElapsed.toFixed(2)}ms`
     );
     outputChannel.appendLine(
       '[VSC PowerSyntax] Cliente LSP activado correctamente.'
@@ -141,7 +141,7 @@ async function restartClient(context: vscode.ExtensionContext): Promise<void> {
 
     const elapsed = performance.now() - restartStart;
     outputChannel?.appendLine(
-      `[TIMING] Server restart total: ${elapsed.toFixed(2)}ms`
+      `[TIEMPO] Reinicio total del servidor: ${elapsed.toFixed(2)}ms`
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

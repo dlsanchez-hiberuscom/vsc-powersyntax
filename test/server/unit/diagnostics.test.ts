@@ -44,6 +44,6 @@ suite('unit/diagnostics', () => {
 
     assert.ok(diagnostics.length > 0);
     assert.equal(diagnostics[0].source, DIAGNOSTIC_SOURCE);
-    assert.match(diagnostics[0].message, /sin cierre/i);
+    assert.match(diagnostics[0].message, /cerrado correctamente/i);
   });
 });

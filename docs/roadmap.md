@@ -290,6 +290,7 @@ Subir de nivel la confianza del plugin para soportar operaciones de mayor riesgo
 - mejora del modelo de dependencias (topología basada en `.pbw` y `.pbt` extrayendo el `PbLibraryGraph` de `plugin_old`),
 - reglas de visibilidad de símbolos (`public`/`protected`/`private`) portando `symbolVisibility.ts` de `plugin_old`,
 - CodeLens sobre funciones y eventos (conteo de referencias, indicación de herencia),
+- formateador de código configurable,
 - mayor precisión en referencias y usos,
 - endurecimiento de caché e invalidación para cambios complejos.
 
@@ -297,7 +298,8 @@ Subir de nivel la confianza del plugin para soportar operaciones de mayor riesgo
 - renombrado seguro,  
 - code actions básicas,  
 - reglas de visibilidad de miembros (public/protected/private),  
-- CodeLens sobre callables y herencia,  
+- CodeLens sobre callables y herencia,
+- formateador de código,
 - consolidación del modelo de dependencias.  
 
 ### Criterio de salida
@@ -439,19 +441,20 @@ Aprovechar la base ya madura para automatización avanzada sin reabrir la arquit
 20. **Ayuda de firmas**: permite asistir llamadas y uso de miembros cuando ya existe un catálogo suficientemente fiable.  
 21. **Renombrado seguro**: permite cambios más controlados cuando definición y referencias ya funcionan con confianza.  
 22. **Code actions básicas**: permite pequeñas correcciones automáticas basadas en diagnósticos existentes.  
-23. **Explorador semántico del proyecto**: permite navegar el sistema por conceptos lógicos y no solo por archivos.  
-24. **Métricas y análisis de complejidad**: permite localizar zonas problemáticas usando el grafo y el índice ya consolidados.  
-25. **Validación continua sobre corpus reales**: permite endurecer el plugin usando proyectos PowerBuilder grandes y reales para evitar errores teóricos.  
-26. **Soporte avanzado de DataWindow**: permite integrar artefactos específicos del ecosistema PowerBuilder dentro de la misma base de conocimiento.  
-27. **Catálogo y navegación de DataWindow**: permite tratar DataWindow y DataStore con un nivel de soporte profesional comparable al del lenguaje base.  
-28. **Integración con PBAutoBuild**: permite compilar y validar proyectos PowerBuilder desde un backend oficial orientado a automatización y CI.  
-29. **Estado de build y salud del workspace**: permite detectar precondiciones, configuración y problemas de compilación antes de lanzar automatizaciones.  
-30. **Auditoría de arquitectura y convenciones**: permite revisar calidad y consistencia apoyándose en la plataforma ya madura.  
-31. **Contratos públicos de API local**: permite exponer capacidades de forma desacoplada a consumidores externos sin tocar el core.  
-32. **Consultas automatizables para herramientas externas**: permite que otros procesos consuman conocimiento del proyecto de forma estable.  
-33. **Integración con OrcaScript/ORCA**: permite automatización avanzada y compatibilidad con workflows legacy de bibliotecas, source control y build.  
-34. **Asistencia a refactorización más avanzada**: permite cambios complejos cuando el backbone semántico ya es lo bastante fiable.  
-35. **Capacidades avanzadas para automatización e IA**: permite que agentes externos utilicen la base del sistema sin acoplarse a la implementación interna.  
+23. **Formateador de código configurable**: permite homogeneizar el estilo del código PowerBuilder mediante reglas parametrizables.
+24. **Explorador semántico del proyecto**: permite navegar el sistema por conceptos lógicos y no solo por archivos.  
+25. **Métricas y análisis de complejidad**: permite localizar zonas problemáticas usando el grafo y el índice ya consolidados.  
+26. **Validación continua sobre corpus reales**: permite endurecer el plugin usando proyectos PowerBuilder grandes y reales para evitar errores teóricos.  
+27. **Soporte avanzado de DataWindow**: permite integrar artefactos específicos del ecosistema PowerBuilder dentro de la misma base de conocimiento.  
+28. **Catálogo y navegación de DataWindow**: permite tratar DataWindow y DataStore con un nivel de soporte profesional comparable al del lenguaje base.  
+29. **Integración con PBAutoBuild**: permite compilar y validar proyectos PowerBuilder desde un backend oficial orientado a automatización y CI.  
+30. **Estado de build y salud del workspace**: permite detectar precondiciones, configuración y problemas de compilación antes de lanzar automatizaciones.  
+31. **Auditoría de arquitectura y convenciones**: permite revisar calidad y consistencia apoyándose en la plataforma ya madura.  
+32. **Contratos públicos de API local**: permite exponer capacidades de forma desacoplada a consumidores externos sin tocar el core.  
+33. **Consultas automatizables para herramientas externas**: permite que otros procesos consuman conocimiento del proyecto de forma estable.  
+34. **Integración con OrcaScript/ORCA**: permite automatización avanzada y compatibilidad con workflows legacy de bibliotecas, source control y build.  
+35. **Asistencia a refactorización más avanzada**: permite cambios complejos cuando el backbone semántico ya es lo bastante fiable.  
+36. **Capacidades avanzadas para automatización e IA**: permite que agentes externos utilicen la base del sistema sin acoplarse a la implementación interna.  
 
 ---
 

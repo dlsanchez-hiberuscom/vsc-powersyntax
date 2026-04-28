@@ -13,7 +13,8 @@ export function resolveTargetEntity(
   context: InvocationContext,
   currentDocumentUri: string,
   kb: KnowledgeBase,
-  graph: InheritanceGraph
+  graph: InheritanceGraph,
+  line?: number
 ): Entity[] {
   const { identifier, qualifier } = context;
   const currentUri = normalizeUri(currentDocumentUri);
@@ -41,17 +42,29 @@ export function resolveTargetEntity(
         possibleTargets = sortAndFilterByDistance(possibleTargets, currentMainObject.name, graph);
       }
     } else {
-      const localVars = allEntities.filter(
-        e => normalizeUri(e.uri) === currentUri && e.kind === EntityKind.Variable && e.name.toLowerCase() === qLower
-      );
+      let varType: string | undefined;
 
-      if (localVars.length > 0) {
-        const varType = localVars[0].datatype;
-        if (varType) {
-          const members = graph.getMembers(varType);
-          possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
-          possibleTargets = sortAndFilterByDistance(possibleTargets, varType, graph);
+      // Intentar resolver como variable local en el scope
+      if (line !== undefined) {
+        const scope = kb.getScopeAt(currentUri, line);
+        if (scope) {
+          const local = scope.symbols.find(s => s.name.toLowerCase() === qLower);
+          if (local) varType = local.datatype;
         }
+      }
+
+      // Fallback: variable de instancia en el mismo archivo
+      if (!varType) {
+        const instanceVar = allEntities.find(
+          e => normalizeUri(e.uri) === currentUri && e.kind === EntityKind.Variable && e.name.toLowerCase() === qLower
+        );
+        if (instanceVar) varType = instanceVar.datatype;
+      }
+
+      if (varType) {
+        const members = graph.getMembers(varType);
+        possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
+        possibleTargets = sortAndFilterByDistance(possibleTargets, varType, graph);
       } else {
         const typeTarget = kb.findDefinition(qLower);
         if (typeTarget && typeTarget.kind === EntityKind.Type) {
@@ -62,6 +75,18 @@ export function resolveTargetEntity(
       }
     }
   } else {
+    // 1. Prioridad: Variables Locales en el Scope actual
+    if (line !== undefined) {
+      const scope = kb.getScopeAt(currentUri, line);
+      if (scope) {
+        const localMatch = scope.symbols.find(s => s.name.toLowerCase() === identifier.toLowerCase());
+        if (localMatch) {
+          return [localMatch];
+        }
+      }
+    }
+
+    // 2. Miembros de la clase actual (instancia/herencia)
     if (currentMainObject) {
       const members = graph.getMembers(currentMainObject.name);
       const memberTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());

@@ -34,7 +34,7 @@ suite('unit/timing', () => {
 
   test('formatTiming formatea correctamente el tiempo', () => {
     const formatted = formatTiming('test', 12.3456);
-    assert.equal(formatted, '[TIMING] test: 12.35ms');
+    assert.equal(formatted, '[TIEMPO] test: 12.35ms');
   });
 
   test('FirstInvocationTracker rastrea correctamente la primera llamada', () => {

@@ -98,7 +98,7 @@ suite('unit/scheduler', () => {
 
     assert.equal(scheduler.pendingBackgroundCount, 0);
 
-    await assert.rejects(bgPromise1, /cancelled/);
-    await assert.rejects(bgPromise2, /cancelled/);
+    await assert.rejects(bgPromise1, /cancelada/i);
+    await assert.rejects(bgPromise2, /cancelada/i);
   });
 });

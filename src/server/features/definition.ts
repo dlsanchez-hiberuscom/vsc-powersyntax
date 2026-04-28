@@ -16,7 +16,7 @@ export function provideDefinition(
 
   if (!context) return null;
 
-  const possibleTargets = resolveTargetEntity(context, document.uri, kb, graph);
+  const possibleTargets = resolveTargetEntity(context, document.uri, kb, graph, position.line);
 
   if (possibleTargets.length === 0) return null;
 

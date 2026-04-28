@@ -34,7 +34,7 @@ import { SystemCatalog } from './knowledge/system/SystemCatalog';
 import { indexWorkspace } from './indexer/workspaceIndexer';
 
 // ---------------------------------------------------------------------------
-// Bootstrap
+// Inicialización (Bootstrap)
 // ---------------------------------------------------------------------------
 
 const serverStartTime = performance.now();
@@ -59,12 +59,12 @@ let workspaceFolders: string[] = [];
 scheduler.setLogger((msg) => connection.console.log(msg));
 
 // ---------------------------------------------------------------------------
-// Lifecycle
+// Ciclo de Vida (Lifecycle)
 // ---------------------------------------------------------------------------
 
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   const initElapsed = performance.now() - serverStartTime;
-  connection.console.log(formatTiming('Server process to onInitialize', initElapsed));
+  connection.console.log(formatTiming('Proceso del servidor hasta onInitialize', initElapsed));
 
   if (params.workspaceFolders) {
     workspaceFolders = params.workspaceFolders.map(f => f.uri);
@@ -84,11 +84,11 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 connection.onInitialized(() => {
   const readyElapsed = performance.now() - serverStartTime;
   connection.console.log(`${SERVER_NAME} inicializado.`);
-  connection.console.log(formatTiming('Server process to onInitialized (ready)', readyElapsed));
+  connection.console.log(formatTiming('Proceso del servidor hasta onInitialized (listo)', readyElapsed));
 
-  // Lanzar el descubrimiento global de workspace en background
+  // Lanzar el descubrimiento global de workspace en segundo plano (background)
   if (workspaceFolders.length > 0) {
-    connection.console.log(`[WORKSPACE] Iniciando descubrimiento en ${workspaceFolders.length} roots...`);
+    connection.console.log(`[WORKSPACE] Iniciando descubrimiento en ${workspaceFolders.length} raíces (roots)...`);
     
     scheduler.enqueueBackground({
       id: 'workspace-discovery',
@@ -99,7 +99,7 @@ connection.onInitialized(() => {
         });
         
         if (token.isCancelled) {
-          connection.console.log(`[WORKSPACE] Descubrimiento cancelado/pausado.`);
+          connection.console.log(`[WORKSPACE] Descubrimiento cancelado o pausado.`);
           return;
         }
 
@@ -129,13 +129,13 @@ connection.onInitialized(() => {
         }
       }
     }).catch(err => {
-      connection.console.error(`[ERROR] workspace discovery: ${String(err)}`);
+      connection.console.error(`[ERROR] Descubrimiento de workspace: ${String(err)}`);
     });
   }
 });
 
 // ---------------------------------------------------------------------------
-// Features — Document Symbols
+// Funcionalidades (Features) — Símbolos del Documento
 // ---------------------------------------------------------------------------
 
 connection.onDocumentSymbol((params) => {
@@ -153,7 +153,7 @@ connection.onDocumentSymbol((params) => {
 
         if (firstInvocation.isFirst('documentSymbols')) {
           const sinceStart = performance.now() - serverStartTime;
-          connection.console.log(formatTiming('First documentSymbols (since server start)', sinceStart));
+          connection.console.log(formatTiming('Primer documentSymbols (desde el inicio)', sinceStart));
         }
 
         connection.console.log(formatTiming('documentSymbols', elapsedMs));
@@ -168,7 +168,7 @@ connection.onDocumentSymbol((params) => {
 });
 
 // ---------------------------------------------------------------------------
-// Features — Hover
+// Funcionalidades (Features) — Información al pasar el ratón (Hover)
 // ---------------------------------------------------------------------------
 
 connection.onHover((params) => {
@@ -186,7 +186,7 @@ connection.onHover((params) => {
 
         if (firstInvocation.isFirst('hover')) {
           const sinceStart = performance.now() - serverStartTime;
-          connection.console.log(formatTiming('First hover (since server start)', sinceStart));
+          connection.console.log(formatTiming('Primer hover (desde el inicio)', sinceStart));
         }
 
         connection.console.log(formatTiming('hover', elapsedMs));
@@ -201,7 +201,7 @@ connection.onHover((params) => {
 });
 
 // ---------------------------------------------------------------------------
-// Features — Workspace Symbols
+// Funcionalidades (Features) — Símbolos del Workspace
 // ---------------------------------------------------------------------------
 
 connection.onWorkspaceSymbol((params) => {
@@ -217,7 +217,7 @@ connection.onWorkspaceSymbol((params) => {
 });
 
 // ---------------------------------------------------------------------------
-// Features — Go to Definition
+// Funcionalidades (Features) — Ir a Definición
 // ---------------------------------------------------------------------------
 
 connection.onDefinition((params) => {
@@ -231,7 +231,7 @@ connection.onDefinition((params) => {
 
     if (firstInvocation.isFirst('definition')) {
       const sinceStart = performance.now() - serverStartTime;
-      connection.console.log(formatTiming('First definition (since server start)', sinceStart));
+      connection.console.log(formatTiming('Primera definición (desde el inicio)', sinceStart));
     }
 
     connection.console.log(formatTiming('definition', elapsedMs));
@@ -244,7 +244,7 @@ connection.onDefinition((params) => {
 });
 
 // ---------------------------------------------------------------------------
-// Document events
+// Eventos de Documento
 // ---------------------------------------------------------------------------
 
 documents.onDidOpen((event) => {
@@ -255,13 +255,13 @@ documents.onDidOpen((event) => {
 
     if (firstInvocation.isFirst('diagnostics')) {
       const sinceStart = performance.now() - serverStartTime;
-      connection.console.log(formatTiming('First diagnostics (since server start)', sinceStart));
+      connection.console.log(formatTiming('Primeros diagnósticos (desde el inicio)', sinceStart));
     }
 
-    connection.console.log(formatTiming('diagnostics (onDidOpen)', elapsedMs));
+    connection.console.log(formatTiming('diagnósticos (onDidOpen)', elapsedMs));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    connection.console.error(`[ERROR] diagnostics onDidOpen: ${message}`);
+    connection.console.error(`[ERROR] diagnósticos onDidOpen: ${message}`);
   }
 });
 
@@ -272,7 +272,7 @@ documents.onDidChangeContent((event) => {
     scheduleDiagnostics(connection, event.document, scheduler);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    connection.console.error(`[ERROR] diagnostics onDidChangeContent: ${message}`);
+    connection.console.error(`[ERROR] diagnósticos onDidChangeContent: ${message}`);
   }
 });
 
@@ -287,7 +287,7 @@ documents.onDidClose((event) => {
 });
 
 // ---------------------------------------------------------------------------
-// Shutdown
+// Apagado (Shutdown)
 // ---------------------------------------------------------------------------
 
 connection.onShutdown(() => {
@@ -298,7 +298,7 @@ connection.onShutdown(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Start
+// Inicio
 // ---------------------------------------------------------------------------
 
 documents.listen(connection);

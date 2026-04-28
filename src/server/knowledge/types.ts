@@ -44,6 +44,32 @@ export interface Entity {
 export type Fact = Entity; // Por ahora, Fact = Entity. Se expandirá con referencias/relaciones.
 
 /**
+ * Tipos de ámbitos (Scopes).
+ */
+export enum ScopeKind {
+  Global = 'Global',
+  Type = 'Type',
+  Function = 'Function',
+  Event = 'Event',
+  Block = 'Block'
+}
+
+/**
+ * Representa un ámbito léxico en el que viven variables locales.
+ */
+export interface Scope {
+  id: string; // Ej: 'w_main', 'w_main.of_setdata'
+  kind: ScopeKind;
+  uri: string;
+  startLine: number;
+  endLine: number;
+  parent?: Scope;
+  children: Scope[];
+  /** Entidades (normalmente variables) definidas localmente en este scope */
+  symbols: Entity[];
+}
+
+/**
  * Estructura para la caché de un documento parseado.
  */
 export interface DocumentCacheEntry {
@@ -53,4 +79,6 @@ export interface DocumentCacheEntry {
   symbols: DocumentSymbol[];
   /** Entidades semánticas que alimenta la KnowledgeBase */
   facts: Fact[];
+  /** Árbol de scopes para resolución de variables locales */
+  scopes: Scope[];
 }

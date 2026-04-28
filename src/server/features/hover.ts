@@ -33,7 +33,7 @@ export function provideHover(
   const { identifier } = context;
 
   // 1. Buscar en la KnowledgeBase (Definiciones del usuario/proyecto) mediante resolución semántica
-  const userDefinitions = resolveTargetEntity(context, document.uri, kb, graph);
+  const userDefinitions = resolveTargetEntity(context, document.uri, kb, graph, position.line);
   if (userDefinitions.length > 0) {
     // Tomamos la primera definición (el override más cercano o coincidencia exacta)
     const definition = userDefinitions[0];
@@ -99,6 +99,11 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
       }
     }
   }
+  
+  if (symbol.appliesTo && symbol.appliesTo.length > 0) {
+    lines.push('');
+    lines.push(`**Se aplica a:** ${symbol.appliesTo.join(', ')}`);
+  }
 
   if (symbol.sourceUrl) {
     lines.push('');
@@ -112,15 +117,14 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
  * Formatea una Entity del usuario (KnowledgeBase) como Markdown básico.
  */
 function buildUserEntityMarkdown(entity: Entity): string {
-  // Convertimos el tipo numérico al nombre amigable para humanos
-  const kindMap: Record<number, string> = {
-    1: 'Type / Object',
-    2: 'Function',
-    3: 'Subroutine',
-    4: 'Event',
-    5: 'Variable'
+  const kindMap: Record<string, string> = {
+    'Type': 'Tipo / Objeto',
+    'Function': 'Función',
+    'Subroutine': 'Subrutina',
+    'Event': 'Evento',
+    'Variable': 'Variable'
   };
-  const kindName = kindMap[entity.kind as unknown as number] || 'Symbol';
+  const kindName = kindMap[entity.kind] || entity.kind;
 
   const lines: string[] = [];
   lines.push(`\`\`\`powerbuilder\n(${kindName}) ${entity.name}\n\`\`\``);

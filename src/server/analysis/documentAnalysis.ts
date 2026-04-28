@@ -13,7 +13,7 @@ import {
 } from '../parsing/matchers';
 import { eventSelectionStart, firstNonWhitespace } from '../utils/helpers';
 
-import { Fact, EntityKind } from '../knowledge/types';
+import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
 export interface DocumentAnalysis {
   uri: string;
@@ -22,12 +22,13 @@ export interface DocumentAnalysis {
   sections: SectionRange[];
   facts: SymbolFact[];
   semanticFacts: Fact[];
+  scopes: Scope[];
 }
 
 export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   const lines = document.getText().split(/\r?\n/);
   const sections = findSections(lines);
-  const facts = collectFacts(lines, sections);
+  const { facts, scopes } = collectFactsAndScopes(lines, sections, document.uri);
   const semanticFacts = mapToSemanticFacts(facts, document.uri);
 
   return {
@@ -36,7 +37,8 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
     lines,
     sections,
     facts,
-    semanticFacts
+    semanticFacts,
+    scopes
   };
 }
 
@@ -79,16 +81,26 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
   return Array.from(factMap.values());
 }
 
-function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
+function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: string): { facts: SymbolFact[], scopes: Scope[] } {
   const facts: SymbolFact[] = [];
+  const scopes: Scope[] = [];
+
+  let globalScope: Scope = {
+    id: 'global',
+    kind: ScopeKind.Global,
+    uri,
+    startLine: 0,
+    endLine: lines.length - 1,
+    children: [],
+    symbols: []
+  };
+  scopes.push(globalScope);
+
+  let currentTypeScope: Scope | undefined;
+  let currentFuncScope: Scope | undefined;
 
   for (const section of sections) {
-    const sectionName =
-      section.kind === 'forward'
-        ? 'forward'
-        : section.kind === 'prototypes'
-        ? 'prototypes'
-        : 'variables';
+    const sectionName = section.kind === 'forward' ? 'forward' : section.kind === 'prototypes' ? 'prototypes' : 'variables';
 
     facts.push({
       name: sectionName,
@@ -125,10 +137,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
             name: fn.name,
             kind: fn.kind,
             declarationOnly: true,
-            detail:
-              fn.kind === 'function'
-                ? `function : ${fn.returnType}`
-                : 'subroutine',
+            detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
             line: i,
             startCharacter: line.indexOf(fn.name),
             endCharacter: line.indexOf(fn.name) + fn.name.length
@@ -160,9 +169,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
             kind: 'type',
             declarationOnly: true,
             baseTypeName: ty.ancestor,
-            detail: ty.container
-              ? `type from ${ty.ancestor} within ${ty.container}`
-              : `type from ${ty.ancestor}`,
+            detail: ty.container ? `type from ${ty.ancestor} within ${ty.container}` : `type from ${ty.ancestor}`,
             line: i,
             startCharacter: line.indexOf(ty.name),
             endCharacter: line.indexOf(ty.name) + ty.name.length
@@ -178,10 +185,7 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
     const line = lines[i];
     const enclosingSection = findEnclosingSection(i, sections);
 
-    if (
-      enclosingSection?.kind === 'prototypes' ||
-      enclosingSection?.kind === 'variables'
-    ) {
+    if (enclosingSection?.kind === 'prototypes' || enclosingSection?.kind === 'variables') {
       continue;
     }
 
@@ -189,16 +193,26 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
     if (typeMatch) {
       if (enclosingSection?.kind !== 'forward') {
         currentContainerName = typeMatch.name;
+        
+        currentTypeScope = {
+          id: typeMatch.name,
+          kind: ScopeKind.Type,
+          uri,
+          startLine: i,
+          endLine: lines.length - 1, // Will be refined later if there are multiple types (rare)
+          parent: globalScope,
+          children: [],
+          symbols: []
+        };
+        globalScope.children.push(currentTypeScope);
       }
       facts.push({
         name: typeMatch.name,
         kind: 'type',
         declarationOnly: enclosingSection?.kind === 'forward',
-        containerName: typeMatch.container, // Si tiene un within explícito
+        containerName: typeMatch.container,
         baseTypeName: typeMatch.ancestor,
-        detail: typeMatch.container
-          ? `type from ${typeMatch.ancestor} within ${typeMatch.container}`
-          : `type from ${typeMatch.ancestor}`,
+        detail: typeMatch.container ? `type from ${typeMatch.ancestor} within ${typeMatch.container}` : `type from ${typeMatch.ancestor}`,
         line: i,
         startCharacter: line.indexOf(typeMatch.name),
         endCharacter: line.indexOf(typeMatch.name) + typeMatch.name.length
@@ -207,28 +221,90 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
     }
 
     if (!enclosingSection) {
+      // Check for end of function/event
+      if (/^\s*end\s+(function|event|on|subroutine)\s*/i.test(line)) {
+        if (currentFuncScope) {
+          currentFuncScope.endLine = i;
+          currentFuncScope = undefined;
+        }
+        continue;
+      }
+
       const fn = matchFunctionImplementationHeader(line);
       if (fn) {
+        if (currentFuncScope) currentFuncScope.endLine = i - 1; // Previous one didn't close properly
+
+        const parentScope = currentTypeScope || globalScope;
+        currentFuncScope = {
+          id: `${currentContainerName ? currentContainerName + '.' : ''}${fn.name}`,
+          kind: ScopeKind.Function,
+          uri,
+          startLine: i,
+          endLine: lines.length - 1,
+          parent: parentScope,
+          children: [],
+          symbols: []
+        };
+        parentScope.children.push(currentFuncScope);
+
         facts.push({
           name: fn.name,
           kind: fn.kind,
           declarationOnly: false,
           containerName: currentContainerName,
-          detail:
-            fn.kind === 'function'
-              ? `function : ${fn.returnType}`
-              : 'subroutine',
+          detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
           line: i,
           startCharacter: line.indexOf(fn.name),
           endCharacter: line.indexOf(fn.name) + fn.name.length
         });
+
+        // Add arguments to the scope (simplified extraction from prototype)
+        // A full argument extraction would be better, but we can do a naive one
+        const argMatch = line.match(/\((.*?)\)/);
+        if (argMatch && argMatch[1].trim() !== '') {
+          const args = argMatch[1].split(',');
+          for (const arg of args) {
+             const argParts = arg.trim().split(/\s+/);
+             if (argParts.length >= 2) {
+               let type = argParts[0];
+               let name = argParts[argParts.length - 1];
+               // Handle readonly, ref, etc.
+               if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && argParts.length >= 3) {
+                  type = argParts[1];
+               }
+               currentFuncScope.symbols.push({
+                 id: name.toLowerCase(),
+                 name: name,
+                 kind: EntityKind.Variable,
+                 uri: uri,
+                 line: i,
+                 character: line.indexOf(name),
+                 datatype: type,
+                 containerName: currentFuncScope.id
+               });
+             }
+          }
+        }
         continue;
       }
 
-      const ev =
-        matchEventImplementationHeader(line) ?? matchOnImplementationHeader(line);
-
+      const ev = matchEventImplementationHeader(line) ?? matchOnImplementationHeader(line);
       if (ev) {
+        if (currentFuncScope) currentFuncScope.endLine = i - 1;
+
+        const parentScope = currentTypeScope || globalScope;
+        currentFuncScope = {
+          id: `${currentContainerName ? currentContainerName + '.' : ''}${ev.name}`,
+          kind: ScopeKind.Event,
+          uri,
+          startLine: i,
+          endLine: lines.length - 1,
+          parent: parentScope,
+          children: [],
+          symbols: []
+        };
+        parentScope.children.push(currentFuncScope);
+
         const start = eventSelectionStart(line, ev.name);
         facts.push({
           name: ev.name,
@@ -240,9 +316,53 @@ function collectFacts(lines: string[], sections: SectionRange[]): SymbolFact[] {
           startCharacter: start,
           endCharacter: start + ev.name.length
         });
+
+        // Add typical arguments for events (simplified)
+        const argMatch = line.match(/\((.*?)\)/);
+        if (argMatch && argMatch[1].trim() !== '') {
+           const args = argMatch[1].split(',');
+           for (const arg of args) {
+              const argParts = arg.trim().split(/\s+/);
+              if (argParts.length >= 2) {
+                let type = argParts[0];
+                let name = argParts[argParts.length - 1];
+                if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && argParts.length >= 3) {
+                   type = argParts[1];
+                }
+                currentFuncScope.symbols.push({
+                  id: name.toLowerCase(),
+                  name: name,
+                  kind: EntityKind.Variable,
+                  uri: uri,
+                  line: i,
+                  character: line.indexOf(name),
+                  datatype: type,
+                  containerName: currentFuncScope.id
+                });
+              }
+           }
+        }
+        continue;
+      }
+
+      // If we are inside a function/event, look for local variable declarations
+      if (currentFuncScope) {
+        const localVar = matchVariableDeclaration(line);
+        if (localVar) {
+          currentFuncScope.symbols.push({
+            id: localVar.name.toLowerCase(),
+            name: localVar.name,
+            kind: EntityKind.Variable,
+            uri: uri,
+            line: i,
+            character: line.indexOf(localVar.name),
+            datatype: localVar.type,
+            containerName: currentFuncScope.id
+          });
+        }
       }
     }
   }
 
-  return facts;
+  return { facts, scopes };
 }

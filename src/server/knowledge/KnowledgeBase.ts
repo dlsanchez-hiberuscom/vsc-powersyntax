@@ -1,5 +1,5 @@
 import { normalizeUri } from '../system/uriUtils';
-import { Entity, Fact } from './types';
+import { Entity, Fact, Scope } from './types';
 
 /**
  * Índice semántico global del workspace.
@@ -22,6 +22,13 @@ export class KnowledgeBase {
    * Value: Set de IDs de símbolos exportados por este archivo.
    */
   private documentSymbols: Map<string, Set<string>> = new Map();
+
+  /**
+   * Árbol de Scopes por documento para resolución de variables locales.
+   * Key: URI normalizado del archivo.
+   * Value: Lista de Scopes raíz (usualmente el GlobalScope).
+   */
+  private documentScopes: Map<string, Scope[]> = new Map();
 
   /**
    * Versión del índice. Se incrementa con cada mutación (salvo en batch updates,
@@ -76,7 +83,7 @@ export class KnowledgeBase {
    * Inserta o actualiza el conocimiento aportado por un documento.
    * Elimina primero el conocimiento previo del mismo archivo para evitar duplicados estancados.
    */
-  upsertDocument(uri: string, facts: Fact[]): void {
+  upsertDocument(uri: string, facts: Fact[], scopes: Scope[] = []): void {
     const normalizedUri = normalizeUri(uri);
 
     // 1. Limpiar rastro previo de este documento
@@ -93,6 +100,7 @@ export class KnowledgeBase {
     }
 
     this.documentSymbols.set(normalizedUri, symbolIds);
+    this.documentScopes.set(normalizedUri, scopes);
 
     if (!this.isBatchUpdating) {
       this.currentVersion++;
@@ -120,6 +128,7 @@ export class KnowledgeBase {
         }
       }
       this.documentSymbols.delete(normalizedUri);
+      this.documentScopes.delete(normalizedUri);
 
       if (!this.isBatchUpdating) {
         this.currentVersion++;
@@ -155,11 +164,38 @@ export class KnowledgeBase {
   }
 
   /**
+   * Obtiene el Scope más profundo/específico que contiene una línea dada en un archivo.
+   */
+  getScopeAt(uri: string, line: number): Scope | null {
+    const normalizedUri = normalizeUri(uri);
+    const scopes = this.documentScopes.get(normalizedUri);
+    if (!scopes) return null;
+
+    // Buscar recursivamente el scope más profundo
+    const findDeepest = (currentScopes: Scope[]): Scope | null => {
+      let match: Scope | null = null;
+      for (const scope of currentScopes) {
+        if (line >= scope.startLine && line <= scope.endLine) {
+          match = scope;
+          const childMatch = findDeepest(scope.children);
+          if (childMatch) {
+            match = childMatch;
+          }
+        }
+      }
+      return match;
+    };
+
+    return findDeepest(scopes);
+  }
+
+  /**
    * Limpia toda la base de conocimiento.
    */
   clear(): void {
     this.globalSymbols.clear();
     this.documentSymbols.clear();
+    this.documentScopes.clear();
     this.currentVersion++;
   }
 

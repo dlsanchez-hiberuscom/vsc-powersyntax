@@ -1,8 +1,8 @@
 /**
- * Timing utilities for measuring operation durations.
+ * Utilidades de cronometraje para medir la duración de las operaciones.
  *
- * Provides lightweight wrappers around `performance.now()` for
- * consistent measurement and logging of operation costs.
+ * Proporciona envoltorios ligeros sobre `performance.now()` para
+ * la medición y el registro consistentes de los costes de las operaciones.
  *
  * @module runtime/timing
  */
@@ -13,8 +13,8 @@ export interface TimingResult<T> {
 }
 
 /**
- * Measures the execution time of a synchronous function.
- * Returns both the result and elapsed time in milliseconds.
+ * Mide el tiempo de ejecución de una función síncrona.
+ * Devuelve tanto el resultado como el tiempo transcurrido en milisegundos.
  */
 export function measureMs<T>(fn: () => T): TimingResult<T> {
   const start = performance.now();
@@ -24,8 +24,8 @@ export function measureMs<T>(fn: () => T): TimingResult<T> {
 }
 
 /**
- * Measures the execution time of an asynchronous function.
- * Returns both the result and elapsed time in milliseconds.
+ * Mide el tiempo de ejecución de una función asíncrona.
+ * Devuelve tanto el resultado como el tiempo transcurrido en milisegundos.
  */
 export async function measureMsAsync<T>(fn: () => Promise<T>): Promise<TimingResult<T>> {
   const start = performance.now();
@@ -35,21 +35,21 @@ export async function measureMsAsync<T>(fn: () => Promise<T>): Promise<TimingRes
 }
 
 /**
- * Formats a timing result as a structured log string.
+ * Formatea un resultado de cronometraje como una cadena de registro estructurada.
  */
 export function formatTiming(label: string, elapsedMs: number): string {
-  return `[TIMING] ${label}: ${elapsedMs.toFixed(2)}ms`;
+  return `[TIEMPO] ${label}: ${elapsedMs.toFixed(2)}ms`;
 }
 
 /**
- * Tracks first-time invocations for measuring "time to first X".
+ * Rastrea las primeras invocaciones para medir el "tiempo hasta el primer X".
  */
 export class FirstInvocationTracker {
   private readonly seen = new Set<string>();
 
   /**
-   * Returns true and marks the label as seen if this is the first call.
-   * Returns false on subsequent calls with the same label.
+   * Devuelve true y marca la etiqueta como vista si es la primera llamada.
+   * Devuelve false en las llamadas posteriores con la misma etiqueta.
    */
   isFirst(label: string): boolean {
     if (this.seen.has(label)) {

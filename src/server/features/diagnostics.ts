@@ -53,7 +53,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
             Position.create(i, 0),
             Position.create(i, raw.length)
           ),
-          message: `Cierre de bloque '${closeKind}' sin apertura compatible.`,
+          message: `Se ha detectado un cierre de bloque '${closeKind}' sin una apertura previa compatible.`,
           source: DIAGNOSTIC_SOURCE
         });
       } else {
@@ -149,7 +149,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
         Position.create(open.line, 0),
         Position.create(open.line, open.text.length)
       ),
-      message: `Bloque '${open.kind}' abierto sin cierre.`,
+      message: `El bloque '${open.kind}' se encuentra abierto pero no ha sido cerrado correctamente.`,
       source: DIAGNOSTIC_SOURCE
     });
   }

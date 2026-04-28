@@ -47,11 +47,12 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
     cacheBackend.set(document.uri, {
       version: hash,
       facts: analysis.semanticFacts,
-      symbols: [] // Los símbolos LSP se sirven directamente desde el feature
+      symbols: [], // Los símbolos LSP se sirven directamente desde el feature
+      scopes: analysis.scopes
     });
   }
   if (kbBackend) {
-    kbBackend.upsertDocument(document.uri, analysis.semanticFacts);
+    kbBackend.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
   }
 
   return analysis;

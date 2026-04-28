@@ -105,7 +105,7 @@ Utilizando la KnowledgeBase y el InheritanceGraph, ahora es capaz de resolver la
 Implementado `InheritanceGraph` para calcular ancestros y miembros considerando la jerarquía (Phase 4).
 
 ### ~~B017. Go to definition fiable en casos base~~ ✅ CERRADA
-Resolver navegación a definición en escenarios iniciales frecuentes y controlados.
+Resolver navegación a definición en escenarios iniciales frecuentes y controlados. Consolidado en B015 y B021.
 
 ### ~~B018. Diagnósticos iniciales bien delimitados~~ ✅ CERRADA
 Publicados diagnósticos sintácticos y estructurales (`validateStructure`) cubriendo bloques ejecutables y declarativos sin penalizar semántica avanzada (Phase 6).
@@ -113,11 +113,14 @@ Publicados diagnósticos sintácticos y estructurales (`validateStructure`) cubr
 ### ~~B019. Introducir primer catálogo oficial del lenguaje~~ ✅ CERRADA
 Modelar funciones, keywords y elementos oficiales de PowerBuilder que aporten valor temprano a hover, ayuda y validación.
 
-### B020. Base de scopes y binding inicial
-Preparar una representación semántica compartida para que las features dejen de depender solo de heurísticas.
+### ~~B020. Base de scopes y binding inicial~~ ✅ CERRADA
+Implementación de ámbitos léxicos (Global, Type, Function, Event) para resolver variables locales y parámetros con precisión.
 
 ### ~~B021. Queries compartidas del knowledge layer~~ ✅ CERRADA
 Consolidados los métodos de resolución de `definition` en `semanticQueryService`, usados ahora por `definition` y `hover` simultáneamente para garantizar coherencia en la interpretación del código.
+
+### [/] B028. Ayuda de firmas (Signature Help) básico
+Introducir ayuda de firmas sobre catálogo y resolución suficientemente fiables. Foco inmediato.
 
 ---
 
@@ -140,9 +143,6 @@ Añadir soporte inicial de ancestros, descendientes y relaciones más propias de
 
 ### B027. Semantic tokens por rol y scope
 Enriquecer el editor usando el backbone de símbolos y roles semánticos compartidos.
-
-### B028. Signature help base
-Introducir ayuda de firmas sobre catálogo y resolución suficientemente fiables.
 
 ### B029. Completado contextual base
 Ofrecer sugerencias útiles apoyadas en el índice, scopes y catálogo oficial.

@@ -51,14 +51,14 @@ El proyecto dispone actualmente de una base funcional que incluye:
 
 ### Prioridad operativa
 
-**Base de scopes y binding inicial (B020).**
-Hemos consolidado con éxito la resolución exacta en `semanticQueryService.ts` (B021). Ahora, el siguiente paso es dotar al servidor de un sistema real de Scopes (B020). Esto permitirá que el autocompletado y la navegación entiendan el contexto local de una función (qué variables locales existen en la línea X) en lugar de depender únicamente de variables globales o de instancia.
+**Signature Help básico (B022).**
+Hemos consolidado los ámbitos léxicos (B020) y la resolución semántica (B021). Tras un breve paréntesis de **localización total a español** (comentarios, logs, UI y comandos), el siguiente paso es implementar la ayuda de firmas (Signature Help). Esto permitirá que el usuario vea los parámetros y tipos de retorno de funciones y eventos mientras escribe llamadas, utilizando el motor semántico ya existente.
 
 ### Fase del roadmap en foco
 
-- **Fase 4**: Semántica de lenguaje (B014, B015, B016 completados).
-- **Fase 6**: Diagnósticos y productividad semántica base (B018 completado).
-- **Fase 4-6**: Preparando Backbone (B021 completado).
+- **Fase 4**: Semántica de lenguaje (B014, B015, B016, B020 completados).
+- **Fase 6**: Diagnósticos y productividad semántica base (B018, B021 completados).
+- **Backbone**: Scopes y resolución exacta listos.
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
 
@@ -84,21 +84,19 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Entradas pendientes prioritarias
 
-- ~~**B014. Document symbols robustos y jerárquicos**~~ → **Cerrada.**
-- ~~**B018. Diagnósticos iniciales**~~ → **Cerrada.**
-- ~~**B016. Resolver de tipos básico e InheritanceGraph**~~ → **Cerrada.**
-- ~~**B015. Navegación global exacta (Go to Definition)**~~ → **Cerrada.**
-- ~~**B021. Queries compartidas del knowledge layer**~~ → **Cerrada.**
-
-### Entradas pendientes prioritarias
-
-- **B020. Base de scopes y binding inicial** — Pendiente. Preparar representación semántica para contextos locales.
-- **B022. Signature Help básico** — Pendiente. Usar el semanticQueryService para dar ayuda de firmas.
+- [x] B014. Navegación a definición (Go to Definition)
+- [x] B015. Navegación global exacta (considerando herencia/distancia)
+- [x] B018. Hover semántico con documentación heredada
+- [x] B021. Consolidación de queries semánticas compartidas
+- [x] B020. Base de scopes y binding inicial (variables locales)
+- [/] B022. Ayuda de firmas (Signature Help) inicial
+- [ ] B019. Completado contextual básico (miembros de objeto)
+- [ ] B016. Diagnósticos semánticos (detectar tipos inexistentes)
 
 ### Orden operativo recomendado
 
-1. base de scopes (B020),
-2. signature help (B022).
+1. signature help (B022),
+2. completado contextual (B019).
 
 ---
 
@@ -137,7 +135,6 @@ No debe hacerse ahora, salvo bug, deuda bloqueante o necesidad muy justificada:
 
 - rename,
 - references robustas,
-- signature help,
 - semantic tokens avanzados,
 - catálogo amplio del lenguaje,
 - validación grande sobre PFC,

@@ -1,9 +1,9 @@
 /**
- * Minimal task scheduler with two priority levels.
+ * Planificador de tareas minimalista con dos niveles de prioridad.
  *
- * Interactive tasks (user-facing: hover, symbols, diagnostics) execute
- * immediately. Background tasks wait until no interactive work is pending
- * and are cancelable.
+ * Las tareas interactivas (vistas por el usuario: hover, símbolos, diagnósticos)
+ * se ejecutan inmediatamente. Las tareas de fondo esperan hasta que no haya
+ * trabajo interactivo pendiente y son cancelables.
  *
  * @module runtime/scheduler
  */
@@ -15,13 +15,13 @@ import {
 } from './cancellation.js';
 
 // ---------------------------------------------------------------------------
-// Types
+// Tipos
 // ---------------------------------------------------------------------------
 
 export enum TaskPriority {
-  /** User-facing operations — execute immediately. */
+  /** Operaciones visibles para el usuario: se ejecutan inmediatamente. */
   Interactive = 0,
-  /** Deferred work — waits for idle, cancelable. */
+  /** Trabajo diferido: espera a inactividad, cancelable. */
   Background = 10
 }
 
@@ -39,7 +39,7 @@ interface QueuedTask {
 }
 
 // ---------------------------------------------------------------------------
-// Scheduler
+// Planificador (Scheduler)
 // ---------------------------------------------------------------------------
 
 export class TaskScheduler {
@@ -48,7 +48,7 @@ export class TaskScheduler {
   private activeBackgroundTask: QueuedTask | null = null;
   private drainScheduled = false;
 
-  // ---- Logging callback (optional) ----------------------------------------
+  // ---- Callback de registro/logs (opcional) -------------------------------
 
   private logFn: ((message: string) => void) | undefined;
 
@@ -60,17 +60,17 @@ export class TaskScheduler {
     this.logFn?.(message);
   }
 
-  // ---- Public API ----------------------------------------------------------
+  // ---- API Pública ---------------------------------------------------------
 
   /**
-   * Runs an interactive (high-priority) task immediately.
-   * If a background task is running, it will be cancelled.
+   * Ejecuta una tarea interactiva (prioridad alta) inmediatamente.
+   * Si hay una tarea de fondo ejecutándose, será cancelada.
    */
   async runInteractive<T>(task: ScheduledTask<T>): Promise<T> {
     this.activeInteractiveCount++;
-    this.log(`[SCHEDULER] Interactive start: ${task.id} (active: ${this.activeInteractiveCount})`);
+    this.log(`[PLANIFICADOR] Inicio interactivo: ${task.id} (activos: ${this.activeInteractiveCount})`);
 
-    // Cancel any running background task to free resources.
+    // Cancelar cualquier tarea de fondo en curso para liberar recursos.
     this.cancelActiveBackground();
 
     try {
@@ -78,15 +78,15 @@ export class TaskScheduler {
       return result;
     } finally {
       this.activeInteractiveCount--;
-      this.log(`[SCHEDULER] Interactive done: ${task.id} (active: ${this.activeInteractiveCount})`);
+      this.log(`[PLANIFICADOR] Fin interactivo: ${task.id} (activos: ${this.activeInteractiveCount})`);
       this.scheduleDrain();
     }
   }
 
   /**
-   * Enqueues a background (low-priority) task.
-   * It will execute when no interactive tasks are running.
-   * Returns a promise that resolves when the task completes.
+   * Encola una tarea de fondo (prioridad baja).
+   * Se ejecutará cuando no haya tareas interactivas en curso.
+   * Devuelve una promesa que se resuelve cuando la tarea termina.
    */
   enqueueBackground<T>(task: ScheduledTask<T>): Promise<T> {
     const cancellation = createCancellationSource();
@@ -98,13 +98,13 @@ export class TaskScheduler {
         resolve: resolve as (v: unknown) => void,
         reject
       });
-      this.log(`[SCHEDULER] Background enqueued: ${task.id} (queue: ${this.backgroundQueue.length})`);
+      this.log(`[PLANIFICADOR] Tarea de fondo encolada: ${task.id} (cola: ${this.backgroundQueue.length})`);
       this.scheduleDrain();
     });
   }
 
   /**
-   * Cancels all pending and active background tasks.
+   * Cancela todas las tareas de fondo pendientes y activas.
    */
   cancelAllBackground(): void {
     this.cancelActiveBackground();
@@ -112,41 +112,41 @@ export class TaskScheduler {
     for (const queued of this.backgroundQueue) {
       queued.cancellation.cancel();
       queued.cancellation.dispose();
-      queued.reject(new Error(`Task ${queued.task.id} cancelled`));
+      queued.reject(new Error(`Tarea ${queued.task.id} cancelada`));
     }
     this.backgroundQueue.length = 0;
 
-    this.log('[SCHEDULER] All background tasks cancelled');
+    this.log('[PLANIFICADOR] Todas las tareas de fondo canceladas');
   }
 
   /**
-   * Returns the number of pending background tasks.
+   * Devuelve el número de tareas de fondo pendientes.
    */
   get pendingBackgroundCount(): number {
     return this.backgroundQueue.length;
   }
 
   /**
-   * Returns true if interactive tasks are currently running.
+   * Devuelve true si hay tareas interactivas ejecutándose actualmente.
    */
   get isInteractiveBusy(): boolean {
     return this.activeInteractiveCount > 0;
   }
 
   /**
-   * Shuts down the scheduler, cancelling all work.
+   * Apaga el planificador, cancelando todo el trabajo.
    */
   shutdown(): void {
     this.cancelAllBackground();
-    this.log('[SCHEDULER] Shutdown');
+    this.log('[PLANIFICADOR] Apagado (Shutdown)');
   }
 
-  // ---- Internal ------------------------------------------------------------
+  // ---- Interno -------------------------------------------------------------
 
   private cancelActiveBackground(): void {
     if (this.activeBackgroundTask) {
       this.activeBackgroundTask.cancellation.cancel();
-      this.log(`[SCHEDULER] Background cancelled: ${this.activeBackgroundTask.task.id}`);
+      this.log(`[PLANIFICADOR] Tarea de fondo cancelada: ${this.activeBackgroundTask.task.id}`);
       this.activeBackgroundTask = null;
     }
   }
@@ -157,7 +157,7 @@ export class TaskScheduler {
     }
     this.drainScheduled = true;
 
-    // Use setImmediate to avoid blocking the current call stack.
+    // Usamos setImmediate para evitar bloquear la pila de llamadas actual.
     setImmediate(() => {
       this.drainScheduled = false;
       void this.drainBackground();
@@ -172,15 +172,15 @@ export class TaskScheduler {
     ) {
       const queued = this.backgroundQueue.shift()!;
 
-      // Skip if already cancelled before execution.
+      // Saltar si ya fue cancelada antes de empezar la ejecución.
       if (queued.cancellation.token.isCancelled) {
-        queued.reject(new Error(`Task ${queued.task.id} cancelled before execution`));
+        queued.reject(new Error(`Tarea ${queued.task.id} cancelada antes de ejecución`));
         queued.cancellation.dispose();
         continue;
       }
 
       this.activeBackgroundTask = queued;
-      this.log(`[SCHEDULER] Background start: ${queued.task.id}`);
+      this.log(`[PLANIFICADOR] Inicio fondo: ${queued.task.id}`);
 
       try {
         const result = await queued.task.execute(queued.cancellation.token);
@@ -190,12 +190,12 @@ export class TaskScheduler {
       } finally {
         queued.cancellation.dispose();
 
-        // Only clear if this is still the active task (not replaced by another).
+        // Solo limpiar si sigue siendo la tarea activa (no reemplazada por otra).
         if (this.activeBackgroundTask === queued) {
           this.activeBackgroundTask = null;
         }
 
-        this.log(`[SCHEDULER] Background done: ${queued.task.id}`);
+        this.log(`[PLANIFICADOR] Fin fondo: ${queued.task.id}`);
       }
     }
   }

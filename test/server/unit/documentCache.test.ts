@@ -10,7 +10,8 @@ suite('unit/knowledge', () => {
       const entry = {
         version: 'hash1',
         symbols: [],
-        facts: [{ id: 'f_test', name: 'f_test', kind: EntityKind.Function, uri, line: 0, character: 0 }]
+        facts: [{ id: 'f_test', name: 'f_test', kind: EntityKind.Function, uri, line: 0, character: 0 }],
+        scopes: []
       };
 
       cache.set(uri, entry);
@@ -21,7 +22,7 @@ suite('unit/knowledge', () => {
     test('valida correctamente por version/hash', () => {
       const cache = new DocumentCache();
       const uri = 'file:///test.sru';
-      cache.set(uri, { version: 'v1', symbols: [], facts: [] });
+      cache.set(uri, { version: 'v1', symbols: [], facts: [], scopes: [] });
 
       assert.ok(cache.isValid(uri, 'v1'));
       assert.ok(!cache.isValid(uri, 'v2'));
@@ -31,7 +32,7 @@ suite('unit/knowledge', () => {
     test('invalida entradas', () => {
       const cache = new DocumentCache();
       const uri = 'file:///test.sru';
-      cache.set(uri, { version: 'v1', symbols: [], facts: [] });
+      cache.set(uri, { version: 'v1', symbols: [], facts: [], scopes: [] });
       
       cache.invalidate(uri);
       assert.equal(cache.get(uri), undefined);

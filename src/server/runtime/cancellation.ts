@@ -1,15 +1,15 @@
 /**
- * Cooperative cancellation primitives.
+ * Primitivas de cancelación cooperativa.
  *
- * Provides a simple CancellationToken / CancellationSource pattern
- * for making long-running operations cancelable.
+ * Proporciona un patrón simple de CancellationToken / CancellationSource
+ * para permitir que operaciones de larga duración sean cancelables.
  *
  * @module runtime/cancellation
  */
 
 /**
- * A token that can be checked for cancellation.
- * Consumers poll `isCancelled` or register a callback via `onCancelled`.
+ * Un token que puede ser consultado para verificar si ha habido una cancelación.
+ * los consumidores pueden consultar `isCancelled` o registrar un callback vía `onCancelled`.
  */
 export interface CancellationToken {
   readonly isCancelled: boolean;
@@ -17,7 +17,7 @@ export interface CancellationToken {
 }
 
 /**
- * A source that produces a CancellationToken and can cancel it.
+ * Una fuente que produce un CancellationToken y puede cancelarlo.
  */
 export interface CancellationSource {
   readonly token: CancellationToken;
@@ -26,18 +26,18 @@ export interface CancellationSource {
 }
 
 /**
- * A token that is never cancelled. Use as a default when no
- * cancellation is needed.
+ * Un token que nunca se cancela. Úsalo como valor por defecto cuando no
+ * se necesite soporte de cancelación.
  */
 export const CancellationToken_None: CancellationToken = {
   isCancelled: false,
   onCancelled(_callback: () => void): void {
-    // Never fires — this token is never cancelled.
+    // Nunca se ejecuta: este token es permanente.
   }
 };
 
 /**
- * Creates a new CancellationSource with a fresh token.
+ * Crea una nueva CancellationSource con un token fresco.
  */
 export function createCancellationSource(): CancellationSource {
   let cancelled = false;
@@ -69,7 +69,7 @@ export function createCancellationSource(): CancellationSource {
         try {
           cb();
         } catch {
-          // Swallow callback errors to avoid breaking the cancellation chain.
+          // Ignorar errores en los callbacks para no romper la cadena de cancelación.
         }
       }
       callbacks.length = 0;

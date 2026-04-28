@@ -108,13 +108,13 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO = [
-    'DataWindow control',
-    'DataWindowChild object',
-    'DataStore object',
+    'control DataWindow',
+    'objeto DataWindowChild',
+    'objeto DataStore',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_OWNER_TYPES = ['datawindow'];
-export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_APPLIES_TO = ['DataWindow control'];
+export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_APPLIES_TO = ['control DataWindow'];
 
 export const PB_MANUAL_CORE_DATAWINDOW_SCROLL_OWNER_TYPES = [
     'datawindow',
@@ -122,8 +122,8 @@ export const PB_MANUAL_CORE_DATAWINDOW_SCROLL_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_SCROLL_APPLIES_TO = [
-    'DataWindow control',
-    'DataWindowChild object',
+    'control DataWindow',
+    'objeto DataWindowChild',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_VISUAL_OWNER_TYPES = [
@@ -132,8 +132,8 @@ export const PB_MANUAL_CORE_DATAWINDOW_VISUAL_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_VISUAL_APPLIES_TO = [
-    'DataWindow control',
-    'DataWindowChild object',
+    'control DataWindow',
+    'objeto DataWindowChild',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_DATA_EVENT_OWNER_TYPES = [
@@ -142,14 +142,14 @@ export const PB_MANUAL_CORE_DATAWINDOW_DATA_EVENT_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_DATA_EVENT_APPLIES_TO = [
-    'DataWindow control',
-    'DataStore object',
+    'control DataWindow',
+    'objeto DataStore',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_EVENT_OWNER_TYPES = ['datawindow', 'datastore'];
 
 export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_EVENT_OWNER_TYPES = ['datawindow'];
-export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_EVENT_APPLIES_TO = ['DataWindow control'];
+export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_EVENT_APPLIES_TO = ['control DataWindow'];
 
 function mergeUniqueValues(...valueGroups: readonly (readonly string[])[]): string[] {
     const values = new Set<string>();
