@@ -6,10 +6,12 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { Entity } from '../knowledge/types';
-import { getWordAtPosition } from '../utils/wordAtPosition';
+import { getInvocationContext } from '../utils/invocationContext';
+import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
 
 /**
  * Provee la información de Hover cuando el usuario pone el ratón sobre una palabra.
@@ -18,37 +20,40 @@ export function provideHover(
   document: TextDocument,
   position: Position,
   kb: KnowledgeBase,
-  catalog: SystemCatalog
+  catalog: SystemCatalog,
+  graph: InheritanceGraph
 ): Hover | null {
   const lines = document.getText().split(/\r?\n/);
-  const word = getWordAtPosition(lines, position);
+  const context = getInvocationContext(lines, position);
 
-  if (!word) {
+  if (!context) {
     return null;
   }
 
-  // 1. Buscar en el catálogo del sistema (PowerBuilder oficial)
-  const systemSymbols = catalog.findSystemSymbol(word);
-  if (systemSymbols.length > 0) {
-    // Tomamos la primera coincidencia (aunque puede haber sobrecargas)
-    const symbol = systemSymbols[0];
-    return {
-      contents: {
-        kind: MarkupKind.Markdown,
-        value: buildSystemSymbolMarkdown(symbol)
-      }
-    };
-  }
+  const { identifier } = context;
 
-  // 2. Buscar en la KnowledgeBase (Definiciones del usuario/proyecto)
-  const userDefinitions = kb.findAllDefinitions(word);
+  // 1. Buscar en la KnowledgeBase (Definiciones del usuario/proyecto) mediante resolución semántica
+  const userDefinitions = resolveTargetEntity(context, document.uri, kb, graph);
   if (userDefinitions.length > 0) {
-    // Tomamos la primera definición encontrada
+    // Tomamos la primera definición (el override más cercano o coincidencia exacta)
     const definition = userDefinitions[0];
     return {
       contents: {
         kind: MarkupKind.Markdown,
         value: buildUserEntityMarkdown(definition)
+      }
+    };
+  }
+
+  // 2. Si no hay en el usuario, buscar en el catálogo del sistema (PowerBuilder oficial)
+  const systemSymbols = catalog.findSystemSymbol(identifier);
+  if (systemSymbols.length > 0) {
+    // Tomamos la primera coincidencia
+    const symbol = systemSymbols[0];
+    return {
+      contents: {
+        kind: MarkupKind.Markdown,
+        value: buildSystemSymbolMarkdown(symbol)
       }
     };
   }

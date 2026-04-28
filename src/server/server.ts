@@ -182,7 +182,7 @@ connection.onHover((params) => {
       id: `hover-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
-        const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog));
+        const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph));
 
         if (firstInvocation.isFirst('hover')) {
           const sinceStart = performance.now() - serverStartTime;

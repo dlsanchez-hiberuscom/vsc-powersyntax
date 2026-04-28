@@ -116,12 +116,12 @@ Modelar funciones, keywords y elementos oficiales de PowerBuilder que aporten va
 ### B020. Base de scopes y binding inicial
 Preparar una representación semántica compartida para que las features dejen de depender solo de heurísticas.
 
+### ~~B021. Queries compartidas del knowledge layer~~ ✅ CERRADA
+Consolidados los métodos de resolución de `definition` en `semanticQueryService`, usados ahora por `definition` y `hover` simultáneamente para garantizar coherencia en la interpretación del código.
+
 ---
 
 ## P2 — Backbone semántico y escalabilidad
-
-### B021. Queries compartidas del knowledge layer
-Crear servicios comunes de consulta para hover, definition, references y diagnostics.
 
 ### B022. Modelo de dependencias básico
 Relacionar símbolos y objetos entre sí para entender impacto y contexto.

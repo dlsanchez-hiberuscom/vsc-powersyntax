@@ -5,6 +5,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { provideHover } from '../../../src/server/features/hover';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { EntityKind } from '../../../src/server/knowledge/types';
 import { loadFixture } from '../helpers/fixtureLoader';
@@ -53,8 +54,9 @@ suite('integration/hover', () => {
       character: char
     }]);
     const catalog = new SystemCatalog();
+    const graph = new InheritanceGraph(kb);
 
-    const hover = provideHover(document, Position.create(lineIndex, char), kb, catalog);
+    const hover = provideHover(document, Position.create(lineIndex, char), kb, catalog, graph);
 
     assert.ok(hover, `Hover no debería ser null para '${token}'.`);
 
