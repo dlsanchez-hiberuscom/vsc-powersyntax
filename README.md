@@ -54,7 +54,8 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 - **ayuda de firmas (Signature Help)** con soporte para parámetros y llamadas anidadas;
 - **completado contextual** (Completion) con scoring por ámbito (local/miembro/global);
 - **diagnósticos semánticos** (SD1-SD5) con detección de tipos, miembros y variables no declaradas;
-- **gramática canónica centralizada** (`grammar.ts`) para consistencia léxica total.
+- **gramática canónica centralizada** (`grammar.ts`) para consistencia léxica total;
+- **tokens semánticos** (Semantic Tokens) para coloreado avanzado por rol y ámbito.
 
 ### Base técnica actual
 
@@ -74,7 +75,6 @@ Todavía no deben asumirse como implementadas o completas estas áreas:
 
 - AST formal completo;
 - `references`, `rename`;
-- semantic tokens reales (en curso);
 - topología real de workspace (.pbw/.pbt library order);
 - visibility rules (public/protected/private);
 - owner resolution;
@@ -202,8 +202,8 @@ Si hay cambios en gramáticas:
 5. ~~introducir modelo de símbolos, scopes y catálogo~~ ✅;
 6. ~~navegación profesional y valor visible temprano~~ ✅;
 7. ~~diagnósticos semánticos y productividad base~~ ✅;
-8. semantic tokens, contexto posicional y scoring avanzado (en curso);
-9. resolución fuerte, topología y visibilidad;
+8. ~~semantic tokens, contexto posicional y scoring avanzado~~ ✅;
+9. resolución fuerte, topología y visibilidad (en curso);
 9. escala real y validación sobre corpus grandes;
 10. especialización PowerBuilder (DataWindow, PBAutoBuild);
 11. plataforma abierta y automatización IA.

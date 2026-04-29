@@ -62,14 +62,15 @@ El proyecto dispone actualmente de una base funcional que incluye:
 **Cerrar Fase 6A (Core Semántico y Deuda de Diagnósticos)**
 - ~~**B033**: Implementar validación semántica (Semantic Diagnostics)~~ **(CERRADA)**
 - ~~**B053**: Crear `grammar.ts` canónico y migrar regex dispersas~~ **(CERRADA)**
-- **B027**: Semantic tokens por rol y scope **(ABIERTA - NEXT)**
+- ~~**B027**: Semantic tokens por rol y scope~~ **(CERRADA)**
+- **B022**: Modelo de dependencias básico **(ABIERTA - NEXT)**
 
 ## Tarea Activa (Next)
-**B027: Semantic tokens por rol y scope**
+**B022: Modelo de dependencias básico**
 
 ### Fase del roadmap en foco
 
-- **Fase 6A**: en curso (B018, B028, B029, B033, B053 completados; B027 como siguiente).
+- **Fase 6A**: en curso (B018, B028, B029, B033, B053, B027 completados; B022 como siguiente).
 - **Backbone**: Scopes, resolución y queries compartidas listos. Gramática centralizada.
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
@@ -95,15 +96,15 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Entradas pendientes prioritarias
 
-- ~~**B053. Crear `grammar.ts` canónico y migrar regex dispersas**~~
-- [/] B027. Semantic tokens por rol y scope
-- [ ] B051. Desambiguación semántica de tipos vs funciones
+- ~~B027. Semantic tokens por rol y scope~~
+- ~~B051. Desambiguación semántica de tipos vs funciones~~
+- [ ] B022. Modelo de dependencias básico
 
 ### Orden operativo recomendado
 
-1. grammar.ts canónico (B053),
-2. semantic tokens (B027),
-3. modelo de dependencias básico (B022).
+1. semantic tokens (B027),
+2. modelo de dependencias básico (B022),
+3. validación sobre workspace grande (B030).
 
 ---
 
@@ -111,8 +112,8 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Trabajo permitido y prioritario
 
-- ~~implementar `grammar.ts` canónico (B053)~~,
-- implementar semantic tokens básicos (B027) sobre el backbone de símbolos,
+- ~~implementar semantic tokens básicos (B027) sobre el backbone de símbolos~~,
+- implementar modelo de dependencias básico (B022),
 - y mantener la coherencia documental tras cada cambio.
 
 ### Resultado esperado de esta etapa

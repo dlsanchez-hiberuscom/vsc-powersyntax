@@ -317,7 +317,7 @@ Refinar la productividad semántica con diagnósticos semánticos, contexto posi
 ### Capacidades principales
 - diagnósticos semánticos,
 - contexto posicional semántico reutilizable,
-- tokens semánticos (B027 - NEXT),
+- ~~tokens semánticos (B027)~~ → **CERRADO**,
 - scoring avanzado de completado.
 
 ### Criterio de salida
@@ -542,7 +542,7 @@ Aprovechar la base ya madura para automatización avanzada sin reabrir la arquit
 15. **Navegación por herencia y owner-awareness**: permite entender mejor ancestros, descendientes, overrides y relaciones entre objetos.  
 16. **Diagnósticos sintácticos y estructurales**: permite señalar problemas básicos usando el pipeline y el índice compartido.  
 17. **Diagnósticos semánticos**: permite detectar incoherencias de mayor valor cuando la resolución ya es suficientemente sólida.  
-18. **Tokens semánticos**: permite enriquecer el editor visualmente a partir del modelo de símbolos y roles.  
+18. **Tokens semánticos**: enriquecido el editor visualmente a partir del modelo de símbolos y roles compartidos.  
 19. **Completado contextual**: permite sugerencias más útiles apoyadas en el conocimiento incremental del proyecto.  
 20. **Ayuda de firmas**: permite asistir llamadas y uso de miembros cuando ya existe un catálogo suficientemente fiable.  
 21. **Renombrado seguro**: permite cambios más controlados cuando definición y referencias ya funcionan con confianza.  
@@ -592,7 +592,8 @@ Estado de referencia del proyecto:
 - **Fase 2**: siguiente objetivo natural.
 - **Fase 3**: siguiente base crítica.
 - **Fase 4**: inicio real del backbone semántico.
-- **Fases 5–7**: crecimiento hacia producto profesional usable día a día.
+- **Fases 5–6**: cerradas (navegación, completado, ayuda de firmas, diagnósticos semánticos y tokens semánticos).
+- **Fase 7**: siguiente objetivo natural (resolución fuerte, topología y visibilidad).
 - **Fase 8**: endurecimiento serio para escala, legacy y validación sobre corpus reales.
 - **Fase 9**: especialización fuerte en ecosistema PowerBuilder, DataWindow y build profesional.
 - **Fases 10–11**: apertura controlada a automatización externa e IA sobre base madura.

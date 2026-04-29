@@ -141,8 +141,8 @@ Mejorar el recálculo para que solo se reanalice lo afectado por cambios locales
 ### B026. Navegación por herencia y owner-awareness
 Añadir soporte inicial de ancestros, descendientes y relaciones más propias de PowerBuilder.
 
-### [ ] B027. Semantic tokens por rol y scope
-Enriquecer el editor usando el backbone de símbolos y roles semánticos compartidos.
+### ~~B027. Semantic tokens por rol y scope~~ ✅ CERRADA
+Implementado `semanticTokens.ts` que emite tokens semánticos (variable, parameter, property, function, event, type) utilizando el backbone de símbolos (`DocumentAnalysis` y `KnowledgeBase`). Soporta resolución local rápida y delegación a `semanticQueryService` para miembros.
 
 ### ~~B029. Completado contextual base~~ ✅ CERRADA
 Implementado `completion.ts` con scoring por contexto (`0_local`, `1_member`, `2_global`). Soporta cualificadores (`this.`, `super.`, variables tipadas) utilizando el `InheritanceGraph` y el `semanticQueryService`. Propuestas ordenadas por relevancia semántica.
@@ -150,8 +150,8 @@ Implementado `completion.ts` con scoring por contexto (`0_local`, `1_member`, `2
 ### B030. Validación sobre workspace grande real
 Ejecutar y medir el plugin sobre un corpus grande real de PowerBuilder para detectar cuellos de botella y falsos positivos.
 
-### B051. Desambiguación semántica de tipos vs funciones
-Resolver limitación actual del Lexer/TextMate donde las declaraciones de tipos de sistema (como `String` e `Integer`) son coloreadas y tratadas como llamadas a función (ej. `String()`). Requiere Semantic Tokens apoyados en el contexto del AST para distinguir declaración vs. conversión.
+### ~~B051. Desambiguación semántica de tipos vs funciones~~ ✅ CERRADA
+Resuelto mediante el uso de Semantic Tokens. El servidor ahora identifica tipos nativos (como `String`, `Integer`) y les asigna el token `type`, sobrescribiendo el coloreado incorrecto de TextMate que los trataba como llamadas a función.
 
 ---
 

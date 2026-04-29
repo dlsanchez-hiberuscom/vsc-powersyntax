@@ -24,6 +24,7 @@ import { provideWorkspaceSymbols } from './features/workspaceSymbols';
 import { provideDefinition } from './features/definition';
 import { provideSignatureHelp } from './features/signatureHelp';
 import { provideCompletion } from './features/completion';
+import { getSemanticTokensLegend, provideSemanticTokens } from './features/semanticTokens';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { NodeFileSystem } from './system/fileSystem';
@@ -84,6 +85,10 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       signatureHelpProvider: {
         triggerCharacters: ['(', ',']
+      },
+      semanticTokensProvider: {
+        legend: getSemanticTokensLegend(),
+        full: true
       }
     }
   };
@@ -314,6 +319,39 @@ connection.onCompletion((params) => {
     const message = error instanceof Error ? error.message : String(error);
     connection.console.error(`[ERROR] completion: ${message}`);
     return null;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Funcionalidades (Features) — Tokens Semánticos (Semantic Tokens)
+// ---------------------------------------------------------------------------
+
+connection.languages.semanticTokens.on((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return { data: [] };
+  }
+
+  try {
+    return scheduler.runInteractive({
+      id: `semanticTokens-${document.uri}`,
+      priority: TaskPriority.Interactive,
+      execute: () => {
+        const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph));
+
+        if (firstInvocation.isFirst('semanticTokens')) {
+          const sinceStart = performance.now() - serverStartTime;
+          connection.console.log(formatTiming('Primer semanticTokens (desde el inicio)', sinceStart));
+        }
+
+        connection.console.log(formatTiming('semanticTokens', elapsedMs));
+        return result;
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    connection.console.error(`[ERROR] semanticTokens: ${message}`);
+    return { data: [] };
   }
 });
 
