@@ -55,8 +55,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
-      { scheme: 'file', language: LANGUAGE_ID },
-      { scheme: 'untitled', language: LANGUAGE_ID }
+      { scheme: 'file', language: 'powerbuilder' },
+      { scheme: 'file', language: 'powerbuilder-window' },
+      { scheme: 'file', language: 'powerbuilder-datawindow' },
+      { scheme: 'file', language: 'powerbuilder-userobject' },
+      { scheme: 'file', language: 'powerbuilder-function' },
+      { scheme: 'file', language: 'powerbuilder-menu' },
+      { scheme: 'file', language: 'powerbuilder-application' },
+      { scheme: 'file', language: 'powerbuilder-structure' },
+      { scheme: 'file', language: 'powerbuilder-pipeline' },
+      { scheme: 'untitled', language: 'powerbuilder' }
     ],
     outputChannel,
     synchronize: {

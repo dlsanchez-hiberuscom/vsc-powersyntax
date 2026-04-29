@@ -44,33 +44,103 @@
     "languages": [
       {
         "id": "powerbuilder",
-        "aliases": [
-          "PowerBuilder",
-          "PowerScript",
-          "pb"
-        ],
-        "extensions": [
-          ".sru",
-          ".srw",
-          ".srm",
-          ".sra",
-          ".srs",
-          ".srf",
-          ".srd",
-          ".srp",
-          ".srj",
-          ".srq"
-        ],
+        "aliases": ["PowerBuilder", "PowerScript", "pb"],
+        "extensions": [".srj", ".srq", ".pbt", ".pbw", ".pbl"],
         "configuration": "./language-configuration.json",
-        "icon": {
-          "dark": "./icons/powerbuilder.png",
-          "light": "./icons/powerbuilder.png"
-        }
+        "icon": { "dark": "./icons/powerbuilder.png", "light": "./icons/powerbuilder.png" }
+      },
+      {
+        "id": "powerbuilder-window",
+        "extensions": [".srw"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/window.svg", "light": "./icons/files/window.svg" }
+      },
+      {
+        "id": "powerbuilder-datawindow",
+        "extensions": [".srd"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/datawindow.svg", "light": "./icons/files/datawindow.svg" }
+      },
+      {
+        "id": "powerbuilder-userobject",
+        "extensions": [".sru"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/userobject.svg", "light": "./icons/files/userobject.svg" }
+      },
+      {
+        "id": "powerbuilder-function",
+        "extensions": [".srf"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/function.svg", "light": "./icons/files/function.svg" }
+      },
+      {
+        "id": "powerbuilder-menu",
+        "extensions": [".srm"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/menu.svg", "light": "./icons/files/menu.svg" }
+      },
+      {
+        "id": "powerbuilder-application",
+        "extensions": [".sra"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/application.svg", "light": "./icons/files/application.svg" }
+      },
+      {
+        "id": "powerbuilder-structure",
+        "extensions": [".srs"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/structure.svg", "light": "./icons/files/structure.svg" }
+      },
+      {
+        "id": "powerbuilder-pipeline",
+        "extensions": [".srp"],
+        "configuration": "./language-configuration.json",
+        "icon": { "dark": "./icons/files/pipeline.svg", "light": "./icons/files/pipeline.svg" }
       }
     ],
     "grammars": [
       {
         "language": "powerbuilder",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-window",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-datawindow",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-userobject",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-function",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-menu",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-application",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-structure",
+        "scopeName": "source.powerbuilder",
+        "path": "./syntaxes/powerbuilder.tmLanguage.json"
+      },
+      {
+        "language": "powerbuilder-pipeline",
         "scopeName": "source.powerbuilder",
         "path": "./syntaxes/powerbuilder.tmLanguage.json"
       },
