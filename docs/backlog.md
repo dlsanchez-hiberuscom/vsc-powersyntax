@@ -362,6 +362,39 @@ Portar el mecanismo de batching para indexaciones masivas, reduciendo el tráfic
 ### B101. Deduplicación Semántica Robusta (18-field Key)
 Evolucionar la detección de duplicados en el índice usando claves compuestas exhaustivas para evitar colisiones entre símbolos homónimos. Ref: `plugin_old/src/powerbuilder/indexing/symbolIndex.ts` (`uniqueSymbols`).
 
+### B102. Soporte para AncestorReturnValue
+Reconocimiento y hover especial para la variable implícita `AncestorReturnValue` en scripts descendientes. Ref: `plugin_old/src/powerbuilder/semantic/hover/presentation.ts`.
+
+### B103. Hover Enriquecido con Metadatos PB
+Mostrar visibilidad (public/protected), biblioteca externa (`ALIAS FOR`), y distinción clara entre prototipos y ejecuciones en el hover. Ref: `plugin_old/src/powerbuilder/semantic/hover/presentation.ts`.
+
+### B104. Soporte para Eventos Calificados y On-Handlers
+Identificación visual en el hover de eventos declarados mediante la sintaxis `ON object_name.event_name`.
+
+### B105. Quick Fixes de Cierre de Bloque
+Code Actions para insertar automáticamente cierres de bloques faltantes (END IF, NEXT, END CHOOSE, etc.) basados en diagnósticos. Ref: `plugin_old/src/core/i18n/pbUserMessages.ts`.
+
+### B106. Comando de Información del Objeto/DataWindow
+Visualización de un resumen estadístico del archivo actual: eventos, funciones, columnas de tabla, bandas de DW y SQL. Ref: `plugin_old/src/core/i18n/pbUserMessages.ts`.
+
+### B107. Status Bar con Contexto de Proyecto
+Barra de estado enriquecida que muestra el Target activo y estadísticas del índice, con acceso rápido a comandos de mantenimiento.
+
+### B108. Quick Fix de Modernización de Runtime
+Acción de código para sustituir funciones obsoletas por sus reemplazos modernos recomendados. Ref: `plugin_old/src/core/i18n/pbUserMessages.ts`.
+
+### B109. API Pública para Integración (Extension Provider)
+Diseñar y exponer una API para que otras extensiones de VS Code puedan consumir servicios semánticos del plugin. Ref: `plugin_old/src/publicApi.ts`.
+
+### B110. Exportación de Superficie de Automatización
+Generación de manifiestos estructurados del workspace (JSON/YAML) para su integración en pipelines de CI/CD y herramientas de auditoría externa.
+
+### B111. Árbol de Diagnósticos Global Exportable
+Capacidad de exportar todos los problemas semánticos y sintácticos del proyecto en un formato jerárquico procesable por máquinas.
+
+### B112. Herramientas de Consistencia del Catálogo (Knowledge Base)
+Implementar validadores internos para asegurar la integridad de la base de conocimientos y los miles de símbolos del sistema. Ref: `plugin_old/src/powerbuilder/knowledge/validation/`.
+
 ---
 
 ## 5. Entradas candidatas futuras
