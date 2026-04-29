@@ -1,0 +1,31 @@
+{
+  "iconDefinitions": {
+    "pb_window": { "iconPath": "./files/window.svg" },
+    "pb_datawindow": { "iconPath": "./files/datawindow.svg" },
+    "pb_userobject": { "iconPath": "./files/userobject.svg" },
+    "pb_function": { "iconPath": "./files/function.svg" },
+    "pb_menu": { "iconPath": "./files/menu.svg" },
+    "pb_application": { "iconPath": "./files/application.svg" },
+    "pb_structure": { "iconPath": "./files/structure.svg" },
+    "pb_pipeline": { "iconPath": "./files/pipeline.svg" },
+    "pb_generic": { "iconPath": "../powerbuilder.png" }
+  },
+  "fileExtensions": {
+    "srw": "pb_window",
+    "srd": "pb_datawindow",
+    "sru": "pb_userobject",
+    "srf": "pb_function",
+    "srm": "pb_menu",
+    "sra": "pb_application",
+    "srs": "pb_structure",
+    "srp": "pb_pipeline",
+    "srj": "pb_generic",
+    "srq": "pb_generic",
+    "pbt": "pb_generic",
+    "pbw": "pb_generic",
+    "pbl": "pb_generic"
+  },
+  "languageIds": {
+    "powerbuilder": "pb_generic"
+  }
+}

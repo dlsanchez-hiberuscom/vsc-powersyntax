@@ -91,6 +91,13 @@
         "title": "PowerSyntax: Reiniciar Servidor de Lenguaje",
         "category": "VSC PowerSyntax"
       }
+    ],
+    "iconThemes": [
+      {
+        "id": "powerbuilder-icons",
+        "label": "PowerBuilder Icons",
+        "path": "./icons/powerbuilder-icons.json"
+      }
     ]
   },
   "activationEvents": [ ],
@@ -100,8 +107,7 @@
     "icons/**",
     "language-configuration.json",
     "package.json",
-    "README.md",
-    "LICENSE"
+    "README.md"
   ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
