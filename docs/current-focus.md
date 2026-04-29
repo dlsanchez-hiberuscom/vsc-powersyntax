@@ -51,7 +51,8 @@ El proyecto dispone actualmente de una base funcional que incluye:
 - **Fase 3** (parsing, caché e invalidación): **cerrada**.
 - **Fase 4** (backbone semántico inicial y catálogo): **cerrada**.
 - **Fase 5** (navegación profesional y valor visible): **cerrada**.
-- **Fase 6A** (productividad semántica base): **en curso** — completado contextual (B029) y signature help (B028) cerrados; diagnósticos semánticos (B033) como siguiente prioridad.
+- **Fase 6A** (productividad semántica base): **cerrada** (B018, B028, B029, B033, B053, B027 completados; B022 integrado).
+- **Fase 6B / P0** (infraestructura de escala): **en curso**.
 
 ---
 
@@ -59,18 +60,18 @@ El proyecto dispone actualmente de una base funcional que incluye:
 
 ### Meta actual
 
-**Cerrar Fase 6A (Core Semántico y Deuda de Diagnósticos)**
-- ~~**B033**: Implementar validación semántica (Semantic Diagnostics)~~ **(CERRADA)**
-- ~~**B053**: Crear `grammar.ts` canónico y migrar regex dispersas~~ **(CERRADA)**
-- ~~**B027**: Semantic tokens por rol y scope~~ **(CERRADA)**
-- **B022**: Modelo de dependencias básico **(ABIERTA - NEXT)**
+**Cerrar P0: Infraestructura de Escala y Base Semántica Avanzada**
+- **B120**: Discovery rápido no bloqueante (Dual Mode) **(ABIERTA - NEXT)**
+- **B121**: Scheduler de indexación multinivel (Interactive/Near/BG) **(ABIERTA)**
+- **B133**: Barra de estado con progreso de indexación **(ABIERTA)**
+- **B134A**: Caché caliente del contexto activo **(ABIERTA)**
 
 ## Tarea Activa (Next)
-**B022: Modelo de dependencias básico**
+**B120: Discovery rápido no bloqueante del workspace**
 
 ### Fase del roadmap en foco
 
-- **Fase 6A**: en curso (B018, B028, B029, B033, B053, B027 completados; B022 como siguiente).
+- **Fase 6B / P0**: en curso. Priorizando estabilidad y escala antes de abrir la Fase 7A.
 - **Backbone**: Scopes, resolución y queries compartidas listos. Gramática centralizada.
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
@@ -98,13 +99,19 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 - ~~B027. Semantic tokens por rol y scope~~
 - ~~B051. Desambiguación semántica de tipos vs funciones~~
-- [ ] B022. Modelo de dependencias básico
+- ~~B022. Modelo de dependencias básico~~
+- [ ] B120. Discovery rápido no bloqueante del workspace
+- [ ] B121. Scheduler de indexación multinivel
+- [ ] B133. Barra de estado con progreso
+- [ ] B134A. Caché caliente del contexto activo
+- [ ] B134B. Caché de serving (LSP features)
 
 ### Orden operativo recomendado
 
-1. semantic tokens (B027),
-2. modelo de dependencias básico (B022),
-3. validación sobre workspace grande (B030).
+1. discovery rápido no bloqueante (B120),
+2. scheduler de indexación multinivel (B121),
+3. barra de estado con progreso (B133),
+4. caché caliente y de serving (B134A/B).
 
 ---
 
@@ -112,17 +119,19 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Trabajo permitido y prioritario
 
-- ~~implementar semantic tokens básicos (B027) sobre el backbone de símbolos~~,
-- implementar modelo de dependencias básico (B022),
+- implementar discovery dual (Workspace/Solution) sin bloquear el arranque,
+- implementar scheduler de colas para proteger el archivo activo,
+- añadir barra de estado con progreso real,
 - y mantener la coherencia documental tras cada cambio.
 
 ### Resultado esperado de esta etapa
 
 Al final del foco actual, el plugin debe:
 
-- detectar en tiempo real errores semánticos básicos (tipos inexistentes, miembros no resueltos),
-- mantener la latencia controlable en el archivo activo,
-- y preparar la base para la Fase 6B (contexto posicional y scoring avanzado).
+- indexar el workspace de forma progresiva sin bloquear la UI,
+- mostrar progreso real y estado de readiness al usuario,
+- mantener la latencia controlable mediante yielding y budgets,
+- y preparar la base de caché para la resolución fuerte de la Fase 7A.
 
 ---
 
@@ -168,10 +177,10 @@ Antes de mover el foco, esta etapa debe dejar evidencia razonable de mejora.
 
 ### Evidencias mínimas esperadas
 
-- diagnósticos semánticos funcionales y verificados sobre fixtures,
-- medición de latencia de diagnósticos en archivo activo,
-- cobertura mínima de tests sobre diagnósticos semánticos,
-- gramática centralizada y verificada con 0 regresiones,
+- descubrimiento asíncrono y no bloqueante verificado,
+- scheduler de colas operando con prioridades (Interactive/Near/Background),
+- barra de estado reflejando progreso real de indexación,
+- caché de contexto activo y de serving funcional,
 - y documentación actualizada reflejando el estado real.
 
 ---
@@ -180,9 +189,8 @@ Antes de mover el foco, esta etapa debe dejar evidencia razonable de mejora.
 
 El siguiente paso natural del proyecto, una vez cerrado este foco, es:
 
-1. semantic tokens (B027) para enriquecer visualmente el editor,
-2. modelo de dependencias básico (B022),
-3. entrar en Fase 6B (contexto posicional fino, scoring avanzado, parseo documental mejorado).
+1. Infraestructura de escala (P0): discovery, scheduler, caché,
+2. entrar en Fase 7A (resolución fuerte, topología real, visibilidad).
 
 ---
 
@@ -205,4 +213,4 @@ Mientras este documento siga vigente, la regla operativa es:
 
 > **no abrir más superficie funcional de la que la base actual puede sostener sin comprometer carga, estabilidad, claridad arquitectónica o documentación viva.**
 
-La prioridad inmediata es completar la Fase 6A con diagnósticos semánticos funcionales para que el crecimiento futuro sea seguro y sostenible.
+La prioridad inmediata es completar la Fase 6B / P0 con la infraestructura de escala necesaria para que el crecimiento futuro sea seguro y sostenible.

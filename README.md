@@ -1,6 +1,4 @@
-# Hiberus PowerSyntax
-
-Plugin profesional de **Visual Studio Code** para **PowerBuilder** y **PowerScript**, diseñado para ser **ultra-rápido**, **mantenible** y **escalable** sobre proyectos grandes y código legacy.
+Plugin profesional de **Visual Studio Code** para **PowerBuilder 2025** y **PowerScript**, diseñado para ser **ultra-rápido**, **mantenible** y **escalable** sobre proyectos grandes y código legacy (Workspace + Solution).
 
 > Este repositorio desarrolla el **plugin**, no una aplicación PowerBuilder de negocio. Los archivos PowerBuilder presentes en fixtures o corpus se usan como **casos de validación y prueba**.
 
@@ -16,7 +14,17 @@ Este plugin se construye con una visión clara:
 - **Proyectos grandes y legacy**: diseñado desde el inicio para escalar sobre workspaces reales con miles de objetos.
 - **Profesional y mantenible**: arquitectura Clean/Hexagonal con core agnóstico del editor, separación fuerte de responsabilidades y documentación viva.
 - **Preparado para IA**: el plugin construye un modelo semántico profundo de PowerBuilder que podrá exponer a agentes IA para que entiendan, naveguen y asistan sobre código PowerBuilder con precisión — algo que ningún LLM puede hacer por sí solo hoy.
-- **Catálogo oficial del lenguaje**: el plugin aspira a mantener un catálogo del lenguaje, objetos y runtime de PowerBuilder como activo estratégico propio.
+- **Catálogo oficial del lenguaje**: el plugin mantiene un catálogo exhaustivo del lenguaje, objetos y runtime de PowerBuilder 2025 como activo estratégico propio.
+
+---
+
+## Documentación Técnica Destacada
+
+Para una comprensión profunda del ecosistema PowerBuilder 2025 y la implementación del plugin:
+
+- **[Guía Técnica PowerBuilder 2025](docs/powerbuilder-2025-vscode-plugin-technical-guide.md)**: El documento maestro sobre SR*, Workspace vs Solution, y estrategia de parsing.
+- **[Arquitectura](docs/architecture.md)**: Detalle del servidor LSP, Scheduler de prioridades y sistema de Caché.
+- **[Backlog Operativo](docs/backlog.md)**: Estado real del trabajo pendiente y prioridades P0-P5.
 
 ---
 
@@ -47,7 +55,7 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 - diagnósticos estructurales con validación de bloques;
 - análisis por documento con caché en memoria;
 - scheduling de diagnósticos con debounce;
-- **descubrimiento automático de workspace y roots** (`.pbw`, `.pbt`, `.pbl`);
+- **descubrimiento inicial de workspace y roots** (`.pbw`, `.pbt`, `.pbl`);
 - **runtime consolidado** con observabilidad, métricas de rendimiento y `TaskScheduler`;
 - **índice global incremental** (KnowledgeBase) con caché documental (DocumentCache);
 - **navegación global exacta** (Go to Definition) considerando herencia y cualificadores;
@@ -55,7 +63,8 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 - **completado contextual** (Completion) con scoring por ámbito (local/miembro/global);
 - **diagnósticos semánticos** (SD1-SD5) con detección de tipos, miembros y variables no declaradas;
 - **gramática canónica centralizada** (`grammar.ts`) para consistencia léxica total;
-- **tokens semánticos** (Semantic Tokens) para coloreado avanzado por rol y ámbito.
+- **tokens semánticos** (Semantic Tokens) para coloreado avanzado por rol y ámbito;
+- **soporte inicial de Solution** (`.pbsln`, `.pbproj`) y **Workspace** (`.pbw`, `.pbt`).
 
 ### Base técnica actual
 
@@ -203,10 +212,11 @@ Si hay cambios en gramáticas:
 6. ~~navegación profesional y valor visible temprano~~ ✅;
 7. ~~diagnósticos semánticos y productividad base~~ ✅;
 8. ~~semantic tokens, contexto posicional y scoring avanzado~~ ✅;
-9. resolución fuerte, topología y visibilidad (en curso);
-9. escala real y validación sobre corpus grandes;
-10. especialización PowerBuilder (DataWindow, PBAutoBuild);
-11. plataforma abierta y automatización IA.
+9. **Infraestructura de escala (P0): discovery dual, scheduler y caché de serving** (en curso);
+10. resolución fuerte, topología y visibilidad (Fase 7A);
+11. escala real y validación sobre corpus grandes (Fase 8);
+12. especialización PowerBuilder (DataWindow, PBAutoBuild);
+13. plataforma abierta y automatización IA.
 
 ---
 

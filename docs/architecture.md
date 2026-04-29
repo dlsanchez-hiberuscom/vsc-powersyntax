@@ -2,8 +2,7 @@
 
 ## 1. Objetivo
 
-Definir una arquitectura base más robusta para el plugin profesional de **PowerBuilder 2025 para Visual Studio Code**, manteniendo la dirección ya correcta del proyecto pero reforzando los límites internos para evitar refactorizaciones estructurales futuras a medida que crezcan la semántica, la navegación, el índice global y la posible exposición de una API local. La extensión debe priorizar **carga rápida**, **activación perezosa**, **impacto mínimo en el Extension Host**, **escalabilidad en workspaces grandes**, **soporte para código legacy**, **mantenibilidad a largo plazo** y **evolución incremental guiada por documentación viva**. 
-
+Definir una arquitectura base más robusta para el plugin profesional de **PowerBuilder 2025 para Visual Studio Code**, manteniendo la dirección ya correcta del proyecto pero reforzando los límites internos para evitar refactorizaciones estructurales futuras a medida que crezcan la semántica, la navegación, el índice global y la posible exposición de una API local. La extensión debe priorizar **carga rápida**, **activación perezosa**, **impacto mínimo en el Extension Host**, **escalabilidad en workspaces grandes**, **soporte para código legacy**, **mantenibilidad a largo plazo** y **evolución incremental guiada por documentación viva**.
 ---
 
 ## 2. Decisión arquitectónica base vigente
@@ -49,7 +48,7 @@ No debe contener parseo profundo, indexación, resolución semántica ni lógica
 
 ### 4.2 Runtime de análisis separado
 
-El servidor LSP seguirá siendo el runtime principal del conocimiento PowerBuilder y será responsable de parseo, binding, resolución, indexación incremental, diagnósticos, navegación y demás capacidades de lenguaje. El modelo LSP existe precisamente para desacoplar el análisis costoso del editor y comunicar ambos lados mediante mensajes JSON-RPC. citeturn1search7turn1search9
+El servidor LSP seguirá siendo el runtime principal del conocimiento PowerBuilder y será responsable de parseo, binding, resolución, indexación incremental, diagnósticos, navegación y demás capacidades de lenguaje. El modelo LSP existe precisamente para desacoplar el análisis costoso del editor y comunicar ambos lados mediante mensajes JSON-RPC. 
 
 ### 4.3 Core agnóstico del editor
 
@@ -86,7 +85,7 @@ Toda capacidad costosa debe declarar:
 - cómo se cancela,
 - y qué presupuesto temporal razonable consume.
 
-Las guías de Language Server explican que analizar muchos archivos, construir árboles y realizar análisis estático puede ser intensivo en CPU y memoria; por eso el rendimiento debe modelarse desde el inicio, no añadirse al final. citeturn1search7turn1search8turn1search25
+Las guías de Language Server explican que analizar muchos archivos, construir árboles y realizar análisis estático puede ser intensivo en CPU y memoria; por eso el rendimiento debe modelarse desde el inicio, no añadirse al final. 
 
 ---
 
@@ -172,7 +171,7 @@ Responsable de:
 - logging superficial,
 - restart / stop / start del cliente LSP.
 
-No debe contener análisis profundo del lenguaje ni conocimiento semántico compartido. citeturn1search13turn1search7
+No debe contener análisis profundo del lenguaje ni conocimiento semántico compartido.
 
 ### 6.3 Capa runtime
 
@@ -299,7 +298,7 @@ Responsable de adaptar el conocimiento interno a handlers LSP:
 - signature help,
 - diagnostics.
 
-Debe ser fina y actuar como adapter; la lógica profunda debe residir en consultas y servicios compartidos. El modelo LSP precisamente separa cliente/servidor y protocolo de la lógica de lenguaje. citeturn1search7turn1search9
+Debe ser fina y actuar como adapter; la lógica profunda debe residir en consultas y servicios compartidos. El modelo LSP precisamente separa cliente/servidor y protocolo de la lógica de lenguaje.
 
 ### 6.13 Capa adapters
 
@@ -371,10 +370,10 @@ Debe ser incremental, cancelable y no bloqueante. La necesidad de análisis incr
 
 ## 8. Reglas de diseño reforzadas
 
-- El cliente no implementa semántica pesada. citeturn1search13turn1search7
+- El cliente no implementa semántica pesada.
 - El parser no depende de VS Code. 
 - La semántica no depende de UI ni de transporte. 
-- Los handlers LSP no contienen lógica de negocio profunda. citeturn1search7turn1search9
+- Los handlers LSP no contienen lógica de negocio profunda.
 - El dominio no conoce JSON ni DTOs.
 - Los contratos no exponen entidades internas directamente. 
 - Toda capacidad costosa debe exponer invalidación, cancelación y estrategia de caché. 
@@ -431,6 +430,19 @@ Para acelerar reinicios:
 
 Separar estos niveles evita usar el mismo modelo para servir necesidades de latencia inmediata y para mantener conocimiento global pesado. Esa separación es coherente con el diseño incremental recomendado para runtimes de lenguaje. 
 
+### 10.4 Scheduler de Prioridades y Gestión de Colas (P0)
+
+Para garantizar la interactividad en proyectos grandes, el servidor implementa un scheduler con tres colas:
+- **Interactive**: (Alta) Peticiones directas del usuario (hover, completion).
+- **Near**: (Media) Análisis del documento activo y sus dependencias inmediatas.
+- **Background**: (Baja) Indexación progresiva del resto del workspace.
+
+### 10.5 Estrategia de Caché Multinivel (P0)
+
+1. **Hot Memory Cache**: Contexto posicional y símbolos locales del archivo abierto.
+2. **Persistent Cache**: Fingerprints y metadatos por proyecto para acelerar el "warm indexing".
+3. **Serving Cache**: Capa optimizada para responder consultas LSP frecuentes sin recomputar el AST.
+
 ---
 
 ## 11. Estrategia de validación arquitectónica
@@ -466,11 +478,13 @@ Las guías oficiales de VS Code/LSP justifican esta preocupación porque el aná
 - bootstrap del servidor en `src/server/server.ts`,
 - parseo y heurísticas iniciales en `src/server/parsing/*`,
 - análisis documental y scheduling básico en `src/server/analysis/*`,
-- features LSP activas: Document Symbols, Hover sem�ntico, Go to Definition, Workspace Symbols, Completado Contextual, Signature Help en `src/server/features/*`,
+- features LSP activas: Document Symbols, Hover semántico, Go to Definition, Workspace Symbols, Completado Contextual, Signature Help en `src/server/features/*`,
 - tipos internos en `src/server/model/*`,
 - utilidades internas en `src/server/utils/*`,
 - tipos compartidos en `src/shared/*`,
 - gramáticas y configuración del lenguaje,
+- base de conocimiento (KnowledgeBase) e índice global inicial,
+- consultas compartidas (SemanticQueryService) para features LSP,
 - documentación y tests iniciales.
 
 ### PARCIAL
@@ -482,14 +496,10 @@ Las guías oficiales de VS Code/LSP justifican esta preocupación porque el aná
 - separación fuerte entre contracts y kernel,
 - runtime/scheduler como capa propia.
 
-### OBJETIVO
-
 - core agnóstico consolidado,
-- knowledge pipeline incremental compartido,
-- runtime explícito,
+- knowledge pipeline incremental compartido (en evolución),
+- runtime explícito (scheduler consolidado),
 - contracts externos separados del dominio,
-- índice global ligero e incremental,
-- queries compartidas para todas las features,
 - y preparación estructural para API local basada en mensajes JSON versionables. 
 
 ---
@@ -527,7 +537,7 @@ Si durante la evolución del proyecto cambia cualquiera de estos elementos:
 - contratos compartidos,
 - o roadmap arquitectónico,
 
-se deberán actualizar al menos:
+se deberá actualizar al menos:
 
 - `README.md`,
 - `architecture.md`,

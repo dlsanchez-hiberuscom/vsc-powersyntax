@@ -163,26 +163,22 @@ Construir la primera experiencia profesional de edición.
 
 ---
 
-## Fase 6B — Asistencia contextual y refinamiento semántico (EN CURSO)
+## Fase 6B — Infraestructura de escala y refinamiento semántico (EN CURSO)
 
 ### Objetivo
-Refinar la productividad con contexto reutilizable y parseo documental más fuerte.
+Garantizar la interactividad en proyectos grandes mediante indexación no bloqueante y refinamiento del contexto semántico.
 
 ### Entregables mínimos
-- diagnósticos semánticos iniciales consolidados,
-- contexto posicional reutilizable,
-- parseo por secciones / state machine,
-- completion scoring avanzado,
-- snapshots reutilizables por documento.
-
-### Opcional
-- variables no usadas,
-- shadowing.
+- discovery rápido no bloqueante (Dual Mode),
+- scheduler de indexación multinivel (Interactive/Near/Background),
+- barra de estado con progreso de indexación,
+- caché de contexto activo y de serving (LSP features),
+- contexto posicional reutilizable y snapshots por documento.
 
 ### Criterio de salida
-- errores semánticos útiles,
-- contexto compartido entre features,
-- completion claramente mejor que en 6A.
+- el sistema indexa el workspace sin bloquear la UI,
+- el usuario ve progreso real en la barra de estado,
+- y el contexto compartido mejora la precisión de las features LSP.
 
 ---
 
