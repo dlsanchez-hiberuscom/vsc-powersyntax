@@ -22,6 +22,8 @@ import { extractDocumentSymbols } from './features/documentSymbols';
 import { provideHover } from './features/hover';
 import { provideWorkspaceSymbols } from './features/workspaceSymbols';
 import { provideDefinition } from './features/definition';
+import { provideSignatureHelp } from './features/signatureHelp';
+import { provideCompletion } from './features/completion';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { NodeFileSystem } from './system/fileSystem';
@@ -76,7 +78,13 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       documentSymbolProvider: true,
       hoverProvider: true,
       workspaceSymbolProvider: true,
-      definitionProvider: true
+      definitionProvider: true,
+      completionProvider: {
+        triggerCharacters: ['.']
+      },
+      signatureHelpProvider: {
+        triggerCharacters: ['(', ',']
+      }
     }
   };
 });
@@ -239,6 +247,72 @@ connection.onDefinition((params) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     connection.console.error(`[ERROR] definition: ${message}`);
+    return null;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Funcionalidades (Features) — Ayuda de Firmas (Signature Help)
+// ---------------------------------------------------------------------------
+
+connection.onSignatureHelp((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return null;
+  }
+
+  try {
+    return scheduler.runInteractive({
+      id: `signatureHelp-${document.uri}`,
+      priority: TaskPriority.Interactive,
+      execute: () => {
+        const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph));
+
+        if (firstInvocation.isFirst('signatureHelp')) {
+          const sinceStart = performance.now() - serverStartTime;
+          connection.console.log(formatTiming('Primer signatureHelp (desde el inicio)', sinceStart));
+        }
+
+        connection.console.log(formatTiming('signatureHelp', elapsedMs));
+        return result;
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    connection.console.error(`[ERROR] signatureHelp: ${message}`);
+    return null;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Funcionalidades (Features) — Completado Contextual (Completion)
+// ---------------------------------------------------------------------------
+
+connection.onCompletion((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return null;
+  }
+
+  try {
+    return scheduler.runInteractive({
+      id: `completion-${document.uri}`,
+      priority: TaskPriority.Interactive,
+      execute: () => {
+        const { result, elapsedMs } = measureMs(() => provideCompletion(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph));
+
+        if (firstInvocation.isFirst('completion')) {
+          const sinceStart = performance.now() - serverStartTime;
+          connection.console.log(formatTiming('Primer completion (desde el inicio)', sinceStart));
+        }
+
+        connection.console.log(formatTiming('completion', elapsedMs));
+        return result;
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    connection.console.error(`[ERROR] completion: ${message}`);
     return null;
   }
 });

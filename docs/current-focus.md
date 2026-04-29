@@ -34,6 +34,8 @@ El proyecto dispone actualmente de una base funcional que incluye:
 - **KnowledgeBase** con soporte para indexación global y actualizaciones en lote (batch updates),
 - **Gramática TextMate** principal y gramática para bloques PowerBuilder en Markdown,
 - **FileSystemWatcher** para archivos de proyecto PowerBuilder (`.pbw`, `.pbt`, `.pbproj`, `.pbsln`),
+- **Completado Contextual** semántico con soporte para herencia y cualificadores,
+- **Ayuda de firmas (Signature Help)** interactiva con soporte para parámetros,
 - y **base de tests** con estructura smoke / unit / integration / performance.
 
 ### Fases del roadmap completadas o en curso
@@ -51,8 +53,8 @@ El proyecto dispone actualmente de una base funcional que incluye:
 
 ### Prioridad operativa
 
-**Signature Help básico (B022).**
-Hemos consolidado los ámbitos léxicos (B020) y la resolución semántica (B021). Tras un breve paréntesis de **localización total a español** (comentarios, logs, UI y comandos), el siguiente paso es implementar la ayuda de firmas (Signature Help). Esto permitirá que el usuario vea los parámetros y tipos de retorno de funciones y eventos mientras escribe llamadas, utilizando el motor semántico ya existente.
+**Diagnósticos Semánticos iniciales (B033).**
+Tras haber consolidado el Completado Contextual, el foco se desplaza a los diagnósticos semánticos. Aprovechando el motor de resolución ya construido, el objetivo es detectar en tiempo real errores de tipo, variables no declaradas o llamadas a métodos que no existen en la jerarquía del objeto, elevando la fiabilidad del plugin antes de entrar en operaciones de refactorización.
 
 ### Fase del roadmap en foco
 
@@ -89,14 +91,14 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 - [x] B018. Hover semántico con documentación heredada
 - [x] B021. Consolidación de queries semánticas compartidas
 - [x] B020. Base de scopes y binding inicial (variables locales)
-- [/] B022. Ayuda de firmas (Signature Help) inicial
-- [ ] B019. Completado contextual básico (miembros de objeto)
-- [ ] B016. Diagnósticos semánticos (detectar tipos inexistentes)
+- [x] B028. Ayuda de firmas (Signature Help) inicial
+- [x] B029. Completado contextual básico (miembros de objeto)
+- [/] B033. Diagnósticos semánticos (detectar tipos/miembros inexistentes)
 
 ### Orden operativo recomendado
 
-1. signature help (B022),
-2. completado contextual (B019).
+1. diagnósticos semánticos (B033),
+2. modelo de dependencias básico (B022).
 
 ---
 
@@ -111,10 +113,11 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Resultado esperado de esta etapa
 
-Al final del foco actual (Spec 003), el plugin debe:
+Al final del foco actual (Spec 009), el plugin debe:
 
-- conocer todos los roots y archivos relevantes del workspace sin indexar todavía su contenido profundo,
-- registrar el tiempo de descubrimiento del workspace y asegurar que no bloquea la activación interactiva del archivo actual.
+- responder a peticiones de completado (`textDocument/completion`) con precisión contextual,
+- sugerir variables locales si estamos dentro de una función o evento,
+- sugerir miembros (`this.`, `super.`, o variables `tipo.`) usando el catálogo y el grafo de herencia.
 
 ---
 
@@ -180,12 +183,10 @@ Antes de mover el foco, esta etapa debe dejar evidencia razonable de mejora.
 
 El siguiente paso natural del proyecto, una vez cerrado este foco, es:
 
-1. formalizar el **pipeline de parseo incremental** sobre la base de parsing existente,
-2. introducir **caché documental con invalidación fina** (mejorar la caché existente),
-3. preparar el **esqueleto del índice incremental** de símbolos,
-4. y comenzar el **backbone semántico inicial** reutilizable del archivo activo.
+1. introducir diagnósticos semánticos (B033),
+2. ampliar soporte de DataWindow (Fase 9) de forma gradual.
 
-Es decir: primero base operativa medida y observable, después parseo/caché formales, y solo entonces semántica compartida reutilizable. Las features funcionales existentes (Document Symbols, Hover, Diagnósticos) migrarán progresivamente al knowledge pipeline a medida que este madure.
+Las features funcionales existentes (Document Symbols, Hover, Signature Help) ya usan el knowledge pipeline. El completado contextual confirmará la robustez del resolver.
 
 ---
 

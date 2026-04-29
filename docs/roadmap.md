@@ -191,7 +191,7 @@ Construir un pipeline de parseo incremental útil y reutilizable, con caché raz
 
 ---
 
-## Fase 4 — Backbone semántico inicial y catálogo oficial (EN CURSO)
+## ~~Fase 4 — Backbone semántico inicial y catálogo oficial~~ ✅ COMPLETADA
 
 ### Objetivo
 Introducir la base canónica del conocimiento compartido: símbolos, scopes, binding inicial, índice y consultas comunes, apoyada además en un catálogo oficial del lenguaje y runtime.
@@ -220,7 +220,7 @@ Introducir la base canónica del conocimiento compartido: símbolos, scopes, bin
 
 ---
 
-## Fase 5 — Navegación profesional y valor visible temprano
+## ~~Fase 5 — Navegación profesional y valor visible temprano~~ ✅ COMPLETADA
 
 ### Objetivo
 Entregar las primeras capacidades realmente valiosas para el desarrollador humano sobre la nueva base compartida.
@@ -248,7 +248,7 @@ Entregar las primeras capacidades realmente valiosas para el desarrollador human
 
 ---
 
-## Fase 6 — Diagnósticos y productividad semántica base
+## Fase 6 — Diagnósticos y productividad semántica base (EN CURSO)
 
 ### Objetivo
 Construir la primera capa profesional de productividad semántica reutilizando el backbone ya creado.

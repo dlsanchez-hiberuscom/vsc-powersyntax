@@ -49,7 +49,10 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 - scheduling de diagnósticos con debounce;
 - **descubrimiento automático de workspace y roots** (`.pbw`, `.pbt`, `.pbl`);
 - **runtime consolidado** con observabilidad, métricas de rendimiento y `TaskScheduler`;
-- **índice global incremental** (KnowledgeBase) con caché documental (DocumentCache).
+- **índice global incremental** (KnowledgeBase) con caché documental (DocumentCache);
+- **navegación global exacta** (Go to Definition) considerando herencia y cualificadores;
+- **ayuda de firmas (Signature Help)** con soporte para parámetros y llamadas anidadas;
+- **completado contextual** (Completion) con scoring por ámbito (local/miembro/global).
 
 ### Base técnica actual
 
@@ -67,12 +70,12 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 
 Todavía no deben asumirse como implementadas o completas estas áreas:
 
-- navegación global Go to Definition (en curso);
-- binder, scopes y resolver semántico robusto;
+- binder, scopes y resolver semántico robusto (en curso);
 - AST formal completo;
-- `definition`, `references`, `rename`;
+- `references`, `rename`;
 - semantic tokens reales;
-- completion y hover avanzados;
+- hover avanzado;
+- diagnósticos semánticos (en curso);
 - política de caché con límite o evicción;
 - flujo estándar de tests y CI completamente normalizado.
 

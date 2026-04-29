@@ -42,6 +42,22 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   };
 }
 
+function extractParameters(line: string): { label: string, documentation?: string }[] | undefined {
+  const argMatch = line.match(/\((.*?)\)/);
+  if (!argMatch || argMatch[1].trim() === '') {
+    return undefined;
+  }
+  const args = argMatch[1].split(',');
+  const parameters: { label: string }[] = [];
+  for (const arg of args) {
+    const trimmed = arg.trim();
+    if (trimmed.length > 0) {
+      parameters.push({ label: trimmed });
+    }
+  }
+  return parameters.length > 0 ? parameters : undefined;
+}
+
 function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
   const factMap = new Map<string, Fact>();
 
@@ -74,7 +90,8 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       signature: f.detail,
       containerName: f.containerName,
       baseTypeName: f.baseTypeName,
-      datatype: f.datatype
+      datatype: f.datatype,
+      parameters: f.parameters
     });
   }
 
@@ -138,6 +155,7 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             kind: fn.kind,
             declarationOnly: true,
             detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
+            parameters: extractParameters(line),
             line: i,
             startCharacter: line.indexOf(fn.name),
             endCharacter: line.indexOf(fn.name) + fn.name.length
@@ -153,6 +171,7 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             kind: 'event',
             declarationOnly: true,
             detail: ev.detail,
+            parameters: extractParameters(line),
             line: i,
             startCharacter: start,
             endCharacter: start + ev.name.length
@@ -253,6 +272,7 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
           declarationOnly: false,
           containerName: currentContainerName,
           detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
+          parameters: extractParameters(line),
           line: i,
           startCharacter: line.indexOf(fn.name),
           endCharacter: line.indexOf(fn.name) + fn.name.length
@@ -312,6 +332,7 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
           declarationOnly: false,
           containerName: currentContainerName,
           detail: ev.detail,
+          parameters: extractParameters(line),
           line: i,
           startCharacter: start,
           endCharacter: start + ev.name.length
@@ -358,6 +379,21 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             character: line.indexOf(localVar.name),
             datatype: localVar.type,
             containerName: currentFuncScope.id
+          });
+        }
+      } else if (currentTypeScope) {
+        // We are inside a type block but outside a function, it's likely an instance variable
+        const instVar = matchVariableDeclaration(line);
+        if (instVar) {
+          facts.push({
+            name: instVar.name,
+            kind: 'variable',
+            containerName: currentTypeScope.id,
+            detail: `${instVar.type}${instVar.modifiers ? ` (${instVar.modifiers})` : ''}`,
+            datatype: instVar.type,
+            line: i,
+            startCharacter: line.indexOf(instVar.name),
+            endCharacter: line.indexOf(instVar.name) + instVar.name.length
           });
         }
       }

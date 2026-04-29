@@ -36,6 +36,8 @@ export interface Entity {
   baseTypeName?: string;
   /** Tipo de dato de la variable (ej. 'integer', 'n_cst_string'). Fundamental para resolución de métodos. */
   datatype?: string;
+  /** Parámetros formalmente parseados y normalizados, útil para Signature Help */
+  parameters?: { label: string, documentation?: string }[];
 }
 
 /**

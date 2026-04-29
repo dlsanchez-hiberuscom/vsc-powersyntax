@@ -49,4 +49,17 @@ export class SystemCatalog {
   findSystemSymbol(name: string): PbSystemSymbolEntry[] {
     return this.symbolsByLookupKey.get(name.toLowerCase()) || [];
   }
+
+  /**
+   * Obtiene todos los símbolos del sistema indexados (útil para autocompletado global).
+   */
+  getAllSystemSymbols(): PbSystemSymbolEntry[] {
+    const result = new Set<PbSystemSymbolEntry>();
+    for (const bucket of this.symbolsByLookupKey.values()) {
+      for (const symbol of bucket) {
+        result.add(symbol);
+      }
+    }
+    return Array.from(result);
+  }
 }

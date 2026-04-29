@@ -28,6 +28,7 @@ export interface SymbolFact {
   containerName?: string;
   baseTypeName?: string;
   datatype?: string;
+  parameters?: { label: string, documentation?: string }[];
   line: number;
   startCharacter: number;
   endCharacter: number;

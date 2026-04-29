@@ -122,7 +122,7 @@ export function matchVariableDeclaration(
   const name = match[3];
 
   // Exclude common PowerScript keywords that might be mistaken for a type
-  const keywords = ['return', 'if', 'elseif', 'else', 'choose', 'case', 'for', 'do', 'while', 'loop', 'next', 'continue', 'exit', 'goto', 'throw', 'catch', 'finally'];
+  const keywords = ['return', 'if', 'elseif', 'else', 'choose', 'case', 'for', 'do', 'while', 'loop', 'next', 'continue', 'exit', 'goto', 'throw', 'catch', 'finally', 'end', 'forward', 'global', 'type', 'variables'];
   if (keywords.includes(type.toLowerCase())) {
     return null;
   }

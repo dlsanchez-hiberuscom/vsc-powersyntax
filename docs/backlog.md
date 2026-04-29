@@ -119,8 +119,8 @@ Implementación de ámbitos léxicos (Global, Type, Function, Event) para resolv
 ### ~~B021. Queries compartidas del knowledge layer~~ ✅ CERRADA
 Consolidados los métodos de resolución de `definition` en `semanticQueryService`, usados ahora por `definition` y `hover` simultáneamente para garantizar coherencia en la interpretación del código.
 
-### [/] B028. Ayuda de firmas (Signature Help) básico
-Introducir ayuda de firmas sobre catálogo y resolución suficientemente fiables. Foco inmediato.
+### ~~B028. Ayuda de firmas (Signature Help) básico~~ ✅ CERRADA
+Introducido `signatureHelp.ts` que utiliza un backward scanner robusto para manejar llamadas anidadas y detectar el parámetro activo. Integrado con el catálogo oficial y el conocimiento semántico del workspace.
 
 ---
 
@@ -144,11 +144,14 @@ Añadir soporte inicial de ancestros, descendientes y relaciones más propias de
 ### B027. Semantic tokens por rol y scope
 Enriquecer el editor usando el backbone de símbolos y roles semánticos compartidos.
 
-### B029. Completado contextual base
-Ofrecer sugerencias útiles apoyadas en el índice, scopes y catálogo oficial.
+### ~~B029. Completado contextual base~~ ✅ CERRADA
+Implementado `completion.ts` con scoring por contexto (`0_local`, `1_member`, `2_global`). Soporta cualificadores (`this.`, `super.`, variables tipadas) utilizando el `InheritanceGraph` y el `semanticQueryService`. Propuestas ordenadas por relevancia semántica.
 
 ### B030. Validación sobre workspace grande real
 Ejecutar y medir el plugin sobre un corpus grande real de PowerBuilder para detectar cuellos de botella y falsos positivos.
+
+### B051. Desambiguación semántica de tipos vs funciones
+Resolver limitación actual del Lexer/TextMate donde las declaraciones de tipos de sistema (como `String` e `Integer`) son coloreadas y tratadas como llamadas a función (ej. `String()`). Requiere Semantic Tokens apoyados en el contexto del AST para distinguir declaración vs. conversión.
 
 ---
 

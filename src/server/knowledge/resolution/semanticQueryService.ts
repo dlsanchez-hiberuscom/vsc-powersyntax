@@ -27,51 +27,20 @@ export function resolveTargetEntity(
   let possibleTargets: Entity[] = [];
 
   if (qualifier) {
-    const qLower = qualifier.toLowerCase();
-
-    if (qLower === 'super') {
-      if (currentMainObject && currentMainObject.baseTypeName) {
-        const members = graph.getMembers(currentMainObject.baseTypeName);
-        possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
-        possibleTargets = sortAndFilterByDistance(possibleTargets, currentMainObject.baseTypeName, graph);
-      }
-    } else if (qLower === 'this') {
-      if (currentMainObject) {
-        const members = graph.getMembers(currentMainObject.name);
-        possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
-        possibleTargets = sortAndFilterByDistance(possibleTargets, currentMainObject.name, graph);
-      }
-    } else {
-      let varType: string | undefined;
-
-      // Intentar resolver como variable local en el scope
-      if (line !== undefined) {
-        const scope = kb.getScopeAt(currentUri, line);
-        if (scope) {
-          const local = scope.symbols.find(s => s.name.toLowerCase() === qLower);
-          if (local) varType = local.datatype;
-        }
-      }
-
-      // Fallback: variable de instancia en el mismo archivo
-      if (!varType) {
-        const instanceVar = allEntities.find(
-          e => normalizeUri(e.uri) === currentUri && e.kind === EntityKind.Variable && e.name.toLowerCase() === qLower
-        );
-        if (instanceVar) varType = instanceVar.datatype;
-      }
-
-      if (varType) {
-        const members = graph.getMembers(varType);
-        possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
-        possibleTargets = sortAndFilterByDistance(possibleTargets, varType, graph);
+    const varType = resolveQualifierType(qualifier, currentUri, kb, line);
+    if (varType) {
+      if (varType.toLowerCase() === 'super' && currentMainObject?.baseTypeName) {
+         const members = graph.getMembers(currentMainObject.baseTypeName);
+         possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
+         possibleTargets = sortAndFilterByDistance(possibleTargets, currentMainObject.baseTypeName, graph);
+      } else if (varType.toLowerCase() === 'this' && currentMainObject) {
+         const members = graph.getMembers(currentMainObject.name);
+         possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
+         possibleTargets = sortAndFilterByDistance(possibleTargets, currentMainObject.name, graph);
       } else {
-        const typeTarget = kb.findDefinition(qLower);
-        if (typeTarget && typeTarget.kind === EntityKind.Type) {
-          const members = graph.getMembers(typeTarget.name);
-          possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
-          possibleTargets = sortAndFilterByDistance(possibleTargets, typeTarget.name, graph);
-        }
+         const members = graph.getMembers(varType);
+         possibleTargets = members.filter(m => m.name.toLowerCase() === identifier.toLowerCase());
+         possibleTargets = sortAndFilterByDistance(possibleTargets, varType, graph);
       }
     }
   } else {
@@ -119,4 +88,50 @@ export function sortAndFilterByDistance(targets: Entity[], fromType: string, gra
 
   const minDistance = withDistance[0].distance;
   return withDistance.filter(x => x.distance === minDistance).map(x => x.entity);
+}
+
+/**
+ * Resuelve un cualificador a su tipo de dato base (e.g. 'super', 'this', o 'n_cst_math').
+ * Devuelve 'super' o 'this' directamente si es el caso, para que el llamante maneje el contexto.
+ */
+export function resolveQualifierType(
+  qualifier: string,
+  currentDocumentUri: string,
+  kb: KnowledgeBase,
+  line?: number
+): string | undefined {
+  const qLower = qualifier.toLowerCase();
+  if (qLower === 'super' || qLower === 'this') {
+    return qLower;
+  }
+
+  const currentUri = normalizeUri(currentDocumentUri);
+  let varType: string | undefined;
+
+  if (line !== undefined) {
+    const scope = kb.getScopeAt(currentUri, line);
+    if (scope) {
+      const local = scope.symbols.find(s => s.name.toLowerCase() === qLower);
+      if (local) varType = local.datatype;
+    }
+  }
+
+  if (!varType) {
+    const allEntities = kb.getAllEntities();
+    const instanceVar = allEntities.find(
+      e => normalizeUri(e.uri) === currentUri && e.kind === EntityKind.Variable && e.name.toLowerCase() === qLower
+    );
+    if (instanceVar) varType = instanceVar.datatype;
+  }
+
+  if (varType) {
+    return varType;
+  }
+
+  const typeTarget = kb.findDefinition(qLower);
+  if (typeTarget && typeTarget.kind === EntityKind.Type) {
+    return typeTarget.name;
+  }
+
+  return undefined;
 }
