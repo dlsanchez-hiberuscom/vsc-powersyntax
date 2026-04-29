@@ -338,6 +338,30 @@ Acción rápida para generar el esqueleto de un evento o función heredado del a
 ### B087. Topología de Workspace y Library Order
 Uso de archivos .pbw/.pbt para priorizar la resolución de símbolos según el orden real de las librerías del proyecto. Ref: `plugin_old/src/powerbuilder/workspace/projectRegistry.ts`.
 
+### B088. Catálogo Curado del Lenguaje (200KB+ Dataset)
+Integración del dataset manual de funciones, objetos y eventos del sistema extraído del plugin anterior. Ref: `plugin_old/src/powerbuilder/knowledge/manual/`.
+
+### B089. Lexing de Precisión: Comentarios Anidados y Escapes
+Portar la lógica de lexing que soporta comentarios de bloque anidados y secuencias de escape complejas (~n, ~h, ~o). Ref: `plugin_old/src/core/utils/powerScriptLexingUtils.ts`.
+
+### B090. Detección de SQL Embebido (Enriquecido)
+Lógica para identificar bloques de SQL y desactivar diagnósticos semánticos erróneos en esas zonas. Ref: `plugin_old/src/core/utils/powerScriptSqlUtils.ts`.
+
+### B092. Sistema de Máscaras de Código (Code Masking)
+Implementar generador de máscaras para que todos los servicios semánticos operen solo sobre caracteres de código, ignorando de forma segura strings y comentarios. Ref: `plugin_old/src/core/utils/powerScriptLexingUtils.ts`.
+
+### B095. Normalizador de Sentencias Lógicas (Statement Splitter)
+Portar el motor de segmentación de sentencias que maneja `;`, `:` y el carácter de continuación `&`. Ref: `plugin_old/src/core/utils/powerScriptStatementUtils.ts`.
+
+### B099. Resolución por Anidamiento (Range Span Comparison)
+Implementar lógica de "span" para identificar el símbolo más anidado bajo el cursor, garantizando precisión absoluta en scopes locales vs miembros. Ref: `plugin_old/src/powerbuilder/indexing/symbolIndex.ts` (`compareByNesting`).
+
+### B100. Sistema de Batch Updates para el KnowledgeBase
+Portar el mecanismo de batching para indexaciones masivas, reduciendo el tráfico de eventos y mejorando el rendimiento de UI durante el warm-up. Ref: `plugin_old/src/powerbuilder/indexing/symbolIndex.ts`.
+
+### B101. Deduplicación Semántica Robusta (18-field Key)
+Evolucionar la detección de duplicados en el índice usando claves compuestas exhaustivas para evitar colisiones entre símbolos homónimos. Ref: `plugin_old/src/powerbuilder/indexing/symbolIndex.ts` (`uniqueSymbols`).
+
 ---
 
 ## 5. Entradas candidatas futuras
