@@ -93,6 +93,7 @@
       }
     ]
   },
+  "activationEvents": [ ],
   "files": [
     "out/**",
     "syntaxes/**",
