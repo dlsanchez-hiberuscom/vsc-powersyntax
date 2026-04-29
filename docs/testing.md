@@ -197,17 +197,21 @@ describe('NombreDelMódulo', () => {
 
 ### Existente
 
-- estructura básica de test en `test/` con subdirectorios por tipo,
+- estructura de test en `test/` con subdirectorios por tipo (smoke, server, fixtures, corpora, results),
 - configuración de `@vscode/test-cli` en `.vscode-test.js`,
 - scripts de npm para todos los tipos de test,
-- y `tsconfig.test.json` para compilación independiente.
+- `tsconfig.test.json` para compilación independiente,
+- unit tests para runtime (`timing`, `cancellation`, `scheduler`),
+- unit tests para parseo y matchers,
+- unit tests para features (documentSymbols, hover, completion, signatureHelp),
+- smoke test de extensión.
 
 ### Pendiente
 
-- cobertura mínima de unit tests para parsing, matchers y análisis,
-- cobertura de integration tests para Document Symbols, Hover y Diagnósticos,
-- al menos un smoke test que verifique activación,
-- y al menos un performance test que mida cold start.
+- cobertura de integration tests end-to-end completa,
+- performance tests automatizados con baselines,
+- validación sobre corpus reales (PFC 2025),
+- y tests específicos de diagnósticos semánticos (B033).
 
 ---
 

@@ -466,7 +466,7 @@ Las guías oficiales de VS Code/LSP justifican esta preocupación porque el aná
 - bootstrap del servidor en `src/server/server.ts`,
 - parseo y heurísticas iniciales en `src/server/parsing/*`,
 - análisis documental y scheduling básico en `src/server/analysis/*`,
-- primeras features LSP en `src/server/features/*`,
+- features LSP activas: Document Symbols, Hover sem�ntico, Go to Definition, Workspace Symbols, Completado Contextual, Signature Help en `src/server/features/*`,
 - tipos internos en `src/server/model/*`,
 - utilidades internas en `src/server/utils/*`,
 - tipos compartidos en `src/shared/*`,

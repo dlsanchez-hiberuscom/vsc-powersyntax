@@ -4,38 +4,46 @@ import {
   TypeMatch
 } from '../model/types';
 import { normalizeSpace } from '../utils/helpers';
+import {
+  ROOT_TYPE_PATTERN,
+  NESTED_TYPE_PATTERN,
+  FUNCTION_PATTERN,
+  SUBROUTINE_PATTERN,
+  EVENT_PATTERN,
+  ON_EVENT_PATTERN,
+  VARIABLE_PATTERN,
+  PB_KEYWORDS
+} from './grammar';
 
 export function isTypeDefinitionHeader(line: string): boolean {
-  return /^(?:\s*(?:global|public|private|protected)\s+)?type\s+[A-Za-z_$#%][\w$#%\-]*\s+from\s+[A-Za-z_$#%][\w$#%\-`]*/i.test(
-    line
-  );
+  return ROOT_TYPE_PATTERN.test(line) || NESTED_TYPE_PATTERN.test(line);
 }
 
 export function matchTypeDefinition(line: string): TypeMatch | null {
-  const match =
-    /^(?:\s*(?:global|public|private|protected)\s+)?type\s+([A-Za-z_$#%][\w$#%\-]*)\s+from\s+([A-Za-z_$#%][\w$#%\-`]*)(?:\s+within\s+([A-Za-z_$#%][\w$#%\-`]*))?/i.exec(
-      line
-    );
-
-  if (!match) {
-    return null;
+  const rootMatch = ROOT_TYPE_PATTERN.exec(line);
+  if (rootMatch) {
+    return {
+      name: rootMatch[1],
+      ancestor: rootMatch[2]
+    };
   }
 
-  return {
-    name: match[1],
-    ancestor: match[2],
-    container: match[3]
-  };
+  const nestedMatch = NESTED_TYPE_PATTERN.exec(line);
+  if (nestedMatch) {
+    return {
+      name: nestedMatch[1],
+      ancestor: nestedMatch[2],
+      container: nestedMatch[3] // Group 3 is the container
+    };
+  }
+
+  return null;
 }
 
 export function matchFunctionImplementationHeader(
   line: string
 ): FunctionLikeMatch | null {
-  const functionMatch =
-    /^\s*(?:(?:public|private|protected|global|shared|static|rpcfunc|external|native|readonly|constant|ref|indirect)\s+)*function\s+([A-Za-z_$#%][\w$#%\-`]*)\s+([A-Za-z_$#%][\w$#%\-]*)\s*(?=\()/i.exec(
-      line
-    );
-
+  const functionMatch = FUNCTION_PATTERN.exec(line);
   if (functionMatch) {
     return {
       kind: 'function',
@@ -44,11 +52,7 @@ export function matchFunctionImplementationHeader(
     };
   }
 
-  const subroutineMatch =
-    /^\s*(?:(?:public|private|protected|global|shared|static|rpcfunc|external|native|readonly|constant|ref|indirect)\s+)*subroutine\s+([A-Za-z_$#%][\w$#%\-]*)\s*(?=\()/i.exec(
-      line
-    );
-
+  const subroutineMatch = SUBROUTINE_PATTERN.exec(line);
   if (subroutineMatch) {
     return {
       kind: 'subroutine',
@@ -68,10 +72,7 @@ export function matchFunctionPrototype(
 export function matchEventImplementationHeader(
   line: string
 ): EventLikeMatch | null {
-  const match =
-    /^\s*(?:(?:public|private|protected|global|shared|static)\s+)*event\s+([A-Za-z_$#%][\w$#%\-]*(?:::[A-Za-z_$#%][\w$#%\-]*)?)\s*(?:;|\(|$)/i.exec(
-      line
-    );
+  const match = EVENT_PATTERN.exec(line);
 
   if (!match) {
     return null;
@@ -86,10 +87,7 @@ export function matchEventImplementationHeader(
 export function matchOnImplementationHeader(
   line: string
 ): EventLikeMatch | null {
-  const match =
-    /^\s*on\s+([A-Za-z_$#%][\w$#%\-]*(?:\.[A-Za-z_$#%][\w$#%\-]*)+)\s*;?\s*$/i.exec(
-      line
-    );
+  const match = ON_EVENT_PATTERN.exec(line);
 
   if (!match) {
     return null;
@@ -108,10 +106,7 @@ export function matchEventPrototype(line: string): EventLikeMatch | null {
 export function matchVariableDeclaration(
   line: string
 ): { modifiers?: string; type: string; name: string } | null {
-  const match =
-    /^\s*((?:(?:public|private|protected|global|shared|readonly|constant|ref|indirect|static)\s+)*)((?:[A-Za-z_$#%][\w$#%\-`]*(?:\{\d+\})?))\s+([A-Za-z_$#%][\w$#%\-]*)/i.exec(
-      line
-    );
+  const match = VARIABLE_PATTERN.exec(line);
 
   if (!match) {
     return null;
@@ -121,9 +116,7 @@ export function matchVariableDeclaration(
   const type = match[2];
   const name = match[3];
 
-  // Exclude common PowerScript keywords that might be mistaken for a type
-  const keywords = ['return', 'if', 'elseif', 'else', 'choose', 'case', 'for', 'do', 'while', 'loop', 'next', 'continue', 'exit', 'goto', 'throw', 'catch', 'finally', 'end', 'forward', 'global', 'type', 'variables'];
-  if (keywords.includes(type.toLowerCase())) {
+  if (PB_KEYWORDS.has(type.toLowerCase())) {
     return null;
   }
 

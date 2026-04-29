@@ -325,7 +325,7 @@ documents.onDidOpen((event) => {
   activeDocumentUri = event.document.uri;
 
   try {
-    const { elapsedMs } = measureMs(() => publishDiagnosticsNow(connection, event.document, scheduler));
+    const { elapsedMs } = measureMs(() => publishDiagnosticsNow(connection, event.document, scheduler, knowledgeBase, systemCatalog, inheritanceGraph));
 
     if (firstInvocation.isFirst('diagnostics')) {
       const sinceStart = performance.now() - serverStartTime;
@@ -343,7 +343,7 @@ documents.onDidChangeContent((event) => {
   activeDocumentUri = event.document.uri;
 
   try {
-    scheduleDiagnostics(connection, event.document, scheduler);
+    scheduleDiagnostics(connection, event.document, scheduler, undefined, knowledgeBase, systemCatalog, inheritanceGraph);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     connection.console.error(`[ERROR] diagnósticos onDidChangeContent: ${message}`);

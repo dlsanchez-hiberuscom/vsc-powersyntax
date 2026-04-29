@@ -17,6 +17,16 @@ import {
   firstNonWhitespace
 } from '../utils/helpers';
 
+import {
+  FORWARD_PROTOTYPES_START_PATTERN,
+  PROTOTYPES_START_PATTERN,
+  END_PROTOTYPES_PATTERN,
+  VARIABLES_START_PATTERN,
+  END_VARIABLES_PATTERN,
+  FORWARD_START_PATTERN,
+  END_FORWARD_PATTERN
+} from './grammar';
+
 export function findSections(lines: string[]): SectionRange[] {
   const sections: SectionRange[] = [];
 
@@ -24,10 +34,10 @@ export function findSections(lines: string[]): SectionRange[] {
     const line = lines[i];
 
     if (
-      /^\s*forward\s+prototypes\b/i.test(line) ||
-      /^\s*prototypes\b/i.test(line)
+      FORWARD_PROTOTYPES_START_PATTERN.test(line) ||
+      PROTOTYPES_START_PATTERN.test(line)
     ) {
-      const endLine = findBlockEnd(lines, i, [/^\s*end\s+prototypes\b/i]);
+      const endLine = findBlockEnd(lines, i, [END_PROTOTYPES_PATTERN]);
       sections.push({
         kind: 'prototypes',
         startLine: i,
@@ -37,8 +47,8 @@ export function findSections(lines: string[]): SectionRange[] {
       continue;
     }
 
-    if (/^\s*(?:global\s+variables|type\s+variables|variables)\b/i.test(line)) {
-      const endLine = findBlockEnd(lines, i, [/^\s*end\s+variables\b/i]);
+    if (VARIABLES_START_PATTERN.test(line)) {
+      const endLine = findBlockEnd(lines, i, [END_VARIABLES_PATTERN]);
       sections.push({
         kind: 'variables',
         startLine: i,
@@ -49,10 +59,10 @@ export function findSections(lines: string[]): SectionRange[] {
     }
 
     if (
-      /^\s*forward\b/i.test(line) &&
-      !/^\s*forward\s+prototypes\b/i.test(line)
+      FORWARD_START_PATTERN.test(line) &&
+      !FORWARD_PROTOTYPES_START_PATTERN.test(line)
     ) {
-      const endLine = findBlockEnd(lines, i, [/^\s*end\s+forward\b/i]);
+      const endLine = findBlockEnd(lines, i, [END_FORWARD_PATTERN]);
       sections.push({
         kind: 'forward',
         startLine: i,

@@ -141,7 +141,7 @@ Mejorar el recálculo para que solo se reanalice lo afectado por cambios locales
 ### B026. Navegación por herencia y owner-awareness
 Añadir soporte inicial de ancestros, descendientes y relaciones más propias de PowerBuilder.
 
-### B027. Semantic tokens por rol y scope
+### [ ] B027. Semantic tokens por rol y scope
 Enriquecer el editor usando el backbone de símbolos y roles semánticos compartidos.
 
 ### ~~B029. Completado contextual base~~ ✅ CERRADA
@@ -163,8 +163,8 @@ Ampliar cobertura de referencias sobre más escenarios semánticos y estructural
 ### B032. Rename controlado
 Permitir renombrado seguro en escenarios acotados con suficiente fiabilidad.
 
-### B033. Diagnósticos semánticos iniciales
-Detectar incoherencias de más valor cuando la base de resolución ya sea razonablemente fiable.
+### ~~B033. Diagnósticos semánticos iniciales~~ ✅ CERRADA
+Detectar incoherencias de más valor (tipos/miembros inexistentes, variables no declaradas/usadas) apoyado en el backbone semántico. Implementado SD1-SD5.
 
 ### B034. Diagnóstico de variables no usadas
 Introducir regla semántica clara y útil de productividad.
@@ -189,6 +189,108 @@ Reducir coste de memoria, latencias y puntos de bloqueo en escenarios enterprise
 
 ---
 
+## PD — Deuda arquitectónica (transversal)
+
+### B052. Desmantelar `server/analysis/` como módulo genérico
+Migrar `documentAnalysis.ts` → `parsing/extractors/` + `knowledge/snapshots/`; `analysisCache.ts` → `adapters/cache/` o `knowledge/snapshots/`; `diagnosticScheduler.ts` → `runtime/scheduler/` o `diagnostics/publishing/`. Prohibir crecimiento adicional.
+
+### ~~B053. Crear `grammar.ts` canónico y migrar regex dispersas~~ ✅ CERRADA
+Centralizar las regex del lenguaje dispersas entre `matchers.ts`, `sections.ts`, `diagnostics.ts` y `documentAnalysis.ts` en un módulo canónico declarativo, portando lógicas probadas del `plugin_old`.
+
+### B054. Introducir contexto posicional semántico reutilizable
+Implementar `findInnermostCallableAtPosition()` y `findInnermostTypeAtPosition()` para obtener el contexto posicional del cursor, reutilizable por todas las features.
+
+### B055. Parseo documental con secciones/estado (state machine)
+Evolucionar el parseo actual de regex línea a línea hacia una máquina de estados que rastree bloques (type variables, forward prototypes, event, function), distinguiendo file-object, tipos anidados (`within`) y scopes de variables.
+
+---
+
+## P2+ — Backbone semántico ampliado
+
+### B056. Workspace topology parser (.pbw/.pbt/.pbsln)
+Leer y parsear la topología real de workspace y targets. Incluir resolución de library order para que la KnowledgeBase agrupe entidades por target y resuelva conflictos de objetos duplicados.
+
+### B057. Project registry con scoring
+Registro centralizado que asocie cada archivo fuente con su proyecto preferido (por matching de path), soportando múltiples proyectos en el mismo workspace.
+
+### B058. InheritanceGraph robusto con caches
+Ampliar el InheritanceGraph actual con ancestorCache, hierarchyCache, derivedTypeCache y memberCache invalidados automáticamente. Incluir `getTypeDistance()` y `getDirectDerivedTypes()`.
+
+### B059. Symbol visibility real (public/protected/private)
+Implementar las reglas reales de visibilidad de PowerBuilder incluyendo protectedread/protectedwrite/privateread/privatewrite usando getTypeDistance(). Incluir fallback permisivo.
+
+### B060. Owner resolution robusto (estático + dinámico)
+Resolver expresiones compuestas como `dw_1.Object.DataWindow.Bands`, manejar dynamic dispatch y diferenciar llamadas estáticas vs dinámicas.
+
+### B061. Completion scoring heredado y normalizado
+Adaptar el sistema de ranking del `plugin_old` con scoring por distancia de herencia, scope (local +12000, member +8000), visibilidad y owner context.
+
+### B062. Hierarchy inspection service
+Servicio para inspeccionar el estado de herencia: cadena de ancestros, descendencia directa, relaciones entre objetos, y navegación al script del ancestro.
+
+### B063. Diagnostics snapshot agrupado
+Sistema de snapshot de diagnósticos agrupado por proyecto y por objeto, con conteo de errores vs warnings por nivel, ordenación por severidad y filtrado por fuente.
+
+---
+
+## P3 — Profesionalización avanzada
+
+### B031. Referencias más precisas y robustas
+Ampliar cobertura de referencias sobre más escenarios semánticos y estructurales.
+
+### B032. Rename controlado
+Permitir renombrado seguro en escenarios acotados con suficiente fiabilidad.
+
+### ~~B033. Diagnósticos semánticos iniciales~~ ✅ CERRADA
+(Ver entrada duplicada en P3)
+
+### B034. Diagnóstico de variables no usadas
+Introducir regla semántica clara y útil de productividad.
+
+### B035. Detección de shadowing
+Detectar sombreado de variables o identificadores cuando exista soporte suficiente en scopes.
+
+### B036. Code actions básicas
+Añadir correcciones automáticas pequeñas apoyadas en diagnósticos ya consolidados.
+
+### B037. Explorador semántico del proyecto
+Presentar el sistema por conceptos lógicos y no solo por archivos.
+
+### B038. Métricas y análisis de complejidad
+Aportar visión de riesgo y mantenibilidad sobre el proyecto real.
+
+### B039. Validación continua sobre corpus reales
+Convertir la validación sobre PFC u otros corpus en práctica repetible y mantenida en el tiempo.
+
+### B040. Optimización sobre workspaces grandes y legacy
+Reducir coste de memoria, latencias y puntos de bloqueo en escenarios enterprise reales.
+
+### B064. Enriched symbol model incremental
+Añadir progresivamente campos al Entity: containerKind, implementationKind, access, parameterCount, ownerName, isExternal, externalLibraryName, returnType.
+
+### B065. Ancestor script navigation
+Permitir navegar al script del ancestro directo de un evento o función. Fundamental para el flujo `CALL ancestor::event_name`.
+
+### B066. CodeLens de referencias/herencia
+Mostrar conteo de referencias e indicación de herencia sobre funciones y eventos. Enlazar a acciones de navegación.
+
+### B067. Formateador de código configurable
+Homogeneizar el estilo del código PowerBuilder mediante reglas parametrizables.
+
+### B068. Calibración real del performance budget sobre corpus grandes
+Medir y calibrar los presupuestos de rendimiento definidos en performance-budget.md contra workspaces reales de PFC y proyectos enterprise.
+
+### B069. Fixtures reales permanentes de PFC/legacy
+Incorporar y mantener fixtures reales de PFC 2025 y patrones legacy comunes para validación permanente.
+
+### B070. Memory budgets de caché e índice
+Definir y verificar presupuestos de memoria específicos para caché documental e índice global.
+
+### B071. Warm indexing y resume de caché persistente
+Implementar caché persistente por workspace para que el reinicio del servidor no requiera re-indexación completa.
+
+---
+
 ## P4 — Ecosistema PowerBuilder y automatización
 
 ### B041. Catálogo y navegación de DataWindow
@@ -207,7 +309,7 @@ Detectar precondiciones, configuración y problemas de compilación antes de lan
 Permitir revisar consistencia técnica y reglas del equipo sobre una plataforma ya madura.
 
 ### B046. Contratos públicos de API local
-Preparar una frontera desacoplada y versionable para consumo externo.
+Preparar una frontera desacoplada y versionable para consumo externo. Diseño contract-first desde el inicio.
 
 ### B047. Consultas automatizables para herramientas externas
 Exponer conocimiento útil del proyecto sin contaminar el dominio interno.
@@ -243,11 +345,29 @@ Estas entradas no deben pasar a prioridad alta sin justificación:
 ### Fase 2–3
 - B011–B020
 
-### Fase 4–6
-- B021–B030
+### Fase 4–5
+- B014–B021
 
-### Fase 7–8
-- B031–B040
+### Fase 6A
+- B018, B028, B029 (cerrados), B027 (semantic tokens), B051
+
+### Fase 6B
+- B033, B034, B035, B054, B055, B061
+
+### Bloque transversal de deuda
+- B052, B053 (ejecutable en paralelo con Fase 6A/6B)
+
+### Fase 7A
+- B022, B023, B056, B057, B058, B059, B060, B064
+
+### Fase 7B
+- B031, B032, B036, B062, B065, B066, B067
+
+### Fase 8A
+- B040, B063, B068, B070, B071
+
+### Fase 8B
+- B030, B037, B038, B039, B069
 
 ### Fase 9–11
 - B041–B050

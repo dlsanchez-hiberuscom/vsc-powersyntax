@@ -70,9 +70,9 @@ Los presupuestos no son reglas absolutas e inamovibles, pero toda violación deb
 
 ---
 
-## 5. Presupuestos de workspace (futuros)
+## 5. Presupuestos de workspace
 
-Estos presupuestos aplicarán cuando exista descubrimiento de workspace e indexación global (Fase 2+).
+Estos presupuestos aplican ahora que existe descubrimiento de workspace e indexación global (implementados en Fases 2–3).
 
 ### 5.1 Workspace pequeño (< 100 archivos)
 

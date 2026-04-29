@@ -26,41 +26,51 @@ El proyecto dispone actualmente de una base funcional que incluye:
 - **servidor LSP separado** en `src/server/server.ts` con wiring limpio,
 - **activación perezosa** por contribución declarativa del lenguaje (sin `activationEvents` explícitos; VS Code activa automáticamente vía `onLanguage:powerbuilder`),
 - **Document Symbols jerárquicos** funcionales con anidación correcta de funciones/eventos dentro de sus contenedores (clases/tipos),
-- **Hover básico** con contexto por símbolo,
-- **Diagnósticos estructurales** con validación de bloques abiertos/cerrados (ampliado a bloques ejecutables como IF/FOR/DO),
+- **Hover semántico** con contexto por símbolo, catálogo oficial y resolución por herencia,
+- **Go to Definition** con resolución de herencia, cualificadores (`this.`, `super.`, variables tipadas) y distancia semántica,
+- **Completado Contextual** semántico con soporte para herencia, cualificadores y scoring por ámbito (local/miembro/global),
+- **Ayuda de firmas (Signature Help)** interactiva con soporte para parámetros y llamadas anidadas,
+- **Diagnósticos estructurales** con validación de bloques abiertos/cerrados (incluidos bloques ejecutables como IF/FOR/DO),
 - **Caché de análisis** por documento con invalidación por cierre,
 - **Scheduling de diagnósticos** con debounce para no saturar al editar,
 - **Parseo** de secciones, declaraciones y cabeceras de implementación,
-- **KnowledgeBase** con soporte para indexación global y actualizaciones en lote (batch updates),
+- **KnowledgeBase** con soporte para indexación global, actualizaciones en lote (batch updates) y scopes,
+- **InheritanceGraph** para resolución de herencia y miembros heredados,
+- **SemanticQueryService** como capa de consultas compartidas para definition y hover,
+- **SystemCatalog** con funciones oficiales del lenguaje PowerBuilder,
 - **Gramática TextMate** principal y gramática para bloques PowerBuilder en Markdown,
+- **Descubrimiento de workspace** con crawler asíncrono y cooperativo,
 - **FileSystemWatcher** para archivos de proyecto PowerBuilder (`.pbw`, `.pbt`, `.pbproj`, `.pbsln`),
-- **Completado Contextual** semántico con soporte para herencia y cualificadores,
-- **Ayuda de firmas (Signature Help)** interactiva con soporte para parámetros,
 - y **base de tests** con estructura smoke / unit / integration / performance.
 
 ### Fases del roadmap completadas o en curso
 
 - **Fase 0** (bootstrap profesional): **cerrada**.
-- **Fase 1** (base operativa rápida): **cerrada**. El cliente es ligero, el servidor se levanta correctamente, la activación es perezosa y la consolidación del runtime (Spec 002) introdujo medición formal (B003), prioridad estricta del archivo activo (B004), scheduler formal (B005) y ciclo de vida (B008).
-- **Fase 2** (workspace, runtime y observabilidad): **en curso**. Tenemos scheduling con debounce, caché por documento y observabilidad de métricas (B007). Falta descubrimiento formal de workspace (B006).
-- **Capacidades adelantadas**: Document Symbols, Hover y Diagnósticos ya funcionan (Fases 4–6 del roadmap), pero sobre la capa bootstrap, no sobre el knowledge pipeline objetivo.
+- **Fase 1** (base operativa rápida): **cerrada**.
+- **Fase 2** (workspace, runtime y observabilidad): **cerrada**.
+- **Fase 3** (parsing, caché e invalidación): **cerrada**.
+- **Fase 4** (backbone semántico inicial y catálogo): **cerrada**.
+- **Fase 5** (navegación profesional y valor visible): **cerrada**.
+- **Fase 6A** (productividad semántica base): **en curso** — completado contextual (B029) y signature help (B028) cerrados; diagnósticos semánticos (B033) como siguiente prioridad.
 
 ---
 
 ## 3. Foco actual
 
-### Prioridad operativa
+### Meta actual
 
-### Prioridad operativa
+**Cerrar Fase 6A (Core Semántico y Deuda de Diagnósticos)**
+- ~~**B033**: Implementar validación semántica (Semantic Diagnostics)~~ **(CERRADA)**
+- ~~**B053**: Crear `grammar.ts` canónico y migrar regex dispersas~~ **(CERRADA)**
+- **B027**: Semantic tokens por rol y scope **(ABIERTA - NEXT)**
 
-**Diagnósticos Semánticos iniciales (B033).**
-Tras haber consolidado el Completado Contextual, el foco se desplaza a los diagnósticos semánticos. Aprovechando el motor de resolución ya construido, el objetivo es detectar en tiempo real errores de tipo, variables no declaradas o llamadas a métodos que no existen en la jerarquía del objeto, elevando la fiabilidad del plugin antes de entrar en operaciones de refactorización.
+## Tarea Activa (Next)
+**B027: Semantic tokens por rol y scope**
 
 ### Fase del roadmap en foco
 
-- **Fase 4**: Semántica de lenguaje (B014, B015, B016, B020 completados).
-- **Fase 6**: Diagnósticos y productividad semántica base (B018, B021 completados).
-- **Backbone**: Scopes y resolución exacta listos.
+- **Fase 6A**: en curso (B018, B028, B029, B033, B053 completados; B027 como siguiente).
+- **Backbone**: Scopes, resolución y queries compartidas listos. Gramática centralizada.
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
 
@@ -70,35 +80,30 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Entradas ya cerradas o resueltas de facto
 
-- ~~**B001. Cerrar activación perezosa definitiva**~~ → **Cerrada.**
-- ~~**B002. Consolidar wiring cliente ↔ servidor LSP**~~ → **Cerrada.**
-- ~~**B003. Medición base de cold start y primer archivo**~~ → **Cerrada.**
-- ~~**B004. Formalizar prioridad estricta del archivo activo**~~ → **Cerrada.**
-- ~~**B005. Añadir scheduler mínimo con prioridades y cancelación**~~ → **Cerrada.**
-- ~~**B006. Descubrimiento de workspace y política básica de roots**~~ → **Cerrada.**
-- ~~**B007. Observabilidad mínima del runtime**~~ → **Cerrada.**
-- ~~**B008. Endurecer ciclo de vida del servidor**~~ → **Cerrada.**
-- ~~**B009. Alinear documentación canónica de base**~~ → **Cerrada.**
-- ~~**B010. Normalizar validación base del repositorio**~~ → **Cerrada.**
-- ~~**B011. Pipeline de parseo incremental usable**~~ → **Cerrada.**
-- ~~**B012. Caché documental por archivo**~~ → **Cerrada.**
-- ~~**B013. Esqueleto de índice incremental**~~ → **Cerrada.**
+- ~~**B001–B013**~~ → Todas **cerradas** (Fases 0–3).
+- ~~**B014. Document Symbols jerárquicos**~~ → **Cerrada.**
+- ~~**B015. Navegación global exacta**~~ → **Cerrada.**
+- ~~**B016. Resolver de tipos e InheritanceGraph**~~ → **Cerrada.**
+- ~~**B018. Diagnósticos iniciales**~~ → **Cerrada.**
+- ~~**B019. Primer catálogo oficial**~~ → **Cerrada.**
+- ~~**B020. Base de scopes y binding inicial**~~ → **Cerrada.**
+- ~~**B021. Queries compartidas del knowledge layer**~~ → **Cerrada.**
+- ~~**B028. Ayuda de firmas (Signature Help)**~~ → **Cerrada.**
+- ~~**B029. Completado contextual base**~~ → **Cerrada.**
+- ~~**B033. Diagnósticos semánticos**~~ → **Cerrada.**
+- ~~**B053. Grammar canónico y refactor de regex**~~ → **Cerrada.**
 
 ### Entradas pendientes prioritarias
 
-- [x] B014. Navegación a definición (Go to Definition)
-- [x] B015. Navegación global exacta (considerando herencia/distancia)
-- [x] B018. Hover semántico con documentación heredada
-- [x] B021. Consolidación de queries semánticas compartidas
-- [x] B020. Base de scopes y binding inicial (variables locales)
-- [x] B028. Ayuda de firmas (Signature Help) inicial
-- [x] B029. Completado contextual básico (miembros de objeto)
-- [/] B033. Diagnósticos semánticos (detectar tipos/miembros inexistentes)
+- ~~**B053. Crear `grammar.ts` canónico y migrar regex dispersas**~~
+- [/] B027. Semantic tokens por rol y scope
+- [ ] B051. Desambiguación semántica de tipos vs funciones
 
 ### Orden operativo recomendado
 
-1. diagnósticos semánticos (B033),
-2. modelo de dependencias básico (B022).
+1. grammar.ts canónico (B053),
+2. semantic tokens (B027),
+3. modelo de dependencias básico (B022).
 
 ---
 
@@ -106,18 +111,17 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 
 ### Trabajo permitido y prioritario
 
-- refinar la precisión del parser para Document Symbols (B014),
-- implementar la navegación global Go to Definition (B015) utilizando la KnowledgeBase,
-- sentar las bases del sistema de resolución de tipos (B016),
-- y asegurar que las nuevas features semánticas utilicen la DocumentCache para mantener el rendimiento.
+- ~~implementar `grammar.ts` canónico (B053)~~,
+- implementar semantic tokens básicos (B027) sobre el backbone de símbolos,
+- y mantener la coherencia documental tras cada cambio.
 
 ### Resultado esperado de esta etapa
 
-Al final del foco actual (Spec 009), el plugin debe:
+Al final del foco actual, el plugin debe:
 
-- responder a peticiones de completado (`textDocument/completion`) con precisión contextual,
-- sugerir variables locales si estamos dentro de una función o evento,
-- sugerir miembros (`this.`, `super.`, o variables `tipo.`) usando el catálogo y el grafo de herencia.
+- detectar en tiempo real errores semánticos básicos (tipos inexistentes, miembros no resueltos),
+- mantener la latencia controlable en el archivo activo,
+- y preparar la base para la Fase 6B (contexto posicional y scoring avanzado).
 
 ---
 
@@ -129,18 +133,16 @@ No debe hacerse ahora, salvo bug, deuda bloqueante o necesidad muy justificada:
 
 - reabrir arquitectura general sin motivo,
 - meter features vistosas antes de consolidar base,
-- ampliar demasiado la superficie funcional,
-- introducir complejidad innecesaria en el cliente,
-- adelantar semántica fuerte (binder, resolver, índice global) si todavía no están cerrados prioridades, observabilidad y validación base,
-- abrir aún integraciones como PBAutoBuild, OrcaScript/ORCA, DataWindow avanzado o API local, porque pertenecen a fases posteriores del roadmap.
+- adelantar resolución fuerte (topología, visibility rules, owner resolution) que pertenecen a Fase 7A,
+- abrir integraciones como PBAutoBuild, OrcaScript/ORCA, DataWindow avanzado o API local.
 
 ### No tocar todavía salvo necesidad real
 
 - rename,
 - references robustas,
-- semantic tokens avanzados,
-- catálogo amplio del lenguaje,
-- validación grande sobre PFC,
+- CodeLens,
+- formateador de código,
+- explorador semántico,
 - automatización externa o IA.
 
 Todo eso tiene valor, pero **no es el foco inmediato**.
@@ -152,14 +154,10 @@ Todo eso tiene valor, pero **no es el foco inmediato**.
 ### Riesgos principales
 
 - crecimiento desordenado de las features bootstrap sin pasar por el knowledge pipeline,
-- falta de medición formal que permita detectar regresiones de rendimiento,
-- conversión inadvertida de la capa `analysis/` en estructura permanente,
+- conversión inadvertida de la capa `analysis/` en estructura permanente (ver bloque transversal de deuda en roadmap),
 - falta de separación entre runtime y lógica semántica a medida que crezca el servidor,
+- ~~regex dispersas que compliquen la evolución de la gramática (B053 pendiente)~~ → **Resuelto**,
 - y documentación que vuelva a desalinearse si no se mantiene sincronizada con los cambios.
-
-### Riesgo estructural específico
-
-El principal riesgo técnico de esta etapa es consolidar las features existentes (Document Symbols, Hover, Diagnósticos) sobre la capa bootstrap sin preparar la migración al knowledge pipeline objetivo. El foco actual debe fortalecer la base operativa para que esa migración sea progresiva y no un big bang.
 
 ---
 
@@ -169,12 +167,10 @@ Antes de mover el foco, esta etapa debe dejar evidencia razonable de mejora.
 
 ### Evidencias mínimas esperadas
 
-- medición repetible de activación del cliente,
-- medición repetible de tiempo hasta primer archivo útil,
-- medición repetible de tiempo hasta primer servicio visible,
-- comprobación de que el archivo activo tiene prioridad real,
-- cobertura mínima de tests sobre features existentes,
-- validación básica del ciclo de vida del servidor,
+- diagnósticos semánticos funcionales y verificados sobre fixtures,
+- medición de latencia de diagnósticos en archivo activo,
+- cobertura mínima de tests sobre diagnósticos semánticos,
+- gramática centralizada y verificada con 0 regresiones,
 - y documentación actualizada reflejando el estado real.
 
 ---
@@ -183,10 +179,9 @@ Antes de mover el foco, esta etapa debe dejar evidencia razonable de mejora.
 
 El siguiente paso natural del proyecto, una vez cerrado este foco, es:
 
-1. introducir diagnósticos semánticos (B033),
-2. ampliar soporte de DataWindow (Fase 9) de forma gradual.
-
-Las features funcionales existentes (Document Symbols, Hover, Signature Help) ya usan el knowledge pipeline. El completado contextual confirmará la robustez del resolver.
+1. semantic tokens (B027) para enriquecer visualmente el editor,
+2. modelo de dependencias básico (B022),
+3. entrar en Fase 6B (contexto posicional fino, scoring avanzado, parseo documental mejorado).
 
 ---
 
@@ -194,11 +189,9 @@ Las features funcionales existentes (Document Symbols, Hover, Signature Help) ya
 
 El foco actual solo debe cambiar cuando:
 
-- existan mediciones mínimas repetibles de rendimiento,
-- la prioridad del archivo activo esté impuesta de verdad,
-- el scheduler mínimo funcione con cancelación cooperativa,
-- el descubrimiento de workspace esté formalizado,
-- la validación base del repositorio sea repetible,
+- los diagnósticos semánticos funcionen correctamente en casos base,
+- exista validación mínima sobre fixtures representativos,
+- la latencia de diagnósticos no degrade la experiencia del archivo activo,
 - y la estructura documental quede alineada con el estado real del repositorio.
 
 Si estas condiciones no se cumplen, no debe abrirse de forma agresiva la siguiente capa del roadmap.
@@ -211,4 +204,4 @@ Mientras este documento siga vigente, la regla operativa es:
 
 > **no abrir más superficie funcional de la que la base actual puede sostener sin comprometer carga, estabilidad, claridad arquitectónica o documentación viva.**
 
-La prioridad inmediata es medir, observar y formalizar la base ya existente para que el crecimiento futuro sea seguro y sostenible.
+La prioridad inmediata es completar la Fase 6A con diagnósticos semánticos funcionales para que el crecimiento futuro sea seguro y sostenible.

@@ -3,6 +3,9 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { publishDiagnostics } from '../features/diagnostics';
 import { TaskScheduler, TaskPriority } from '../runtime/scheduler';
+import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 
 const DEFAULT_DIAGNOSTIC_DELAY_MS = 180;
 
@@ -12,7 +15,10 @@ export function scheduleDiagnostics(
   connection: Connection,
   document: TextDocument,
   scheduler: TaskScheduler,
-  delayMs: number = DEFAULT_DIAGNOSTIC_DELAY_MS
+  delayMs: number = DEFAULT_DIAGNOSTIC_DELAY_MS,
+  kb?: KnowledgeBase,
+  systemCatalog?: SystemCatalog,
+  inheritanceGraph?: InheritanceGraph
 ): void {
   cancelScheduledDiagnostics(document.uri);
 
@@ -21,7 +27,7 @@ export function scheduleDiagnostics(
     void scheduler.runInteractive({
       id: `diagnostics-${document.uri}`,
       priority: TaskPriority.Interactive,
-      execute: () => publishDiagnostics(connection, document)
+      execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph)
     });
   }, delayMs);
 
@@ -31,13 +37,16 @@ export function scheduleDiagnostics(
 export function publishDiagnosticsNow(
   connection: Connection,
   document: TextDocument,
-  scheduler: TaskScheduler
+  scheduler: TaskScheduler,
+  kb?: KnowledgeBase,
+  systemCatalog?: SystemCatalog,
+  inheritanceGraph?: InheritanceGraph
 ): void {
   cancelScheduledDiagnostics(document.uri);
   void scheduler.runInteractive({
     id: `diagnostics-${document.uri}`,
     priority: TaskPriority.Interactive,
-    execute: () => publishDiagnostics(connection, document)
+    execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph)
   });
 }
 

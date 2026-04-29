@@ -9,13 +9,13 @@ import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalo
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 
-describe('unit/signatureHelp', () => {
+suite('unit/signatureHelp', () => {
   let kb: KnowledgeBase;
   let graph: InheritanceGraph;
   let systemCatalog: SystemCatalog;
   let cache: DocumentCache;
 
-  beforeEach(() => {
+  setup(() => {
     kb = new KnowledgeBase();
     graph = new InheritanceGraph(kb);
     systemCatalog = new SystemCatalog();
@@ -30,7 +30,7 @@ describe('unit/signatureHelp', () => {
     return doc;
   }
 
-  it('debe devolver ayuda de firma para una función global del sistema', () => {
+  test('debe devolver ayuda de firma para una función global del sistema', () => {
     const doc = setupDocument('file:///test.srw', 'integer li_rtn\nli_rtn = MessageBox("Title", "Message"');
     
     // Cursor justo después del "Message" -> "Title", "Message"|
@@ -45,7 +45,7 @@ describe('unit/signatureHelp', () => {
     assert.strictEqual(result.activeParameter, 1);
   });
 
-  it('debe devolver ayuda de firma para un método de instancia local', () => {
+  test('debe devolver ayuda de firma para un método de instancia local', () => {
     const doc = setupDocument('file:///n_cst_math.sru', `
 forward
 global type n_cst_math from nonvisualobject
@@ -89,7 +89,7 @@ end subroutine
     assert.strictEqual(result.activeParameter, 1);
   });
 
-  it('debe resolver llamadas anidadas correctamente', () => {
+  test('debe resolver llamadas anidadas correctamente', () => {
     const doc = setupDocument('file:///test.srw', 'string ls_val\nls_val = Upper(Mid("Hello", 1, 2))');
     
     // Cursor dentro de Mid("Hello", | 

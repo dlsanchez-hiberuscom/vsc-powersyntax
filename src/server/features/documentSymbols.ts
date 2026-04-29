@@ -14,6 +14,13 @@ import {
   eventSelectionStart,
   findBlockEnd
 } from '../utils/helpers';
+import {
+  END_TYPE_PATTERN,
+  END_FUNCTION_PATTERN,
+  END_SUBROUTINE_PATTERN,
+  END_EVENT_PATTERN,
+  END_ON_PATTERN
+} from '../parsing/grammar';
 
 export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[] {
   const analysis = getDocumentAnalysis(document);
@@ -45,7 +52,7 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
       if (enclosingSection?.kind !== 'forward') {
         currentContainerName = typeMatch.name.toLowerCase();
       }
-      const endLine = findBlockEnd(lines, i, [/^\s*end\s+type\b/i]);
+      const endLine = findBlockEnd(lines, i, [END_TYPE_PATTERN]);
       if (endLine > i) {
         const sym = createSymbol(
             typeMatch.name,
@@ -87,8 +94,8 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
       if (fn) {
         const endPatterns =
           fn.kind === 'function'
-            ? [/^\s*end\s+function\b/i]
-            : [/^\s*end\s+subroutine\b/i];
+            ? [END_FUNCTION_PATTERN]
+            : [END_SUBROUTINE_PATTERN];
 
         const endLine = findBlockEnd(lines, i, endPatterns);
         if (endLine > i) {
@@ -125,8 +132,8 @@ export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[]
 
       if (ev) {
         const endLine = findBlockEnd(lines, i, [
-          /^\s*end\s+event\b/i,
-          /^\s*end\s+on\b/i
+          END_EVENT_PATTERN,
+          END_ON_PATTERN
         ]);
 
         if (endLine > i) {

@@ -52,7 +52,9 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 - **índice global incremental** (KnowledgeBase) con caché documental (DocumentCache);
 - **navegación global exacta** (Go to Definition) considerando herencia y cualificadores;
 - **ayuda de firmas (Signature Help)** con soporte para parámetros y llamadas anidadas;
-- **completado contextual** (Completion) con scoring por ámbito (local/miembro/global).
+- **completado contextual** (Completion) con scoring por ámbito (local/miembro/global);
+- **diagnósticos semánticos** (SD1-SD5) con detección de tipos, miembros y variables no declaradas;
+- **gramática canónica centralizada** (`grammar.ts`) para consistencia léxica total.
 
 ### Base técnica actual
 
@@ -70,12 +72,12 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 
 Todavía no deben asumirse como implementadas o completas estas áreas:
 
-- binder, scopes y resolver semántico robusto (en curso);
 - AST formal completo;
 - `references`, `rename`;
-- semantic tokens reales;
-- hover avanzado;
-- diagnósticos semánticos (en curso);
+- semantic tokens reales (en curso);
+- topología real de workspace (.pbw/.pbt library order);
+- visibility rules (public/protected/private);
+- owner resolution;
 - política de caché con límite o evicción;
 - flujo estándar de tests y CI completamente normalizado.
 
@@ -126,11 +128,16 @@ La lógica costosa debe vivir en el servidor, no en el cliente.
     extension.ts
   /server
     server.ts
-    /analysis
-    /features
-    /model
-    /parsing
-    /utils
+    /analysis        ← capa bootstrap (temporal, en migración)
+    /features        ← handlers LSP
+    /indexer         ← indexación de workspace
+    /knowledge       ← KnowledgeBase, InheritanceGraph, SystemCatalog, SemanticQueryService
+    /model           ← tipos internos del dominio
+    /parsing         ← matchers y secciones
+    /runtime         ← scheduler, timing, cancellation
+    /system          ← filesystem, hash, uriUtils
+    /utils           ← helpers, invocationContext, wordAtPosition
+    /workspace       ← discovery, workspaceState
   /shared
     types.ts
 
@@ -188,15 +195,18 @@ Si hay cambios en gramáticas:
 
 ## Roadmap corto
 
-1. consolidar activación, manifest y flujo básico;
-2. normalizar tests y validación;
-3. endurecer caché e invalidación;
-4. reforzar parseo y análisis documental;
-5. introducir modelo de símbolos y scopes;
-6. construir índice global incremental;
-7. añadir navegación semántica fuerte;
-8. ampliar diagnósticos y productividad;
-9. optimizar rendimiento sobre corpus grandes y legacy.
+1. ~~consolidar activación, manifest y flujo básico~~ ✅;
+2. ~~normalizar tests y validación~~ ✅;
+3. ~~endurecer caché e invalidación~~ ✅;
+4. ~~reforzar parseo y análisis documental~~ ✅;
+5. ~~introducir modelo de símbolos, scopes y catálogo~~ ✅;
+6. ~~navegación profesional y valor visible temprano~~ ✅;
+7. ~~diagnósticos semánticos y productividad base~~ ✅;
+8. semantic tokens, contexto posicional y scoring avanzado (en curso);
+9. resolución fuerte, topología y visibilidad;
+9. escala real y validación sobre corpus grandes;
+10. especialización PowerBuilder (DataWindow, PBAutoBuild);
+11. plataforma abierta y automatización IA.
 
 ---
 

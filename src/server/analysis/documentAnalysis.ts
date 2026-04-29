@@ -12,8 +12,10 @@ import {
   matchVariableDeclaration
 } from '../parsing/matchers';
 import { eventSelectionStart, firstNonWhitespace } from '../utils/helpers';
+import { END_GENERIC_PATTERN } from '../parsing/grammar';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
+
 
 export interface DocumentAnalysis {
   uri: string;
@@ -241,7 +243,7 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
 
     if (!enclosingSection) {
       // Check for end of function/event
-      if (/^\s*end\s+(function|event|on|subroutine)\s*/i.test(line)) {
+      if (END_GENERIC_PATTERN.test(line)) {
         if (currentFuncScope) {
           currentFuncScope.endLine = i;
           currentFuncScope = undefined;

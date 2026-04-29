@@ -248,93 +248,199 @@ Entregar las primeras capacidades realmente valiosas para el desarrollador human
 
 ---
 
-## Fase 6 — Diagnósticos y productividad semántica base (EN CURSO)
+## Bloque transversal — Deuda arquitectónica y migración
+
+> Este bloque es transversal a las fases. No debe acumularse indefinidamente; debe cerrarse progresivamente sin bloquear el avance funcional.
+
+### Líneas de deuda activa
+
+- **Desmantelamiento progresivo de `server/analysis/`**: `documentAnalysis.ts` → `parsing/extractors/` + `knowledge/snapshots/`; `analysisCache.ts` → `adapters/cache/` o `knowledge/snapshots/`; `diagnosticScheduler.ts` → `runtime/scheduler/` o `diagnostics/publishing/`. Mientras no se migre, queda prohibido que `analysis/` siga creciendo.
+- **Migración bootstrap → backbone definitivo**: las features actuales (Document Symbols, Hover, Diagnósticos) operan sobre la capa bootstrap; deben migrar progresivamente al knowledge pipeline.
+- ~~**Crear `grammar.ts` canónico**~~: centralizar las regex del lenguaje dispersas entre `matchers.ts`, `sections.ts`, `diagnostics.ts` y `documentAnalysis.ts` en un módulo canónico declarativo, siguiendo el patrón de `pbLanguageGrammar.ts` de `plugin_old`. → **CERRADO.**
+- **Descomponer `server/model/`** en dominio real y tipos de borde.
+- **Descomponer `server/utils/`** hacia `platform/` y módulos con responsabilidad clara.
+- **Separar `shared/contracts` de `shared/kernel`**.
+
+### Líneas ya resueltas
+
+- ~~`baseTypeName` en Entity~~ → ya implementado en `knowledge/types.ts`.
+- ~~Batch update en KnowledgeBase (`beginBatchUpdate`/`endBatchUpdate`)~~ → ya implementado en `KnowledgeBase.ts`.
+
+---
+
+## ~~Fase 6A — Productividad semántica base~~ ✅ COMPLETADA
 
 ### Objetivo
 Construir la primera capa profesional de productividad semántica reutilizando el backbone ya creado.
 
-### Entregables esperados
+### Entregables mínimos de salida
 - diagnósticos sintácticos y estructurales,
-- diagnósticos semánticos iniciales,
-- semantic tokens,
-- completado contextual básico (adaptando reglas de *Scoring* de `plugin_old`),
+- completado contextual básico con scoring por contexto,
 - ayuda de firmas básica,
 - cobertura creciente del catálogo oficial en hover/completion/signature help,
 - validación de latencia en archivo activo,
 - validación de no regresión en navegación.
 
+### Optimizaciones opcionales de esta fase
+- semantic tokens básicos,
+- ampliación del catálogo oficial.
+
 ### Capacidades principales
-- diagnósticos sintácticos y estructurales,  
-- diagnósticos semánticos,  
-- tokens semánticos,  
-- completado contextual,  
-- ayuda de firmas,  
-- explotación útil del catálogo oficial del lenguaje.  
+- diagnósticos sintácticos y estructurales,
+- completado contextual,
+- ayuda de firmas,
+- explotación útil del catálogo oficial del lenguaje.
 
 ### Criterio de salida
 - el plugin ya ofrece una experiencia profesional básica de edición,
 - los diagnósticos y ayudas se alimentan de servicios comunes,
-- y la latencia sigue siendo controlable.  
+- y la latencia sigue siendo controlable.
 
 ---
 
-## Fase 7 — Semántica fuerte y operaciones seguras
+## Fase 6B — Asistencia contextual y refinamiento (EN CURSO)
 
 ### Objetivo
-Subir de nivel la confianza del plugin para soportar operaciones de mayor riesgo y valor.
+Refinar la productividad semántica con diagnósticos semánticos, contexto posicional y scoring avanzado.
 
-### Entregables esperados
-- renombrado seguro,
-- code actions básicas,
-- resolución más fuerte (apoyada en el porting de `InheritanceGraph` de `plugin_old`),
-- mejora del modelo de dependencias (topología basada en `.pbw` y `.pbt` extrayendo el `PbLibraryGraph` de `plugin_old`),
-- reglas de visibilidad de símbolos (`public`/`protected`/`private`) portando `symbolVisibility.ts` de `plugin_old`,
-- CodeLens sobre funciones y eventos (conteo de referencias, indicación de herencia),
-- formateador de código configurable,
-- mayor precisión en referencias y usos,
-- endurecimiento de caché e invalidación para cambios complejos.
+### Entregables mínimos de salida
+- ~~diagnósticos semánticos iniciales (tipos/miembros inexistentes, variables no declaradas)~~ → **CERRADO (B033)**,
+- contexto posicional fino (innermost callable, innermost type, nesting real),
+- snapshots/document knowledge reutilizable,
+- parseo documental con secciones/estado (state machine) preparando semántica fuerte,
+- completion scoring heredado y normalizado (adaptando reglas del `plugin_old`).
+
+### Optimizaciones opcionales de esta fase
+- detección de shadowing,
+- diagnóstico de variables no usadas.
 
 ### Capacidades principales
-- renombrado seguro,  
-- code actions básicas,  
-- reglas de visibilidad de miembros (public/protected/private),  
+- diagnósticos semánticos,
+- contexto posicional semántico reutilizable,
+- tokens semánticos (B027 - NEXT),
+- scoring avanzado de completado.
+
+### Criterio de salida
+- el plugin detecta errores semánticos reales,
+- el contexto posicional es reutilizable por todas las features,
+- y el completado contextual es notablemente mejor que el de la Fase 6A.
+
+---
+
+## Fase 7A — Resolución fuerte, topología y visibilidad
+
+### Objetivo
+Subir de nivel la confianza del plugin en resolución, topología de workspace y reglas de visibilidad.
+
+### Entregables mínimos de salida
+- topología real de workspace y targets (`.pbw`, `.pbt`, `.pbsln`, library order),
+- project registry con scoring de proyecto preferido,
+- InheritanceGraph robusto con caches (ancestorCache, memberCache, derivedTypeCache),
+- symbol visibility real (public/protected/private/protectedread/protectedwrite),
+- owner resolution robusto (estático + dinámico),
+- enriched symbol model incremental (campos progresivos: containerKind, implementationKind, access, parameterCount),
+- búsqueda de referencias segura en casos base,
+- mayor precisión en resolución y usos,
+- endurecimiento de caché e invalidación para cambios complejos.
+
+### Optimizaciones opcionales de esta fase
+- modelo de dependencias más rico (impacto de cambios entre objetos).
+
+### Capacidades principales
+- topología real de workspace/targets,
+- resolución fuerte con visibilidad,
+- owner resolution robusto,
+- references seguras.
+
+### Criterio de salida
+- la resolución distingue correctamente visibilidad y herencia,
+- la topología del workspace es conocida y usada,
+- y el plugin no confunde objetos de diferentes targets.
+
+---
+
+## Fase 7B — Rename, Code Actions, CodeLens y navegación de jerarquía
+
+### Objetivo
+Construir operaciones seguras de alto valor apoyadas en la resolución fuerte de la Fase 7A.
+
+### Entregables mínimos de salida
+- renombrado seguro,
+- code actions básicas,
+- CodeLens sobre funciones y eventos (conteo de referencias, indicación de herencia),
+- hierarchy inspection / ancestor script navigation,
+- formateador de código configurable.
+
+### Optimizaciones opcionales de esta fase
+- CodeLens avanzado (saltar al ancestro, ver jerarquía completa),
+- code actions de mayor complejidad.
+
+### Capacidades principales
+- renombrado seguro,
+- code actions básicas,
 - CodeLens sobre callables y herencia,
-- formateador de código,
-- consolidación del modelo de dependencias.  
+- hierarchy inspection,
+- formateador de código.
 
 ### Criterio de salida
 - el plugin soporta operaciones más delicadas con una base razonablemente fiable,
-- y la semántica es suficientemente robusta para cambios asistidos.  
+- y la semántica es suficientemente robusta para cambios asistidos.
 
 ---
 
-## Fase 8 — Escala real, legacy y validación continua sobre corpus reales
+## Fase 8A — Escala, rendimiento y endurecimiento
 
 ### Objetivo
-Asegurar que el plugin escala bien en proyectos grandes y aporta visión global del sistema, usando además validación sistemática sobre corpus reales.
+Asegurar que el plugin escala bien en proyectos grandes con control real de rendimiento y memoria.
 
-### Entregables esperados
+### Entregables mínimos de salida
+- calibración real del performance budget sobre corpus grandes,
+- memory budgets de caché e índice,
+- warm indexing y resume de caché persistente,
+- diagnostics snapshot agrupado (por proyecto/objeto),
+- optimización de tiempo de respuesta en workspaces grandes,
+- tratamiento progresivo de patrones legacy.
+
+### Optimizaciones opcionales de esta fase
+- agrupación avanzada de diagnósticos por proyecto/objeto.
+
+### Capacidades principales
+- optimización real sobre corpus grandes y legacy,
+- memory budgets,
+- warm indexing,
+- diagnostics snapshot.
+
+### Criterio de salida
+- el plugin mantiene latencia y memoria controlables en workspaces grandes,
+- el warm indexing es significativamente más rápido que el cold indexing,
+- y los diagnósticos se agrupan de forma profesional.
+
+---
+
+## Fase 8B — Exploración global, métricas y validación continua
+
+### Objetivo
+Aportar visión global del sistema y validación sistemática sobre corpus reales.
+
+### Entregables mínimos de salida
 - explorador semántico del proyecto,
 - métricas y análisis de complejidad,
 - validación continua sobre corpus grandes y reales,
-- centralización de regex en un módulo canónico `grammar.ts` (portando el patrón de tablas declarativas de `pbLanguageGrammar.ts` de `plugin_old`),
-- patrón de batch update en `KnowledgeBase` (`beginBatchUpdate`/`endBatchUpdate`) para evitar cascadas de notificación durante indexación masiva,
-- optimización de memoria,
-- optimización de warm indexing,
-- endurecimiento de tiempo de respuesta en workspaces grandes,
-- tratamiento progresivo de patrones legacy,
+- fixtures reales permanentes de PFC/legacy,
 - suites de validación sobre PFC 2025 y otros corpus representativos.
 
+### Optimizaciones opcionales de esta fase
+- dashboard de métricas,
+- exportación de informes de calidad.
+
 ### Capacidades principales
-- explorador semántico del proyecto,  
-- métricas y análisis de complejidad,  
-- optimización sobre corpus grandes y legacy,  
-- validación continua sobre corpus reales.  
+- explorador semántico del proyecto,
+- métricas y análisis de complejidad,
+- validación continua sobre corpus reales.
 
 ### Criterio de salida
-- el plugin mantiene valor práctico y comportamiento razonable en workspaces grandes,
-- no colapsa al crecer el tamaño del proyecto,
-- y las decisiones de producto se apoyan en validación real, no solo en hipótesis.  
+- el plugin no colapsa al crecer el tamaño del proyecto,
+- y las decisiones de producto se apoyan en validación real, no solo en hipótesis.
 
 ---
 

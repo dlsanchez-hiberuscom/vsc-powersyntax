@@ -9,13 +9,13 @@ import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalo
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 
-describe('unit/completion', () => {
+suite('unit/completion', () => {
   let kb: KnowledgeBase;
   let graph: InheritanceGraph;
   let systemCatalog: SystemCatalog;
   let cache: DocumentCache;
 
-  beforeEach(() => {
+  setup(() => {
     kb = new KnowledgeBase();
     graph = new InheritanceGraph(kb);
     systemCatalog = new SystemCatalog();
@@ -30,7 +30,7 @@ describe('unit/completion', () => {
     return doc;
   }
 
-  it('debe sugerir variables locales con prioridad máxima', () => {
+  test('debe sugerir variables locales con prioridad máxima', () => {
     const doc = setupDocument('file:///test_local.sru', `
 global type test_local from nonvisualobject
 end type
@@ -63,7 +63,7 @@ end subroutine
     assert.strictEqual(localCount.sortText?.startsWith('0_local_'), true);
   });
 
-  it('debe sugerir miembros del objeto cuando se usa this.', () => {
+  test('debe sugerir miembros del objeto cuando se usa this.', () => {
     const doc = setupDocument('file:///test_this.sru', `
 global type test_this from nonvisualobject
   integer ii_id
@@ -95,7 +95,7 @@ end function
     assert.strictEqual(memberAdd.sortText?.startsWith('1_member_'), true);
   });
 
-  it('debe sugerir miembros de una variable tipada', () => {
+  test('debe sugerir miembros de una variable tipada', () => {
     // Simulamos dos archivos. 
     setupDocument('file:///n_cst_math.sru', `
 global type n_cst_math from nonvisualobject
