@@ -8,6 +8,7 @@ import { InheritanceGraph } from '../../../src/server/knowledge/resolution/Inher
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
+import { invalidateDocumentAnalysis } from '../../../src/server/analysis/analysisCache';
 
 suite('unit/signatureHelp', () => {
   let kb: KnowledgeBase;
@@ -24,6 +25,7 @@ suite('unit/signatureHelp', () => {
 
   function setupDocument(uri: string, content: string): TextDocument {
     const doc = TextDocument.create(uri, 'powerbuilder', 1, content);
+    invalidateDocumentAnalysis(uri);
     const analysis = analyzeDocument(doc);
     cache.set(uri, { version: 1, symbols: [], facts: analysis.semanticFacts, scopes: analysis.scopes });
     kb.upsertDocument(uri, analysis.semanticFacts, analysis.scopes);
@@ -92,10 +94,8 @@ end subroutine
   test('debe resolver llamadas anidadas correctamente', () => {
     const doc = setupDocument('file:///test.srw', 'string ls_val\nls_val = Upper(Mid("Hello", 1, 2))');
     
-    // Cursor dentro de Mid("Hello", | 
-    // depth 1 (por Upper), pero dentro de Mid es depth 0
-    // Mid( -> coma -> pos es después de coma de "Hello"
-    const pos = Position.create(1, 28);
+    // Cursor justo después de la primera coma de Mid: Mid("Hello",| 
+    const pos = Position.create(1, 27);
     const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph);
 
     assert.ok(result);

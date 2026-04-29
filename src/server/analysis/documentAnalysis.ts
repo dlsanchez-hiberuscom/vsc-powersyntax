@@ -13,6 +13,7 @@ import {
 } from '../parsing/matchers';
 import { eventSelectionStart, firstNonWhitespace } from '../utils/helpers';
 import { END_GENERIC_PATTERN } from '../parsing/grammar';
+import { stripCommentsSmart } from '../utils/comments';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
@@ -21,6 +22,8 @@ export interface DocumentAnalysis {
   uri: string;
   version: number;
   lines: string[];
+  strippedLines: string[];
+  masks: Uint8Array[];
   sections: SectionRange[];
   facts: SymbolFact[];
   semanticFacts: Fact[];
@@ -29,14 +32,17 @@ export interface DocumentAnalysis {
 
 export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   const lines = document.getText().split(/\r?\n/);
+  const { lines: strippedLines, masks } = stripCommentsSmart(lines);
   const sections = findSections(lines);
-  const { facts, scopes } = collectFactsAndScopes(lines, sections, document.uri);
+  const { facts, scopes } = collectFactsAndScopes(lines, strippedLines, sections, document.uri);
   const semanticFacts = mapToSemanticFacts(facts, document.uri);
 
   return {
     uri: document.uri,
     version: document.version,
     lines,
+    strippedLines,
+    masks,
     sections,
     facts,
     semanticFacts,
@@ -93,14 +99,16 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       containerName: f.containerName,
       baseTypeName: f.baseTypeName,
       datatype: f.datatype,
-      parameters: f.parameters
+      parameters: f.parameters,
+      scope: f.scope,
+      access: f.access
     });
   }
 
   return Array.from(factMap.values());
 }
 
-function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: string): { facts: SymbolFact[], scopes: Scope[] } {
+function collectFactsAndScopes(lines: string[], strippedLines: string[], sections: SectionRange[], uri: string): { facts: SymbolFact[], scopes: Scope[] } {
   const facts: SymbolFact[] = [];
   const scopes: Scope[] = [];
 
@@ -131,9 +139,15 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
     });
 
     for (let i = section.startLine + 1; i < section.endLine; i++) {
-      const line = lines[i];
+      const line = strippedLines[i];
+      const rawLine = lines[i];
 
       if (section.kind === 'variables') {
+        const header = lines[section.startLine].toLowerCase();
+        let scope: 'Global' | 'Compartida' | 'Instancia' = 'Instancia';
+        if (header.includes('global')) scope = 'Global';
+        else if (header.includes('shared')) scope = 'Compartida';
+
         const variable = matchVariableDeclaration(line);
         if (variable) {
           facts.push({
@@ -141,9 +155,12 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             kind: 'variable',
             detail: `${variable.type}${variable.modifiers ? ` (${variable.modifiers})` : ''}`,
             datatype: variable.type,
+            scope: scope,
+            access: variable.modifiers?.toLowerCase().includes('private') ? 'private' : 
+                    variable.modifiers?.toLowerCase().includes('protected') ? 'protected' : 'public',
             line: i,
-            startCharacter: line.indexOf(variable.name),
-            endCharacter: line.indexOf(variable.name) + variable.name.length
+            startCharacter: rawLine.indexOf(variable.name),
+            endCharacter: rawLine.indexOf(variable.name) + variable.name.length
           });
         }
         continue;
@@ -159,8 +176,8 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
             parameters: extractParameters(line),
             line: i,
-            startCharacter: line.indexOf(fn.name),
-            endCharacter: line.indexOf(fn.name) + fn.name.length
+            startCharacter: rawLine.indexOf(fn.name),
+            endCharacter: rawLine.indexOf(fn.name) + fn.name.length
           });
           continue;
         }
@@ -192,8 +209,8 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             baseTypeName: ty.ancestor,
             detail: ty.container ? `type from ${ty.ancestor} within ${ty.container}` : `type from ${ty.ancestor}`,
             line: i,
-            startCharacter: line.indexOf(ty.name),
-            endCharacter: line.indexOf(ty.name) + ty.name.length
+            startCharacter: rawLine.indexOf(ty.name),
+            endCharacter: rawLine.indexOf(ty.name) + ty.name.length
           });
         }
       }
@@ -203,7 +220,8 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
   let currentContainerName: string | undefined;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = strippedLines[i];
+    const rawLine = lines[i];
     const enclosingSection = findEnclosingSection(i, sections);
 
     if (enclosingSection?.kind === 'prototypes' || enclosingSection?.kind === 'variables') {
@@ -235,8 +253,8 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
         baseTypeName: typeMatch.ancestor,
         detail: typeMatch.container ? `type from ${typeMatch.ancestor} within ${typeMatch.container}` : `type from ${typeMatch.ancestor}`,
         line: i,
-        startCharacter: line.indexOf(typeMatch.name),
-        endCharacter: line.indexOf(typeMatch.name) + typeMatch.name.length
+        startCharacter: rawLine.indexOf(typeMatch.name),
+        endCharacter: rawLine.indexOf(typeMatch.name) + typeMatch.name.length
       });
       continue;
     }
@@ -276,8 +294,8 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
           detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
           parameters: extractParameters(line),
           line: i,
-          startCharacter: line.indexOf(fn.name),
-          endCharacter: line.indexOf(fn.name) + fn.name.length
+          startCharacter: rawLine.indexOf(fn.name),
+          endCharacter: rawLine.indexOf(fn.name) + fn.name.length
         });
 
         // Add arguments to the scope (simplified extraction from prototype)
@@ -300,9 +318,10 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
                  kind: EntityKind.Variable,
                  uri: uri,
                  line: i,
-                 character: line.indexOf(name),
+                 character: rawLine.indexOf(name),
                  datatype: type,
-                 containerName: currentFuncScope.id
+                 containerName: currentFuncScope.id,
+                 scope: 'Argumento'
                });
              }
           }
@@ -343,27 +362,28 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
         // Add typical arguments for events (simplified)
         const argMatch = line.match(/\((.*?)\)/);
         if (argMatch && argMatch[1].trim() !== '') {
-           const args = argMatch[1].split(',');
-           for (const arg of args) {
-              const argParts = arg.trim().split(/\s+/);
-              if (argParts.length >= 2) {
-                let type = argParts[0];
-                let name = argParts[argParts.length - 1];
-                if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && argParts.length >= 3) {
-                   type = argParts[1];
-                }
-                currentFuncScope.symbols.push({
-                  id: name.toLowerCase(),
-                  name: name,
-                  kind: EntityKind.Variable,
-                  uri: uri,
-                  line: i,
-                  character: line.indexOf(name),
-                  datatype: type,
-                  containerName: currentFuncScope.id
-                });
+          const args = argMatch[1].split(',');
+          for (const arg of args) {
+            const argParts = arg.trim().split(/\s+/);
+            if (argParts.length >= 2) {
+              let type = argParts[0];
+              let name = argParts[argParts.length - 1];
+              if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && argParts.length >= 3) {
+                type = argParts[1];
               }
-           }
+              currentFuncScope.symbols.push({
+                id: name.toLowerCase(),
+                name: name,
+                kind: EntityKind.Variable,
+                uri: uri,
+                line: i,
+                character: rawLine.indexOf(name),
+                datatype: type,
+                containerName: currentFuncScope.id,
+                scope: 'Argumento'
+              });
+            }
+          }
         }
         continue;
       }
@@ -378,9 +398,10 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             kind: EntityKind.Variable,
             uri: uri,
             line: i,
-            character: line.indexOf(localVar.name),
+            character: rawLine.indexOf(localVar.name),
             datatype: localVar.type,
-            containerName: currentFuncScope.id
+            containerName: currentFuncScope.id,
+            scope: 'Local'
           });
         }
       } else if (currentTypeScope) {
@@ -393,9 +414,12 @@ function collectFactsAndScopes(lines: string[], sections: SectionRange[], uri: s
             containerName: currentTypeScope.id,
             detail: `${instVar.type}${instVar.modifiers ? ` (${instVar.modifiers})` : ''}`,
             datatype: instVar.type,
+            scope: 'Instancia',
+            access: instVar.modifiers?.toLowerCase().includes('private') ? 'private' : 
+                    instVar.modifiers?.toLowerCase().includes('protected') ? 'protected' : 'public',
             line: i,
-            startCharacter: line.indexOf(instVar.name),
-            endCharacter: line.indexOf(instVar.name) + instVar.name.length
+            startCharacter: rawLine.indexOf(instVar.name),
+            endCharacter: rawLine.indexOf(instVar.name) + instVar.name.length
           });
         }
       }

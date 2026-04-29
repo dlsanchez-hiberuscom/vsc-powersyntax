@@ -78,10 +78,10 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
   const stack: Array<{ kind: BlockKind; line: number; text: string }> = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
+    const raw = analysis.strippedLines[i];
     const line = raw.trim();
 
-    if (!line || LINE_COMMENT_PATTERN.test(line)) {
+    if (!line) {
       continue;
     }
 
@@ -285,7 +285,7 @@ export function validateSemantics(
 
   // --- SD1 + SD2: Validación dentro de scopes Function/Event ---
   for (const rootScope of scopes) {
-    visitScopes(rootScope, lines, sections, diagnostics, kb, systemCatalog,
+    visitScopes(rootScope, analysis.strippedLines, sections, diagnostics, kb, systemCatalog,
       instanceVarNames, hierarchyMemberNames, localCallables, currentUri);
   }
 
@@ -305,7 +305,7 @@ export function validateSemantics(
  */
 function visitScopes(
   scope: import('../knowledge/types').Scope,
-  lines: string[],
+  strippedLines: string[],
   sections: import('../model/types').SectionRange[],
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
@@ -320,10 +320,10 @@ function visitScopes(
     const localSymbolNames = new Set(scope.symbols.map(s => s.name.toLowerCase()));
 
     for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
-      const raw = lines[i];
+      const raw = strippedLines[i];
       if (!raw) continue;
       const trimmed = raw.trim();
-      if (!trimmed || LINE_COMMENT_PATTERN.test(trimmed)) continue;
+      if (!trimmed) continue;
 
       // Saltar secciones declarativas
       const enclosingSection = findEnclosingSection(i, sections);
@@ -369,7 +369,7 @@ function visitScopes(
 
   // Recorrer scopes hijos
   for (const child of scope.children) {
-    visitScopes(child, lines, sections, diagnostics, kb, systemCatalog,
+    visitScopes(child, strippedLines, sections, diagnostics, kb, systemCatalog,
       instanceVarNames, hierarchyMemberNames, localCallables, currentUri);
   }
 }

@@ -7,6 +7,8 @@ import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
 import { InvocationContext } from '../utils/invocationContext';
 import { normalizeUri } from '../system/uriUtils';
+import { getDocumentAnalysis } from '../analysis/analysisCache';
+import { CharType } from '../utils/comments';
 
 export function provideSignatureHelp(
   document: TextDocument,
@@ -113,39 +115,45 @@ function extractSignatureContext(document: TextDocument, position: Position): { 
   let activeParameter = 0;
   let depth = 0;
   
+  const analysis = getDocumentAnalysis(document);
+  const strippedLines = analysis.strippedLines;
+
   // Limitar la búsqueda hacia atrás a unas cuantas líneas para evitar bloqueos
   const maxLinesBack = 5;
   const startLine = Math.max(0, position.line - maxLinesBack);
   
   let currentLine = position.line;
-  let currentCharacter = position.character - 1;
-  
+  let currentCharacter = 0;
   let foundOpenParen = false;
   
   while (currentLine >= startLine) {
-    const lineText = document.getText({
-      start: { line: currentLine, character: 0 },
-      end: { line: currentLine, character: currentLine === position.line ? position.character : Number.MAX_VALUE }
-    });
+    const originalLineText = analysis.lines[currentLine];
+    const mask = analysis.masks[currentLine];
     
     if (currentLine < position.line) {
-      currentCharacter = lineText.length - 1;
+      currentCharacter = originalLineText.length - 1;
+    } else {
+      currentCharacter = position.character - 1;
     }
     
     while (currentCharacter >= 0) {
-      const char = lineText[currentCharacter];
-      
-      if (char === ')') {
-        depth++;
-      } else if (char === '(') {
-        if (depth === 0) {
-          foundOpenParen = true;
-          break;
-        } else {
-          depth--;
+      const m = mask[currentCharacter];
+      const isCommentOrString = m === CharType.Comment || m === CharType.String;
+
+      if (!isCommentOrString) {
+        const char = originalLineText[currentCharacter];
+        if (char === ')') {
+          depth++;
+        } else if (char === '(') {
+          if (depth === 0) {
+            foundOpenParen = true;
+            break;
+          } else {
+            depth--;
+          }
+        } else if (char === ',' && depth === 0) {
+          activeParameter++;
         }
-      } else if (char === ',' && depth === 0) {
-        activeParameter++;
       }
       
       currentCharacter--;

@@ -7,6 +7,8 @@ import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { resolveQualifierType } from '../knowledge/resolution/semanticQueryService';
 import { Entity, EntityKind } from '../knowledge/types';
 import { normalizeUri } from '../system/uriUtils';
+import { getDocumentAnalysis } from '../analysis/analysisCache';
+import { CharType } from '../utils/comments';
 
 export function provideCompletion(
   document: TextDocument,
@@ -15,10 +17,16 @@ export function provideCompletion(
   systemCatalog: SystemCatalog,
   graph: InheritanceGraph
 ): CompletionItem[] | null {
-  const lineText = document.getText({
-    start: { line: position.line, character: 0 },
-    end: { line: position.line, character: position.character }
-  });
+  const analysis = getDocumentAnalysis(document);
+  const lineText = analysis.strippedLines[position.line].substring(0, position.character);
+  
+  const mask = analysis.masks[position.line];
+  
+  // If the character before the cursor is a comment or string, we should probably not show completions
+  // unless we are specifically in a string-only completion context (not yet implemented)
+  if (position.character > 0 && mask && (mask[position.character - 1] === CharType.Comment || mask[position.character - 1] === CharType.String)) {
+    return null;
+  }
 
   let qualifier: string | undefined;
   let identifierPrefix = '';

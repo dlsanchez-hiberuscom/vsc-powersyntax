@@ -38,6 +38,10 @@ export interface Entity {
   datatype?: string;
   /** Parámetros formalmente parseados y normalizados, útil para Signature Help */
   parameters?: { label: string, documentation?: string }[];
+  /** Ámbito de la entidad (ej. 'Local', 'Instancia', 'Global', 'Compartida', 'Argumento') */
+  scope?: 'Local' | 'Instancia' | 'Global' | 'Compartida' | 'Argumento';
+  /** Nivel de acceso (ej. 'public', 'private', 'protected') */
+  access?: string;
 }
 
 /**

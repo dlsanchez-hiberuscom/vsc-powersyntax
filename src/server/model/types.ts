@@ -29,6 +29,8 @@ export interface SymbolFact {
   baseTypeName?: string;
   datatype?: string;
   parameters?: { label: string, documentation?: string }[];
+  scope?: 'Local' | 'Instancia' | 'Global' | 'Compartida' | 'Argumento';
+  access?: string;
   line: number;
   startCharacter: number;
   endCharacter: number;

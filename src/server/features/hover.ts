@@ -9,7 +9,7 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { PbSystemSymbolEntry } from '../knowledge/system/types';
-import { Entity } from '../knowledge/types';
+import { Entity, EntityKind } from '../knowledge/types';
 import { getInvocationContext } from '../utils/invocationContext';
 import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
 
@@ -118,7 +118,7 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
  */
 function buildUserEntityMarkdown(entity: Entity): string {
   const kindMap: Record<string, string> = {
-    'Type': 'Tipo / Objeto',
+    'Type': 'Objeto / Estructura',
     'Function': 'Función',
     'Subroutine': 'Subrutina',
     'Event': 'Evento',
@@ -127,9 +127,32 @@ function buildUserEntityMarkdown(entity: Entity): string {
   const kindName = kindMap[entity.kind] || entity.kind;
 
   const lines: string[] = [];
-  lines.push(`\`\`\`powerbuilder\n(${kindName}) ${entity.name}\n\`\`\``);
+  
+  // Firma: (Ámbito) Tipo Nombre
+  let signature = '';
+  if (entity.kind === EntityKind.Variable) {
+    const scopeStr = entity.scope ? `(${entity.scope}) ` : '';
+    const accessStr = entity.access ? `${entity.access} ` : '';
+    signature = `${scopeStr}${accessStr}${entity.datatype || 'any'} ${entity.name}`;
+  } else if (entity.kind === EntityKind.Function || entity.kind === EntityKind.Subroutine) {
+    signature = entity.signature || `${entity.kind.toLowerCase()} ${entity.name}(...)`;
+  } else {
+    signature = `(${kindName}) ${entity.name}`;
+  }
+
+  lines.push(`\`\`\`powerbuilder\n${signature}\n\`\`\``);
   lines.push('---');
-  lines.push(`Definido en el proyecto.`);
+  
+  if (entity.documentation) {
+    lines.push(entity.documentation);
+    lines.push('');
+  }
+
+  if (entity.containerName) {
+    lines.push(`*Definido en:* \`${entity.containerName}\``);
+  } else {
+    lines.push(`Definido en el proyecto.`);
+  }
 
   return lines.join('\n');
 }
