@@ -177,6 +177,7 @@
     "icons/**",
     "language-configuration.json",
     "package.json",
+    "LICENSE",
     "README.md"
   ],
   "scripts": {
