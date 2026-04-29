@@ -167,10 +167,10 @@ Permitir renombrado seguro en escenarios acotados con suficiente fiabilidad.
 Detectar incoherencias de más valor (tipos/miembros inexistentes, variables no declaradas/usadas) apoyado en el backbone semántico. Implementado SD1-SD5.
 
 ### B034. Diagnóstico de variables no usadas
-Introducir regla semántica clara y útil de productividad.
+Introducir regla semántica clara y útil de productividad. Ref: `plugin_old/src/powerbuilder/resolution/diagnosticResolver.ts` (`analyzeUnusedVariables`).
 
 ### B035. Detección de shadowing
-Detectar sombreado de variables o identificadores cuando exista soporte suficiente en scopes.
+Detectar sombreado de variables o identificadores cuando exista soporte suficiente en scopes. Ref: `plugin_old/src/powerbuilder/resolution/diagnosticResolver.ts` (`analyzeVariableShadowing`).
 
 ### B036. Code actions básicas
 Añadir correcciones automáticas pequeñas apoyadas en diagnósticos ya consolidados.
@@ -201,7 +201,7 @@ Centralizar las regex del lenguaje dispersas entre `matchers.ts`, `sections.ts`,
 Implementar `findInnermostCallableAtPosition()` y `findInnermostTypeAtPosition()` para obtener el contexto posicional del cursor, reutilizable por todas las features.
 
 ### B055. Parseo documental con secciones/estado (state machine)
-Evolucionar el parseo actual de regex línea a línea hacia una máquina de estados que rastree bloques (type variables, forward prototypes, event, function), distinguiendo file-object, tipos anidados (`within`) y scopes de variables.
+Evolucionar el parseo actual de regex línea a línea hacia una máquina de estados que rastree bloques (type variables, forward prototypes, event, function), distinguiendo file-object, tipos anidados (`within`) y scopes de variables. Ref: `plugin_old/src/powerbuilder/parsing/pbDocumentParser.ts`.
 
 ---
 
@@ -223,7 +223,7 @@ Implementar las reglas reales de visibilidad de PowerBuilder incluyendo protecte
 Resolver expresiones compuestas como `dw_1.Object.DataWindow.Bands`, manejar dynamic dispatch y diferenciar llamadas estáticas vs dinámicas.
 
 ### B061. Completion scoring heredado y normalizado
-Adaptar el sistema de ranking del `plugin_old` con scoring por distancia de herencia, scope (local +12000, member +8000), visibilidad y owner context.
+Adaptar el sistema de ranking del `plugin_old` con scoring por distancia de herencia, scope (local +12000, member +8000), visibilidad y owner context. Ref: `plugin_old/src/powerbuilder/semantic/semanticEngine.ts` (`getCompletionScore`).
 
 ### B062. Hierarchy inspection service
 Servicio para inspeccionar el estado de herencia: cadena de ancestros, descendencia directa, relaciones entre objetos, y navegación al script del ancestro.
@@ -231,39 +231,6 @@ Servicio para inspeccionar el estado de herencia: cadena de ancestros, descenden
 ### B063. Diagnostics snapshot agrupado
 Sistema de snapshot de diagnósticos agrupado por proyecto y por objeto, con conteo de errores vs warnings por nivel, ordenación por severidad y filtrado por fuente.
 
----
-
-## P3 — Profesionalización avanzada
-
-### B031. Referencias más precisas y robustas
-Ampliar cobertura de referencias sobre más escenarios semánticos y estructurales.
-
-### B032. Rename controlado
-Permitir renombrado seguro en escenarios acotados con suficiente fiabilidad.
-
-### ~~B033. Diagnósticos semánticos iniciales~~ ✅ CERRADA
-(Ver entrada duplicada en P3)
-
-### B034. Diagnóstico de variables no usadas
-Introducir regla semántica clara y útil de productividad.
-
-### B035. Detección de shadowing
-Detectar sombreado de variables o identificadores cuando exista soporte suficiente en scopes.
-
-### B036. Code actions básicas
-Añadir correcciones automáticas pequeñas apoyadas en diagnósticos ya consolidados.
-
-### B037. Explorador semántico del proyecto
-Presentar el sistema por conceptos lógicos y no solo por archivos.
-
-### B038. Métricas y análisis de complejidad
-Aportar visión de riesgo y mantenibilidad sobre el proyecto real.
-
-### B039. Validación continua sobre corpus reales
-Convertir la validación sobre PFC u otros corpus en práctica repetible y mantenida en el tiempo.
-
-### B040. Optimización sobre workspaces grandes y legacy
-Reducir coste de memoria, latencias y puntos de bloqueo en escenarios enterprise reales.
 
 ### B064. Enriched symbol model incremental
 Añadir progresivamente campos al Entity: containerKind, implementationKind, access, parameterCount, ownerName, isExternal, externalLibraryName, returnType.
@@ -288,6 +255,15 @@ Definir y verificar presupuestos de memoria específicos para caché documental 
 
 ### B071. Warm indexing y resume de caché persistente
 Implementar caché persistente por workspace para que el reinicio del servidor no requiera re-indexación completa.
+
+### B072. Diagnósticos de código inalcanzable
+Detectar sentencias después de terminadores incondicionales (`return`, `throw`, `halt`) y en ramas de bloques `IF/CHOOSE` ya terminadas. Ref: `plugin_old/src/powerbuilder/resolution/diagnosticResolver.ts` (`analyzeBlocks`).
+
+### B073. Soporte para Funciones Externas (DLLs)
+Parseo y resolución de declaraciones `EXTERNAL FUNCTION/SUBROUTINE` con soporte para `LIBRARY` y `ALIAS FOR`. Ref: `plugin_old/src/powerbuilder/parsing/pbDocumentParser.ts` (`tryParseCallableSymbol`).
+
+### B074. Diagnósticos de modernización y funciones obsoletas
+Identificar el uso de funciones globales obsoletas y sugerir el reemplazo moderno del sistema. Ref: `plugin_old/src/powerbuilder/resolution/diagnosticResolver.ts` (`analyzeObsoleteRuntimeFunctions`).
 
 ---
 
@@ -322,6 +298,45 @@ Aprovechar el backbone semántico para cambios más complejos y guiados.
 
 ### B050. Capacidades avanzadas para automatización e IA
 Permitir que agentes externos consuman la plataforma mediante contratos limpios y estables.
+
+### B075. CodeLens de Herencia y Referencias (Herencia PB)
+Implementar indicadores visuales sobre eventos y funciones que muestren el conteo de usos y si el método hace override de un ancestro. Ref: `plugin_old/src/powerbuilder/semantic/pbPowerScriptCodeLens.ts`.
+
+### B076. Motor de Ocurrencias Semánticas Avanzado
+Mejorar la detección de usos de variables y métodos considerando el contexto de ejecución y el binding dinámico. Ref: `plugin_old/src/powerbuilder/semantic/semanticOccurrences.ts`.
+
+### B077. Catálogo Extendido de Símbolos del Sistema
+Integrar la base de datos completa de funciones, objetos y tipos del runtime de PowerBuilder. Ref: `plugin_old/src/powerbuilder/systemSymbols/`.
+
+### B078. Análisis de SQL Embebido (Diagnósticos)
+Detección básica de sentencias SQL dentro del código PowerScript para evitar falsos positivos en diagnósticos semánticos y preparar validación futura. Ref: `plugin_old/src/powerbuilder/resolution/diagnosticResolver.ts` (`analyzeSql`).
+
+### B079. Resolución de Owners y Expresiones Compuestas
+Soporte para la resolución de cadenas de acceso complejas (ej. `parent.dw_1.object.name`). Ref: `plugin_old/src/powerbuilder/semantic/owners/`.
+
+### B080. Generador de Documentación Técnica (PB-Doc)
+Sistema para generar documentación en Markdown o HTML a partir de los metadatos de objetos y comentarios en el código. Ref: `plugin_old/src/powerbuilder/documentation/`.
+
+### B081. Inteligencia de DataWindow y acceso a .Object
+Soporte para navegación y validación de la sintaxis `dw_1.Object` y análisis del fuente de la DataWindow. Ref: `plugin_old/src/powerbuilder/datawindow/`.
+
+### B082. Servicio de Inspección de Script Ancestro
+Generación de reportes visuales de la jerarquía de herencia para el método bajo el cursor. Ref: `plugin_old/src/powerbuilder/hierarchy/ancestorScriptService.ts`.
+
+### B083. Integración avanzada con PBAutoBuild
+Lanzamiento de builds y reporte de errores oficiales de compilación en el panel de Problems. Ref: `plugin_old/src/powerbuilder/build/pbAutoBuildService.ts`.
+
+### B084. Explorador de Jerarquía de Objetos
+Vista especializada para navegar la cadena de ancestros y descendientes de cualquier objeto del workspace. Ref: `plugin_old/src/powerbuilder/hierarchy/activeHierarchyInspectionService.ts`.
+
+### B085. Validación de SQL Embebido
+Detección y validación básica de sintaxis SQL dentro de bloques PowerScript. Ref: `plugin_old/src/powerbuilder/resolution/diagnosticResolver.ts` (`analyzeSql`).
+
+### B086. Code Action: Implement Ancestor
+Acción rápida para generar el esqueleto de un evento o función heredado del ancestro.
+
+### B087. Topología de Workspace y Library Order
+Uso de archivos .pbw/.pbt para priorizar la resolución de símbolos según el orden real de las librerías del proyecto. Ref: `plugin_old/src/powerbuilder/workspace/projectRegistry.ts`.
 
 ---
 
