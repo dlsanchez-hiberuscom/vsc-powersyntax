@@ -1,677 +1,411 @@
-# Roadmap — Plugin PowerBuilder 2025 para VS Code
+# Roadmap LEAN — Plugin PowerBuilder 2025 para VS Code
 
-## 1. Objetivo del roadmap
-
-Este roadmap organiza la evolución del plugin en fases orientadas a entregar valor real sin comprometer la base técnica.
-
-La prioridad estratégica del proyecto es:
-
-1. fortalecer muchísimo la base,
-2. garantizar velocidad de carga y estabilidad,
-3. construir un núcleo semántico profesional y reutilizable,
-4. escalar correctamente en proyectos grandes y legacy,
-5. aportar alto valor al desarrollador humano,
-6. y solo después exponer capacidades avanzadas para automatización e IA.
-
-El objetivo final no es solo acumular features, sino construir un plugin:
-
-- rápido,
-- profesional,
-- muy mantenible,
-- útil sobre proyectos PowerBuilder grandes,
-- y preparado para evolucionar durante años sin refactorizaciones estructurales grandes.
-
-El roadmap asume desde el inicio una arquitectura coherente con las prácticas recomendadas para extensiones complejas de VS Code: **cliente ligero**, **activación perezosa**, **trabajo pesado fuera del Extension Host** y **separación clara entre núcleo, adaptadores y contratos**. VS Code recomienda activar solo cuando sea necesario, y la guía de Language Server explica que el análisis de lenguaje intensivo debe ejecutarse en un proceso separado para proteger CPU, memoria y responsividad del editor. 
+**Documento técnico asociado:**
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 
 ---
 
-## 2. Principios de priorización
+## 1. Objetivo
+
+Construir un plugin profesional para PowerBuilder 2025 en VS Code con estas prioridades:
+
+1. base sólida,
+2. carga rápida y estabilidad,
+3. núcleo semántico reutilizable,
+4. buen comportamiento en proyectos grandes y legacy,
+5. valor real para el desarrollador,
+6. automatización e IA solo sobre base madura.
+
+---
+
+## 2. Principios de producto
 
 Se prioriza siempre, en este orden:
 
-1. rendimiento y carga, 
-2. robustez arquitectónica,  
-3. separación clara de responsabilidades,  
-4. calidad del núcleo semántico compartido,  
-5. experiencia del archivo abierto,  
-6. escalabilidad en workspaces grandes,  
-7. validación real sobre corpus grandes y legacy,  
-8. priorizar integraciones oficiales y mantenibles del ecosistema PowerBuilder antes que automatizaciones más complejas o legacy,  citeturn8search45turn8search37turn8search39
-9. documentación canónica alineada,  
-10. capacidades avanzadas adicionales.  
+1. rendimiento,
+2. arquitectura,
+3. separación de responsabilidades,
+4. backbone semántico común,
+5. experiencia del archivo activo,
+6. escalabilidad,
+7. validación real,
+8. integraciones oficiales del ecosistema PowerBuilder,
+9. documentación alineada,
+10. automatización avanzada al final.
 
 ---
 
-## 3. Reglas generales del roadmap
+## 3. Reglas base del producto
 
-- No se avanza agresivamente a una fase posterior si la anterior no está razonablemente consolidada.  
-- No se priorizan features vistosas sobre base frágil.  
-- Ninguna feature importante debe introducir duplicación de lógica semántica si puede apoyarse en servicios comunes.  
-- Toda fase debe dejar trazabilidad clara en arquitectura, backlog, roadmap y documentación afectada.  
-- Las capacidades para automatización e IA deben construirse sobre contratos limpios y una base estable, no modelar prematuramente el core.  
-- La cobertura del lenguaje debe crecer por valor y por uso real, pero con objetivo de alcanzar una **cobertura oficial alta** de PowerBuilder 2025 en lenguaje, objetos del sistema, DataWindow y toolchain.  
+- El plugin debe soportar **Workspace** y **Solution** como modos distintos.
+- En Workspace, `ws_objects` es fuente relevante; en Solution, no.
+- En Solution, las carpetas `*.pbl` con archivos `*.sr*` son fuente canónica.
+- `.pb`, `build` y `_BackupFiles` deben ignorarse por defecto.
+- El lenguaje requiere separar:
+  - parsing del contenedor SR*,
+  - parsing del lenguaje embebido.
+- DataWindow debe tratarse como un subdominio propio.
+- El backend moderno de build debe priorizar **PBAutoBuild**.
+- **ORCA/OrcaScript** queda como integración adicional para legacy/workspace.
+- Todo cambio semántico o estructural debe reflejarse también en:
+  - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 
 ---
 
-## 4. Estrategia de cobertura de símbolos y catálogo oficial
+## 4. Estado actual
 
-El plugin debe aspirar a una cobertura oficial alta de la superficie pública de PowerBuilder 2025, pero sin intentar alcanzar semántica perfecta de todo desde las primeras fases.
-
-### 4.1 Cobertura objetivo a largo plazo
-
-A largo plazo, el plugin debería modelar de forma estructurada y utilizable:
-
-- sintaxis y semántica base de PowerScript, incluidas declaraciones, operadores, statements y llamadas a funciones/eventos; el PowerScript Reference cubre lenguaje básico, datatypes, declaraciones, operators, statements y calling syntax. 
-- funciones del sistema, funciones de objeto, eventos del sistema y eventos/funciones definidos por usuario como parte del catálogo del lenguaje.  
-- objetos y controles del sistema, incluyendo propiedades, eventos y funciones de objetos relevantes como Application, Transaction, DataStore, DataWindow y otros controles estándar.  
-- expresiones, funciones y superficie específica de DataWindow/DataStore, apoyándose en DataWindow Programmers Guide y DataWindow Reference.  
-- conceptos de workspace, solution, target, project, libraries, dynamic libraries y workflows de build/deploy del ecosistema PowerBuilder.  
-- toolchain oficial de automatización, especialmente PBAutoBuild y OrcaScript/ORCA. 
-
-### 4.2 Criterio de ejecución realista
-
-No se intentará modelar todo con el mismo nivel de profundidad desde el inicio. La progresión correcta será:
-
-1. **cobertura completa o casi completa del lenguaje base y catálogo oficial más útil**, 
-2. **cobertura fuerte de objetos del sistema y DataWindow con impacto directo en edición/navegación/diagnósticos**,  
-3. **cobertura de herencia, owner-awareness y relaciones de framework en proyectos grandes**,  
-4. **cobertura progresiva de casos raros, legacy, obsoletos o de bajo retorno**. 
-
-### 4.3 Activo estratégico del plugin
-
-Se considera una línea estratégica explícita del producto construir y mantener un **catálogo oficial del lenguaje y runtime** como activo propio del plugin. Ese catálogo debe alimentar hover, completado, signature help, diagnósticos, navegación y futuras capacidades externas sin obligar a duplicar conocimiento entre features.  
+- **Fase 0** — cerrada
+- **Fase 1** — cerrada
+- **Fase 2** — cerrada
+- **Fase 3** — cerrada
+- **Fase 4** — cerrada
+- **Fase 5** — cerrada
+- **Fase 6A** — cerrada
+- **Fase 6B** — en curso
+- **Fase 7A** — siguiente objetivo natural
+- **Fase 7B** — después de 7A
+- **Fase 8** — endurecimiento, escala y validación continua
+- **Fase 9** — especialización PowerBuilder
+- **Fase 10–11** — apertura a automatización externa e IA
 
 ---
 
 ## 5. Fases del roadmap
 
-## ~~Fase 0 — Bootstrap profesional y gobierno del repositorio~~ ✅ COMPLETADA
+## Fase 0 — Bootstrap profesional y gobierno del repositorio ✅
 
 ### Objetivo
-Dejar una base limpia, profesional y gobernable para crecer sin deuda estructural innecesaria.
+Dejar una base limpia, gobernable y documentada.
 
-### Entregables esperados
-- manifiesto bien definido,
-- estructura inicial cliente / servidor / shared,
-- wiring LSP mínimo,
-- documentación base del repositorio,
-- constitución del proyecto,
-- flujo SDD,
-- build base,
-- test base mínimo,
-- reglas de actualización documental.
-
-### Criterio de salida
-- el plugin arranca correctamente,
-- la base documental existe y es coherente,
-- el ciclo básico de desarrollo/validación está operativo,
-- y la arquitectura inicial no bloquea la separación futura del core.  
+### Salida
+- manifiesto correcto,
+- base cliente/servidor,
+- documentación mínima,
+- validación inicial.
 
 ---
 
-## ~~Fase 1 — Base operativa rápida y segura~~ ✅ COMPLETADA
+## Fase 1 — Base operativa rápida y segura ✅
 
 ### Objetivo
-Asegurar que el plugin es ligero, estable al arrancar y correctamente desacoplado del Extension Host.
+Garantizar activación ligera, cliente fino y servidor separado.
 
-### Entregables esperados
-- activación perezosa real,
-- cliente VS Code mínimo,
-- runtime de análisis separado,
-- ciclo de vida robusto del LSP,
-- comandos ligeros de mantenimiento,
-- logs y estado mínimos,
-- validación de arranque y carga.
-
-### Capacidades principales
-- base de activación perezosa,  
-- runtime de análisis separado,  
-- bootstrap cliente/servidor sólido.  
-
-### Criterio de salida
-- el plugin no hace trabajo pesado al iniciar VS Code,
-- el servidor se levanta solo cuando es necesario,
-- y la experiencia base no degrada el editor de forma visible.  
+### Salida
+- activación perezosa,
+- cliente mínimo,
+- servidor fuera del Extension Host,
+- lifecycle robusto.
 
 ---
 
-## ~~Fase 2 — Workspace, runtime y observabilidad~~ ✅ COMPLETADA
+## Fase 2 — Workspace, runtime y observabilidad ✅
 
 ### Objetivo
-Construir la base operativa real para proyectos grandes: descubrimiento, scheduling, invalidación y medición.
+Introducir discovery, prioridades, cancelación y observabilidad básica.
 
-### Entregables esperados
-- descubrimiento de workspace,
-- clasificación básica de archivos relevantes,
-- política de roots, exclusiones y watch/scan,
-- scheduler de análisis,
-- prioridades de trabajo,
-- cancelación,
-- observabilidad básica,
-- primeros presupuestos de latencia y carga,
-- validación sobre workspaces pequeños y medianos.
-
-### Capacidades principales
-- descubrimiento de workspace,  
-- prioridades de análisis,  
-- trabajo incremental y cancelable,  
-- observabilidad de rendimiento,  
-- time budgets básicos.  
-
-### Criterio de salida
-- el sistema sabe descubrir y observar el workspace,
-- prioriza el archivo activo,
-- y las tareas pesadas no bloquean de forma visible el flujo interactivo.  
+### Salida
+- descubrimiento del workspace,
+- roots y exclusiones,
+- scheduler básico,
+- foco en archivo activo.
 
 ---
 
-## ~~Fase 3 — Parsing, caché e invalidación reutilizable~~ ✅ COMPLETADA
+## Fase 3 — Parsing, caché e invalidación reutilizable ✅
 
 ### Objetivo
-Construir un pipeline de parseo incremental útil y reutilizable, con caché razonable e invalidación fina.
+Construir pipeline incremental con caché documental e invalidación fina.
 
-### Entregables esperados
-- pipeline de parseo incremental,
-- estructuras sintácticas reutilizables,
-- caché documental básica,
-- fingerprints por archivo,
-- invalidación por archivo afectado,
-- preparación para análisis incremental,
-- validación sobre cambios repetidos y edición iterativa.
-
-### Capacidades principales
-- pipeline de parseo incremental,  
-- cache e invalidación fina,  
-- primera base de conocimiento por documento.  
-
-### Criterio de salida
-- cambiar un archivo no obliga a rehacer todo el workspace,
-- el parseo es reutilizable,
-- y la base documental del archivo abierto responde con latencia razonable.  
+### Salida
+- parseo incremental,
+- caché por documento,
+- fingerprints,
+- invalidación por impacto local.
 
 ---
 
-## ~~Fase 4 — Backbone semántico inicial y catálogo oficial~~ ✅ COMPLETADA
+## Fase 4 — Backbone semántico inicial y catálogo oficial ✅
 
 ### Objetivo
-Introducir la base canónica del conocimiento compartido: símbolos, scopes, binding inicial, índice y consultas comunes, apoyada además en un catálogo oficial del lenguaje y runtime.
+Introducir símbolos canónicos, scopes iniciales, índice básico y queries compartidas.
 
-### Entregables esperados
-- índice básico de símbolos,
-- document symbols,
-- workspace symbols básicos,
+### Salida
+- índice de símbolos,
+- document/workspace symbols,
 - binding inicial,
-- representación canónica de símbolos,
-- primeras consultas compartidas,
-- inicio del catálogo oficial del lenguaje y runtime,
-- base para navegación y diagnósticos sin duplicación por feature.
-
-### Capacidades principales
-- índice básico de símbolos,  
-- símbolos canónicos,  
-- base de scopes,  
-- consultas compartidas del knowledge layer,  
-- catálogo oficial del lenguaje y runtime. 
-
-### Criterio de salida
-- existe una fuente de verdad semántica inicial,
-- las features dejan de depender solo de heurísticas documentales,
-- y el proyecto ya no necesita multiplicar lógica por feature.  
+- catálogo oficial del lenguaje/runtime.
 
 ---
 
-## ~~Fase 5 — Navegación profesional y valor visible temprano~~ ✅ COMPLETADA
+## Fase 5 — Navegación profesional y valor temprano ✅
 
 ### Objetivo
-Entregar las primeras capacidades realmente valiosas para el desarrollador humano sobre la nueva base compartida.
+Entregar navegación útil de valor real.
 
-### Entregables esperados
-- navegación a definición,
-- búsqueda de referencias,
+### Salida
+- go to definition,
+- find references base,
 - hover semántico,
-- mejora de document/workspace symbols,
-- primeras relaciones entre símbolos y dependencias,
-- primeras capacidades de owner-awareness y herencia,
-- validación real sobre corpus medianos y legacy.
-
-### Capacidades principales
-- navegación a definición,  
-- búsqueda de referencias,  
-- hover semántico,  
-- modelo inicial de dependencias,  
-- navegación por herencia y owner-awareness.  
-
-### Criterio de salida
-- el usuario puede navegar con utilidad real,
-- las respuestas se apoyan en conocimiento compartido,
-- y la experiencia del archivo activo es claramente mejor que en el bootstrap.  
+- owner-awareness y herencia inicial.
 
 ---
 
-## Bloque transversal — Deuda arquitectónica y migración
-
-> Este bloque es transversal a las fases. No debe acumularse indefinidamente; debe cerrarse progresivamente sin bloquear el avance funcional.
-
-### Líneas de deuda activa
-
-- **Desmantelamiento progresivo de `server/analysis/`**: `documentAnalysis.ts` → `parsing/extractors/` + `knowledge/snapshots/`; `analysisCache.ts` → `adapters/cache/` o `knowledge/snapshots/`; `diagnosticScheduler.ts` → `runtime/scheduler/` o `diagnostics/publishing/`. Mientras no se migre, queda prohibido que `analysis/` siga creciendo.
-- **Migración bootstrap → backbone definitivo**: las features actuales (Document Symbols, Hover, Diagnósticos) operan sobre la capa bootstrap; deben migrar progresivamente al knowledge pipeline.
-- ~~**Crear `grammar.ts` canónico**~~: centralizar las regex del lenguaje dispersas entre `matchers.ts`, `sections.ts`, `diagnostics.ts` y `documentAnalysis.ts` en un módulo canónico declarativo, siguiendo el patrón de `pbLanguageGrammar.ts` de `plugin_old`. → **CERRADO.**
-- **Descomponer `server/model/`** en dominio real y tipos de borde.
-- **Descomponer `server/utils/`** hacia `platform/` y módulos con responsabilidad clara.
-- **Separar `shared/contracts` de `shared/kernel`**.
-
-### Líneas ya resueltas
-
-- ~~`baseTypeName` en Entity~~ → ya implementado en `knowledge/types.ts`.
-- ~~Batch update en KnowledgeBase (`beginBatchUpdate`/`endBatchUpdate`)~~ → ya implementado en `KnowledgeBase.ts`.
-
----
-
-## ~~Fase 6A — Productividad semántica base~~ ✅ COMPLETADA
+## Fase 6A — Productividad semántica base ✅
 
 ### Objetivo
-Construir la primera capa profesional de productividad semántica reutilizando el backbone ya creado.
+Construir la primera experiencia profesional de edición.
 
-### Entregables mínimos de salida
+### Salida
 - diagnósticos sintácticos y estructurales,
-- completado contextual básico con scoring por contexto,
-- ayuda de firmas básica,
-- cobertura creciente del catálogo oficial en hover/completion/signature help,
-- validación de latencia en archivo activo,
-- validación de no regresión en navegación.
-
-### Optimizaciones opcionales de esta fase
-- semantic tokens básicos,
-- ampliación del catálogo oficial.
-
-### Capacidades principales
-- diagnósticos sintácticos y estructurales,
-- completado contextual,
-- ayuda de firmas,
-- explotación útil del catálogo oficial del lenguaje.
-
-### Criterio de salida
-- el plugin ya ofrece una experiencia profesional básica de edición,
-- los diagnósticos y ayudas se alimentan de servicios comunes,
-- y la latencia sigue siendo controlable.
+- completion contextual básico,
+- signature help básico,
+- uso real del catálogo oficial.
 
 ---
 
-## Fase 6B — Asistencia contextual y refinamiento (EN CURSO)
+## Fase 6B — Asistencia contextual y refinamiento semántico (EN CURSO)
 
 ### Objetivo
-Refinar la productividad semántica con diagnósticos semánticos, contexto posicional y scoring avanzado.
+Refinar la productividad con contexto reutilizable y parseo documental más fuerte.
 
-### Entregables mínimos de salida
-- ~~diagnósticos semánticos iniciales (tipos/miembros inexistentes, variables no declaradas)~~ → **CERRADO (B033)**,
-- contexto posicional fino (innermost callable, innermost type, nesting real),
-- snapshots/document knowledge reutilizable,
-- parseo documental con secciones/estado (state machine) preparando semántica fuerte,
-- completion scoring heredado y normalizado (adaptando reglas del `plugin_old`).
+### Entregables mínimos
+- diagnósticos semánticos iniciales consolidados,
+- contexto posicional reutilizable,
+- parseo por secciones / state machine,
+- completion scoring avanzado,
+- snapshots reutilizables por documento.
 
-### Optimizaciones opcionales de esta fase
-- detección de shadowing,
-- diagnóstico de variables no usadas.
-
-### Capacidades principales
-- diagnósticos semánticos,
-- contexto posicional semántico reutilizable,
-- ~~tokens semánticos (B027)~~ → **CERRADO**,
-- scoring avanzado de completado.
+### Opcional
+- variables no usadas,
+- shadowing.
 
 ### Criterio de salida
-- el plugin detecta errores semánticos reales,
-- el contexto posicional es reutilizable por todas las features,
-- y el completado contextual es notablemente mejor que el de la Fase 6A.
+- errores semánticos útiles,
+- contexto compartido entre features,
+- completion claramente mejor que en 6A.
 
 ---
 
 ## Fase 7A — Resolución fuerte, topología y visibilidad
 
 ### Objetivo
-Subir de nivel la confianza del plugin en resolución, topología de workspace y reglas de visibilidad.
+Pasar de semántica útil a semántica confiable a escala de workspace.
 
-### Entregables mínimos de salida
-- topología real de workspace y targets (`.pbw`, `.pbt`, `.pbsln`, library order),
-- project registry con scoring de proyecto preferido,
-- InheritanceGraph robusto con caches (ancestorCache, memberCache, derivedTypeCache),
-- symbol visibility real (public/protected/private/protectedread/protectedwrite),
-- owner resolution robusto (estático + dinámico),
-- enriched symbol model incremental (campos progresivos: containerKind, implementationKind, access, parameterCount),
-- búsqueda de referencias segura en casos base,
-- mayor precisión en resolución y usos,
-- endurecimiento de caché e invalidación para cambios complejos.
+### Orden interno recomendado
+1. topología real de workspace/solution,
+2. project registry,
+3. enriched symbol model,
+4. visibilidad real,
+5. InheritanceGraph robusto,
+6. owner resolution,
+7. references seguras.
 
-### Optimizaciones opcionales de esta fase
-- modelo de dependencias más rico (impacto de cambios entre objetos).
-
-### Capacidades principales
-- topología real de workspace/targets,
-- resolución fuerte con visibilidad,
-- owner resolution robusto,
-- references seguras.
+### Entregables mínimos
+- topología real,
+- visibilidad real,
+- herencia más fiable,
+- owner resolution más fuerte,
+- precisión mayor en definición/usos/referencias.
 
 ### Criterio de salida
-- la resolución distingue correctamente visibilidad y herencia,
-- la topología del workspace es conocida y usada,
-- y el plugin no confunde objetos de diferentes targets.
+- el plugin distingue correctamente mejor topología, herencia y visibilidad,
+- y evita confusiones entre targets/proyectos.
 
 ---
 
-## Fase 7B — Rename, Code Actions, CodeLens y navegación de jerarquía
+## Fase 7B — Rename, Code Actions, CodeLens y navegación jerárquica
 
 ### Objetivo
-Construir operaciones seguras de alto valor apoyadas en la resolución fuerte de la Fase 7A.
+Construir operaciones seguras de alto valor sobre resolución fuerte.
 
-### Entregables mínimos de salida
-- renombrado seguro,
+### Entregables mínimos
+- rename controlado,
 - code actions básicas,
-- CodeLens sobre funciones y eventos (conteo de referencias, indicación de herencia),
-- hierarchy inspection / ancestor script navigation,
-- formateador de código configurable.
-
-### Optimizaciones opcionales de esta fase
-- CodeLens avanzado (saltar al ancestro, ver jerarquía completa),
-- code actions de mayor complejidad.
-
-### Capacidades principales
-- renombrado seguro,
-- code actions básicas,
-- CodeLens sobre callables y herencia,
+- CodeLens de referencias/herencia,
+- ancestor script navigation,
 - hierarchy inspection,
-- formateador de código.
+- formatter configurable.
 
 ### Criterio de salida
-- el plugin soporta operaciones más delicadas con una base razonablemente fiable,
-- y la semántica es suficientemente robusta para cambios asistidos.
+- operaciones delicadas utilizables con confianza razonable.
 
 ---
 
 ## Fase 8A — Escala, rendimiento y endurecimiento
 
 ### Objetivo
-Asegurar que el plugin escala bien en proyectos grandes con control real de rendimiento y memoria.
+Asegurar que el plugin escala bien en proyectos enterprise y legacy.
 
-### Entregables mínimos de salida
-- calibración real del performance budget sobre corpus grandes,
-- memory budgets de caché e índice,
-- warm indexing y resume de caché persistente,
-- diagnostics snapshot agrupado (por proyecto/objeto),
-- optimización de tiempo de respuesta en workspaces grandes,
-- tratamiento progresivo de patrones legacy.
-
-### Optimizaciones opcionales de esta fase
-- agrupación avanzada de diagnósticos por proyecto/objeto.
-
-### Capacidades principales
-- optimización real sobre corpus grandes y legacy,
+### Entregables mínimos
+- calibración real del performance budget,
 - memory budgets,
 - warm indexing,
-- diagnostics snapshot.
+- caché persistente,
+- optimización real de latencias,
+- hardening sobre corpus grandes.
 
 ### Criterio de salida
-- el plugin mantiene latencia y memoria controlables en workspaces grandes,
-- el warm indexing es significativamente más rápido que el cold indexing,
-- y los diagnósticos se agrupan de forma profesional.
+- latencia y memoria controlables,
+- warm indexing claramente mejor que cold indexing,
+- estabilidad en corpus reales.
 
 ---
 
 ## Fase 8B — Exploración global, métricas y validación continua
 
 ### Objetivo
-Aportar visión global del sistema y validación sistemática sobre corpus reales.
+Dar visión global y convertir la validación real en práctica permanente.
 
-### Entregables mínimos de salida
-- explorador semántico del proyecto,
-- métricas y análisis de complejidad,
-- validación continua sobre corpus grandes y reales,
-- fixtures reales permanentes de PFC/legacy,
-- suites de validación sobre PFC 2025 y otros corpus representativos.
-
-### Optimizaciones opcionales de esta fase
-- dashboard de métricas,
-- exportación de informes de calidad.
-
-### Capacidades principales
-- explorador semántico del proyecto,
-- métricas y análisis de complejidad,
-- validación continua sobre corpus reales.
+### Entregables mínimos
+- explorador semántico,
+- métricas,
+- fixtures reales permanentes,
+- suites de validación sobre corpus representativos.
 
 ### Criterio de salida
-- el plugin no colapsa al crecer el tamaño del proyecto,
-- y las decisiones de producto se apoyan en validación real, no solo en hipótesis.
+- el producto evoluciona sobre validación real, no sobre hipótesis.
 
 ---
 
 ## Fase 9 — Especialización PowerBuilder y ecosistema profesional
 
 ### Objetivo
-Cubrir piezas específicas del ecosistema PowerBuilder que aportan valor diferencial y conectan el plugin con workflows profesionales reales.
+Cubrir las piezas diferenciales del ecosistema PowerBuilder.
 
-### Entregables esperados
-- soporte avanzado de DataWindow,
-- catálogo y navegación de DataWindow,
-- integración con PBAutoBuild,
-- validación de compilación desde el plugin o servicios asociados,
-- estado de build y salud del workspace,
-- mejor conocimiento del ecosistema del proyecto,
-- preparación de auditoría técnica y convenciones.
-
-### Capacidades principales
-- soporte avanzado de DataWindow,  
-- catálogo y navegación de DataWindow,  
-- integración con PBAutoBuild,  
-- estado de build y salud del workspace,  
-- auditoría de arquitectura y convenciones.  
+### Líneas principales
+1. DataWindow safe mode consolidado,
+2. DataWindow avanzado,
+3. integración con **PBAutoBuild**,
+4. estado de build y salud del workspace,
+5. auditoría técnica y convenciones.
 
 ### Criterio de salida
-- el plugin aporta valor diferencial específico del ecosistema PowerBuilder,
-- permite integrarse con un backend oficial de build/automatización,
-- y empieza a actuar como herramienta profesional de ingeniería, no solo de edición.  
+- el plugin aporta valor diferencial específicamente PowerBuilder,
+- y entra en terreno de herramienta profesional de ingeniería.
 
 ---
 
 ## Fase 10 — Plataforma abierta para automatización
 
 ### Objetivo
-Preparar la base para consumo externo y automatización avanzada sin contaminar el core.
+Abrir contratos estables para consumo externo sin contaminar el core.
 
-### Entregables esperados
-- contratos públicos de API local,
+### Entregables mínimos
+- API local,
 - versionado de contratos,
-- adapter desacoplado para consultas externas,
-- consultas automatizables para herramientas externas,
+- adapters desacoplados,
+- consultas automatizables,
 - documentación de contratos,
-- integración avanzada con OrcaScript/ORCA para escenarios legacy o automatización más profunda,
-- garantías mínimas de estabilidad del borde.
-
-### Capacidades principales
-- contratos públicos de API local,  
-- consultas automatizables para herramientas externas,  
-- integración con OrcaScript/ORCA.  
+- integración ORCA/OrcaScript para escenarios legacy cuando toque.
 
 ### Criterio de salida
-- el sistema puede ser consumido externamente mediante contratos estables,
-- dispone de una vía avanzada de automatización PowerBuilder para escenarios legacy,
-- y el dominio interno sigue desacoplado de la representación externa.  
+- el sistema es consumible externamente con estabilidad de borde.
 
 ---
 
 ## Fase 11 — Automatización avanzada e IA sobre base estable
 
 ### Objetivo
-Aprovechar la base ya madura para automatización avanzada sin reabrir la arquitectura.
+Aprovechar la plataforma madura para automatización e IA sin reabrir la arquitectura.
 
-### Entregables esperados
-- asistencia a refactorización más avanzada,
-- capacidades avanzadas para automatización e IA,
-- herramientas externas apoyadas en contratos estables,
-- explotación del conocimiento semántico desde fuera del editor,
-- uso del catálogo oficial del lenguaje y runtime como base para agentes y procesos automatizados.
-
-### Capacidades principales
-- asistencia a refactorización más avanzada,  
-- capacidades avanzadas para automatización e IA,  
-- explotación externa del catálogo oficial y del backbone semántico.  
+### Entregables mínimos
+- refactorización más avanzada,
+- automatización externa,
+- explotación del backbone semántico y del catálogo oficial fuera del editor.
 
 ### Criterio de salida
 - la automatización externa aprovecha la plataforma,
-- pero el core sigue gobernado por arquitectura limpia, contratos y mantenimiento sostenible.  
+- y el core sigue limpio y sostenible.
 
 ---
 
-## 6. Features objetivo ordenadas por secuencia lógica de implementación
+## 6. Línea transversal obligatoria
 
-> Ordenadas por dependencia arquitectónica y secuencia realista, no por atractivo comercial inmediato.
+### Catálogo oficial
+El catálogo oficial del lenguaje y runtime es un activo estratégico del plugin.
+Debe alimentar:
 
-1. **Base de activación perezosa**: permite que la extensión arranque rápido y solo cargue lo imprescindible cuando el usuario la necesita.  
-2. **Runtime de análisis separado**: permite sacar el trabajo pesado fuera del Extension Host para proteger rendimiento y estabilidad.  
-3. **Descubrimiento de workspace**: permite identificar proyectos, archivos y relaciones básicas sobre las que se apoyará todo lo demás.  
-4. **Scheduler, prioridades y cancelación**: permite ordenar el trabajo costoso y proteger el flujo interactivo del editor.  
-5. **Observabilidad básica de rendimiento**: permite medir arranque, latencias y coste de análisis para evitar regresiones invisibles.  
-6. **Pipeline de parseo incremental**: permite transformar cambios de archivos en conocimiento reutilizable sin rehacer todo el workspace.  
-7. **Caché e invalidación fina**: permite recalcular solo lo necesario tras cambios locales.  
-8. **Índice básico de símbolos**: permite tener una base única de nombres, ubicaciones y relaciones para navegación y análisis.  
-9. **Catálogo oficial del lenguaje y runtime**: permite que el plugin conozca la superficie oficial de PowerBuilder para mejorar hover, completado, validación y automatización. 
-10. **Modelo de scopes y binding inicial**: permite enlazar definiciones locales y preparar una semántica compartida.  
-11. **Queries compartidas del knowledge layer**: permite servir hover, navegación y diagnósticos sin duplicar lógica por feature.  
-12. **Navegación a definición**: permite saltar al origen real de un símbolo usando el índice ya construido.  
-13. **Búsqueda de referencias**: permite localizar usos de un símbolo sobre la misma plataforma de conocimiento.  
-14. **Hover semántico**: permite mostrar contexto útil aprovechando símbolos y resolución ya existentes.  
-15. **Navegación por herencia y owner-awareness**: permite entender mejor ancestros, descendientes, overrides y relaciones entre objetos.  
-16. **Diagnósticos sintácticos y estructurales**: permite señalar problemas básicos usando el pipeline y el índice compartido.  
-17. **Diagnósticos semánticos**: permite detectar incoherencias de mayor valor cuando la resolución ya es suficientemente sólida.  
-18. **Tokens semánticos**: enriquecido el editor visualmente a partir del modelo de símbolos y roles compartidos.  
-19. **Completado contextual**: permite sugerencias más útiles apoyadas en el conocimiento incremental del proyecto.  
-20. **Ayuda de firmas**: permite asistir llamadas y uso de miembros cuando ya existe un catálogo suficientemente fiable.  
-21. **Renombrado seguro**: permite cambios más controlados cuando definición y referencias ya funcionan con confianza.  
-22. **Code actions básicas**: permite pequeñas correcciones automáticas basadas en diagnósticos existentes.  
-23. **Formateador de código configurable**: permite homogeneizar el estilo del código PowerBuilder mediante reglas parametrizables.
-24. **Explorador semántico del proyecto**: permite navegar el sistema por conceptos lógicos y no solo por archivos.  
-25. **Métricas y análisis de complejidad**: permite localizar zonas problemáticas usando el grafo y el índice ya consolidados.  
-26. **Validación continua sobre corpus reales**: permite endurecer el plugin usando proyectos PowerBuilder grandes y reales para evitar errores teóricos.  
-27. **Soporte avanzado de DataWindow**: permite integrar artefactos específicos del ecosistema PowerBuilder dentro de la misma base de conocimiento.  
-28. **Catálogo y navegación de DataWindow**: permite tratar DataWindow y DataStore con un nivel de soporte profesional comparable al del lenguaje base.  
-29. **Integración con PBAutoBuild**: permite compilar y validar proyectos PowerBuilder desde un backend oficial orientado a automatización y CI.  
-30. **Estado de build y salud del workspace**: permite detectar precondiciones, configuración y problemas de compilación antes de lanzar automatizaciones.  
-31. **Auditoría de arquitectura y convenciones**: permite revisar calidad y consistencia apoyándose en la plataforma ya madura.  
-32. **Contratos públicos de API local**: permite exponer capacidades de forma desacoplada a consumidores externos sin tocar el core.  
-33. **Consultas automatizables para herramientas externas**: permite que otros procesos consuman conocimiento del proyecto de forma estable.  
-34. **Integración con OrcaScript/ORCA**: permite automatización avanzada y compatibilidad con workflows legacy de bibliotecas, source control y build.  
-35. **Asistencia a refactorización más avanzada**: permite cambios complejos cuando el backbone semántico ya es lo bastante fiable.  
-36. **Capacidades avanzadas para automatización e IA**: permite que agentes externos utilicen la base del sistema sin acoplarse a la implementación interna.  
+- hover,
+- completion,
+- signature help,
+- diagnósticos,
+- navegación,
+- automatización futura.
+
+### Documento técnico asociado
+Todo cambio relevante sobre:
+- PowerScript,
+- scopes,
+- SR*,
+- Workspace/Solution,
+- DataWindow,
+- encoding,
+- build/backend,
+
+debe reflejarse también en:
+
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 
 ---
 
-## 7. Relación entre fases y dependencias lógicas
+## 7. Política de WIP
 
-### Dependencias fuertes
-- Fase 1 depende de consolidar la Fase 0.  
-- Fase 2 depende de que cliente/servidor y activación estén cerrados razonablemente.  
-- Fase 3 depende de tener runtime y workspace operativos.  
-- Fase 4 depende de parseo reutilizable y de una primera política de caché/invalidación.  
-- Fase 5 depende de símbolo canónico, binding inicial e índice básico.  
-- Fase 6 depende de navegación y consultas compartidas razonablemente consolidadas.  
-- Fase 7 depende de resolución más fiable.  
-- Fase 8 depende de base semántica y observabilidad suficientes, además de corpus reales de validación.  
-- Fase 9 depende de base escalable y núcleo profesional sólido.  
-- La integración con PBAutoBuild depende de tener una base estable de workspace, runtime, validación y producto profesional usable.  citeturn8search45turn8search49turn8search41
-- Fase 10 depende de core estable y contratos claramente separados del dominio.  
-- La integración con OrcaScript/ORCA depende de tener contratos claros, arquitectura madura y criterios de observabilidad/validación suficientes para controlar riesgos en escenarios legacy o complejos.  
-- Fase 11 depende de API local estable, catálogo oficial suficientemente rico y backbone semántico maduro.  
+Para un equipo pequeño:
+
+- máximo **1 fase principal activa**,
+- máximo **1 línea transversal de deuda**,
+- máximo **1 línea de validación/corpus**,
+- no abrir simultáneamente:
+  - DataWindow profundo,
+  - build avanzado,
+  - API pública,
+  - automatización externa.
 
 ---
 
-## 8. Estado actual esperado del roadmap
+## 8. Regla de avance entre fases
 
-Estado de referencia del proyecto:
+No se avanza agresivamente si la fase anterior no está consolidada.
 
-- **Fase 0**: en curso / consolidación inicial.
-- **Fase 1**: prioridad inmediata.
-- **Fase 2**: siguiente objetivo natural.
-- **Fase 3**: siguiente base crítica.
-- **Fase 4**: inicio real del backbone semántico.
-- **Fases 5–6**: cerradas (navegación, completado, ayuda de firmas, diagnósticos semánticos y tokens semánticos).
-- **Fase 7**: siguiente objetivo natural (resolución fuerte, topología y visibilidad).
-- **Fase 8**: endurecimiento serio para escala, legacy y validación sobre corpus reales.
-- **Fase 9**: especialización fuerte en ecosistema PowerBuilder, DataWindow y build profesional.
-- **Fases 10–11**: apertura controlada a automatización externa e IA sobre base madura.
-
----
-
-## 9. Regla de avance entre fases
-
-No se debe avanzar de forma agresiva a la siguiente fase si la anterior no está razonablemente consolidada.
-
-Consolidar significa:
-
+**Consolidar** significa:
 - implementación estable,
 - validación mínima real,
-- impacto en rendimiento controlado,
+- rendimiento controlado,
 - documentación actualizada,
-- backlog ajustado al estado real,
-- y ausencia de deuda bloqueante escondida.  
+- backlog/estado alineados,
+- sin deuda bloqueante oculta.
 
 ---
 
-## 10. Política de revisión del roadmap
+## 9. Próximo foco recomendado
 
-El roadmap debe revisarse y actualizarse cada vez que:
+### Prioridad inmediata
+Cerrar **Fase 6B** con foco en:
+- contexto posicional reutilizable,
+- parseo documental con state machine,
+- scoring avanzado de completion,
+- decisión clara sobre `unused variables` y `shadowing`.
 
-- se cierra una fase relevante,
-- cambia la arquitectura,
-- aparecen bloqueos técnicos graves,
-- cambian prioridades de producto,
-- una validación real obliga a replantear el orden,
-- o la experiencia sobre workspaces grandes contradice las hipótesis iniciales.  
-
----
-
-## 11. Criterios transversales que deben revisarse en todas las fases
-
-En toda fase deben revisarse, cuando aplique:
-
-- impacto en activación,  
-- impacto en archivo activo,  
-- impacto en memoria,  
-- coste sobre workspaces grandes,  
-- comportamiento incremental,  
-- cancelación e invalidación,  
-- reutilización de servicios semánticos comunes,  
-- cobertura creciente del catálogo oficial de símbolos y runtime, 
-- validación sobre corpus reales cuando la fase lo requiera,  
-- y actualización de la documentación canónica.  
+### Siguiente objetivo natural
+Abrir **Fase 7A** con este orden:
+1. topología Workspace/Solution,
+2. project registry,
+3. enriched symbol model,
+4. visibilidad real,
+5. InheritanceGraph robusto,
+6. owner resolution,
+7. references seguras.
 
 ---
 
-## 12. Regla final de producto
+## 10. Regla final de producto
 
-El objetivo del roadmap no es llegar rápido a “muchas features”, sino llegar a un plugin que combine:
+El objetivo no es llegar rápido a muchas features, sino llegar a un plugin que combine:
 
 - rapidez,
 - estabilidad,
 - valor profesional real,
-- buen soporte para proyectos grandes y legacy,
-- alto aprovechamiento por desarrolladores humanos,
-- capacidad de automatización externa,
-- cobertura oficial alta del lenguaje y runtime de PowerBuilder,
-- y una base suficientemente limpia como para seguir creciendo sin rehacer el núcleo.  
-
----
-
-## 13. Fuentes clave consultadas
-
-- Activation Events | Visual Studio Code Extension API — activación perezosa y best practices.  
-- Language Server Extension Guide | Visual Studio Code — separación cliente/servidor y análisis intensivo fuera del editor.  
-- Extension Host | Visual Studio Code Extension API — hosts, runtimes y preferencias de ejecución.  
-- Language Server Protocol — base JSON-RPC del modelo LSP. 
-- Clean/Hexagonal Architecture overview — separación de core y adaptadores.  
-- PowerScript Reference 2025 — lenguaje, funciones, eventos y sintaxis base.  
-- Objects and Controls 2025 R2 — objetos, controles, propiedades, funciones y eventos del sistema.  
-- DataWindow Programmers Guide / DataWindow Reference — superficie DataWindow/DataStore y funciones de expresiones.  
-- Users Guide 2025 — workspaces, solutions, targets, projects, libraries y build. 
-- PBAutoBuild / Installing PBAutoBuild / enhancements — backend oficial de build y automatización.
-- OrcaScript / ORCA Guide — automatización avanzada, bibliotecas, queries y build legacy.  
-- Troubleshooting PBC/ORCA/PBAutoBuild — riesgos y problemas reales de integración. 
-- OpenSourcePFCLibraries — corpus real de validación a gran escala para PowerBuilder 2025.  
+- soporte para proyectos grandes y legacy,
+- conocimiento fuerte de PowerBuilder 2025,
+- cobertura creciente del lenguaje, runtime, DataWindow y toolchain,
+- y una base suficientemente limpia para seguir creciendo sin rehacer el núcleo.
