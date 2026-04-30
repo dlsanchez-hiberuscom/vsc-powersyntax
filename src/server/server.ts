@@ -11,6 +11,10 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { SERVER_NAME } from '../shared/types';
+import {
+  PROGRESS_NOTIFICATION,
+  type ProgressNotification
+} from '../shared/types';
 import { invalidateDocumentAnalysis, clearDocumentAnalysisCache, setAnalysisBackends } from './analysis/analysisCache';
 import {
   cancelScheduledDiagnostics,
@@ -22,6 +26,7 @@ import { extractDocumentSymbols } from './features/documentSymbols';
 import { provideHover } from './features/hover';
 import { provideWorkspaceSymbols } from './features/workspaceSymbols';
 import { provideDefinition } from './features/definition';
+import { provideReferences } from './features/references';
 import { provideSignatureHelp } from './features/signatureHelp';
 import { provideCompletion } from './features/completion';
 import { getSemanticTokensLegend, provideSemanticTokens } from './features/semanticTokens';
@@ -30,9 +35,12 @@ import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { NodeFileSystem } from './system/fileSystem';
 import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
+import { buildProjectRegistry } from './workspace/projectRegistry';
 import { DocumentCache } from './knowledge/DocumentCache';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
 import { InheritanceGraph } from './knowledge/resolution/InheritanceGraph';
+import { HotContextCache } from './knowledge/HotContextCache';
+import { ServingCache, makeKey as makeServingKey } from './knowledge/ServingCache';
 import { SystemCatalog } from './knowledge/system/SystemCatalog';
 import { indexWorkspace } from './indexer/workspaceIndexer';
 
@@ -52,6 +60,8 @@ const documentCache = new DocumentCache();
 const knowledgeBase = new KnowledgeBase();
 const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
+const hotContextCache = new HotContextCache();
+const servingCache = new ServingCache<unknown>();
 
 // Conectar caché interactiva con backends globales para evitar doble parseo
 setAnalysisBackends(documentCache, knowledgeBase);
@@ -80,6 +90,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       hoverProvider: true,
       workspaceSymbolProvider: true,
       definitionProvider: true,
+      referencesProvider: true,
       completionProvider: {
         triggerCharacters: ['.']
       },
@@ -102,7 +113,13 @@ connection.onInitialized(() => {
   // Lanzar el descubrimiento global de workspace en segundo plano (background)
   if (workspaceFolders.length > 0) {
     connection.console.log(`[WORKSPACE] Iniciando descubrimiento en ${workspaceFolders.length} raíces (roots)...`);
-    
+
+    const sendProgress = (p: ProgressNotification): void => {
+      void connection.sendNotification(PROGRESS_NOTIFICATION, p);
+    };
+
+    sendProgress({ phase: 'discovering' });
+
     scheduler.enqueueBackground({
       id: 'workspace-discovery',
       priority: TaskPriority.Background,
@@ -110,9 +127,10 @@ connection.onInitialized(() => {
         const { elapsedMs: discoveryMs } = await measureMsAsync(async () => {
           await discoverWorkspace(workspaceFolders, fs, workspaceState, token);
         });
-        
+
         if (token.isCancelled) {
           connection.console.log(`[WORKSPACE] Descubrimiento cancelado o pausado.`);
+          sendProgress({ phase: 'partial' });
           return;
         }
 
@@ -122,13 +140,32 @@ connection.onInitialized(() => {
         connection.console.log(`  - Tiempos: ${formatTiming('discoverWorkspace', discoveryMs)}`);
         connection.console.log(`  - Archivos de código: ${filesCount}`);
         connection.console.log(`  - PBW: ${roots.workspaces.length}, PBT: ${roots.targets.length}, PBL: ${roots.libraries.length}`);
+        connection.console.log(`  - PBSLN: ${roots.solutions.length}, PBPROJ: ${roots.projects.length}`);
+        connection.console.log(`  - Modo: ${workspaceState.getMode()}`);
+
+        // Construir el project registry tras conocer topología y archivos.
+        const registry = buildProjectRegistry(
+          workspaceState.getTopology(),
+          workspaceState.getAllSourceFiles()
+        );
+        workspaceState.setProjectRegistry(registry);
+        connection.console.log(`  - Proyectos detectados: ${registry.getAllProjects().length}`);
 
         // Iniciamos indexación incremental
         if (filesCount > 0) {
           connection.console.log(`[WORKSPACE] Iniciando indexación de ${filesCount} archivos...`);
-          
+          sendProgress({ phase: 'indexing', current: 0, total: filesCount });
+
           const { elapsedMs: indexingMs } = await measureMsAsync(async () => {
-            await indexWorkspace(fs, documentCache, knowledgeBase, workspaceState, token, (msg) => connection.console.error(msg));
+            await indexWorkspace(
+              fs,
+              documentCache,
+              knowledgeBase,
+              workspaceState,
+              token,
+              (msg) => connection.console.error(msg),
+              (current, total) => sendProgress({ phase: 'indexing', current, total })
+            );
           });
 
           if (!token.isCancelled) {
@@ -136,13 +173,18 @@ connection.onInitialized(() => {
             connection.console.log(`[WORKSPACE] Indexación completada:`);
             connection.console.log(`  - Tiempos: ${formatTiming('indexWorkspace', indexingMs)}`);
             connection.console.log(`  - Entidades en KB: ${stats.totalEntities}`);
+            sendProgress({ phase: 'ready', current: filesCount, total: filesCount });
           } else {
             connection.console.log(`[WORKSPACE] Indexación pausada cooperativamente.`);
+            sendProgress({ phase: 'partial' });
           }
+        } else {
+          sendProgress({ phase: 'idle' });
         }
       }
     }).catch(err => {
       connection.console.error(`[ERROR] Descubrimiento de workspace: ${String(err)}`);
+      void connection.sendNotification(PROGRESS_NOTIFICATION, { phase: 'partial' } satisfies ProgressNotification);
     });
   }
 });
@@ -195,6 +237,20 @@ connection.onHover((params) => {
       id: `hover-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
+        // Caché de serving: misma posición + misma versión de KB → reutilizar.
+        const cacheKey = makeServingKey({
+          feature: 'hover',
+          uri: document.uri,
+          line: params.position.line,
+          character: params.position.character,
+          kbVersion: knowledgeBase.version
+        });
+
+        const cached = servingCache.get(cacheKey);
+        if (cached !== undefined) {
+          return cached as ReturnType<typeof provideHover>;
+        }
+
         const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph));
 
         if (firstInvocation.isFirst('hover')) {
@@ -203,6 +259,7 @@ connection.onHover((params) => {
         }
 
         connection.console.log(formatTiming('hover', elapsedMs));
+        servingCache.set(cacheKey, result);
         return result;
       }
     });
@@ -252,6 +309,32 @@ connection.onDefinition((params) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     connection.console.error(`[ERROR] definition: ${message}`);
+    return null;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Funcionalidades (Features) — Find References (Spec 025 / B023)
+// ---------------------------------------------------------------------------
+
+connection.onReferences((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+  try {
+    const sources: { uri: string; content: string }[] = [];
+    for (const doc of documents.all()) {
+      sources.push({ uri: doc.uri, content: doc.getText() });
+    }
+    const { result, elapsedMs } = measureMs(() =>
+      provideReferences(document, params.position, knowledgeBase, sources, {
+        includeDeclaration: params.context?.includeDeclaration ?? true
+      })
+    );
+    connection.console.log(formatTiming('references', elapsedMs));
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    connection.console.error(`[ERROR] references: ${message}`);
     return null;
   }
 });
@@ -379,6 +462,8 @@ documents.onDidOpen((event) => {
 
 documents.onDidChangeContent((event) => {
   activeDocumentUri = event.document.uri;
+  hotContextCache.invalidateForUri(event.document.uri);
+  servingCache.invalidate(event.document.uri);
 
   try {
     scheduleDiagnostics(connection, event.document, scheduler, undefined, knowledgeBase, systemCatalog, inheritanceGraph);
@@ -391,6 +476,8 @@ documents.onDidChangeContent((event) => {
 documents.onDidClose((event) => {
   cancelScheduledDiagnostics(event.document.uri);
   invalidateDocumentAnalysis(event.document.uri);
+  hotContextCache.invalidateForUri(event.document.uri);
+  servingCache.invalidate(event.document.uri);
 
   connection.sendDiagnostics({
     uri: event.document.uri,

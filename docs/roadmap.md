@@ -61,9 +61,10 @@ Se prioriza siempre, en este orden:
 - **Fase 4** — cerrada
 - **Fase 5** — cerrada
 - **Fase 6A** — cerrada
-- **Fase 6B** — en curso
-- **Fase 7A** — siguiente objetivo natural
-- **Fase 7B** — después de 7A
+- **Fase 6B** — cerrada
+- **Fase 7A** — cerrada
+- **Fase 7B** — cerrada (specs 028–042: parser hardening + módulos cross-cutting)
+- **Fase 7C** — cerrada (specs 043–062: workspace, integraciones y features avanzadas)
 - **Fase 8** — endurecimiento, escala y validación continua
 - **Fase 9** — especialización PowerBuilder
 - **Fase 10–11** — apertura a automatización externa e IA
@@ -163,10 +164,17 @@ Construir la primera experiencia profesional de edición.
 
 ---
 
-## Fase 6B — Infraestructura de escala y refinamiento semántico (EN CURSO)
+## Fase 6B — Infraestructura de escala y refinamiento semántico ✅
 
 ### Objetivo
 Garantizar la interactividad en proyectos grandes mediante indexación no bloqueante y refinamiento del contexto semántico.
+
+### Estado actual
+- ~~discovery rápido no bloqueante (Dual Mode) — B120~~ → **Cerrada (spec 013).**
+- ~~scheduler de indexación multinivel — B121~~ → **Cerrada (spec 014).**
+- ~~barra de estado con progreso de indexación — B133~~ → **Cerrada (spec 015).**
+- ~~caché caliente del contexto activo — B134A~~ → **Cerrada (spec 016).**
+- ~~caché de serving para LSP features — B134B~~ → **Cerrada (spec 017).**
 
 ### Entregables mínimos
 - discovery rápido no bloqueante (Dual Mode),
@@ -182,19 +190,22 @@ Garantizar la interactividad en proyectos grandes mediante indexación no bloque
 
 ---
 
-## Fase 7A — Resolución fuerte, topología y visibilidad
+## Fase 7A — Resolución fuerte, topología y visibilidad ✅
 
 ### Objetivo
 Pasar de semántica útil a semántica confiable a escala de workspace.
 
-### Orden interno recomendado
-1. topología real de workspace/solution,
-2. project registry,
-3. enriched symbol model,
-4. visibilidad real,
-5. InheritanceGraph robusto,
-6. owner resolution,
-7. references seguras.
+### Estado
+- ~~topología real de workspace/solution — B056~~ → **Cerrada (spec 018).**
+- ~~project registry con scoring — B057~~ → **Cerrada (spec 019).**
+- ~~library order resolver — B087~~ → **Cerrada (spec 020).**
+- ~~enriched symbol model — B064~~ → **Cerrada (spec 021).**
+- ~~visibility real — B059~~ → **Cerrada (spec 022).**
+- ~~InheritanceGraph robusto — B058~~ → **Cerrada (spec 023).**
+- ~~owner resolution — B060~~ → **Cerrada (spec 024).**
+- ~~find references base — B023~~ → **Cerrada (spec 025).**
+- ~~variables no usadas (refuerzo) — B034~~ → **Cerrada (spec 026).**
+- ~~shadowing detection — B035~~ → **Cerrada (spec 027).**
 
 ### Entregables mínimos
 - topología real,
@@ -209,21 +220,72 @@ Pasar de semántica útil a semántica confiable a escala de workspace.
 
 ---
 
-## Fase 7B — Rename, Code Actions, CodeLens y navegación jerárquica
+## Fase 7B — Parser hardening + módulos cross-cutting ✅
 
-### Objetivo
-Construir operaciones seguras de alto valor sobre resolución fuerte.
+### Estado: cerrada (specs 028–042)
 
-### Entregables mínimos
-- rename controlado,
-- code actions básicas,
-- CodeLens de referencias/herencia,
-- ancestor script navigation,
-- hierarchy inspection,
-- formatter configurable.
+Cierre de la base de parsing y utilidades reutilizables que sirven de
+fundamento a las features avanzadas (rename/code actions/CodeLens) y al
+endurecimiento de la Fase 8A.
+
+### Entregables (cerrados)
+- **028** Code masking (`parsing/codeMasking.ts`, B092).
+- **029** Statement splitter con `&` y `;` (`parsing/statementSplitter.ts`, B095).
+- **030** Compare nesting + pickInnermost (`parsing/nesting.ts`, B099).
+- **031** Symbol dedup (`knowledge/symbolKey.ts`, B101).
+- **032** Position context reutilizable (`knowledge/positionContext.ts`, B054).
+- **033** Section state machine (`parsing/sectionMachine.ts`, B055).
+- **034** SR* container parser (`parsing/srContainerParser.ts`, B113).
+- **035** Completion scoring heredado (`features/completionScoring.ts`, B061).
+- **036** Funciones obsoletas SD7 (`knowledge/obsoleteCatalog.ts` + `features/obsoleteDetector.ts`, B074).
+- **037** Hover enriquecido (`features/hoverFormat.ts`, B103).
+- **038** Eventos `on object.event` (`parsing/onEventParser.ts`, B104).
+- **039** External functions (`parsing/externalFunctions.ts`, B073).
+- **040** Comentarios anidados opt-in (`parsing/codeMasking.ts` extendido, B089).
+- **041** SQL embebido (`parsing/sqlRegions.ts`, B090).
+- **042** Encoding UTF-8 + BOM (`system/encoding.ts`, B130).
 
 ### Criterio de salida
-- operaciones delicadas utilizables con confianza razonable.
+- 210 tests verdes (164 → 210),
+- todas las utilidades expuestas como módulos puros,
+- backlog y current-focus alineados.
+
+---
+
+## Fase 7C — Rename, Code Actions, CodeLens y navegación jerárquica ✅
+
+### Estado: cerrada (specs 043–062, 20 entregas)
+
+Bloque P3 que añade infraestructura de workspace, integraciones tipadas y
+features avanzadas como módulos puros. Pendiente sólo el **cableado** de
+algunos data APIs en `server.ts` (no bloqueante para cierre).
+
+### Entregables (cerrados)
+- **043** File watcher debounce (`system/fileWatcherDebouncer.ts`, B127).
+- **044** Readiness states (`workspace/readiness.ts`, B128).
+- **045** `.pblmeta` parser (`workspace/pblmeta.ts`, B131).
+- **046** Catalog consistency report (`knowledge/system/consistency.ts`, B132).
+- **047** Catalog sanity tests (B112).
+- **048** Rename pre-flight (`features/renamePreflight.ts`, B032).
+- **049** Code actions SD7 quick-fix (`features/codeActions.ts`, B036).
+- **050** CodeLens references (`features/codeLensReferences.ts`, B066).
+- **051** Object info data API (`features/objectInfo.ts`, B106).
+- **052** Project status helper (`features/projectStatus.ts`, B107).
+- **053** Diagnostics snapshot (`features/diagnosticsSnapshot.ts`, B063).
+- **054** Public API surface (`shared/publicApi.ts`, B109).
+- **055** Code masking audit (B138).
+- **056** Document model (`parsing/documentModel.ts`, B135).
+- **057** Query trace (`knowledge/queryTrace.ts`, B136).
+- **058** Fair scheduler (`runtime/fairScheduler.ts`, B129).
+- **059** Ancestor chain (`features/ancestorNav.ts`, B065 parcial).
+- **060** Hierarchy tree (`features/hierarchyTree.ts`, B137).
+- **061** Completion scoring sanity (B061 sanity).
+- **062** Obsolete detector sanity (B074 sanity).
+
+### Criterio de salida
+- 272 tests verdes (215 → 272, +57 cubriendo todos los nuevos módulos),
+- backlog actualizado con cierres parciales/completos,
+- current-focus reflejando cierre de Fase 7C.
 
 ---
 

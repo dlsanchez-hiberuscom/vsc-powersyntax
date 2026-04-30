@@ -166,7 +166,7 @@ Trabajo específico del ecosistema PowerBuilder: DataWindow, PBAutoBuild, ORCA l
 
 ## P0 — Base inmediata de descubrimiento, scheduling, contexto, visibilidad de estado y caché de serving
 
-### B120. Discovery rápido no bloqueante del workspace
+### B120. Discovery rápido no bloqueante del workspace — **Cerrada (spec 013).**
 **Objetivo:** descubrir roots y archivos relevantes sin bloquear el flujo interactivo.
 
 **Descripción ampliada:**
@@ -182,7 +182,7 @@ Trabajo específico del ecosistema PowerBuilder: DataWindow, PBAutoBuild, ORCA l
 
 ---
 
-### B121. Scheduler de indexación multinivel con colas por prioridad
+### B121. Scheduler de indexación multinivel con colas por prioridad — **Cerrada (spec 014).**
 **Objetivo:** introducir colas explícitas y justas para repartir trabajo sin bloquear.
 
 **Descripción ampliada:**
@@ -282,7 +282,7 @@ Mostrar, al menos:
 
 ---
 
-### B133. Barra de estado con progreso de indexación
+### B133. Barra de estado con progreso de indexación — **Cerrada (spec 015).**
 **Objetivo:** reflejar en la barra de estado el progreso real del indexador para que el usuario perciba qué está ocurriendo y cuánto falta aproximadamente.
 
 **Descripción ampliada:**
@@ -319,6 +319,8 @@ No hace falta que el porcentaje sea matemáticamente perfecto; debe ser **útil,
 ---
 
 ### B054. Contexto posicional semántico reutilizable
+— **Cerrada (spec 032).**
+
 **Objetivo:** introducir `findInnermostCallableAtPosition()`, `findInnermostTypeAtPosition()` y contexto reutilizable de nesting real.
 
 **Descripción ampliada:**
@@ -329,6 +331,8 @@ Debe servir a hover, completion, diagnostics, references y rename para dejar de 
 ---
 
 ### B055. Parseo documental con secciones / state machine
+— **Cerrada (spec 033).**
+
 **Objetivo:** sustituir parsing demasiado lineal por una máquina de estados capaz de distinguir con seguridad bloques declarativos y ejecutables.
 
 **Descripción ampliada:**
@@ -346,6 +350,8 @@ Debe diferenciar:
 ---
 
 ### B113. Parser canónico del contenedor SR*
+— **Cerrada (spec 034).**
+
 **Objetivo:** crear un parser explícito para la estructura contenedora de `.sra`, `.srw`, `.sru`, `.srm`, `.srf`.
 
 **Descripción ampliada:**
@@ -365,6 +371,8 @@ Debe reconocer con estabilidad:
 ---
 
 ### B061. Completion scoring heredado y normalizado
+— **Cerrada (spec 035).**
+
 **Objetivo:** portar y normalizar el scoring semántico del `plugin_old` usando distancia de herencia, scope, owner context y visibilidad.
 
 **Descripción ampliada:**
@@ -380,7 +388,7 @@ El completion debe ordenar mejor por:
 
 ---
 
-### B134A. Caché caliente del contexto activo
+### B134A. Caché caliente del contexto activo — **Cerrada (spec 016).**
 **Objetivo:** mantener una caché extremadamente rápida del documento activo y sus dependencias inmediatas para mejorar hover, completion, signature help y definition.
 
 **Descripción ampliada:**
@@ -399,7 +407,7 @@ Debe incluir, al menos:
 
 ---
 
-### B134B. Caché de serving para hover / completion / signature help / definition
+### B134B. Caché de serving para hover / completion / signature help / definition — **Cerrada (spec 017).**
 **Objetivo:** diseñar una capa de caché específica para serving de features interactivas.
 
 **Descripción ampliada:**
@@ -418,7 +426,7 @@ Debe permitir invalidez fina y aprovechar snapshots ya construidos.
 
 ---
 
-### B034. Diagnóstico de variables no usadas
+### B034. Diagnóstico de variables no usadas — **Cerrada (spec 026).**
 **Objetivo:** detectar variables declaradas pero no utilizadas con conocimiento real de scopes.
 
 **Descripción ampliada:**
@@ -431,7 +439,7 @@ Debe usar:
 
 ---
 
-### B035. Detección de shadowing
+### B035. Detección de shadowing — **Cerrada (spec 027).**
 **Objetivo:** detectar sombreado entre locals, shared, globals e instance variables.
 
 **Descripción ampliada:**
@@ -447,7 +455,7 @@ Debe respetar el orden real de lookup del lenguaje:
 
 ## P1  Topología real y resolución fuerte de PowerScript
 
-### B056. Workspace topology parser (`.pbw/.pbt/.pbsln/.pbproj`)
+### B056. Workspace topology parser (`.pbw/.pbt/.pbsln/.pbproj`) — **Cerrada (spec 018).**
 **Objetivo:** parsear la topología real del workspace/solution y dejar de depender solo de discovery por carpetas.
 
 **Descripción ampliada:**
@@ -463,7 +471,7 @@ Debe cubrir:
 
 ---
 
-### B057. Project registry con scoring
+### B057. Project registry con scoring — **Cerrada (spec 019).**
 **Objetivo:** asociar cada archivo con su proyecto preferido y resolver conflictos multi-root / multi-project.
 
 **Descripción ampliada:**
@@ -477,7 +485,7 @@ Debe usar:
 
 ---
 
-### B087. Topología de workspace y library order
+### B087. Topología de workspace y library order — **Cerrada (spec 020).**
 **Objetivo:** explotar el `library order` real para priorizar resolución de símbolos y evitar colisiones falsas.
 
 **Descripción ampliada:**
@@ -487,7 +495,7 @@ Una vez parseada la topología, el resolver debe usar el orden real de librería
 
 ---
 
-### B064. Enriched symbol model incremental
+### B064. Enriched symbol model incremental — **Cerrada (spec 021).**
 **Objetivo:** enriquecer progresivamente el modelo de símbolo para reducir heurística repetida.
 
 **Campos objetivo sugeridos:**
@@ -504,7 +512,7 @@ Esto facilita hover, completion, diagnostics, references y navegación jerárqui
 
 ---
 
-### B059. Symbol visibility real (`public/protected/private/...`)
+### B059. Symbol visibility real (`public/protected/private/...`) — **Cerrada (spec 022).**
 **Objetivo:** modelar visibilidad real de miembros y variables de instancia.
 
 **Descripción ampliada:**
@@ -522,7 +530,7 @@ Debe cubrir:
 
 ---
 
-### B058. InheritanceGraph robusto con caches
+### B058. InheritanceGraph robusto con caches — **Cerrada (spec 023).**
 **Objetivo:** robustecer ancestros, derivados y caches de herencia.
 
 **Descripción ampliada:**
@@ -538,7 +546,7 @@ Introducir y endurecer:
 
 ---
 
-### B060. Owner resolution robusto (estático + dinámico)
+### B060. Owner resolution robusto (estático + dinámico) — **Cerrada (spec 024).**
 **Objetivo:** resolver mejor owners y cadenas compuestas.
 
 **Descripción ampliada:**
@@ -554,7 +562,7 @@ Debe soportar progresivamente:
 
 ---
 
-### B023. Búsqueda de referencias segura en casos base
+### B023. Búsqueda de referencias segura en casos base — **Cerrada (spec 025).**
 **Objetivo:** reconstruir `find references` sobre topología y resolución fuertes.
 
 **Descripción ampliada:**
@@ -570,6 +578,8 @@ No debe seguir ampliándose solo por matching superficial; debe apoyarse en:
 ## P2 — Hardening del parser y del lexer
 
 ### B089. Lexing de precisión: comentarios anidados y escapes
+— **Cerrada (spec 040).**
+
 **Objetivo:** portear soporte serio para comentarios anidados y secuencias de escape complejas.
 
 **Referencia `plugin_old`:** `powerScriptLexingUtils.ts`.
@@ -577,6 +587,8 @@ No debe seguir ampliándose solo por matching superficial; debe apoyarse en:
 ---
 
 ### B092. Sistema de máscaras de código (code masking)
+— **Cerrada (spec 028).**
+
 **Objetivo:** generar máscaras para que el resto de servicios opere sobre código real ignorando strings y comentarios.
 
 **Por qué es importante:** reduce falsos positivos en diagnostics, completion y parsing semántico.
@@ -586,6 +598,8 @@ No debe seguir ampliándose solo por matching superficial; debe apoyarse en:
 ---
 
 ### B095. Normalizador / splitter de sentencias
+— **Cerrada (spec 029).**
+
 **Objetivo:** portear la segmentación robusta de statements y continuaciones.
 
 **Referencia `plugin_old`:** `powerScriptStatementUtils.ts`.
@@ -593,6 +607,8 @@ No debe seguir ampliándose solo por matching superficial; debe apoyarse en:
 ---
 
 ### B090. Detección enriquecida de SQL embebido
+— **Cerrada (spec 041).**
+
 **Objetivo:** detectar regiones SQL para reducir diagnósticos falsos y preparar soporte futuro.
 
 **Descripción ampliada:**
@@ -603,6 +619,8 @@ Debe distinguir zonas SQL en scripts PowerScript y convivir bien con diagnostics
 ---
 
 ### B073. Soporte para funciones externas (`EXTERNAL FUNCTION/SUBROUTINE`)
+— **Cerrada (spec 039).**
+
 **Objetivo:** parsear y resolver mejor `LIBRARY`, `ALIAS FOR` y declaraciones externas.
 
 **Referencia `plugin_old`:** `tryParseCallableSymbol` y parsing de external callables.
@@ -610,6 +628,8 @@ Debe distinguir zonas SQL en scripts PowerScript y convivir bien con diagnostics
 ---
 
 ### B099. Resolución por anidamiento (`Range Span Comparison`)
+— **Cerrada (spec 030).**
+
 **Objetivo:** identificar el símbolo más anidado bajo el cursor con precisión fuerte.
 
 **Referencia `plugin_old`:** `symbolIndex.ts`, `compareByNesting`.
@@ -617,6 +637,8 @@ Debe distinguir zonas SQL en scripts PowerScript y convivir bien con diagnostics
 ---
 
 ### B101. Deduplicación semántica robusta
+— **Cerrada (spec 031).**
+
 **Objetivo:** evitar colisiones entre símbolos homónimos usando claves compuestas más ricas.
 
 **Referencia `plugin_old`:** `symbolIndex.ts`, `uniqueSymbols`.
@@ -636,10 +658,14 @@ Debe distinguir zonas SQL en scripts PowerScript y convivir bien con diagnostics
 **Descripción ampliada:**
 Fuera de esos escenarios, el sistema debe degradar con seguridad o bloquear la operación.
 
+— **Cerrada parcialmente (spec 048: pre-flight de rename `validateRenameTarget`).**
+
 ---
 
 ### B036. Code actions básicas
 **Objetivo:** añadir quick fixes pequeños y seguros basados en diagnósticos existentes.
+
+— **Cerrada parcialmente (spec 049: quick-fix SD7 obsoleta → reemplazo).**
 
 ---
 
@@ -647,6 +673,8 @@ Fuera de esos escenarios, el sistema debe degradar con seguridad o bloquear la o
 **Objetivo:** mostrar conteo de referencias y relación de override/herencia sobre funciones y eventos.
 
 **Referencia `plugin_old`:** `pbPowerScriptCodeLens.ts`.
+
+— **Cerrada parcialmente (spec 050: lens de referencias `provideReferenceCodeLenses`).**
 
 ---
 
@@ -662,6 +690,8 @@ Debe permitir:
 
 **Referencia `plugin_old`:** `ancestorScriptService.ts`, servicios de hierarchy inspection.
 
+— **Cerrada parcialmente (spec 059: `getAncestorChain`; spec 060: `buildHierarchyTree`).**
+
 ---
 
 ### B067. Formateador configurable
@@ -670,6 +700,8 @@ Debe permitir:
 ---
 
 ### B074. Diagnósticos de modernización y funciones obsoletas
+— **Cerrada (spec 036).**
+
 **Objetivo:** identificar uso de funciones obsoletas y sugerir reemplazos del runtime moderno cuando el catálogo ya lo soporte.
 
 **Referencia `plugin_old`:** `diagnosticResolver.ts`, `analyzeObsoleteRuntimeFunctions`.
@@ -677,6 +709,8 @@ Debe permitir:
 ---
 
 ### B103. Hover enriquecido con metadatos PB
+— **Cerrada (spec 037).**
+
 **Objetivo:** mostrar más información útil en hover: access, external library, prototype vs implementation, owner context.
 
 **Referencia `plugin_old`:** `hover/presentation.ts`.
@@ -684,6 +718,8 @@ Debe permitir:
 ---
 
 ### B104. Soporte para eventos calificados y `on-handlers`
+— **Cerrada (spec 038).**
+
 **Objetivo:** mejorar la identificación visual y semántica de eventos declarados mediante sintaxis `ON object_name.event_name`.
 
 ---
@@ -692,6 +728,8 @@ Debe permitir:
 **Objetivo:** mostrar resumen del archivo actual: eventos, funciones, variables, tipo principal y, más adelante, datos básicos si es DataWindow.
 
 **Referencia `plugin_old`:** mensajes de usuario y servicios de inspección antiguos.
+
+— **Cerrada (spec 051: `buildObjectInfo`).**
 
 ---
 
@@ -704,6 +742,8 @@ Debe convivir con el progreso de indexación y mostrar, cuando proceda:
 - estado del contexto activo,
 - acceso a reinicio del servidor,
 - acceso a comandos de limpieza o diagnóstico.
+
+— **Cerrada parcialmente (spec 052: `formatProjectStatus`).**
 
 ---
 
@@ -779,6 +819,8 @@ Pensado para:
 ### B063. Diagnostics snapshot agrupado
 **Objetivo:** agrupar y servir diagnósticos por proyecto/objeto con snapshots más profesionales.
 
+— **Cerrada parcialmente (spec 053: `buildDiagnosticsSnapshot`).**
+
 ---
 
 ### B118. Integration test matrix del plugin
@@ -807,10 +849,14 @@ Pensado para:
 - agrupar invalidaciones,
 - y reinyectar trabajo en las colas correctas.
 
+— **Cerrada (spec 043: `createFileWatcherDebouncer`).**
+
 ---
 
 ### B128. Estados de readiness del workspace
 **Objetivo:** modelar y exponer estados como `discovered`, `active-context-ready`, `workspace-partial`, `workspace-ready`.
+
+— **Cerrada (spec 044: `createReadinessTracker`).**
 
 ---
 
@@ -819,6 +865,8 @@ Pensado para:
 
 **Descripción ampliada:**
 Introducir fairness o round-robin por proyecto/root para equilibrar progreso cuando existan multi-root workspaces o solutions grandes.
+
+— **Cerrada (spec 058: `createFairScheduler`).**
 
 ---
 
@@ -897,6 +945,8 @@ Debe permitir:
 
 **Referencia `plugin_old`:** `publicApi.ts`.
 
+— **Cerrada parcialmente (spec 054: superficie inicial `shared/publicApi`).**
+
 ---
 
 ### B110. Exportación de superficie de automatización
@@ -912,9 +962,13 @@ Debe permitir:
 ### B112. Herramientas de consistencia del catálogo
 **Objetivo:** validar la integridad del catálogo oficial y del dataset curado heredado del `plugin_old`.
 
+— **Cerrada (specs 046 y 047: `buildCatalogConsistencyReport` + sanity tests).**
+
 ---
 
 ### B130. Detector y normalizador de encoding de fuentes
+— **Cerrada (spec 042).**
+
 **Objetivo:** detectar y normalizar correctamente UTF-8 con y sin BOM en Solution, y convivir con legacy heterogéneo.
 
 **Descripción ampliada:**
@@ -930,6 +984,8 @@ Debe permitir:
 **Descripción ampliada:**
 Esto mejora exploración de librerías, hover contextual y tooling alrededor de la estructura real del proyecto.
 
+— **Cerrada (spec 045: `parsePblMeta`).**
+
 ---
 
 ### B132. Gobernanza del catálogo oficial + dataset curado
@@ -939,6 +995,87 @@ Esto mejora exploración de librerías, hover contextual y tooling alrededor de 
 
 **Descripción ampliada:**
 Debe permitir trazabilidad, validación, versionado y explotación clara de ambos sin mezclarlos de forma opaca.
+
+— **Cerrada parcialmente (spec 046: reporte de consistencia con domain/dataset counts).**
+
+---
+
+### B135. Document model con logical lines y statements
+**Objetivo:** introducir un modelo documental con:
+- líneas lógicas (que respetan continuaciones `&`),
+- statements segmentados,
+- y mapping bidireccional posición ↔ statement offset.
+
+**Por qué:** habilita parsing/diagnostics/completion sobre statements completos, no líneas físicas, evitando falsos positivos en código con continuaciones.
+
+**Referencia `plugin_old`:** `powerScriptDocumentModel.ts`, `mapPositionToStatementOffset`, `getStatementAtPositionFromModel`.
+
+— **Cerrada parcialmente (spec 056: `buildDocumentModel` con statements/sections/container).**
+
+---
+
+### B136. Query precision evidence (trazabilidad de resoluciones)
+**Objetivo:** exponer, para hover/definition/completion, el conjunto de **razones** y **evidencia** que llevaron a un resultado:
+- qué scope ganó,
+- qué visibilidad permitió el match,
+- qué library order priorizó,
+- qué inheritance distance se usó.
+
+**Por qué:** facilita debugging del motor en proyectos grandes y permite comandos del tipo "Why this result?".
+
+**Referencia `plugin_old`:** `queryPrecision.ts`, `buildSemanticQueryReasons`, `buildSemanticEvidence`.
+
+— **Cerrada parcialmente (spec 057: `withTrace` + `recordTraceStep`).**
+
+---
+
+### B137. Hierarchy explorer view
+**Objetivo:** un comando/vista que muestre la jerarquía completa (ancestros + descendientes) del tipo bajo cursor con miembros heredados/overridden.
+
+**Por qué:** es una de las features más útiles del IDE original; sirve como navegador semántico.
+
+**Referencia `plugin_old`:** `powerbuilder/hierarchy/`.
+
+— **Cerrada parcialmente (spec 060: `buildHierarchyTree` data API).**
+
+---
+
+### B138. Code masking pipeline (strip strings/comments)
+**Objetivo:** consolidar una capa central de "masking" que devuelva una versión del documento con strings y comentarios sustituidos por espacios, preservando posiciones para cualquier consumidor (diagnostics, references, completion).
+
+**Por qué:** hoy la lógica está duplicada en varias features (`stripCommentsAndStrings` en diagnostics, regex ad hoc en references). Centralizarla reduce divergencia y bugs.
+
+**Referencia `plugin_old`:** `powerScriptLexingUtils.ts` (B092 cubre la idea, este item la formaliza como pipeline).
+
+— **Cerrada (spec 028 ya entregó `maskDocument`; spec 055 añade auditoría de invariantes).**
+
+---
+
+### B139. DataWindow safe-mode (mejora futura desde plugin_old)
+**Objetivo:** retomar la lógica de `pbDataWindowParser.ts`, `pbDataWindowDefinition.ts`, `pbDataWindowHover.ts` para hover/definition seguros sobre `.srd`, sin abrir todavía la superficie completa de DataWindow.
+
+**Referencia `plugin_old`:** `powerbuilder/datawindow/*`.
+
+---
+
+### B140. Language Model Tools (Copilot Chat tools API)
+**Objetivo:** exponer comandos del plugin como tools consumibles por Copilot Chat (semantic target/batch). Reaprovechar el contrato y los schemas ya diseñados.
+
+**Referencia `plugin_old`:** `powerbuilder/contracts/languageModelTools.ts`, `publicApiContract.ts`.
+
+---
+
+### B141. Library graph / project model unificado
+**Objetivo:** modelo único `pbProjectModel` + `pbLibraryGraph` que represente targets, librerías y dependencias para alimentar discovery, fairness y status bar.
+
+**Referencia `plugin_old`:** `powerbuilder/projecting/*`.
+
+---
+
+### B142. Auto-build service y build target utils
+**Objetivo:** integrar build target detection y auto-build (out-of-process) tras consolidar topología.
+
+**Referencia `plugin_old`:** `powerbuilder/build/*`.
 
 ---
 
@@ -1072,3 +1209,66 @@ La prioridad inmediata del producto ya no debería ser “más features visibles
 7. **y después endurecer references, rename, escala y build**.
 
 **DataWindow se mantiene, pero no se acelera** hasta que la base de PowerScript y resolución del plugin sea claramente más fuerte.
+
+---
+
+## 13. Correcciones recientes (auditoría 2026-04)
+
+Durante una auditoría exhaustiva del análisis estático de PowerScript se han
+detectado y corregido los siguientes bugs críticos. Quedan registrados aquí
+para evitar regresiones.
+
+### B143 — `end if` cerraba el scope de la función (CRÍTICO, corregido)
+
+- **Síntoma:** En `src/server/analysis/documentAnalysis.ts`, el cierre de
+  cualquier scope `function`/`event`/`subroutine`/`on` se detectaba con
+  `END_GENERIC_PATTERN = /^end\s+/i`. Eso hacía que `end if`, `end choose`,
+  `end try`, etc., dieran por terminada la función actual.
+- **Impacto real:**
+  - todas las variables locales declaradas tras el primer `end if` quedaban
+    fuera del scope de la función,
+  - `SD4` (variable local no usada), shadowing y resolución por scope se
+    volvían inestables a partir del primer bloque de control,
+  - símbolos posteriores (otras funciones del mismo archivo) podían quedar
+    asignados a un contenedor incorrecto.
+- **Fix:** se cierran los scopes solo con
+  `END_FUNCTION_PATTERN | END_SUBROUTINE_PATTERN | END_EVENT_PATTERN | END_ON_PATTERN`,
+  y `end type` cierra el `currentTypeScope` de forma explícita.
+- **Tests añadidos:** `test/server/unit/documentAnalysis.test.ts` →
+  `end if no cierra el scope de la función (regresión)`.
+- **Fixture:** `test/fixtures/basic/function_with_endif.sru`.
+
+### B144 — Declaraciones múltiples no detectadas (corregido)
+
+- **Síntoma:** `Integer li_a, li_b, li_c` solo registraba `li_a` como variable
+  local; lo mismo para variables de instancia.
+- **Impacto:** falsos positivos de SD4, completado y go-to-definition
+  incompletos para los nombres restantes.
+- **Fix:** `documentAnalysis.ts` añade `extractAdditionalNames()` y empuja un
+  símbolo por cada identificador adicional con el mismo `datatype`/`access`.
+- **Tests añadidos:** `documentAnalysis.test.ts` →
+  `declaraciones múltiples (long ll_a, ll_b, ll_c)`.
+
+### B145 — IF multi-línea con continuación `&` (corregido)
+
+- **Síntoma:** Construcciones como `if a > 0 and & \n b < 10 then` no abrían
+  el bloque IF, por lo que el `end if` posterior se reportaba como cierre sin
+  apertura.
+- **Fix:** `validateStructure` (en `src/server/features/diagnostics.ts`) ahora
+  acumula líneas que terminan en `&` y aplica los patrones de apertura/cierre
+  sobre la línea lógica reconstruida.
+- **Tests añadidos:** `diagnostics.test.ts` →
+  `validateStructure soporta IF multi-línea con continuación &`.
+
+### Pendiente derivado de la auditoría
+
+- B146 — Refinar `currentContainerName` cuando un archivo SR* declara varios
+  `type ... within` consecutivos: actualmente se mantiene el último, lo que
+  funciona en SRW/SRU típicos pero puede atribuir mal eventos en archivos
+  poco habituales.
+- B147 — Considerar tracking de bloques de control internos
+  (`if/for/do/choose/try`) en `documentAnalysis` para mejorar SD4/shadowing en
+  bloques anidados profundos.
+- B148 — Ampliar la cobertura de fixtures basados en patrones reales de
+  Open PFC (custom user objects, NVOs heredados, ventanas con muchos
+  controles) y añadirlos al smoke runner.

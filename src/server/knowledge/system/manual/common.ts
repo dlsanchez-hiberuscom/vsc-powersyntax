@@ -1,3 +1,4 @@
+import { finalizeSystemSymbolEntry } from '../normalization';
 import {
     PbSystemSymbolEntry,
     PbSystemSymbolEntryDraft,
@@ -108,13 +109,13 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO = [
-    'control DataWindow',
-    'objeto DataWindowChild',
-    'objeto DataStore',
+    'DataWindow control',
+    'DataWindowChild object',
+    'DataStore object',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_OWNER_TYPES = ['datawindow'];
-export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_APPLIES_TO = ['control DataWindow'];
+export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_APPLIES_TO = ['DataWindow control'];
 
 export const PB_MANUAL_CORE_DATAWINDOW_SCROLL_OWNER_TYPES = [
     'datawindow',
@@ -122,8 +123,8 @@ export const PB_MANUAL_CORE_DATAWINDOW_SCROLL_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_SCROLL_APPLIES_TO = [
-    'control DataWindow',
-    'objeto DataWindowChild',
+    'DataWindow control',
+    'DataWindowChild object',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_VISUAL_OWNER_TYPES = [
@@ -132,8 +133,8 @@ export const PB_MANUAL_CORE_DATAWINDOW_VISUAL_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_VISUAL_APPLIES_TO = [
-    'control DataWindow',
-    'objeto DataWindowChild',
+    'DataWindow control',
+    'DataWindowChild object',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_DATA_EVENT_OWNER_TYPES = [
@@ -142,14 +143,14 @@ export const PB_MANUAL_CORE_DATAWINDOW_DATA_EVENT_OWNER_TYPES = [
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_DATA_EVENT_APPLIES_TO = [
-    'control DataWindow',
-    'objeto DataStore',
+    'DataWindow control',
+    'DataStore object',
 ];
 
 export const PB_MANUAL_CORE_DATAWINDOW_EVENT_OWNER_TYPES = ['datawindow', 'datastore'];
 
 export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_EVENT_OWNER_TYPES = ['datawindow'];
-export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_EVENT_APPLIES_TO = ['control DataWindow'];
+export const PB_MANUAL_CORE_DATAWINDOW_CONTROL_EVENT_APPLIES_TO = ['DataWindow control'];
 
 function mergeUniqueValues(...valueGroups: readonly (readonly string[])[]): string[] {
     const values = new Set<string>();
@@ -187,22 +188,16 @@ type ManualSymbolArgs = {
 };
 
 function defineManualEntry(
-    entry: Omit<PbSystemSymbolEntryDraft, 'sourceUrl'> & { sourceUrl?: string },
+    entry: Omit<PbSystemSymbolEntryDraft, 'dataset' | 'source'>,
+    source: string,
     defaultSourceUrl: string,
 ): PbSystemSymbolEntry {
-    const normalizedName = entry.name.toLowerCase();
-    const lookupKeys = entry.lookupAliases 
-        ? [normalizedName, ...entry.lookupAliases.map(a => a.toLowerCase())] 
-        : [normalizedName];
-        
-    return {
+    return finalizeSystemSymbolEntry({
         ...entry,
-        id: `system:${entry.domain}:${normalizedName}`,
-        normalizedName,
-        lookupKeys,
-        normalizedOwnerTypes: entry.ownerTypes ? entry.ownerTypes.map(t => t.toLowerCase()) : [],
+        dataset: 'manual-core',
+        source,
         sourceUrl: entry.sourceUrl ?? defaultSourceUrl,
-    };
+    });
 }
 
 export function globalFunction(args: ManualSymbolArgs): PbSystemSymbolEntry {
@@ -212,7 +207,7 @@ export function globalFunction(args: ManualSymbolArgs): PbSystemSymbolEntry {
         namespace: 'powerscript',
         invocation: 'global',
         domain: 'global-functions',
-    }, POWERSCRIPT_REFERENCE_URL);
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
 }
 
 export function objectFunction(args: ManualSymbolArgs): PbSystemSymbolEntry {
@@ -222,7 +217,7 @@ export function objectFunction(args: ManualSymbolArgs): PbSystemSymbolEntry {
         namespace: 'object',
         invocation: 'member',
         domain: 'object-functions',
-    }, OBJECTS_AND_CONTROLS_REFERENCE_URL);
+    }, OBJECTS_AND_CONTROLS_REFERENCE, OBJECTS_AND_CONTROLS_REFERENCE_URL);
 }
 
 export function dataWindowFunction(args: ManualSymbolArgs): PbSystemSymbolEntry {
@@ -232,7 +227,7 @@ export function dataWindowFunction(args: ManualSymbolArgs): PbSystemSymbolEntry 
         namespace: 'datawindow',
         invocation: 'member',
         domain: 'datawindow-functions',
-    }, DATAWINDOW_REFERENCE_URL);
+    }, DATAWINDOW_REFERENCE, DATAWINDOW_REFERENCE_URL);
 }
 
 export function systemEvent(args: ManualSymbolArgs): PbSystemSymbolEntry {
@@ -242,7 +237,7 @@ export function systemEvent(args: ManualSymbolArgs): PbSystemSymbolEntry {
         namespace: 'object',
         invocation: 'member',
         domain: 'system-events',
-    }, POWERSCRIPT_REFERENCE_URL);
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
 }
 
 export function dataWindowEvent(args: ManualSymbolArgs): PbSystemSymbolEntry {
@@ -252,7 +247,7 @@ export function dataWindowEvent(args: ManualSymbolArgs): PbSystemSymbolEntry {
         namespace: 'datawindow',
         invocation: 'member',
         domain: 'datawindow-events',
-    }, DATAWINDOW_REFERENCE_URL);
+    }, DATAWINDOW_REFERENCE, DATAWINDOW_REFERENCE_URL);
 }
 
 export function statement(args: Omit<ManualSymbolArgs, 'ownerTypes'>): PbSystemSymbolEntry {
@@ -262,7 +257,7 @@ export function statement(args: Omit<ManualSymbolArgs, 'ownerTypes'>): PbSystemS
         namespace: 'powerscript',
         invocation: 'global',
         domain: 'statements',
-    }, POWERSCRIPT_REFERENCE_URL);
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
 }
 
 export const PB_MANUAL_CORE_OBJECT_FUNCTION_OWNER_TYPES = mergeUniqueValues(

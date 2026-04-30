@@ -21,7 +21,6 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { EntityKind, ScopeKind } from '../knowledge/types';
-import { normalizeUri } from '../system/uriUtils';
 import {
   PB_KEYWORDS,
   PB_BUILTIN_TYPES,
@@ -77,12 +76,47 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const stack: Array<{ kind: BlockKind; line: number; text: string }> = [];
 
+  // Acumulador para sentencias que usan continuación de línea (`&` al final).
+  // Algunas construcciones (típicamente `IF ... THEN`) se escriben en varias
+  // líneas y solo se cierran lógicamente al encontrar la última sin `&`.
+  let contBuffer = '';
+  let contStartLine = -1;
+  let contStartText = '';
+
   for (let i = 0; i < lines.length; i++) {
     const raw = analysis.strippedLines[i];
-    const line = raw.trim();
+    const trimmedRaw = raw.trim();
 
-    if (!line) {
+    if (!trimmedRaw && contBuffer === '') {
       continue;
+    }
+
+    // Manejo de continuaciones: si la línea (ya sin comentarios) termina en `&`,
+    // acumulamos y seguimos sin abrir/cerrar bloques todavía.
+    if (trimmedRaw.endsWith('&')) {
+      if (contStartLine < 0) {
+        contStartLine = i;
+        contStartText = raw;
+      }
+      contBuffer += (contBuffer ? ' ' : '') + trimmedRaw.replace(/&\s*$/, '').trim();
+      continue;
+    }
+
+    let line: string;
+    let logicalStartLine: number;
+    let logicalStartText: string;
+    if (contBuffer) {
+      line = (contBuffer + ' ' + trimmedRaw).trim().toLowerCase().replace(/\s+/g, ' ');
+      // Para diagnósticos preferimos señalar la primera línea de la sentencia.
+      logicalStartLine = contStartLine;
+      logicalStartText = contStartText;
+      contBuffer = '';
+      contStartLine = -1;
+      contStartText = '';
+    } else {
+      line = trimmedRaw;
+      logicalStartLine = i;
+      logicalStartText = raw;
     }
 
     const closeKind = matchClosingBlock(line);
@@ -107,22 +141,22 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
     }
 
     if (FORWARD_PROTOTYPES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'prototypes', line: i, text: raw });
+      stack.push({ kind: 'prototypes', line: logicalStartLine, text: logicalStartText });
       continue;
     }
 
     if (PROTOTYPES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'prototypes', line: i, text: raw });
+      stack.push({ kind: 'prototypes', line: logicalStartLine, text: logicalStartText });
       continue;
     }
 
     if (VARIABLES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'variables', line: i, text: raw });
+      stack.push({ kind: 'variables', line: logicalStartLine, text: logicalStartText });
       continue;
     }
 
     if (FORWARD_START_PATTERN.test(line) && !FORWARD_PROTOTYPES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'forward', line: i, text: raw });
+      stack.push({ kind: 'forward', line: logicalStartLine, text: logicalStartText });
       continue;
     }
 
@@ -157,29 +191,30 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
       }
 
       // --- Bloques ejecutables (portado de plugin_old pbLanguageGrammar.ts) ---
-      // Solo IF multi-línea (termina en THEN al final de línea, no IF inline)
+      // IF multi-línea: termina en THEN al final de la línea lógica.
+      // Soporta continuaciones `&` (por ejemplo `if a > 0 and & ... b < 10 then`).
       if (IF_BLOCK_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'if', line: i, text: raw });
+        stack.push({ kind: 'if', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
       if (FOR_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'for', line: i, text: raw });
+        stack.push({ kind: 'for', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
       if (DO_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'do', line: i, text: raw });
+        stack.push({ kind: 'do', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
       if (CHOOSE_CASE_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'choose-case', line: i, text: raw });
+        stack.push({ kind: 'choose-case', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
       if (TRY_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'try', line: i, text: raw });
+        stack.push({ kind: 'try', line: logicalStartLine, text: logicalStartText });
         continue;
       }
     }
@@ -225,11 +260,14 @@ function matchClosingBlock(line: string): BlockKind | null {
 /**
  * Valida semánticamente un documento PowerBuilder.
  * Reglas implementadas:
- * - SD1: Variables no declaradas dentro de funciones/eventos.
  * - SD2: Llamadas a funciones/eventos inexistentes en la jerarquía.
  * - SD3: Tipos base inexistentes en `type ... from ...`.
  * - SD4: Variables locales no usadas.
  * - SD5: Variables de instancia privadas no usadas.
+ *
+ * SD1 (variables no declaradas dentro de funciones/eventos) está fuera del
+ * alcance hasta disponer de resolución fuerte (Fase 7A) y no se emite aquí
+ * para evitar falsos positivos.
  */
 export function validateSemantics(
   document: TextDocument,
@@ -240,7 +278,6 @@ export function validateSemantics(
   const analysis = getDocumentAnalysis(document);
   const { lines, sections, semanticFacts, scopes } = analysis;
   const diagnostics: Diagnostic[] = [];
-  const currentUri = normalizeUri(document.uri);
 
   // Encontrar el tipo principal del archivo
   const mainType = semanticFacts.find(f => f.kind === EntityKind.Type);
@@ -251,12 +288,6 @@ export function validateSemantics(
     ? inheritanceGraph.getMembers(mainTypeName)
     : [];
   const hierarchyMemberNames = new Set(hierarchyMembers.map(m => m.name.toLowerCase()));
-
-  // Obtener todas las variables de instancia del archivo (variables con containerName)
-  const instanceVars = semanticFacts.filter(
-    f => f.kind === EntityKind.Variable && f.containerName
-  );
-  const instanceVarNames = new Set(instanceVars.map(v => v.name.toLowerCase()));
 
   // Obtener todos los nombres de funciones/eventos/subroutines del archivo
   const localCallables = new Set(
@@ -283,10 +314,10 @@ export function validateSemantics(
     }
   }
 
-  // --- SD1 + SD2: Validación dentro de scopes Function/Event ---
+  // --- SD2: Validación dentro de scopes Function/Event ---
   for (const rootScope of scopes) {
     visitScopes(rootScope, analysis.strippedLines, sections, diagnostics, kb, systemCatalog,
-      instanceVarNames, hierarchyMemberNames, localCallables, currentUri);
+      hierarchyMemberNames, localCallables);
   }
 
   // --- SD4: Variables locales no usadas ---
@@ -297,11 +328,18 @@ export function validateSemantics(
   // --- SD5: Variables de instancia privadas no usadas ---
   checkUnusedPrivateInstanceVars(semanticFacts, lines, sections, diagnostics);
 
+  // --- SD6: Shadowing (Spec 027 / B035) ---
+  for (const rootScope of scopes) {
+    checkShadowing(rootScope, semanticFacts, diagnostics);
+  }
+
   return diagnostics;
 }
 
 /**
- * Recorre recursivamente los scopes buscando violaciones SD1/SD2.
+ * Recorre recursivamente los scopes Function/Event buscando llamadas a funciones
+ * desconocidas (SD2). Los nombres locales del scope, miembros heredados y
+ * callables del archivo se pasan precalculados para evitar costes repetidos.
  */
 function visitScopes(
   scope: import('../knowledge/types').Scope,
@@ -310,15 +348,10 @@ function visitScopes(
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
-  instanceVarNames: Set<string>,
   hierarchyMemberNames: Set<string>,
-  localCallables: Set<string>,
-  currentUri: string
+  localCallables: Set<string>
 ): void {
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
-    // Recoger los nombres conocidos en este scope
-    const localSymbolNames = new Set(scope.symbols.map(s => s.name.toLowerCase()));
-
     for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
       const raw = strippedLines[i];
       if (!raw) continue;
@@ -370,7 +403,7 @@ function visitScopes(
   // Recorrer scopes hijos
   for (const child of scope.children) {
     visitScopes(child, strippedLines, sections, diagnostics, kb, systemCatalog,
-      instanceVarNames, hierarchyMemberNames, localCallables, currentUri);
+      hierarchyMemberNames, localCallables);
   }
 }
 
@@ -394,10 +427,11 @@ function checkUnusedLocals(
       // Buscar si el nombre aparece en alguna línea del scope que NO sea su declaración
       for (let i = scope.startLine; i <= scope.endLine; i++) {
         if (i === sym.line) continue; // Saltar la línea de declaración
-        const lineLower = lines[i]?.toLowerCase() || '';
+        const rawLine = lines[i] || '';
+        const cleaned = stripCommentsAndStrings(rawLine).toLowerCase();
         // Búsqueda por word boundary para evitar coincidencias parciales
         const wordRegex = new RegExp(`\\b${escapeRegExp(nameLower)}\\b`, 'i');
-        if (wordRegex.test(lineLower)) {
+        if (wordRegex.test(cleaned)) {
           used = true;
           break;
         }
@@ -436,7 +470,7 @@ function checkUnusedPrivateInstanceVars(
   const privateVars = semanticFacts.filter(
     f => f.kind === EntityKind.Variable
       && f.containerName
-      && f.signature?.toLowerCase().includes('private')
+      && f.access === 'private'
   );
 
   for (const pv of privateVars) {
@@ -449,7 +483,7 @@ function checkUnusedPrivateInstanceVars(
       const enclosing = findEnclosingSection(i, sections);
       if (enclosing?.kind === 'variables') continue; // Saltar secciones de variables
 
-      const lineLower = lines[i]?.toLowerCase() || '';
+      const lineLower = stripCommentsAndStrings(lines[i] || '').toLowerCase();
       const wordRegex = new RegExp(`\\b${escapeRegExp(nameLower)}\\b`, 'i');
       if (wordRegex.test(lineLower)) {
         used = true;
@@ -477,4 +511,87 @@ function checkUnusedPrivateInstanceVars(
  */
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Elimina comentarios `//` y reemplaza el contenido de cadenas `'...'`/`"..."`
+ * por espacios del mismo largo, preservando posiciones para razonamiento sobre
+ * uso real de identificadores. (Spec 026 / B034)
+ */
+export function stripCommentsAndStrings(line: string): string {
+  const out: string[] = [];
+  let i = 0;
+  let inStr: '"' | "'" | null = null;
+  while (i < line.length) {
+    const c = line[i];
+    if (inStr) {
+      if (c === inStr) {
+        out.push(c);
+        inStr = null;
+      } else {
+        out.push(' ');
+      }
+      i++;
+      continue;
+    }
+    if (c === '/' && line[i + 1] === '/') {
+      // Resto de la línea es comentario
+      while (i < line.length) { out.push(' '); i++; }
+      break;
+    }
+    if (c === '"' || c === "'") {
+      out.push(c);
+      inStr = c;
+      i++;
+      continue;
+    }
+    out.push(c);
+    i++;
+  }
+  return out.join('');
+}
+
+/**
+ * SD6: Detecta shadowing entre variables locales y variables globales/shared/instance
+ * con el mismo nombre. Aplica el orden real de lookup (local → shared → global → instance).
+ * (Spec 027 / B035)
+ */
+export function checkShadowing(
+  scope: import('../knowledge/types').Scope,
+  semanticFacts: import('../knowledge/types').Fact[],
+  diagnostics: Diagnostic[]
+): void {
+  // Indexar facts por nombre y por scope. Solo Variables.
+  const byName = new Map<string, import('../knowledge/types').Fact[]>();
+  for (const f of semanticFacts) {
+    if (f.kind !== EntityKind.Variable) continue;
+    if (f.scope !== 'Global' && f.scope !== 'Compartida' && f.scope !== 'Instancia') continue;
+    const key = f.name.toLowerCase();
+    const list = byName.get(key) ?? [];
+    list.push(f);
+    byName.set(key, list);
+  }
+
+  visit(scope);
+
+  function visit(s: import('../knowledge/types').Scope): void {
+    if (s.kind === ScopeKind.Function || s.kind === ScopeKind.Event) {
+      for (const sym of s.symbols) {
+        if (sym.line === s.startLine) continue; // parámetro
+        const collisions = byName.get(sym.name.toLowerCase());
+        if (!collisions || collisions.length === 0) continue;
+        const winner = collisions[0];
+        diagnostics.push({
+          severity: DiagnosticSeverity.Information,
+          range: Range.create(
+            Position.create(sym.line, sym.character),
+            Position.create(sym.line, sym.character + sym.name.length)
+          ),
+          message: `La variable local '${sym.name}' oculta una variable de ámbito '${winner.scope}'.`,
+          source: DIAGNOSTIC_SOURCE
+        });
+      }
+    }
+    for (const child of s.children) visit(child);
+  }
 }

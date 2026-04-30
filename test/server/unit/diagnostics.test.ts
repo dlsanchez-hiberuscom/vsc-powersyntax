@@ -69,7 +69,7 @@ suite('unit/diagnostics', () => {
     assert.match(diagnostics[0].message, /cerrado correctamente/i);
   });
 
-  test('validateSemantics detecta todas las reglas (SD1-SD5)', () => {
+  test('validateSemantics detecta las reglas implementadas (SD2-SD5)', () => {
     const source = loadFixture('diagnostics_semantic.srw');
     const document = TextDocument.create(
       'file:///diagnostics_semantic.srw',
@@ -81,11 +81,11 @@ suite('unit/diagnostics', () => {
     const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
 
     // Deben detectarse:
-    // SD1: ls_bad
     // SD2: of_nonexistent_function, of_also_missing
     // SD3: (no hay tipo base inexistente aquí, window es builtin)
     // SD4: ls_unused_local
     // SD5: is_unused_var
+    // (SD1 está diferida hasta resolución fuerte; ver specs/010-diagnosticos-semanticos.)
 
     assert.ok(diagnostics.length > 0);
 
@@ -99,5 +99,34 @@ suite('unit/diagnostics', () => {
     assert.ok(hasUnusedPrivate, 'No se detectó variable privada no usada');
     assert.ok(hasUnknownFunc, 'No se detectó función no existente');
     assert.ok(hasUnknownFunc2, 'No se detectó segunda función no existente');
+  });
+
+  test('validateStructure soporta IF multi-línea con continuación &', () => {
+    const source = [
+      'public function integer of_test ();',
+      'integer li_x = 1',
+      'if li_x > 0 and &',
+      '   li_x < 10 then',
+      '   li_x = li_x + 1',
+      'end if',
+      'return li_x',
+      'end function'
+    ].join('\r\n');
+
+    const document = TextDocument.create(
+      'file:///multilineif.sru',
+      'powerbuilder',
+      1,
+      source
+    );
+
+    const diagnostics = validateStructure(document);
+    // Antes el `end if` se reportaba como cierre sin apertura porque el IF
+    // multi-línea con `&` no se detectaba.
+    assert.equal(
+      diagnostics.length,
+      0,
+      `Estructura válida marcada como inválida: ${diagnostics.map(d => d.message).join(' | ')}`
+    );
   });
 });

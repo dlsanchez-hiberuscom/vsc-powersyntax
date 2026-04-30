@@ -432,16 +432,96 @@ Separar estos niveles evita usar el mismo modelo para servir necesidades de late
 
 ### 10.4 Scheduler de Prioridades y Gestión de Colas (P0)
 
-Para garantizar la interactividad en proyectos grandes, el servidor implementa un scheduler con tres colas:
-- **Interactive**: (Alta) Peticiones directas del usuario (hover, completion).
-- **Near**: (Media) Análisis del documento activo y sus dependencias inmediatas.
-- **Background**: (Baja) Indexación progresiva del resto del workspace.
+Para garantizar la interactividad en proyectos grandes, el servidor implementa un scheduler con tres colas (`runtime/scheduler.ts`, ver spec 014):
+- **Interactive**: (Alta) Peticiones directas del usuario (hover, completion). Cancela Near y Background activos.
+- **Near**: (Media) Análisis del documento activo y sus dependencias inmediatas. Cancela Background activo, respeta Interactive.
+- **Background**: (Baja) Indexación progresiva del resto del workspace. Solo se ejecuta si Near e Interactive están vacías.
 
 ### 10.5 Estrategia de Caché Multinivel (P0)
 
-1. **Hot Memory Cache**: Contexto posicional y símbolos locales del archivo abierto.
-2. **Persistent Cache**: Fingerprints y metadatos por proyecto para acelerar el "warm indexing".
-3. **Serving Cache**: Capa optimizada para responder consultas LSP frecuentes sin recomputar el AST.
+1. **Hot Context Cache** (`knowledge/HotContextCache.ts`, spec 016): contexto posicional, entidades del archivo activo y miembros heredados ya resueltos. Se invalida al cambiar archivo activo, versión de KB o contenido.
+2. **Persistent Cache**: fingerprints y metadatos por proyecto para acelerar el "warm indexing" (pendiente, fuera de P0).
+3. **Serving Cache** (`knowledge/ServingCache.ts`, spec 017): capa LRU keyed por `(feature, uri, line, character, kbVersion, extra)` para responder consultas LSP frecuentes sin recomputar.
+
+### 10.6 Topología y resolución fuerte (P1, Fase 7A)
+
+Tras el cierre de P0, la arquitectura incorpora los siguientes módulos:
+
+- `workspace/topology.ts` (spec 018, B056): parser tolerante de `.pbw/.pbt/.pbsln/.pbproj` que produce un `WorkspaceTopology` con workspaces, targets, projects y solutions.
+- `workspace/projectRegistry.ts` (spec 019, B057): asigna cada archivo fuente al target/project correspondiente con scoring por library prefix y proximidad.
+- `knowledge/resolution/libraryOrder.ts` (spec 020, B087): reordena candidatos de definición priorizando proyecto activo y orden de library.
+- `knowledge/enrichEntity.ts` (spec 021, B064): rellena campos derivados (`parameterCount`, `ownerName`, `implementationKind`).
+- `knowledge/visibility.ts` (spec 022, B059): modelo de visibilidad real (`public/protected/private/system`) con `parseVisibility` e `isAccessibleFrom`.
+- `knowledge/resolution/InheritanceGraph.ts` (spec 023, B058): añade `getDirectDescendants`, `getDescendants`, `isDescendantOf` con caché invalidada por versión KB.
+- `knowledge/resolution/ownerResolver.ts` (spec 024, B060): resuelve `this`, `super`, variables tipadas.
+- `features/references.ts` (spec 025, B023): `provideReferences` basado en KB + scan textual con word boundary y comentarios/strings descartados.
+- `features/diagnostics.ts` (specs 026/027, B034/B035): refuerzo de SD4/SD5 con `stripCommentsAndStrings` y nuevo SD6 de shadowing.
+
+### 10.7 Parser hardening + utilidades cross-cutting (P2, Fase 7B)
+
+Cierre de la base de parsing reutilizable y diagnostics extendidos:
+
+- `parsing/codeMasking.ts` (spec 028, B092 + spec 040, B089): pipeline canónico para neutralizar strings y comentarios. Soporta opcionalmente comentarios bloque anidados con contador (`maskDocument(content, { nested: true })`).
+- `parsing/statementSplitter.ts` (spec 029, B095): detección de `&` (continuación) y `;` (separador) con `splitStatements`.
+- `parsing/nesting.ts` (spec 030, B099): `compareByNesting` y `pickInnermost<T>()` reutilizables.
+- `parsing/sectionMachine.ts` (spec 033, B055): state machine de secciones (`forward`, `prototypes`, `variables`).
+- `parsing/srContainerParser.ts` (spec 034, B113): parser canónico del contenedor `.sra/.srw/.sru/.srm/.srf` (forward, global type, on create/destroy, sections).
+- `parsing/onEventParser.ts` (spec 038, B104): reconoce `on <object>.<event>` y devuelve owner + event.
+- `parsing/externalFunctions.ts` (spec 039, B073): parser de declaraciones externas (`function|subroutine ... library "x.dll" alias for "Real"`).
+- `parsing/sqlRegions.ts` (spec 041, B090): regiones de SQL embebido (SELECT/UPDATE/INSERT/DELETE/EXECUTE) hasta `;`.
+- `knowledge/symbolKey.ts` (spec 031, B101): clave estable `kind|owner|name|arity` y `dedupeBySymbolKey`.
+- `knowledge/positionContext.ts` (spec 032, B054): `findInnermostCallableAtPosition`, `findInnermostTypeAtPosition`, `getPositionContext` para hover/completion/diagnostics.
+- `knowledge/obsoleteCatalog.ts` (spec 036, B074): catálogo de funciones obsoletas (semilla `Yield`, `Halt`, `RunFork`).
+- `features/completionScoring.ts` (spec 035, B061): scoring de candidatos (`local < member < inherited(d) < global`) con filtro por visibilidad.
+- `features/hoverFormat.ts` (spec 037, B103): markdown enriquecido con acceso, librería externa, prototype/implementation y owner.
+- `features/obsoleteDetector.ts` (spec 036, B074): SD7 sobre llamadas obsoletas (warning) usando code masking.
+- `system/encoding.ts` (spec 042, B130): `stripBom` y `bytesToText` (UTF-8 + BOM).
+
+Todos son módulos puros con tests unitarios independientes. La integración con las features productivas (completion/definition/references) se acomete en la próxima fase.
+
+### 10.8 Catálogo de símbolos built-in (`knowledge/system/`)
+
+Modelo canónico modular y escalable para el conocimiento estático del lenguaje
+PowerBuilder 2025. Sustituye al catálogo plano anterior:
+
+- `types.ts`: modelo `PbSystemSymbolEntry` con `dataset`, `source`, `provenance` (kind, authority, version, generatedAt), `domain`, `namespace`, `invocation`, `kind`, `lookupKeys`, `normalizedOwnerTypes`.
+- `normalization.ts`: normalización de nombres, owner-types, lookup keys, IDs estables y construcción de provenance.
+- `manual/` (curado en español): `globalFunctions`, `objectFunctions`, `dataWindowFunctions`, `dataWindowEvents`, `systemEvents`, `statements` con factorías comunes en `manual/common.ts` que enriquecen cada entrada vía `finalizeSystemSymbolEntry`.
+- `generated/`: catálogo oficial autogenerado desde la documentación de Appeon (~1.000 entries adicionales) con su propia provenance (`authority: 'official'`, version `PowerBuilder 2025`).
+- `registry/datasets.ts`: configura los **slices** dataset×domain con sus categorías y owner-types permitidos.
+- `registry/registry.ts`: expone `PB_SYSTEM_SYMBOL_REGISTRY` (singleton con entries + indexes precomputados).
+- `indexes/buildIndexes.ts`: construye los índices `byId / byName / byLookupKey / byNamespace / byKind / byInvocation / byDomain / byDataset / byOwnerType`.
+- `services/queryService.ts`: API funcional rica — `listSystemGlobalFunctions`, `resolveSystemMemberFunctionForOwner`, `findApplicableEventsForOwnerType`, etc., con scoring por owner-type y dominio.
+- `SystemCatalog.ts`: fachada delgada sobre el registro. Mantiene la API histórica (`findSystemSymbol`, `getAllSystemSymbols`) y añade resolutores sensibles a owner (`resolveObjectFunctionForOwner`, `listMembersForOwner`, `listEventsForOwner`, `listByDataset`).
+
+Tamaño activo del catálogo en runtime: **1.729 entries** (manual-core + generated). El crecimiento futuro se realiza añadiendo nuevos slices al registry sin tocar SystemCatalog ni los consumers.
+
+### 10.9 Workspace, integraciones y features avanzadas (P3, Fase 7C)
+
+Bloque cerrado por las specs **043–062**. Añade módulos puros consumibles
+por features productivas y por la API pública:
+
+- `system/fileWatcherDebouncer.ts` (spec 043, B127): coalescing de eventos `change/create/delete` con flush por timer.
+- `workspace/readiness.ts` (spec 044, B128): máquina de estados `idle/discovering/indexing/ready/error` con listeners.
+- `workspace/pblmeta.ts` (spec 045, B131): parser de `.pblmeta` (`name.type ; comment`).
+- `knowledge/system/consistency.ts` (spec 046, B132): reporte agregado del catálogo (duplicados, signatures, dataset/domain counts).
+- `features/renamePreflight.ts` (spec 048, B032): validador previo de identificadores (reservadas + colisión con SystemCatalog).
+- `features/codeActions.ts` (spec 049, B036): quick-fix SD7 (función obsoleta → reemplazo).
+- `features/codeLensReferences.ts` (spec 050, B066): titulación de lens "N referencias".
+- `features/objectInfo.ts` (spec 051, B106): data API del objeto activo (`globalType`, `baseType`, `sectionKind`).
+- `features/projectStatus.ts` (spec 052, B107): formateo de estado para status bar.
+- `features/diagnosticsSnapshot.ts` (spec 053, B063): agregado por archivo, código y severidad.
+- `shared/publicApi.ts` (spec 054, B109): superficie pública versionada con compat por MAJOR.
+- `parsing/documentModel.ts` (spec 056, B135): combina statements/sections/container.
+- `knowledge/queryTrace.ts` (spec 057, B136): captura de pasos de razonamiento.
+- `runtime/fairScheduler.ts` (spec 058, B129): cola round-robin por proyecto.
+- `features/ancestorNav.ts` (spec 059, B065): cadena de ancestros con detección de ciclos.
+- `features/hierarchyTree.ts` (spec 060, B137): árbol de descendientes con corte por profundidad.
+
+Las specs 047, 055, 061 y 062 son **invariantes/sanidad** sin nuevo módulo (refuerzan SystemCatalog, code masking, completion scoring y obsolete detector).
+
+El cableado de estos módulos en `server.ts` y en el cliente queda como
+trabajo de integración de la Fase 8A.
 
 ---
 

@@ -24,6 +24,13 @@ export class KnowledgeBase {
   private documentSymbols: Map<string, Set<string>> = new Map();
 
   /**
+   * Índice por URI -> Entidades aportadas por ese archivo.
+   * Permite consultas O(1) por archivo evitando escaneos completos del catálogo
+   * en operaciones interactivas (hover, definition, semantic tokens, etc.).
+   */
+  private entitiesByUri: Map<string, Entity[]> = new Map();
+
+  /**
    * Árbol de Scopes por documento para resolución de variables locales.
    * Key: URI normalizado del archivo.
    * Value: Lista de Scopes raíz (usualmente el GlobalScope).
@@ -91,16 +98,21 @@ export class KnowledgeBase {
 
     // 2. Indexar nuevos facts
     const symbolIds = new Set<string>();
+    const uriEntities: Entity[] = [];
 
     for (const fact of facts) {
       const existing = this.globalSymbols.get(fact.id) || [];
       existing.push(fact);
       this.globalSymbols.set(fact.id, existing);
       symbolIds.add(fact.id);
+      uriEntities.push(fact);
     }
 
     this.documentSymbols.set(normalizedUri, symbolIds);
     this.documentScopes.set(normalizedUri, scopes);
+    if (uriEntities.length > 0) {
+      this.entitiesByUri.set(normalizedUri, uriEntities);
+    }
 
     if (!this.isBatchUpdating) {
       this.currentVersion++;
@@ -129,6 +141,7 @@ export class KnowledgeBase {
       }
       this.documentSymbols.delete(normalizedUri);
       this.documentScopes.delete(normalizedUri);
+      this.entitiesByUri.delete(normalizedUri);
 
       if (!this.isBatchUpdating) {
         this.currentVersion++;
@@ -164,6 +177,16 @@ export class KnowledgeBase {
   }
 
   /**
+   * Devuelve las entidades aportadas por un archivo concreto.
+   * Operación O(1) sobre el índice por URI; preferir frente a `getAllEntities()`
+   * cuando ya se conoce el archivo de interés.
+   */
+  getEntitiesByUri(uri: string): Entity[] {
+    const entities = this.entitiesByUri.get(normalizeUri(uri));
+    return entities ? [...entities] : [];
+  }
+
+  /**
    * Obtiene el Scope más profundo/específico que contiene una línea dada en un archivo.
    */
   getScopeAt(uri: string, line: number): Scope | null {
@@ -196,6 +219,7 @@ export class KnowledgeBase {
     this.globalSymbols.clear();
     this.documentSymbols.clear();
     this.documentScopes.clear();
+    this.entitiesByUri.clear();
     this.currentVersion++;
   }
 

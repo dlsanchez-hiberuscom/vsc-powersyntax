@@ -19,9 +19,9 @@ export function resolveTargetEntity(
   const { identifier, qualifier } = context;
   const currentUri = normalizeUri(currentDocumentUri);
 
-  const allEntities = kb.getAllEntities();
-  const currentMainObject = allEntities.find(
-    e => normalizeUri(e.uri) === currentUri && e.kind === EntityKind.Type
+  const documentEntities = kb.getEntitiesByUri(currentUri);
+  const currentMainObject = documentEntities.find(
+    e => e.kind === EntityKind.Type
   );
 
   let possibleTargets: Entity[] = [];
@@ -117,9 +117,9 @@ export function resolveQualifierType(
   }
 
   if (!varType) {
-    const allEntities = kb.getAllEntities();
-    const instanceVar = allEntities.find(
-      e => normalizeUri(e.uri) === currentUri && e.kind === EntityKind.Variable && e.name.toLowerCase() === qLower
+    const documentEntities = kb.getEntitiesByUri(currentUri);
+    const instanceVar = documentEntities.find(
+      e => e.kind === EntityKind.Variable && e.name.toLowerCase() === qLower
     );
     if (instanceVar) varType = instanceVar.datatype;
   }

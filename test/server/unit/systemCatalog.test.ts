@@ -1,5 +1,6 @@
 import * as assert from 'assert/strict';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
+import { PB_SYSTEM_SYMBOL_REGISTRY } from '../../../src/server/knowledge/system/registry/registry';
 
 suite('unit/systemCatalog', () => {
   let catalog: SystemCatalog;
@@ -47,5 +48,47 @@ suite('unit/systemCatalog', () => {
     const results = catalog.findSystemSymbol('LeftW');
     assert.ok(results.length > 0, 'Debe encontrar LeftW');
     assert.equal(results[0].obsolete, true);
+  });
+
+  // -- Catálogo extendido (manual + generated) -----------------------
+
+  test('catálogo combinado supera 1500 símbolos', () => {
+    assert.ok(catalog.size() > 1500, `size=${catalog.size()}`);
+  });
+
+  test('categorías mínimas no vacías', () => {
+    assert.ok(catalog.listGlobalFunctions().length > 50);
+    assert.ok(catalog.listObjectFunctions().length > 100);
+    assert.ok(catalog.listDataWindowFunctions().length > 100);
+    assert.ok(catalog.listEvents().length > 50);
+    assert.ok(catalog.listStatements().length >= 16);
+  });
+
+  test('todas las entries tienen provenance, dataset, id y normalizedName', () => {
+    let bad = 0;
+    for (const e of PB_SYSTEM_SYMBOL_REGISTRY.entries) {
+      if (!e.provenance || !e.dataset || !e.id || !e.normalizedName) bad++;
+    }
+    assert.equal(bad, 0, `entries sin metadata: ${bad}`);
+  });
+
+  test('listByDataset distingue manual-core vs generated y suma al total', () => {
+    const manual = catalog.listByDataset('manual-core');
+    const generated = catalog.listByDataset('generated');
+    assert.ok(manual.length > 0);
+    assert.ok(generated.length > 0);
+    assert.equal(manual.length + generated.length, catalog.size());
+  });
+
+  test('listMembersForOwner filtra por datawindow', () => {
+    const members = catalog.listMembersForOwner(['datawindow']);
+    assert.ok(members.length > 0);
+    for (const m of members) {
+      assert.ok(
+        m.normalizedOwnerTypes.length === 0 ||
+          m.normalizedOwnerTypes.includes('datawindow'),
+        `${m.name} ownerTypes=${m.normalizedOwnerTypes.join(',')}`
+      );
+    }
   });
 });

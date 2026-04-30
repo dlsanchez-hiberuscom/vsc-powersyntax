@@ -30,3 +30,33 @@ export const DEFAULT_SETTINGS: VscPowerSyntaxSettings = {
     server: 'off'
   }
 };
+
+// ---------------------------------------------------------------------------
+// Notificación de progreso (servidor → cliente) para la barra de estado.
+// ---------------------------------------------------------------------------
+
+/** Identificador de la notificación LSP custom de progreso. */
+export const PROGRESS_NOTIFICATION = 'vscPowerSyntax/progress';
+
+/**
+ * Fases del ciclo de vida de la indexación reportadas a la UI.
+ *
+ * - `discovering`: discovery del workspace en curso.
+ * - `indexing`: indexación de archivos en curso.
+ * - `partial`: indexación interrumpida (cancelada o parcial).
+ * - `ready`: indexación completada con éxito.
+ * - `idle`: sin trabajo activo (ocultar UI).
+ */
+export type ProgressPhase =
+  | 'discovering'
+  | 'indexing'
+  | 'partial'
+  | 'ready'
+  | 'idle';
+
+export interface ProgressNotification {
+  phase: ProgressPhase;
+  current?: number;
+  total?: number;
+  message?: string;
+}

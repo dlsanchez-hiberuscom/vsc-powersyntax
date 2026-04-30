@@ -168,7 +168,17 @@
         "label": "PowerBuilder Icons",
         "path": "./icons/powerbuilder-icons.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "VSC PowerSyntax",
+      "properties": {
+        "vscPowerSyntax.progress.show": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar el indicador de progreso de indexación en la barra de estado."
+        }
+      }
+    }
   },
   "activationEvents": [ ],
   "files": [

@@ -9,7 +9,7 @@
 ## Implementación core
 
 - [x] T4. Implementar `validateSemantics()` en `features/diagnostics.ts`
-  - [x] T4a. Regla SD1: Variables no declaradas (scope local + instancia)
+  - [ ] T4a. Regla SD1: Variables no declaradas (scope local + instancia) — **diferida**: requiere resolución fuerte (Fase 7A) para evitar falsos positivos sobre globales y miembros heredados; no emitida actualmente.
   - [x] T4b. Regla SD2: Funciones/eventos inexistentes (herencia + SystemCatalog)
   - [x] T4c. Regla SD3: Tipos base inexistentes (KB + built-in types)
   - [x] T4d. Regla SD4: Variables locales no usadas (Hint)
@@ -24,7 +24,7 @@
 
 ## Tests
 
-- [x] T9. Tests unitarios para SD1 (variable no declarada / declarada / parámetro)
+- [x] T9. Tests unitarios para SD1 (variable no declarada / declarada / parámetro) — **diferido junto con T4a**.
 - [x] T10. Tests unitarios para SD2 (función inexistente / heredada / SystemCatalog)
 - [x] T11. Tests unitarios para SD3 (tipo base inexistente / built-in)
 - [x] T12. Test de no-falsos-positivos con keywords

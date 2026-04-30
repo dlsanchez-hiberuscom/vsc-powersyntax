@@ -52,7 +52,11 @@ El proyecto dispone actualmente de una base funcional que incluye:
 - **Fase 4** (backbone semántico inicial y catálogo): **cerrada**.
 - **Fase 5** (navegación profesional y valor visible): **cerrada**.
 - **Fase 6A** (productividad semántica base): **cerrada** (B018, B028, B029, B033, B053, B027 completados; B022 integrado).
-- **Fase 6B / P0** (infraestructura de escala): **en curso**.
+- **Fase 6B / P0** (infraestructura de escala): **cerrada** (specs 013–017).
+- **Fase 7A / P1** (topología real y resolución fuerte): **cerrada** (specs 018–027).
+- **Fase 7B / P2** (parser hardening + utilidades cross-cutting): **cerrada** (specs 028–042).
+- **Fase 7C / P3** (infraestructura workspace + integraciones + features avanzadas): **cerrada** (specs 043–062, 20 entregas).
+- **Catálogo built-in PowerBuilder 2025**: **rediseñado y ampliado** (manual + generated, 1.729 entries activos, registry+services+indexes; SystemCatalog ahora con resolutores por owner-type y dataset).
 
 ---
 
@@ -60,19 +64,43 @@ El proyecto dispone actualmente de una base funcional que incluye:
 
 ### Meta actual
 
-**Cerrar P0: Infraestructura de Escala y Base Semántica Avanzada**
-- **B120**: Discovery rápido no bloqueante (Dual Mode) **(ABIERTA - NEXT)**
-- **B121**: Scheduler de indexación multinivel (Interactive/Near/BG) **(ABIERTA)**
-- **B133**: Barra de estado con progreso de indexación **(ABIERTA)**
-- **B134A**: Caché caliente del contexto activo **(ABIERTA)**
+**P0 (Infraestructura de Escala) y P1 (Resolución fuerte) cerrados.**
+
+#### P0 — cerrado
+- ~~B120 Discovery rápido no bloqueante~~ (spec 013).
+- ~~B121 Scheduler multinivel~~ (spec 014).
+- ~~B133 Barra de estado~~ (spec 015).
+- ~~B134A Caché caliente~~ (spec 016).
+- ~~B134B Caché de serving~~ (spec 017).
+
+#### P1 — cerrado
+- ~~B056 Workspace topology parser~~ (spec 018).
+- ~~B057 Project registry~~ (spec 019).
+- ~~B087 Library order~~ (spec 020).
+- ~~B064 Modelo de símbolos enriquecido~~ (spec 021).
+- ~~B059 Visibility real~~ (spec 022).
+- ~~B058 InheritanceGraph robusto~~ (spec 023).
+- ~~B060 Owner resolution~~ (spec 024).
+- ~~B023 Find references~~ (spec 025).
+- ~~B034 Variables no usadas (refuerzo)~~ (spec 026).
+- ~~B035 Shadowing~~ (spec 027).
 
 ## Tarea Activa (Next)
-**B120: Discovery rápido no bloqueante del workspace**
+**Fase 7C / P3 cerrada (specs 043–062, 20 entregas).** Próximo foco: integración profunda real de los módulos P2/P3 en las features
+LSP visibles (cableado de `codeActions`, `codeLensReferences`, `objectInfo`,
+`projectStatus`, `diagnosticsSnapshot`, etc. en `server.ts`) y exploración
+de los nuevos backlog entries B139–B142 detectados en `plugin_old`.
 
 ### Fase del roadmap en foco
 
-- **Fase 6B / P0**: en curso. Priorizando estabilidad y escala antes de abrir la Fase 7A.
-- **Backbone**: Scopes, resolución y queries compartidas listos. Gramática centralizada.
+- **Fase 6B / P0**: cerrada.
+- **Fase 7A / P1**: cerrada.
+- **Fase 7B / P2**: cerrada (módulos: parsing/codeMasking, statementSplitter,
+  nesting, sectionMachine, srContainerParser, onEventParser, externalFunctions,
+  sqlRegions; knowledge/symbolKey, positionContext, obsoleteCatalog;
+  features/completionScoring, hoverFormat, obsoleteDetector; system/encoding).
+- **Backbone**: Scopes, resolución, queries compartidas, library order y
+  visibilidad listos. Gramática centralizada.
 
 Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
 
@@ -100,11 +128,11 @@ Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBu
 - ~~B027. Semantic tokens por rol y scope~~
 - ~~B051. Desambiguación semántica de tipos vs funciones~~
 - ~~B022. Modelo de dependencias básico~~
-- [ ] B120. Discovery rápido no bloqueante del workspace
-- [ ] B121. Scheduler de indexación multinivel
-- [ ] B133. Barra de estado con progreso
-- [ ] B134A. Caché caliente del contexto activo
-- [ ] B134B. Caché de serving (LSP features)
+- ~~B120. Discovery rápido no bloqueante del workspace~~ → **Cerrada (spec 013).**
+- ~~B121. Scheduler de indexación multinivel~~ → **Cerrada (spec 014).**
+- ~~B133. Barra de estado con progreso~~ → **Cerrada (spec 015).**
+- ~~B134A. Caché caliente del contexto activo~~ → **Cerrada (spec 016).**
+- ~~B134B. Caché de serving (LSP features)~~ → **Cerrada (spec 017).**
 
 ### Orden operativo recomendado
 

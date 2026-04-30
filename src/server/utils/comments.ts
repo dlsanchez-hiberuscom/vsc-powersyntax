@@ -70,11 +70,8 @@ export function stripCommentsSmart(lines: string[]): StrippedResult {
             const substringEnd = Math.min(j + escapeLen, line.length);
             strippedLine += line.substring(j + 1, substringEnd);
             j += escapeLen;
-          } else if (nextChar) {
-            strippedLine += nextChar;
-            mask[j + 1] = CharType.String;
-            j += 2;
           } else {
+            // `~` al final de la línea o sin carácter siguiente: lo conservamos como tal.
             j++;
           }
         } else if (char === stringChar) {

@@ -61,10 +61,18 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 - **navegación global exacta** (Go to Definition) considerando herencia y cualificadores;
 - **ayuda de firmas (Signature Help)** con soporte para parámetros y llamadas anidadas;
 - **completado contextual** (Completion) con scoring por ámbito (local/miembro/global);
-- **diagnósticos semánticos** (SD1-SD5) con detección de tipos, miembros y variables no declaradas;
+- **diagnósticos semánticos** (SD2–SD6) con detección de funciones desconocidas en la jerarquía, tipos base inexistentes, locales/privadas no usadas y **shadowing** (local vs instance/shared/global);
 - **gramática canónica centralizada** (`grammar.ts`) para consistencia léxica total;
 - **tokens semánticos** (Semantic Tokens) para coloreado avanzado por rol y ámbito;
 - **soporte inicial de Solution** (`.pbsln`, `.pbproj`) y **Workspace** (`.pbw`, `.pbt`).
+- **discovery dual** Workspace + Solution con detección automática de modo (`workspace` / `solution` / `mixed`) y exclusión de `.pb`, `build`, `_BackupFiles`;
+- **scheduler multinivel** con tres prioridades (`Interactive` / `Near` / `Background`);
+- **barra de estado de progreso** con fases `descubriendo / indexando / parcial / listo` (configurable vía `vscPowerSyntax.progress.show`);
+- **caché caliente del contexto activo** y **caché LRU de serving** para hover/completion/signatureHelp/definition;
+- **topología real de workspace** (`.pbw/.pbt/.pbsln/.pbproj`) con project registry y library order;
+- **visibility real** (public/protected/private) y **owner resolution** (`this`/`super`/variables tipadas);
+- **InheritanceGraph robusto** con descendientes transitivos;
+- **Find All References** (basado en KB + scan textual word-boundary, ignora comentarios y strings).
 
 ### Base técnica actual
 
@@ -83,10 +91,8 @@ Ofrecer la mejor experiencia posible para desarrollar en PowerBuilder dentro de 
 Todavía no deben asumirse como implementadas o completas estas áreas:
 
 - AST formal completo;
-- `references`, `rename`;
-- topología real de workspace (.pbw/.pbt library order);
-- visibility rules (public/protected/private);
-- owner resolution;
+- `rename`;
+- integración profunda de visibility/library order en completion/definition;
 - política de caché con límite o evicción;
 - flujo estándar de tests y CI completamente normalizado.
 
@@ -141,6 +147,12 @@ La lógica costosa debe vivir en el servidor, no en el cliente.
     /features        ← handlers LSP
     /indexer         ← indexación de workspace
     /knowledge       ← KnowledgeBase, InheritanceGraph, SystemCatalog, SemanticQueryService
+                       └─ /system    ← catálogo built-in PowerBuilder 2025
+                          ├─ /manual      curado (categorías ES, español)
+                          ├─ /generated   oficial autogenerado (Appeon)
+                          ├─ /registry    slices dataset×domain
+                          ├─ /services    queryService (resolutores por owner)
+                          └─ /indexes     índices precomputados
     /model           ← tipos internos del dominio
     /parsing         ← matchers y secciones
     /runtime         ← scheduler, timing, cancellation

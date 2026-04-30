@@ -103,4 +103,87 @@ suite('unit/workspace', () => {
     const files = state.getAllSourceFiles();
     assert.equal(files.length, 0, 'No debería haber procesado archivos tras cancelar');
   });
+
+  test('discovery detecta solution markers (.pbsln/.pbproj) y devuelve modo solution', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///sln');
+    fs.addFile('file:///sln/app.pbsln');
+    fs.addFile('file:///sln/main.pbproj');
+    fs.addDir('file:///sln/lib.pbl');
+    fs.addFile('file:///sln/lib.pbl/n_cst_test.sru');
+
+    await discoverWorkspace(['file:///sln'], fs, state, cancelSource.token);
+
+    const roots = state.getRoots();
+    assert.equal(roots.solutions.length, 1);
+    assert.equal(roots.projects.length, 1);
+    assert.equal(roots.workspaces.length, 0);
+    assert.equal(state.getMode(), 'solution');
+    assert.ok(state.hasSourceFile('file:///sln/lib.pbl/n_cst_test.sru'));
+  });
+
+  test('discovery devuelve modo workspace si solo hay .pbw/.pbt', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///ws');
+    fs.addFile('file:///ws/app.pbw');
+    fs.addFile('file:///ws/target.pbt');
+
+    await discoverWorkspace(['file:///ws'], fs, state, cancelSource.token);
+
+    assert.equal(state.getMode(), 'workspace');
+  });
+
+  test('discovery devuelve modo mixed si conviven workspace y solution markers', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///mix');
+    fs.addFile('file:///mix/app.pbw');
+    fs.addFile('file:///mix/app.pbsln');
+
+    await discoverWorkspace(['file:///mix'], fs, state, cancelSource.token);
+
+    assert.equal(state.getMode(), 'mixed');
+  });
+
+  test('discovery devuelve modo unknown si no hay markers', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///empty');
+    fs.addFile('file:///empty/readme.md');
+
+    await discoverWorkspace(['file:///empty'], fs, state, cancelSource.token);
+
+    assert.equal(state.getMode(), 'unknown');
+  });
+
+  test('discovery excluye directorios .pb / build / _BackupFiles', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///proj');
+    fs.addFile('file:///proj/keep.sru');
+    fs.addDir('file:///proj/.pb');
+    fs.addFile('file:///proj/.pb/skip.sru');
+    fs.addDir('file:///proj/build');
+    fs.addFile('file:///proj/build/skip.sru');
+    fs.addDir('file:///proj/_BackupFiles');
+    fs.addFile('file:///proj/_BackupFiles/skip.sru');
+
+    await discoverWorkspace(['file:///proj'], fs, state, cancelSource.token);
+
+    const files = state.getAllSourceFiles();
+    assert.equal(files.length, 1);
+    assert.ok(state.hasSourceFile('file:///proj/keep.sru'));
+  });
 });

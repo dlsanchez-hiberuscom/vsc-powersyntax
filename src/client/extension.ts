@@ -13,9 +13,14 @@ import {
   SERVER_ID,
   SERVER_NAME
 } from '../shared/types';
+import {
+  PROGRESS_NOTIFICATION,
+  type ProgressNotification
+} from '../shared/types';
 
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
+let statusBarItem: vscode.StatusBarItem | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const activationStart = performance.now();
@@ -81,6 +86,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     clientOptions
   );
 
+  // ---- Barra de estado de progreso ----------------------------------------
+
+  statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  statusBarItem.name = 'VSC PowerSyntax';
+  context.subscriptions.push(statusBarItem);
+  applyProgressVisibility(statusBarItem);
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('vscPowerSyntax.progress.show') && statusBarItem) {
+        applyProgressVisibility(statusBarItem);
+      }
+    })
+  );
+
   // ---- Comandos -----------------------------------------------------------
 
   context.subscriptions.push(
@@ -108,6 +128,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
 
     await client.start();
+
+    // Suscribir notificaciones de progreso del servidor.
+    if (statusBarItem) {
+      const item = statusBarItem;
+      client.onNotification(PROGRESS_NOTIFICATION, (p: ProgressNotification) => {
+        renderProgress(item, p);
+      });
+    }
 
     const clientElapsed = performance.now() - clientStartTime;
     const totalElapsed = performance.now() - activationStart;
@@ -177,5 +205,63 @@ async function stopClient(): Promise<void> {
     } finally {
       client = undefined;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Status bar de progreso
+// ---------------------------------------------------------------------------
+
+function applyProgressVisibility(item: vscode.StatusBarItem): void {
+  const show = vscode.workspace
+    .getConfiguration('vscPowerSyntax')
+    .get<boolean>('progress.show', true);
+
+  if (show) {
+    item.show();
+  } else {
+    item.hide();
+  }
+}
+
+function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification): void {
+  const show = vscode.workspace
+    .getConfiguration('vscPowerSyntax')
+    .get<boolean>('progress.show', true);
+
+  if (!show) {
+    item.hide();
+    return;
+  }
+
+  switch (p.phase) {
+    case 'discovering':
+      item.text = '$(sync~spin) PB: descubriendo';
+      item.tooltip = 'VSC PowerSyntax: descubriendo workspace';
+      item.show();
+      break;
+    case 'indexing': {
+      const cur = p.current ?? 0;
+      const total = p.total ?? 0;
+      item.text = total > 0
+        ? `$(sync~spin) PB: indexando ${cur}/${total}`
+        : '$(sync~spin) PB: indexando';
+      item.tooltip = 'VSC PowerSyntax: indexando archivos';
+      item.show();
+      break;
+    }
+    case 'partial':
+      item.text = '$(warning) PB: parcial';
+      item.tooltip = 'VSC PowerSyntax: indexación parcial (cancelada o reiniciada)';
+      item.show();
+      break;
+    case 'ready':
+      item.text = `$(check) PB: listo${p.total ? ` (${p.total})` : ''}`;
+      item.tooltip = 'VSC PowerSyntax: índice listo';
+      item.show();
+      break;
+    case 'idle':
+      item.hide();
+      break;
   }
 }

@@ -25,7 +25,7 @@ Proporcionar diagnósticos semánticos que:
 
 Lo que entra en este slice:
 
-- **SD1**: Detección de variables no declaradas dentro de funciones/eventos (no están en el scope local, ni en variables de instancia, ni en la KnowledgeBase).
+- **SD1**: Detección de variables no declaradas dentro de funciones/eventos (no están en el scope local, ni en variables de instancia, ni en la KnowledgeBase). **Diferida**: posponemos su emisión hasta disponer de resolución fuerte (Fase 7A) que minimice falsos positivos sobre globales y miembros heredados; el pipeline soporta su incorporación sin cambios estructurales.
 - **SD2**: Detección de llamadas a funciones/subroutines/eventos inexistentes en la jerarquía del objeto actual (usando InheritanceGraph.getMembers + SystemCatalog).
 - **SD3**: Detección de tipos base inexistentes (`type w_main from nonexistent_type`).
 - **SD4**: Detección de variables locales no usadas dentro de funciones/eventos.

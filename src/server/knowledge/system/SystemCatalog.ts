@@ -1,65 +1,123 @@
-import { PbSystemSymbolEntry } from './types';
-import { PB_MANUAL_CORE_GLOBAL_FUNCTIONS } from './manual/globalFunctions';
-import { PB_MANUAL_CORE_OBJECT_FUNCTIONS } from './manual/objectFunctions';
-import { PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS } from './manual/dataWindowFunctions';
-import { PB_MANUAL_CORE_SYSTEM_EVENTS } from './manual/systemEvents';
-import { PB_MANUAL_CORE_DATAWINDOW_EVENTS } from './manual/dataWindowEvents';
-import { PB_MANUAL_CORE_STATEMENTS } from './manual/statements';
+import {
+  findApplicableEventsForOwnerType,
+  findApplicableMembersForOwnerType,
+  findSystemSymbolsByLookupKey,
+  listSystemDataWindowEvents,
+  listSystemDataWindowFunctions,
+  listSystemEvents,
+  listSystemGlobalFunctions,
+  listSystemObjectEvents,
+  listSystemObjectFunctions,
+  listSystemStatements,
+  listSystemSymbols,
+  listSystemSymbolsByDataset,
+  listSystemSymbolsByKind,
+  listSystemSymbolsByNamespace,
+  resolveSystemDataWindowEvent,
+  resolveSystemDataWindowFunction,
+  resolveSystemDataWindowFunctionForOwner,
+  resolveSystemEventForOwner,
+  resolveSystemGlobalFunction,
+  resolveSystemMemberFunctionForOwner,
+  resolveSystemObjectEvent,
+  resolveSystemObjectFunction,
+  resolveSystemObjectFunctionForOwner
+} from './services/queryService';
+import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
+import {
+  PbSystemSymbolDataset,
+  PbSystemSymbolDomain,
+  PbSystemSymbolEntry,
+  PbSystemSymbolKind,
+  PbSystemSymbolNamespace
+} from './types';
 
 /**
- * SystemCatalog consolida y expone el conocimiento estático del lenguaje PowerBuilder.
- * Indexa las funciones globales, funciones de objeto, eventos y keywords
- * cargadas desde los datasets manuales extraídos de los documentos oficiales.
+ * Catálogo del sistema PowerBuilder.
+ *
+ * Fachada delgada sobre el `PB_SYSTEM_SYMBOL_REGISTRY` (manual + generated).
+ * Mantiene la API histórica `findSystemSymbol(name)` y añade resolutores
+ * sensibles a dominio y owner-type para hover / completion / signature help.
  */
 export class SystemCatalog {
-  // Mapa de clave de búsqueda en minúsculas -> array de entidades
-  // Es un array porque puede haber sobrecarga (ej. MessageBox)
-  private readonly symbolsByLookupKey = new Map<string, PbSystemSymbolEntry[]>();
+  // -- API histórica ---------------------------------------------------
 
-  constructor() {
-    this.buildIndex();
-  }
-
-  private buildIndex() {
-    const allSymbols = [
-      ...PB_MANUAL_CORE_GLOBAL_FUNCTIONS,
-      ...PB_MANUAL_CORE_OBJECT_FUNCTIONS,
-      ...PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS,
-      ...PB_MANUAL_CORE_SYSTEM_EVENTS,
-      ...PB_MANUAL_CORE_DATAWINDOW_EVENTS,
-      ...PB_MANUAL_CORE_STATEMENTS
-    ];
-
-    for (const symbol of allSymbols) {
-      for (const key of symbol.lookupKeys) {
-        let bucket = this.symbolsByLookupKey.get(key);
-        if (!bucket) {
-          bucket = [];
-          this.symbolsByLookupKey.set(key, bucket);
-        }
-        bucket.push(symbol);
-      }
-    }
-  }
-
-  /**
-   * Busca símbolos del sistema por nombre exacto (case-insensitive).
-   * Devuelve un array con todas las sobrecargas, o vacío si no se encuentra.
-   */
+  /** Búsqueda case-insensitive por nombre. Devuelve todas las sobrecargas. */
   findSystemSymbol(name: string): PbSystemSymbolEntry[] {
-    return this.symbolsByLookupKey.get(name.toLowerCase()) || [];
+    return [...findSystemSymbolsByLookupKey(name)];
   }
 
-  /**
-   * Obtiene todos los símbolos del sistema indexados (útil para autocompletado global).
-   */
+  /** Conjunto completo de símbolos indexados (autocompletado global). */
   getAllSystemSymbols(): PbSystemSymbolEntry[] {
-    const result = new Set<PbSystemSymbolEntry>();
-    for (const bucket of this.symbolsByLookupKey.values()) {
-      for (const symbol of bucket) {
-        result.add(symbol);
-      }
-    }
-    return Array.from(result);
+    return [...listSystemSymbols()];
+  }
+
+  // -- Listas por categoría -------------------------------------------
+
+  listGlobalFunctions(): readonly PbSystemSymbolEntry[] { return listSystemGlobalFunctions(); }
+  listObjectFunctions(): readonly PbSystemSymbolEntry[] { return listSystemObjectFunctions(); }
+  listDataWindowFunctions(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowFunctions(); }
+  listObjectEvents(): readonly PbSystemSymbolEntry[] { return listSystemObjectEvents(); }
+  listDataWindowEvents(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowEvents(); }
+  listEvents(): readonly PbSystemSymbolEntry[] { return listSystemEvents(); }
+  listStatements(): readonly PbSystemSymbolEntry[] { return listSystemStatements(); }
+
+  listByNamespace(ns: PbSystemSymbolNamespace): readonly PbSystemSymbolEntry[] {
+    return listSystemSymbolsByNamespace(ns);
+  }
+  listByKind(kind: PbSystemSymbolKind): readonly PbSystemSymbolEntry[] {
+    return listSystemSymbolsByKind(kind);
+  }
+  listByDomain(domain: PbSystemSymbolDomain): readonly PbSystemSymbolEntry[] {
+    return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomain.get(domain) ?? [];
+  }
+  listByDataset(dataset: PbSystemSymbolDataset): readonly PbSystemSymbolEntry[] {
+    return listSystemSymbolsByDataset(dataset);
+  }
+
+  // -- Resolutores específicos ----------------------------------------
+
+  resolveGlobalFunction(name: string): PbSystemSymbolEntry | undefined {
+    return resolveSystemGlobalFunction(name);
+  }
+  resolveObjectFunction(name: string): PbSystemSymbolEntry | undefined {
+    return resolveSystemObjectFunction(name);
+  }
+  resolveDataWindowFunction(name: string): PbSystemSymbolEntry | undefined {
+    return resolveSystemDataWindowFunction(name);
+  }
+  resolveObjectEvent(name: string): PbSystemSymbolEntry | undefined {
+    return resolveSystemObjectEvent(name);
+  }
+  resolveDataWindowEvent(name: string): PbSystemSymbolEntry | undefined {
+    return resolveSystemDataWindowEvent(name);
+  }
+
+  // -- Resolutores sensibles a owner-type -----------------------------
+
+  resolveObjectFunctionForOwner(name: string, ownerTypes: readonly string[]): PbSystemSymbolEntry | undefined {
+    return resolveSystemObjectFunctionForOwner(name, ownerTypes);
+  }
+  resolveDataWindowFunctionForOwner(name: string, ownerTypes: readonly string[]): PbSystemSymbolEntry | undefined {
+    return resolveSystemDataWindowFunctionForOwner(name, ownerTypes);
+  }
+  resolveMemberFunctionForOwner(name: string, ownerTypes: readonly string[]): PbSystemSymbolEntry | undefined {
+    return resolveSystemMemberFunctionForOwner(name, ownerTypes);
+  }
+  resolveEventForOwner(name: string, ownerTypes: readonly string[]): PbSystemSymbolEntry | undefined {
+    return resolveSystemEventForOwner(name, ownerTypes);
+  }
+  listMembersForOwner(ownerTypes: readonly string[]): readonly PbSystemSymbolEntry[] {
+    return findApplicableMembersForOwnerType(ownerTypes);
+  }
+  listEventsForOwner(ownerTypes: readonly string[]): readonly PbSystemSymbolEntry[] {
+    return findApplicableEventsForOwnerType(ownerTypes);
+  }
+
+  // -- Métricas / introspección ---------------------------------------
+
+  /** Tamaño total del catálogo (manual + generated). */
+  size(): number {
+    return PB_SYSTEM_SYMBOL_REGISTRY.entries.length;
   }
 }

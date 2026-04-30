@@ -101,4 +101,127 @@ suite('unit/scheduler', () => {
     await assert.rejects(bgPromise1, /cancelada/i);
     await assert.rejects(bgPromise2, /cancelada/i);
   });
+
+  // ----- Multinivel: Near vs Background -----
+
+  test('Near se ejecuta antes que Background aunque Background entre primero', async () => {
+    const scheduler = new TaskScheduler();
+    const order: string[] = [];
+
+    const bgPromise = scheduler.enqueueBackground({
+      id: 'bg-1',
+      priority: TaskPriority.Background,
+      execute: async () => {
+        order.push('bg');
+        return 'bg';
+      }
+    });
+
+    const nearPromise = scheduler.enqueueNear({
+      id: 'near-1',
+      priority: TaskPriority.Near,
+      execute: async () => {
+        order.push('near');
+        return 'near';
+      }
+    });
+
+    await Promise.all([nearPromise, bgPromise]);
+    assert.deepEqual(order, ['near', 'bg']);
+  });
+
+  test('Near cancela Background activo', async () => {
+    const scheduler = new TaskScheduler();
+    let bgStarted = false;
+    let bgCancelled = false;
+
+    const bgPromise = scheduler.enqueueBackground({
+      id: 'bg-long',
+      priority: TaskPriority.Background,
+      execute: async (token) => {
+        bgStarted = true;
+        for (let i = 0; i < 100; i++) {
+          if (token.isCancelled) {
+            bgCancelled = true;
+            throw new Error('Cancelled');
+          }
+          await new Promise((r) => setTimeout(r, 1));
+        }
+        return 'done';
+      }
+    });
+
+    while (!bgStarted) {
+      await new Promise((r) => setImmediate(r));
+    }
+
+    const nearResult = await scheduler.enqueueNear({
+      id: 'near-pre',
+      priority: TaskPriority.Near,
+      execute: () => 'near-result'
+    });
+    assert.equal(nearResult, 'near-result');
+
+    await assert.rejects(bgPromise, /Cancelled/);
+    assert.equal(bgCancelled, true);
+  });
+
+  test('Interactive cancela Near activo', async () => {
+    const scheduler = new TaskScheduler();
+    let nearStarted = false;
+    let nearCancelled = false;
+
+    const nearPromise = scheduler.enqueueNear({
+      id: 'near-long',
+      priority: TaskPriority.Near,
+      execute: async (token) => {
+        nearStarted = true;
+        for (let i = 0; i < 100; i++) {
+          if (token.isCancelled) {
+            nearCancelled = true;
+            throw new Error('Cancelled');
+          }
+          await new Promise((r) => setTimeout(r, 1));
+        }
+        return 'done';
+      }
+    });
+
+    while (!nearStarted) {
+      await new Promise((r) => setImmediate(r));
+    }
+
+    await scheduler.runInteractive({
+      id: 'inter-pre',
+      priority: TaskPriority.Interactive,
+      execute: () => 'inter'
+    });
+
+    await assert.rejects(nearPromise, /Cancelled/);
+    assert.equal(nearCancelled, true);
+  });
+
+  test('cancelAllNear cancela pendientes', async () => {
+    const scheduler = new TaskScheduler();
+    scheduler['activeInteractiveCount'] = 1; // bloquear drain
+
+    const p1 = scheduler.enqueueNear({
+      id: 'near-1',
+      priority: TaskPriority.Near,
+      execute: () => 'r1'
+    });
+    const p2 = scheduler.enqueueNear({
+      id: 'near-2',
+      priority: TaskPriority.Near,
+      execute: () => 'r2'
+    });
+
+    assert.equal(scheduler.pendingNearCount, 2);
+    scheduler.cancelAllNear();
+    assert.equal(scheduler.pendingNearCount, 0);
+
+    await assert.rejects(p1, /cancelada/i);
+    await assert.rejects(p2, /cancelada/i);
+  });
 });
+

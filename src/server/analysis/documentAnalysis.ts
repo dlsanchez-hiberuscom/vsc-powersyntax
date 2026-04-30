@@ -12,7 +12,13 @@ import {
   matchVariableDeclaration
 } from '../parsing/matchers';
 import { eventSelectionStart, firstNonWhitespace } from '../utils/helpers';
-import { END_GENERIC_PATTERN } from '../parsing/grammar';
+import {
+  END_FUNCTION_PATTERN,
+  END_SUBROUTINE_PATTERN,
+  END_EVENT_PATTERN,
+  END_ON_PATTERN,
+  END_TYPE_PATTERN
+} from '../parsing/grammar';
 import { stripCommentsSmart } from '../utils/comments';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
@@ -64,6 +70,49 @@ function extractParameters(line: string): { label: string, documentation?: strin
     }
   }
   return parameters.length > 0 ? parameters : undefined;
+}
+
+/**
+ * Extrae los argumentos formales (parámetros) de una cabecera de función/evento
+ * y los registra como símbolos del scope correspondiente con `scope: 'Argumento'`.
+ *
+ * Heurística simple: separa por comas, ignora modificadores (`readonly`, `ref`,
+ * `value`) y toma el primer token como tipo y el último como nombre.
+ */
+function pushScopeArguments(
+  line: string,
+  rawLine: string,
+  lineIndex: number,
+  uri: string,
+  scope: Scope
+): void {
+  const argMatch = line.match(/\((.*?)\)/);
+  if (!argMatch || argMatch[1].trim() === '') {
+    return;
+  }
+
+  for (const rawArg of argMatch[1].split(',')) {
+    const parts = rawArg.trim().split(/\s+/);
+    if (parts.length < 2) continue;
+
+    let type = parts[0];
+    const name = parts[parts.length - 1];
+    if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && parts.length >= 3) {
+      type = parts[1];
+    }
+
+    scope.symbols.push({
+      id: name.toLowerCase(),
+      name,
+      kind: EntityKind.Variable,
+      uri,
+      line: lineIndex,
+      character: rawLine.indexOf(name),
+      datatype: type,
+      containerName: scope.id,
+      scope: 'Argumento'
+    });
+  }
 }
 
 function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
@@ -260,12 +309,32 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
     }
 
     if (!enclosingSection) {
-      // Check for end of function/event
-      if (END_GENERIC_PATTERN.test(line)) {
-        if (currentFuncScope) {
-          currentFuncScope.endLine = i;
-          currentFuncScope = undefined;
-        }
+      // Cierre real de un scope de implementación (función, subrutina, evento o `on`).
+      // IMPORTANTE: NO usar END_GENERIC_PATTERN aquí, porque haría que `end if`,
+      // `end choose`, `end try`, etc. cierren erróneamente la función/evento actual,
+      // perdiendo todas las variables y referencias que aparezcan después del primer
+      // bloque de control dentro del cuerpo.
+      if (
+        currentFuncScope &&
+        (
+          END_FUNCTION_PATTERN.test(line) ||
+          END_SUBROUTINE_PATTERN.test(line) ||
+          END_EVENT_PATTERN.test(line) ||
+          END_ON_PATTERN.test(line)
+        )
+      ) {
+        currentFuncScope.endLine = i;
+        currentFuncScope = undefined;
+        continue;
+      }
+
+      // Cierre del bloque `type ... end type` (contenedor de objeto en SR*).
+      if (currentTypeScope && END_TYPE_PATTERN.test(line)) {
+        currentTypeScope.endLine = i;
+        // No reseteamos `currentContainerName` ni `currentTypeScope` aquí porque en
+        // los archivos SR* las funciones/eventos del tipo principal pueden
+        // implementarse fuera del bloque `type ... end type` (a nivel raíz). El
+        // contenedor sigue siendo válido para el resto del archivo.
         continue;
       }
 
@@ -298,34 +367,7 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
           endCharacter: rawLine.indexOf(fn.name) + fn.name.length
         });
 
-        // Add arguments to the scope (simplified extraction from prototype)
-        // A full argument extraction would be better, but we can do a naive one
-        const argMatch = line.match(/\((.*?)\)/);
-        if (argMatch && argMatch[1].trim() !== '') {
-          const args = argMatch[1].split(',');
-          for (const arg of args) {
-             const argParts = arg.trim().split(/\s+/);
-             if (argParts.length >= 2) {
-               let type = argParts[0];
-               let name = argParts[argParts.length - 1];
-               // Handle readonly, ref, etc.
-               if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && argParts.length >= 3) {
-                  type = argParts[1];
-               }
-               currentFuncScope.symbols.push({
-                 id: name.toLowerCase(),
-                 name: name,
-                 kind: EntityKind.Variable,
-                 uri: uri,
-                 line: i,
-                 character: rawLine.indexOf(name),
-                 datatype: type,
-                 containerName: currentFuncScope.id,
-                 scope: 'Argumento'
-               });
-             }
-          }
-        }
+        pushScopeArguments(line, rawLine, i, uri, currentFuncScope);
         continue;
       }
 
@@ -359,32 +401,7 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
           endCharacter: start + ev.name.length
         });
 
-        // Add typical arguments for events (simplified)
-        const argMatch = line.match(/\((.*?)\)/);
-        if (argMatch && argMatch[1].trim() !== '') {
-          const args = argMatch[1].split(',');
-          for (const arg of args) {
-            const argParts = arg.trim().split(/\s+/);
-            if (argParts.length >= 2) {
-              let type = argParts[0];
-              let name = argParts[argParts.length - 1];
-              if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && argParts.length >= 3) {
-                type = argParts[1];
-              }
-              currentFuncScope.symbols.push({
-                id: name.toLowerCase(),
-                name: name,
-                kind: EntityKind.Variable,
-                uri: uri,
-                line: i,
-                character: rawLine.indexOf(name),
-                datatype: type,
-                containerName: currentFuncScope.id,
-                scope: 'Argumento'
-              });
-            }
-          }
-        }
+        pushScopeArguments(line, rawLine, i, uri, currentFuncScope);
         continue;
       }
 
@@ -403,11 +420,32 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
             containerName: currentFuncScope.id,
             scope: 'Local'
           });
+
+          // Soporte para declaraciones múltiples: `Integer li_a, li_b, li_c`.
+          // Después del primer nombre, capturamos identificadores adicionales
+          // separados por comas hasta el final de la declaración o `=`/`//`.
+          for (const extra of extractAdditionalNames(rawLine, localVar.name)) {
+            currentFuncScope.symbols.push({
+              id: extra.name.toLowerCase(),
+              name: extra.name,
+              kind: EntityKind.Variable,
+              uri: uri,
+              line: i,
+              character: extra.character,
+              datatype: localVar.type,
+              containerName: currentFuncScope.id,
+              scope: 'Local'
+            });
+          }
         }
       } else if (currentTypeScope) {
         // We are inside a type block but outside a function, it's likely an instance variable
         const instVar = matchVariableDeclaration(line);
         if (instVar) {
+          const access: 'private' | 'protected' | 'public' =
+            instVar.modifiers?.toLowerCase().includes('private') ? 'private' :
+            instVar.modifiers?.toLowerCase().includes('protected') ? 'protected' : 'public';
+
           facts.push({
             name: instVar.name,
             kind: 'variable',
@@ -415,16 +453,69 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
             detail: `${instVar.type}${instVar.modifiers ? ` (${instVar.modifiers})` : ''}`,
             datatype: instVar.type,
             scope: 'Instancia',
-            access: instVar.modifiers?.toLowerCase().includes('private') ? 'private' : 
-                    instVar.modifiers?.toLowerCase().includes('protected') ? 'protected' : 'public',
+            access,
             line: i,
             startCharacter: rawLine.indexOf(instVar.name),
             endCharacter: rawLine.indexOf(instVar.name) + instVar.name.length
           });
+
+          // Variables de instancia múltiples: `private integer ii_a, ii_b`.
+          for (const extra of extractAdditionalNames(rawLine, instVar.name)) {
+            facts.push({
+              name: extra.name,
+              kind: 'variable',
+              containerName: currentTypeScope.id,
+              detail: `${instVar.type}${instVar.modifiers ? ` (${instVar.modifiers})` : ''}`,
+              datatype: instVar.type,
+              scope: 'Instancia',
+              access,
+              line: i,
+              startCharacter: extra.character,
+              endCharacter: extra.character + extra.name.length
+            });
+          }
         }
       }
     }
   }
 
   return { facts, scopes };
+}
+
+/**
+ * Dado el `rawLine` original y el nombre de la primera variable detectada,
+ * extrae los identificadores adicionales declarados con la misma sentencia
+ * (formato `tipo n1, n2, n3`). Se detiene en `=`, `;`, `//` o en cualquier
+ * carácter no esperado para minimizar falsos positivos con expresiones
+ * inicializadoras complejas.
+ */
+function extractAdditionalNames(
+  rawLine: string,
+  firstName: string
+): Array<{ name: string; character: number }> {
+  const out: Array<{ name: string; character: number }> = [];
+  const firstIdx = rawLine.indexOf(firstName);
+  if (firstIdx < 0) return out;
+
+  let cursor = firstIdx + firstName.length;
+  // Si tras el primer nombre viene `=` o `[` (array init) ya no son
+  // declaraciones múltiples sin tipo nuevo: abortamos para no equivocarnos.
+  const tail = rawLine.slice(cursor);
+  if (/^\s*[=\[]/.test(tail)) return out;
+
+  const NAME_RE = /\s*,\s*([a-zA-Z_$#%][\w$#%\-]*)(?:\s*\{\s*\d+\s*\})?/g;
+  NAME_RE.lastIndex = cursor;
+  let m: RegExpExecArray | null;
+  while ((m = NAME_RE.exec(rawLine)) !== null) {
+    const name = m[1];
+    const start = m.index + m[0].indexOf(name);
+    out.push({ name, character: start });
+    cursor = NAME_RE.lastIndex;
+    // Si tras este nombre viene `=` (inicializador), seguimos buscando comas
+    // pero solo si el `=` está balanceado. Para mantenerlo seguro, paramos.
+    const after = rawLine.slice(cursor);
+    if (/^\s*=/.test(after)) break;
+    if (/^\s*(\/\/|;|$)/.test(after)) break;
+  }
+  return out;
 }

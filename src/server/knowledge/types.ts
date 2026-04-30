@@ -42,6 +42,23 @@ export interface Entity {
   scope?: 'Local' | 'Instancia' | 'Global' | 'Compartida' | 'Argumento';
   /** Nivel de acceso (ej. 'public', 'private', 'protected') */
   access?: string;
+  // ---- Modelo enriquecido (Spec 021 / B064) -------------------------------
+  /** Tipo del contenedor (window, userobject, function, global, ...). */
+  containerKind?: string;
+  /** Naturaleza de la implementación (function/event/subroutine/property/instance-var). */
+  implementationKind?: 'function' | 'event' | 'subroutine' | 'property' | 'instance-var' | 'type';
+  /** Número de parámetros (cacheado para evitar recorrer `parameters`). */
+  parameterCount?: number;
+  /** Tipo de retorno (si aplica). */
+  returnType?: string;
+  /** Alias estable de `containerName` para owner resolution. */
+  ownerName?: string;
+  /** Indica si el símbolo proviene de una declaración externa. */
+  isExternal?: boolean;
+  /** Nombre de la librería externa (DLL) cuando aplica. */
+  externalLibraryName?: string;
+  /** Marca el símbolo como prototipo (declaración `forward prototypes`) frente a la implementación. */
+  isPrototype?: boolean;
 }
 
 /**

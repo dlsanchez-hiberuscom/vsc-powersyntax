@@ -49,9 +49,9 @@ export function provideCompletion(
   const currentUri = normalizeUri(document.uri);
   const items: CompletionItem[] = [];
 
-  const allEntities = kb.getAllEntities();
-  const currentMainObject = allEntities.find(
-    e => normalizeUri(e.uri) === currentUri && e.kind === EntityKind.Type
+  const documentEntities = kb.getEntitiesByUri(currentUri);
+  const currentMainObject = documentEntities.find(
+    e => e.kind === EntityKind.Type
   );
 
   if (qualifier) {
@@ -128,7 +128,7 @@ export function provideCompletion(
       });
     }
 
-    for (const entity of allEntities) {
+    for (const entity of kb.getAllEntities()) {
       // Only include global entities that are types or global functions
       // Actually, we index local functions as EntityKind.Function, but they are bounded to a file/type.
       // A truly global function might just have no containerName.

@@ -295,25 +295,30 @@ function getScopeAtLine(analysis: DocumentAnalysis, line: number): Scope | undef
 }
 
 function extractQualifier(line: string, identifierStart: number): string | undefined {
-  // Regresa hacia atrás buscando "cualificador."
+  // Regresa hacia atrás buscando "cualificador." o "cualificador::"
   let i = identifierStart - 1;
   while (i >= 0 && (line[i] === ' ' || line[i] === '\t')) {
     i--;
   }
+  let hasSeparator = false;
   if (i >= 0 && line[i] === '.') {
+    hasSeparator = true;
     i--;
-    while (i >= 0 && (line[i] === ' ' || line[i] === '\t')) {
-      i--;
-    }
-    // Now extract the identifier before the dot
-    const qualifierEnd = i;
-    while (i >= 0 && /[a-zA-Z0-9_$#%]/.test(line[i])) {
-      i--;
-    }
-    const qualifier = line.substring(i + 1, qualifierEnd + 1);
-    if (qualifier.length > 0) {
-      return qualifier;
-    }
+  } else if (i >= 1 && line[i] === ':' && line[i - 1] === ':') {
+    hasSeparator = true;
+    i -= 2;
   }
-  return undefined;
+  if (!hasSeparator) {
+    return undefined;
+  }
+  while (i >= 0 && (line[i] === ' ' || line[i] === '\t')) {
+    i--;
+  }
+  // Now extract the identifier before the separator
+  const qualifierEnd = i;
+  while (i >= 0 && /[a-zA-Z0-9_$#%]/.test(line[i])) {
+    i--;
+  }
+  const qualifier = line.substring(i + 1, qualifierEnd + 1);
+  return qualifier.length > 0 ? qualifier : undefined;
 }

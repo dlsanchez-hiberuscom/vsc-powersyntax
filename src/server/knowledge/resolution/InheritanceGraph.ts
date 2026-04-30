@@ -6,6 +6,8 @@ export class InheritanceGraph {
   private readonly ancestorCache = new Map<string, string[]>();
   private readonly hierarchyCache = new Map<string, string[]>();
   private readonly memberCache = new Map<string, Entity[]>();
+  private readonly directDescendantsCache = new Map<string, string[]>();
+  private readonly descendantsCache = new Map<string, string[]>();
 
   constructor(private readonly kb: KnowledgeBase) {}
 
@@ -18,6 +20,8 @@ export class InheritanceGraph {
       this.ancestorCache.clear();
       this.hierarchyCache.clear();
       this.memberCache.clear();
+      this.directDescendantsCache.clear();
+      this.descendantsCache.clear();
       this.lastVersion = currentVersion;
     }
   }
@@ -136,11 +140,80 @@ export class InheritanceGraph {
       }
     }
 
-    // TODO: Eliminar duplicados si una función se sobrescribe (override),
-    // pero por ahora devolvemos todas para soportar "Show All Implementations".
-    // El sistema de Completions podrá filtrar según la distancia.
+    // Nota: no deduplicamos overrides aquí. Devolvemos todas las definiciones
+    // (incluidas las heredadas) para preservar `Show All Implementations`.
+    // Los consumidores que solo quieran el override más cercano deben filtrar
+    // mediante `sortAndFilterByDistance` o por nombre, según el caso.
 
     this.memberCache.set(normalizedName, members);
     return [...members];
+  }
+
+  /**
+   * Devuelve los nombres de los tipos que heredan directamente de `typeName`.
+   * (Spec 023 / B058)
+   */
+  getDirectDescendants(typeName: string): string[] {
+    this.checkVersion();
+    const normalized = typeName.trim().toLowerCase();
+    if (!normalized) return [];
+
+    const cached = this.directDescendantsCache.get(normalized);
+    if (cached) return [...cached];
+
+    const result: string[] = [];
+    const seen = new Set<string>();
+    for (const entity of this.kb.getAllEntities()) {
+      if (entity.kind !== EntityKind.Type) continue;
+      const base = entity.baseTypeName?.trim().toLowerCase();
+      if (!base || base !== normalized) continue;
+      const childNorm = entity.name.trim().toLowerCase();
+      if (childNorm && !seen.has(childNorm)) {
+        seen.add(childNorm);
+        result.push(entity.name);
+      }
+    }
+    this.directDescendantsCache.set(normalized, result);
+    return [...result];
+  }
+
+  /**
+   * Devuelve todos los descendientes (transitivos, sin duplicados, sin incluir el tipo).
+   * (Spec 023 / B058)
+   */
+  getDescendants(typeName: string): string[] {
+    this.checkVersion();
+    const normalized = typeName.trim().toLowerCase();
+    if (!normalized) return [];
+
+    const cached = this.descendantsCache.get(normalized);
+    if (cached) return [...cached];
+
+    const collected: string[] = [];
+    const seen = new Set<string>();
+    const queue = [...this.getDirectDescendants(typeName)];
+    while (queue.length > 0) {
+      const next = queue.shift()!;
+      const norm = next.trim().toLowerCase();
+      if (!norm || seen.has(norm)) continue;
+      seen.add(norm);
+      collected.push(next);
+      queue.push(...this.getDirectDescendants(next));
+    }
+    this.descendantsCache.set(normalized, collected);
+    return [...collected];
+  }
+
+  /**
+   * Indica si `child` desciende (directa o transitivamente) de `ancestor`.
+   * (Spec 023 / B058)
+   */
+  isDescendantOf(child: string, ancestor: string): boolean {
+    if (!child || !ancestor) return false;
+    const childN = child.trim().toLowerCase();
+    const ancestorN = ancestor.trim().toLowerCase();
+    if (!childN || !ancestorN || childN === ancestorN) return false;
+    const ancestors = this.getAncestors(child);
+    return ancestors.some((a) => a.trim().toLowerCase() === ancestorN);
   }
 }
