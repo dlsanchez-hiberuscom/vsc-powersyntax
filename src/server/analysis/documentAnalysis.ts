@@ -79,6 +79,13 @@ function stableScopeId(container: string | undefined, name: string): string {
 export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   const text = document.getText();
   const lines = text.split(/\r?\n/);
+  // Spec 087: BOM al principio del archivo. PowerBuilder genera SR* en
+  // UTF-8 BOM y UTF-16; vscode-languageserver-textdocument ya entrega texto
+  // decodificado, pero defendemos el caso (poco frecuente) de un BOM literal
+  // residual en la primera línea para que no contamine el primer token.
+  if (lines.length > 0 && lines[0].charCodeAt(0) === 0xfeff) {
+    lines[0] = lines[0].slice(1);
+  }
   const { lines: strippedLines, masks } = stripCommentsSmart(lines);
   const sections = findSections(lines);
   const typeBlocks = scanTypeBlocks(strippedLines);

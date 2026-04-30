@@ -64,10 +64,32 @@ export function publishDiagnostics(
   const semantic = (kb && systemCatalog && inheritanceGraph)
     ? validateSemantics(document, kb, systemCatalog, inheritanceGraph)
     : [];
+  // Spec 094: dedup por (line, char, message). Bajo combinaciones de SD2 +
+  // SD6 + SD8 podía emitirse el mismo warning varias veces para el mismo
+  // símbolo cuando había rutas que coincidían.
+  // Spec 092/093: cap total para no saturar el cliente con diagnósticos
+  // ruidosos en archivos generados o muy largos.
+  const merged = dedupAndCap([...structural, ...semantic], MAX_DIAGNOSTICS_PER_FILE);
   connection.sendDiagnostics({
     uri: document.uri,
-    diagnostics: [...structural, ...semantic]
+    diagnostics: merged
   });
+}
+
+const MAX_DIAGNOSTICS_PER_FILE = 500;
+
+function dedupAndCap(diags: Diagnostic[], cap: number): Diagnostic[] {
+  if (diags.length === 0) return diags;
+  const seen = new Set<string>();
+  const out: Diagnostic[] = [];
+  for (const d of diags) {
+    const key = `${d.range.start.line}:${d.range.start.character}:${d.severity ?? ''}:${d.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(d);
+    if (out.length >= cap) break;
+  }
+  return out;
 }
 
 export function validateStructure(document: TextDocument): Diagnostic[] {

@@ -1347,3 +1347,103 @@ superficie funcional nueva. Resultado: 275 tests verdes.
   consumen `analysis.strippedLines` mayoritariamente; queda como guía para
   futuras features.
 
+
+## 15. Sprint de hardening 2 (specs 083-102)
+
+Segundo sprint de refuerzo del core, enfocado en cache, observabilidad,
+robustez del pipeline y determinismo. Todos sin abrir features de usuario.
+Resultado: 278 tests verdes (275 baseline + 3 nuevos).
+
+### Resueltos
+
+- **Spec 083 - analysisCache LRU bound.** La cache de analyzeDocument
+  estaba unbounded. MAX_CACHED_ANALYSES = 256 con eviction por orden de
+  insercion (Map preserva orden).
+- **Spec 084 - Invalidacion en cascada.** invalidateDocumentAnalysis
+  ahora limpia tambien DocumentCache y KnowledgeBase para evitar
+  facts/scopes obsoletos tras un edit.
+- **Spec 085 - URI normalization en boundary.** getDocumentAnalysis
+  normaliza la URI al guardar/leer la cache, consistente con DocumentCache.
+- **Spec 087 - BOM strip.** Si la primera linea empieza con U+FEFF se
+  elimina antes de tokenizar.
+- **Spec 092/093/094 - Diagnostic dedup + cap.** publishDiagnostics
+  centraliza dedup por (line, char, severity, message) y cap a 500
+  diagnosticos por archivo.
+- **Spec 095 - PROGRESS_INTERVAL configurable.** Variable de entorno
+  PB_PROGRESS_INTERVAL para tuning sin recompilar.
+- **Spec 096 - projectRegistry orden estable.** getAllProjects y
+  getFilesForProject devuelven listas ordenadas alfabeticamente.
+- **Spec 097 - Indexer orden estable.** Los archivos se procesan en
+  orden lexicografico para indexacion reproducible.
+- **Spec 099 - getStats expone indexedScopes.** Anyade indexedScopes a
+  getStats para observabilidad real del coste del scopeIndex.
+- **Spec 100 - Perf log opt-in.** PB_PERF_LOG=1 advierte si
+  analyzeDocument supera 100ms (opt-in, sin ruido en produccion).
+- **Spec 101 - Test fingerprint estable.** Cubre el contrato FNV-1a
+  determinista (analyzeDocument del mismo texto -> mismo fingerprint).
+- **Spec 102 - Test containerAt anidado.** Cubre el resolutor de
+  contenedores cuando un SR* declara varios "type within".
+
+### Confirmados como ya correctos
+
+- **Spec 086** (findDefinition case-insensitive): ya usaba
+  symbolName.toLowerCase() en globalSymbols.
+- **Spec 088** (default param stripper): cubierto por la 067.
+- **Spec 089** (matchVariableDeclaration robusto): el patron exige
+  type+name; lineas tipo "var = expr" no matchean.
+- **Spec 090** (stripCommentsSmart sin sangrado): el stripper procesa
+  linea a linea, no propaga estado entre lineas.
+- **Spec 091** (getScopeAt defensivo): retorna null cuando scopes esta
+  vacio o no esta indexado.
+- **Spec 098** (KnowledgeBase removeDocument): ya limpia globalSymbols,
+  documentSymbols, documentScopes, entitiesByUri y scopeIndex.
+
+## 15. Sprint de hardening 2 (specs 083-102)
+
+Segundo sprint de refuerzo del core, enfocado en cache, observabilidad,
+robustez del pipeline y determinismo. Todos sin abrir features de usuario.
+Resultado: 278 tests verdes (275 baseline + 3 nuevos).
+
+### Resueltos
+
+- **Spec 083 - analysisCache LRU bound.** La cache de analyzeDocument
+  estaba unbounded. MAX_CACHED_ANALYSES = 256 con eviction por orden de
+  insercion (Map preserva orden).
+- **Spec 084 - Invalidacion en cascada.** invalidateDocumentAnalysis ahora
+  limpia tambien DocumentCache y KnowledgeBase para evitar facts/scopes
+  obsoletos tras un edit.
+- **Spec 085 - URI normalization en boundary.** getDocumentAnalysis
+  normaliza la URI al guardar/leer la cache, consistente con DocumentCache.
+- **Spec 087 - BOM strip.** Si la primera linea empieza con U+FEFF se
+  elimina antes de tokenizar.
+- **Spec 092/093/094 - Diagnostic dedup + cap.** publishDiagnostics
+  centraliza dedup por (line, char, severity, message) y cap a 500
+  diagnosticos por archivo.
+- **Spec 095 - PROGRESS_INTERVAL configurable.** PB_PROGRESS_INTERVAL para
+  tuning sin recompilar.
+- **Spec 096 - projectRegistry orden estable.** getAllProjects y
+  getFilesForProject devuelven listas ordenadas alfabeticamente.
+- **Spec 097 - Indexer orden estable.** Los archivos se procesan en orden
+  lexicografico para indexacion reproducible.
+- **Spec 099 - getStats expone indexedScopes.** Anyade indexedScopes para
+  observabilidad real del coste del scopeIndex.
+- **Spec 100 - Perf log opt-in.** PB_PERF_LOG=1 advierte si analyzeDocument
+  supera 100ms (opt-in, sin ruido en produccion).
+- **Spec 101 - Test fingerprint estable.** Cubre el contrato FNV-1a
+  determinista (analyzeDocument del mismo texto -> mismo fingerprint).
+- **Spec 102 - Test containerAt anidado.** Cubre el resolutor de
+  contenedores cuando un SR* declara varios 'type within'.
+
+### Confirmados como ya correctos
+
+- **Spec 086** (findDefinition case-insensitive): ya usaba
+  symbolName.toLowerCase() en globalSymbols.
+- **Spec 088** (default param stripper): cubierto por la 067.
+- **Spec 089** (matchVariableDeclaration robusto): el patron exige
+  type+name; lineas tipo 'var = expr' no matchean.
+- **Spec 090** (stripCommentsSmart sin sangrado): el stripper procesa linea
+  a linea, no propaga estado entre lineas.
+- **Spec 091** (getScopeAt defensivo): retorna null cuando scopes esta
+  vacio o no esta indexado.
+- **Spec 098** (KnowledgeBase removeDocument): ya limpia globalSymbols,
+  documentSymbols, documentScopes, entitiesByUri y scopeIndex.

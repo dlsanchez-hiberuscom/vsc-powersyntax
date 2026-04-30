@@ -116,11 +116,17 @@ export function buildProjectRegistry(
     getProjectForFile(uri: string): string | null {
       return fileToProject.get(normalizeUri(uri)) ?? null;
     },
+    /**
+     * Spec 096: orden estable. Ordenamos alfabéticamente para que tests,
+     * snapshots y consumidores deterministas no dependan del orden de
+     * inserción del Map (que en práctica depende del orden de discovery).
+     */
     getAllProjects(): string[] {
-      return Array.from(projectToFiles.keys());
+      return Array.from(projectToFiles.keys()).sort();
     },
     getFilesForProject(projectUri: string): string[] {
-      return projectToFiles.get(normalizeUri(projectUri)) ?? [];
+      const list = projectToFiles.get(normalizeUri(projectUri));
+      return list ? [...list].sort() : [];
     }
   };
 }

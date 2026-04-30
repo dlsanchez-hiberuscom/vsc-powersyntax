@@ -115,6 +115,69 @@ suite('unit/documentAnalysis', () => {
     assert.ok(cnt, 'Parámetro `ai_count` con `ref` no detectado.');
     assert.equal(cnt.datatype, 'integer');
   });
+
+  // -------------------------------------------------------------------------
+  // Spec 087 — BOM al inicio del archivo
+  // -------------------------------------------------------------------------
+  test('BOM en la primera línea no rompe el primer token', () => {
+    const source = '\uFEFFforward\r\nend forward\r\n';
+    const document = TextDocument.create(
+      'file:///bom.sru',
+      'powerbuilder',
+      1,
+      source
+    );
+    const analysis = analyzeDocument(document);
+    // La primera línea queda sin BOM y arrancando por `forward`.
+    assert.equal(analysis.lines[0].slice(0, 7), 'forward');
+  });
+
+  // -------------------------------------------------------------------------
+  // Spec 074 — fingerprint determinista
+  // -------------------------------------------------------------------------
+  test('fingerprint es determinista para el mismo texto', () => {
+    const text = 'forward\r\nend forward\r\n';
+    const a = analyzeDocument(TextDocument.create('file:///fp1.sru', 'powerbuilder', 1, text));
+    const b = analyzeDocument(TextDocument.create('file:///fp2.sru', 'powerbuilder', 1, text));
+    assert.equal(a.fingerprint, b.fingerprint);
+    const c = analyzeDocument(TextDocument.create('file:///fp3.sru', 'powerbuilder', 1, text + ' '));
+    assert.notEqual(a.fingerprint, c.fingerprint);
+  });
+
+  // -------------------------------------------------------------------------
+  // Spec 064 — containerAt anidado para multi `type ... within`
+  // -------------------------------------------------------------------------
+  test('multi `type within` atribuye contenedor a la implementación', () => {
+    const source = [
+      'forward',
+      'global type w_main from window',
+      'end type',
+      'type cb_ok from commandbutton within w_main',
+      'end type',
+      'end forward',
+      '',
+      'global type w_main from window',
+      'event open()',
+      'end type',
+      '',
+      'type cb_ok from commandbutton within w_main',
+      'integer width = 100',
+      'end type',
+      '',
+      'event open();',
+      '  string ls_a',
+      'end event'
+    ].join('\r\n');
+    const document = TextDocument.create('file:///w_main.srw', 'powerbuilder', 1, source);
+    const analysis = analyzeDocument(document);
+    // El evento implementado debe atribuirse al contenedor más externo:
+    // w_main (no a cb_ok), porque está fuera del bloque `type cb_ok within w_main`.
+    const evFact = analysis.semanticFacts.find(
+      (f) => f.kind.toString().toLowerCase() === 'event'
+    );
+    assert.ok(evFact, 'Evento no encontrado en semanticFacts');
+    assert.equal((evFact as any).containerName?.toLowerCase(), 'w_main');
+  });
 });
 
 function findScopeByName(

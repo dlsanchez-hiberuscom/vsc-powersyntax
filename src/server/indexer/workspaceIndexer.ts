@@ -20,7 +20,21 @@ export type IndexerLogger = (msg: string) => void;
 export type IndexerProgress = (current: number, total: number) => void;
 
 /** Cada cuántos archivos se reporta progreso intermedio. */
-const PROGRESS_INTERVAL = 25;
+const DEFAULT_PROGRESS_INTERVAL = 25;
+
+/**
+ * Spec 095: el intervalo de progreso es configurable vía variable de entorno
+ * `PB_PROGRESS_INTERVAL`. Útil en tests y diagnósticos sin recompilar.
+ * Cualquier valor inválido o ≤ 0 se ignora y se usa el default.
+ */
+function resolveProgressInterval(): number {
+  const raw = process.env.PB_PROGRESS_INTERVAL;
+  if (!raw) return DEFAULT_PROGRESS_INTERVAL;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_PROGRESS_INTERVAL;
+}
+
+const PROGRESS_INTERVAL = resolveProgressInterval();
 
 /**
  * Procesa todos los archivos descubiertos en el workspace e inicializa el índice global.
@@ -38,7 +52,10 @@ export async function indexWorkspace(
   onProgress?: IndexerProgress
 ): Promise<void> {
   const log = logger || (() => {});
-  const files = workspaceState.getAllSourceFiles();
+  // Spec 097: orden estable de archivos para que la indexación sea
+  // determinista entre sesiones. Reduce ruido al comparar perfiles y mejora
+  // la reproducibilidad de tests de regresión sobre KB.
+  const files = [...workspaceState.getAllSourceFiles()].sort();
   const total = files.length;
   let processedCount = 0;
 

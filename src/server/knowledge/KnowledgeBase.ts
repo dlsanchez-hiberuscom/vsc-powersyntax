@@ -260,16 +260,22 @@ export class KnowledgeBase {
   }
 
   /**
+  /**
    * Retorna estadísticas del índice.
+   * Spec 101: añade `indexedScopes` (cardinalidad del scopeIndex) para que
+   * features de observabilidad puedan vigilar el coste real del índice.
    */
   getStats() {
     let totalEntities = 0;
     for (const entities of this.globalSymbols.values()) {
       totalEntities += entities.length;
     }
+    let indexedScopes = 0;
+    for (const arr of this.scopeIndex.values()) indexedScopes += arr.length;
     return {
       totalEntities,
-      indexedDocuments: this.documentSymbols.size
+      indexedDocuments: this.documentSymbols.size,
+      indexedScopes
     };
   }
 }
