@@ -1,13 +1,19 @@
-# Backlog — Plugin PowerBuilder 2025 para VS Code (versión revisada v3, sin citas)
+# Backlog — Plugin PowerBuilder 2025 para VS Code (versión activa + mejoras de core)
 
 **Documento técnico asociado:**
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+**Objetivo de esta versión:**
+- mantener el backlog **operativo y limpio**;
+- conservar solo trabajo **abierto** o **cerrado parcialmente**;
+- integrar **14 mejoras nuevas del core** como backlog real;
+- recolocar prioridades para reforzar incrementalidad, persistencia, serving, validación y explicabilidad del motor.
 
 ---
 
 ## 1. Propósito
 
-Este backlog define la **cola operativa real** del plugin profesional de **PowerBuilder 2025 para VS Code**.
+Este backlog define la **cola operativa activa** del plugin profesional de **PowerBuilder 2025 para VS Code**.
 
 Debe servir para ejecutar trabajo en slices pequeños, priorizados, verificables y alineados con la arquitectura objetivo del producto.
 
@@ -31,7 +37,7 @@ Ambos deben tratarse de forma distinta en discovery, indexación, topología, re
 
 ## 2. Reglas de gestión del backlog
 
-- El backlog operativo debe contener **trabajo pendiente real**, no mezcla de ideas vagas y trabajo ya cerrado.
+- El backlog operativo debe contener **trabajo pendiente real**, no mezcla de ideas vagas, histórico técnico y trabajo ya cerrado.
 - Se prioriza primero la **base de PowerScript**, la **topología real de workspace/solution**, la **resolución fuerte** y la **escala** antes que DataWindow avanzado, automatización externa o IA.
 - Se mantiene la referencia al `plugin_old` siempre que aporte valor como fuente de consulta, lógica portable, datasets curados o heurísticas probadas.
 - No se porta nada del `plugin_old` por inercia: solo por resultado funcional y encaje con la arquitectura nueva.
@@ -67,16 +73,25 @@ El backlog se organiza partiendo de este estado de producto:
 
 - Base cliente/servidor ya operativa.
 - Activación perezosa y separación LSP ya asumidas como dirección correcta.
-- Parsing y semántica iniciales ya existen, pero todavía falta una capa más fuerte de:
-  - **contexto posicional**,
-  - **container parsing SR***,
-  - **topología real de proyecto**,
-  - **resolución enriquecida**,
-  - **caché preparada para serving rápido de hover/completion/signature help/definition**.
-- **DataWindow no sube ahora de prioridad**: se mantiene en backlog, pero se aborda después de consolidar mejor la base de PowerScript y la resolución fuerte.
-- La necesidad inmediata es mejorar el **descubrimiento rápido no bloqueante** y la **indexación progresiva por colas con prioridad**, para que el sistema descubra e indexe todo el workspace sin bloquear y sin que el usuario lo note.
-- También es prioritario que el usuario vea mejor el estado del motor, idealmente mediante **barra de estado**, progreso y estados de readiness.
-- La caché debe ser ya una capacidad de primera clase, tanto en memoria como persistente entre sesiones.
+- Hay una base sólida ya entregada en discovery inicial, scheduler base, parser estructural SR*, topología workspace/solution, resolución base, visibilidad, herencia, masking, scoring inicial y wiring LSP fundamental.
+- El foco pendiente inmediato ya no es “levantar la base”, sino **cerrar bien la incrementalidad**, **hacer observable el progreso**, **persistir conocimiento útil entre sesiones**, **unificar el motor de consultas** y **endurecer la validación real sobre corpus grandes**.
+- **DataWindow no sube ahora de prioridad**: se mantiene en backlog, pero se aborda después de consolidar mejor la base de PowerScript, la persistencia de caché, la validación fuerte y la productividad segura.
+- Se incorporan en esta versión **14 mejoras nuevas del core** orientadas a:
+  - dependencias semánticas inversas,
+  - indexación en dos fases,
+  - snapshot semántico canónico,
+  - query engine unificado,
+  - semantic evidence,
+  - invalidación explícita,
+  - checkpoints/resume,
+  - gobernador de latencia,
+  - compactación de memoria,
+  - modo degradado formal,
+  - golden tests,
+  - query result cache,
+  - reconciliación parser/symbol/LSP,
+  - work journal del motor.
+- Además, **B141** sube de prioridad práctica: deja de tratarse como un item tardío del ecosistema y pasa a considerarse una pieza importante del core ampliado porque impacta discovery, fairness, status contextual, caché persistente y serving.
 
 ---
 
@@ -140,63 +155,27 @@ La caché no es solo una optimización técnica; es parte del valor percibido de
 
 ---
 
-## 6. Estructura de prioridades revisada
+## 6. Estructura de prioridades activas
 
-### P0 — Base inmediata de descubrimiento, scheduling, contexto, visibilidad de estado y caché de serving
-Trabajo que reduce bloqueo visible, mejora el tiempo hasta valor y prepara la siguiente generación del backbone semántico.
+### P0 — Orquestación interactiva, incrementalidad y estado observable
+Trabajo que reduce bloqueo visible, mejora el tiempo hasta valor y termina de endurecer el comportamiento interactivo del indexador.
 
-### P1 — Topología real y resolución fuerte de PowerScript
-Trabajo orientado a modelar correctamente workspace/solution, scopes, herencia, owner resolution, visibilidad y referencias fiables.
+### P3 — Query engine y productividad avanzada segura
+Trabajo de valor visible apoyado ya en semántica fuerte: references, rename, CodeLens, formatter, hierarchy inspection, status contextual y serving semántico unificado.
 
-### P2 — Hardening del parser y del lexer
-Trabajo que mejora precisión, reduce falsos positivos y fortalece el pipeline de parsing reusable.
-
-### P3 — Productividad avanzada segura
-Trabajo de valor visible apoyado ya en semántica fuerte: rename, references robustas, CodeLens, formatter, hierarchy inspection.
-
-### P4 — Escala, validación continua y rendimiento
-Trabajo de endurecimiento real sobre corpus grandes, memoria, caché persistente, tests de extensión e instrumentación.
+### P4 — Escala, persistencia, validación continua y robustez interna
+Trabajo de endurecimiento real sobre corpus grandes, memoria, caché persistente, tests de extensión, project model unificado e instrumentación profunda.
 
 ### P5 — Ecosistema PowerBuilder, build y automatización
-Trabajo específico del ecosistema PowerBuilder: DataWindow, PBAutoBuild, ORCA legacy, API pública y automatización externa.
+Trabajo específico del ecosistema PowerBuilder: DataWindow, PBAutoBuild, ORCA legacy, API pública madura y automatización externa.
+
+> **Nota:** P1 (topología real y resolución fuerte) y P2 (hardening parser/lexer) no tienen actualmente trabajo activo principal en esta versión, porque sus ítems operativos nucleares ya están cerrados. Parte de su evolución continúa ahora a través de P0, P3 y P4.
 
 ---
 
-# 7. Backlog priorizado actual
+# 7. Backlog priorizado activo
 
-## P0 — Base inmediata de descubrimiento, scheduling, contexto, visibilidad de estado y caché de serving
-
-### B120. Discovery rápido no bloqueante del workspace — **Cerrada (spec 013).**
-**Objetivo:** descubrir roots y archivos relevantes sin bloquear el flujo interactivo.
-
-**Descripción ampliada:**
-- detectar con rapidez markers de Workspace y Solution (`.pbw`, `.pbt`, `.pbsln`, `.pbproj`),
-- detectar archivos PowerBuilder relevantes (`*.sr*`, carpetas `*.pbl`, `ws_objects`),
-- poblar una cola inicial de trabajo sin esperar a la indexación completa,
-- devolver control al usuario lo antes posible.
-
-**Criterio de salida:**
-- el sistema descubre el workspace de forma rápida,
-- puede seguir encontrando archivos en segundo plano,
-- y el documento activo no queda penalizado por el discovery.
-
----
-
-### B121. Scheduler de indexación multinivel con colas por prioridad — **Cerrada (spec 014).**
-**Objetivo:** introducir colas explícitas y justas para repartir trabajo sin bloquear.
-
-**Descripción ampliada:**
-El scheduler debe operar al menos con estas colas:
-- **Interactive**: archivo activo, hover, completion, diagnostics inmediatos, definition, references del contexto inmediato.
-- **Near**: ancestros, owners, tipos usados por el archivo activo, dependencias cercanas y símbolos con alta probabilidad de consulta inmediata.
-- **Background**: resto del workspace o solution detectado.
-
-**Criterio de salida:**
-- el archivo abierto responde primero,
-- las colas bajas nunca monopolizan el servidor,
-- y el workspace se indexa progresivamente sin bloquear UX.
-
----
+## P0 — Orquestación interactiva, incrementalidad y estado observable
 
 ### B122. Priorización por dependencias semánticas cercanas
 **Objetivo:** no indexar “por orden de disco”, sino por valor semántico inmediato.
@@ -282,23 +261,6 @@ Mostrar, al menos:
 
 ---
 
-### B133. Barra de estado con progreso de indexación — **Cerrada (spec 015).**
-**Objetivo:** reflejar en la barra de estado el progreso real del indexador para que el usuario perciba qué está ocurriendo y cuánto falta aproximadamente.
-
-**Descripción ampliada:**
-La barra de estado debe poder mostrar, de forma configurable:
-- porcentaje aproximado de indexación,
-- estado actual (`descubriendo`, `indexando`, `contexto activo listo`, `workspace parcial`, `workspace listo`),
-- actividad dominante (`archivo activo`, `herencia`, `referencias cercanas`, `background`),
-- acceso rápido a comandos de diagnóstico o mantenimiento.
-
-**Criterio de salida:**
-- el usuario ve progreso real,
-- entiende si el contexto activo ya está listo,
-- y no percibe el indexador como una caja negra.
-
----
-
 ### B134. Modelo de progreso y readiness del indexador
 **Objetivo:** definir una métrica de progreso y readiness lo bastante estable como para alimentar barra de estado, logs, debugging y tests.
 
@@ -318,334 +280,189 @@ No hace falta que el porcentaje sea matemáticamente perfecto; debe ser **útil,
 
 ---
 
-### B054. Contexto posicional semántico reutilizable
-— **Cerrada (spec 032).**
-
-**Objetivo:** introducir `findInnermostCallableAtPosition()`, `findInnermostTypeAtPosition()` y contexto reutilizable de nesting real.
+### B151. Semantic snapshot canónico por documento
+**Objetivo:** introducir una unidad semántica estable y reutilizable por documento para que el resto del sistema consuma un snapshot único en lugar de recomponer información dispersa.
 
 **Descripción ampliada:**
-Debe servir a hover, completion, diagnostics, references y rename para dejar de recalcular ad hoc el contexto del cursor.
+El snapshot debe agrupar como mínimo:
+- fingerprint,
+- container model,
+- symbols,
+- scopes,
+- logical statements,
+- stripped/masked text,
+- control blocks,
+- imports/dependencies,
+- facts enriquecidos reutilizables,
+- readiness y metadatos de serving.
 
-**Referencia `plugin_old`:** mantener la consulta a la lógica antigua de spans, nesting y comparación por anidamiento si ya estaba resuelta de forma fiable.
-
----
-
-### B055. Parseo documental con secciones / state machine
-— **Cerrada (spec 033).**
-
-**Objetivo:** sustituir parsing demasiado lineal por una máquina de estados capaz de distinguir con seguridad bloques declarativos y ejecutables.
-
-**Descripción ampliada:**
-Debe diferenciar:
-- `type variables`,
-- `forward prototypes`,
-- `functions`,
-- `events`,
-- `on handlers`,
-- zonas declarativas,
-- y zonas ejecutables.
-
-**Referencia `plugin_old`:** `pbDocumentParser.ts` y toda lógica útil de reconocimiento de secciones.
-
----
-
-### B113. Parser canónico del contenedor SR*
-— **Cerrada (spec 034).**
-
-**Objetivo:** crear un parser explícito para la estructura contenedora de `.sra`, `.srw`, `.sru`, `.srm`, `.srf`.
-
-**Descripción ampliada:**
-Debe reconocer con estabilidad:
-- `forward global type`,
-- `global type ... from ...`,
-- `global <type> <instance>`,
-- `forward prototypes`,
-- `on create/destroy`,
-- contenedores de callables,
-- variables declarativas del objeto.
-
-**Por qué entra tan pronto:** el lenguaje PowerBuilder no puede tratarse solo como “lista de statements”; el contenedor SR* forma parte del modelo real del objeto.
-
-**Referencia `plugin_old`:** cualquier lógica previa de parsing estructural fiable.
-
----
-
-### B061. Completion scoring heredado y normalizado
-— **Cerrada (spec 035).**
-
-**Objetivo:** portar y normalizar el scoring semántico del `plugin_old` usando distancia de herencia, scope, owner context y visibilidad.
-
-**Descripción ampliada:**
-El completion debe ordenar mejor por:
-- locals,
-- members,
-- globals,
-- ancestros/descendientes,
-- owner context,
-- access rights reales.
-
-**Referencia `plugin_old`:** `semanticEngine.ts`, `getCompletionScore`.
-
----
-
-### B134A. Caché caliente del contexto activo — **Cerrada (spec 016).**
-**Objetivo:** mantener una caché extremadamente rápida del documento activo y sus dependencias inmediatas para mejorar hover, completion, signature help y definition.
-
-**Descripción ampliada:**
-Debe incluir, al menos:
-- snapshot del documento activo,
-- símbolos locales,
-- contexto posicional precalculable,
-- resolución cercana,
-- ancestros inmediatos,
-- owners probables,
-- consultas frecuentes ya materializadas.
+**Specs sugeridas:**
+- **Spec 133:** `buildSemanticSnapshot()`
+- **Spec 134:** `snapshotFingerprintKey()`
+- **Spec 135:** `snapshotDeltaMerge()`
 
 **Criterio de salida:**
-- abrir un archivo y empezar a usar hover/completion no obliga a reconstruir todo cada vez,
-- y la experiencia interactiva mejora de forma visible.
+- hover/completion/definition/references dejan de reconstruir piezas por separado,
+- el análisis documental tiene una representación canónica,
+- y la invalidación puede operar sobre snapshots bien definidos.
 
 ---
 
-### B134B. Caché de serving para hover / completion / signature help / definition — **Cerrada (spec 017).**
-**Objetivo:** diseñar una capa de caché específica para serving de features interactivas.
+### B152. Pipeline de indexación en dos fases reales
+**Objetivo:** separar de forma explícita una fase rápida estructural y una fase enriquecida semántica para mejorar el tiempo hasta valor y la progresividad real del motor.
 
 **Descripción ampliada:**
-No basta con caché documental o de índice; hace falta una capa pensada para responder rápido a:
-- hover,
-- completion,
-- signature help,
-- go to definition,
-- references cercanas.
+**Fase rápida:**
+- discovery,
+- parse estructural,
+- contenedor SR*,
+- símbolos exportados mínimos,
+- topología básica,
+- facts básicos.
 
-Debe permitir invalidez fina y aprovechar snapshots ya construidos.
-
-**Criterio de salida:**
-- las features interactivas dejan de depender exclusivamente de recomputación directa,
-- y mejoran tanto en archivos ya abiertos como al reabrirlos.
-
----
-
-### B034. Diagnóstico de variables no usadas — **Cerrada (spec 026).**
-**Objetivo:** detectar variables declaradas pero no utilizadas con conocimiento real de scopes.
-
-**Descripción ampliada:**
-Debe usar:
-- scopes reales,
-- reconocimiento fiable de callables,
-- y un modelo que evite falsos positivos por parsing débil.
-
-**Referencia `plugin_old`:** `diagnosticResolver.ts`, `analyzeUnusedVariables`.
-
----
-
-### B035. Detección de shadowing — **Cerrada (spec 027).**
-**Objetivo:** detectar sombreado entre locals, shared, globals e instance variables.
-
-**Descripción ampliada:**
-Debe respetar el orden real de lookup del lenguaje:
-- local,
-- shared,
-- global,
-- instance.
-
-**Referencia `plugin_old`:** `diagnosticResolver.ts`, `analyzeVariableShadowing`.
-
----
-
-## P1  Topología real y resolución fuerte de PowerScript
-
-### B056. Workspace topology parser (`.pbw/.pbt/.pbsln/.pbproj`) — **Cerrada (spec 018).**
-**Objetivo:** parsear la topología real del workspace/solution y dejar de depender solo de discovery por carpetas.
-
-**Descripción ampliada:**
-Debe cubrir:
-- workspace markers,
-- solution markers,
-- targets/proyectos,
-- library lists,
-- project roots,
-- y diferencias explícitas entre Workspace y Solution.
-
-**Referencia `plugin_old`:** `PbLibraryGraph`, `projectRegistry`.
-
----
-
-### B057. Project registry con scoring — **Cerrada (spec 019).**
-**Objetivo:** asociar cada archivo con su proyecto preferido y resolver conflictos multi-root / multi-project.
-
-**Descripción ampliada:**
-Debe usar:
-- cercanía por path,
-- library order,
-- markers reales,
-- y scoring de pertenencia para evitar mezclar símbolos de distintos proyectos.
-
-**Referencia `plugin_old`:** `projectRegistry.ts`.
-
----
-
-### B087. Topología de workspace y library order — **Cerrada (spec 020).**
-**Objetivo:** explotar el `library order` real para priorizar resolución de símbolos y evitar colisiones falsas.
-
-**Descripción ampliada:**
-Una vez parseada la topología, el resolver debe usar el orden real de librerías/proyectos y no solo el primer símbolo encontrado por nombre.
-
-**Referencia `plugin_old`:** `PbLibraryGraph`, `projectRegistry.ts`.
-
----
-
-### B064. Enriched symbol model incremental — **Cerrada (spec 021).**
-**Objetivo:** enriquecer progresivamente el modelo de símbolo para reducir heurística repetida.
-
-**Campos objetivo sugeridos:**
-- `containerKind`,
-- `implementationKind`,
-- `access`,
-- `parameterCount`,
-- `ownerName`,
-- `isExternal`,
-- `externalLibraryName`,
-- `returnType`.
-
-Esto facilita hover, completion, diagnostics, references y navegación jerárquica.
-
----
-
-### B059. Symbol visibility real (`public/protected/private/...`) — **Cerrada (spec 022).**
-**Objetivo:** modelar visibilidad real de miembros y variables de instancia.
-
-**Descripción ampliada:**
-Debe cubrir:
-- `public`,
-- `protected`,
-- `private`,
-- `protectedread`,
-- `protectedwrite`,
-- `privateread`,
-- `privatewrite`.
-
-**Criterio de salida:**
-- definition/completion/references dejan de comportarse de forma demasiado permisiva.
-
----
-
-### B058. InheritanceGraph robusto con caches — **Cerrada (spec 023).**
-**Objetivo:** robustecer ancestros, derivados y caches de herencia.
-
-**Descripción ampliada:**
-Introducir y endurecer:
-- `ancestorCache`,
-- `memberCache`,
-- `derivedTypeCache`,
-- `getTypeDistance()`,
-- consulta de descendientes directos,
-- invalidación correcta ante cambios.
-
-**Referencia `plugin_old`:** `InheritanceGraph`.
-
----
-
-### B060. Owner resolution robusto (estático + dinámico) — **Cerrada (spec 024).**
-**Objetivo:** resolver mejor owners y cadenas compuestas.
-
-**Descripción ampliada:**
-Debe soportar progresivamente:
-- `This`,
-- `Parent`,
-- `::`,
-- dot notation sobre variables tipadas,
-- expresiones compuestas,
-- dispatch dinámico acotado cuando proceda.
-
-**Referencia `plugin_old`:** `owners/`, resolución semántica antigua y cualquier lógica probada de access chains.
-
----
-
-### B023. Búsqueda de referencias segura en casos base — **Cerrada (spec 025).**
-**Objetivo:** reconstruir `find references` sobre topología y resolución fuertes.
-
-**Descripción ampliada:**
-No debe seguir ampliándose solo por matching superficial; debe apoyarse en:
-- topología real,
-- visibilidad,
+**Fase enriquecida:**
 - owner resolution,
+- visibilidad real,
 - herencia,
-- y enriched symbol model.
+- tipos,
+- evidence,
+- datos de serving.
+
+**Specs sugeridas:**
+- **Spec 136:** `runStructuralIndexPass()`
+- **Spec 137:** `runEnrichedSemanticPass()`
+- **Spec 138:** `updateReadinessAfterPass()`
+
+**Criterio de salida:**
+- el sistema ofrece utilidad temprana sin esperar a enriquecimiento completo,
+- readiness refleja correctamente qué fase está lista,
+- y la indexación progresiva mejora perceptiblemente la UX.
 
 ---
 
-## P2 — Hardening del parser y del lexer
-
-### B089. Lexing de precisión: comentarios anidados y escapes
-— **Cerrada (spec 040).**
-
-**Objetivo:** portear soporte serio para comentarios anidados y secuencias de escape complejas.
-
-**Referencia `plugin_old`:** `powerScriptLexingUtils.ts`.
-
----
-
-### B092. Sistema de máscaras de código (code masking)
-— **Cerrada (spec 028).**
-
-**Objetivo:** generar máscaras para que el resto de servicios opere sobre código real ignorando strings y comentarios.
-
-**Por qué es importante:** reduce falsos positivos en diagnostics, completion y parsing semántico.
-
-**Referencia `plugin_old`:** `powerScriptLexingUtils.ts`.
-
----
-
-### B095. Normalizador / splitter de sentencias
-— **Cerrada (spec 029).**
-
-**Objetivo:** portear la segmentación robusta de statements y continuaciones.
-
-**Referencia `plugin_old`:** `powerScriptStatementUtils.ts`.
-
----
-
-### B090. Detección enriquecida de SQL embebido
-— **Cerrada (spec 041).**
-
-**Objetivo:** detectar regiones SQL para reducir diagnósticos falsos y preparar soporte futuro.
+### B153. Índice de dependencias semánticas inversas
+**Objetivo:** introducir un grafo explícito de dependencias directas e inversas para invalidar y recomputar solo lo estrictamente necesario.
 
 **Descripción ampliada:**
-Debe distinguir zonas SQL en scripts PowerScript y convivir bien con diagnostics semánticos del lenguaje base.
+Debe modelar al menos:
+- documento → tipos usados,
+- documento → ancestros,
+- documento → owners,
+- documento → símbolos llamados,
+- símbolo/tipo → documentos impactados.
 
-**Referencia `plugin_old`:** `powerScriptSqlUtils.ts`.
+**Specs sugeridas:**
+- **Spec 139:** `extractSemanticDependencies()`
+- **Spec 140:** `buildReverseDependencyGraph()`
+- **Spec 141:** `getImpactedDocuments()`
 
----
-
-### B073. Soporte para funciones externas (`EXTERNAL FUNCTION/SUBROUTINE`)
-— **Cerrada (spec 039).**
-
-**Objetivo:** parsear y resolver mejor `LIBRARY`, `ALIAS FOR` y declaraciones externas.
-
-**Referencia `plugin_old`:** `tryParseCallableSymbol` y parsing de external callables.
-
----
-
-### B099. Resolución por anidamiento (`Range Span Comparison`)
-— **Cerrada (spec 030).**
-
-**Objetivo:** identificar el símbolo más anidado bajo el cursor con precisión fuerte.
-
-**Referencia `plugin_old`:** `symbolIndex.ts`, `compareByNesting`.
+**Criterio de salida:**
+- cambios en firma/herencia/visibilidad invalidan de forma localizada,
+- el motor deja de recomputar demasiado,
+- y el resume/warm indexing pueden reaprovechar mejor el conocimiento existente.
 
 ---
 
-### B101. Deduplicación semántica robusta
-— **Cerrada (spec 031).**
+### B154. Invalidation engine explícito
+**Objetivo:** convertir la invalidación en una pieza explícita del core y no en una colección de reglas locales dispersas.
 
-**Objetivo:** evitar colisiones entre símbolos homónimos usando claves compuestas más ricas.
+**Descripción ampliada:**
+Debe clasificar cambios como mínimo en:
+- texto local,
+- firma,
+- visibilidad,
+- herencia,
+- topología,
+- proyecto,
+- cambios masivos.
 
-**Referencia `plugin_old`:** `symbolIndex.ts`, `uniqueSymbols`.
+Y decidir:
+- qué snapshots invalidar,
+- qué caches limpiar,
+- qué documentos recalcular,
+- qué jobs reinyectar.
+
+**Specs sugeridas:**
+- **Spec 142:** `classifyChangeKind()`
+- **Spec 143:** `buildInvalidationPlan()`
+- **Spec 144:** `scheduleSelectiveReindex()`
+
+**Criterio de salida:**
+- la invalidación es consistente, fina y centralizada,
+- baja la recomputación innecesaria,
+- y mejora la corrección de serving y persistencia.
 
 ---
 
-## P3 — Productividad avanzada segura
+### B155. Checkpoints reales de indexación y resume robusto
+**Objetivo:** persistir checkpoints del pipeline para que reaperturas y warm indexing no parezcan un recomputado desde cero.
+
+**Descripción ampliada:**
+Debe persistir al menos:
+- discovery terminado,
+- topología conocida,
+- archivos estructuralmente parseados,
+- archivos semánticamente enriquecidos,
+- readiness por proyecto,
+- cola reanudable o pendientes reinyectables.
+
+**Specs sugeridas:**
+- **Spec 145:** `persistIndexCheckpoint()`
+- **Spec 146:** `restoreIndexerCheckpoint()`
+- **Spec 147:** `resumePendingWork()`
+
+**Criterio de salida:**
+- reabrir workspaces grandes se siente claramente más rápido,
+- el estado de progreso se recupera con estabilidad,
+- y el motor sabe continuar donde lo dejó cuando sea seguro hacerlo.
+
+---
+
+### B158. Modo degradado formal (“partial semantic mode”)
+**Objetivo:** definir contratos explícitos de disponibilidad semántica para que cada feature sepa qué puede prometer y cuándo debe degradar o bloquearse.
+
+**Descripción ampliada:**
+Niveles sugeridos:
+- structural-only,
+- nearby-semantic-ready,
+- project-semantic-ready,
+- workspace-semantic-ready.
+
+**Specs sugeridas:**
+- **Spec 154:** `defineSemanticReadinessLevels()`
+- **Spec 155:** `gateFeatureByReadiness()`
+
+**Criterio de salida:**
+- rename/references no operan “a medias” sin contrato,
+- el estado visible del sistema es coherente,
+- y la UX mejora al distinguir claramente qué está listo y qué no.
+
+---
+
+### B159. Gobernador de latencia del servidor
+**Objetivo:** imponer presupuestos y políticas de degradación para proteger la latencia interactiva real del usuario bajo carga.
+
+**Descripción ampliada:**
+Debe contemplar:
+- presupuesto máximo por batch,
+- presupuesto máximo por petición interactiva,
+- yielding forzado,
+- downgrade controlado cuando no haya suficiente contexto,
+- preempción adaptativa según presión del sistema.
+
+**Specs sugeridas:**
+- **Spec 156:** `requestLatencyBudgetPolicy()`
+- **Spec 157:** `applyOverloadDowngradePolicy()`
+- **Spec 158:** `adaptivePreemptionController()`
+
+**Criterio de salida:**
+- la interacción del usuario mantiene latencia consistente,
+- el servidor evita picos largos de bloqueo,
+- y las colas de fondo se comportan con mayor justicia y control.
+
+---
+
+## P3 — Query engine y productividad avanzada segura
 
 ### B031. Referencias más precisas y robustas
 **Objetivo:** ampliar cobertura de referencias cuando la base de resolución ya sea suficientemente fuerte.
@@ -699,40 +516,6 @@ Debe permitir:
 
 ---
 
-### B074. Diagnósticos de modernización y funciones obsoletas
-— **Cerrada (spec 036).**
-
-**Objetivo:** identificar uso de funciones obsoletas y sugerir reemplazos del runtime moderno cuando el catálogo ya lo soporte.
-
-**Referencia `plugin_old`:** `diagnosticResolver.ts`, `analyzeObsoleteRuntimeFunctions`.
-
----
-
-### B103. Hover enriquecido con metadatos PB
-— **Cerrada (spec 037).**
-
-**Objetivo:** mostrar más información útil en hover: access, external library, prototype vs implementation, owner context.
-
-**Referencia `plugin_old`:** `hover/presentation.ts`.
-
----
-
-### B104. Soporte para eventos calificados y `on-handlers`
-— **Cerrada (spec 038).**
-
-**Objetivo:** mejorar la identificación visual y semántica de eventos declarados mediante sintaxis `ON object_name.event_name`.
-
----
-
-### B106. Comando de información del objeto actual
-**Objetivo:** mostrar resumen del archivo actual: eventos, funciones, variables, tipo principal y, más adelante, datos básicos si es DataWindow.
-
-**Referencia `plugin_old`:** mensajes de usuario y servicios de inspección antiguos.
-
-— **Cerrada (spec 051: `buildObjectInfo`).**
-
----
-
 ### B107. Status bar con contexto de proyecto
 **Objetivo:** reflejar target/proyecto activo, estado del indexador y accesos rápidos a mantenimiento.
 
@@ -747,7 +530,82 @@ Debe convivir con el progreso de indexación y mostrar, cuando proceda:
 
 ---
 
-## P4 — Escala, validación continua y rendimiento
+### B156. Query engine unificado para features semánticas
+**Objetivo:** centralizar la resolución de consultas semánticas para evitar lógica divergente entre hover, completion, definition, references y futuras features.
+
+**Descripción ampliada:**
+Debe proporcionar una capa común para consultas como:
+- `resolveSymbolAtPosition`,
+- `resolveOwnerChainAtPosition`,
+- `resolveCallableAtPosition`,
+- `resolveTypeAtPosition`,
+- `findDefinitions`,
+- `findReferences`,
+- `buildCompletionContext`,
+- `buildHoverContext`.
+
+**Specs sugeridas:**
+- **Spec 148:** `createSemanticQueryEngine()`
+- **Spec 149:** `resolveSymbolAtPosition()`
+- **Spec 150:** `buildUnifiedCompletionContext()`
+
+**Criterio de salida:**
+- las features semánticas consumen una capa común,
+- baja la duplicidad y la divergencia entre resultados,
+- y el core queda mejor preparado para API pública y tools.
+
+---
+
+### B157. Semantic evidence de primera clase
+**Objetivo:** modelar formalmente las razones por las que una resolución ganó, no solo como trazas ad hoc sino como parte del contrato del motor.
+
+**Descripción ampliada:**
+La evidencia debe contemplar:
+- scope ganador,
+- visibilidad,
+- inheritance distance,
+- owner match,
+- project affinity,
+- library order,
+- confidence score,
+- descartes relevantes.
+
+**Specs sugeridas:**
+- **Spec 151:** `createSemanticEvidenceModel()`
+- **Spec 152:** `computeSemanticConfidenceScore()`
+- **Spec 153:** comando `whyThisResult`
+
+**Criterio de salida:**
+- hover/definition/completion pueden explicar por qué devuelven un resultado,
+- mejora la depuración del motor,
+- y el tuning de resolución se vuelve mucho más fiable.
+
+---
+
+### B160. Query result cache con claves semánticas estables
+**Objetivo:** cachear respuestas semánticas útiles con claves seguras y estables para acelerar features interactivas sin comprometer corrección.
+
+**Descripción ampliada:**
+La clave debe contemplar como mínimo:
+- URI normalizada,
+- fingerprint,
+- posición lógica,
+- readiness actual,
+- versión de topología,
+- versión de catálogo/índice.
+
+**Specs sugeridas:**
+- **Spec 159:** `buildSemanticQueryCacheKey()`
+- **Spec 160:** `wireSemanticQueryCacheInvalidation()`
+
+**Criterio de salida:**
+- hover/definition/completion/signature help cercanos responden más rápido,
+- el hit ratio es observable,
+- y la cache se invalida correctamente cuando cambian las precondiciones semánticas.
+
+---
+
+## P4 — Escala, persistencia, validación continua y robustez interna
 
 ### B030. Validación sobre workspace grande real
 **Objetivo:** medir y validar el plugin sobre corpus grandes reales, no solo sobre fixtures sintéticos.
@@ -841,32 +699,118 @@ Pensado para:
 
 ---
 
-### B127. File watcher estratificado y debounce de invalidación
-**Objetivo:** mejorar watchers e invalidación para que cambios masivos no disparen trabajo caótico.
+### B141. Library graph / project model unificado — **Promovida desde P5**
+**Objetivo:** disponer de un modelo único `pbProjectModel + pbLibraryGraph` que represente targets, librerías y dependencias para alimentar discovery, fairness, project affinity, status contextual, caché persistente e invalidación.
+
+**Referencia `plugin_old`:** `powerbuilder/projecting/*`.
 
 **Descripción ampliada:**
-- distinguir cambios interactivos de cambios masivos,
-- agrupar invalidaciones,
-- y reinyectar trabajo en las colas correctas.
+Este item deja de tratarse como una mejora tardía del ecosistema y pasa a considerarse una pieza del core ampliado porque impacta:
+- project affinity,
+- fairness por root/proyecto,
+- status bar contextual,
+- persistencia de caché por proyecto,
+- resolución y serving por topología efectiva.
 
-— **Cerrada (spec 043: `createFileWatcherDebouncer`).**
+**Criterio de salida:**
+- existe una única fuente de verdad para proyecto/librería,
+- la topología enriquecida se reutiliza en scheduler, cache e invalidación,
+- y se reduce la lógica dispersa de afinidad y pertenencia.
 
 ---
 
-### B128. Estados de readiness del workspace
-**Objetivo:** modelar y exponer estados como `discovered`, `active-context-ready`, `workspace-partial`, `workspace-ready`.
+### B161. Golden tests semánticos end-to-end
+**Objetivo:** introducir tests dorados de comportamiento semántico sobre fixtures reales y casos representativos para proteger el motor frente a regresiones complejas.
 
-— **Cerrada (spec 044: `createReadinessTracker`).**
+**Descripción ampliada:**
+Debe cubrir, como mínimo:
+- hover esperado,
+- definition esperada,
+- references esperadas,
+- rename eligibility,
+- readiness/progress observables,
+- casos reales de PFC y corpus legacy.
+
+**Specs sugeridas:**
+- **Spec 161:** `goldenFixturesPfc()`
+- **Spec 162:** `semanticGoldensHoverDefinitionReferences()`
+- **Spec 163:** `renameEligibilityGoldens()`
+
+**Criterio de salida:**
+- el core tiene contratos de comportamiento visibles,
+- refactors profundos detectan roturas semánticas reales,
+- y la confianza para endurecer el motor aumenta.
 
 ---
 
-### B129. Fairness por proyecto/root en background indexing
-**Objetivo:** evitar que un root o proyecto muy grande monopolice la cola background.
+### B162. Reconciliación fuerte entre parser, symbol model y salida LSP
+**Objetivo:** detectar inconsistencias internas entre análisis, modelo semántico y artefactos publicados por el servidor antes de que se conviertan en bugs de usuario.
 
 **Descripción ampliada:**
-Introducir fairness o round-robin por proyecto/root para equilibrar progreso cuando existan multi-root workspaces o solutions grandes.
+Debe detectar, como mínimo:
+- símbolos sin rango válido,
+- scopes incoherentes,
+- callables exportados sin owner esperado,
+- árboles de document symbols inconsistentes,
+- results de references/definition apuntando a entidades degradadas.
 
-— **Cerrada (spec 058: `createFairScheduler`).**
+**Specs sugeridas:**
+- **Spec 164:** `runSemanticConsistencyAssertions()`
+- **Spec 165:** `reportInternalSemanticInconsistencies()`
+
+**Criterio de salida:**
+- el core detecta incoherencias internas antes de publicarlas,
+- la robustez del servidor sube,
+- y depurar regresiones semánticas complejas es más rápido.
+
+---
+
+### B163. Semantic work journal / event log del motor
+**Objetivo:** crear un journal técnico ligero del motor para entender qué pasó, en qué orden, por qué una consulta fue lenta y qué cache hit/miss o invalidación ocurrió.
+
+**Descripción ampliada:**
+Debe registrar al menos:
+- archivo procesado,
+- fase del pipeline,
+- cache hit/miss,
+- invalidación aplicada,
+- job reprogramado,
+- latencia relevante,
+- readiness transicionada.
+
+**Specs sugeridas:**
+- **Spec 166:** `appendSemanticWorkEvent()`
+- **Spec 167:** `exportSemanticWorkJournal()`
+
+**Criterio de salida:**
+- existe trazabilidad real del trabajo del motor,
+- tuning y debugging en corpus grandes mejoran claramente,
+- y el equipo puede comparar mejor cold/warm y cambios de estrategia.
+
+---
+
+### B164. Interning y compactación de memoria para strings y keys
+**Objetivo:** reducir presión de memoria y coste de comparación en workspaces grandes internando valores repetidos y compactando identificadores internos.
+
+**Descripción ampliada:**
+Candidatos claros:
+- nombres de símbolos,
+- URIs normalizadas,
+- contenedores,
+- tipos,
+- modifiers/access,
+- ids internas,
+- project ids.
+
+**Specs sugeridas:**
+- **Spec 168:** `createStringInternPools()`
+- **Spec 169:** `compactSemanticIds()`
+- **Spec 170:** `memoryInterningStats()`
+
+**Criterio de salida:**
+- la densidad del índice mejora,
+- los budgets de memoria son más sostenibles,
+- y el core aguanta mejor workspaces y solutions grandes.
 
 ---
 
@@ -959,35 +903,6 @@ Debe permitir:
 
 ---
 
-### B112. Herramientas de consistencia del catálogo
-**Objetivo:** validar la integridad del catálogo oficial y del dataset curado heredado del `plugin_old`.
-
-— **Cerrada (specs 046 y 047: `buildCatalogConsistencyReport` + sanity tests).**
-
----
-
-### B130. Detector y normalizador de encoding de fuentes
-— **Cerrada (spec 042).**
-
-**Objetivo:** detectar y normalizar correctamente UTF-8 con y sin BOM en Solution, y convivir con legacy heterogéneo.
-
-**Descripción ampliada:**
-- respetar `PB.INI` cuando aplique,
-- detectar UTF-8/BOM,
-- reducir problemas de lectura/guardado en flujos mixtos.
-
----
-
-### B131. Soporte explícito para `.pblmeta`
-**Objetivo:** indexar comentarios y metadatos de librería en Solution.
-
-**Descripción ampliada:**
-Esto mejora exploración de librerías, hover contextual y tooling alrededor de la estructura real del proyecto.
-
-— **Cerrada (spec 045: `parsePblMeta`).**
-
----
-
 ### B132. Gobernanza del catálogo oficial + dataset curado
 **Objetivo:** separar formalmente dos capas de conocimiento:
 - catálogo oficial PowerBuilder,
@@ -1040,17 +955,6 @@ Debe permitir trazabilidad, validación, versionado y explotación clara de ambo
 
 ---
 
-### B138. Code masking pipeline (strip strings/comments)
-**Objetivo:** consolidar una capa central de "masking" que devuelva una versión del documento con strings y comentarios sustituidos por espacios, preservando posiciones para cualquier consumidor (diagnostics, references, completion).
-
-**Por qué:** hoy la lógica está duplicada en varias features (`stripCommentsAndStrings` en diagnostics, regex ad hoc en references). Centralizarla reduce divergencia y bugs.
-
-**Referencia `plugin_old`:** `powerScriptLexingUtils.ts` (B092 cubre la idea, este item la formaliza como pipeline).
-
-— **Cerrada (spec 028 ya entregó `maskDocument`; spec 055 añade auditoría de invariantes).**
-
----
-
 ### B139. DataWindow safe-mode (mejora futura desde plugin_old)
 **Objetivo:** retomar la lógica de `pbDataWindowParser.ts`, `pbDataWindowDefinition.ts`, `pbDataWindowHover.ts` para hover/definition seguros sobre `.srd`, sin abrir todavía la superficie completa de DataWindow.
 
@@ -1065,13 +969,6 @@ Debe permitir trazabilidad, validación, versionado y explotación clara de ambo
 
 ---
 
-### B141. Library graph / project model unificado
-**Objetivo:** modelo único `pbProjectModel` + `pbLibraryGraph` que represente targets, librerías y dependencias para alimentar discovery, fairness y status bar.
-
-**Referencia `plugin_old`:** `powerbuilder/projecting/*`.
-
----
-
 ### B142. Auto-build service y build target utils
 **Objetivo:** integrar build target detection y auto-build (out-of-process) tras consolidar topología.
 
@@ -1083,24 +980,39 @@ Debe permitir trazabilidad, validación, versionado y explotación clara de ambo
 
 ### Ajustes recomendados al roadmap
 
-#### Fase 6B
+#### Fase 7A — Core incremental y persistencia fuerte
 Añadir explícitamente:
-- barra de estado con progreso de indexación,
-- modelo de readiness del indexador,
-- caché caliente del contexto activo,
-- caché de serving para features interactivas.
+- semantic snapshot canónico por documento,
+- indexación en dos fases,
+- dependencias semánticas inversas,
+- invalidation engine,
+- checkpoints/resume,
+- modo degradado formal.
 
-#### Fase 7A
+#### Fase 8A — Serving y query engine profesional
 Añadir explícitamente:
-- explotación de caché para serving rápido una vez exista topología fuerte,
-- reutilización de snapshots semánticos por proyecto.
+- query engine unificado,
+- semantic evidence de primera clase,
+- query result cache,
+- gobernador de latencia del servidor,
+- status y progreso alimentados por contratos de readiness estables.
 
-#### Fase 8A
+#### Fase 9A — Escala y robustez interna
 Añadir explícitamente:
-- caché persistente por workspace/proyecto,
-- warm indexing real,
-- caché de consultas frecuentes,
-- budgets de memoria específicos por capa de caché.
+- project model/librería unificado (B141 promovida),
+- golden tests semánticos end-to-end,
+- reconciliación parser/symbol/LSP,
+- work journal del motor,
+- interning y compactación de memoria,
+- validación sobre corpus grandes reales,
+- performance regression suite.
+
+#### Fase 10A — Especialización PowerBuilder y automatización
+Añadir explícitamente:
+- DataWindow safe mode,
+- build integration moderna con PBAutoBuild,
+- evolución de API pública,
+- herramientas de automatización externa sobre base madura.
 
 ### Regla estratégica que conviene dejar escrita en el roadmap
 El producto debe perseguir dos objetivos simultáneos y no negociables:
@@ -1111,13 +1023,15 @@ Eso implica que no basta con implementar semántica fuerte; también hay que con
 - abrir VS Code no cueste,
 - abrir un archivo se sienta ágil,
 - el usuario vea progreso,
-- y repetir consultas se sienta rápido gracias a la caché.
+- repetir consultas se sienta rápido gracias a la caché,
+- las features visibles descansen sobre una base semántica fiable,
+- y el motor sea explicable, medible y reanudable.
 
 ---
 
 ## 9. Ítems que se mantienen deliberadamente más abajo
 
-Estos ítems no desaparecen, pero **no suben** hasta consolidar antes una base fuerte de PowerScript, topología y resolución:
+Estos ítems no desaparecen, pero **no suben** hasta consolidar antes una base fuerte de PowerScript, persistencia de caché, validación real y productividad segura:
 
 - DataWindow avanzado (`B042`, `B081`),
 - auditoría avanzada y refactorizaciones complejas,
@@ -1128,47 +1042,33 @@ Estos ítems no desaparecen, pero **no suben** hasta consolidar antes una base f
 
 ## 10. Slices recomendados de ejecución inmediata
 
-### Slice A — Discovery, progreso visible e indexación no bloqueante
-- B120
-- B121
+### Slice A — Cierre real del comportamiento interactivo de P0
 - B122
 - B123
 - B124
 - B125
 - B126
-- B133
 - B134
+- B151
+- B152
+- B153
+- B154
+- B155
+- B158
+- B159
 
-### Slice B — Contexto, parser base y caché interactiva de PowerScript
-- B054
-- B055
-- B113
-- B061
-- B134A
-- B134B
-- B034
-- B035
+### Slice B — Query engine y serving semántico
+- B156
+- B157
+- B160
+- B031
+- B032
+- B036
+- B066
+- B065
+- B107
 
-### Slice C — Topología y resolución fuerte
-- B056
-- B057
-- B087
-- B064
-- B059
-- B058
-- B060
-- B023
-
-### Slice D — Hardening parser/lexer
-- B089
-- B092
-- B095
-- B090
-- B073
-- B099
-- B101
-
-### Slice E — Escala, caché persistente y validación continua
+### Slice C — Escala, persistencia y validación fuerte
 - B030
 - B068
 - B069
@@ -1176,11 +1076,35 @@ Estos ítems no desaparecen, pero **no suben** hasta consolidar antes una base f
 - B071
 - B071A
 - B071B
+- B063
 - B118
 - B119
-- B127
-- B128
-- B129
+- B141
+- B161
+- B162
+- B163
+- B164
+
+### Slice D — Ecosistema PowerBuilder y automatización posterior
+- B117
+- B041
+- B042
+- B081
+- B043
+- B083
+- B044
+- B048
+- B045
+- B109
+- B110
+- B111
+- B132
+- B135
+- B136
+- B137
+- B139
+- B140
+- B142
 
 ---
 
@@ -1202,335 +1126,10 @@ La prioridad inmediata del producto ya no debería ser “más features visibles
 
 1. **descubrir e indexar rápido sin bloquear**,
 2. **hacer visible el progreso real del indexador al usuario**,
-3. **fortalecer el parser y el contexto de PowerScript**,
-4. **modelar correctamente Workspace/Solution**,
-5. **cerrar resolución fuerte con herencia, owners y visibilidad**,
-6. **hacer de la caché una pieza central para serving rápido de hover, completion, signature help y definition**,
-7. **y después endurecer references, rename, escala y build**.
+3. **terminar de endurecer la preempción, yielding, incrementalidad e invalidación del motor**,
+4. **hacer del semantic snapshot y del resume persistente capacidades reales de producto**,
+5. **unificar el query engine y el serving semántico**,
+6. **medir el comportamiento real sobre corpus grandes y blindar regresiones**,
+7. **y después subir DataWindow safe mode, build moderno y automatización externa madura**.
 
-**DataWindow se mantiene, pero no se acelera** hasta que la base de PowerScript y resolución del plugin sea claramente más fuerte.
-
----
-
-## 13. Correcciones recientes (auditoría 2026-04)
-
-Durante una auditoría exhaustiva del análisis estático de PowerScript se han
-detectado y corregido los siguientes bugs críticos. Quedan registrados aquí
-para evitar regresiones.
-
-### B143 — `end if` cerraba el scope de la función (CRÍTICO, corregido)
-
-- **Síntoma:** En `src/server/analysis/documentAnalysis.ts`, el cierre de
-  cualquier scope `function`/`event`/`subroutine`/`on` se detectaba con
-  `END_GENERIC_PATTERN = /^end\s+/i`. Eso hacía que `end if`, `end choose`,
-  `end try`, etc., dieran por terminada la función actual.
-- **Impacto real:**
-  - todas las variables locales declaradas tras el primer `end if` quedaban
-    fuera del scope de la función,
-  - `SD4` (variable local no usada), shadowing y resolución por scope se
-    volvían inestables a partir del primer bloque de control,
-  - símbolos posteriores (otras funciones del mismo archivo) podían quedar
-    asignados a un contenedor incorrecto.
-- **Fix:** se cierran los scopes solo con
-  `END_FUNCTION_PATTERN | END_SUBROUTINE_PATTERN | END_EVENT_PATTERN | END_ON_PATTERN`,
-  y `end type` cierra el `currentTypeScope` de forma explícita.
-- **Tests añadidos:** `test/server/unit/documentAnalysis.test.ts` →
-  `end if no cierra el scope de la función (regresión)`.
-- **Fixture:** `test/fixtures/basic/function_with_endif.sru`.
-
-### B144 — Declaraciones múltiples no detectadas (corregido)
-
-- **Síntoma:** `Integer li_a, li_b, li_c` solo registraba `li_a` como variable
-  local; lo mismo para variables de instancia.
-- **Impacto:** falsos positivos de SD4, completado y go-to-definition
-  incompletos para los nombres restantes.
-- **Fix:** `documentAnalysis.ts` añade `extractAdditionalNames()` y empuja un
-  símbolo por cada identificador adicional con el mismo `datatype`/`access`.
-- **Tests añadidos:** `documentAnalysis.test.ts` →
-  `declaraciones múltiples (long ll_a, ll_b, ll_c)`.
-
-### B145 — IF multi-línea con continuación `&` (corregido)
-
-- **Síntoma:** Construcciones como `if a > 0 and & \n b < 10 then` no abrían
-  el bloque IF, por lo que el `end if` posterior se reportaba como cierre sin
-  apertura.
-- **Fix:** `validateStructure` (en `src/server/features/diagnostics.ts`) ahora
-  acumula líneas que terminan en `&` y aplica los patrones de apertura/cierre
-  sobre la línea lógica reconstruida.
-- **Tests añadidos:** `diagnostics.test.ts` →
-  `validateStructure soporta IF multi-línea con continuación &`.
-
-### B146 — Parser de parámetros más robusto (corregido)
-
-- **Síntoma:** `pushScopeArguments` solo soportaba un modificador y no quitaba
-  los sufijos de array. Esto perdía el nombre real del parámetro en casos
-  como `readonly ref string as_arr[]`.
-- **Fix:** se ignoran todos los modificadores `readonly`/`ref`/`value`
-  iniciales y se limpia el sufijo `[...]` del nombre.
-- **Tests añadidos:** `documentAnalysis.test.ts` →
-  `parámetros: modificadores múltiples y array suffix`.
-
-### B149 — SD2 ya no recompila el regex por línea (corregido)
-
-- **Síntoma:** `validateSemantics` construía un `new RegExp(...)` por cada
-  línea visitada en cada scope (cuadrático en archivos grandes).
-- **Fix:** se eleva `SD2_CALL_REGEX` a constante de módulo y se reusa
-  reseteando `lastIndex` antes de cada línea.
-
-### Pendiente derivado de la auditoría
-
-- B147 — Refinar `currentContainerName` cuando un archivo SR* declara varios
-  `type ... within` consecutivos: actualmente se mantiene el último, lo que
-  funciona en SRW/SRU típicos pero puede atribuir mal eventos en archivos
-  poco habituales.
-- B148 — Considerar tracking de bloques de control internos
-  (`if/for/do/choose/try`) en `documentAnalysis` para mejorar SD4/shadowing en
-  bloques anidados profundos.
-- B150 — Ampliar la cobertura de fixtures basados en patrones reales de
-  Open PFC (custom user objects, NVOs heredados, ventanas con muchos
-  controles) y añadirlos al smoke runner.
-
-## 14. Sprint de hardening del core (specs 063–082)
-
-Cierra el grupo de pendientes B147/B148 y refuerza el core sin abrir
-superficie funcional nueva. Resultado: 275 tests verdes.
-
-### Resueltos
-
-- **Spec 063 — Sub-scope tracker.** Nuevo `parsing/controlBlocks.ts` con
-  `scanControlBlocks()`. Expone rangos `if/for/do/choose-case/try` en
-  `DocumentAnalysis.controlBlocks`. Cierra B148.
-- **Spec 064 — Multi `type ... within` real.** `documentAnalysis` ahora
-  pre-escanea `typeBlocks` y resuelve `containerName` por anidación efectiva.
-  `ensureTypeScope` reutiliza/crea Type-scopes y extiende su `endLine`
-  cuando se detecta un método del mismo objeto a nivel raíz. Cierra B147.
-- **Spec 065 — `getScopeAt` O(log n).** `KnowledgeBase` mantiene un
-  índice plano ordenado por `startLine`; búsqueda binaria + selección por
-  profundidad.
-- **Spec 067 — Default param values.** `pushScopeArguments` ignora todo lo
-  posterior a `=` en cada parámetro.
-- **Spec 069 — `try/catch/finally` tracking.** Cubierto por `controlBlocks`.
-- **Spec 071 — Stable scope IDs.** `stableScopeId(container, name)` siempre
-  en minúsculas (PowerScript es case-insensitive).
-- **Spec 072 — Dedup robusto.** `mapToSemanticFacts` deduplica por
-  `(kind, container, name)` y marca `isPrototype` cuando procede.
-- **Spec 073 — Cancelación cooperativa.** `workspaceIndexer` re-comprueba
-  `token.isCancelled` tras el yield de cada bloque de 10 archivos.
-- **Spec 074 — Document fingerprint.** `DocumentAnalysis.fingerprint`
-  (FNV-1a 32-bit) listo para futuros short-circuits.
-- **Spec 075 — URI normalization.** `projectRegistry` normaliza marker URIs
-  y libraries en build-time.
-- **Spec 078 — SD8 declaración duplicada.** Warning cuando el mismo nombre
-  aparece dos veces como variable local en el mismo scope.
-- **Spec 079 — SD9 `return` huérfano.** Warning fuera de
-  function/subroutine/event/on.
-- **Spec 080 — SD10 `exit`/`continue` huérfano.** Warning fuera de bucle.
-- **Spec 081 — `END_GENERIC_PATTERN` fuera de SD2.** `visitScopes` enumera
-  los cierres reales en lugar del genérico para evitar falsos negativos.
-- **Spec 082 — EOF estable.** `validateStructure` ya reportaba la línea de
-  apertura como ancla; la regresión preventiva queda registrada en specs.
-
-### Confirmados como ya correctos
-
-- **Spec 076** (`next [var]` vs `next_xxx`): el `\b` ya impide la confusión.
-- **Spec 077** (`do ... loop while|until expr`): `LOOP_PATTERN` cierra y
-  `DO_OPEN_PATTERN` no se dispara con `loop`.
-
-### Documentación / consumo
-
-- **Spec 066** (multi-line impl header con `&`): documentado, sin cambio
-  invasivo en el matcher (riesgo alto frente a beneficio bajo en los corpus
-  actuales). Pendiente si aparece evidencia real.
-- **Spec 068** (`static`): no se ha encontrado uso real en los fixtures
-  actuales y el `matchVariableDeclaration` ya tolera modificadores extra.
-- **Spec 070** (consumidor centralizado de stripper): los features ya
-  consumen `analysis.strippedLines` mayoritariamente; queda como guía para
-  futuras features.
-
-
-## 15. Sprint de hardening 2 (specs 083-102)
-
-Segundo sprint de refuerzo del core, enfocado en cache, observabilidad,
-robustez del pipeline y determinismo. Todos sin abrir features de usuario.
-Resultado: 278 tests verdes (275 baseline + 3 nuevos).
-
-### Resueltos
-
-- **Spec 083 - analysisCache LRU bound.** La cache de analyzeDocument
-  estaba unbounded. MAX_CACHED_ANALYSES = 256 con eviction por orden de
-  insercion (Map preserva orden).
-- **Spec 084 - Invalidacion en cascada.** invalidateDocumentAnalysis
-  ahora limpia tambien DocumentCache y KnowledgeBase para evitar
-  facts/scopes obsoletos tras un edit.
-- **Spec 085 - URI normalization en boundary.** getDocumentAnalysis
-  normaliza la URI al guardar/leer la cache, consistente con DocumentCache.
-- **Spec 087 - BOM strip.** Si la primera linea empieza con U+FEFF se
-  elimina antes de tokenizar.
-- **Spec 092/093/094 - Diagnostic dedup + cap.** publishDiagnostics
-  centraliza dedup por (line, char, severity, message) y cap a 500
-  diagnosticos por archivo.
-- **Spec 095 - PROGRESS_INTERVAL configurable.** Variable de entorno
-  PB_PROGRESS_INTERVAL para tuning sin recompilar.
-- **Spec 096 - projectRegistry orden estable.** getAllProjects y
-  getFilesForProject devuelven listas ordenadas alfabeticamente.
-- **Spec 097 - Indexer orden estable.** Los archivos se procesan en
-  orden lexicografico para indexacion reproducible.
-- **Spec 099 - getStats expone indexedScopes.** Anyade indexedScopes a
-  getStats para observabilidad real del coste del scopeIndex.
-- **Spec 100 - Perf log opt-in.** PB_PERF_LOG=1 advierte si
-  analyzeDocument supera 100ms (opt-in, sin ruido en produccion).
-- **Spec 101 - Test fingerprint estable.** Cubre el contrato FNV-1a
-  determinista (analyzeDocument del mismo texto -> mismo fingerprint).
-- **Spec 102 - Test containerAt anidado.** Cubre el resolutor de
-  contenedores cuando un SR* declara varios "type within".
-
-### Confirmados como ya correctos
-
-- **Spec 086** (findDefinition case-insensitive): ya usaba
-  symbolName.toLowerCase() en globalSymbols.
-- **Spec 088** (default param stripper): cubierto por la 067.
-- **Spec 089** (matchVariableDeclaration robusto): el patron exige
-  type+name; lineas tipo "var = expr" no matchean.
-- **Spec 090** (stripCommentsSmart sin sangrado): el stripper procesa
-  linea a linea, no propaga estado entre lineas.
-- **Spec 091** (getScopeAt defensivo): retorna null cuando scopes esta
-  vacio o no esta indexado.
-- **Spec 098** (KnowledgeBase removeDocument): ya limpia globalSymbols,
-  documentSymbols, documentScopes, entitiesByUri y scopeIndex.
-
-## 15. Sprint de hardening 2 (specs 083-102)
-
-Segundo sprint de refuerzo del core, enfocado en cache, observabilidad,
-robustez del pipeline y determinismo. Todos sin abrir features de usuario.
-Resultado: 278 tests verdes (275 baseline + 3 nuevos).
-
-### Resueltos
-
-- **Spec 083 - analysisCache LRU bound.** La cache de analyzeDocument
-  estaba unbounded. MAX_CACHED_ANALYSES = 256 con eviction por orden de
-  insercion (Map preserva orden).
-- **Spec 084 - Invalidacion en cascada.** invalidateDocumentAnalysis ahora
-  limpia tambien DocumentCache y KnowledgeBase para evitar facts/scopes
-  obsoletos tras un edit.
-- **Spec 085 - URI normalization en boundary.** getDocumentAnalysis
-  normaliza la URI al guardar/leer la cache, consistente con DocumentCache.
-- **Spec 087 - BOM strip.** Si la primera linea empieza con U+FEFF se
-  elimina antes de tokenizar.
-- **Spec 092/093/094 - Diagnostic dedup + cap.** publishDiagnostics
-  centraliza dedup por (line, char, severity, message) y cap a 500
-  diagnosticos por archivo.
-- **Spec 095 - PROGRESS_INTERVAL configurable.** PB_PROGRESS_INTERVAL para
-  tuning sin recompilar.
-- **Spec 096 - projectRegistry orden estable.** getAllProjects y
-  getFilesForProject devuelven listas ordenadas alfabeticamente.
-- **Spec 097 - Indexer orden estable.** Los archivos se procesan en orden
-  lexicografico para indexacion reproducible.
-- **Spec 099 - getStats expone indexedScopes.** Anyade indexedScopes para
-  observabilidad real del coste del scopeIndex.
-- **Spec 100 - Perf log opt-in.** PB_PERF_LOG=1 advierte si analyzeDocument
-  supera 100ms (opt-in, sin ruido en produccion).
-- **Spec 101 - Test fingerprint estable.** Cubre el contrato FNV-1a
-  determinista (analyzeDocument del mismo texto -> mismo fingerprint).
-- **Spec 102 - Test containerAt anidado.** Cubre el resolutor de
-  contenedores cuando un SR* declara varios 'type within'.
-
-### Confirmados como ya correctos
-
-- **Spec 086** (findDefinition case-insensitive): ya usaba
-  symbolName.toLowerCase() en globalSymbols.
-- **Spec 088** (default param stripper): cubierto por la 067.
-- **Spec 089** (matchVariableDeclaration robusto): el patron exige
-  type+name; lineas tipo 'var = expr' no matchean.
-- **Spec 090** (stripCommentsSmart sin sangrado): el stripper procesa linea
-  a linea, no propaga estado entre lineas.
-- **Spec 091** (getScopeAt defensivo): retorna null cuando scopes esta
-  vacio o no esta indexado.
-- **Spec 098** (KnowledgeBase removeDocument): ya limpia globalSymbols,
-  documentSymbols, documentScopes, entitiesByUri y scopeIndex.
-
----
-
-## 16. Sprint de hardening 3 (specs 103-132)
-
-Sprint 3 ejecutado autonomamente. Conecta features ya implementadas al LSP,
-amplia el motor de analisis con statements logicos, anade tres diagnosticos
-nuevos (SD11/SD12/SD13), endurece todas las caches con metricas y un TTL
-opcional, da control fino al indexer (estado por archivo, presupuesto temporal,
-tope de bytes) y completa la API publica con tres interfaces nuevas.
-
-Resultado: 287 tests pasando (278 baseline + 9 nuevos) sin regresiones.
-
-### Wave A - Wiring de features existentes
-
-- **Spec 103 - Code actions wiring.** `provideCodeActions` conectado via
-  `codeActionProvider` + `onCodeAction`.
-- **Spec 104 - CodeLens wiring.** `provideReferenceCodeLenses` conectado.
-- **Spec 105 - Rename wiring.** `onPrepareRename` + `onRenameRequest`
-  con `validateRenameTarget` como preflight (solo locales del scope).
-- **Spec 106 - Execute command.** Capability registrada con comando
-  `powerbuilder.showStats`.
-- **Spec 107 - Server stats snapshot.** Snapshot agregado de KB,
-  scheduler y workspace.
-
-### Wave B - Analisis core
-
-- **Spec 108 - Logical statements.** `DocumentAnalysis.logicalStatements`
-  expone los statements unidos por `&` y separados por `;`.
-- **Spec 109 - findCallable.** `KnowledgeBase.findCallable(name, container?)`.
-- **Spec 110 - Signature label.** `enrichEntity` deriva `signatureLabel` y
-  `kindLabel` para hover/signature help.
-- **Spec 111 - Fingerprint shortcut.** Si la version cambia pero el contenido
-  es identico, reutilizamos el analisis sin reparseo.
-- **Spec 112 - Analysis cache stats.** `getAnalysisCacheStats()` con
-  hits por version, hits por fingerprint, misses y evictions.
-
-### Wave C - Diagnostics nuevos
-
-- **Spec 113 - SD11 unreachable.** Linea ejecutiva tras `return` en el
-  mismo bloque (Hint).
-- **Spec 114 - SD12 unbalanced parens.** Conteo simple por linea (Information).
-- **Spec 115 - SD13 missing return.** Funcion con returnType declarado
-  sin `return` (Warning).
-- **Spec 116 - Severity overrides.** `PB_SEVERITY_OVERRIDES` permite
-  ajustar la severidad por codigo (`SD11=hint,SD2=info`).
-- **Spec 117 - Diagnostics summary.** `getDiagnosticsSummary(uri?)`
-  expone contadores por codigo y por severidad.
-
-### Wave D - Cache y serving
-
-- **Spec 118 - ServingCache TTL.** Eviction transparente al expirar.
-- **Spec 119 - HotContextCache cap.** LRU explicito de 128 tipos con
-  `getStats()`.
-- **Spec 120 - DocumentCache uris.** `getCachedUris()` y `getStats()`.
-- **Spec 121 - ServingCache stats.** Hits/misses/evictions/ttl.
-- **Spec 122 - KB resync batch.** `resyncDocuments(updates[])` envuelve
-  `beginBatchUpdate` y `endBatchUpdate` para lotes atomicos.
-
-### Wave E - Indexer y scheduler
-
-- **Spec 123 - File state machine.** `FileIndexState` y `getFileIndexState(uri)`.
-- **Spec 124 - Active priority.** `indexWorkspace(..., activeUri?)` mueve el
-  archivo activo al frente conservando el orden estable.
-- **Spec 125 - Time slice budget.** `PB_TIME_SLICE_MS` (default 50ms) cede
-  al event loop cuando se supera.
-- **Spec 126 - Max file bytes.** `PB_MAX_FILE_BYTES` (default 4 MiB) salta
-  archivos enormes marcandolos como `Skipped`.
-- **Spec 127 - Indexer status.** `getIndexerStatus()` agrega contadores
-  por estado.
-
-### Wave F - Tools y regresion
-
-- **Spec 128 - Public API stats.** `ApiServerStats` interface.
-- **Spec 129 - Public API project.** `ApiProjectInfo` interface.
-- **Spec 130 - Public API diag tree.** `ApiDiagnosticsTreeNode` interface.
-- **Spec 131 - Perf regression.** Test `perfRegression.test.ts` (1000
-  lineas < `PB_PERF_BUDGET_MS` ms, default 500).
-- **Spec 132 - Corpus regression.** Test `corpusRegression.test.ts`
-  con fragmentos canonicos (window+on, userobject+function, vacio,
-  solo comentarios).
-
-### Resultado global
-
-- 287 tests pasando (baseline 278 + 9 nuevos en esta sprint).
-- 0 regresiones.
-- LSP gana 4 capabilities nuevas (codeAction, codeLens, rename, executeCommand).
+**DataWindow se mantiene, pero no se acelera** hasta que la base de PowerScript, la persistencia de caché, el query engine y la validación del plugin sean claramente más fuertes.
