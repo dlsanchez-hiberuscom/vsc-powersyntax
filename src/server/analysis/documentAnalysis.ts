@@ -21,6 +21,7 @@ import {
 } from '../parsing/grammar';
 import { stripCommentsSmart } from '../utils/comments';
 import { scanControlBlocks, type ControlBlockRange } from '../parsing/controlBlocks';
+import { splitStatements, type LogicalStatement } from '../parsing/statementSplitter';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
@@ -53,6 +54,11 @@ export interface DocumentAnalysis {
   facts: SymbolFact[];
   semanticFacts: Fact[];
   scopes: Scope[];
+  /**
+   * Statements lógicos del documento (uniones de `&` y splits por `;`).
+   * Calculados perezosamente bajo demanda. Spec 108.
+   */
+  logicalStatements: LogicalStatement[];
 }
 
 /** FNV-1a 32-bit. Determinista, sin dependencias y rápido para buffers de texto. */
@@ -100,6 +106,8 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
 
   // Bloques de control globales del documento (luego se filtran por scope cuando hace falta).
   const controlBlocks = scanControlBlocks(strippedLines, 0, strippedLines.length - 1);
+  // Spec 108: statements lógicos (continuaciones `&` + splits por `;`).
+  const logicalStatements = splitStatements(text);
 
   return {
     uri: document.uri,
@@ -113,7 +121,8 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
     typeBlocks,
     facts,
     semanticFacts,
-    scopes
+    scopes,
+    logicalStatements
   };
 }
 

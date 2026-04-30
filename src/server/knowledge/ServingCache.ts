@@ -53,16 +53,38 @@ function uriFromKey(key: string): string | null {
 
 export class ServingCache<T = unknown> {
   private readonly entries: Map<string, T> = new Map();
+  // Spec 118/121: TTL opcional y contadores de hit/miss/eviction.
+  private readonly ttlMs: number;
+  private readonly insertedAt: Map<string, number> = new Map();
+  private hits = 0;
+  private misses = 0;
+  private evictions = 0;
 
-  constructor(private readonly maxEntries: number = 256) {}
+  constructor(private readonly maxEntries: number = 256, ttlMs = 0) {
+    this.ttlMs = ttlMs;
+  }
 
   /** Recupera un valor y lo "calienta" (lo mueve al final de la LRU). */
   get(key: string): T | undefined {
     const value = this.entries.get(key);
-    if (value !== undefined) {
-      this.entries.delete(key);
-      this.entries.set(key, value);
+    if (value === undefined) {
+      this.misses++;
+      return undefined;
     }
+    // Spec 118: TTL opcional. Si vencido, eliminar y devolver undefined.
+    if (this.ttlMs > 0) {
+      const at = this.insertedAt.get(key) ?? 0;
+      if (Date.now() - at > this.ttlMs) {
+        this.entries.delete(key);
+        this.insertedAt.delete(key);
+        this.evictions++;
+        this.misses++;
+        return undefined;
+      }
+    }
+    this.entries.delete(key);
+    this.entries.set(key, value);
+    this.hits++;
     return value;
   }
 
@@ -74,9 +96,12 @@ export class ServingCache<T = unknown> {
       const oldest = this.entries.keys().next().value;
       if (oldest !== undefined) {
         this.entries.delete(oldest);
+        this.insertedAt.delete(oldest);
+        this.evictions++;
       }
     }
     this.entries.set(key, value);
+    if (this.ttlMs > 0) this.insertedAt.set(key, Date.now());
   }
 
   /**
@@ -100,5 +125,17 @@ export class ServingCache<T = unknown> {
   /** Tamaño actual (para inspección y tests). */
   size(): number {
     return this.entries.size;
+  }
+
+  /** Spec 121: métricas para telemetría. */
+  getStats(): { size: number; capacity: number; hits: number; misses: number; evictions: number; ttlMs: number } {
+    return {
+      size: this.entries.size,
+      capacity: this.maxEntries,
+      hits: this.hits,
+      misses: this.misses,
+      evictions: this.evictions,
+      ttlMs: this.ttlMs
+    };
   }
 }

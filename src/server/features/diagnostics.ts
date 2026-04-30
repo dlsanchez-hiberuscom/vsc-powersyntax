@@ -9,6 +9,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DIAGNOSTIC_SOURCE } from '../../shared/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
+import { runExtraDiagnostics } from './diagnosticsExtra';
 import { BlockKind } from '../model/types';
 import { findEnclosingSection } from '../parsing/sections';
 import {
@@ -64,12 +65,18 @@ export function publishDiagnostics(
   const semantic = (kb && systemCatalog && inheritanceGraph)
     ? validateSemantics(document, kb, systemCatalog, inheritanceGraph)
     : [];
+  // Spec 113-115: diagnósticos lexicales adicionales (SD11/SD12/SD13).
+  const extra = runExtraDiagnostics(document);
   // Spec 094: dedup por (line, char, message). Bajo combinaciones de SD2 +
   // SD6 + SD8 podía emitirse el mismo warning varias veces para el mismo
   // símbolo cuando había rutas que coincidían.
   // Spec 092/093: cap total para no saturar el cliente con diagnósticos
   // ruidosos en archivos generados o muy largos.
-  const merged = dedupAndCap([...structural, ...semantic], MAX_DIAGNOSTICS_PER_FILE);
+  // Spec 116: aplicar overrides de severidad antes de dedup/cap.
+  const all = applySeverityOverrides([...structural, ...semantic, ...extra]);
+  const merged = dedupAndCap(all, MAX_DIAGNOSTICS_PER_FILE);
+  // Spec 117: actualizar contadores agregados.
+  recordDiagnosticsSummary(document.uri, merged);
   connection.sendDiagnostics({
     uri: document.uri,
     diagnostics: merged
@@ -77,6 +84,77 @@ export function publishDiagnostics(
 }
 
 const MAX_DIAGNOSTICS_PER_FILE = 500;
+
+/**
+ * Spec 116: overrides de severidad por código (campo `source` del diagnostic,
+ * que se construye como `PowerScript:SDxx`). El cliente puede definir el
+ * env-var `PB_SEVERITY_OVERRIDES="SD11=hint,SD2=info"` para ajustar la
+ * gravedad sin recompilar el servidor.
+ */
+const severityMap = new Map<string, DiagnosticSeverity>();
+(() => {
+  const raw = process.env.PB_SEVERITY_OVERRIDES;
+  if (!raw) return;
+  for (const part of raw.split(',')) {
+    const [code, level] = part.split('=').map(s => s.trim());
+    if (!code || !level) continue;
+    const sev = parseSeverity(level);
+    if (sev != null) severityMap.set(code.toLowerCase(), sev);
+  }
+})();
+
+function parseSeverity(level: string): DiagnosticSeverity | null {
+  switch (level.toLowerCase()) {
+    case 'error': return DiagnosticSeverity.Error;
+    case 'warning':
+    case 'warn': return DiagnosticSeverity.Warning;
+    case 'info':
+    case 'information': return DiagnosticSeverity.Information;
+    case 'hint': return DiagnosticSeverity.Hint;
+    default: return null;
+  }
+}
+
+function applySeverityOverrides(diags: Diagnostic[]): Diagnostic[] {
+  if (severityMap.size === 0) return diags;
+  return diags.map(d => {
+    const src = (d.source ?? '').toLowerCase();
+    // Buscamos por sufijo "sdNN" tras los dos puntos.
+    const idx = src.lastIndexOf(':');
+    const code = idx >= 0 ? src.slice(idx + 1) : src;
+    const override = severityMap.get(code);
+    return override != null ? { ...d, severity: override } : d;
+  });
+}
+
+/**
+ * Spec 117: contadores agregados de diagnósticos por URI. Sirven para
+ * exponer un resumen vía custom command sin necesidad de re-publicar.
+ */
+const diagnosticsSummary = new Map<string, {
+  total: number;
+  byCode: Record<string, number>;
+  bySeverity: Record<string, number>;
+}>();
+
+function recordDiagnosticsSummary(uri: string, merged: Diagnostic[]): void {
+  const byCode: Record<string, number> = {};
+  const bySeverity: Record<string, number> = {};
+  for (const d of merged) {
+    const src = d.source ?? 'PowerScript';
+    byCode[src] = (byCode[src] ?? 0) + 1;
+    const sev = String(d.severity ?? '');
+    bySeverity[sev] = (bySeverity[sev] ?? 0) + 1;
+  }
+  diagnosticsSummary.set(uri, { total: merged.length, byCode, bySeverity });
+}
+
+export function getDiagnosticsSummary(uri?: string): unknown {
+  if (uri) return diagnosticsSummary.get(uri) ?? null;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of diagnosticsSummary) out[k] = v;
+  return out;
+}
 
 function dedupAndCap(diags: Diagnostic[], cap: number): Diagnostic[] {
   if (diags.length === 0) return diags;

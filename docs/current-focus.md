@@ -242,3 +242,48 @@ Mientras este documento siga vigente, la regla operativa es:
 > **no abrir más superficie funcional de la que la base actual puede sostener sin comprometer carga, estabilidad, claridad arquitectónica o documentación viva.**
 
 La prioridad inmediata es completar la Fase 6B / P0 con la infraestructura de escala necesaria para que el crecimiento futuro sea seguro y sostenible.
+---
+
+## 7. Sprint de hardening 3 (specs 103-132) — completado
+
+Sprint autonomo ejecutado tras sprints 1 (063-082) y 2 (083-102):
+
+- Wave A (103-107): code actions, codeLens, rename con preflight,
+  executeCommand y stats snapshot conectados al LSP.
+- Wave B (108-112): logical statements, findCallable, signatureLabel,
+  fingerprint shortcut, analysis cache stats.
+- Wave C (113-117): SD11 unreachable, SD12 unbalanced parens,
+  SD13 missing return, severity overrides via env, diagnostics summary.
+- Wave D (118-122): ServingCache TTL+stats, HotContextCache cap,
+  DocumentCache uris, KB resync batch.
+- Wave E (123-127): file state machine, active priority,
+  time slice budget, max file bytes, indexer status.
+- Wave F (128-132): ApiServerStats, ApiProjectInfo, ApiDiagnosticsTreeNode,
+  perf regression test (1000 lineas) y corpus regression test.
+
+Tests: 287 (baseline 278 + 9 nuevos). Cero regresiones.
+
+Detalle completo en `docs/backlog.md` seccion 16.
+
+---
+
+## 7. Sprint de hardening 3 (specs 103-132) — completado
+
+Sprint autonomo ejecutado tras sprints 1 (063-082) y 2 (083-102):
+
+- Wave A (103-107): code actions, codeLens, rename con preflight,
+  executeCommand y stats snapshot conectados al LSP.
+- Wave B (108-112): logical statements, findCallable, signatureLabel,
+  fingerprint shortcut, analysis cache stats.
+- Wave C (113-117): SD11 unreachable, SD12 unbalanced parens,
+  SD13 missing return, severity overrides via env, diagnostics summary.
+- Wave D (118-122): ServingCache TTL+stats, HotContextCache cap,
+  DocumentCache uris, KB resync batch.
+- Wave E (123-127): file state machine, active priority,
+  time slice budget, max file bytes, indexer status.
+- Wave F (128-132): ApiServerStats, ApiProjectInfo, ApiDiagnosticsTreeNode,
+  perf regression test (1000 lineas) y corpus regression test.
+
+Tests: 287 (baseline 278 + 9 nuevos). Cero regresiones.
+
+Detalle completo en `docs/backlog.md` seccion 16.

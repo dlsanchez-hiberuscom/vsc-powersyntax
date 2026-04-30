@@ -34,6 +34,8 @@ export class HotContextCache {
 
   /** Miembros heredados pre-resueltos por nombre de tipo. */
   private inheritedMembers: Map<string, Entity[]> = new Map();
+  /** Spec 119: cap LRU para evitar crecimiento ilimitado en sesiones largas. */
+  private readonly maxInheritedTypes = 128;
 
   // ---- Identidad activa ----------------------------------------------------
 
@@ -76,7 +78,24 @@ export class HotContextCache {
   }
 
   setInheritedMembers(typeName: string, members: Entity[]): void {
-    this.inheritedMembers.set(typeName.toLowerCase(), members);
+    const key = typeName.toLowerCase();
+    if (this.inheritedMembers.has(key)) {
+      this.inheritedMembers.delete(key);
+    } else if (this.inheritedMembers.size >= this.maxInheritedTypes) {
+      const oldest = this.inheritedMembers.keys().next().value;
+      if (oldest !== undefined) this.inheritedMembers.delete(oldest);
+    }
+    this.inheritedMembers.set(key, members);
+  }
+
+  /** Spec 119: estadísticas para introspección. */
+  getStats(): { activeUri: string | null; kbVersion: number; inheritedTypes: number; capacity: number } {
+    return {
+      activeUri: this.activeUri,
+      kbVersion: this.kbVersion,
+      inheritedTypes: this.inheritedMembers.size,
+      capacity: this.maxInheritedTypes
+    };
   }
 
   // ---- Invalidación --------------------------------------------------------

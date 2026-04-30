@@ -27,11 +27,35 @@ function deriveImplementationKind(e: Entity): Entity['implementationKind'] {
   }
 }
 
+function deriveKindLabel(e: Entity): string {
+  switch (e.kind) {
+    case EntityKind.Function: return 'function';
+    case EntityKind.Subroutine: return 'subroutine';
+    case EntityKind.Event: return 'event';
+    case EntityKind.Variable: return 'variable';
+    case EntityKind.Type: return 'type';
+    default: return String(e.kind ?? 'symbol').toLowerCase();
+  }
+}
+
+/** Spec 110: construye una etiqueta de firma legible y estable. */
+function deriveSignatureLabel(e: Entity): string | undefined {
+  if (e.signatureLabel) return e.signatureLabel;
+  if (e.kind !== EntityKind.Function && e.kind !== EntityKind.Subroutine && e.kind !== EntityKind.Event) {
+    return undefined;
+  }
+  const params = (e.parameters ?? []).map(p => p.label).join(', ');
+  const ret = e.returnType ? ` returns ${e.returnType}` : '';
+  return `${e.name}(${params})${ret}`;
+}
+
 export function enrichEntity(e: Entity): Entity {
   return {
     ...e,
     parameterCount: e.parameterCount ?? e.parameters?.length,
     ownerName: e.ownerName ?? e.containerName,
-    implementationKind: deriveImplementationKind(e)
+    implementationKind: deriveImplementationKind(e),
+    kindLabel: e.kindLabel ?? deriveKindLabel(e),
+    signatureLabel: deriveSignatureLabel(e)
   };
 }

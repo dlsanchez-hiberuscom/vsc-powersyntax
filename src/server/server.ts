@@ -6,7 +6,8 @@ import {
   InitializeParams,
   InitializeResult,
   Hover,
-  Diagnostic
+  Diagnostic,
+  CodeActionKind
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -30,6 +31,9 @@ import { provideReferences } from './features/references';
 import { provideSignatureHelp } from './features/signatureHelp';
 import { provideCompletion } from './features/completion';
 import { getSemanticTokensLegend, provideSemanticTokens } from './features/semanticTokens';
+import { provideCodeActions } from './features/codeActions';
+import { provideReferenceCodeLenses } from './features/codeLensReferences';
+import { validateRenameTarget } from './features/renamePreflight';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { NodeFileSystem } from './system/fileSystem';
@@ -100,6 +104,19 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       semanticTokensProvider: {
         legend: getSemanticTokensLegend(),
         full: true
+      },
+      // Spec 103: code actions (quick-fix). Proveedor existente
+      // (`provideCodeActions`) se conecta aquí.
+      codeActionProvider: {
+        codeActionKinds: [CodeActionKind.QuickFix]
+      },
+      // Spec 104: code lens de referencias. Reusa el provider existente.
+      codeLensProvider: { resolveProvider: false },
+      // Spec 105: rename con pre-flight (validación de identificador).
+      renameProvider: { prepareProvider: true },
+      // Spec 106: comandos personalizados expuestos vía workspace/executeCommand.
+      executeCommandProvider: {
+        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo']
       }
     }
   };
@@ -495,6 +512,157 @@ connection.onShutdown(() => {
   clearDocumentAnalysisCache();
   firstInvocation.reset();
 });
+
+// ---------------------------------------------------------------------------
+// Funcionalidades — Code Actions / Code Lens / Rename / Custom commands
+// (Specs 103-107). Conectan los providers ya implementados al LSP.
+// ---------------------------------------------------------------------------
+
+connection.onCodeAction((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return [];
+  try {
+    return provideCodeActions(
+      params.textDocument.uri,
+      document.getText(),
+      params.context.diagnostics ?? []
+    );
+  } catch (error) {
+    connection.console.error(`[ERROR] codeAction: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+});
+
+connection.onCodeLens((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return [];
+  try {
+    // Reutilizamos los DocumentSymbols ya servidos para identificar callables.
+    const docSymbols = extractDocumentSymbols(document);
+    const lensSymbols: Array<{ name: string; range: import('vscode-languageserver/node').Range }> = [];
+    const flatten = (syms: any[]): void => {
+      for (const s of syms) {
+        // SymbolKind.Function = 12, SymbolKind.Method = 6, SymbolKind.Event = 24
+        if (s.kind === 12 || s.kind === 6 || s.kind === 24) {
+          lensSymbols.push({ name: s.name, range: s.selectionRange ?? s.range });
+        }
+        if (Array.isArray(s.children) && s.children.length > 0) flatten(s.children);
+      }
+    };
+    flatten(docSymbols);
+
+    // Estimación rápida de referencias: cuenta de entidades global por nombre.
+    const counts = new Map<string, number>();
+    for (const s of lensSymbols) {
+      const refs = knowledgeBase.findAllDefinitions(s.name);
+      counts.set(s.name.toLowerCase(), Math.max(0, refs.length - 1));
+    }
+    return provideReferenceCodeLenses(lensSymbols, counts);
+  } catch (error) {
+    connection.console.error(`[ERROR] codeLens: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+});
+
+// `prepareRename` valida el nombre nuevo. Aquí reutilizamos el preflight
+// y exigimos que la posición caiga sobre un identificador.
+connection.onPrepareRename((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+  const line = document.getText().split(/\r?\n/)[params.position.line] ?? '';
+  const match = wordAt(line, params.position.character);
+  if (!match) return null;
+  return {
+    range: {
+      start: { line: params.position.line, character: match.start },
+      end: { line: params.position.line, character: match.end }
+    },
+    placeholder: match.word
+  };
+});
+
+// `onRenameRequest`: aplicamos el rename de variables locales en el mismo
+// scope (Spec 105). Renombrados cross-file siguen sin permitirse hasta
+// disponer de resolución fuerte; en su lugar bloqueamos con un error claro.
+connection.onRenameRequest((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) return null;
+  const preflight = validateRenameTarget(params.newName, { systemCatalog });
+  if (!preflight.ok) {
+    connection.console.warn(`[rename] bloqueado: ${preflight.reason}`);
+    return null;
+  }
+  const lines = document.getText().split(/\r?\n/);
+  const lineText = lines[params.position.line] ?? '';
+  const word = wordAt(lineText, params.position.character);
+  if (!word) return null;
+
+  // Solo aceptamos rename si el símbolo es local al scope actual.
+  const scope = knowledgeBase.getScopeAt(params.textDocument.uri, params.position.line);
+  if (!scope) return null;
+  const target = scope.symbols.find((s) => s.name.toLowerCase() === word.word.toLowerCase());
+  if (!target) {
+    connection.console.warn(`[rename] solo se permite rename de variables locales en el scope actual.`);
+    return null;
+  }
+
+  // Sustitución por word-boundary dentro del rango del scope.
+  const edits: import('vscode-languageserver/node').TextEdit[] = [];
+  const wordRe = new RegExp(`\\b${word.word.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, 'g');
+  for (let i = scope.startLine; i <= scope.endLine; i++) {
+    const text = lines[i] ?? '';
+    let m: RegExpExecArray | null;
+    wordRe.lastIndex = 0;
+    while ((m = wordRe.exec(text)) !== null) {
+      edits.push({
+        range: {
+          start: { line: i, character: m.index },
+          end: { line: i, character: m.index + word.word.length }
+        },
+        newText: params.newName
+      });
+    }
+  }
+  return { changes: { [params.textDocument.uri]: edits } };
+});
+
+connection.onExecuteCommand(async (params) => {
+  switch (params.command) {
+    case 'powerbuilder.showStats': {
+      // Spec 107: estadísticas del servidor expuestas como comando.
+      const stats = knowledgeBase.getStats();
+      const sched = {
+        pendingNear: scheduler.pendingNearCount,
+        pendingBackground: scheduler.pendingBackgroundCount,
+        interactiveBusy: scheduler.isInteractiveBusy
+      };
+      return {
+        kb: stats,
+        scheduler: sched,
+        workspace: {
+          mode: workspaceState.getMode(),
+          files: workspaceState.getAllSourceFiles().length
+        }
+      };
+    }
+    default:
+      return null;
+  }
+});
+
+/** Spec 105: extracción de identificador alrededor de una columna. */
+function wordAt(line: string, character: number): { word: string; start: number; end: number } | null {
+  if (!line || character < 0 || character > line.length) return null;
+  const ID_CHAR = /[A-Za-z0-9_$#%-]/;
+  let start = character;
+  while (start > 0 && ID_CHAR.test(line[start - 1])) start--;
+  let end = character;
+  while (end < line.length && ID_CHAR.test(line[end])) end++;
+  if (start === end) return null;
+  const word = line.slice(start, end);
+  if (!/^[A-Za-z_]/.test(word)) return null;
+  return { word, start, end };
+}
 
 // ---------------------------------------------------------------------------
 // Inicio

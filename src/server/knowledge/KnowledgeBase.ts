@@ -1,5 +1,5 @@
 import { normalizeUri } from '../system/uriUtils';
-import { Entity, Fact, Scope } from './types';
+import { Entity, EntityKind, Fact, Scope } from './types';
 
 /**
  * Índice semántico global del workspace.
@@ -84,6 +84,26 @@ export class KnowledgeBase {
    */
   get isBatchUpdating(): boolean {
     return this.batchDepth > 0;
+  }
+
+  /**
+   * Spec 122: aplica un lote de actualizaciones documentales en una sola
+   * transacción. Útil cuando el indexer prepara N documentos y quiere evitar
+   * incrementar la versión N veces. Retorna el número de versiones avanzadas
+   * (1 si todo va bien).
+   */
+  resyncDocuments(updates: ReadonlyArray<{ uri: string; facts: Fact[]; scopes?: Scope[] }>): number {
+    if (updates.length === 0) return 0;
+    const before = this.currentVersion;
+    this.beginBatchUpdate();
+    try {
+      for (const u of updates) {
+        this.upsertDocument(u.uri, u.facts, u.scopes ?? []);
+      }
+    } finally {
+      this.endBatchUpdate();
+    }
+    return this.currentVersion - before;
   }
 
   /**
@@ -172,6 +192,27 @@ export class KnowledgeBase {
    */
   findAllDefinitions(symbolName: string): Entity[] {
     return this.globalSymbols.get(symbolName.toLowerCase()) || [];
+  }
+
+  /**
+   * Spec 109: busca la primera entidad invocable (function/subroutine/event)
+   * por nombre, opcionalmente restringida a un contenedor (`window`, `userobject`).
+   * Devuelve la primera que cumpla; los conflictos cross-container quedan
+   * fuera del alcance hasta tener inheritance/visibility resolvidos.
+   */
+  findCallable(name: string, container?: string): Entity | null {
+    const entities = this.globalSymbols.get(name.toLowerCase());
+    if (!entities) return null;
+    const containerLc = container?.toLowerCase();
+    for (const e of entities) {
+      const isCallable = e.kind === EntityKind.Function
+        || e.kind === EntityKind.Subroutine
+        || e.kind === EntityKind.Event;
+      if (!isCallable) continue;
+      if (!containerLc) return e;
+      if ((e.containerName ?? '').toLowerCase() === containerLc) return e;
+    }
+    return null;
   }
 
   /**

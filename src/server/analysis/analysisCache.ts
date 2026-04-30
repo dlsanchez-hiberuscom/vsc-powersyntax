@@ -12,6 +12,16 @@ interface CachedAnalysis {
 }
 
 /**
+ * Spec 112: contadores de caché expuestos para debug/telemetría.
+ */
+const cacheCounters = {
+  hitsVersion: 0,
+  hitsFingerprint: 0,
+  misses: 0,
+  evictions: 0
+};
+
+/**
  * Spec 083: la caché de análisis interactivo era ilimitada. En sesiones largas
  * con muchos archivos abiertos podía crecer indefinidamente. Aplicamos un
  * límite blando con eviction LRU. La operación es lineal en `size` cuando se
@@ -55,8 +65,33 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
     // Re-insertamos para LRU (Map preserva orden de inserción).
     analysisByUri.delete(key);
     analysisByUri.set(key, cached);
+    cacheCounters.hitsVersion++;
     return cached.analysis;
   }
+
+  // Spec 111: short-circuit por fingerprint. Si la version cambió pero el
+  // contenido es idéntico (toques cosméticos del cliente), reutilizamos el
+  // análisis previo evitando reparseo y reindex de KB.
+  if (cached) {
+    const t0fp = PERF_LOG_ENABLED ? Date.now() : 0;
+    const fp = fingerprintOnly(document.getText());
+    if (fp === cached.analysis.fingerprint) {
+      const refreshed: CachedAnalysis = {
+        version: document.version,
+        analysis: { ...cached.analysis, version: document.version }
+      };
+      analysisByUri.delete(key);
+      analysisByUri.set(key, refreshed);
+      cacheCounters.hitsFingerprint++;
+      if (PERF_LOG_ENABLED) {
+        const elapsed = Date.now() - t0fp;
+        // eslint-disable-next-line no-console
+        console.warn(`[pb-perf] fingerprint hit ${document.uri} (${elapsed}ms)`);
+      }
+      return refreshed.analysis;
+    }
+  }
+  cacheCounters.misses++;
 
   const t0 = PERF_LOG_ENABLED ? Date.now() : 0;
   const analysis = analyzeDocument(document);
@@ -76,7 +111,7 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
   // Evict LRU si se supera el tope.
   if (analysisByUri.size > MAX_CACHED_ANALYSES) {
     const firstKey = analysisByUri.keys().next().value;
-    if (firstKey !== undefined) analysisByUri.delete(firstKey);
+    if (firstKey !== undefined) { analysisByUri.delete(firstKey); cacheCounters.evictions++; }
   }
 
   // Sincronizar con DocumentCache y KnowledgeBase para evitar doble parseo
@@ -110,4 +145,32 @@ export function invalidateDocumentAnalysis(uri: string): void {
 
 export function clearDocumentAnalysisCache(): void {
   analysisByUri.clear();
+}
+
+/**
+ * Spec 112: estadísticas de la caché de análisis.
+ */
+export function getAnalysisCacheStats(): {
+  size: number;
+  capacity: number;
+  hitsVersion: number;
+  hitsFingerprint: number;
+  misses: number;
+  evictions: number;
+} {
+  return {
+    size: analysisByUri.size,
+    capacity: MAX_CACHED_ANALYSES,
+    ...cacheCounters
+  };
+}
+
+/** FNV-1a 32-bit duplicado localmente para Spec 111. */
+function fingerprintOnly(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
 }

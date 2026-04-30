@@ -1447,3 +1447,90 @@ Resultado: 278 tests verdes (275 baseline + 3 nuevos).
   vacio o no esta indexado.
 - **Spec 098** (KnowledgeBase removeDocument): ya limpia globalSymbols,
   documentSymbols, documentScopes, entitiesByUri y scopeIndex.
+
+---
+
+## 16. Sprint de hardening 3 (specs 103-132)
+
+Sprint 3 ejecutado autonomamente. Conecta features ya implementadas al LSP,
+amplia el motor de analisis con statements logicos, anade tres diagnosticos
+nuevos (SD11/SD12/SD13), endurece todas las caches con metricas y un TTL
+opcional, da control fino al indexer (estado por archivo, presupuesto temporal,
+tope de bytes) y completa la API publica con tres interfaces nuevas.
+
+Resultado: 287 tests pasando (278 baseline + 9 nuevos) sin regresiones.
+
+### Wave A - Wiring de features existentes
+
+- **Spec 103 - Code actions wiring.** `provideCodeActions` conectado via
+  `codeActionProvider` + `onCodeAction`.
+- **Spec 104 - CodeLens wiring.** `provideReferenceCodeLenses` conectado.
+- **Spec 105 - Rename wiring.** `onPrepareRename` + `onRenameRequest`
+  con `validateRenameTarget` como preflight (solo locales del scope).
+- **Spec 106 - Execute command.** Capability registrada con comando
+  `powerbuilder.showStats`.
+- **Spec 107 - Server stats snapshot.** Snapshot agregado de KB,
+  scheduler y workspace.
+
+### Wave B - Analisis core
+
+- **Spec 108 - Logical statements.** `DocumentAnalysis.logicalStatements`
+  expone los statements unidos por `&` y separados por `;`.
+- **Spec 109 - findCallable.** `KnowledgeBase.findCallable(name, container?)`.
+- **Spec 110 - Signature label.** `enrichEntity` deriva `signatureLabel` y
+  `kindLabel` para hover/signature help.
+- **Spec 111 - Fingerprint shortcut.** Si la version cambia pero el contenido
+  es identico, reutilizamos el analisis sin reparseo.
+- **Spec 112 - Analysis cache stats.** `getAnalysisCacheStats()` con
+  hits por version, hits por fingerprint, misses y evictions.
+
+### Wave C - Diagnostics nuevos
+
+- **Spec 113 - SD11 unreachable.** Linea ejecutiva tras `return` en el
+  mismo bloque (Hint).
+- **Spec 114 - SD12 unbalanced parens.** Conteo simple por linea (Information).
+- **Spec 115 - SD13 missing return.** Funcion con returnType declarado
+  sin `return` (Warning).
+- **Spec 116 - Severity overrides.** `PB_SEVERITY_OVERRIDES` permite
+  ajustar la severidad por codigo (`SD11=hint,SD2=info`).
+- **Spec 117 - Diagnostics summary.** `getDiagnosticsSummary(uri?)`
+  expone contadores por codigo y por severidad.
+
+### Wave D - Cache y serving
+
+- **Spec 118 - ServingCache TTL.** Eviction transparente al expirar.
+- **Spec 119 - HotContextCache cap.** LRU explicito de 128 tipos con
+  `getStats()`.
+- **Spec 120 - DocumentCache uris.** `getCachedUris()` y `getStats()`.
+- **Spec 121 - ServingCache stats.** Hits/misses/evictions/ttl.
+- **Spec 122 - KB resync batch.** `resyncDocuments(updates[])` envuelve
+  `beginBatchUpdate` y `endBatchUpdate` para lotes atomicos.
+
+### Wave E - Indexer y scheduler
+
+- **Spec 123 - File state machine.** `FileIndexState` y `getFileIndexState(uri)`.
+- **Spec 124 - Active priority.** `indexWorkspace(..., activeUri?)` mueve el
+  archivo activo al frente conservando el orden estable.
+- **Spec 125 - Time slice budget.** `PB_TIME_SLICE_MS` (default 50ms) cede
+  al event loop cuando se supera.
+- **Spec 126 - Max file bytes.** `PB_MAX_FILE_BYTES` (default 4 MiB) salta
+  archivos enormes marcandolos como `Skipped`.
+- **Spec 127 - Indexer status.** `getIndexerStatus()` agrega contadores
+  por estado.
+
+### Wave F - Tools y regresion
+
+- **Spec 128 - Public API stats.** `ApiServerStats` interface.
+- **Spec 129 - Public API project.** `ApiProjectInfo` interface.
+- **Spec 130 - Public API diag tree.** `ApiDiagnosticsTreeNode` interface.
+- **Spec 131 - Perf regression.** Test `perfRegression.test.ts` (1000
+  lineas < `PB_PERF_BUDGET_MS` ms, default 500).
+- **Spec 132 - Corpus regression.** Test `corpusRegression.test.ts`
+  con fragmentos canonicos (window+on, userobject+function, vacio,
+  solo comentarios).
+
+### Resultado global
+
+- 287 tests pasando (baseline 278 + 9 nuevos en esta sprint).
+- 0 regresiones.
+- LSP gana 4 capabilities nuevas (codeAction, codeLens, rename, executeCommand).

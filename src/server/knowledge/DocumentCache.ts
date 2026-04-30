@@ -45,7 +45,21 @@ export class DocumentCache {
   clear(): void {
     this.cache.clear();
   }
-  
+
+  /**
+   * Spec 120: lista las URIs cacheadas (útil para introspección y debug).
+   */
+  getCachedUris(): string[] {
+    return [...this.cache.keys()];
+  }
+
+  /**
+   * Spec 120: estadísticas básicas (size, capacity opcional).
+   */
+  getStats(): { size: number } {
+    return { size: this.cache.size };
+  }
+
   /**
    * Retorna el número de archivos en la caché.
    */

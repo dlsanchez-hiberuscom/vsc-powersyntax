@@ -59,6 +59,16 @@ export interface Entity {
   externalLibraryName?: string;
   /** Marca el símbolo como prototipo (declaración `forward prototypes`) frente a la implementación. */
   isPrototype?: boolean;
+  /**
+   * Etiqueta legible de la firma derivada (`f_get(int a) returns boolean`),
+   * cacheada por `enrichEntity` para uso en hover/signature help. Spec 110.
+   */
+  signatureLabel?: string;
+  /**
+   * Etiqueta legible de la naturaleza del símbolo ("function", "event", "variable").
+   * Spec 110.
+   */
+  kindLabel?: string;
 }
 
 /**
