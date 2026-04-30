@@ -16,8 +16,7 @@ import {
   END_FUNCTION_PATTERN,
   END_SUBROUTINE_PATTERN,
   END_EVENT_PATTERN,
-  END_ON_PATTERN,
-  END_TYPE_PATTERN
+  END_ON_PATTERN
 } from '../parsing/grammar';
 import { stripCommentsSmart } from '../utils/comments';
 
@@ -76,8 +75,11 @@ function extractParameters(line: string): { label: string, documentation?: strin
  * Extrae los argumentos formales (parámetros) de una cabecera de función/evento
  * y los registra como símbolos del scope correspondiente con `scope: 'Argumento'`.
  *
- * Heurística simple: separa por comas, ignora modificadores (`readonly`, `ref`,
- * `value`) y toma el primer token como tipo y el último como nombre.
+ * Soporta:
+ *   - múltiples modificadores PowerScript: `readonly`, `ref`, `value`,
+ *   - sufijos de array en el nombre del parámetro: `string as_arr[]`,
+ *   - tipos con tamaño: `string{40} as_fixed`,
+ *   - el caso degenerado de un único token (lo descarta).
  */
 function pushScopeArguments(
   line: string,
@@ -91,23 +93,31 @@ function pushScopeArguments(
     return;
   }
 
+  const PARAM_MODIFIERS = new Set(['readonly', 'ref', 'value']);
+
   for (const rawArg of argMatch[1].split(',')) {
-    const parts = rawArg.trim().split(/\s+/);
+    const parts = rawArg.trim().split(/\s+/).filter(Boolean);
     if (parts.length < 2) continue;
 
-    let type = parts[0];
-    const name = parts[parts.length - 1];
-    if (['readonly', 'ref', 'value'].includes(type.toLowerCase()) && parts.length >= 3) {
-      type = parts[1];
+    // Saltar todos los modificadores iniciales (`readonly`, `ref`, `value`).
+    let cursor = 0;
+    while (cursor < parts.length - 1 && PARAM_MODIFIERS.has(parts[cursor].toLowerCase())) {
+      cursor++;
     }
+    if (cursor >= parts.length - 1) continue;
+
+    const type = parts[cursor];
+    // Limpiar sufijos de array (`as_arr[]`, `as_arr [ ]`) del nombre.
+    const rawName = parts[parts.length - 1].replace(/\[[^\]]*\]\s*$/g, '');
+    if (!rawName) continue;
 
     scope.symbols.push({
-      id: name.toLowerCase(),
-      name,
+      id: rawName.toLowerCase(),
+      name: rawName,
       kind: EntityKind.Variable,
       uri,
       line: lineIndex,
-      character: rawLine.indexOf(name),
+      character: rawLine.indexOf(rawName),
       datatype: type,
       containerName: scope.id,
       scope: 'Argumento'
@@ -328,15 +338,13 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
         continue;
       }
 
-      // Cierre del bloque `type ... end type` (contenedor de objeto en SR*).
-      if (currentTypeScope && END_TYPE_PATTERN.test(line)) {
-        currentTypeScope.endLine = i;
-        // No reseteamos `currentContainerName` ni `currentTypeScope` aquí porque en
-        // los archivos SR* las funciones/eventos del tipo principal pueden
-        // implementarse fuera del bloque `type ... end type` (a nivel raíz). El
-        // contenedor sigue siendo válido para el resto del archivo.
-        continue;
-      }
+      // NOTA: deliberadamente NO cerramos `currentTypeScope` con `end type`.
+      // En los archivos SR* (.srw, .sru, .srm, .srf, .srs) el bloque
+      // `type ... end type` declara la firma del objeto principal, pero las
+      // implementaciones de funciones y eventos del mismo objeto aparecen
+      // **después** de `end type`, a nivel raíz. Si cerrásemos el scope del
+      // tipo aquí, esos métodos quedarían fuera del árbol de scopes y
+      // `getScopeAt(...)` no los encontraría.
 
       const fn = matchFunctionImplementationHeader(line);
       if (fn) {

@@ -54,7 +54,7 @@ suite('unit/documentAnalysis', () => {
     const funcScope = findScopeByName(analysis.scopes, 'of_compute');
     assert.ok(funcScope, 'No se encontró el scope de of_compute.');
 
-    const localNames = funcScope!.symbols.map((s) => s.name.toLowerCase());
+    const localNames = funcScope!.symbols.map((s: any) => s.name.toLowerCase());
     assert.ok(localNames.includes('li_local'), 'Falta li_local declarada antes del IF.');
     assert.ok(
       localNames.includes('li_after_endif'),
@@ -74,10 +74,46 @@ suite('unit/documentAnalysis', () => {
     const analysis = analyzeDocument(document);
     const ev = findScopeByName(analysis.scopes, 'clicked');
     assert.ok(ev, 'No se encontró el scope del event clicked.');
-    const names = ev!.symbols.map((s) => s.name.toLowerCase());
+    const names = ev!.symbols.map((s: any) => s.name.toLowerCase());
     assert.ok(names.includes('ll_a'));
     assert.ok(names.includes('ll_b'), 'Falta ll_b en declaración múltiple.');
     assert.ok(names.includes('ll_c'), 'Falta ll_c en declaración múltiple.');
+  });
+
+  test('parámetros: modificadores múltiples y array suffix', () => {
+    const source = [
+      'forward',
+      'global type w_p from window',
+      'end type',
+      'end forward',
+      '',
+      'global type w_p from window',
+      'end type',
+      '',
+      'public function integer of_test (readonly ref string as_arr[], ref integer ai_count);',
+      'integer li_x',
+      'li_x = ai_count',
+      'return li_x',
+      'end function'
+    ].join('\r\n');
+
+    const document = TextDocument.create(
+      'file:///documentAnalysis-params.sru',
+      'powerbuilder',
+      1,
+      source
+    );
+
+    const analysis = analyzeDocument(document);
+    const fn = findScopeByName(analysis.scopes, 'of_test');
+    assert.ok(fn, 'No se encontró el scope de of_test.');
+    const symbols = fn!.symbols as any[];
+    const arr = symbols.find((s) => s.name.toLowerCase() === 'as_arr');
+    const cnt = symbols.find((s) => s.name.toLowerCase() === 'ai_count');
+    assert.ok(arr, 'Parámetro array `as_arr` no detectado (modificador múltiple).');
+    assert.equal(arr.datatype, 'string');
+    assert.ok(cnt, 'Parámetro `ai_count` con `ref` no detectado.');
+    assert.equal(cnt.datatype, 'integer');
   });
 });
 

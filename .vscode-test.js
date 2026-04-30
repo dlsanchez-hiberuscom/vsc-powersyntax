@@ -1,4 +1,19 @@
 const { defineConfig } = require('@vscode/test-cli');
+const path = require('path');
+const os = require('os');
+
+const userDataDir = path.join(os.tmpdir(), 'vsc-powersyntax-test-userdata');
+const extensionsDir = path.join(os.tmpdir(), 'vsc-powersyntax-test-extensions');
+const launchArgs = [
+  '--user-data-dir', userDataDir,
+  '--extensions-dir', extensionsDir,
+  '--disable-gpu',
+  '--no-sandbox',
+  '--disable-updates',
+  '--skip-welcome',
+  '--skip-release-notes',
+  '--disable-workspace-trust'
+];
 
 module.exports = defineConfig([
   {
@@ -6,6 +21,7 @@ module.exports = defineConfig([
     files: 'out/test/smoke/**/*.test.js',
     version: 'stable',
     workspaceFolder: '.',
+    launchArgs,
     mocha: {
       ui: 'tdd',
       timeout: 20000
@@ -16,6 +32,7 @@ module.exports = defineConfig([
     files: 'out/test/server/unit/**/*.test.js',
     version: 'stable',
     workspaceFolder: '.',
+    launchArgs,
     mocha: {
       ui: 'tdd',
       timeout: 20000
@@ -26,6 +43,7 @@ module.exports = defineConfig([
     files: 'out/test/server/integration/**/*.test.js',
     version: 'stable',
     workspaceFolder: '.',
+    launchArgs,
     mocha: {
       ui: 'tdd',
       timeout: 30000
@@ -36,6 +54,7 @@ module.exports = defineConfig([
     files: 'out/test/server/performance/**/*.test.js',
     version: 'stable',
     workspaceFolder: '.',
+    launchArgs,
     mocha: {
       ui: 'tdd',
       timeout: 120000

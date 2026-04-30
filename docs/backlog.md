@@ -1260,15 +1260,32 @@ para evitar regresiones.
 - **Tests añadidos:** `diagnostics.test.ts` →
   `validateStructure soporta IF multi-línea con continuación &`.
 
+### B146 — Parser de parámetros más robusto (corregido)
+
+- **Síntoma:** `pushScopeArguments` solo soportaba un modificador y no quitaba
+  los sufijos de array. Esto perdía el nombre real del parámetro en casos
+  como `readonly ref string as_arr[]`.
+- **Fix:** se ignoran todos los modificadores `readonly`/`ref`/`value`
+  iniciales y se limpia el sufijo `[...]` del nombre.
+- **Tests añadidos:** `documentAnalysis.test.ts` →
+  `parámetros: modificadores múltiples y array suffix`.
+
+### B149 — SD2 ya no recompila el regex por línea (corregido)
+
+- **Síntoma:** `validateSemantics` construía un `new RegExp(...)` por cada
+  línea visitada en cada scope (cuadrático en archivos grandes).
+- **Fix:** se eleva `SD2_CALL_REGEX` a constante de módulo y se reusa
+  reseteando `lastIndex` antes de cada línea.
+
 ### Pendiente derivado de la auditoría
 
-- B146 — Refinar `currentContainerName` cuando un archivo SR* declara varios
+- B147 — Refinar `currentContainerName` cuando un archivo SR* declara varios
   `type ... within` consecutivos: actualmente se mantiene el último, lo que
   funciona en SRW/SRU típicos pero puede atribuir mal eventos en archivos
   poco habituales.
-- B147 — Considerar tracking de bloques de control internos
+- B148 — Considerar tracking de bloques de control internos
   (`if/for/do/choose/try`) en `documentAnalysis` para mejorar SD4/shadowing en
   bloques anidados profundos.
-- B148 — Ampliar la cobertura de fixtures basados en patrones reales de
+- B150 — Ampliar la cobertura de fixtures basados en patrones reales de
   Open PFC (custom user objects, NVOs heredados, ventanas con muchos
   controles) y añadirlos al smoke runner.

@@ -341,6 +341,13 @@ export function validateSemantics(
  * desconocidas (SD2). Los nombres locales del scope, miembros heredados y
  * callables del archivo se pasan precalculados para evitar costes repetidos.
  */
+// Regex precompilada (antes se construía una nueva por cada línea visitada,
+// con coste cuadrático en archivos grandes).
+const SD2_CALL_REGEX = new RegExp(
+  `\\b(?:(this|super)\\.)?(${PB_IDENTIFIER_SOURCE})\\s*\\(`,
+  'gi'
+);
+
 function visitScopes(
   scope: import('../knowledge/types').Scope,
   strippedLines: string[],
@@ -366,9 +373,9 @@ function visitScopes(
       if (END_GENERIC_PATTERN.test(trimmed) || ELSE_CASE_PATTERN.test(trimmed)) continue;
 
       // SD2: Detectar llamadas a funciones: identifier(
-      const callRegex = new RegExp(`\\b(?:(this|super)\\.)?(${PB_IDENTIFIER_SOURCE})\\s*\\(`, 'gi');
-      let callMatch;
-      while ((callMatch = callRegex.exec(trimmed)) !== null) {
+      SD2_CALL_REGEX.lastIndex = 0;
+      let callMatch: RegExpExecArray | null;
+      while ((callMatch = SD2_CALL_REGEX.exec(trimmed)) !== null) {
         const qualifier = callMatch[1]; // this | super | undefined
         const funcName = callMatch[2];
         const funcLower = funcName.toLowerCase();
