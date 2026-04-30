@@ -1,335 +1,251 @@
-# Constitución del proyecto — Plugin PowerBuilder 2025 para VS Code
+# Constitución — Plugin PowerBuilder 2025 para VS Code
 
 ## 1. Propósito
 
-Esta constitución define los principios no negociables del repositorio para el desarrollo del plugin profesional de **PowerBuilder 2025 para Visual Studio Code**.
+Esta constitución define las reglas no negociables del repositorio.
 
-Su objetivo es asegurar que toda evolución del producto mantenga:
+Gobierna todo el trabajo:
+- manual,
+- asistido por IA,
+- de arquitectura,
+- de implementación,
+- de validación,
+- y de documentación.
 
-- rapidez de carga,
-- arquitectura profesional y mantenible,
-- separación estricta de responsabilidades,
-- validación continua,
-- documentación sincronizada,
-- evolución incremental sin romper el core,
-- y un uso disciplinado de IA dentro de un flujo **Spec-Driven Development (SDD)**.
-
-Esta constitución gobierna tanto el trabajo manual como el trabajo asistido por IA y debe prevalecer sobre decisiones locales o atajos de implementación cuando exista conflicto.
+Si hay conflicto entre velocidad aparente, atajos locales o decisiones improvisadas y esta constitución, **prevalece la constitución**.
 
 ---
 
-## 2. Principios no negociables
+## 2. Meta maestra del producto
 
-### Artículo I — Rendimiento primero
+> **El plugin debe descubrir e indexar muy rápido sin bloquear.**
 
-Toda feature, refactor o mejora debe proteger la **velocidad de carga**, la **reactividad del editor** y el comportamiento correcto en workspaces grandes.
+Toda decisión técnica debe proteger simultáneamente:
 
-No se aceptarán cambios que introduzcan coste de arranque, bloqueo visible del editor o degradación significativa de latencia sin una justificación clara, una mitigación documentada y una validación razonable.
+1. descubrimiento rápido,
+2. indexación progresiva no bloqueante,
+3. prioridad real al archivo activo,
+4. latencia interactiva baja,
+5. persistencia útil entre sesiones,
+6. estado observable del motor,
+7. y semántica fuerte sin sacrificar tiempo hasta valor.
 
-### Artículo II — Cliente ligero, servidor LSP para trabajo pesado
+---
 
-El **cliente de VS Code** debe ser lo más fino posible.
+## 3. Principios no negociables
 
-Toda lógica pesada de análisis, indexación, semántica, resolución de símbolos, diagnósticos o procesamiento intensivo debe residir en el **servidor LSP** o en servicios internos equivalentes fuera del camino crítico del Extension Host.
+### Artículo 1 — Rendimiento primero
+Ningún cambio debe degradar de forma injustificada:
+- carga,
+- activación,
+- latencia interactiva,
+- o comportamiento en workspaces grandes.
 
-### Artículo III — Activación perezosa obligatoria
+### Artículo 2 — Cliente fino, servidor pesado
+El cliente de VS Code debe ser mínimo.
+Toda lógica costosa de:
+- análisis,
+- indexación,
+- semántica,
+- resolución,
+- diagnósticos,
+- o procesamiento intensivo
+debe vivir fuera del camino crítico del Extension Host.
 
-La extensión debe activarse únicamente cuando exista una necesidad real.
+### Artículo 3 — Activación perezosa obligatoria
+La extensión solo debe activarse cuando exista una necesidad real.
+Se prohíben activaciones globales innecesarias o trabajo pesado en arranque.
 
-Se prohíbe introducir activaciones globales innecesarias o procesos pesados al inicio de VS Code salvo justificación excepcional, documentada y validada.
-
-### Artículo IV — Declarativo antes que programático
-
-Toda capacidad que pueda implementarse de forma declarativa deberá priorizarse antes de introducir lógica programática adicional.
-
-Esto incluye, cuando aplique:
-
-- registro de lenguajes,
-- gramáticas,
-- snippets,
-- configuraciones del lenguaje,
-- defaults de editor,
-- y metadatos del manifiesto.
-
-### Artículo V — El archivo abierto tiene prioridad
-
-La experiencia del usuario en el **archivo activo** tiene prioridad sobre el trabajo global del workspace.
-
-Toda estrategia de análisis debe seguir este orden preferente:
-
-1. archivo abierto,
+### Artículo 4 — El archivo activo tiene prioridad
+El orden obligatorio de prioridad es:
+1. archivo activo,
 2. dependencias inmediatas,
-3. contexto relevante cercano,
-4. indexación global en segundo plano.
+3. contexto cercano,
+4. trabajo global en segundo plano.
 
-### Artículo VI — Análisis incremental y cancelable
+### Artículo 5 — Incrementalidad fina obligatoria
+No se debe recomputar más de lo necesario.
+Todo cambio debe intentar provocar la recomputación mínima posible.
 
-El sistema debe diseñarse para trabajo incremental.
+### Artículo 6 — Cancelación, yielding y no bloqueo
+Toda tarea costosa debe diseñarse para:
+- ceder,
+- cancelarse,
+- pausarse,
+- o reprogramarse
+cuando afecte a la interacción del usuario.
 
-No se debe reanalizar el workspace completo por cambios pequeños cuando exista una alternativa de invalidación fina.
+### Artículo 7 — Estado semántico atómico
+El sistema no debe exponer estados semánticos a medias.
+No se permite publicar mezclas incoherentes de análisis viejo y nuevo.
 
-Toda tarea costosa debe ser cancelable, diferible o desacoplable del flujo interactivo cuando sea posible.
+### Artículo 8 — Degradación segura antes que precisión fingida
+Si una feature no tiene suficiente contexto o confianza, debe:
+- degradar explícitamente,
+- o bloquearse,
+antes que devolver resultados aparentemente precisos pero no fiables.
 
-### Artículo VII — La documentación es parte del cambio
+### Artículo 9 — Persistencia robusta y versionada
+Toda persistencia relevante debe tener:
+- versionado,
+- invalidación clara,
+- estrategia de recuperación,
+- y comportamiento seguro ante corrupción o incompatibilidad.
 
-Ningún cambio relevante se considera terminado si la documentación afectada no está actualizada.
+### Artículo 10 — Observabilidad obligatoria
+Toda parte crítica del motor debe exponer estado suficiente para:
+- entender qué está haciendo,
+- medir progreso,
+- depurar problemas,
+- y explicar resultados cuando sea necesario.
 
-Como mínimo, deben revisarse y actualizarse cuando aplique:
+### Artículo 11 — Fuente única de verdad semántica
+Ninguna feature debe reconstruir por su cuenta:
+- símbolos,
+- scopes,
+- resolución,
+- tipos,
+- referencias,
+si ya existe una capa común para ello.
 
+### Artículo 12 — El core del dominio es agnóstico del editor
+El modelo interno de PowerBuilder no debe depender directamente de:
+- VS Code,
+- LSP,
+- DTOs externos,
+- JSON de integración,
+- ni herramientas de IA concretas.
+
+Todo eso debe resolverse en adaptadores de borde.
+
+### Artículo 13 — La spec manda
+Todo cambio funcional, arquitectónico u operativo relevante debe estar respaldado por una spec.
+Si cambia la intención, primero se corrige la spec y después el código.
+
+### Artículo 14 — La documentación es parte del cambio
+Ningún cambio relevante está terminado si no actualiza la documentación afectada.
+
+Como mínimo revisar cuando aplique:
 - `README.md`
 - `docs/architecture.md`
 - `docs/roadmap.md`
 - `docs/backlog.md`
 - `docs/current-focus.md`
-- specs afectadas en `specs/`
+- specs afectadas
 
-### Artículo VIII — La spec manda
-
-Este repositorio sigue un enfoque **Spec-Driven Development**.
-
-Toda feature o cambio con impacto funcional, arquitectónico u operativo debe derivar de una spec o actualizar una existente.
-
-Si durante la implementación cambia la intención, primero debe corregirse la spec y después el código.
-
-### Artículo IX — Slices pequeños y revisables
-
-Toda evolución debe dividirse en slices pequeños, valiosos y verificables.
-
-Se prohíben macro-cambios opacos difíciles de revisar o validar.
-
-Si una feature no puede entenderse y revisarse con atención humana en poco tiempo, debe dividirse.
-
-### Artículo X — Validación obligatoria
-
-Toda feature debe definir una estrategia mínima de validación.
-
-Según el tipo de cambio, esto puede incluir:
-
-- pruebas unitarias,
-- pruebas de integración,
-- validación manual guiada,
-- pruebas sobre workspaces reales,
-- checks de rendimiento,
-- verificación de activación y carga,
-- y comprobación de documentación actualizada.
-
-### Artículo XI — Nada se cierra en parcial
-
-Una tarea o feature no se considera cerrada si falta cualquiera de estos elementos:
-
+### Artículo 15 — Nada se cierra en parcial
+Una tarea no está cerrada si falta cualquiera de estos puntos:
 - implementación funcional,
 - validación suficiente,
 - documentación alineada,
-- cumplimiento de criterios de aceptación,
-- y reflejo correcto del estado en backlog / current-focus / roadmap si aplica.
+- criterios de aceptación cumplidos,
+- estado reflejado correctamente en los documentos canónicos.
 
-### Artículo XII — La IA no puede inventar alcance
+### Artículo 16 — La IA no puede inventar alcance
+La IA puede ayudar a:
+- especificar,
+- planificar,
+- implementar,
+- probar,
+- documentar.
 
-La IA puede ayudar a especificar, planificar, implementar, probar y documentar, pero no debe:
-
+Pero no puede:
 - inventar features no pedidas,
-- reabrir arquitectura cerrada sin causa,
 - cerrar trabajo sin validación,
 - omitir documentación afectada,
-- ni presentar como implementado algo que solo es intención, propuesta o estado parcial.
+- ni presentar como implementado algo que solo es intención o estado parcial.
 
-La IA debe trabajar siempre bajo la constitución, la spec vigente y la documentación canónica del repositorio.
-
-### Artículo XIII — El core del dominio debe ser agnóstico del editor
-
-El modelo interno de PowerBuilder, su semántica y sus casos de uso no deben depender directamente de:
-
-- la API de VS Code,
-- el transporte LSP,
-- formatos JSON externos,
-- DTOs de integración,
-- ni herramientas de IA concretas.
-
-Toda integración con editor, protocolo, serialización o automatización debe realizarse mediante adaptadores y contratos de borde.
-
-### Artículo XIV — Fuente única de verdad semántica
-
-La arquitectura debe converger a una base semántica compartida y reutilizable.
-
-Ninguna feature debe reconstruir por su cuenta lógica de símbolos, scopes, resolución, tipos o referencias si ya existe una capa común para ello.
-
-Las capacidades del lenguaje deben apoyarse progresivamente en servicios compartidos, no en implementaciones aisladas por feature.
-
-### Artículo XV — Los contratos no exponen el dominio interno
-
-Los contratos compartidos entre procesos o consumidores externos no deben exponer directamente entidades internas del dominio.
-
-La representación externa debe mantenerse separada del modelo interno para permitir evolución, versionado y sustitución de adaptadores sin romper el core.
-
-### Artículo XVI — Las capas bootstrap deben ser temporales y decrecientes
-
-Las soluciones provisionales son válidas cuando aportan valor temprano, pero deben:
-
-- identificarse explícitamente como bootstrap,
+### Artículo 17 — Bootstrap temporal, nunca permanente por inercia
+Toda solución provisional debe:
+- identificarse como provisional,
 - tener límites claros,
-- no absorber responsabilidades permanentes de la arquitectura objetivo,
-- y disponer de una dirección de migración razonable.
-
-No se debe consolidar como permanente una capa provisional solo por acumulación histórica.
+- no absorber responsabilidades permanentes,
+- y tener una dirección razonable de migración.
 
 ---
 
-## 3. Reglas de decisión arquitectónica
+## 4. Regla de decisión arquitectónica
 
-Cuando existan varias alternativas, se priorizará la opción que mejor cumpla este orden:
+Si existen varias alternativas, se elige la que mejor cumpla este orden:
 
 1. menor impacto en carga y arranque,
 2. menor coste para el Extension Host,
-3. mayor separación de responsabilidades,
-4. mejor capacidad de prueba,
-5. mayor facilidad de mantenimiento,
-6. mejor escalabilidad en workspaces grandes,
-7. mejor compatibilidad con automatización e IA.
-
-Si una opción técnicamente elegante empeora claramente el arranque, la simplicidad operativa o la mantenibilidad, debe descartarse salvo justificación fuerte.
+3. mayor atomicidad y menor riesgo de incoherencia,
+4. mejor incrementalidad e invalidación fina,
+5. mejor separación de responsabilidades,
+6. mayor facilidad de prueba,
+7. mejor persistencia y reanudación,
+8. mejor observabilidad,
+9. mejor escalabilidad,
+10. mejor compatibilidad futura con automatización e IA.
 
 ---
 
-## 4. Política de documentación viva
+## 5. Definición de Ready
 
-Toda decisión relevante debe quedar capturada en un artefacto mantenible del repositorio.
+Una tarea está **Ready** cuando:
 
-Las decisiones temporales o exploratorias deben acabar en uno de estos estados:
+- la intención está clara,
+- el alcance y fuera de alcance están claros,
+- los criterios de aceptación son verificables,
+- el plan técnico es suficiente,
+- los riesgos principales son entendibles,
+- y el trabajo puede dividirse en slices razonables.
 
-- adoptadas y documentadas,
-- descartadas y registradas,
-- o abiertas con siguiente paso claro.
+---
 
-No deben existir decisiones importantes solo en mensajes sueltos o contexto oral.
+## 6. Definición de Done
 
-### 4.1 Jerarquía de autoridad documental
+Una tarea está **Done** solo cuando:
 
-En caso de conflicto entre artefactos, el orden de autoridad será:
+- cumple criterios de aceptación,
+- pasa validación suficiente,
+- no introduce degradación injustificada,
+- la documentación afectada está actualizada,
+- el estado real coincide con spec y documentación canónica,
+- y no deja deuda crítica oculta sin registrar.
+
+---
+
+## 7. Autoridad documental
+
+En caso de conflicto, manda este orden:
 
 1. `docs/constitution.md`
 2. `docs/architecture.md`
 3. specs aprobadas en `specs/`
 4. `docs/roadmap.md`
-5. `docs/backlog.md`
-6. `docs/current-focus.md`
+5. `docs/current-focus.md`
+6. `docs/backlog.md`
 7. implementación actual
 
-La existencia de código funcionando no invalida por sí sola una decisión arquitectónica o documental vigente; si el código diverge, debe documentarse y corregirse.
+El código funcionando no invalida por sí solo una decisión documental vigente.
+Si el código diverge, debe documentarse y corregirse.
 
 ---
 
-## 5. Política de calidad para nuevas features
+## 8. Regla operativa para IA
 
-Toda nueva feature debe incluir explícitamente:
+La IA debe trabajar siempre así:
 
-- objetivo,
-- alcance,
-- fuera de alcance,
-- criterios de aceptación,
-- impacto en arquitectura,
-- impacto en rendimiento,
-- estrategia de validación,
-- documentación afectada,
-- y, cuando aplique, riesgos y mitigaciones.
-
-Si no puede expresarse de forma clara, todavía no está lista para implementarse.
+1. leer constitución, arquitectura, spec y current-focus antes de cambios relevantes;
+2. respetar el foco vigente;
+3. no abrir nuevas capas si la base actual no las sostiene;
+4. trabajar en slices pequeños y verificables;
+5. actualizar documentación afectada;
+6. no cerrar nada en parcial;
+7. registrar deuda nueva si detecta un problema real.
 
 ---
 
-## 6. Definición de Ready
+## 9. Excepciones
 
-Una feature está **Ready** cuando:
+Toda excepción debe:
+- justificarse explícitamente,
+- documentarse,
+- indicar alcance,
+- indicar duración,
+- explicar riesgo asumido,
+- y dejar plan de salida.
 
-- existe una spec comprensible y acotada,
-- el alcance está claro,
-- el fuera de alcance está claro,
-- los criterios de aceptación son verificables,
-- el plan técnico es suficiente,
-- los riesgos principales son entendibles,
-- y las tareas están troceadas de forma razonable.
-
----
-
-## 7. Definición de Done
-
-Una feature está **Done** solo cuando:
-
-- cumple sus criterios de aceptación,
-- pasa la validación prevista,
-- no introduce degradaciones injustificadas,
-- la documentación afectada está actualizada,
-- el estado real del código coincide con la spec y el backlog/documentación canónica,
-- y no deja deuda crítica oculta sin registrar.
-
----
-
-## 8. Reglas estructurales mínimas
-
-- El cliente no implementa semántica profunda.
-- Las features LSP actúan como adaptadores finos y no como núcleo semántico.
-- Los adaptadores no definen el dominio.
-- Los contratos compartidos no deben arrastrar entidades internas del core.
-- Las capas temporales no deben convertirse en arquitectura permanente sin decisión explícita.
-- La lógica reutilizable debe migrar hacia servicios comunes y no duplicarse entre features.
-- Toda capacidad costosa debe declarar estrategia de invalidación, cancelación y caché cuando aplique.
-- Ningún módulo genérico de soporte debe crecer hasta convertirse en contenedor difuso de responsabilidades heterogéneas.
-
----
-
-## 9. Evidencia mínima para decisiones relevantes
-
-Toda afirmación relevante sobre rendimiento, activación, escalabilidad o calidad debe apoyarse, cuando sea razonablemente posible, en al menos una de estas evidencias:
-
-- prueba automatizada,
-- prueba de integración,
-- validación manual guiada,
-- medición antes/después,
-- benchmark simple,
-- o razonamiento técnico documentado y revisable.
-
-No basta con asumir que una mejora no degrada comportamiento crítico; debe existir al menos una forma razonable de justificarlo.
-
----
-
-## 10. Cumplimiento y excepciones
-
-Esta constitución aplica a:
-
-- trabajo manual,
-- trabajo asistido por IA,
-- prompts para agentes,
-- propuestas de arquitectura,
-- refactors,
-- correcciones,
-- pruebas,
-- y documentación.
-
-Cualquier excepción debe:
-
-- estar justificada de forma explícita,
-- registrarse en la spec o documento técnico correspondiente,
-- indicar alcance y duración,
-- explicar el riesgo asumido,
-- y dejar claro el plan de salida o revisión posterior.
-
-Las excepciones no deben usarse para evitar validación, documentación o revisión de impactos sin dejar rastro documental.
-
----
-
-## 11. Archivos canónicos actualmente bajo revisión continua
-
-A fecha de esta constitución, los documentos que forman parte del núcleo documental operativo y que deberán revisarse con especial frecuencia son, como mínimo:
-
-- `docs/ai-agents-catalog.md`
-- `docs/ai-orchestrator.md`
-- `docs/ai-strategy.md`
-- `docs/architecture.md`
-- `docs/backlog.md`
-- `docs/constitution.md`
-- `docs/current-focus.md`
-- `docs/performance-budget.md`
-- `docs/roadmap.md`
-- `docs/spec-driven-development.md`
-- `docs/testing.md`
-
-Este listado no sustituye la obligación general de revisar cualquier otro artefacto afectado por un cambio.
+No se permiten excepciones silenciosas.

@@ -2,246 +2,339 @@
 
 ## 1. Propósito
 
-Este documento define la estrategia de testing del proyecto, los tipos de prueba soportados, las convenciones para escribir tests y las instrucciones para ejecutarlos.
+Definir cómo se valida el plugin y qué evidencia mínima debe existir antes de considerar estable un cambio.
 
-Debe mantenerse alineado con el estado real del repositorio y actualizado cuando cambien herramientas, convenciones o estructura de tests.
-
----
-
-## 2. Stack de testing
-
-| Herramienta | Versión | Propósito |
-|---|---|---|
-| `@vscode/test-cli` | ^0.0.12 | Runner de tests para extensiones VS Code |
-| `@vscode/test-electron` | ^2.5.2 | Entorno de ejecución Electron para integration/smoke tests |
-| `mocha` | ^10.7.3 | Framework de tests |
-| `typescript` | ^5.9.2 | Compilación de tests |
-| `tsconfig.test.json` | — | Configuración de compilación específica para tests |
+Este documento no describe todos los tests posibles.
+Define la **estrategia de validación** del proyecto y las reglas mínimas de calidad.
 
 ---
 
-## 3. Tipos de prueba
+## 2. Objetivo de testing
 
-### 3.1 Smoke tests
+La estrategia de testing debe proteger estas 4 cosas:
 
-**Propósito:** Verificar que la extensión arranca, se activa y no falla catastróficamente.
+1. **corrección funcional**,
+2. **no bloqueo del editor**,
+3. **estabilidad del core semántico**,
+4. **evolución segura del producto**.
 
-**Ubicación:** `test/smoke/`
+El testing debe demostrar que el plugin sigue siendo:
 
-**Qué validan:**
-- la extensión se activa al abrir un archivo PowerBuilder,
-- el cliente LSP levanta el servidor correctamente,
-- no hay errores fatales al arrancar,
-- y los contribution points están registrados (lenguaje, gramáticas).
-
-**Cuándo correrlos:**
-- tras cualquier cambio en el manifiesto, activación o bootstrap,
-- tras cambios en wiring cliente/servidor,
-- como gate mínimo antes de publicar.
-
-### 3.2 Unit tests
-
-**Propósito:** Verificar lógica aislada del servidor sin dependencia de VS Code ni del LSP.
-
-**Ubicación:** `test/server/`
-
-**Qué validan:**
-- parsing de secciones y matchers,
-- extracción de hechos documentales,
-- lógica de diagnósticos,
-- utilidades y helpers,
-- modelos y tipos internos,
-- y cualquier lógica pura del servidor.
-
-**Principio:** Los unit tests no deben depender de `vscode`, `vscode-languageserver` ni de filesystem real. Si necesitan archivos, deben usar fixtures.
-
-**Cuándo correrlos:**
-- tras cualquier cambio en lógica del servidor,
-- como parte del flujo normal de desarrollo.
-
-### 3.3 Integration tests
-
-**Propósito:** Verificar que las features LSP funcionan correctamente de extremo a extremo.
-
-**Ubicación:** `test/` (configuración por label)
-
-**Qué validan:**
-- Document Symbols devuelven resultados correctos sobre fixtures,
-- Hover devuelve información útil,
-- Diagnósticos detectan bloques mal cerrados,
-- caché se invalida correctamente,
-- y el flujo completo cliente → servidor → respuesta funciona.
-
-**Cuándo correrlos:**
-- tras cambios en features LSP,
-- tras cambios en análisis o parseo,
-- como verificación antes de cerrar una spec.
-
-### 3.4 Performance tests
-
-**Propósito:** Medir tiempos de activación, análisis y respuesta para detectar regresiones.
-
-**Ubicación:** `test/` (label `performance`)
-
-**Qué validan:**
-- tiempo de activación del cliente,
-- tiempo hasta primer Document Symbols,
-- tiempo hasta primer Hover,
-- tiempo de análisis por documento,
-- consumo de memoria en fixtures grandes,
-- y comportamiento sobre corpus de distintos tamaños.
-
-**Cuándo correrlos:**
-- cuando se trabaje en rendimiento (B003, B007),
-- antes de cerrar una fase del roadmap,
-- cuando se sospeche una regresión.
+- útil,
+- rápido,
+- no bloqueante,
+- coherente,
+- y estable en proyectos reales.
 
 ---
 
-## 4. Fixtures y corpora
+## 3. Principios de testing
 
-### 4.1 Fixtures
+### 3.1 Testear primero lo que más rompe el producto
+Se prioriza siempre este orden:
 
-**Ubicación:** `test/fixtures/`
+1. archivo activo e interacción básica,
+2. núcleo semántico compartido,
+3. invalidación / incrementalidad,
+4. persistencia / warm resume,
+5. comportamiento global del workspace,
+6. especialización PowerBuilder,
+7. automatización externa.
 
-**Propósito:** Archivos PowerBuilder controlados, pequeños y deterministas para tests unitarios e integration.
+### 3.2 No todo cambio necesita el mismo tipo de prueba
+Cada cambio debe validar lo suficiente, pero no sobreactuar.
 
-**Convenciones:**
-- cada fixture debe tener un propósito claro,
-- los fixtures deben cubrir casos comunes y edge cases del lenguaje,
-- deben ser archivos `.sru`, `.srw`, `.srd`, etc. válidos o intencionalmente malformados para tests de diagnósticos,
-- y deben estar documentados con comentarios cuando el caso no sea obvio.
+### 3.3 El test debe seguir la arquitectura
+- las pruebas unitarias validan lógica pura,
+- las integraciones validan contratos reales,
+- las smoke validan arranque y wiring,
+- las performance validan presupuestos y regresiones.
 
-### 4.2 Corpora
+### 3.4 El rendimiento también se prueba
+No basta con que funcione.
+Debe seguir funcionando **sin bloquear** y dentro de presupuestos razonables.
 
-**Ubicación:** `test/corpora/`
-
-**Propósito:** Proyectos PowerBuilder reales o semi-reales para validación a mayor escala.
-
-**Convenciones:**
-- no incluir corpus grandes directamente en el repo si superan tamaño razonable,
-- usar `.gitignore` o submódulos para corpus externos,
-- documentar qué corpus se usa y qué valida,
-- los corpora no deben usarse como fixtures de unit tests (son para validación de escala y rendimiento).
-
----
-
-## 5. Comandos de ejecución
-
-### Compilar tests
-
-```bash
-npm run build:test
-```
-
-### Ejecutar todos los tests
-
-```bash
-npm test
-```
-
-### Ejecutar por tipo
-
-```bash
-npm run test:smoke
-npm run test:unit
-npm run test:integration
-npm run test:performance
-```
-
-### Workflow recomendado
-
-1. Compilar el proyecto: `npm run compile`
-2. Compilar tests: `npm run build:test`
-3. Ejecutar el tipo de test relevante al cambio
-4. Si todo pasa, ejecutar `npm test` para verificación completa
+### 3.5 Los corpus reales importan
+Los fixtures pequeños no sustituyen la validación sobre proyectos grandes y legacy.
 
 ---
 
-## 6. Convenciones para escribir tests
+## 4. Tipos de prueba
 
-### Estructura de un test
+## 4.1 Smoke tests
+**Objetivo:** comprobar que la extensión arranca y no falla de forma catastrófica.
 
-```typescript
-import { describe, it } from 'mocha';
-import { strict as assert } from 'assert';
+Deben cubrir como mínimo:
+- activación básica,
+- arranque cliente/servidor,
+- apertura de archivo PowerBuilder,
+- contribution points principales.
 
-describe('NombreDelMódulo', () => {
-  describe('nombreDeLaFunción', () => {
-    it('debe hacer X cuando Y', () => {
-      // Arrange
-      // Act
-      // Assert
-    });
-  });
-});
-```
+## 4.2 Unit tests
+**Objetivo:** validar lógica aislada, pura y reutilizable.
 
-### Reglas
+Deben cubrir prioritariamente:
+- parsing,
+- snapshots,
+- symbols/scopes,
+- invalidación,
+- scheduler/runtime,
+- query engine,
+- utilidades semánticas puras.
 
-- cada test debe tener un nombre descriptivo en español o inglés (consistente dentro del archivo),
-- usar patrón Arrange/Act/Assert,
-- preferir aserciones explícitas sobre aserciones implícitas,
-- un test debe probar una sola cosa,
-- no depender de estado compartido entre tests,
-- y limpiar cualquier estado creado durante el test.
+Regla:
+- no depender de VS Code,
+- no depender del transporte LSP,
+- no depender del filesystem real salvo necesidad muy controlada.
 
-### Naming
+## 4.3 Integration tests
+**Objetivo:** validar el comportamiento real extremo a extremo.
 
-- archivos de test: `nombreDelModulo.test.ts`
-- descripciones: empezar con verbo ("debe", "no debe", "devuelve", "lanza error cuando...")
+Deben cubrir:
+- Document Symbols,
+- Hover,
+- Definition,
+- Completion,
+- Signature Help,
+- Diagnostics,
+- invalidación visible,
+- y features activas del LSP.
 
----
+## 4.4 Performance tests
+**Objetivo:** detectar regresiones de latencia, indexación, memoria o warm resume.
 
-## 7. Cobertura actual
+Deben medir:
+- primer valor en archivo activo,
+- discovery,
+- cold indexing,
+- warm indexing,
+- análisis por documento,
+- y consumo de memoria en escenarios representativos.
 
-### Existente
+## 4.5 Golden / semantic tests
+**Objetivo:** proteger el comportamiento semántico del motor.
 
-- estructura de test en `test/` con subdirectorios por tipo (smoke, server, fixtures, corpora, results),
-- configuración de `@vscode/test-cli` en `.vscode-test.js`,
-- scripts de npm para todos los tipos de test,
-- `tsconfig.test.json` para compilación independiente,
-- unit tests para runtime (`timing`, `cancellation`, `scheduler`),
-- unit tests para parseo y matchers,
-- unit tests para features (documentSymbols, hover, completion, signatureHelp),
-- smoke test de extensión.
-
-### Pendiente
-
-- cobertura de integration tests end-to-end completa,
-- performance tests automatizados con baselines,
-- validación sobre corpus reales (PFC 2025),
-- y tests específicos de diagnósticos semánticos (B033).
-
----
-
-## 8. Reglas de validación por tipo de cambio
-
-| Tipo de cambio | Tests mínimos requeridos |
-|---|---|
-| Cambio en parseo/matchers | Unit test sobre el caso afectado |
-| Cambio en feature LSP | Integration test que verifique respuesta |
-| Cambio en activación/bootstrap | Smoke test |
-| Cambio en rendimiento | Performance test antes/después |
-| Cambio en gramática TextMate | Validación visual + no regresión |
-| Cambio en documentación | No requiere tests técnicos |
+Deben fijar resultados esperados para:
+- hover,
+- definition,
+- references,
+- rename eligibility,
+- readiness,
+- y reasoning semántico relevante.
 
 ---
 
-## 9. Relación con otros documentos
+## 5. Qué debe validarse según la fase del producto
 
-- `docs/constitution.md` (Art. X) exige validación obligatoria para toda feature.
-- `docs/performance-budget.md` define los presupuestos que los performance tests deben verificar.
-- `docs/spec-driven-development.md` (§5.6) requiere validación como paso del flujo SDD.
-- Cada spec en `specs/` debe definir su estrategia de validación específica.
+### 5.1 Core interactivo
+Siempre validar:
+- que el archivo activo responde primero,
+- que el background no bloquea,
+- que el motor degrada con seguridad,
+- y que el estado visible es coherente.
+
+### 5.2 Incrementalidad e invalidación
+Siempre validar:
+- qué se invalida,
+- qué se reutiliza,
+- qué se recalcula,
+- y que no se recompone más de lo necesario.
+
+### 5.3 Persistencia
+Siempre validar:
+- cold vs warm,
+- recuperación segura,
+- versionado,
+- y ausencia de corrupción visible.
+
+### 5.4 Query engine / serving
+Siempre validar:
+- coherencia entre hover/completion/definition/references,
+- evidencia o trazabilidad cuando aplique,
+- y estabilidad del resultado bajo contexto parcial o presión.
+
+### 5.5 Escala
+Siempre validar:
+- corpus reales,
+- latencia bajo carga,
+- memoria,
+- y comportamiento en cambios masivos.
 
 ---
 
-## 10. Regla de mantenimiento
+## 6. Fixtures y corpus
+
+## 6.1 Fixtures
+Los fixtures son casos pequeños, controlados y deterministas.
+
+Deben:
+- tener un propósito claro,
+- cubrir casos comunes y edge cases,
+- ser fáciles de leer,
+- y documentarse cuando el caso no sea obvio.
+
+## 6.2 Corpus reales
+Los corpus sirven para validar:
+- escala,
+- rendimiento,
+- robustez,
+- y compatibilidad con código legacy.
+
+No deben usarse como sustituto de fixtures unitarios.
+
+El corpus prioritario debe incluir:
+- PFC 2025 Solution,
+- PFC 2025 Workspace,
+- y proyectos legacy representativos cuando estén disponibles.
+
+---
+
+## 7. Reglas mínimas por tipo de cambio
+
+### 7.1 Cambio en parsing o modelo documental
+Mínimo:
+- unit test del caso afectado,
+- fixture asociado si aplica.
+
+### 7.2 Cambio en knowledge / resolución / query engine
+Mínimo:
+- unit tests del componente,
+- integration test de la feature afectada,
+- y golden test si cambia comportamiento semántico visible.
+
+### 7.3 Cambio en scheduler / invalidación / caché / runtime
+Mínimo:
+- unit tests,
+- integración de comportamiento observable,
+- y performance test si puede afectar latencia o background work.
+
+### 7.4 Cambio en persistencia / warm resume
+Mínimo:
+- test de reapertura / resume,
+- test de versión o invalidez,
+- y medición cold vs warm.
+
+### 7.5 Cambio en activación / bootstrap / wiring
+Mínimo:
+- smoke test.
+
+### 7.6 Cambio en rendimiento
+Mínimo:
+- medición antes/después,
+- y performance test o benchmark reproducible.
+
+### 7.7 Cambio solo documental
+No requiere test técnico, pero sí revisión de coherencia.
+
+---
+
+## 8. Evidencia mínima para cerrar trabajo
+
+Una tarea no debe cerrarse si no deja evidencia razonable de validación.
+
+La evidencia puede ser:
+- test automatizado,
+- test de integración,
+- golden test,
+- medición de rendimiento,
+- validación manual guiada,
+- o combinación de varias.
+
+La evidencia debe ser proporcional al riesgo del cambio.
+
+---
+
+## 9. Rutas críticas que deben vigilarse siempre
+
+### 9.1 Interactive path
+Debe mantenerse estable en:
+- hover,
+- completion,
+- definition,
+- signature help,
+- document symbols,
+- diagnósticos del archivo activo.
+
+### 9.2 Discovery / indexing path
+Debe mantenerse estable en:
+- discovery,
+- indexación progresiva,
+- prioridades del scheduler,
+- readiness,
+- y progreso observable.
+
+### 9.3 Warm / resume path
+Debe mantenerse estable en:
+- reapertura,
+- checkpoints,
+- caché persistente,
+- reuso de conocimiento.
+
+### 9.4 Massive change path
+Debe mantenerse estable en:
+- git pull,
+- cambio de rama,
+- invalidaciones amplias,
+- watchers,
+- y cambios masivos en disco.
+
+---
+
+## 10. Comandos y ejecución
+
+El proyecto debe ofrecer comandos claros para:
+
+- compilar tests,
+- ejecutar todos los tests,
+- ejecutar smoke,
+- ejecutar unit,
+- ejecutar integration,
+- ejecutar performance.
+
+Flujo recomendado:
+
+1. compilar proyecto,
+2. compilar tests,
+3. ejecutar el tipo de test relevante al cambio,
+4. ejecutar la verificación global antes de cerrar trabajo importante.
+
+---
+
+## 11. Relación con otros documentos
+
+Este documento debe alinearse con:
+
+- `docs/constitution.md`
+- `docs/architecture.md`
+- `docs/roadmap.md`
+- `docs/current-focus.md`
+- `docs/performance-budget.md`
+- y las specs afectadas
+
+Si cambia la estrategia de validación, debe reflejarse aquí.
+
+---
+
+## 12. Regla de mantenimiento
 
 Este documento debe actualizarse cuando:
 
-- se añadan nuevos tipos de test,
-- cambien herramientas o frameworks,
-- cambie la estructura de directorios de test,
-- o se establezcan nuevos umbrales de cobertura mínima.
+- cambien herramientas o runners,
+- cambie la estructura de tests,
+- aparezcan nuevos tipos de prueba,
+- cambie el criterio de cierre,
+- o se introduzcan nuevas rutas críticas del producto.
+
+---
+
+## 13. Regla final
+
+El testing no existe para acumular tests.
+
+Existe para asegurar que el plugin puede seguir creciendo sin romper:
+
+- la experiencia del archivo activo,
+- la estabilidad del motor,
+- la calidad semántica,
+- el rendimiento,
+- ni la mantenibilidad del producto.

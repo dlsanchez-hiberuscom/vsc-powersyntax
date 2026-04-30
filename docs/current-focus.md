@@ -2,7 +2,7 @@
 
 ## 1. Propósito
 
-Este documento refleja el foco operativo actual del proyecto.
+Este documento refleja el foco operativo **real e inmediato** del proyecto.
 
 Debe responder siempre a estas preguntas:
 
@@ -16,274 +16,258 @@ Este documento no describe aspiraciones a largo plazo, sino el **trabajo inmedia
 
 ---
 
-## 2. Estado real del proyecto
+## 2. Meta maestra vigente
 
-### Capacidades ya implementadas
+La meta no negociable del producto es:
 
-El proyecto dispone actualmente de una base funcional que incluye:
+> **descubrir e indexar muy rápido sin bloquear**
 
-- **cliente ligero** en `src/client/extension.ts` (~130 líneas, sin semántica ni parseo),
-- **servidor LSP separado** en `src/server/server.ts` con wiring limpio,
-- **activación perezosa** por contribución declarativa del lenguaje (sin `activationEvents` explícitos; VS Code activa automáticamente vía `onLanguage:powerbuilder`),
-- **Document Symbols jerárquicos** funcionales con anidación correcta de funciones/eventos dentro de sus contenedores (clases/tipos),
-- **Hover semántico** con contexto por símbolo, catálogo oficial y resolución por herencia,
-- **Go to Definition** con resolución de herencia, cualificadores (`this.`, `super.`, variables tipadas) y distancia semántica,
-- **Completado Contextual** semántico con soporte para herencia, cualificadores y scoring por ámbito (local/miembro/global),
-- **Ayuda de firmas (Signature Help)** interactiva con soporte para parámetros y llamadas anidadas,
-- **Diagnósticos estructurales** con validación de bloques abiertos/cerrados (incluidos bloques ejecutables como IF/FOR/DO),
-- **Caché de análisis** por documento con invalidación por cierre,
-- **Scheduling de diagnósticos** con debounce para no saturar al editar,
-- **Parseo** de secciones, declaraciones y cabeceras de implementación,
-- **KnowledgeBase** con soporte para indexación global, actualizaciones en lote (batch updates) y scopes,
-- **InheritanceGraph** para resolución de herencia y miembros heredados,
-- **SemanticQueryService** como capa de consultas compartidas para definition y hover,
-- **SystemCatalog** con funciones oficiales del lenguaje PowerBuilder,
-- **Gramática TextMate** principal y gramática para bloques PowerBuilder en Markdown,
-- **Descubrimiento de workspace** con crawler asíncrono y cooperativo,
-- **FileSystemWatcher** para archivos de proyecto PowerBuilder (`.pbw`, `.pbt`, `.pbproj`, `.pbsln`),
-- y **base de tests** con estructura smoke / unit / integration / performance.
+Todo el foco actual debe evaluarse contra esa meta.
 
-### Fases del roadmap completadas o en curso
+Eso implica que el plugin debe mejorar simultáneamente en:
 
-- **Fase 0** (bootstrap profesional): **cerrada**.
-- **Fase 1** (base operativa rápida): **cerrada**.
-- **Fase 2** (workspace, runtime y observabilidad): **cerrada**.
-- **Fase 3** (parsing, caché e invalidación): **cerrada**.
-- **Fase 4** (backbone semántico inicial y catálogo): **cerrada**.
-- **Fase 5** (navegación profesional y valor visible): **cerrada**.
-- **Fase 6A** (productividad semántica base): **cerrada** (B018, B028, B029, B033, B053, B027 completados; B022 integrado).
-- **Fase 6B / P0** (infraestructura de escala): **cerrada** (specs 013–017).
-- **Fase 7A / P1** (topología real y resolución fuerte): **cerrada** (specs 018–027).
-- **Fase 7B / P2** (parser hardening + utilidades cross-cutting): **cerrada** (specs 028–042).
-- **Fase 7C / P3** (infraestructura workspace + integraciones + features avanzadas): **cerrada** (specs 043–062, 20 entregas).
-- **Catálogo built-in PowerBuilder 2025**: **rediseñado y ampliado** (manual + generated, 1.729 entries activos, registry+services+indexes; SystemCatalog ahora con resolutores por owner-type y dataset).
+1. descubrimiento rápido del workspace/solution,
+2. indexación progresiva y no bloqueante,
+3. prioridad real al contexto activo,
+4. latencia interactiva baja para hover/completion/definition,
+5. persistencia útil para evitar recomputado innecesario,
+6. estado observable del motor,
+7. y base semántica fuerte sin sacrificar tiempo hasta valor.
 
 ---
 
-## 3. Foco actual
+## 3. Estado real del proyecto
 
-### Meta actual
+### Base ya cerrada
 
-**P0 (Infraestructura de Escala) y P1 (Resolución fuerte) cerrados.**
+El proyecto ya dispone de una base fuerte y funcional en:
 
-#### P0 — cerrado
-- ~~B120 Discovery rápido no bloqueante~~ (spec 013).
-- ~~B121 Scheduler multinivel~~ (spec 014).
-- ~~B133 Barra de estado~~ (spec 015).
-- ~~B134A Caché caliente~~ (spec 016).
-- ~~B134B Caché de serving~~ (spec 017).
+- cliente ligero y servidor LSP separados,
+- activación perezosa,
+- Document Symbols jerárquicos,
+- hover semántico,
+- go to definition,
+- completado contextual,
+- signature help,
+- diagnósticos estructurales y semánticos base,
+- caché documental inicial,
+- KnowledgeBase,
+- InheritanceGraph,
+- SemanticQueryService,
+- SystemCatalog,
+- descubrimiento inicial de workspace,
+- watcher de archivos PowerBuilder,
+- y base de tests smoke/unit/integration/performance.
 
-#### P1 — cerrado
-- ~~B056 Workspace topology parser~~ (spec 018).
-- ~~B057 Project registry~~ (spec 019).
-- ~~B087 Library order~~ (spec 020).
-- ~~B064 Modelo de símbolos enriquecido~~ (spec 021).
-- ~~B059 Visibility real~~ (spec 022).
-- ~~B058 InheritanceGraph robusto~~ (spec 023).
-- ~~B060 Owner resolution~~ (spec 024).
-- ~~B023 Find references~~ (spec 025).
-- ~~B034 Variables no usadas (refuerzo)~~ (spec 026).
-- ~~B035 Shadowing~~ (spec 027).
+### Bloques ya cerrados
 
-## Tarea Activa (Next)
-**Fase 7C / P3 cerrada (specs 043–062, 20 entregas).** Próximo foco: integración profunda real de los módulos P2/P3 en las features
-LSP visibles (cableado de `codeActions`, `codeLensReferences`, `objectInfo`,
-`projectStatus`, `diagnosticsSnapshot`, etc. en `server.ts`) y exploración
-de los nuevos backlog entries B139–B142 detectados en `plugin_old`.
+Se consideran ya cerrados como base operativa:
 
-### Fase del roadmap en foco
+- bootstrap profesional,
+- base operativa rápida,
+- workspace/runtime/observabilidad inicial,
+- parsing/caché/invalidez base,
+- backbone semántico inicial,
+- navegación profesional,
+- infraestructura de escala inicial,
+- topología real y resolución fuerte base,
+- hardening principal de parser/lexer,
+- sprintes de hardening 1, 2 y 3 ya completados.
 
-- **Fase 6B / P0**: cerrada.
-- **Fase 7A / P1**: cerrada.
-- **Fase 7B / P2**: cerrada (módulos: parsing/codeMasking, statementSplitter,
-  nesting, sectionMachine, srContainerParser, onEventParser, externalFunctions,
-  sqlRegions; knowledge/symbolKey, positionContext, obsoleteCatalog;
-  features/completionScoring, hoverFormat, obsoleteDetector; system/encoding).
-- **Backbone**: Scopes, resolución, queries compartidas, library order y
-  visibilidad listos. Gramática centralizada.
+### Consecuencia
 
-Todavía **no** estamos en fase de automatización externa ni ecosistema PowerBuilder profundo.
+El foco actual **ya no es construir la base inicial**.
 
----
-
-## 4. Backlog que debe cerrarse ahora
-
-### Entradas ya cerradas o resueltas de facto
-
-- ~~**B001–B013**~~ → Todas **cerradas** (Fases 0–3).
-- ~~**B014. Document Symbols jerárquicos**~~ → **Cerrada.**
-- ~~**B015. Navegación global exacta**~~ → **Cerrada.**
-- ~~**B016. Resolver de tipos e InheritanceGraph**~~ → **Cerrada.**
-- ~~**B018. Diagnósticos iniciales**~~ → **Cerrada.**
-- ~~**B019. Primer catálogo oficial**~~ → **Cerrada.**
-- ~~**B020. Base de scopes y binding inicial**~~ → **Cerrada.**
-- ~~**B021. Queries compartidas del knowledge layer**~~ → **Cerrada.**
-- ~~**B028. Ayuda de firmas (Signature Help)**~~ → **Cerrada.**
-- ~~**B029. Completado contextual base**~~ → **Cerrada.**
-- ~~**B033. Diagnósticos semánticos**~~ → **Cerrada.**
-- ~~**B053. Grammar canónico y refactor de regex**~~ → **Cerrada.**
-
-### Entradas pendientes prioritarias
-
-- ~~B027. Semantic tokens por rol y scope~~
-- ~~B051. Desambiguación semántica de tipos vs funciones~~
-- ~~B022. Modelo de dependencias básico~~
-- ~~B120. Discovery rápido no bloqueante del workspace~~ → **Cerrada (spec 013).**
-- ~~B121. Scheduler de indexación multinivel~~ → **Cerrada (spec 014).**
-- ~~B133. Barra de estado con progreso~~ → **Cerrada (spec 015).**
-- ~~B134A. Caché caliente del contexto activo~~ → **Cerrada (spec 016).**
-- ~~B134B. Caché de serving (LSP features)~~ → **Cerrada (spec 017).**
-
-### Orden operativo recomendado
-
-1. discovery rápido no bloqueante (B120),
-2. scheduler de indexación multinivel (B121),
-3. barra de estado con progreso (B133),
-4. caché caliente y de serving (B134A/B).
+El foco actual es **hacer que el motor sea más correcto, más incremental, más reanudable, más observable y más rápido bajo carga real**.
 
 ---
 
-## 5. Qué sí debe hacerse ahora
+## 4. Foco actual real
+
+## Fase activa actual
+
+### Fase 1 — Atomicidad + incrementalidad fina
+
+Este es el foco principal actual.
+
+### Objetivo de esta fase
+
+Cerrar el núcleo del motor para que:
+
+- publique estado semántico de forma atómica,
+- recompute solo lo mínimo necesario,
+- priorice el archivo activo y sus dependencias cercanas,
+- pueda degradar de forma segura,
+- y siga descubriendo/indexando rápido sin bloquear.
+
+### Ítems del backlog dentro del foco actual
+
+Orden exacto:
+
+1. **B151** — Semantic snapshot canónico por documento  
+2. **B165** — Publicación atómica del Knowledge Base y de los índices  
+3. **B166** — Versionado semántico interno del workspace  
+4. **B170** — Semantic diff engine  
+5. **B153** — Índice de dependencias semánticas inversas  
+6. **B154** — Invalidation engine explícito  
+7. **B152** — Pipeline de indexación en dos fases reales  
+8. **B122** — Priorización por dependencias semánticas cercanas  
+9. **B123** — Presupuestos de trabajo y yielding cooperativo  
+10. **B124** — Cancelación y preempción real de tareas de fondo  
+11. **B169** — Watcher intake pipeline con backpressure real  
+12. **B125** — Indexación progresiva del workspace completo  
+13. **B126** — Superficie de estado del indexador  
+14. **B134** — Modelo de progreso y readiness del indexador  
+15. **B158** — Modo degradado formal  
+16. **B159** — Gobernador de latencia del servidor
+
+---
+
+## 5. Por qué esto es prioritario
+
+Este bloque es prioritario porque ataca directamente la meta maestra:
+
+> descubrir e indexar muy rápido sin bloquear
+
+Si esta fase no se cierra bien, todo lo demás se apoya sobre una base menos profesional:
+
+- la persistencia será menos fiable,
+- el query engine reutilizará peor la información,
+- las queries visibles serán menos coherentes,
+- la latencia sufrirá más en workspaces grandes,
+- y el crecimiento del producto será más caro de mantener.
+
+En otras palabras:
+
+**antes de abrir más superficie funcional, hay que cerrar mejor el corazón del motor.**
+
+---
+
+## 6. Qué sí debe hacerse ahora
 
 ### Trabajo permitido y prioritario
 
-- implementar discovery dual (Workspace/Solution) sin bloquear el arranque,
-- implementar scheduler de colas para proteger el archivo activo,
-- añadir barra de estado con progreso real,
-- y mantener la coherencia documental tras cada cambio.
+- construir el snapshot semántico canónico,
+- introducir publicación atómica del estado semántico,
+- introducir versionado semántico interno,
+- clasificar cambios por diff semántico,
+- modelar dependencias inversas,
+- centralizar la invalidación,
+- separar indexación estructural vs enriquecida,
+- endurecer yielding, preempción y budgets,
+- mejorar backpressure del watcher,
+- exponer progreso, readiness y estado del indexador,
+- y mantener alineada la documentación técnica con el nuevo modelo del core.
 
 ### Resultado esperado de esta etapa
 
-Al final del foco actual, el plugin debe:
+Al final de esta fase, el plugin debe:
 
-- indexar el workspace de forma progresiva sin bloquear la UI,
-- mostrar progreso real y estado de readiness al usuario,
-- mantener la latencia controlable mediante yielding y budgets,
-- y preparar la base de caché para la resolución fuerte de la Fase 7A.
+- descubrir e indexar el workspace de forma progresiva y sin bloquear,
+- priorizar de verdad el contexto activo,
+- publicar resultados coherentes sin estados a medias,
+- invalidar y recomputar con granularidad fina,
+- exponer progreso real y readiness,
+- y dejar preparada una base sólida para persistencia robusta y query engine unificado.
 
 ---
 
-## 6. Qué no debe hacerse ahora salvo causa clara
+## 7. Qué no debe hacerse ahora salvo causa clara
 
 ### Trabajo explícitamente fuera de foco
 
 No debe hacerse ahora, salvo bug, deuda bloqueante o necesidad muy justificada:
 
-- reabrir arquitectura general sin motivo,
-- meter features vistosas antes de consolidar base,
-- adelantar resolución fuerte (topología, visibility rules, owner resolution) que pertenecen a Fase 7A,
-- abrir integraciones como PBAutoBuild, OrcaScript/ORCA, DataWindow avanzado o API local.
+- adelantar DataWindow avanzado,
+- abrir integraciones profundas de build/ORCA,
+- ampliar automatización externa,
+- abrir una API pública más ambiciosa,
+- meter features visibles nuevas por encima del cierre del core,
+- hacer refactors estéticos sin impacto real,
+- o reabrir arquitectura general sin relación directa con la fase activa.
 
 ### No tocar todavía salvo necesidad real
 
-- rename,
-- references robustas,
-- CodeLens,
-- formateador de código,
-- explorador semántico,
-- automatización externa o IA.
-
-Todo eso tiene valor, pero **no es el foco inmediato**.
+- DataWindow safe mode completo,
+- build moderno profundo,
+- automatización externa,
+- ORCA,
+- expansión fuerte de API pública,
+- formatter ambicioso,
+- features vistosas no apoyadas todavía en el query engine unificado.
 
 ---
 
-## 7. Riesgos actuales a vigilar
+## 8. Riesgos actuales a vigilar
 
 ### Riesgos principales
 
-- crecimiento desordenado de las features bootstrap sin pasar por el knowledge pipeline,
-- conversión inadvertida de la capa `analysis/` en estructura permanente (ver bloque transversal de deuda en roadmap),
-- falta de separación entre runtime y lógica semántica a medida que crezca el servidor,
-- ~~regex dispersas que compliquen la evolución de la gramática (B053 pendiente)~~ → **Resuelto**,
-- y documentación que vuelva a desalinearse si no se mantiene sincronizada con los cambios.
+- seguir acumulando lógica semántica fuera de un snapshot/documento canónico,
+- invalidación todavía demasiado dispersa,
+- recomputación más amplia de lo necesario,
+- estados parciales del motor visibles por features interactivas,
+- watchers que generen tormentas de trabajo en cambios masivos,
+- caché persistente futura sin versionado ni journaling sólido,
+- y documentación desalineada respecto al nuevo modelo del core.
 
 ---
 
-## 8. Evidencia mínima que debe salir de este foco
+## 9. Evidencia mínima que debe salir de este foco
 
-Antes de mover el foco, esta etapa debe dejar evidencia razonable de mejora.
+Antes de mover el foco, esta fase debe dejar evidencia razonable de mejora.
 
 ### Evidencias mínimas esperadas
 
-- descubrimiento asíncrono y no bloqueante verificado,
-- scheduler de colas operando con prioridades (Interactive/Near/Background),
-- barra de estado reflejando progreso real de indexación,
-- caché de contexto activo y de serving funcional,
-- y documentación actualizada reflejando el estado real.
+- snapshot semántico por documento operativo,
+- publicación atómica del estado semántico,
+- semantic diff engine funcionando en casos base,
+- índice de dependencias inversas operativo,
+- invalidation engine centralizado,
+- pipeline de indexación en dos fases,
+- yielding y preempción reales medibles,
+- progreso/readiness visibles y estables,
+- watcher intake con backpressure controlado,
+- y documentación técnica actualizada y alineada.
 
 ---
 
-## 9. Siguiente paso natural
+## 10. Siguiente paso natural
 
-El siguiente paso natural del proyecto, una vez cerrado este foco, es:
+El siguiente paso natural, una vez cerrado este foco, es:
 
-1. Infraestructura de escala (P0): discovery, scheduler, caché,
-2. entrar en Fase 7A (resolución fuerte, topología real, visibilidad).
+### Fase 2 — Persistencia robusta
+
+Orden previsto:
+
+1. **B141** — Library graph / project model unificado  
+2. **B155** — Checkpoints reales de indexación y resume robusto  
+3. **B167** — Journaling transaccional de caché persistente  
+4. **B168** — Cache schema versioning + migraciones  
+5. **B071** — Warm indexing y resume de caché persistente  
+6. **B071A** — Caché persistente por workspace y por proyecto  
+7. **B071B** — Caché de consultas frecuentes  
+8. **B164** — Interning y compactación de memoria  
+9. **B174** — Resultados semánticos inmutables
 
 ---
 
-## 10. Condición para mover el foco
+## 11. Condición para mover el foco
 
 El foco actual solo debe cambiar cuando:
 
-- los diagnósticos semánticos funcionen correctamente en casos base,
-- exista validación mínima sobre fixtures representativos,
-- la latencia de diagnósticos no degrade la experiencia del archivo activo,
-- y la estructura documental quede alineada con el estado real del repositorio.
+- el snapshot semántico sea la unidad real de consumo del motor,
+- la publicación del estado sea atómica,
+- la invalidación esté centralizada y opere con granularidad fina,
+- el scheduler responda bien a contexto activo + background,
+- el progreso/readiness sean observables y estables,
+- y exista evidencia de mejora real en tiempo hasta valor y no bloqueo.
 
-Si estas condiciones no se cumplen, no debe abrirse de forma agresiva la siguiente capa del roadmap.
+Si estas condiciones no se cumplen, no debe abrirse de forma agresiva la siguiente fase.
 
 ---
 
-## 11. Regla final de foco
+## 12. Regla final de foco
 
 Mientras este documento siga vigente, la regla operativa es:
 
-> **no abrir más superficie funcional de la que la base actual puede sostener sin comprometer carga, estabilidad, claridad arquitectónica o documentación viva.**
-
-La prioridad inmediata es completar la Fase 6B / P0 con la infraestructura de escala necesaria para que el crecimiento futuro sea seguro y sostenible.
----
-
-## 7. Sprint de hardening 3 (specs 103-132) — completado
-
-Sprint autonomo ejecutado tras sprints 1 (063-082) y 2 (083-102):
-
-- Wave A (103-107): code actions, codeLens, rename con preflight,
-  executeCommand y stats snapshot conectados al LSP.
-- Wave B (108-112): logical statements, findCallable, signatureLabel,
-  fingerprint shortcut, analysis cache stats.
-- Wave C (113-117): SD11 unreachable, SD12 unbalanced parens,
-  SD13 missing return, severity overrides via env, diagnostics summary.
-- Wave D (118-122): ServingCache TTL+stats, HotContextCache cap,
-  DocumentCache uris, KB resync batch.
-- Wave E (123-127): file state machine, active priority,
-  time slice budget, max file bytes, indexer status.
-- Wave F (128-132): ApiServerStats, ApiProjectInfo, ApiDiagnosticsTreeNode,
-  perf regression test (1000 lineas) y corpus regression test.
-
-Tests: 287 (baseline 278 + 9 nuevos). Cero regresiones.
-
-Detalle completo en `docs/backlog.md` seccion 16.
-
----
-
-## 7. Sprint de hardening 3 (specs 103-132) — completado
-
-Sprint autonomo ejecutado tras sprints 1 (063-082) y 2 (083-102):
-
-- Wave A (103-107): code actions, codeLens, rename con preflight,
-  executeCommand y stats snapshot conectados al LSP.
-- Wave B (108-112): logical statements, findCallable, signatureLabel,
-  fingerprint shortcut, analysis cache stats.
-- Wave C (113-117): SD11 unreachable, SD12 unbalanced parens,
-  SD13 missing return, severity overrides via env, diagnostics summary.
-- Wave D (118-122): ServingCache TTL+stats, HotContextCache cap,
-  DocumentCache uris, KB resync batch.
-- Wave E (123-127): file state machine, active priority,
-  time slice budget, max file bytes, indexer status.
-- Wave F (128-132): ApiServerStats, ApiProjectInfo, ApiDiagnosticsTreeNode,
-  perf regression test (1000 lineas) y corpus regression test.
-
-Tests: 287 (baseline 278 + 9 nuevos). Cero regresiones.
-
-Detalle completo en `docs/backlog.md` seccion 16.
+> **no abrir más superficie funcional de la que el núcleo actual puede sostener sin comprometer descubrimiento rápido, indexación progresiva no bloqueante, estabilidad semántica, latencia interactiva o documentación viva.**

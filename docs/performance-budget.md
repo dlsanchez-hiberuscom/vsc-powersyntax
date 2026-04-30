@@ -2,196 +2,327 @@
 
 ## 1. Propósito
 
-Este documento define los **presupuestos de rendimiento** del plugin: los límites y objetivos que deben guiar decisiones de diseño, detectar regresiones y asegurar que la experiencia del usuario sigue siendo rápida y fluida a medida que el plugin crece.
+Definir los límites y objetivos de rendimiento del plugin para proteger la experiencia del usuario a medida que el producto crece.
 
-Los presupuestos no son reglas absolutas e inamovibles, pero toda violación debe justificarse, documentarse y tener plan de mitigación.
-
----
-
-## 2. Principios
-
-1. **El rendimiento es una restricción de diseño, no una optimización posterior.** Toda feature debe considerar su coste antes de implementarse.
-2. **El archivo activo tiene presupuesto privilegiado.** La experiencia interactiva del editor no debe degradarse por trabajo global.
-3. **Medir antes de optimizar.** No se asume mejora ni degradación sin evidencia.
-4. **Los presupuestos escalan con la fase del roadmap.** Las fases tempranas son más estrictas; las avanzadas añaden trabajo pero con mitigaciones.
+Este documento no es una lista de optimizaciones aisladas.  
+Es una **restricción de diseño** que condiciona arquitectura, backlog, validación y evolución del motor.
 
 ---
 
-## 3. Presupuestos de activación
+## 2. Meta maestra
 
-### 3.1 Cold start (arranque de VS Code sin archivos PB abiertos)
+> **El plugin debe descubrir e indexar muy rápido sin bloquear.**
 
-| Métrica | Presupuesto | Notas |
-|---|---|---|
-| Contribución de la extensión al arranque | **< 5 ms** | La extensión no debe activarse hasta que haya un archivo PB |
-| Trabajo del Extension Host al arrancar | **0** | No debe ejecutarse código del plugin hasta activación |
+Todo presupuesto de rendimiento debe apoyar simultáneamente:
 
-### 3.2 Activación (primer archivo PowerBuilder abierto)
-
-| Métrica | Presupuesto | Notas |
-|---|---|---|
-| Tiempo desde apertura hasta cliente LSP listo | **< 500 ms** | Incluye arranque del servidor |
-| Tiempo hasta primer Document Symbols visible | **< 1 s** | Debe sentirse instantáneo para archivos pequeños |
-| Tiempo hasta primer Hover disponible | **< 1 s** | |
-| Tiempo hasta primera publicación de diagnósticos | **< 1.5 s** | Incluye debounce |
+1. descubrimiento rápido,
+2. indexación progresiva no bloqueante,
+3. prioridad real al archivo activo,
+4. latencia interactiva baja,
+5. persistencia útil entre sesiones,
+6. observabilidad del motor,
+7. y degradación segura cuando no haya contexto suficiente.
 
 ---
 
-## 4. Presupuestos por operación (archivo activo)
+## 3. Principios no negociables
 
-### 4.1 Archivos pequeños (< 500 líneas)
+### 3.1 El archivo activo tiene presupuesto privilegiado
+La experiencia del documento activo está por encima del trabajo global del workspace.
 
-| Operación | Presupuesto |
-|---|---|
-| Document Symbols | **< 50 ms** |
-| Hover | **< 30 ms** |
-| Diagnósticos | **< 100 ms** (sin debounce) |
-| Análisis completo del documento | **< 100 ms** |
+### 3.2 El trabajo global no puede bloquear la interacción
+La indexación, el enriquecimiento y el background nunca deben degradar perceptiblemente hover, completion, definition o edición.
 
-### 4.2 Archivos medianos (500–2000 líneas)
+### 3.3 Toda tarea costosa debe ceder
+Toda operación costosa debe diseñarse con:
+- yielding,
+- cancelación,
+- preempción,
+- o reprogramación.
 
-| Operación | Presupuesto |
-|---|---|
-| Document Symbols | **< 150 ms** |
-| Hover | **< 50 ms** |
-| Diagnósticos | **< 300 ms** |
-| Análisis completo del documento | **< 300 ms** |
+### 3.4 Medir antes de asumir
+No se considera mejora ni regresión sin evidencia suficiente.
 
-### 4.3 Archivos grandes (2000–10000 líneas)
+### 3.5 Degradar con seguridad
+Si el sistema no dispone aún de contexto suficiente, puede degradar profundidad o cobertura, pero no debe devolver resultados engañosos.
 
-| Operación | Presupuesto |
-|---|---|
-| Document Symbols | **< 500 ms** |
-| Hover | **< 100 ms** |
-| Diagnósticos | **< 1 s** |
-| Análisis completo del documento | **< 1 s** |
-
-> **Nota:** Los archivos PowerBuilder legacy pueden ser muy grandes. Un archivo de 10.000 líneas es un caso real en proyectos enterprise. El plugin debe mantener valor práctico incluso en estos escenarios.
+### 3.6 Warm debe ser claramente mejor que cold
+La persistencia y la caché deben traducirse en mejoras visibles al reabrir workspaces y repetir consultas.
 
 ---
 
-## 5. Presupuestos de workspace
+## 4. Rutas de rendimiento que deben protegerse
 
-Estos presupuestos aplican ahora que existe descubrimiento de workspace e indexación global (implementados en Fases 2–3).
+### 4.1 Interactive path
+Incluye:
+- hover,
+- completion,
+- definition,
+- signature help,
+- diagnostics del archivo activo,
+- document symbols del archivo abierto.
 
-### 5.1 Workspace pequeño (< 100 archivos)
+**Regla:** esta ruta tiene máxima prioridad.
 
-| Operación | Presupuesto |
-|---|---|
-| Descubrimiento de workspace | **< 1 s** |
-| Indexación completa | **< 5 s** |
-| Uso de memoria por índice | **< 50 MB** |
+### 4.2 Discovery / indexing path
+Incluye:
+- discovery del workspace,
+- parseo estructural,
+- indexación progresiva,
+- enriquecimiento semántico,
+- background indexing.
 
-### 5.2 Workspace mediano (100–500 archivos)
+**Regla:** debe ser progresiva, cancelable y no bloqueante.
 
-| Operación | Presupuesto |
-|---|---|
-| Descubrimiento de workspace | **< 2 s** |
-| Indexación completa | **< 15 s** |
-| Uso de memoria por índice | **< 150 MB** |
+### 4.3 Warm / resume path
+Incluye:
+- reapertura del workspace,
+- recuperación de checkpoints,
+- reuse de caché persistente,
+- serving acelerado sobre conocimiento ya materializado.
 
-### 5.3 Workspace grande (500–5000 archivos)
+**Regla:** debe mejorar claramente frente al arranque en frío.
 
-| Operación | Presupuesto |
-|---|---|
-| Descubrimiento de workspace | **< 5 s** |
-| Indexación completa | **< 60 s** (incremental, cancelable) |
-| Uso de memoria por índice | **< 500 MB** |
-| Warm indexing (con caché persistente) | **< 10 s** |
+### 4.4 Massive change path
+Incluye:
+- git pull,
+- cambio de rama,
+- cambios masivos de archivos,
+- invalidaciones amplias,
+- reescaneo por watcher.
 
-> **Nota:** Un proyecto PowerBuilder enterprise puede tener miles de objetos. La indexación debe ser incremental y cancelable; estos presupuestos son para el caso completo. El warm indexing debe ser significativamente más rápido gracias a la caché persistente.
-
----
-
-## 6. Presupuestos de memoria
-
-| Recurso | Presupuesto |
-|---|---|
-| Memoria base del servidor LSP (sin documentos) | **< 30 MB** |
-| Caché por documento abierto (archivo mediano) | **< 1 MB** |
-| Total del servidor con 10 archivos abiertos | **< 80 MB** |
-| Pico durante indexación de workspace mediano | **< 200 MB** |
-
----
-
-## 7. Presupuestos de latencia interactiva
-
-Estos presupuestos protegen la sensación de fluidez del editor.
-
-| Criterio | Presupuesto |
-|---|---|
-| El editor no debe "congelarse" al escribir | **Nunca** |
-| El servidor no debe bloquear respuestas interactivas por trabajo global | **Nunca** |
-| Toda operación costosa debe ser cancelable | **Siempre** |
-| Debounce mínimo para diagnósticos al editar | **200–500 ms** |
-| Toda tarea > 1 s debe poder reportar progreso | **Siempre** |
+**Regla:** debe absorber ráfagas sin tormentas de trabajo ni degradación caótica.
 
 ---
 
-## 8. Estrategia de medición
+## 5. Presupuestos no negociables
 
-### 8.1 Qué medir ahora (Fase 1–2)
+Estos presupuestos son de **comportamiento**, no de milisegundos exactos.
 
-- tiempo de activación del cliente,
-- tiempo desde apertura de archivo hasta primer Document Symbols,
-- tiempo hasta primer Hover,
+### 5.1 Nunca bloquear el editor
+El editor no debe congelarse por trabajo del plugin.
+
+### 5.2 El background no roba latencia al foreground
+Las tareas globales nunca deben impedir responder con prioridad al usuario.
+
+### 5.3 Toda operación costosa debe ser interrumpible
+Toda tarea larga debe poder:
+- cancelarse,
+- pausarse,
+- o ceder.
+
+### 5.4 Toda tarea larga debe ser observable
+Si una operación supera un umbral razonable, debe exponer progreso, estado o readiness útil.
+
+### 5.5 Ninguna mejora visible puede apoyarse en recomputación innecesaria
+El sistema debe tender a:
+- invalidación fina,
+- reuso de snapshots,
+- query cache segura,
+- persistencia útil,
+- y serving incremental.
+
+---
+
+## 6. Objetivos iniciales de latencia
+
+Estos valores son **objetivos iniciales** y deberán recalibrarse con corpus reales.
+
+### 6.1 Activación y disponibilidad inicial
+- activación efectiva del cliente/servidor: **rápida y sin trabajo innecesario en arranque**
+- primer `Document Symbols`: **casi inmediato en archivos pequeños**
+- primer `Hover`: **rápido en archivo activo**
+- primera publicación de diagnósticos: **rápida pero sin saturar la edición**
+
+### 6.2 Archivo activo
+Objetivo general:
+- archivos pequeños: respuesta **muy rápida**
+- archivos medianos: respuesta **fluida**
+- archivos grandes legacy: respuesta **útil y estable**, aunque no instantánea
+
+### 6.3 Workspace
+Objetivo general:
+- discovery inicial: **rápido**
+- indexación cold: **progresiva y no bloqueante**
+- indexación warm: **claramente mejor que cold**
+- memoria: **controlada y estable**
+
+---
+
+## 7. Presupuestos por categoría
+
+### 7.1 Activación
+Se vigila:
+- coste añadido al arranque,
+- tiempo hasta cliente/servidor disponibles,
+- tiempo hasta primera capacidad útil en archivo activo.
+
+### 7.2 Serving interactivo
+Se vigila:
+- hover,
+- completion,
+- definition,
+- signature help,
+- document symbols,
+- respuesta de diagnostics del archivo activo.
+
+### 7.3 Indexación
+Se vigila:
+- discovery,
+- parseo,
+- enriquecimiento,
+- progreso por fases,
+- fairness del background,
+- tiempo hasta “active-context-ready”.
+
+### 7.4 Persistencia
+Se vigila:
+- tiempo de reapertura,
+- tiempo de resume,
+- mejora warm vs cold,
+- tasa de reutilización útil,
+- coste de invalidación tras reapertura.
+
+### 7.5 Memoria
+Se vigila:
+- memoria base del servidor,
+- memoria por documento caliente,
+- crecimiento del índice,
+- picos durante indexación,
+- densidad de caché.
+
+---
+
+## 8. Métricas mínimas obligatorias
+
+Toda evolución relevante del motor debe poder medir, como mínimo:
+
+- tiempo hasta primer `Document Symbols`,
+- tiempo hasta primer `Hover`,
 - tiempo hasta primera publicación de diagnósticos,
-- tiempo de análisis por documento (por tamaño),
-- y memoria base del servidor.
-
-### 8.2 Cómo medir
-
-| Método | Cuándo usar |
-|---|---|
-| `console.time` / `console.timeEnd` | Mediciones rápidas durante desarrollo |
-| `performance.now()` en el servidor | Mediciones precisas de operaciones LSP |
-| Performance tests automatizados | Verificación repetible en CI |
-| VS Code Developer Tools (F12) | Inspección de activación y Extension Host |
-| `--prof` / heap snapshots | Análisis profundo de memory leaks o CPU hotspots |
-
-### 8.3 Cuándo medir
-
-- al cerrar un item del backlog relacionado con rendimiento,
-- al cerrar una fase del roadmap,
-- cuando se sospeche una regresión,
-- y antes de publicar una release.
+- tiempo de análisis de documento por tamaño,
+- tiempo de discovery,
+- tiempo de cold indexing,
+- tiempo de warm indexing,
+- memoria base del servidor,
+- pico de memoria durante indexación,
+- hit ratio de caché de serving,
+- hit ratio de caché persistente,
+- fan-out de invalidación,
+- y tiempo hasta `active-context-ready`.
 
 ---
 
 ## 9. Política de regresión
 
-Una regresión de rendimiento es:
+Se considera regresión relevante cualquiera de estos casos:
 
-- un aumento > 50% en tiempo de una operación respecto a la medición anterior,
-- un aumento > 30% en memoria base del servidor,
-- un bloqueo visible del editor que antes no existía,
-- o la pérdida de la capacidad de cancelar una operación costosa.
+- aumento claro de latencia en una ruta crítica,
+- aumento sostenido de memoria sin beneficio proporcional,
+- pérdida de cancelación o yielding,
+- bloqueo visible del editor,
+- warm path que deje de mejorar claramente al cold path,
+- o degradación de precisión causada por presión sin contrato explícito de degradación.
 
 Ante una regresión:
 
-1. documentar la medición antes/después,
-2. identificar la causa,
-3. decidir si se revierte, se mitiga o se acepta con justificación,
-4. y registrar la decisión en la spec o documento técnico correspondiente.
+1. medir antes/después,
+2. documentar el cambio,
+3. identificar la causa,
+4. decidir si se revierte, se mitiga o se acepta,
+5. y dejar rastro en la spec o documento técnico correspondiente.
 
 ---
 
-## 10. Evolución del presupuesto
+## 10. Estrategia de medición
 
-Los presupuestos deben revisarse y ajustarse cuando:
+### 10.1 Qué medir primero
+Prioridad de medición:
 
-- se cierre una fase del roadmap que añada trabajo nuevo (ej: indexación global),
-- se midan valores reales sobre corpus representativos,
-- cambien las capacidades del servidor (ej: nuevo pipeline de parsing),
-- o la experiencia real del usuario contradiga los presupuestos teóricos.
+1. activación efectiva,
+2. primer valor en archivo activo,
+3. analysis time por documento,
+4. discovery/indexing,
+5. warm vs cold,
+6. memoria,
+7. invalidación y fan-out,
+8. hit ratio de caché.
 
-Los presupuestos de workspace (§5) son estimaciones iniciales y deberán calibrarse con datos reales sobre PFC 2025 y otros corpus cuando se alcance la Fase 8.
+### 10.2 Cómo medir
+Métodos válidos:
+- timers internos,
+- `performance.now()`,
+- tests automatizados,
+- corpus reales,
+- herramientas de profiling,
+- snapshots de memoria,
+- y validación manual guiada cuando proceda.
+
+### 10.3 Cuándo medir
+- al cerrar una spec sensible a rendimiento,
+- al cerrar una fase,
+- antes de release,
+- cuando se sospeche regresión,
+- y al introducir cambios de arquitectura en runtime, caché, scheduler o queries.
 
 ---
 
-## 11. Relación con otros documentos
+## 11. Estado actual del presupuesto
 
-- `docs/constitution.md` (Art. I) establece rendimiento como principio no negociable.
-- `docs/architecture.md` (§4.6, §11) define las métricas de validación arquitectónica.
-- `docs/testing.md` (§3.4) define los performance tests que verifican estos presupuestos.
-- `docs/roadmap.md` (§11) exige revisión de rendimiento en todas las fases.
+### 11.1 Ya exigible
+Ya es exigible que:
+- el editor no se bloquee,
+- el archivo activo tenga prioridad,
+- el background no robe latencia interactiva,
+- el sistema exponga estado y progreso razonables,
+- y toda tarea costosa tenga camino de yielding/cancelación.
+
+### 11.2 Pendiente de calibración fuerte
+Debe calibrarse mejor sobre corpus reales:
+- cold indexing,
+- warm indexing,
+- budgets de memoria por capa,
+- query cache hit ratio,
+- fan-out de invalidación,
+- y budgets en proyectos enterprise grandes.
+
+---
+
+## 12. Revisión del presupuesto
+
+Este documento debe revisarse cuando:
+
+- cambie el scheduler,
+- cambie la estrategia de caché,
+- se introduzca persistencia nueva,
+- cambie el pipeline de parsing/knowledge,
+- se cierre una fase relevante del roadmap,
+- o se obtengan mediciones nuevas sobre PFC 2025 y corpus legacy representativos.
+
+---
+
+## 13. Relación con otros documentos
+
+Este documento debe alinearse siempre con:
+
+- `docs/constitution.md`
+- `docs/architecture.md`
+- `docs/roadmap.md`
+- `docs/current-focus.md`
+- `docs/testing.md`
+- y las specs que modifiquen comportamiento crítico de rendimiento
+
+---
+
+## 14. Regla final
+
+El presupuesto de rendimiento no existe para “ganar benchmarks”.
+
+Existe para asegurar que el plugin siga siendo:
+
+- rápido,
+- no bloqueante,
+- estable,
+- predecible,
+- medible,
+- y útil en proyectos reales grandes y legacy.
