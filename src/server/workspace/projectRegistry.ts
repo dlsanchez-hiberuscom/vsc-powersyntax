@@ -53,20 +53,22 @@ export function buildProjectRegistry(
   const markers: MarkerEntry[] = [];
 
   for (const t of topology.targets) {
+    const markerUri = normalizeUri(t.uri);
     markers.push({
-      markerUri: t.uri,
-      markerDir: withTrailingSlash(dirname(t.uri)),
+      markerUri,
+      markerDir: withTrailingSlash(dirname(markerUri)),
       // `.pbl` puede ser carpeta (contiene `.sr*`) o archivo binario.
       // Tratamos su URI como prefijo: si es carpeta, los archivos lo
       // tendrán como prefijo; si es binario, no habrá match (correcto).
-      libraryDirs: t.libraries.map((l) => withTrailingSlash(l))
+      libraryDirs: t.libraries.map((l) => withTrailingSlash(normalizeUri(l)))
     });
   }
   for (const p of topology.projects) {
+    const markerUri = normalizeUri(p.uri);
     markers.push({
-      markerUri: p.uri,
-      markerDir: withTrailingSlash(dirname(p.uri)),
-      libraryDirs: p.libraries.map((l) => withTrailingSlash(l))
+      markerUri,
+      markerDir: withTrailingSlash(dirname(markerUri)),
+      libraryDirs: p.libraries.map((l) => withTrailingSlash(normalizeUri(l)))
     });
   }
 

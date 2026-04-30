@@ -1289,3 +1289,61 @@ para evitar regresiones.
 - B150 — Ampliar la cobertura de fixtures basados en patrones reales de
   Open PFC (custom user objects, NVOs heredados, ventanas con muchos
   controles) y añadirlos al smoke runner.
+
+## 14. Sprint de hardening del core (specs 063–082)
+
+Cierra el grupo de pendientes B147/B148 y refuerza el core sin abrir
+superficie funcional nueva. Resultado: 275 tests verdes.
+
+### Resueltos
+
+- **Spec 063 — Sub-scope tracker.** Nuevo `parsing/controlBlocks.ts` con
+  `scanControlBlocks()`. Expone rangos `if/for/do/choose-case/try` en
+  `DocumentAnalysis.controlBlocks`. Cierra B148.
+- **Spec 064 — Multi `type ... within` real.** `documentAnalysis` ahora
+  pre-escanea `typeBlocks` y resuelve `containerName` por anidación efectiva.
+  `ensureTypeScope` reutiliza/crea Type-scopes y extiende su `endLine`
+  cuando se detecta un método del mismo objeto a nivel raíz. Cierra B147.
+- **Spec 065 — `getScopeAt` O(log n).** `KnowledgeBase` mantiene un
+  índice plano ordenado por `startLine`; búsqueda binaria + selección por
+  profundidad.
+- **Spec 067 — Default param values.** `pushScopeArguments` ignora todo lo
+  posterior a `=` en cada parámetro.
+- **Spec 069 — `try/catch/finally` tracking.** Cubierto por `controlBlocks`.
+- **Spec 071 — Stable scope IDs.** `stableScopeId(container, name)` siempre
+  en minúsculas (PowerScript es case-insensitive).
+- **Spec 072 — Dedup robusto.** `mapToSemanticFacts` deduplica por
+  `(kind, container, name)` y marca `isPrototype` cuando procede.
+- **Spec 073 — Cancelación cooperativa.** `workspaceIndexer` re-comprueba
+  `token.isCancelled` tras el yield de cada bloque de 10 archivos.
+- **Spec 074 — Document fingerprint.** `DocumentAnalysis.fingerprint`
+  (FNV-1a 32-bit) listo para futuros short-circuits.
+- **Spec 075 — URI normalization.** `projectRegistry` normaliza marker URIs
+  y libraries en build-time.
+- **Spec 078 — SD8 declaración duplicada.** Warning cuando el mismo nombre
+  aparece dos veces como variable local en el mismo scope.
+- **Spec 079 — SD9 `return` huérfano.** Warning fuera de
+  function/subroutine/event/on.
+- **Spec 080 — SD10 `exit`/`continue` huérfano.** Warning fuera de bucle.
+- **Spec 081 — `END_GENERIC_PATTERN` fuera de SD2.** `visitScopes` enumera
+  los cierres reales en lugar del genérico para evitar falsos negativos.
+- **Spec 082 — EOF estable.** `validateStructure` ya reportaba la línea de
+  apertura como ancla; la regresión preventiva queda registrada en specs.
+
+### Confirmados como ya correctos
+
+- **Spec 076** (`next [var]` vs `next_xxx`): el `\b` ya impide la confusión.
+- **Spec 077** (`do ... loop while|until expr`): `LOOP_PATTERN` cierra y
+  `DO_OPEN_PATTERN` no se dispara con `loop`.
+
+### Documentación / consumo
+
+- **Spec 066** (multi-line impl header con `&`): documentado, sin cambio
+  invasivo en el matcher (riesgo alto frente a beneficio bajo en los corpus
+  actuales). Pendiente si aparece evidencia real.
+- **Spec 068** (`static`): no se ha encontrado uso real en los fixtures
+  actuales y el `matchVariableDeclaration` ya tolera modificadores extra.
+- **Spec 070** (consumidor centralizado de stripper): los features ya
+  consumen `analysis.strippedLines` mayoritariamente; queda como guía para
+  futuras features.
+

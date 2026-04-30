@@ -85,9 +85,12 @@ export async function indexWorkspace(
           onProgress?.(processedCount, total);
         }
 
-        // Ceder el control cada N archivos para no bloquear el hilo principal
+        // Ceder el control cada N archivos para no bloquear el hilo principal.
+        // Spec 073: tras el yield re-comprobamos cancellation para abortar
+        // de forma cooperativa lo antes posible.
         if (processedCount % 10 === 0) {
           await new Promise(resolve => setImmediate(resolve));
+          if (token.isCancelled) return;
         }
       } catch (e) {
         log(`[INDEXER] Error procesando ${uri}: ${String(e)}`);

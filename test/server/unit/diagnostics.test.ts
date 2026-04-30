@@ -129,4 +129,49 @@ suite('unit/diagnostics', () => {
       `Estructura válida marcada como inválida: ${diagnostics.map(d => d.message).join(' | ')}`
     );
   });
+
+  // -------------------------------------------------------------------------
+  // SD8 / SD9 / SD10 (Specs 078, 079, 080)
+  // -------------------------------------------------------------------------
+
+  test('SD8: declaración duplicada en el mismo scope', () => {
+    const source = [
+      'public function integer of_test ()',
+      '  integer li_x',
+      '  integer li_x',
+      '  return 0',
+      'end function'
+    ].join('\r\n');
+    const document = TextDocument.create('file:///dup.sru', 'powerbuilder', 1, source);
+    const diags = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const sd8 = diags.filter(d => /ya está declarada/i.test(d.message));
+    assert.ok(sd8.length >= 1, 'esperaba al menos 1 SD8');
+  });
+
+  test('SD9: return fuera de función/evento', () => {
+    const source = [
+      'integer li_root',
+      'return 0',
+      ''
+    ].join('\r\n');
+    const document = TextDocument.create('file:///ret.sru', 'powerbuilder', 1, source);
+    const diags = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const sd9 = diags.filter(d => /'return'/.test(d.message));
+    assert.ok(sd9.length >= 1, 'esperaba al menos 1 SD9');
+  });
+
+  test('SD10: exit/continue fuera de bucle', () => {
+    const source = [
+      'public function integer of_test ()',
+      '  if true then',
+      '    exit',
+      '  end if',
+      '  return 0',
+      'end function'
+    ].join('\r\n');
+    const document = TextDocument.create('file:///exit.sru', 'powerbuilder', 1, source);
+    const diags = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const sd10 = diags.filter(d => /'exit'/.test(d.message));
+    assert.ok(sd10.length >= 1, 'esperaba al menos 1 SD10');
+  });
 });

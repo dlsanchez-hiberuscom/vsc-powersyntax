@@ -333,6 +333,15 @@ export function validateSemantics(
     checkShadowing(rootScope, semanticFacts, diagnostics);
   }
 
+  // --- SD8: Declaración duplicada en el mismo scope (Spec 078) ---
+  for (const rootScope of scopes) {
+    checkDuplicateDeclarations(rootScope, diagnostics);
+  }
+
+  // --- SD9: `return` fuera de función/evento (Spec 079) ---
+  // --- SD10: `exit`/`continue` fuera de bucle (Spec 080) ---
+  checkOrphanedFlowKeywords(analysis, diagnostics);
+
   return diagnostics;
 }
 
@@ -370,7 +379,20 @@ function visitScopes(
       if (enclosingSection) continue;
 
       // Saltar líneas que son end/close de bloque, keywords puras, etc.
-      if (END_GENERIC_PATTERN.test(trimmed) || ELSE_CASE_PATTERN.test(trimmed)) continue;
+      // Spec 081: en lugar de un `end\s+` genérico (que podía silenciar
+      // accidentalmente cualquier construcción cuyo trim empiece por "end "),
+      // comprobamos sólo los cierres reales conocidos.
+      if (
+        END_FUNCTION_PATTERN.test(trimmed) ||
+        END_SUBROUTINE_PATTERN.test(trimmed) ||
+        END_EVENT_PATTERN.test(trimmed) ||
+        END_ON_PATTERN.test(trimmed) ||
+        END_TYPE_PATTERN.test(trimmed) ||
+        END_IF_PATTERN.test(trimmed) ||
+        END_CHOOSE_PATTERN.test(trimmed) ||
+        END_TRY_PATTERN.test(trimmed) ||
+        ELSE_CASE_PATTERN.test(trimmed)
+      ) continue;
 
       // SD2: Detectar llamadas a funciones: identifier(
       SD2_CALL_REGEX.lastIndex = 0;
@@ -600,5 +622,112 @@ export function checkShadowing(
       }
     }
     for (const child of s.children) visit(child);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SD8 — Declaración duplicada en el mismo scope (Spec 078)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reporta cuando dos símbolos locales del mismo scope tienen el mismo nombre
+ * (case-insensitive). PowerScript no admite declarar dos veces la misma
+ * variable en un único bloque y el compilador lo rechaza; aquí lo señalamos
+ * como Warning para no bloquear edición en curso.
+ */
+function checkDuplicateDeclarations(
+  scope: import('../knowledge/types').Scope,
+  diagnostics: Diagnostic[]
+): void {
+  if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
+    const seen = new Map<string, import('../knowledge/types').Entity>();
+    for (const sym of scope.symbols) {
+      const key = sym.name.toLowerCase();
+      const prev = seen.get(key);
+      if (prev && prev.line !== sym.line) {
+        diagnostics.push({
+          severity: DiagnosticSeverity.Warning,
+          range: Range.create(
+            Position.create(sym.line, sym.character),
+            Position.create(sym.line, sym.character + sym.name.length)
+          ),
+          message: `La variable '${sym.name}' ya está declarada en este ámbito (línea ${prev.line + 1}).`,
+          source: DIAGNOSTIC_SOURCE
+        });
+      } else {
+        seen.set(key, sym);
+      }
+    }
+  }
+  for (const child of scope.children) checkDuplicateDeclarations(child, diagnostics);
+}
+
+// ---------------------------------------------------------------------------
+// SD9 / SD10 — flujo de control orphaned (Spec 079 / 080)
+// ---------------------------------------------------------------------------
+
+/**
+ * Detecta:
+ *  - SD9: `return` que aparece fuera de cualquier `function`/`subroutine`/`event`/`on`.
+ *  - SD10: `exit` o `continue` fuera de un bucle (`for ... next` o `do ... loop`).
+ *
+ * Trabaja sobre el documento completo usando `controlBlocks` y los `scopes`
+ * ya disponibles en el `DocumentAnalysis`.
+ */
+function checkOrphanedFlowKeywords(
+  analysis: import('../analysis/documentAnalysis').DocumentAnalysis,
+  diagnostics: Diagnostic[]
+): void {
+  const { strippedLines, scopes, controlBlocks, sections } = analysis;
+
+  const isInsideCallable = (line: number): boolean => {
+    const visit = (s: import('../knowledge/types').Scope): boolean => {
+      if (line >= s.startLine && line <= s.endLine) {
+        if (s.kind === ScopeKind.Function || s.kind === ScopeKind.Event) return true;
+        for (const c of s.children) if (visit(c)) return true;
+      }
+      return false;
+    };
+    for (const r of scopes) if (visit(r)) return true;
+    return false;
+  };
+
+  const isInsideLoop = (line: number): boolean => {
+    for (const cb of controlBlocks) {
+      if ((cb.kind === 'for' || cb.kind === 'do') && line >= cb.startLine && line <= cb.endLine) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const RE_RETURN = /^\s*return\b/i;
+  const RE_EXIT_OR_CONTINUE = /^\s*(exit|continue)\b/i;
+
+  for (let i = 0; i < strippedLines.length; i++) {
+    const line = strippedLines[i];
+    if (!line) continue;
+    // Saltar secciones declarativas
+    const sec = findEnclosingSection(i, sections);
+    if (sec) continue;
+
+    if (RE_RETURN.test(line) && !isInsideCallable(i)) {
+      diagnostics.push({
+        severity: DiagnosticSeverity.Warning,
+        range: Range.create(Position.create(i, 0), Position.create(i, line.length)),
+        message: `La sentencia 'return' aparece fuera de una función o evento.`,
+        source: DIAGNOSTIC_SOURCE
+      });
+      continue;
+    }
+    const m = RE_EXIT_OR_CONTINUE.exec(line);
+    if (m && !isInsideLoop(i)) {
+      diagnostics.push({
+        severity: DiagnosticSeverity.Warning,
+        range: Range.create(Position.create(i, 0), Position.create(i, line.length)),
+        message: `La sentencia '${m[1].toLowerCase()}' aparece fuera de un bucle 'for' o 'do'.`,
+        source: DIAGNOSTIC_SOURCE
+      });
+    }
   }
 }

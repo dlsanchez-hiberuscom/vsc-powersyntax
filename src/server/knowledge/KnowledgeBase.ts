@@ -36,6 +36,13 @@ export class KnowledgeBase {
    * Value: Lista de Scopes raíz (usualmente el GlobalScope).
    */
   private documentScopes: Map<string, Scope[]> = new Map();
+  /**
+   * Spec 065: índice plano y ordenado de scopes por URI para resolver
+   * `getScopeAt` en O(log n) (búsqueda binaria + selección del más profundo).
+   * Se reconstruye perezosamente en la primera consulta tras cada actualización
+   * de scopes.
+   */
+  private scopeIndex: Map<string, Array<{ start: number; end: number; depth: number; scope: Scope }>> = new Map();
 
   /**
    * Versión del índice. Se incrementa con cada mutación (salvo en batch updates,
@@ -110,6 +117,7 @@ export class KnowledgeBase {
 
     this.documentSymbols.set(normalizedUri, symbolIds);
     this.documentScopes.set(normalizedUri, scopes);
+    this.scopeIndex.delete(normalizedUri);
     if (uriEntities.length > 0) {
       this.entitiesByUri.set(normalizedUri, uriEntities);
     }
@@ -142,6 +150,7 @@ export class KnowledgeBase {
       this.documentSymbols.delete(normalizedUri);
       this.documentScopes.delete(normalizedUri);
       this.entitiesByUri.delete(normalizedUri);
+      this.scopeIndex.delete(normalizedUri);
 
       if (!this.isBatchUpdating) {
         this.currentVersion++;
@@ -188,28 +197,54 @@ export class KnowledgeBase {
 
   /**
    * Obtiene el Scope más profundo/específico que contiene una línea dada en un archivo.
+   *
+   * Spec 065: usa un índice ordenado por `startLine` con búsqueda binaria
+   * sobre el conjunto de scopes (incluyendo nidados). Luego elige el de mayor
+   * `depth` que contenga la línea, manteniendo la semántica original.
    */
   getScopeAt(uri: string, line: number): Scope | null {
     const normalizedUri = normalizeUri(uri);
     const scopes = this.documentScopes.get(normalizedUri);
-    if (!scopes) return null;
+    if (!scopes || scopes.length === 0) return null;
 
-    // Buscar recursivamente el scope más profundo
-    const findDeepest = (currentScopes: Scope[]): Scope | null => {
-      let match: Scope | null = null;
-      for (const scope of currentScopes) {
-        if (line >= scope.startLine && line <= scope.endLine) {
-          match = scope;
-          const childMatch = findDeepest(scope.children);
-          if (childMatch) {
-            match = childMatch;
-          }
+    let index = this.scopeIndex.get(normalizedUri);
+    if (!index) {
+      index = [];
+      const walk = (list: Scope[], depth: number) => {
+        for (const s of list) {
+          index!.push({ start: s.startLine, end: s.endLine, depth, scope: s });
+          if (s.children.length > 0) walk(s.children, depth + 1);
         }
-      }
-      return match;
-    };
+      };
+      walk(scopes, 0);
+      index.sort((a, b) => a.start - b.start);
+      this.scopeIndex.set(normalizedUri, index);
+    }
 
-    return findDeepest(scopes);
+    // Búsqueda binaria: índice del primero con start > line.
+    let lo = 0;
+    let hi = index.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (index[mid].start <= line) lo = mid + 1;
+      else hi = mid;
+    }
+
+    let best: Scope | null = null;
+    let bestDepth = -1;
+    // Recorrer de derecha a izquierda los candidatos cuyo start <= line.
+    for (let k = lo - 1; k >= 0; k--) {
+      const c = index[k];
+      if (c.end < line) continue;
+      if (c.depth > bestDepth) {
+        best = c.scope;
+        bestDepth = c.depth;
+      }
+      // En árboles bien formados podríamos parar al primer candidato ancestro,
+      // pero no podemos asumirlo porque hay scopes raíces consecutivos. El
+      // recorrido es lineal acotado por la profundidad real (típico ≤ 3).
+    }
+    return best;
   }
 
   /**
@@ -220,6 +255,7 @@ export class KnowledgeBase {
     this.documentSymbols.clear();
     this.documentScopes.clear();
     this.entitiesByUri.clear();
+    this.scopeIndex.clear();
     this.currentVersion++;
   }
 

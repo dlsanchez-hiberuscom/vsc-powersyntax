@@ -16,9 +16,11 @@ import {
   END_FUNCTION_PATTERN,
   END_SUBROUTINE_PATTERN,
   END_EVENT_PATTERN,
-  END_ON_PATTERN
+  END_ON_PATTERN,
+  END_TYPE_PATTERN
 } from '../parsing/grammar';
 import { stripCommentsSmart } from '../utils/comments';
+import { scanControlBlocks, type ControlBlockRange } from '../parsing/controlBlocks';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
@@ -26,33 +28,121 @@ import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
 export interface DocumentAnalysis {
   uri: string;
   version: number;
+  /**
+   * Hash determinista del texto del documento (FNV-1a 32-bit). Permite saltar
+   * trabajo cuando el contenido no ha cambiado entre versiones LSP que sí
+   * incrementan el version-counter por toques cosméticos.
+   * Spec 074.
+   */
+  fingerprint: number;
   lines: string[];
   strippedLines: string[];
   masks: Uint8Array[];
   sections: SectionRange[];
+  /**
+   * Rangos de bloques de control (`if/for/do/choose/try`) detectados en el
+   * cuerpo de funciones/eventos. Spec 063.
+   */
+  controlBlocks: ControlBlockRange[];
+  /**
+   * Rangos de bloques `type ... end type` (declarativos del contenedor SR*)
+   * para resolver correctamente atribución a `containerName` cuando hay
+   * varios `type ... within ...` (Spec 064).
+   */
+  typeBlocks: Array<{ name: string; container?: string; startLine: number; endLine: number }>;
   facts: SymbolFact[];
   semanticFacts: Fact[];
   scopes: Scope[];
 }
 
+/** FNV-1a 32-bit. Determinista, sin dependencias y rápido para buffers de texto. */
+function fingerprintOf(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * Spec 071: identificadores estables para scopes Function/Event,
+ * normalizados a `containerName.lowerName` (PowerScript es case-insensitive).
+ * Permite igualar scopes sin importar la capitalización del archivo.
+ */
+function stableScopeId(container: string | undefined, name: string): string {
+  const lname = name.toLowerCase();
+  if (!container) return lname;
+  return `${container.toLowerCase()}.${lname}`;
+}
+
 export function analyzeDocument(document: TextDocument): DocumentAnalysis {
-  const lines = document.getText().split(/\r?\n/);
+  const text = document.getText();
+  const lines = text.split(/\r?\n/);
   const { lines: strippedLines, masks } = stripCommentsSmart(lines);
   const sections = findSections(lines);
-  const { facts, scopes } = collectFactsAndScopes(lines, strippedLines, sections, document.uri);
+  const typeBlocks = scanTypeBlocks(strippedLines);
+  const { facts, scopes } = collectFactsAndScopes(
+    lines,
+    strippedLines,
+    sections,
+    typeBlocks,
+    document.uri
+  );
   const semanticFacts = mapToSemanticFacts(facts, document.uri);
+
+  // Bloques de control globales del documento (luego se filtran por scope cuando hace falta).
+  const controlBlocks = scanControlBlocks(strippedLines, 0, strippedLines.length - 1);
 
   return {
     uri: document.uri,
     version: document.version,
+    fingerprint: fingerprintOf(text),
     lines,
     strippedLines,
     masks,
     sections,
+    controlBlocks,
+    typeBlocks,
     facts,
     semanticFacts,
     scopes
   };
+}
+
+/**
+ * Detecta los rangos `type Name from Ancestor [within Container] ... end type`.
+ * Es deliberadamente permisivo: si no encuentra `end type` cierra con EOF.
+ * Spec 064.
+ */
+function scanTypeBlocks(
+  strippedLines: string[]
+): Array<{ name: string; container?: string; startLine: number; endLine: number }> {
+  const out: Array<{ name: string; container?: string; startLine: number; endLine: number }> = [];
+  const RE_TYPE = /^\s*(?:global\s+|public\s+|private\s+|protected\s+)?type\s+([a-zA-Z_$#%][\w$#%-]*)\s+from\s+[a-zA-Z_$#%][\w$#%`-]*(?:\s+within\s+([a-zA-Z_$#%][\w$#%`-]*))?/i;
+  const stack: Array<{ name: string; container?: string; startLine: number }> = [];
+  for (let i = 0; i < strippedLines.length; i++) {
+    const line = strippedLines[i];
+    const m = RE_TYPE.exec(line);
+    if (m) {
+      stack.push({ name: m[1], container: m[2], startLine: i });
+      continue;
+    }
+    if (END_TYPE_PATTERN.test(line) && stack.length > 0) {
+      const top = stack.pop()!;
+      out.push({ name: top.name, container: top.container, startLine: top.startLine, endLine: i });
+    }
+  }
+  while (stack.length > 0) {
+    const top = stack.pop()!;
+    out.push({
+      name: top.name,
+      container: top.container,
+      startLine: top.startLine,
+      endLine: strippedLines.length - 1
+    });
+  }
+  return out;
 }
 
 function extractParameters(line: string): { label: string, documentation?: string }[] | undefined {
@@ -96,7 +186,10 @@ function pushScopeArguments(
   const PARAM_MODIFIERS = new Set(['readonly', 'ref', 'value']);
 
   for (const rawArg of argMatch[1].split(',')) {
-    const parts = rawArg.trim().split(/\s+/).filter(Boolean);
+    // Spec 067: soporte de valor por defecto en parámetros (`integer ai = 0`).
+    // Se descarta la parte tras `=` para el análisis estructural.
+    const noDefault = rawArg.split('=')[0];
+    const parts = noDefault.trim().split(/\s+/).filter(Boolean);
     if (parts.length < 2) continue;
 
     // Saltar todos los modificadores iniciales (`readonly`, `ref`, `value`).
@@ -141,13 +234,18 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       default: continue;
     }
 
+    // Spec 072: clave compuesta por kind+container+name para no colisionar
+    // entre tipos distintos en el mismo archivo, y para que la regla
+    // "implementación gana sobre prototipo" se aplique a function/subroutine/event.
     const id = f.name.toLowerCase();
-    const existing = factMap.get(id);
+    const dedupKey = `${entityKind}|${(f.containerName ?? '').toLowerCase()}|${id}`;
+    const existing = factMap.get(dedupKey);
 
-    // Si ya tenemos este símbolo como implementación, no lo sobreescribimos con un prototipo
-    if (existing && f.declarationOnly) continue;
+    // Si ya tenemos una implementación para este (kind, container, name), no
+    // dejamos que un prototipo posterior la sobreescriba.
+    if (existing && f.declarationOnly && !existing.isPrototype) continue;
 
-    factMap.set(id, {
+    factMap.set(dedupKey, {
       id,
       name: f.name,
       kind: entityKind,
@@ -160,14 +258,21 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       datatype: f.datatype,
       parameters: f.parameters,
       scope: f.scope,
-      access: f.access
+      access: f.access,
+      isPrototype: f.declarationOnly === true
     });
   }
 
   return Array.from(factMap.values());
 }
 
-function collectFactsAndScopes(lines: string[], strippedLines: string[], sections: SectionRange[], uri: string): { facts: SymbolFact[], scopes: Scope[] } {
+function collectFactsAndScopes(
+  lines: string[],
+  strippedLines: string[],
+  sections: SectionRange[],
+  typeBlocks: Array<{ name: string; container?: string; startLine: number; endLine: number }>,
+  uri: string
+): { facts: SymbolFact[], scopes: Scope[] } {
   const facts: SymbolFact[] = [];
   const scopes: Scope[] = [];
 
@@ -278,6 +383,64 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
 
   let currentContainerName: string | undefined;
 
+  /**
+   * Spec 064: cuando un archivo declara varios `type X within Y` (típico en
+   * .srw con sub-controles), el `currentContainerName` no es simplemente "el
+   * último que vimos" sino "el más anidado que contiene esta línea". Si la
+   * implementación está fuera de cualquier `type ... end type` se prefiere el
+   * `global type` (sin container).
+   */
+  const containerAt = (line: number): string | undefined => {
+    let best: { name: string; depth: number } | undefined;
+    for (const tb of typeBlocks) {
+      if (line < tb.startLine || line > tb.endLine) continue;
+      const depth = tb.endLine - tb.startLine; // un span menor = más anidado
+      if (!best || depth < best.depth) {
+        best = { name: tb.name, depth };
+      }
+    }
+    if (best) return best.name;
+    // fuera de cualquier `type ... end type`: el primero "raíz" del archivo
+    // (típicamente el global type) se mantiene como contenedor de las
+    // implementaciones de funciones/eventos que aparecen al final del SR*.
+    const rootCandidates = typeBlocks.filter((tb) => !tb.container);
+    if (rootCandidates.length > 0) {
+      // el de menor startLine es el global type
+      let earliest = rootCandidates[0];
+      for (const r of rootCandidates) if (r.startLine < earliest.startLine) earliest = r;
+      return earliest.name;
+    }
+    return undefined;
+  };
+
+  /**
+   * Devuelve el `Scope` de un type por nombre, creándolo bajo `globalScope`
+   * si no existe (p.ej. cuando una implementación aparece antes de que la
+   * pasada lineal haya tocado el `type X within Y` correspondiente).
+   * Spec 064.
+   */
+  const ensureTypeScope = (name: string | undefined): Scope | undefined => {
+    if (!name) return undefined;
+    const wanted = name.toLowerCase();
+    const existing = globalScope.children.find(
+      (c) => c.kind === ScopeKind.Type && c.id.toLowerCase() === wanted
+    );
+    if (existing) return existing;
+    const tb = typeBlocks.find((b) => b.name.toLowerCase() === wanted);
+    const created: Scope = {
+      id: name,
+      kind: ScopeKind.Type,
+      uri,
+      startLine: tb?.startLine ?? 0,
+      endLine: tb?.endLine ?? lines.length - 1,
+      parent: globalScope,
+      children: [],
+      symbols: []
+    };
+    globalScope.children.push(created);
+    return created;
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = strippedLines[i];
     const rawLine = lines[i];
@@ -291,18 +454,20 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
     if (typeMatch) {
       if (enclosingSection?.kind !== 'forward') {
         currentContainerName = typeMatch.name;
-        
-        currentTypeScope = {
-          id: typeMatch.name,
-          kind: ScopeKind.Type,
-          uri,
-          startLine: i,
-          endLine: lines.length - 1, // Will be refined later if there are multiple types (rare)
-          parent: globalScope,
-          children: [],
-          symbols: []
-        };
-        globalScope.children.push(currentTypeScope);
+        // Reutiliza/crea el scope del type (Spec 064): si ya fue creado por
+        // `ensureTypeScope` antes de toparnos con esta línea, mantenemos la
+        // misma instancia para que los hijos no queden huérfanos.
+        currentTypeScope = ensureTypeScope(typeMatch.name);
+        if (currentTypeScope) {
+          currentTypeScope.startLine = i;
+          // Spec 064: ajusta endLine al `end type` real si lo conocemos.
+          const tb = typeBlocks.find(
+            (b) => b.name.toLowerCase() === typeMatch.name.toLowerCase()
+          );
+          if (tb) {
+            currentTypeScope.endLine = tb.endLine;
+          }
+        }
       }
       facts.push({
         name: typeMatch.name,
@@ -350,9 +515,19 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
       if (fn) {
         if (currentFuncScope) currentFuncScope.endLine = i - 1; // Previous one didn't close properly
 
-        const parentScope = currentTypeScope || globalScope;
+        const containerName = containerAt(i);
+        currentContainerName = containerName;
+        // Asegura que existe un Type-scope para `containerName` (puede ser
+        // distinto del último encontrado linealmente cuando hay varios `within`).
+        const parentScope = ensureTypeScope(containerName) ?? globalScope;
+        // Extiende el endLine del Type-scope para englobar a esta
+        // implementación (los métodos en SR* pueden aparecer después de
+        // `end type` y aún así pertenecen al objeto principal).
+        if (parentScope !== globalScope && parentScope.endLine < lines.length - 1) {
+          parentScope.endLine = lines.length - 1;
+        }
         currentFuncScope = {
-          id: `${currentContainerName ? currentContainerName + '.' : ''}${fn.name}`,
+          id: stableScopeId(containerName, fn.name),
           kind: ScopeKind.Function,
           uri,
           startLine: i,
@@ -367,7 +542,7 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
           name: fn.name,
           kind: fn.kind,
           declarationOnly: false,
-          containerName: currentContainerName,
+          containerName,
           detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
           parameters: extractParameters(line),
           line: i,
@@ -383,9 +558,14 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
       if (ev) {
         if (currentFuncScope) currentFuncScope.endLine = i - 1;
 
-        const parentScope = currentTypeScope || globalScope;
+        const containerName = containerAt(i);
+        currentContainerName = containerName;
+        const parentScope = ensureTypeScope(containerName) ?? globalScope;
+        if (parentScope !== globalScope && parentScope.endLine < lines.length - 1) {
+          parentScope.endLine = lines.length - 1;
+        }
         currentFuncScope = {
-          id: `${currentContainerName ? currentContainerName + '.' : ''}${ev.name}`,
+          id: stableScopeId(containerName, ev.name),
           kind: ScopeKind.Event,
           uri,
           startLine: i,
@@ -401,7 +581,7 @@ function collectFactsAndScopes(lines: string[], strippedLines: string[], section
           name: ev.name,
           kind: 'event',
           declarationOnly: false,
-          containerName: currentContainerName,
+          containerName: containerAt(i),
           detail: ev.detail,
           parameters: extractParameters(line),
           line: i,
