@@ -223,5 +223,37 @@ suite('unit/scheduler', () => {
     await assert.rejects(p1, /cancelada/i);
     await assert.rejects(p2, /cancelada/i);
   });
+
+  test('expone preempciones en getStatus', async () => {
+    const scheduler = new TaskScheduler();
+    let bgStarted = false;
+
+    const bgPromise = scheduler.enqueueBackground({
+      id: 'bg-status',
+      priority: TaskPriority.Background,
+      execute: async (token) => {
+        bgStarted = true;
+        while (!token.isCancelled) {
+          await new Promise((r) => setTimeout(r, 1));
+        }
+        throw new Error('Cancelled');
+      }
+    });
+
+    while (!bgStarted) {
+      await new Promise((r) => setImmediate(r));
+    }
+
+    await scheduler.enqueueNear({
+      id: 'near-status',
+      priority: TaskPriority.Near,
+      execute: () => 'near'
+    });
+
+    await assert.rejects(bgPromise, /Cancelled/);
+    const status = scheduler.getStatus();
+    assert.equal(status.preemptions.nearCancelledBackground, 1);
+    assert.equal(status.activeBackgroundId, null);
+  });
 });
 

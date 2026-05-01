@@ -4,10 +4,12 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { provideCompletion } from '../../../src/server/features/completion';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { HotContextCache } from '../../../src/server/knowledge/HotContextCache';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
+import { EntityKind } from '../../../src/server/knowledge/types';
 
 suite('unit/completion', () => {
   let kb: KnowledgeBase;
@@ -131,5 +133,38 @@ end subroutine
     const calcAdd = items.find(i => i.label === 'of_add');
     assert.ok(calcAdd);
     assert.strictEqual(calcAdd.kind, CompletionItemKind.Method);
+  });
+
+  test('consume HotContextCache para miembros ya resueltos', () => {
+    const doc = setupDocument('file:///test_cached.sru', `
+global type test_cached from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  n_cst_math calc
+  calc.
+end subroutine
+    `);
+
+    const hotContext = new HotContextCache();
+    hotContext.setActive(doc.uri, kb.version);
+    hotContext.setInheritedMembers('n_cst_math', [{
+      id: 'of_cached',
+      name: 'of_cached',
+      kind: EntityKind.Function,
+      uri: 'file:///cached.sru',
+      line: 1,
+      character: 0,
+      containerName: 'n_cst_math'
+    }]);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'calc.');
+    const pos = Position.create(lineIndex, 7);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph, hotContext, kb.version);
+    assert.ok(items?.some((item) => item.label === 'of_cached'));
   });
 });

@@ -119,6 +119,20 @@ El motor debe poder exponer:
 - qué caché está reutilizando,
 - y por qué una consulta devolvió un resultado.
 
+### 4.9 Estado real tras las olas 133-172
+El repositorio ya materializa un primer corte operativo de:
+
+- snapshot semántico canónico por documento,
+- `KnowledgeBase` con staging/publicación atómica y `semanticEpoch`,
+- diff semántico, dependencias inversas e invalidación dirigida/transitiva,
+- indexación estructural + enriquecida con prioridad al activo, budgets adaptativos, preempción y modo degradado,
+- `UnifiedProjectModel` como base topológica compartida,
+- `cacheStore` real sobre `cacheStorageUri` con `workspaceKey` estable, metadata de checkpoint y validación estricta de `journal`,
+- warm resume de `DocumentCache` + `KnowledgeBase` con persistencia solo en `readiness` estable,
+- helper común de contexto de query y resolver detallado con `queryTrace` y `reasonCodes`,
+- `ServingCache` extendido a `hover`, `definition`, `signatureHelp` y `completion`, con consumo real de `HotContextCache`,
+- y snapshot de stats interno/público ampliado con `readiness`, `projectModel`, `persistence` y última traza de query.
+
 ---
 
 ## 5. Vista de alto nivel
@@ -168,7 +182,10 @@ Responsable de:
 - prioridades,
 - yielding,
 - cancelación,
+- preempción,
 - invalidación,
+- backpressure,
+- gobernador de latencia,
 - warm resume,
 - progreso y readiness.
 
@@ -217,7 +234,8 @@ Responsable de:
 - markers,
 - watch/scan,
 - metadatos de proyecto,
-- contexto de pertenencia.
+- contexto de pertenencia,
+- y project model unificado.
 
 ### 6.7 `parsing/`
 Conversión de archivos PowerBuilder en estructuras sintácticas reutilizables.
@@ -237,7 +255,10 @@ Responsable de:
 - resolution,
 - index,
 - queries,
-- conocimiento incremental del workspace.
+- publish atómico,
+- epochs semánticas,
+- dependencias inversas,
+- y conocimiento incremental del workspace.
 
 ### 6.9 `diagnostics/`
 Reglas diagnósticas apoyadas en servicios comunes.

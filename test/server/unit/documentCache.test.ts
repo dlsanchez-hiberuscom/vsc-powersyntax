@@ -16,7 +16,36 @@ suite('unit/knowledge', () => {
 
       cache.set(uri, entry);
       assert.deepEqual(cache.get(uri), entry);
+      assert.deepEqual(cache.getSnapshot(uri), undefined);
       assert.equal(cache.size, 1);
+    });
+
+    test('recupera snapshot semántico cuando existe', () => {
+      const cache = new DocumentCache();
+      const uri = 'file:///snapshot.sru';
+      cache.set(uri, {
+        version: 'hash2',
+        symbols: [],
+        facts: [],
+        scopes: [],
+        snapshot: {
+          uri,
+          version: 1,
+          fingerprint: 123,
+          identity: `${uri}@123`,
+          pass: 'enriched',
+          readiness: 'nearby-semantic-ready',
+          containerModel: { sections: [], typeBlocks: [] },
+          symbols: [],
+          scopes: [],
+          logicalStatements: [],
+          maskedText: { lines: [], masks: [] },
+          controlBlocks: []
+        }
+      });
+
+      assert.ok(cache.getSnapshot(uri));
+      assert.equal(cache.getSnapshot(uri)?.fingerprint, 123);
     });
 
     test('valida correctamente por version/hash', () => {
@@ -36,6 +65,29 @@ suite('unit/knowledge', () => {
       
       cache.invalidate(uri);
       assert.equal(cache.get(uri), undefined);
+    });
+
+    test('exporta y restaura registros con version persistente', () => {
+      const cache = new DocumentCache();
+      const uri = 'file:///persist.sru';
+      cache.set(uri, { version: 'hash-persist', symbols: [], facts: [], scopes: [] });
+
+      const exported = cache.exportDocumentRecords();
+      const restored = new DocumentCache();
+      restored.restoreDocumentRecords(exported);
+
+      assert.ok(restored.isValid(uri, 'hash-persist'));
+      assert.equal(restored.get(uri)?.symbols.length, 0);
+    });
+
+    test('restoreDocumentRecords copia defensivamente el input', () => {
+      const cache = new DocumentCache();
+      const records = [{ uri: 'file:///persist.sru', version: 'hash-persist', facts: [], scopes: [] }];
+
+      cache.restoreDocumentRecords(records);
+      records[0].version = 'mutated';
+
+      assert.ok(cache.isValid('file:///persist.sru', 'hash-persist'));
     });
   });
 });

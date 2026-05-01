@@ -122,6 +122,16 @@ El sistema debe tender a:
 - persistencia útil,
 - y serving incremental.
 
+### 5.6 Protecciones ya materializadas en el runtime
+Hoy el runtime ya dispone de:
+- budgets dinámicos en el indexador,
+- yielding cooperativo,
+- cancelación/preempción del background,
+- backpressure del watcher,
+- y progreso/readiness/modo degradado observables.
+
+Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm test` y, cuando toque latencia o presión sostenida, también `npm run test:performance`.
+
 ---
 
 ## 6. Objetivos iniciales de latencia

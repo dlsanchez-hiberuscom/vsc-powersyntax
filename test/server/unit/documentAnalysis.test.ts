@@ -178,6 +178,20 @@ suite('unit/documentAnalysis', () => {
     assert.ok(evFact, 'Evento no encontrado en semanticFacts');
     assert.equal((evFact as any).containerName?.toLowerCase(), 'w_main');
   });
+
+  test('analyzeDocument construye snapshot semántico canónico', () => {
+    const source = loadFixture('basic/sample_forward.sru');
+    const document = TextDocument.create('file:///documentAnalysis-snapshot.sru', 'powerbuilder', 1, source);
+
+    const analysis = analyzeDocument(document);
+
+    assert.equal(analysis.snapshot.uri, document.uri);
+    assert.equal(analysis.snapshot.version, document.version);
+    assert.equal(analysis.snapshot.fingerprint, analysis.fingerprint);
+    assert.equal(analysis.snapshot.symbols, analysis.semanticFacts);
+    assert.equal(analysis.snapshot.scopes, analysis.scopes);
+    assert.ok(analysis.snapshot.identity.includes(String(analysis.fingerprint)));
+  });
 });
 
 function findScopeByName(

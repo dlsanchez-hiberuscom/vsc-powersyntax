@@ -4,7 +4,8 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
-import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
+import type { HotContextCache } from '../knowledge/HotContextCache';
+import { resolveTargetEntityDetailed } from '../knowledge/resolution/semanticQueryService';
 import { InvocationContext } from '../utils/invocationContext';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
@@ -15,7 +16,8 @@ export function provideSignatureHelp(
   position: Position,
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
-  graph: InheritanceGraph
+  graph: InheritanceGraph,
+  hotContext?: HotContextCache
 ): SignatureHelp | null {
   const result = extractSignatureContext(document, position);
   if (!result) {
@@ -66,7 +68,11 @@ export function provideSignatureHelp(
   }
 
   // 2. Intentar resolver con KnowledgeBase
-  const targets = resolveTargetEntity(context, currentUri, kb, graph, position.line);
+  const targets = resolveTargetEntityDetailed(context, currentUri, kb, graph, {
+    line: position.line,
+    hotContext,
+    traceLabel: 'signatureHelp'
+  }).targets;
   
   if (targets.length > 0) {
     const signatures: SignatureInformation[] = [];

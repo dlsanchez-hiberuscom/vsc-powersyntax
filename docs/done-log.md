@@ -200,6 +200,59 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 ---
 
+## 1.7 Hito 2026-05 — Ola 133-152 implementada y validada
+
+### Resultado técnico registrado
+
+La ola `Specs 133-152` dejó implementado un primer corte operativo de:
+
+- snapshot semántico canónico por documento,
+- `KnowledgeBase` con staging/publicación atómica y `semanticEpoch`,
+- `semanticDiff`, dependencias semánticas inversas e invalidación dirigida/transitiva,
+- indexación en dos fases con prioridad al activo, budgets adaptativos, yielding cooperativo, cancelación/preempción y modo degradado,
+- backpressure del watcher, progreso/readiness enriquecidos y observabilidad ampliada,
+- `UnifiedProjectModel` como base de topología compartida,
+- y persistencia base con `cacheSchema`, `cacheJournal` y `cacheCheckpoint`.
+
+### Alcance trazado por spec
+
+- `Specs 133-148` materializan el primer corte de `B151`, `B165`, `B166`, `B170`, `B153`, `B154`, `B152`, `B122`, `B123`, `B124`, `B169`, `B125`, `B126`, `B134`, `B158` y `B159`.
+- `Specs 149-152` materializan la base de `B141`, `B155`, `B167` y `B168`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `309 passing`
+- `npm test` → smoke `2 passing`, unit `309 passing`, integration `4 passing`
+
+---
+
+## 1.8 Hito 2026-05 — Ola 153-172 implementada y validada
+
+### Resultado técnico registrado
+
+La ola `Specs 153-172` consolidó un segundo corte operativo de:
+
+- puerto persistente de filesystem y `cacheStore` real sobre `cacheStorageUri`,
+- `workspaceKey` estable, metadata de checkpoint y validación estricta de journal con rebuild seguro,
+- export/restore defensivo y versionado en `KnowledgeBase` y `DocumentCache`, más `journal` interactivo desde `analysisCache`,
+- warm resume real de `DocumentCache` + `KnowledgeBase` y persistencia solo en `readiness` estable,
+- helper común de contexto de query, `ServingCache` ampliado a `definition` / `signatureHelp` / `completion`, y consumo real de `HotContextCache`,
+- `queryTrace` retenida, `reasonCodes` del winner path y snapshot ampliado de stats interno/público.
+
+### Alcance trazado por spec
+
+- `Specs 153-163` materializan un segundo corte de `B167`, `B168`, `B071`, `B071A` y `B174`.
+- `Specs 164-172` materializan el primer corte operativo de `B156`, `B157`, `B160`, `B176` y `B109`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `324 passing`
+- `npm test` → smoke `2 passing`, unit `324 passing`, integration `4 passing`
+
+---
+
 # 2. Auditoría 2026-04 — bugs críticos corregidos
 
 ## B143 — `end if` cerraba el scope de la función — **Corregido**

@@ -76,6 +76,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       fileEvents: vscode.workspace.createFileSystemWatcher(
         '**/*.{pbw,pbt,pbproj,pbsln}'
       )
+    },
+    initializationOptions: {
+      cacheStorageUri: (context.storageUri ?? context.globalStorageUri)?.toString()
     }
   };
 
@@ -243,10 +246,11 @@ function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification): vo
     case 'indexing': {
       const cur = p.current ?? 0;
       const total = p.total ?? 0;
+      const passLabel = p.pass === 'structural' ? 'estructural' : p.pass === 'enriched' ? 'semántico' : 'indexando';
       item.text = total > 0
-        ? `$(sync~spin) PB: indexando ${cur}/${total}`
-        : '$(sync~spin) PB: indexando';
-      item.tooltip = 'VSC PowerSyntax: indexando archivos';
+        ? `$(sync~spin) PB: ${passLabel} ${cur}/${total}`
+        : `$(sync~spin) PB: ${passLabel}`;
+      item.tooltip = `VSC PowerSyntax: ${passLabel} archivos${p.budgetMs ? ` (budget ${p.budgetMs}ms)` : ''}`;
       item.show();
       break;
     }
@@ -255,6 +259,14 @@ function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification): vo
       item.tooltip = 'VSC PowerSyntax: indexación parcial (cancelada o reiniciada)';
       item.show();
       break;
+    case 'degraded': {
+      const skipped = p.skipped ?? 0;
+      const failed = p.failed ?? 0;
+      item.text = `$(warning) PB: degradado${p.total ? ` (${p.total})` : ''}`;
+      item.tooltip = `VSC PowerSyntax: índice degradado${skipped || failed ? ` · omitidos ${skipped}, fallidos ${failed}` : ''}`;
+      item.show();
+      break;
+    }
     case 'ready':
       item.text = `$(check) PB: listo${p.total ? ` (${p.total})` : ''}`;
       item.tooltip = 'VSC PowerSyntax: índice listo';

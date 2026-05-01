@@ -85,7 +85,8 @@ Deben cubrir prioritariamente:
 Regla:
 - no depender de VS Code,
 - no depender del transporte LSP,
-- no depender del filesystem real salvo necesidad muy controlada.
+- no depender del filesystem real salvo necesidad muy controlada,
+- y en suites ejecutadas con `vscode-test` + `mocha.ui = tdd`, usar los globals `suite` y `test` en lugar de importar `suite/test` desde `mocha`.
 
 ## 4.3 Integration tests
 **Objetivo:** validar el comportamiento real extremo a extremo.
@@ -217,6 +218,27 @@ Mínimo:
 ### 7.5 Cambio en activación / bootstrap / wiring
 Mínimo:
 - smoke test.
+
+---
+
+## 8. Baseline vigente de validación
+
+Tras las olas 133-172, el baseline mínimo del repositorio queda en:
+
+- `npm run compile`
+- `npm run test:unit`
+- `npm test`
+
+Evidencia reciente registrada:
+
+- `npm run test:unit` → `324 passing`
+- `npm test` → smoke `2 passing`, unit `324 passing`, integration `4 passing`
+
+Notas operativas:
+
+- `npm test` cubre smoke + unit + integration.
+- `npm run test:performance` sigue siendo un carril específico y no forma parte del gate estándar diario.
+- Cambios en runtime, indexador, invalidación, warm resume, serving compartido o persistencia deben pasar al menos por ese baseline antes de darse por estables.
 
 ### 7.6 Cambio en rendimiento
 Mínimo:

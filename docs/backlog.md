@@ -134,6 +134,39 @@ Solo después:
   - invalidación,
   - serving.
 
+### 4.1 Primera ola 133-152 implementada y validada
+
+Las primeras 20 prioridades abiertas del backlog ya no están solo preparadas: quedaron implementadas y validadas como primer corte operativo de este bloque.
+
+Serie ya materializada sobre el foco actual:
+- `Spec 133` → `B151` semantic snapshot canónico por documento.
+- `Spec 134` → `B165` publicación atómica del Knowledge Base y de los índices.
+- `Spec 135` → `B166` versionado semántico interno del workspace.
+- `Spec 136` → `B170` semantic diff engine.
+- `Spec 137` → `B153` índice de dependencias semánticas inversas.
+- `Spec 138` → `B154` invalidation engine explícito.
+- `Spec 139` → `B152` pipeline de indexación en dos fases reales.
+- `Spec 140` → `B122` priorización por dependencias semánticas cercanas.
+- `Spec 141` → `B123` presupuestos de trabajo y yielding cooperativo.
+- `Spec 142` → `B124` cancelación y preempción real de tareas de fondo.
+- `Spec 143` → `B169` watcher intake pipeline con backpressure real.
+- `Spec 144` → `B125` indexación progresiva del workspace completo.
+- `Spec 145` → `B126` superficie de estado del indexador.
+- `Spec 146` → `B134` modelo de progreso y readiness del indexador.
+- `Spec 147` → `B158` modo degradado formal.
+- `Spec 148` → `B159` gobernador de latencia del servidor.
+
+Serie ya materializada como base de topología y persistencia:
+- `Spec 149` → `B141` library graph / project model unificado.
+- `Spec 150` → `B155` checkpoints reales de indexación y resume robusto.
+- `Spec 151` → `B167` journaling transaccional de caché persistente.
+- `Spec 152` → `B168` cache schema versioning + migraciones.
+
+Validación registrada del corte:
+- `npm run compile`
+- `npm run test:unit`
+- `npm test`
+
 ---
 
 # 5. Backlog activo reordenado
@@ -141,7 +174,7 @@ Solo después:
 # L0 — Core platform no negociable
 
 ## B151 — Semantic snapshot canónico por documento
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** atomicidad + incrementalidad
 - **Depende de:** —
 - **Desbloquea:** B152, B153, B154, B156, B160, B162
@@ -156,7 +189,7 @@ Solo después:
 - **Cierre:** todas las features core consumen snapshot en lugar de recomponer piezas dispersas.
 
 ## B165 — Publicación atómica del Knowledge Base y de los índices
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** atomicidad
 - **Depende de:** B151
 - **Desbloquea:** B156, B160, B162, B176
@@ -169,7 +202,7 @@ Solo después:
 - **Cierre:** hover/completion/definition nunca ven mezcla de estado viejo + nuevo.
 
 ## B166 — Versionado semántico interno del workspace
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** atomicidad + persistencia
 - **Depende de:** B151, B165
 - **Desbloquea:** B154, B155, B167, B168, B160
@@ -182,7 +215,7 @@ Solo después:
 - **Cierre:** cualquier resultado/caché puede invalidarse por versión semántica y no solo por archivo.
 
 ## B170 — Semantic diff engine
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** incrementalidad fina
 - **Depende de:** B151, B166
 - **Desbloquea:** B153, B154, B160
@@ -195,7 +228,7 @@ Solo después:
 - **Cierre:** la invalidación se apoya en diffs semánticos, no solo en `document changed`.
 
 ## B153 — Índice de dependencias semánticas inversas
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** incrementalidad fina
 - **Depende de:** B151, B170
 - **Desbloquea:** B154, B155, B031, B032
@@ -208,7 +241,7 @@ Solo después:
 - **Cierre:** cambios en herencia/firma/visibilidad recalculan solo el conjunto impactado.
 
 ## B154 — Invalidation engine explícito
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** incrementalidad fina
 - **Depende de:** B153, B166, B170
 - **Desbloquea:** B155, B169, B171
@@ -221,7 +254,7 @@ Solo después:
 - **Cierre:** desaparece la invalidación dispersa por features.
 
 ## B152 — Pipeline de indexación en dos fases reales
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** incrementalidad + UX
 - **Depende de:** B151, B165
 - **Desbloquea:** B158, B159, B156
@@ -234,7 +267,7 @@ Solo después:
 - **Cierre:** el usuario obtiene valor temprano sin esperar enriquecimiento completo.
 
 ## B122 — Priorización por dependencias semánticas cercanas
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** scheduling
 - **Depende de:** B152, B153
 - **Desbloquea:** B125
@@ -243,7 +276,7 @@ Solo después:
 - **Cierre:** activo → ancestros → owners/tipos → calls probables → proyecto → workspace.
 
 ## B123 — Presupuestos de trabajo y yielding cooperativo
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** latencia
 - **Depende de:** B152
 - **Desbloquea:** B159
@@ -252,7 +285,7 @@ Solo después:
 - **Cierre:** el servidor trabaja en slices pequeños y cede explícitamente.
 
 ## B124 — Cancelación y preempción real de tareas de fondo
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** latencia
 - **Depende de:** B123
 - **Desbloquea:** B159
@@ -261,7 +294,7 @@ Solo después:
 - **Cierre:** las tareas de fondo ceden/cancelan y se reanudan sin perder progreso útil.
 
 ## B169 — Watcher intake pipeline con backpressure real
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** incrementalidad + robustez
 - **Depende de:** B154
 - **Desbloquea:** B125, B155
@@ -274,7 +307,7 @@ Solo después:
 - **Cierre:** branch switches / git pulls / cambios masivos no revientan el pipeline.
 
 ## B125 — Indexación progresiva del workspace completo
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** scheduler/indexer
 - **Depende de:** B122, B123, B124, B169
 - **Desbloquea:** B134, B155
@@ -283,7 +316,7 @@ Solo después:
 - **Cierre:** cada archivo relevante tiene estado explícito y el sistema converge hacia workspace ready.
 
 ## B126 — Superficie de estado del indexador
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** observabilidad
 - **Depende de:** B125
 - **Desbloquea:** B163, B176
@@ -292,7 +325,7 @@ Solo después:
 - **Cierre:** el indexador deja de ser una caja negra.
 
 ## B134 — Modelo de progreso y readiness del indexador
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** observabilidad + UX
 - **Depende de:** B125, B152
 - **Desbloquea:** B158, B107
@@ -301,7 +334,7 @@ Solo después:
 - **Cierre:** `% discovery`, `% indexing`, active context ready, project ready, workspace ready.
 
 ## B158 — Modo degradado formal
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** seguridad de producto
 - **Depende de:** B134, B152
 - **Desbloquea:** B171, B032, B031
@@ -315,7 +348,7 @@ Solo después:
 - **Cierre:** las features saben cuándo degradar o bloquearse.
 
 ## B159 — Gobernador de latencia del servidor
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** latencia
 - **Depende de:** B123, B124, B158
 - **Desbloquea:** B156, B160
@@ -328,7 +361,7 @@ Solo después:
 # L1 — Persistencia y modelo de workspace/proyecto
 
 ## B141 — Library graph / project model unificado
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** core topology
 - **Depende de:** B151
 - **Desbloquea:** B155, B071A, B107, B171
@@ -338,46 +371,51 @@ Solo después:
 - **Cierre:** el scheduler, cache, status, invalidación y serving reutilizan el mismo modelo.
 
 ## B155 — Checkpoints reales de indexación y resume robusto
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** persistencia
 - **Depende de:** B154, B125, B141
 - **Desbloquea:** B071, B071A
+- **Estado reciente:** `Specs 162-163` ya restauran `DocumentCache`/`KnowledgeBase` y persisten checkpoints solo al alcanzar `readiness` estable.
 - **Objetivo:** reaperturas rápidas y resume seguro del pipeline.
 - **Guía / referencia `plugin_old`:** revisar caches persistentes, fingerprints, snapshots y cualquier recuperación parcial del legacy que pueda orientar el diseño nuevo.
 - **Cierre:** el motor recupera estado de discovery / parse / enrich / readiness sin recomputar todo.
 
 ## B167 — Journaling transaccional de caché persistente
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** persistencia robusta
 - **Depende de:** B155
 - **Desbloquea:** B168
+- **Estado reciente:** `Specs 153`, `155`, `160` y `161` ya materializan puerto de escritura, store persistente y `journal` interactivo en el runtime.
 - **Objetivo:** evitar corrupción de caché y estados incompletos.
 - **Guía / referencia `plugin_old`:** si existían escrituras persistentes/caches en disco, usarlas como lección; si no, usar los formatos persistidos del legacy para identificar necesidades de recovery/versioning.
 - **Cierre:** cierres abruptos o fallos no dejan la caché en estado incierto.
 
 ## B168 — Cache schema versioning + migraciones
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** persistencia robusta
 - **Depende de:** B166, B167
 - **Desbloquea:** B071A, B071B
+- **Estado reciente:** `Specs 157-158` endurecen metadata de checkpoint, decisiones `reuse/rebuild` y validación estricta del `journal`.
 - **Objetivo:** versionar persistencia y decidir migrar/invalidate/rebuild con seguridad.
 - **Guía / referencia `plugin_old`:** revisar contratos, formatos serializados, catálogos, public API contracts o manifests del legacy para definir claves/versiones con sentido.
 - **Cierre:** la persistencia escala entre versiones del motor sin hacks.
 
 ## B071 — Warm indexing y resume de caché persistente
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** persistencia
 - **Depende de:** B155, B167, B168
 - **Desbloquea:** B071A, B071B
+- **Estado reciente:** `Specs 154`, `162` y `163` ya pasan `cacheStorageUri`, restauran estado reutilizable y fijan persistencia en `readiness` estable.
 - **Objetivo:** evitar cold indexing en cada reapertura.
 - **Guía / referencia `plugin_old`:** revisar cualquier materialización persistente del knowledge base, project registry, symbol exports o caches del legacy.
 - **Cierre:** reaperturas claramente más rápidas en workspaces grandes.
 
 ## B071A — Caché persistente por workspace y por proyecto
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** persistencia
 - **Depende de:** B141, B071
 - **Desbloquea:** B071B
+- **Estado reciente:** `Specs 155-156` ya introducen `cacheStore` real y `workspaceKey` estable; sigue pendiente el particionado fino por proyecto.
 - **Objetivo:** particionar persistencia y reducir recomputación innecesaria.
 - **Guía / referencia `plugin_old`:** usar `projectRegistry.ts`, `PbLibraryGraph` y cualquier noción previa de proyecto/target del legacy como guía para particionar caches.
 - **Cierre:** invalidación localizada y reuse por proyecto.
@@ -401,10 +439,11 @@ Solo después:
 - **Cierre:** nombres, URIs, tipos, contenedores e ids internos reutilizados/compactados.
 
 ## B174 — Resultados semánticos inmutables
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** robustez interna
 - **Depende de:** B151, B165
 - **Desbloquea:** B160, B162
+- **Estado reciente:** `Specs 159-160` aplican copias defensivas y payload persistente versionado en `KnowledgeBase` y `DocumentCache`.
 - **Objetivo:** evitar mutaciones accidentales de snapshots y resultados.
 - **Guía / referencia `plugin_old`:** revisar dónde el legacy sufría mutaciones implícitas o paso de estructuras compartidas por referencia.
 - **Cierre:** snapshots/facts/resultados publicados son tratados como inmutables.
@@ -414,20 +453,22 @@ Solo después:
 # L2 — Query engine y serving profesional
 
 ## B156 — Query engine unificado
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** serving
 - **Depende de:** B151, B152, B159
 - **Desbloquea:** B031, B032, B036, B066, B065, B160
+- **Estado reciente:** `Spec 164` ya centraliza contexto compartido y el resolver detallado alimenta el hot path de `hover`, `definition` y `signatureHelp`.
 - **Objetivo:** una capa común para resolver queries semánticas.
 - **Guía / referencia `plugin_old`:** `semanticEngine.ts`, `owners/`, `hover/presentation.ts`, `queryPrecision.ts`, `ancestorScriptService.ts`, `pbPowerScriptCodeLens.ts` y servicios de resolución repartidos del legacy.
 - **Cierre:** hover/completion/definition/references usan el mismo motor.
 
 ## B157 — Semantic evidence de primera clase
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** explicabilidad
 - **Depende de:** B156
 - **Desbloquea:** B171, B175, B109
 - **Legacy refs:** absorbe B136
+- **Estado reciente:** `Specs 169-170` retienen `queryTrace` y `reasonCodes` del winner path como primera capa de evidencia formal.
 - **Objetivo:** modelar formalmente por qué una resolución ganó.
 - **Guía / referencia `plugin_old`:** `queryPrecision.ts`, `buildSemanticQueryReasons`, `buildSemanticEvidence`.
 - **Cierre:** scope, visibilidad, library order, distance, confidence y descartes quedan trazados.
@@ -451,10 +492,11 @@ Solo después:
 - **Cierre:** rename y references peligrosas exigen confianza alta; otras degradan con seguridad.
 
 ## B160 — Query result cache con claves semánticas estables
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** serving performance
 - **Depende de:** B156, B166, B174
 - **Desbloquea:** B031, B032, B066
+- **Estado reciente:** `Specs 165-168` extienden `ServingCache` a `definition`, `signatureHelp` y `completion`, y activan consumo real de `HotContextCache`.
 - **Objetivo:** cachear respuestas semánticas seguras.
 - **Guía / referencia `plugin_old`:** revisar serving cache, hot context cache, document cache y cualquier memoización semántica del legacy.
 - **Cierre:** hit ratio observable, claves estables, invalidación correcta.
@@ -535,6 +577,7 @@ Solo después:
 - **Track:** plataforma
 - **Depende de:** B156, B157, B172
 - **Estado previo:** superficie inicial `shared/publicApi`.
+- **Estado reciente:** `Spec 172` amplía `ApiServerStats` con `readiness`, `indexer`, `projectModel`, `persistence` y `lastQueryTrace`.
 - **Objetivo:** exponer capacidades semánticas sobre contratos maduros, no sobre hacks internos.
 - **Guía / referencia `plugin_old`:** `publicApi.ts`, `publicApiContract.ts`.
 - **Cierre:** API estable y mínima, con modelos explicables.
@@ -633,9 +676,10 @@ Solo después:
 - **Cierre:** un bug semántico complejo puede reproducirse sin reconstruir contexto manualmente.
 
 ## B176 — Health checker interno del motor
-- **Estado:** Open
+- **Estado:** Partial
 - **Track:** salud interna
 - **Depende de:** B126, B162, B172
+- **Estado reciente:** `Spec 171` amplía `showStats` con caches, `readiness`, `persistence`, `projectModel` y la última `queryTrace` como base de inspección interna.
 - **Objetivo:** revisar coherencia de caches, índices, readiness y snapshots.
 - **Guía / referencia `plugin_old`:** revisar stats/commands/diagnósticos internos del legacy para transformar checks ad hoc en health checks formales.
 - **Cierre:** comando/servicio que detecta degradación interna antes del bug visible.

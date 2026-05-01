@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict';
-import { withTrace, recordTraceStep } from '../../../src/server/knowledge/queryTrace';
+import { getLastTrace, recordTraceStep, withTrace } from '../../../src/server/knowledge/queryTrace';
 
 suite('unit/queryTrace (B136)', () => {
   test('captura pasos en orden', () => {
@@ -29,5 +29,16 @@ suite('unit/queryTrace (B136)', () => {
       return 1;
     });
     assert.deepEqual(outer.trace.map((s) => s.name), ['o1', 'o2']);
+  });
+
+  test('expone la última traza capturada', () => {
+    withTrace('last', () => {
+      recordTraceStep('winner');
+      return 1;
+    });
+
+    const trace = getLastTrace();
+    assert.equal(trace?.label, 'last');
+    assert.deepEqual(trace?.steps.map((step) => step.name), ['winner']);
   });
 });

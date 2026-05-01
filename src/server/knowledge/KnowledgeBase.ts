@@ -1,5 +1,58 @@
 import { normalizeUri } from '../system/uriUtils';
 import { Entity, EntityKind, Fact, Scope } from './types';
+import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
+import { collectSnapshotDependencyKeys } from './semanticDiff';
+
+interface ScopeIndexEntry {
+  start: number;
+  end: number;
+  depth: number;
+  scope: Scope;
+}
+
+interface PublishedKnowledgeState {
+  globalSymbols: Map<string, Entity[]>;
+  documentSymbols: Map<string, Set<string>>;
+  entitiesByUri: Map<string, Entity[]>;
+  documentScopes: Map<string, Scope[]>;
+  scopeIndex: Map<string, ScopeIndexEntry[]>;
+  documentSnapshots: Map<string, SemanticDocumentSnapshot>;
+  documentDependencies: Map<string, Set<string>>;
+  reverseDependencies: Map<string, Set<string>>;
+  semanticEpoch: number;
+  publishedAt: number;
+}
+
+function createEmptyState(): PublishedKnowledgeState {
+  return {
+    globalSymbols: new Map(),
+    documentSymbols: new Map(),
+    entitiesByUri: new Map(),
+    documentScopes: new Map(),
+    scopeIndex: new Map(),
+    documentSnapshots: new Map(),
+    documentDependencies: new Map(),
+    reverseDependencies: new Map(),
+    semanticEpoch: 0,
+    publishedAt: Date.now()
+  };
+}
+
+function cloneState(state: PublishedKnowledgeState): PublishedKnowledgeState {
+  return {
+    globalSymbols: new Map(Array.from(state.globalSymbols.entries(), ([key, value]) => [key, [...value]])),
+    documentSymbols: new Map(Array.from(state.documentSymbols.entries(), ([key, value]) => [key, new Set(value)])),
+    entitiesByUri: new Map(Array.from(state.entitiesByUri.entries(), ([key, value]) => [key, [...value]])),
+    documentScopes: new Map(state.documentScopes),
+    scopeIndex: new Map(),
+    documentSnapshots: new Map(state.documentSnapshots),
+    documentDependencies: new Map(Array.from(state.documentDependencies.entries(), ([key, value]) => [key, new Set(value)])),
+    reverseDependencies: new Map(Array.from(state.reverseDependencies.entries(), ([key, value]) => [key, new Set(value)])),
+    semanticEpoch: state.semanticEpoch,
+    publishedAt: state.publishedAt
+  };
+}
 
 /**
  * Índice semántico global del workspace.
@@ -9,47 +62,8 @@ import { Entity, EntityKind, Fact, Scope } from './types';
  * distintos objetos pueden definir funciones como `of_SetData`).
  */
 export class KnowledgeBase {
-  /**
-   * Mapa de Símbolos Globales.
-   * Key: Normalizado (id en minúsculas).
-   * Value: Array de entidades con ese nombre (puede haber varias en archivos distintos).
-   */
-  private globalSymbols: Map<string, Entity[]> = new Map();
-
-  /**
-   * Índice inverso para saber qué símbolos aporta cada archivo.
-   * Key: URI normalizado del archivo.
-   * Value: Set de IDs de símbolos exportados por este archivo.
-   */
-  private documentSymbols: Map<string, Set<string>> = new Map();
-
-  /**
-   * Índice por URI -> Entidades aportadas por ese archivo.
-   * Permite consultas O(1) por archivo evitando escaneos completos del catálogo
-   * en operaciones interactivas (hover, definition, semantic tokens, etc.).
-   */
-  private entitiesByUri: Map<string, Entity[]> = new Map();
-
-  /**
-   * Árbol de Scopes por documento para resolución de variables locales.
-   * Key: URI normalizado del archivo.
-   * Value: Lista de Scopes raíz (usualmente el GlobalScope).
-   */
-  private documentScopes: Map<string, Scope[]> = new Map();
-  /**
-   * Spec 065: índice plano y ordenado de scopes por URI para resolver
-   * `getScopeAt` en O(log n) (búsqueda binaria + selección del más profundo).
-   * Se reconstruye perezosamente en la primera consulta tras cada actualización
-   * de scopes.
-   */
-  private scopeIndex: Map<string, Array<{ start: number; end: number; depth: number; scope: Scope }>> = new Map();
-
-  /**
-   * Versión del índice. Se incrementa con cada mutación (salvo en batch updates,
-   * donde se incrementa una vez al terminar).
-   * Permite a las cachés externas invalidarse fácilmente.
-   */
-  private currentVersion = 0;
+  private publishedState: PublishedKnowledgeState = createEmptyState();
+  private stagedState: PublishedKnowledgeState | null = null;
 
   /**
    * Profundidad de batch update. Mientras sea > 0, las operaciones
@@ -63,6 +77,9 @@ export class KnowledgeBase {
    * pueden evitar reaccionar a cada cambio individual.
    */
   beginBatchUpdate(): void {
+    if (this.batchDepth === 0) {
+      this.stagedState = cloneState(this.publishedState);
+    }
     this.batchDepth++;
   }
 
@@ -71,12 +88,28 @@ export class KnowledgeBase {
    * el sistema considera que la actualización masiva terminó.
    */
   endBatchUpdate(): void {
+    this.commitBatchUpdate();
+  }
+
+  /**
+   * Publica el estado staged como nueva versión visible.
+   */
+  commitBatchUpdate(): void {
     if (this.batchDepth > 0) {
       this.batchDepth--;
-      if (this.batchDepth === 0) {
-        this.currentVersion++;
+      if (this.batchDepth === 0 && this.stagedState) {
+        this.publishState(this.stagedState);
+        this.stagedState = null;
       }
     }
+  }
+
+  /**
+   * Descarta cualquier construcción staged no publicada.
+   */
+  rollbackBatchUpdate(): void {
+    this.batchDepth = 0;
+    this.stagedState = null;
   }
 
   /**
@@ -94,57 +127,54 @@ export class KnowledgeBase {
    */
   resyncDocuments(updates: ReadonlyArray<{ uri: string; facts: Fact[]; scopes?: Scope[] }>): number {
     if (updates.length === 0) return 0;
-    const before = this.currentVersion;
+    const before = this.semanticEpoch;
     this.beginBatchUpdate();
     try {
       for (const u of updates) {
         this.upsertDocument(u.uri, u.facts, u.scopes ?? []);
       }
+      this.commitBatchUpdate();
+    } catch (error) {
+      this.rollbackBatchUpdate();
+      throw error;
     } finally {
-      this.endBatchUpdate();
+      if (this.isBatchUpdating) {
+        this.rollbackBatchUpdate();
+      }
     }
-    return this.currentVersion - before;
+    return this.semanticEpoch - before;
   }
 
   /**
    * Devuelve la versión actual del índice.
    */
   get version(): number {
-    return this.currentVersion;
+    return this.publishedState.semanticEpoch;
+  }
+
+  /**
+   * Época semántica publicada del workspace.
+   * Spec 135 / B166.
+   */
+  get semanticEpoch(): number {
+    return this.publishedState.semanticEpoch;
   }
 
   /**
    * Inserta o actualiza el conocimiento aportado por un documento.
    * Elimina primero el conocimiento previo del mismo archivo para evitar duplicados estancados.
    */
-  upsertDocument(uri: string, facts: Fact[], scopes: Scope[] = []): void {
+  upsertDocument(
+    uri: string,
+    facts: Fact[],
+    scopes: Scope[] = [],
+    snapshot?: SemanticDocumentSnapshot
+  ): void {
     const normalizedUri = normalizeUri(uri);
 
-    // 1. Limpiar rastro previo de este documento
-    this.removeDocument(normalizedUri);
-
-    // 2. Indexar nuevos facts
-    const symbolIds = new Set<string>();
-    const uriEntities: Entity[] = [];
-
-    for (const fact of facts) {
-      const existing = this.globalSymbols.get(fact.id) || [];
-      existing.push(fact);
-      this.globalSymbols.set(fact.id, existing);
-      symbolIds.add(fact.id);
-      uriEntities.push(fact);
-    }
-
-    this.documentSymbols.set(normalizedUri, symbolIds);
-    this.documentScopes.set(normalizedUri, scopes);
-    this.scopeIndex.delete(normalizedUri);
-    if (uriEntities.length > 0) {
-      this.entitiesByUri.set(normalizedUri, uriEntities);
-    }
-
-    if (!this.isBatchUpdating) {
-      this.currentVersion++;
-    }
+    this.writeState((state) => {
+      this.indexDocumentIntoState(state, normalizedUri, facts, scopes, snapshot);
+    });
   }
 
   /**
@@ -153,36 +183,16 @@ export class KnowledgeBase {
    */
   removeDocument(uri: string): void {
     const normalizedUri = normalizeUri(uri);
-    const existingSymbolIds = this.documentSymbols.get(normalizedUri);
-
-    if (existingSymbolIds) {
-      for (const id of existingSymbolIds) {
-        const entities = this.globalSymbols.get(id);
-        if (entities) {
-          const filtered = entities.filter(e => normalizeUri(e.uri) !== normalizedUri);
-          if (filtered.length > 0) {
-            this.globalSymbols.set(id, filtered);
-          } else {
-            this.globalSymbols.delete(id);
-          }
-        }
-      }
-      this.documentSymbols.delete(normalizedUri);
-      this.documentScopes.delete(normalizedUri);
-      this.entitiesByUri.delete(normalizedUri);
-      this.scopeIndex.delete(normalizedUri);
-
-      if (!this.isBatchUpdating) {
-        this.currentVersion++;
-      }
-    }
+    this.writeState((state) => {
+      this.removeDocumentFromState(state, normalizedUri);
+    });
   }
 
   /**
    * Busca la primera definición global por nombre (case-insensitive).
    */
   findDefinition(symbolName: string): Entity | null {
-    const entities = this.globalSymbols.get(symbolName.toLowerCase());
+    const entities = this.publishedState.globalSymbols.get(symbolName.toLowerCase());
     return entities && entities.length > 0 ? entities[0] : null;
   }
 
@@ -191,7 +201,7 @@ export class KnowledgeBase {
    * Necesario para "Go to Definition" cuando hay múltiples coincidencias.
    */
   findAllDefinitions(symbolName: string): Entity[] {
-    return this.globalSymbols.get(symbolName.toLowerCase()) || [];
+    return this.publishedState.globalSymbols.get(symbolName.toLowerCase()) || [];
   }
 
   /**
@@ -201,7 +211,7 @@ export class KnowledgeBase {
    * fuera del alcance hasta tener inheritance/visibility resolvidos.
    */
   findCallable(name: string, container?: string): Entity | null {
-    const entities = this.globalSymbols.get(name.toLowerCase());
+    const entities = this.publishedState.globalSymbols.get(name.toLowerCase());
     if (!entities) return null;
     const containerLc = container?.toLowerCase();
     for (const e of entities) {
@@ -220,7 +230,7 @@ export class KnowledgeBase {
    */
   getAllEntities(): Entity[] {
     const result: Entity[] = [];
-    for (const entities of this.globalSymbols.values()) {
+    for (const entities of this.publishedState.globalSymbols.values()) {
       result.push(...entities);
     }
     return result;
@@ -232,8 +242,35 @@ export class KnowledgeBase {
    * cuando ya se conoce el archivo de interés.
    */
   getEntitiesByUri(uri: string): Entity[] {
-    const entities = this.entitiesByUri.get(normalizeUri(uri));
+    const entities = this.publishedState.entitiesByUri.get(normalizeUri(uri));
     return entities ? [...entities] : [];
+  }
+
+  /** Snapshot semántico publicado de un documento. */
+  getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null {
+    return this.publishedState.documentSnapshots.get(normalizeUri(uri)) ?? null;
+  }
+
+  /** Documentos que dependen semánticamente de símbolos exportados por una URI. */
+  getDependentDocumentsForUri(uri: string): string[] {
+    const normalizedUri = normalizeUri(uri);
+    const exportedIds = this.publishedState.documentSymbols.get(normalizedUri);
+    if (!exportedIds || exportedIds.size === 0) {
+      return [];
+    }
+
+    const dependentUris = new Set<string>();
+    for (const exportId of exportedIds) {
+      const dependents = this.publishedState.reverseDependencies.get(exportId);
+      if (!dependents) continue;
+      for (const dependentUri of dependents) {
+        if (dependentUri !== normalizedUri) {
+          dependentUris.add(dependentUri);
+        }
+      }
+    }
+
+    return [...dependentUris].sort();
   }
 
   /**
@@ -245,10 +282,10 @@ export class KnowledgeBase {
    */
   getScopeAt(uri: string, line: number): Scope | null {
     const normalizedUri = normalizeUri(uri);
-    const scopes = this.documentScopes.get(normalizedUri);
+    const scopes = this.publishedState.documentScopes.get(normalizedUri);
     if (!scopes || scopes.length === 0) return null;
 
-    let index = this.scopeIndex.get(normalizedUri);
+    let index = this.publishedState.scopeIndex.get(normalizedUri);
     if (!index) {
       index = [];
       const walk = (list: Scope[], depth: number) => {
@@ -259,7 +296,7 @@ export class KnowledgeBase {
       };
       walk(scopes, 0);
       index.sort((a, b) => a.start - b.start);
-      this.scopeIndex.set(normalizedUri, index);
+      this.publishedState.scopeIndex.set(normalizedUri, index);
     }
 
     // Búsqueda binaria: índice del primero con start > line.
@@ -292,12 +329,7 @@ export class KnowledgeBase {
    * Limpia toda la base de conocimiento.
    */
   clear(): void {
-    this.globalSymbols.clear();
-    this.documentSymbols.clear();
-    this.documentScopes.clear();
-    this.entitiesByUri.clear();
-    this.scopeIndex.clear();
-    this.currentVersion++;
+    this.writeState(() => createEmptyState(), true);
   }
 
   /**
@@ -308,15 +340,181 @@ export class KnowledgeBase {
    */
   getStats() {
     let totalEntities = 0;
-    for (const entities of this.globalSymbols.values()) {
+    for (const entities of this.publishedState.globalSymbols.values()) {
       totalEntities += entities.length;
     }
     let indexedScopes = 0;
-    for (const arr of this.scopeIndex.values()) indexedScopes += arr.length;
+    for (const arr of this.publishedState.scopeIndex.values()) indexedScopes += arr.length;
     return {
       totalEntities,
-      indexedDocuments: this.documentSymbols.size,
-      indexedScopes
+      indexedDocuments: this.publishedState.documentSymbols.size,
+      indexedScopes,
+      semanticEpoch: this.publishedState.semanticEpoch,
+      snapshotDocuments: this.publishedState.documentSnapshots.size,
+      dependencyDocuments: this.publishedState.documentDependencies.size,
+      reverseDependencyKeys: this.publishedState.reverseDependencies.size,
+      publishedAt: this.publishedState.publishedAt
     };
+  }
+
+  private publishState(next: PublishedKnowledgeState): void {
+    next.semanticEpoch = this.publishedState.semanticEpoch + 1;
+    next.publishedAt = Date.now();
+    this.publishedState = next;
+  }
+
+  private writeState(
+    mutator: ((state: PublishedKnowledgeState) => void) | (() => PublishedKnowledgeState),
+    replace = false
+  ): void {
+    if (this.isBatchUpdating) {
+      if (!this.stagedState) {
+        this.stagedState = cloneState(this.publishedState);
+      }
+      if (replace) {
+        this.stagedState = (mutator as () => PublishedKnowledgeState)();
+      } else {
+        (mutator as (state: PublishedKnowledgeState) => void)(this.stagedState);
+      }
+      return;
+    }
+
+    const draft = replace
+      ? (mutator as () => PublishedKnowledgeState)()
+      : cloneState(this.publishedState);
+
+    if (!replace) {
+      (mutator as (state: PublishedKnowledgeState) => void)(draft);
+    }
+    this.publishState(draft);
+  }
+
+  private removeDocumentFromState(state: PublishedKnowledgeState, normalizedUri: string): void {
+    const existingSymbolIds = state.documentSymbols.get(normalizedUri);
+    this.removeDependenciesFromState(state, normalizedUri);
+
+    if (!existingSymbolIds) {
+      state.documentSnapshots.delete(normalizedUri);
+      return;
+    }
+
+    for (const id of existingSymbolIds) {
+      const entities = state.globalSymbols.get(id);
+      if (!entities) continue;
+
+      const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
+      if (filtered.length > 0) {
+        state.globalSymbols.set(id, filtered);
+      } else {
+        state.globalSymbols.delete(id);
+      }
+    }
+
+    state.documentSymbols.delete(normalizedUri);
+    state.documentScopes.delete(normalizedUri);
+    state.entitiesByUri.delete(normalizedUri);
+    state.scopeIndex.delete(normalizedUri);
+    state.documentSnapshots.delete(normalizedUri);
+  }
+
+  private updateDependenciesFromSnapshot(
+    state: PublishedKnowledgeState,
+    normalizedUri: string,
+    snapshot: SemanticDocumentSnapshot
+  ): void {
+    this.removeDependenciesFromState(state, normalizedUri);
+
+    const dependencies = new Set(collectSnapshotDependencyKeys(snapshot));
+    if (dependencies.size === 0) {
+      return;
+    }
+
+    state.documentDependencies.set(normalizedUri, dependencies);
+    for (const dependency of dependencies) {
+      const reverse = state.reverseDependencies.get(dependency) ?? new Set<string>();
+      reverse.add(normalizedUri);
+      state.reverseDependencies.set(dependency, reverse);
+    }
+  }
+
+  private removeDependenciesFromState(state: PublishedKnowledgeState, normalizedUri: string): void {
+    const dependencies = state.documentDependencies.get(normalizedUri);
+    if (!dependencies) {
+      return;
+    }
+
+    for (const dependency of dependencies) {
+      const reverse = state.reverseDependencies.get(dependency);
+      if (!reverse) continue;
+
+      reverse.delete(normalizedUri);
+      if (reverse.size === 0) {
+        state.reverseDependencies.delete(dependency);
+      }
+    }
+
+    state.documentDependencies.delete(normalizedUri);
+  }
+
+  exportDocumentRecords(): SemanticCacheDocumentRecord[] {
+    return Array.from(this.publishedState.entitiesByUri.entries()).map(([uri, facts]) => ({
+      uri,
+      facts: structuredClone(facts),
+      scopes: structuredClone(this.publishedState.documentScopes.get(uri) ?? []),
+      snapshot: structuredClone(this.publishedState.documentSnapshots.get(uri))
+    }));
+  }
+
+  restoreDocumentRecords(records: SemanticCacheDocumentRecord[], semanticEpoch = 0): void {
+    const nextState = createEmptyState();
+    for (const record of records) {
+      const restoredRecord = structuredClone(record);
+      this.indexDocumentIntoState(
+        nextState,
+        normalizeUri(restoredRecord.uri),
+        restoredRecord.facts,
+        restoredRecord.scopes,
+        restoredRecord.snapshot
+      );
+    }
+    nextState.semanticEpoch = semanticEpoch;
+    nextState.publishedAt = Date.now();
+    this.publishedState = nextState;
+    this.stagedState = null;
+    this.batchDepth = 0;
+  }
+
+  private indexDocumentIntoState(
+    state: PublishedKnowledgeState,
+    normalizedUri: string,
+    facts: Fact[],
+    scopes: Scope[] = [],
+    snapshot?: SemanticDocumentSnapshot
+  ): void {
+    this.removeDocumentFromState(state, normalizedUri);
+
+    const symbolIds = new Set<string>();
+    const uriEntities: Entity[] = [];
+
+    for (const fact of facts) {
+      const existing = state.globalSymbols.get(fact.id) || [];
+      existing.push(fact);
+      state.globalSymbols.set(fact.id, existing);
+      symbolIds.add(fact.id);
+      uriEntities.push(fact);
+    }
+
+    state.documentSymbols.set(normalizedUri, symbolIds);
+    state.documentScopes.set(normalizedUri, scopes);
+    state.scopeIndex.delete(normalizedUri);
+    if (uriEntities.length > 0) {
+      state.entitiesByUri.set(normalizedUri, uriEntities);
+    }
+    if (snapshot) {
+      state.documentSnapshots.set(normalizedUri, snapshot);
+      this.updateDependenciesFromSnapshot(state, normalizedUri, snapshot);
+    } else {
+      this.removeDependenciesFromState(state, normalizedUri);
+    }
   }
 }

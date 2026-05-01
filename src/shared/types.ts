@@ -51,12 +51,20 @@ export type ProgressPhase =
   | 'discovering'
   | 'indexing'
   | 'partial'
+  | 'degraded'
   | 'ready'
   | 'idle';
+
+export type ProgressPass = 'structural' | 'enriched';
 
 export interface ProgressNotification {
   phase: ProgressPhase;
   current?: number;
   total?: number;
   message?: string;
+  pass?: ProgressPass;
+  degraded?: boolean;
+  skipped?: number;
+  failed?: number;
+  budgetMs?: number;
 }

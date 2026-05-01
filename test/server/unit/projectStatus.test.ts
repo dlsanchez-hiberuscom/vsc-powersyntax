@@ -11,8 +11,15 @@ suite('unit/projectStatus (B107)', () => {
 
   test('indexing', () => {
     assert.equal(
-      formatProjectStatus({ readiness: 'indexing', projectName: 'app', totalFiles: 100, indexedFiles: 30 }),
-      'app — indexando 30/100'
+      formatProjectStatus({ readiness: 'indexing', projectName: 'app', totalFiles: 100, indexedFiles: 30, pass: 'structural' }),
+      'app — estructural 30/100'
+    );
+  });
+
+  test('degraded', () => {
+    assert.equal(
+      formatProjectStatus({ readiness: 'degraded', projectName: 'app', totalFiles: 10, indexedFiles: 8, skippedFiles: 1, failedFiles: 1 }),
+      'app — degradado (8/10)'
     );
   });
 

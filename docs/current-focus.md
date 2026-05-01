@@ -86,40 +86,43 @@ El foco actual es **hacer que el motor sea más correcto, más incremental, más
 
 ## Fase activa actual
 
-### Fase 1 — Atomicidad + incrementalidad fina
+### Fase 2 — Persistencia robusta y hot path compartido
 
 Este es el foco principal actual.
 
 ### Objetivo de esta fase
 
-Cerrar el núcleo del motor para que:
+Cerrar la persistencia operativa y el serving compartido para que:
 
-- publique estado semántico de forma atómica,
-- recompute solo lo mínimo necesario,
-- priorice el archivo activo y sus dependencias cercanas,
-- pueda degradar de forma segura,
-- y siga descubriendo/indexando rápido sin bloquear.
+- el servidor reutilice estado seguro entre sesiones,
+- las queries repetidas hagan menos trabajo en caliente,
+- `HotContextCache` y `ServingCache` se conviertan en aceleraciones reales,
+- y la observabilidad interna explique readiness, cachés y winner paths.
 
-### Ítems del backlog dentro del foco actual
+La base de esta fase ya quedó implementada y validada como segundo corte operativo; lo pendiente pasa por completar particionado por proyecto, cache persistente de queries y gates de confianza sobre esta base.
 
-Orden exacto:
+### Ola 149-172 ya materializada como base operativa de persistencia y serving
 
-1. **B151** — Semantic snapshot canónico por documento  
-2. **B165** — Publicación atómica del Knowledge Base y de los índices  
-3. **B166** — Versionado semántico interno del workspace  
-4. **B170** — Semantic diff engine  
-5. **B153** — Índice de dependencias semánticas inversas  
-6. **B154** — Invalidation engine explícito  
-7. **B152** — Pipeline de indexación en dos fases reales  
-8. **B122** — Priorización por dependencias semánticas cercanas  
-9. **B123** — Presupuestos de trabajo y yielding cooperativo  
-10. **B124** — Cancelación y preempción real de tareas de fondo  
-11. **B169** — Watcher intake pipeline con backpressure real  
-12. **B125** — Indexación progresiva del workspace completo  
-13. **B126** — Superficie de estado del indexador  
-14. **B134** — Modelo de progreso y readiness del indexador  
-15. **B158** — Modo degradado formal  
-16. **B159** — Gobernador de latencia del servidor
+- `Specs 149-152` dejaron listos `UnifiedProjectModel` y la base persistente `schema` + `journal` + `checkpoint`.
+- `Specs 153-163` materializan puerto persistente de filesystem, `cacheStore`, `workspaceKey` estable, metadata de checkpoint, validación estricta de journal, export/restore defensivo, `journal` interactivo y warm resume real.
+- `Specs 164-172` materializan helper común de contexto de query, `ServingCache` ampliado, consumo real de `HotContextCache`, `queryTrace`, `reasonCodes` y snapshot de stats interno/público ampliado.
+
+Validación registrada:
+
+- `npm run compile`
+- `npm run test:unit` → `324 passing`
+- `npm test` → smoke `2 passing`, unit `324 passing`, integration `4 passing`
+
+### Siguiente cierre natural dentro de esta fase
+
+1. **B071A** — particionado persistente real por proyecto  
+2. **B071B** — cache de consultas frecuentes persistente  
+3. **B172** — provenance / lineage de simbolos  
+4. **B171** — confidence gates por feature  
+5. **B031** — referencias más precisas y robustas  
+6. **B032** — rename controlado sobre evidencia fuerte  
+7. **B066** — CodeLens fiable sobre serving compartido  
+8. **B065** — hierarchy inspection madura
 
 ---
 
@@ -147,28 +150,20 @@ En otras palabras:
 
 ### Trabajo permitido y prioritario
 
-- construir el snapshot semántico canónico,
-- introducir publicación atómica del estado semántico,
-- introducir versionado semántico interno,
-- clasificar cambios por diff semántico,
-- modelar dependencias inversas,
-- centralizar la invalidación,
-- separar indexación estructural vs enriquecida,
-- endurecer yielding, preempción y budgets,
-- mejorar backpressure del watcher,
-- exponer progreso, readiness y estado del indexador,
-- y mantener alineada la documentación técnica con el nuevo modelo del core.
+- cerrar el particionado persistente por proyecto sobre `cacheStore` y `workspaceKey`,
+- abrir `B071B` con reuse seguro de queries frecuentes,
+- conectar `queryTrace` y `reasonCodes` con lineage y confidence gates,
+- endurecer `references`, `rename` y `CodeLens` sobre el query engine compartido,
+- y mantener alineada la documentación técnica con el nuevo estado real del runtime.
 
 ### Resultado esperado de esta etapa
 
 Al final de esta fase, el plugin debe:
 
-- descubrir e indexar el workspace de forma progresiva y sin bloquear,
-- priorizar de verdad el contexto activo,
-- publicar resultados coherentes sin estados a medias,
-- invalidar y recomputar con granularidad fina,
-- exponer progreso real y readiness,
-- y dejar preparada una base sólida para persistencia robusta y query engine unificado.
+- reabrir workspaces grandes con warm resume seguro y medible,
+- reutilizar mejor `definition`, `signatureHelp` y `completion` en rutas repetidas,
+- exponer caches, persistence y winner paths desde surfaces internas y públicas ligeras,
+- y dejar lista la base para confidence gates, lineage y queries más ambiciosas.
 
 ---
 
@@ -202,13 +197,11 @@ No debe hacerse ahora, salvo bug, deuda bloqueante o necesidad muy justificada:
 
 ### Riesgos principales
 
-- seguir acumulando lógica semántica fuera de un snapshot/documento canónico,
-- invalidación todavía demasiado dispersa,
-- recomputación más amplia de lo necesario,
-- estados parciales del motor visibles por features interactivas,
-- watchers que generen tormentas de trabajo en cambios masivos,
-- caché persistente futura sin versionado ni journaling sólido,
-- y documentación desalineada respecto al nuevo modelo del core.
+- persistencia demasiado gruesa si no se completa el particionado por proyecto,
+- claves de serving incompletas que generen hits incorrectos,
+- evidencia semántica todavía corta para decisiones delicadas como rename o references,
+- health checker aún insuficiente para detectar degradación antes del bug visible,
+- y documentación desalineada respecto al estado real de persistencia y serving.
 
 ---
 
@@ -218,16 +211,11 @@ Antes de mover el foco, esta fase debe dejar evidencia razonable de mejora.
 
 ### Evidencias mínimas esperadas
 
-- snapshot semántico por documento operativo,
-- publicación atómica del estado semántico,
-- semantic diff engine funcionando en casos base,
-- índice de dependencias inversas operativo,
-- invalidation engine centralizado,
-- pipeline de indexación en dos fases,
-- yielding y preempción reales medibles,
-- progreso/readiness visibles y estables,
-- watcher intake con backpressure controlado,
-- y documentación técnica actualizada y alineada.
+- warm resume operativo con restore seguro de `DocumentCache` + `KnowledgeBase`,
+- persistencia solo en puntos de estabilidad verificables,
+- `ServingCache` y `HotContextCache` consumidos de forma real en el hot path,
+- `queryTrace` y `reasonCodes` visibles para debugging y stats,
+- y documentación técnica actualizada y alineada con la ola 153-172.
 
 ---
 
@@ -235,19 +223,18 @@ Antes de mover el foco, esta fase debe dejar evidencia razonable de mejora.
 
 El siguiente paso natural, una vez cerrado este foco, es:
 
-### Fase 2 — Persistencia robusta
+### Fase 3 — Confidence gates y serving seguro
 
 Orden previsto:
 
-1. **B141** — Library graph / project model unificado  
-2. **B155** — Checkpoints reales de indexación y resume robusto  
-3. **B167** — Journaling transaccional de caché persistente  
-4. **B168** — Cache schema versioning + migraciones  
-5. **B071** — Warm indexing y resume de caché persistente  
-6. **B071A** — Caché persistente por workspace y por proyecto  
-7. **B071B** — Caché de consultas frecuentes  
-8. **B164** — Interning y compactación de memoria  
-9. **B174** — Resultados semánticos inmutables
+1. **B172** — Provenance / lineage de símbolos  
+2. **B171** — Confidence gates por feature  
+3. **B071B** — Caché de consultas frecuentes  
+4. **B031** — Referencias más precisas y robustas  
+5. **B032** — Rename controlado  
+6. **B066** — CodeLens de referencias y herencia  
+7. **B065** — Ancestor script navigation + hierarchy inspection  
+8. **B164** — Interning y compactación de memoria
 
 ---
 
@@ -255,12 +242,10 @@ Orden previsto:
 
 El foco actual solo debe cambiar cuando:
 
-- el snapshot semántico sea la unidad real de consumo del motor,
-- la publicación del estado sea atómica,
-- la invalidación esté centralizada y opere con granularidad fina,
-- el scheduler responda bien a contexto activo + background,
-- el progreso/readiness sean observables y estables,
-- y exista evidencia de mejora real en tiempo hasta valor y no bloqueo.
+- el warm resume sea seguro y repetible en reaperturas reales,
+- `ServingCache` y `HotContextCache` aporten reuse sin inconsistencias,
+- la observabilidad interna permita inspeccionar readiness, persistence y winner paths,
+- y exista evidencia de mejora real en tiempo hasta valor y latencia interactiva.
 
 Si estas condiciones no se cumplen, no debe abrirse de forma agresiva la siguiente fase.
 

@@ -4,18 +4,64 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
+import type { HotContextCache } from '../knowledge/HotContextCache';
 import { resolveQualifierType } from '../knowledge/resolution/semanticQueryService';
 import { Entity, EntityKind } from '../knowledge/types';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
 
+function getActiveEntities(
+  currentUri: string,
+  kb: KnowledgeBase,
+  hotContext?: HotContextCache,
+  kbVersion?: number
+): Entity[] {
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
+    const cached = hotContext.getActiveEntities();
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const entities = kb.getEntitiesByUri(currentUri);
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
+    hotContext.setActiveEntities(entities);
+  }
+  return entities;
+}
+
+function getMembersForCompletion(
+  typeName: string,
+  currentUri: string,
+  kb: KnowledgeBase,
+  graph: InheritanceGraph,
+  hotContext?: HotContextCache,
+  kbVersion?: number
+): Entity[] {
+  const cacheKey = typeName.toLowerCase();
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
+    const cached = hotContext.getInheritedMembers(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const members = graph.getMembers(typeName);
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
+    hotContext.setInheritedMembers(cacheKey, members);
+  }
+  return members;
+}
+
 export function provideCompletion(
   document: TextDocument,
   position: Position,
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
-  graph: InheritanceGraph
+  graph: InheritanceGraph,
+  hotContext?: HotContextCache,
+  kbVersion?: number
 ): CompletionItem[] | null {
   const analysis = getDocumentAnalysis(document);
   const lineText = analysis.strippedLines[position.line].substring(0, position.character);
@@ -49,7 +95,7 @@ export function provideCompletion(
   const currentUri = normalizeUri(document.uri);
   const items: CompletionItem[] = [];
 
-  const documentEntities = kb.getEntitiesByUri(currentUri);
+  const documentEntities = getActiveEntities(currentUri, kb, hotContext, kbVersion);
   const currentMainObject = documentEntities.find(
     e => e.kind === EntityKind.Type
   );
@@ -63,11 +109,11 @@ export function provideCompletion(
       let members: Entity[] = [];
 
       if (varType.toLowerCase() === 'super' && currentMainObject?.baseTypeName) {
-        members = graph.getMembers(currentMainObject.baseTypeName);
+        members = getMembersForCompletion(currentMainObject.baseTypeName, currentUri, kb, graph, hotContext, kbVersion);
       } else if (varType.toLowerCase() === 'this' && currentMainObject) {
-        members = graph.getMembers(currentMainObject.name);
+        members = getMembersForCompletion(currentMainObject.name, currentUri, kb, graph, hotContext, kbVersion);
       } else {
-        members = graph.getMembers(varType);
+        members = getMembersForCompletion(varType, currentUri, kb, graph, hotContext, kbVersion);
       }
 
       // Deduplicate members by name (in case of overrides, we just want to show it once in completion)
@@ -101,7 +147,7 @@ export function provideCompletion(
 
     // 2. Members of 'this'
     if (currentMainObject) {
-      const members = graph.getMembers(currentMainObject.name);
+      const members = getMembersForCompletion(currentMainObject.name, currentUri, kb, graph, hotContext, kbVersion);
       for (const m of members) {
         if (!m.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(m.name.toLowerCase())) continue;

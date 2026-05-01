@@ -1,10 +1,17 @@
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { analyzeDocument, DocumentAnalysis } from './documentAnalysis';
+import { mergeOrReplaceSnapshot } from './semanticSnapshot';
+import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
 import { DocumentCache } from '../knowledge/DocumentCache';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { calculateHash } from '../system/hash';
 import { normalizeUri } from '../system/uriUtils';
+
+interface AnalysisPersistenceSink {
+  appendUpsert(record: SemanticCacheDocumentRecord, semanticEpoch: number): void | Promise<void>;
+  appendRemove(uri: string, semanticEpoch: number): void | Promise<void>;
+}
 
 interface CachedAnalysis {
   version: number;
@@ -45,14 +52,20 @@ const PERF_LOG_ENABLED = process.env.PB_PERF_LOG === '1';
  */
 let cacheBackend: DocumentCache | null = null;
 let kbBackend: KnowledgeBase | null = null;
+let persistenceBackend: AnalysisPersistenceSink | null = null;
 
 /**
  * Conecta la caché de análisis interactivo con el DocumentCache y KnowledgeBase globales.
  * Debe llamarse durante el bootstrap del servidor.
  */
-export function setAnalysisBackends(cache: DocumentCache, kb: KnowledgeBase): void {
+export function setAnalysisBackends(
+  cache: DocumentCache,
+  kb: KnowledgeBase,
+  persistence?: AnalysisPersistenceSink | null
+): void {
   cacheBackend = cache;
   kbBackend = kb;
+  persistenceBackend = persistence ?? null;
 }
 
 export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
@@ -76,9 +89,20 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
     const t0fp = PERF_LOG_ENABLED ? Date.now() : 0;
     const fp = fingerprintOnly(document.getText());
     if (fp === cached.analysis.fingerprint) {
+      const mergedSnapshot = mergeOrReplaceSnapshot(
+        cached.analysis.snapshot,
+        {
+          ...cached.analysis.snapshot,
+          version: document.version
+        }
+      );
       const refreshed: CachedAnalysis = {
         version: document.version,
-        analysis: { ...cached.analysis, version: document.version }
+        analysis: {
+          ...cached.analysis,
+          version: document.version,
+          snapshot: mergedSnapshot
+        }
       };
       analysisByUri.delete(key);
       analysisByUri.set(key, refreshed);
@@ -95,6 +119,7 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
 
   const t0 = PERF_LOG_ENABLED ? Date.now() : 0;
   const analysis = analyzeDocument(document);
+  const hash = calculateHash(document.getText());
   if (PERF_LOG_ENABLED) {
     const elapsed = Date.now() - t0;
     if (elapsed > ANALYSIS_BUDGET_MS) {
@@ -116,16 +141,25 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
 
   // Sincronizar con DocumentCache y KnowledgeBase para evitar doble parseo
   if (cacheBackend) {
-    const hash = calculateHash(document.getText());
     cacheBackend.set(document.uri, {
       version: hash,
       facts: analysis.semanticFacts,
       symbols: [], // Los símbolos LSP se sirven directamente desde el feature
-      scopes: analysis.scopes
+      scopes: analysis.scopes,
+      snapshot: analysis.snapshot
     });
   }
   if (kbBackend) {
-    kbBackend.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
+    kbBackend.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    if (persistenceBackend) {
+      void persistenceBackend.appendUpsert({
+        uri: document.uri,
+        version: hash,
+        facts: analysis.semanticFacts,
+        scopes: analysis.scopes,
+        snapshot: analysis.snapshot
+      }, kbBackend.semanticEpoch);
+    }
   }
 
   return analysis;
@@ -140,7 +174,12 @@ export function invalidateDocumentAnalysis(uri: string): void {
   const key = normalizeUri(uri);
   analysisByUri.delete(key);
   if (cacheBackend) cacheBackend.invalidate(uri);
-  if (kbBackend) kbBackend.removeDocument(uri);
+  if (kbBackend) {
+    kbBackend.removeDocument(uri);
+    if (persistenceBackend) {
+      void persistenceBackend.appendRemove(uri, kbBackend.semanticEpoch);
+    }
+  }
 }
 
 export function clearDocumentAnalysisCache(): void {

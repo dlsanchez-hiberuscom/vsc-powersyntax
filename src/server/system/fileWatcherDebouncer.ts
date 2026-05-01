@@ -16,7 +16,15 @@ export interface FsEvent {
 
 export interface FileWatcherDebouncerOptions {
   delayMs: number;
+  maxPending?: number;
   onFlush: (events: FsEvent[]) => void;
+}
+
+export interface FileWatcherDebouncerStats {
+  pending: number;
+  flushes: number;
+  coalesced: number;
+  backpressureFlushes: number;
 }
 
 export interface FileWatcherDebouncer {
@@ -24,11 +32,16 @@ export interface FileWatcherDebouncer {
   dispose(): void;
   /** For tests: forces immediate flush. */
   flushNow(): void;
+  getStats(): FileWatcherDebouncerStats;
 }
 
 export function createFileWatcherDebouncer(opts: FileWatcherDebouncerOptions): FileWatcherDebouncer {
   const pending = new Map<string, FsEventKind>();
   let timer: NodeJS.Timeout | null = null;
+  let flushes = 0;
+  let coalesced = 0;
+  let backpressureFlushes = 0;
+  const maxPending = opts.maxPending ?? 256;
 
   function flush(): void {
     if (pending.size === 0) return;
@@ -36,6 +49,7 @@ export function createFileWatcherDebouncer(opts: FileWatcherDebouncerOptions): F
     for (const [uri, kind] of pending) events.push({ uri, kind });
     pending.clear();
     timer = null;
+    flushes++;
     opts.onFlush(events);
   }
 
@@ -46,12 +60,20 @@ export function createFileWatcherDebouncer(opts: FileWatcherDebouncerOptions): F
 
   return {
     push(event: FsEvent): void {
+      if (!pending.has(event.uri) && pending.size >= maxPending) {
+        backpressureFlushes++;
+        flush();
+      }
+
       // Reglas de fusión: delete > create > change. Delete final descarta
       // todo lo previo. Create+change → create. Change repetido → change.
       const prev = pending.get(event.uri);
       let next = event.kind;
       if (prev === 'delete' && event.kind !== 'create') next = 'delete';
       else if (prev === 'create' && event.kind === 'change') next = 'create';
+      if (prev !== undefined) {
+        coalesced++;
+      }
       pending.set(event.uri, next);
       schedule();
     },
@@ -62,6 +84,14 @@ export function createFileWatcherDebouncer(opts: FileWatcherDebouncerOptions): F
     dispose(): void {
       if (timer) { clearTimeout(timer); timer = null; }
       pending.clear();
+    },
+    getStats(): FileWatcherDebouncerStats {
+      return {
+        pending: pending.size,
+        flushes,
+        coalesced,
+        backpressureFlushes
+      };
     }
   };
 }

@@ -54,6 +54,27 @@ class FakeFileSystem implements IFileSystem {
   async readFile(uri: string): Promise<string> {
     return this.files.get(uri) || '';
   }
+
+  async createDirectory(uri: string): Promise<void> {
+    this.addDir(uri);
+  }
+
+  async writeFile(uri: string, content: string): Promise<void> {
+    this.files.set(uri, content);
+    const parent = uri.substring(0, uri.lastIndexOf('/'));
+    if (!this.dirs.has(parent)) {
+      this.dirs.set(parent, []);
+    }
+    const name = uri.substring(uri.lastIndexOf('/') + 1);
+    if (!this.dirs.get(parent)!.includes(name)) {
+      this.dirs.get(parent)!.push(name);
+    }
+  }
+
+  async deletePath(uri: string): Promise<void> {
+    this.files.delete(uri);
+    this.dirs.delete(uri);
+  }
 }
 
 suite('unit/workspace', () => {

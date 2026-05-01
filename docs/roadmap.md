@@ -123,6 +123,10 @@ Cerrar el corazón del motor para que publique estado coherente, recalcule solo 
 - la recomputación es claramente más fina,
 - y el progreso del indexador es observable y útil.
 
+### Ola 133-148 ya materializada
+
+La primera ola de esta fase ya no es solo documental: las `Specs 133-148` quedaron implementadas y validadas como primer corte operativo del nuevo core semántico. El cierre definitivo de la fase sigue ligado a endurecer consumo end-to-end sobre esa base.
+
 ---
 
 ## Fase B — Persistencia robusta y reanudación real
@@ -143,6 +147,10 @@ Evitar recomputado innecesario entre sesiones y convertir la persistencia en una
 - warm indexing mejora de forma visible al cold indexing,
 - la persistencia es segura, versionada y recuperable,
 - y el estado del motor puede continuarse con confianza.
+
+### Base 149-163 ya materializada
+
+La serie `Specs 149-163` ya materializa el primer corte operativo de `B141`, `B155`, `B167`, `B168`, `B071`, `B071A` y `B174` con `UnifiedProjectModel`, `cacheStore`, `workspaceKey` estable, metadata robusta, `journal` validado, export/restore defensivo y warm resume real de `DocumentCache` + `KnowledgeBase`. El siguiente cierre de Fase B es completar particionado por proyecto y abrir `B071B` sobre esta base.
 
 ---
 
@@ -168,6 +176,10 @@ Unificar el motor de consultas semánticas y elevar la calidad visible de las fe
 - rename y references operan solo cuando hay base suficiente,
 - el motor puede explicar por qué devuelve un resultado,
 - y la experiencia visible del plugin sube de nivel sin reabrir el core.
+
+### Base 164-172 ya materializada
+
+La serie `Specs 164-172` ya materializa un primer corte operativo de `B156`, `B157`, `B160`, `B176` y `B109` con helper común de contexto de query, `ServingCache` ampliado, consumo real de `HotContextCache`, `queryTrace`, `reasonCodes` y snapshot de stats interno/público ampliado. El siguiente cierre de Fase C es conectar esta evidencia con lineage, confidence gates y features de serving más estrictas.
 
 ---
 

@@ -38,4 +38,16 @@ suite('unit/fileWatcherDebouncer (B127)', () => {
     d.dispose();
     return new Promise((r) => setTimeout(() => { assert.equal(calls, 0); r(undefined); }, 20));
   });
+
+  test('backpressure fuerza flush temprano al superar maxPending', () => {
+    let flushed: FsEvent[][] = [];
+    const d = createFileWatcherDebouncer({ delayMs: 1000, maxPending: 2, onFlush: (e) => { flushed.push(e); } });
+    d.push({ uri: 'a', kind: 'change' });
+    d.push({ uri: 'b', kind: 'change' });
+    d.push({ uri: 'c', kind: 'change' });
+
+    assert.equal(flushed.length, 1);
+    assert.equal(d.getStats().backpressureFlushes, 1);
+    assert.equal(d.getStats().pending, 1);
+  });
 });

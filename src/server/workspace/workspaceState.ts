@@ -8,6 +8,7 @@ import {
   type WorkspaceFile
 } from './topology';
 import type { ProjectRegistry } from './projectRegistry';
+import type { UnifiedProjectModel } from './unifiedProjectModel';
 
 export interface WorkspaceRoots {
   /** URIs of .pbw files found (Workspace mode marker). */
@@ -49,6 +50,7 @@ export class WorkspaceState {
   private topology: WorkspaceTopology = emptyTopology();
 
   private projectRegistry: ProjectRegistry | null = null;
+  private projectModel: UnifiedProjectModel | null = null;
 
   /**
    * Registra un archivo de código fuente (.sr*) descubierto.
@@ -116,6 +118,7 @@ export class WorkspaceState {
       projects: []
     };
     this.topology = emptyTopology();
+    this.projectModel = null;
   }
 
   /** Inserta o reemplaza la entrada de topología correspondiente. */
@@ -153,5 +156,13 @@ export class WorkspaceState {
 
   getProjectRegistry(): ProjectRegistry | null {
     return this.projectRegistry;
+  }
+
+  setProjectModel(model: UnifiedProjectModel): void {
+    this.projectModel = model;
+  }
+
+  getProjectModel(): UnifiedProjectModel | null {
+    return this.projectModel;
   }
 }

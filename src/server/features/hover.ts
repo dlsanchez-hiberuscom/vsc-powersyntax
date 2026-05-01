@@ -9,9 +9,9 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { PbSystemSymbolEntry } from '../knowledge/system/types';
+import type { HotContextCache } from '../knowledge/HotContextCache';
 import { Entity, EntityKind } from '../knowledge/types';
-import { getInvocationContext } from '../utils/invocationContext';
-import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
+import { resolveDocumentQueryTargets } from './queryContext';
 
 /**
  * Provee la información de Hover cuando el usuario pone el ratón sobre una palabra.
@@ -21,19 +21,18 @@ export function provideHover(
   position: Position,
   kb: KnowledgeBase,
   catalog: SystemCatalog,
-  graph: InheritanceGraph
+  graph: InheritanceGraph,
+  hotContext?: HotContextCache
 ): Hover | null {
-  const lines = document.getText().split(/\r?\n/);
-  const context = getInvocationContext(lines, position);
-
-  if (!context) {
+  const resolved = resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'hover');
+  if (!resolved) {
     return null;
   }
 
-  const { identifier } = context;
+  const { identifier } = resolved.context;
 
   // 1. Buscar en la KnowledgeBase (Definiciones del usuario/proyecto) mediante resolución semántica
-  const userDefinitions = resolveTargetEntity(context, document.uri, kb, graph, position.line);
+  const userDefinitions = resolved.targets;
   if (userDefinitions.length > 0) {
     // Tomamos la primera definición (el override más cercano o coincidencia exacta)
     const definition = userDefinitions[0];

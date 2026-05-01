@@ -1,6 +1,28 @@
 import * as assert from 'assert/strict';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { EntityKind } from '../../../src/server/knowledge/types';
+import type { SemanticDocumentSnapshot } from '../../../src/server/analysis/semanticSnapshot';
+
+function createSnapshot(
+  uri: string,
+  fingerprint: number,
+  symbols: SemanticDocumentSnapshot['symbols'] = []
+): SemanticDocumentSnapshot {
+  return {
+    uri,
+    version: 1,
+    fingerprint,
+    identity: `${uri}@${fingerprint}`,
+    pass: 'enriched',
+    readiness: 'nearby-semantic-ready',
+    containerModel: { sections: [], typeBlocks: [] },
+    symbols,
+    scopes: [],
+    logicalStatements: [],
+    maskedText: { lines: [], masks: [] },
+    controlBlocks: []
+  };
+}
 
 suite('unit/knowledge', () => {
   suite('KnowledgeBase', () => {
@@ -23,6 +45,7 @@ suite('unit/knowledge', () => {
       const u = kb.findDefinition('U_TEST'); // Case insensitive
       assert.ok(u);
       assert.equal(u?.name, 'u_test');
+      assert.equal(kb.semanticEpoch, 1);
     });
 
     test('upsertDocument limpia conocimiento previo del mismo archivo', () => {
@@ -77,6 +100,74 @@ suite('unit/knowledge', () => {
       const all = kb.findAllDefinitions('of_SetData');
       assert.equal(all.length, 1);
       assert.equal(all[0].uri, uriB);
+    });
+
+    test('mantiene snapshot publicado por documento', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///with-snapshot.sru';
+      const symbols = [{ id: 'f', name: 'f', kind: EntityKind.Function, uri, line: 1, character: 0 }];
+
+      kb.upsertDocument(
+        uri,
+        symbols,
+        [],
+        createSnapshot(uri, 77, symbols)
+      );
+
+      assert.equal(kb.getDocumentSnapshot(uri)?.fingerprint, 77);
+      assert.equal(kb.getStats().snapshotDocuments, 1);
+    });
+
+    test('batch update publica atómicamente al final', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///atomic.sru';
+
+      kb.beginBatchUpdate();
+      kb.upsertDocument(uri, [{ id: 'f_batch', name: 'f_batch', kind: EntityKind.Function, uri, line: 1, character: 0 }]);
+
+      assert.equal(kb.findDefinition('f_batch'), null);
+
+      kb.commitBatchUpdate();
+
+      assert.ok(kb.findDefinition('f_batch'));
+      assert.equal(kb.semanticEpoch, 1);
+    });
+
+    test('rollback descarta cambios staged', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///rollback.sru';
+
+      kb.beginBatchUpdate();
+      kb.upsertDocument(uri, [{ id: 'f_rollback', name: 'f_rollback', kind: EntityKind.Function, uri, line: 1, character: 0 }]);
+      kb.rollbackBatchUpdate();
+
+      assert.equal(kb.findDefinition('f_rollback'), null);
+      assert.equal(kb.semanticEpoch, 0);
+    });
+
+    test('mantiene índice de dependencias inversas por símbolos exportados', () => {
+      const kb = new KnowledgeBase();
+      const baseUri = 'file:///parent.sru';
+      const childUri = 'file:///child.sru';
+      const baseSymbols = [{ id: 'n_parent', name: 'n_parent', kind: EntityKind.Type, uri: baseUri, line: 1, character: 0 }];
+      const childSymbols = [{ id: 'n_child', name: 'n_child', kind: EntityKind.Type, uri: childUri, line: 1, character: 0, baseTypeName: 'n_parent' }];
+
+      kb.upsertDocument(baseUri, baseSymbols, [], createSnapshot(baseUri, 99, baseSymbols));
+      kb.upsertDocument(childUri, childSymbols, [], createSnapshot(childUri, 100, childSymbols));
+
+      assert.deepEqual(kb.getDependentDocumentsForUri(baseUri), [childUri]);
+      assert.equal(kb.getStats().reverseDependencyKeys, 1);
+    });
+
+    test('exporta registros documentales de la KB', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///export.sru';
+      kb.upsertDocument(uri, [{ id: 'f_export', name: 'f_export', kind: EntityKind.Function, uri, line: 1, character: 0 }]);
+
+      const records = kb.exportDocumentRecords();
+      assert.equal(records.length, 1);
+      assert.equal(records[0].uri, uri);
+      assert.equal(records[0].facts[0].id, 'f_export');
     });
   });
 });

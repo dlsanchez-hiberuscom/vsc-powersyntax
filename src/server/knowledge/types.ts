@@ -1,4 +1,5 @@
 import { DocumentSymbol } from 'vscode-languageserver/node';
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 
 /**
  * Representa la naturaleza de una entidad global en PowerBuilder.
@@ -114,4 +115,6 @@ export interface DocumentCacheEntry {
   facts: Fact[];
   /** Árbol de scopes para resolución de variables locales */
   scopes: Scope[];
+  /** Snapshot semántico canónico del documento, cuando esté disponible. */
+  snapshot?: SemanticDocumentSnapshot;
 }

@@ -2,21 +2,20 @@ import { Location, Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
-import { getInvocationContext } from '../utils/invocationContext';
-import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
+import type { HotContextCache } from '../knowledge/HotContextCache';
+import { resolveDocumentQueryTargets } from './queryContext';
 
 export function provideDefinition(
   document: TextDocument,
   position: Position,
   kb: KnowledgeBase,
-  graph: InheritanceGraph
+  graph: InheritanceGraph,
+  hotContext?: HotContextCache
 ): Location | Location[] | null {
-  const lines = document.getText().split(/\r?\n/);
-  const context = getInvocationContext(lines, position);
+  const resolved = resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'definition');
+  if (!resolved) return null;
 
-  if (!context) return null;
-
-  const possibleTargets = resolveTargetEntity(context, document.uri, kb, graph, position.line);
+  const possibleTargets = resolved.targets;
 
   if (possibleTargets.length === 0) return null;
 

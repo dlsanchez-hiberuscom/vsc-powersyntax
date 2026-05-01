@@ -32,4 +32,11 @@ suite('unit/readiness (B128)', () => {
     const t = createReadinessTracker('ready');
     assert.equal(t.transition('indexing'), true);
   });
+
+  test('degraded conserva detalle', () => {
+    const t = createReadinessTracker('indexing');
+    assert.equal(t.transition('degraded', 'skipped-files'), true);
+    assert.equal(t.getState(), 'degraded');
+    assert.equal(t.getDetail(), 'skipped-files');
+  });
 });

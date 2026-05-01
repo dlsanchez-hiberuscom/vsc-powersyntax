@@ -6,7 +6,6 @@
  */
 import { ok } from 'assert';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { suite, test } from 'mocha';
 
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 

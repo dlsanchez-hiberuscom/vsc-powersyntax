@@ -22,6 +22,10 @@ import {
 import { stripCommentsSmart } from '../utils/comments';
 import { scanControlBlocks, type ControlBlockRange } from '../parsing/controlBlocks';
 import { splitStatements, type LogicalStatement } from '../parsing/statementSplitter';
+import {
+  createSemanticSnapshot,
+  type SemanticDocumentSnapshot
+} from './semanticSnapshot';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
@@ -59,6 +63,11 @@ export interface DocumentAnalysis {
    * Calculados perezosamente bajo demanda. Spec 108.
    */
   logicalStatements: LogicalStatement[];
+  /**
+   * Unidad semántica canónica del documento.
+   * Spec 133 / B151.
+   */
+  snapshot: SemanticDocumentSnapshot;
 }
 
 /** FNV-1a 32-bit. Determinista, sin dependencias y rápido para buffers de texto. */
@@ -108,11 +117,25 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   const controlBlocks = scanControlBlocks(strippedLines, 0, strippedLines.length - 1);
   // Spec 108: statements lógicos (continuaciones `&` + splits por `;`).
   const logicalStatements = splitStatements(text);
+  const fingerprint = fingerprintOf(text);
+  const snapshot = createSemanticSnapshot({
+    uri: document.uri,
+    version: document.version,
+    fingerprint,
+    sections,
+    typeBlocks,
+    strippedLines,
+    masks,
+    semanticFacts,
+    scopes,
+    logicalStatements,
+    controlBlocks
+  });
 
   return {
     uri: document.uri,
     version: document.version,
-    fingerprint: fingerprintOf(text),
+    fingerprint,
     lines,
     strippedLines,
     masks,
@@ -122,7 +145,8 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
     facts,
     semanticFacts,
     scopes,
-    logicalStatements
+    logicalStatements,
+    snapshot
   };
 }
 

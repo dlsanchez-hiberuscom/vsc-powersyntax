@@ -17,6 +17,7 @@ import {
   type ProgressNotification
 } from '../shared/types';
 import { invalidateDocumentAnalysis, clearDocumentAnalysisCache, setAnalysisBackends } from './analysis/analysisCache';
+import { getAnalysisCacheStats } from './analysis/analysisCache';
 import {
   cancelScheduledDiagnostics,
   clearAllScheduledDiagnostics,
@@ -37,16 +38,22 @@ import { validateRenameTarget } from './features/renamePreflight';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { NodeFileSystem } from './system/fileSystem';
+import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
+import { createCacheCheckpoint } from './cache/cacheCheckpoint';
 import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
+import { createReadinessTracker } from './workspace/readiness';
 import { buildProjectRegistry } from './workspace/projectRegistry';
+import { buildUnifiedProjectModel } from './workspace/unifiedProjectModel';
 import { DocumentCache } from './knowledge/DocumentCache';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
 import { InheritanceGraph } from './knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from './knowledge/HotContextCache';
+import { createSemanticInvalidationPlan } from './knowledge/semanticInvalidation';
 import { ServingCache, makeKey as makeServingKey } from './knowledge/ServingCache';
+import { getLastTrace } from './knowledge/queryTrace';
 import { SystemCatalog } from './knowledge/system/SystemCatalog';
-import { indexWorkspace } from './indexer/workspaceIndexer';
+import { getIndexerStatus, indexWorkspace } from './indexer/workspaceIndexer';
 
 // ---------------------------------------------------------------------------
 // Inicialización (Bootstrap)
@@ -58,6 +65,7 @@ const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 const scheduler = new TaskScheduler();
 const firstInvocation = new FirstInvocationTracker();
+const readiness = createReadinessTracker();
 const fs = new NodeFileSystem();
 const workspaceState = new WorkspaceState();
 const documentCache = new DocumentCache();
@@ -66,9 +74,31 @@ const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
 const servingCache = new ServingCache<unknown>();
+let cacheStore: SemanticCacheStore | null = null;
+let cacheStorageUri: string | null = null;
 
 // Conectar caché interactiva con backends globales para evitar doble parseo
-setAnalysisBackends(documentCache, knowledgeBase);
+setAnalysisBackends(documentCache, knowledgeBase, {
+  appendUpsert(record, semanticEpoch) {
+    if (cacheStore) {
+      return cacheStore.appendJournalMutation({
+        semanticEpoch,
+        kind: 'upsert',
+        uris: [record.uri],
+        documents: [record]
+      });
+    }
+  },
+  appendRemove(uri, semanticEpoch) {
+    if (cacheStore) {
+      return cacheStore.appendJournalMutation({
+        semanticEpoch,
+        kind: 'remove',
+        uris: [uri]
+      });
+    }
+  }
+});
 
 let activeDocumentUri: string | null = null;
 let workspaceFolders: string[] = [];
@@ -86,6 +116,8 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   if (params.workspaceFolders) {
     workspaceFolders = params.workspaceFolders.map(f => f.uri);
   }
+  const initOptions = params.initializationOptions as { cacheStorageUri?: string } | undefined;
+  cacheStorageUri = typeof initOptions?.cacheStorageUri === 'string' ? initOptions.cacheStorageUri : null;
 
   return {
     capabilities: {
@@ -136,6 +168,7 @@ connection.onInitialized(() => {
     };
 
     sendProgress({ phase: 'discovering' });
+    readiness.transition('discovering');
 
     scheduler.enqueueBackground({
       id: 'workspace-discovery',
@@ -148,6 +181,7 @@ connection.onInitialized(() => {
         if (token.isCancelled) {
           connection.console.log(`[WORKSPACE] Descubrimiento cancelado o pausado.`);
           sendProgress({ phase: 'partial' });
+          readiness.transition('degraded', 'partial-discovery');
           return;
         }
 
@@ -166,12 +200,41 @@ connection.onInitialized(() => {
           workspaceState.getAllSourceFiles()
         );
         workspaceState.setProjectRegistry(registry);
+        const projectModel = buildUnifiedProjectModel(
+          workspaceState.getTopology(),
+          registry,
+          workspaceState.getAllSourceFiles()
+        );
+        workspaceState.setProjectModel(projectModel);
         connection.console.log(`  - Proyectos detectados: ${registry.getAllProjects().length}`);
+
+        const cacheMetadata = {
+          workspaceMode: workspaceState.getMode(),
+          rootUris: workspaceFolders,
+          projectStats: projectModel.getStats()
+        } as const;
+
+        if (cacheStorageUri) {
+          cacheStore = createSemanticCacheStore(fs, cacheStorageUri, workspaceFolders);
+          const restore = await cacheStore.load(cacheMetadata);
+          if (restore.decision.action === 'reuse' && restore.checkpoint.documents.length > 0) {
+            documentCache.restoreDocumentRecords(restore.checkpoint.documents);
+            knowledgeBase.restoreDocumentRecords(restore.checkpoint.documents, restore.checkpoint.semanticEpoch);
+            connection.console.log(
+              `[CACHE] Warm resume restauró ${restore.checkpoint.documents.length} documentos (epoch ${restore.checkpoint.semanticEpoch}).`
+            );
+          } else {
+            connection.console.log(
+              `[CACHE] Warm resume descartado: ${restore.decision.reason ?? 'sin estado persistente compatible'}.`
+            );
+          }
+        }
 
         // Iniciamos indexación incremental
         if (filesCount > 0) {
           connection.console.log(`[WORKSPACE] Iniciando indexación de ${filesCount} archivos...`);
-          sendProgress({ phase: 'indexing', current: 0, total: filesCount });
+          sendProgress({ phase: 'indexing', current: 0, total: filesCount, pass: 'structural' });
+          readiness.transition('indexing', 'structural');
 
           const { elapsedMs: indexingMs } = await measureMsAsync(async () => {
             await indexWorkspace(
@@ -181,27 +244,68 @@ connection.onInitialized(() => {
               workspaceState,
               token,
               (msg) => connection.console.error(msg),
-              (current, total) => sendProgress({ phase: 'indexing', current, total })
+              (current, total, meta) => {
+                sendProgress({
+                  phase: 'indexing',
+                  current,
+                  total,
+                  pass: meta.pass,
+                  degraded: meta.degraded,
+                  skipped: meta.skipped,
+                  failed: meta.failed,
+                  budgetMs: meta.budgetMs
+                });
+                readiness.transition('indexing', meta.pass);
+              }
             );
           });
 
           if (!token.isCancelled) {
             const stats = knowledgeBase.getStats();
+            const indexerStatus = getIndexerStatus();
             connection.console.log(`[WORKSPACE] Indexación completada:`);
             connection.console.log(`  - Tiempos: ${formatTiming('indexWorkspace', indexingMs)}`);
             connection.console.log(`  - Entidades en KB: ${stats.totalEntities}`);
-            sendProgress({ phase: 'ready', current: filesCount, total: filesCount });
+            if (indexerStatus.degraded) {
+              readiness.transition('degraded', indexerStatus.degradedReason);
+              sendProgress({
+                phase: 'degraded',
+                current: filesCount,
+                total: filesCount,
+                degraded: true,
+                skipped: indexerStatus.byState.skipped,
+                failed: indexerStatus.byState.failed
+              });
+            } else {
+              if (cacheStore) {
+                await cacheStore.persistCheckpoint(
+                  createCacheCheckpoint(
+                    knowledgeBase.semanticEpoch,
+                    documentCache.exportDocumentRecords(),
+                    {
+                      ...cacheMetadata,
+                      publishedAt: stats.publishedAt
+                    }
+                  )
+                );
+              }
+              readiness.transition('ready');
+              sendProgress({ phase: 'ready', current: filesCount, total: filesCount });
+            }
           } else {
             connection.console.log(`[WORKSPACE] Indexación pausada cooperativamente.`);
             sendProgress({ phase: 'partial' });
+            readiness.transition('degraded', 'partial-index');
           }
         } else {
           sendProgress({ phase: 'idle' });
+          readiness.transition('idle');
         }
       }
     }).catch(err => {
       connection.console.error(`[ERROR] Descubrimiento de workspace: ${String(err)}`);
       void connection.sendNotification(PROGRESS_NOTIFICATION, { phase: 'partial' } satisfies ProgressNotification);
+      readiness.transition('error', String(err));
     });
   }
 });
@@ -254,6 +358,7 @@ connection.onHover((params) => {
       id: `hover-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
+        hotContextCache.setActive(document.uri, knowledgeBase.version);
         // Caché de serving: misma posición + misma versión de KB → reutilizar.
         const cacheKey = makeServingKey({
           feature: 'hover',
@@ -268,7 +373,7 @@ connection.onHover((params) => {
           return cached as ReturnType<typeof provideHover>;
         }
 
-        const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph));
+        const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache));
 
         if (firstInvocation.isFirst('hover')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -314,15 +419,35 @@ connection.onDefinition((params) => {
   }
 
   try {
-    const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph));
+    return scheduler.runInteractive({
+      id: `definition-${document.uri}`,
+      priority: TaskPriority.Interactive,
+      execute: () => {
+        hotContextCache.setActive(document.uri, knowledgeBase.version);
+        const cacheKey = makeServingKey({
+          feature: 'definition',
+          uri: document.uri,
+          line: params.position.line,
+          character: params.position.character,
+          kbVersion: knowledgeBase.version
+        });
+        const cached = servingCache.get(cacheKey);
+        if (cached !== undefined) {
+          return cached as ReturnType<typeof provideDefinition>;
+        }
 
-    if (firstInvocation.isFirst('definition')) {
-      const sinceStart = performance.now() - serverStartTime;
-      connection.console.log(formatTiming('Primera definición (desde el inicio)', sinceStart));
-    }
+        const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache));
 
-    connection.console.log(formatTiming('definition', elapsedMs));
-    return result;
+        if (firstInvocation.isFirst('definition')) {
+          const sinceStart = performance.now() - serverStartTime;
+          connection.console.log(formatTiming('Primera definición (desde el inicio)', sinceStart));
+        }
+
+        connection.console.log(formatTiming('definition', elapsedMs));
+        servingCache.set(cacheKey, result);
+        return result;
+      }
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     connection.console.error(`[ERROR] definition: ${message}`);
@@ -371,7 +496,20 @@ connection.onSignatureHelp((params) => {
       id: `signatureHelp-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
-        const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph));
+        hotContextCache.setActive(document.uri, knowledgeBase.version);
+        const cacheKey = makeServingKey({
+          feature: 'signatureHelp',
+          uri: document.uri,
+          line: params.position.line,
+          character: params.position.character,
+          kbVersion: knowledgeBase.version
+        });
+        const cached = servingCache.get(cacheKey);
+        if (cached !== undefined) {
+          return cached as ReturnType<typeof provideSignatureHelp>;
+        }
+
+        const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache));
 
         if (firstInvocation.isFirst('signatureHelp')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -379,6 +517,7 @@ connection.onSignatureHelp((params) => {
         }
 
         connection.console.log(formatTiming('signatureHelp', elapsedMs));
+        servingCache.set(cacheKey, result);
         return result;
       }
     });
@@ -404,7 +543,21 @@ connection.onCompletion((params) => {
       id: `completion-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
-        const { result, elapsedMs } = measureMs(() => provideCompletion(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph));
+        hotContextCache.setActive(document.uri, knowledgeBase.version);
+        const cacheKey = makeServingKey({
+          feature: 'completion',
+          uri: document.uri,
+          line: params.position.line,
+          character: params.position.character,
+          kbVersion: knowledgeBase.version,
+          extra: `${params.context?.triggerKind ?? ''}|${params.context?.triggerCharacter ?? ''}`
+        });
+        const cached = servingCache.get(cacheKey);
+        if (cached !== undefined) {
+          return cached as ReturnType<typeof provideCompletion>;
+        }
+
+        const { result, elapsedMs } = measureMs(() => provideCompletion(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, knowledgeBase.version));
 
         if (firstInvocation.isFirst('completion')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -412,6 +565,7 @@ connection.onCompletion((params) => {
         }
 
         connection.console.log(formatTiming('completion', elapsedMs));
+        servingCache.set(cacheKey, result);
         return result;
       }
     });
@@ -479,8 +633,11 @@ documents.onDidOpen((event) => {
 
 documents.onDidChangeContent((event) => {
   activeDocumentUri = event.document.uri;
-  hotContextCache.invalidateForUri(event.document.uri);
-  servingCache.invalidate(event.document.uri);
+  const invalidationPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
+  for (const uri of invalidationPlan.allUris) {
+    hotContextCache.invalidateForUri(uri);
+    servingCache.invalidate(uri);
+  }
 
   try {
     scheduleDiagnostics(connection, event.document, scheduler, undefined, knowledgeBase, systemCatalog, inheritanceGraph);
@@ -492,9 +649,12 @@ documents.onDidChangeContent((event) => {
 
 documents.onDidClose((event) => {
   cancelScheduledDiagnostics(event.document.uri);
+  const invalidationPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
   invalidateDocumentAnalysis(event.document.uri);
-  hotContextCache.invalidateForUri(event.document.uri);
-  servingCache.invalidate(event.document.uri);
+  for (const uri of invalidationPlan.allUris) {
+    hotContextCache.invalidateForUri(uri);
+    servingCache.invalidate(uri);
+  }
 
   connection.sendDiagnostics({
     uri: event.document.uri,
@@ -631,18 +791,36 @@ connection.onExecuteCommand(async (params) => {
     case 'powerbuilder.showStats': {
       // Spec 107: estadísticas del servidor expuestas como comando.
       const stats = knowledgeBase.getStats();
-      const sched = {
-        pendingNear: scheduler.pendingNearCount,
-        pendingBackground: scheduler.pendingBackgroundCount,
-        interactiveBusy: scheduler.isInteractiveBusy
-      };
+      const sched = scheduler.getStatus();
+      const projectStats = workspaceState.getProjectModel()?.getStats();
       return {
         kb: stats,
         scheduler: sched,
+        readiness: {
+          state: readiness.getState(),
+          detail: readiness.getDetail()
+        },
         workspace: {
           mode: workspaceState.getMode(),
           files: workspaceState.getAllSourceFiles().length
-        }
+        },
+        indexer: getIndexerStatus(),
+        caches: {
+          analysis: getAnalysisCacheStats(),
+          serving: servingCache.getStats(),
+          documents: documentCache.getStats(),
+          hotContext: hotContextCache.getStats()
+        },
+        projectModel: projectStats,
+        lastQueryTrace: getLastTrace(),
+        persistence: cacheStore
+          ? {
+            storageUri: cacheStore.storageUri,
+            checkpointUri: cacheStore.checkpointUri,
+            journalUri: cacheStore.journalUri,
+            workspaceKey: cacheStore.workspaceKey
+          }
+          : undefined
       };
     }
     default:

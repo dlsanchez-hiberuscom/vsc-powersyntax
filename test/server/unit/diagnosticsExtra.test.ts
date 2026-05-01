@@ -3,7 +3,6 @@
  */
 import { strictEqual, ok } from 'assert';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { suite, test } from 'mocha';
 
 import {
   checkUnreachableAfterReturn,

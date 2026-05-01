@@ -49,6 +49,19 @@ interface QueuedTask {
   reject: (reason: unknown) => void;
 }
 
+export interface SchedulerStatus {
+  pendingNear: number;
+  pendingBackground: number;
+  interactiveBusy: boolean;
+  activeNearId: string | null;
+  activeBackgroundId: string | null;
+  preemptions: {
+    interactiveCancelledNear: number;
+    interactiveCancelledBackground: number;
+    nearCancelledBackground: number;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Planificador (Scheduler)
 // ---------------------------------------------------------------------------
@@ -60,6 +73,11 @@ export class TaskScheduler {
   private activeNearTask: QueuedTask | null = null;
   private activeBackgroundTask: QueuedTask | null = null;
   private drainScheduled = false;
+  private readonly preemptions = {
+    interactiveCancelledNear: 0,
+    interactiveCancelledBackground: 0,
+    nearCancelledBackground: 0
+  };
 
   // ---- Callback de registro/logs (opcional) -------------------------------
 
@@ -84,8 +102,8 @@ export class TaskScheduler {
     this.log(`[PLANIFICADOR] Inicio interactivo: ${task.id} (activos: ${this.activeInteractiveCount})`);
 
     // Cancelar tareas inferiores en curso para liberar el thread.
-    this.cancelActiveNear();
-    this.cancelActiveBackground();
+    this.cancelActiveNear('interactive');
+    this.cancelActiveBackground('interactive');
 
     try {
       const result = await task.execute({ isCancelled: false, onCancelled() {} });
@@ -115,7 +133,7 @@ export class TaskScheduler {
     });
 
     // Si hay un background corriendo, cederle el paso a Near.
-    this.cancelActiveBackground();
+    this.cancelActiveBackground('near');
     this.scheduleDrain();
     return promise;
   }
@@ -143,7 +161,7 @@ export class TaskScheduler {
    * Cancela todas las tareas Near pendientes y la activa.
    */
   cancelAllNear(): void {
-    this.cancelActiveNear();
+    this.cancelActiveNear('manual');
 
     for (const queued of this.nearQueue) {
       queued.cancellation.cancel();
@@ -159,7 +177,7 @@ export class TaskScheduler {
    * Cancela todas las tareas de fondo pendientes y activas.
    */
   cancelAllBackground(): void {
-    this.cancelActiveBackground();
+    this.cancelActiveBackground('manual');
 
     for (const queued of this.backgroundQueue) {
       queued.cancellation.cancel();
@@ -186,6 +204,17 @@ export class TaskScheduler {
     return this.activeInteractiveCount > 0;
   }
 
+  getStatus(): SchedulerStatus {
+    return {
+      pendingNear: this.pendingNearCount,
+      pendingBackground: this.pendingBackgroundCount,
+      interactiveBusy: this.isInteractiveBusy,
+      activeNearId: this.activeNearTask?.task.id ?? null,
+      activeBackgroundId: this.activeBackgroundTask?.task.id ?? null,
+      preemptions: { ...this.preemptions }
+    };
+  }
+
   /**
    * Apaga el planificador, cancelando todo el trabajo.
    */
@@ -197,17 +226,25 @@ export class TaskScheduler {
 
   // ---- Interno -------------------------------------------------------------
 
-  private cancelActiveNear(): void {
+  private cancelActiveNear(reason: 'interactive' | 'manual'): void {
     if (this.activeNearTask) {
       this.activeNearTask.cancellation.cancel();
+      if (reason === 'interactive') {
+        this.preemptions.interactiveCancelledNear++;
+      }
       this.log(`[PLANIFICADOR] Tarea Near cancelada: ${this.activeNearTask.task.id}`);
       this.activeNearTask = null;
     }
   }
 
-  private cancelActiveBackground(): void {
+  private cancelActiveBackground(reason: 'interactive' | 'near' | 'manual'): void {
     if (this.activeBackgroundTask) {
       this.activeBackgroundTask.cancellation.cancel();
+      if (reason === 'interactive') {
+        this.preemptions.interactiveCancelledBackground++;
+      } else if (reason === 'near') {
+        this.preemptions.nearCancelledBackground++;
+      }
       this.log(`[PLANIFICADOR] Tarea de fondo cancelada: ${this.activeBackgroundTask.task.id}`);
       this.activeBackgroundTask = null;
     }

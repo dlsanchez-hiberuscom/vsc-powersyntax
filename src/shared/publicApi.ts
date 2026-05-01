@@ -46,11 +46,36 @@ export interface ApiServerStats {
     mode?: string;
     files?: number;
   };
+  readiness?: {
+    state?: string;
+    detail?: string;
+  };
+  indexer?: {
+    phase?: string;
+    total?: number;
+    current?: number;
+    degraded?: boolean;
+  };
+  projectModel?: {
+    projects?: number;
+    libraries?: number;
+    orphanFiles?: number;
+  };
   caches?: {
     analysis?: { size?: number; capacity?: number };
     serving?: { size?: number; capacity?: number };
     documents?: { size?: number };
     hotContext?: { inheritedTypes?: number; capacity?: number };
+  };
+  lastQueryTrace?: {
+    label?: string;
+    steps?: Array<{ name?: string }>;
+  };
+  persistence?: {
+    storageUri?: string;
+    checkpointUri?: string;
+    journalUri?: string;
+    workspaceKey?: string;
   };
 }
 

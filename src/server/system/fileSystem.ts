@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { uriToFsPath } from './uriUtils';
 
 export interface FileStat {
@@ -25,6 +26,21 @@ export interface IFileSystem {
    * Lee el contenido de un archivo en formato de texto.
    */
   readFile(uri: string): Promise<string>;
+
+  /**
+   * Crea un directorio y sus padres si no existen.
+   */
+  createDirectory(uri: string): Promise<void>;
+
+  /**
+   * Escribe un archivo de texto, creando su carpeta contenedora si hace falta.
+   */
+  writeFile(uri: string, content: string): Promise<void>;
+
+  /**
+   * Elimina un archivo o directorio si existe.
+   */
+  deletePath(uri: string): Promise<void>;
 }
 
 /**
@@ -85,5 +101,27 @@ export class NodeFileSystem implements IFileSystem {
     if (!fsPath) throw new Error(`Invalid URI: ${uri}`);
     
     return fs.readFile(fsPath, 'utf8');
+  }
+
+  async createDirectory(uri: string): Promise<void> {
+    const fsPath = uriToFsPath(uri);
+    if (!fsPath) throw new Error(`Invalid URI: ${uri}`);
+
+    await fs.mkdir(fsPath, { recursive: true });
+  }
+
+  async writeFile(uri: string, content: string): Promise<void> {
+    const fsPath = uriToFsPath(uri);
+    if (!fsPath) throw new Error(`Invalid URI: ${uri}`);
+
+    await fs.mkdir(path.dirname(fsPath), { recursive: true });
+    await fs.writeFile(fsPath, content, 'utf8');
+  }
+
+  async deletePath(uri: string): Promise<void> {
+    const fsPath = uriToFsPath(uri);
+    if (!fsPath) throw new Error(`Invalid URI: ${uri}`);
+
+    await fs.rm(fsPath, { recursive: true, force: true });
   }
 }

@@ -1,4 +1,5 @@
 import { DocumentCacheEntry } from './types';
+import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
 import { normalizeUri } from '../system/uriUtils';
 
 /**
@@ -24,6 +25,11 @@ export class DocumentCache {
     return this.cache.get(normalizeUri(uri));
   }
 
+  /** Snapshot semántico canónico asociado a una URI, si existe. */
+  getSnapshot(uri: string): DocumentCacheEntry['snapshot'] | undefined {
+    return this.get(uri)?.snapshot;
+  }
+
   /**
    * Comprueba si la caché de un documento sigue siendo válida comparando la versión/hash.
    */
@@ -44,6 +50,30 @@ export class DocumentCache {
    */
   clear(): void {
     this.cache.clear();
+  }
+
+  exportDocumentRecords(): SemanticCacheDocumentRecord[] {
+    return Array.from(this.cache.entries()).map(([uri, entry]) => ({
+      uri,
+      version: entry.version,
+      facts: structuredClone(entry.facts),
+      scopes: structuredClone(entry.scopes),
+      snapshot: structuredClone(entry.snapshot)
+    }));
+  }
+
+  restoreDocumentRecords(records: SemanticCacheDocumentRecord[]): void {
+    this.clear();
+    for (const record of records) {
+      const restored = structuredClone(record);
+      this.set(restored.uri, {
+        version: restored.version ?? '',
+        symbols: [],
+        facts: restored.facts,
+        scopes: restored.scopes,
+        snapshot: restored.snapshot
+      });
+    }
   }
 
   /**

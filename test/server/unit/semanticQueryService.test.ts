@@ -1,7 +1,7 @@
 import * as assert from 'assert/strict';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
-import { resolveTargetEntity } from '../../../src/server/knowledge/resolution/semanticQueryService';
+import { resolveTargetEntity, resolveTargetEntityDetailed } from '../../../src/server/knowledge/resolution/semanticQueryService';
 import { EntityKind } from '../../../src/server/knowledge/types';
 
 suite('unit/semanticQueryService', () => {
@@ -84,5 +84,19 @@ suite('unit/semanticQueryService', () => {
       graph
     );
     assert.equal(targets.length, 0);
+  });
+
+  test('resolveTargetEntityDetailed expone reason code y trace del winner path', () => {
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_SetData' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 1);
+    assert.deepEqual(resolved.reasonCodes, ['member-hierarchy']);
+    assert.ok(resolved.trace.some((step) => step.name === 'targets:member-hierarchy'));
   });
 });
