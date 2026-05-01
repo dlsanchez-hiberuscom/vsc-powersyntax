@@ -1,7 +1,14 @@
 import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { resolveQualifierType, resolveTargetEntityDetailed, type ResolvedTargetInfo } from '../knowledge/resolution/semanticQueryService';
+import {
+  resolveQualifierType,
+  type QueryEvidenceEntry,
+  type QueryReasonCode,
+  resolveTargetEntityDetailed,
+  type QueryResolutionConfidence,
+  type ResolvedTargetInfo
+} from '../knowledge/resolution/semanticQueryService';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
@@ -15,6 +22,11 @@ export interface DocumentQueryContext {
   documentEntities: Entity[];
   currentMainObject: Entity | undefined;
   resolvedTargets: ResolvedTargetInfo | null;
+  resolutionConfidence?: QueryResolutionConfidence;
+  primaryResolutionReasonCode?: QueryReasonCode;
+  hasResolutionAmbiguity: boolean;
+  resolutionTargetCount: number;
+  resolutionEvidenceKinds: QueryEvidenceEntry['kind'][];
 }
 
 function getDocumentEntities(
@@ -49,19 +61,25 @@ export function createDocumentQueryContext(
   const currentMainObject = documentEntities.find((entity) => entity.kind === EntityKind.Type);
   const lines = document.getText().split(/\r?\n/);
   const context = getInvocationContext(lines, position);
+  const resolvedTargets = context
+    ? resolveTargetEntityDetailed(context, document.uri, kb, graph, {
+      line: position.line,
+      hotContext,
+      traceLabel
+    })
+    : null;
 
   return {
     context,
     currentUri,
     documentEntities,
     currentMainObject,
-    resolvedTargets: context
-      ? resolveTargetEntityDetailed(context, document.uri, kb, graph, {
-        line: position.line,
-        hotContext,
-        traceLabel
-      })
-      : null
+    resolvedTargets,
+    resolutionConfidence: resolvedTargets?.confidence,
+    primaryResolutionReasonCode: resolvedTargets?.reasonCodes[0],
+    hasResolutionAmbiguity: resolvedTargets?.evidence.some((entry) => entry.kind === 'distance-ambiguity') ?? false,
+    resolutionTargetCount: resolvedTargets?.targets.length ?? 0,
+    resolutionEvidenceKinds: resolvedTargets?.evidence.map((entry) => entry.kind) ?? []
   };
 }
 

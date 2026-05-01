@@ -104,6 +104,103 @@ suite('unit/semanticQueryService', () => {
     assert.equal(targets.length, 0);
   });
 
+  test('resolveTargetEntityDetailed expone descarte contextual si el qualifier no resuelve a tipo', () => {
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_SetData', qualifier: 'lw_missing' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 0);
+    assert.equal(resolved.confidence, 'low');
+    assert.deepEqual(resolved.evidence, [{
+      kind: 'discarded-context',
+      stage: 'qualifier',
+      reason: 'qualifier-unresolved',
+      qualifier: 'lw_missing'
+    }]);
+  });
+
+  test('resolveTargetEntityDetailed expone descarte contextual si el qualifier no encuentra miembros', () => {
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_Unknown', qualifier: 'lw_window' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 0);
+    assert.equal(resolved.confidence, 'low');
+    assert.deepEqual(resolved.evidence, [{
+      kind: 'discarded-context',
+      stage: 'qualifier',
+      reason: 'qualifier-no-match',
+      qualifier: 'lw_window',
+      resolvedType: 'w_base'
+    }]);
+  });
+
+  test('resolveTargetEntityDetailed expone ambiguedad si varios candidatos comparten la distancia minima', () => {
+    kb.beginBatchUpdate();
+    kb.upsertDocument('file:///w_main_ambiguous.sru', [
+      { id: 'w_main_ambiguous', name: 'w_main_ambiguous', kind: EntityKind.Type, baseTypeName: 'w_base', uri: 'file:///w_main_ambiguous.sru', line: 0, character: 0 },
+      {
+        id: 'of_setdata_impl',
+        name: 'of_SetData',
+        kind: EntityKind.Function,
+        containerName: 'w_main_ambiguous',
+        uri: 'file:///w_main_ambiguous.sru',
+        line: 20,
+        character: 4,
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      },
+      {
+        id: 'of_setdata_proto',
+        name: 'of_SetData',
+        kind: EntityKind.Function,
+        containerName: 'w_main_ambiguous',
+        uri: 'file:///w_main_ambiguous.sru',
+        line: 12,
+        character: 4,
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'prototype', role: 'prototype', confidence: 'direct' }
+      }
+    ]);
+    kb.endBatchUpdate();
+
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_SetData' },
+      'file:///w_main_ambiguous.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 2);
+    assert.equal(resolved.confidence, 'medium');
+    assert.ok(resolved.evidence.some((entry) =>
+      entry.kind === 'distance-ambiguity' &&
+      entry.reasonCode === 'member-hierarchy' &&
+      entry.winnerDistance === 0 &&
+      entry.candidateCount === 2
+    ));
+  });
+
+  test('resolveTargetEntityDetailed expone confidence low para global fallback', () => {
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'global_func' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 1);
+    assert.equal(resolved.confidence, 'low');
+  });
+
   test('resolveTargetEntityDetailed expone reason code y trace del winner path', () => {
     const resolved = resolveTargetEntityDetailed(
       { identifier: 'of_SetData' },
@@ -115,6 +212,7 @@ suite('unit/semanticQueryService', () => {
 
     assert.equal(resolved.targets.length, 1);
     assert.deepEqual(resolved.reasonCodes, ['member-hierarchy']);
+    assert.equal(resolved.confidence, 'high');
     assert.deepEqual(resolved.winnerLineage, {
       sourceKind: 'document',
       authority: 'derived',
@@ -123,6 +221,49 @@ suite('unit/semanticQueryService', () => {
       confidence: 'direct',
       resolutionKind: 'member-hierarchy'
     });
+    assert.deepEqual(resolved.evidence, [
+      {
+        kind: 'winner-target',
+        reasonCode: 'member-hierarchy',
+        confidence: 'direct',
+        targetName: 'of_SetData',
+        targetKind: EntityKind.Function,
+        targetUri: 'file:///w_main.sru',
+        targetContainer: 'w_main',
+        sourceKind: 'document',
+        authority: 'derived',
+        phase: 'implementation',
+        role: 'implementation'
+      },
+      {
+        kind: 'discarded-distance',
+        reasonCode: 'member-hierarchy',
+        targetName: 'of_SetData',
+        targetKind: EntityKind.Function,
+        targetUri: 'file:///w_base.sru',
+        targetContainer: 'w_base',
+        winnerDistance: 0,
+        candidateDistance: 1
+      }
+    ]);
+    assert.deepEqual(resolved.candidatePool, [
+      {
+        kind: 'candidate',
+        reasonCode: 'member-hierarchy',
+        targetName: 'of_SetData',
+        targetKind: EntityKind.Function,
+        targetUri: 'file:///w_main.sru',
+        targetContainer: 'w_main'
+      },
+      {
+        kind: 'candidate',
+        reasonCode: 'member-hierarchy',
+        targetName: 'of_SetData',
+        targetKind: EntityKind.Function,
+        targetUri: 'file:///w_base.sru',
+        targetContainer: 'w_base'
+      }
+    ]);
     assert.ok(resolved.trace.some((step) => step.name === 'targets:member-hierarchy'));
   });
 });

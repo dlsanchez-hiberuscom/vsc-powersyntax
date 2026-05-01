@@ -5,11 +5,15 @@ suite('unit/queryTrace (B136)', () => {
   test('captura pasos en orden', () => {
     const r = withTrace('q', () => {
       recordTraceStep('a');
-      recordTraceStep('b', { hint: 1 });
+      recordTraceStep('resolve:start', { hint: 1 });
       return 42;
     });
     assert.equal(r.result, 42);
-    assert.deepEqual(r.trace.map((s) => s.name), ['a', 'b']);
+    assert.deepEqual(r.trace.map((s) => s.name), ['a', 'resolve:start']);
+    assert.equal(r.trace[0].phase, undefined);
+    assert.equal(r.trace[0].action, undefined);
+    assert.equal(r.trace[1].phase, 'resolve');
+    assert.equal(r.trace[1].action, 'start');
     assert.deepEqual((r.trace[1].detail as any).hint, 1);
   });
 
@@ -39,6 +43,49 @@ suite('unit/queryTrace (B136)', () => {
 
     const trace = getLastTrace();
     assert.equal(trace?.label, 'last');
+    assert.ok((trace?.startedAt ?? 0) > 0);
+    assert.ok((trace?.endedAt ?? 0) >= (trace?.startedAt ?? 0));
+    assert.ok((trace?.durationMs ?? -1) >= 0);
+    assert.equal(trace?.stepCount, 1);
+    assert.equal(trace?.lastStepName, 'winner');
     assert.deepEqual(trace?.steps.map((step) => step.name), ['winner']);
+  });
+
+  test('getLastTrace devuelve clones de pasos y no expone mutaciones externas', () => {
+    withTrace('clone', () => {
+      recordTraceStep('targets:member-hierarchy');
+      return 1;
+    });
+
+    const firstRead = getLastTrace();
+    assert.ok(firstRead);
+    firstRead.steps[0].name = 'mutated';
+
+    const secondRead = getLastTrace();
+    assert.equal(secondRead?.steps[0].name, 'targets:member-hierarchy');
+  });
+
+  test('expone el resumen ordenado de fases únicas', () => {
+    withTrace('phases', () => {
+      recordTraceStep('resolve:start');
+      recordTraceStep('targets:member-hierarchy');
+      recordTraceStep('resolve:end');
+      return 1;
+    });
+
+    const trace = getLastTrace();
+    assert.deepEqual(trace?.phases, ['resolve', 'targets']);
+  });
+
+  test('expone el resumen ordenado de acciones únicas', () => {
+    withTrace('actions', () => {
+      recordTraceStep('resolve:start');
+      recordTraceStep('targets:member-hierarchy');
+      recordTraceStep('resolve:start');
+      return 1;
+    });
+
+    const trace = getLastTrace();
+    assert.deepEqual(trace?.actions, ['start', 'member-hierarchy']);
   });
 });

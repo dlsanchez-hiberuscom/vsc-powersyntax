@@ -4,6 +4,8 @@
 
 `B157 — Semantic evidence de primera clase`
 
+Estado actual: el nucleo de evidence/confidence ya quedo cubierto en las specs `219-248` sobre query engine, `queryTrace`, `queryContext`, hover y policy base de readiness. `B157` sigue abierto solo para cerrar exposicion segura en API/diagnostics/stats y conectar gates finales en callers sensibles.
+
 ---
 
 ## 2. Por qué es prioritario
@@ -31,11 +33,10 @@
 
 ## 3. Trabajo permitido ahora
 
-- completar evidence formal para candidatos ganadores y perdedores;
-- conectar `queryTrace`, `reasonCodes`, lineage y readiness;
-- calcular confidence formal por feature;
-- exponer evidence segura en diagnostics/API/stats;
-- añadir tests de resolución, descartes y confidence;
+- exponer evidence/confidence segura en diagnostics/API/stats;
+- conectar `FeatureReadinessDecision` y confidence gates con callers sensibles;
+- endurecer tests de serving y negativos sobre consumers de B157/B171;
+- reforzar observabilidad sin duplicar semantica fuera del query engine;
 - actualizar documentación afectada.
 
 ---
@@ -56,13 +57,11 @@ No abrir salvo causa clara:
 
 ## 5. Criterios de salida de B157
 
-- evidence del ganador;
-- evidence de candidatos descartados;
-- reason codes normalizados;
-- confidence calculada;
-- integración con query engine;
-- tests unitarios;
-- tests negativos para ambigüedad;
+- evidence del ganador y de descartes ya cubierta;
+- reason codes, ambigüedad minima y confidence del query engine ya cubiertos;
+- integración local con `queryTrace`, `queryContext`, hover y readiness base ya cubierta;
+- tests unitarios y negativos de ambigüedad ya cubiertos;
+- pendiente final: exposición segura en API/diagnostics/stats y conexión de features delicadas con los gates de confidence;
 - documentación actualizada.
 
 ---

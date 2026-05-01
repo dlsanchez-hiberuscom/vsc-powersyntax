@@ -264,6 +264,606 @@ La ola `Specs 153-172` consolidó un segundo corte operativo de:
 
 ---
 
+## 1.8A B157. Winner evidence contractual del query engine — **Slice cerrada (spec 219)**
+
+### Resultado técnico registrado
+
+`Spec 219` abre una evidencia estructurada minima sobre el ganador actual del query engine:
+
+- `ResolvedTargetInfo` expone `evidence` como contrato derivado y estable;
+- el primer item `winner-target` reutiliza `reasonCode`, `confidence` y lineage del target ganador;
+- la logica de derivacion queda concentrada en `semanticQueryService`, sin cambiar el comportamiento de resolucion.
+
+### Cierre real
+
+La slice no cierra todavia `B157`, pero deja un contrato reutilizable para las siguientes piezas de descartes, ambiguedad y confidence.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/semanticQueryService"`
+
+---
+
+## 1.8B B157. Pool bruto de candidatos del winner path — **Slice cerrada (spec 220)**
+
+### Resultado técnico registrado
+
+`Spec 220` conserva el conjunto de candidatos evaluados antes del filtro final:
+
+- `ResolvedTargetInfo` expone `candidatePool` como contrato estable y pequeño;
+- las rutas locales, jerárquicas, cualificadas y globales retienen el pool bruto antes del filtro definitivo;
+- la resolución final sigue saliendo por `targets`, sin cambios funcionales en providers.
+
+### Cierre real
+
+La slice no cierra todavía `B157`, pero deja disponible el material base para explicar descartes y empates en slices posteriores.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/semanticQueryService"`
+
+---
+
+## 1.8C B157. Descartes explicados por distancia jerarquica — **Slice cerrada (spec 221)**
+
+### Resultado técnico registrado
+
+`Spec 221` convierte el filtro jerarquico minimo en evidence explicable:
+
+- el runtime conserva descartes producidos por la misma distancia usada para elegir el ganador;
+- `ResolvedTargetInfo.evidence` añade entradas `discarded-distance` con distancia ganadora y del candidato descartado;
+- la resolucion final sigue inalterada y el cambio queda concentrado en `semanticQueryService`.
+
+### Cierre real
+
+La slice no cierra todavia `B157`, pero ya explica por que un ancestro o miembro mas lejano no gana frente al override mas cercano.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/semanticQueryService"`
+
+---
+
+## 1.8D B157. Descartes contextuales de qualifier — **Slice cerrada (spec 222)**
+
+### Resultado técnico registrado
+
+`Spec 222` hace visibles los misses de contexto más inmediatos en rutas cualificadas:
+
+- `ResolvedTargetInfo.evidence` registra `qualifier-unresolved` cuando el qualifier no resuelve a tipo;
+- también registra `qualifier-no-match` cuando el tipo resuelto no aporta miembros compatibles;
+- los casos negativos siguen devolviendo cero targets, pero dejan de ser opacos para debugging y futuras confidence gates.
+
+### Cierre real
+
+La slice no cierra todavía `B157`, pero añade explicabilidad negativa básica en el punto exacto donde la ruta cualificada se corta.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/semanticQueryService"`
+
+---
+
+## 1.8E B157. Ambiguedad explicita de distancia minima — **Slice cerrada (spec 223)**
+
+### Resultado técnico registrado
+
+`Spec 223` hace visible la ambigüedad residual del winner path jerárquico:
+
+- el ranking por distancia conserva cuándo la distancia ganadora deja más de un candidato;
+- `ResolvedTargetInfo.evidence` añade entradas `distance-ambiguity` con distancia mínima y número de empatados;
+- `targets` mantiene su comportamiento actual, dejando la decisión de gates para slices posteriores.
+
+### Cierre real
+
+La slice no cierra todavía `B157`, pero deja formalizado el caso de empate que luego necesitarán confidence y feature gates.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/semanticQueryService"`
+
+---
+
+## 1.8AD B157. Cardinalidad de ganadores en hover de usuario — **Slice cerrada (spec 237)**
+
+### Resultado técnico registrado
+
+`Spec 237` separa la cardinalidad del winner path como dato estable dentro del hover:
+
+- `formatUserHover()` renderiza `Candidatos ganadores`;
+- la cardinalidad se reutiliza desde el `targetCount` ya aportado por el provider;
+- la cobertura unitaria valida casos simple y ambiguo.
+
+### Cierre real
+
+La slice distingue claramente entre advertencia de ambigüedad y cardinalidad informativa del winner path.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/hover"`
+
+---
+
+## 1.8AC B157. Reason detallado de confidence insuficiente — **Slice cerrada (spec 244)**
+
+### Resultado técnico registrado
+
+`Spec 244` mejora la explicabilidad de las decisiones motivadas por confidence insuficiente:
+
+- el `reason` incluye la confidence actual y la requerida;
+- la acción calculada no cambia respecto a la `Spec 243`;
+- la cobertura unitaria valida el detalle del mensaje en el caso `low < medium`.
+
+### Cierre real
+
+La slice deja la decisión lista para diagnosis más precisa cuando se active en callers del servidor.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness"`
+
+---
+
+## 1.8AB B157. Último paso del snapshot en queryTrace — **Slice cerrada (spec 248)**
+
+### Resultado técnico registrado
+
+`Spec 248` añade un resumen escalar del cierre de la última traza capturada:
+
+- `TraceSnapshot` expone `lastStepName`;
+- el valor refleja el último paso emitido, o queda ausente si no hubo pasos;
+- la cobertura unitaria valida la coherencia entre resumen y array real.
+
+### Cierre real
+
+La slice facilita inspección inmediata del último evento observado sin recorrer la colección completa de pasos.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8AA B157. Suficiencia de confidence por feature — **Slice cerrada (spec 240)**
+
+### Resultado técnico registrado
+
+`Spec 240` compone la policy de confidence en un helper booleando reutilizable:
+
+- `featureReadiness` expone `isResolutionConfidenceSufficient()`;
+- el helper reutiliza comparador y thresholds ya centralizados;
+- la cobertura unitaria valida casos laxos y estrictos por feature.
+
+### Cierre real
+
+La slice deja preparada una comprobación declarativa de sufficiency antes de activar decisiones automáticas en callers.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness"`
+
+---
+
+## 1.8Z B157. Resumen de acciones únicas en queryTrace — **Slice cerrada (spec 247)**
+
+### Resultado técnico registrado
+
+`Spec 247` completa el resumen agregado del snapshot con las acciones únicas observadas:
+
+- `TraceSnapshot` expone `actions`;
+- el resumen preserva el orden de primera aparición y elimina duplicados;
+- la cobertura unitaria valida la agregación sobre una traza con acciones repetidas.
+
+### Cierre real
+
+La slice deja el snapshot listo para inspección rápida por fases y acciones sin reparseo externo.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8Y B157. Resumen de fases únicas en queryTrace — **Slice cerrada (spec 246)**
+
+### Resultado técnico registrado
+
+`Spec 246` añade al snapshot un resumen ligero de fases únicas observadas:
+
+- `TraceSnapshot` expone `phases`;
+- el resumen preserva el orden de primera aparición y elimina duplicados;
+- la cobertura unitaria valida la agregación sobre una traza con fases repetidas.
+
+### Cierre real
+
+La slice facilita inspección rápida de la traza sin recorrer todos los pasos ni reagruparlos fuera del módulo.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8X B157. Clonado defensivo de pasos en queryTrace — **Slice cerrada (spec 245)**
+
+### Resultado técnico registrado
+
+`Spec 245` blinda la lectura de la última traza frente a mutaciones externas:
+
+- `getLastTrace()` devuelve clones de cada `TraceStep`;
+- mutar el snapshot obtenido ya no altera lecturas posteriores;
+- la cobertura unitaria valida el encapsulamiento del estado retenido.
+
+### Cierre real
+
+La slice mejora la seguridad del snapshot retenido sin cambiar el comportamiento observable de la traza.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8W B157. Gating de confidence en featureReadiness — **Slice cerrada (spec 243)**
+
+### Resultado técnico registrado
+
+`Spec 243` activa la policy de confidence dentro de la decisión de readiness:
+
+- `decideFeatureReadiness()` compara `actualResolutionConfidence` contra el threshold del feature;
+- cuando la confidence es insuficiente y el readiness base ya era suficiente, aplica `fallbackAction`;
+- la cobertura unitaria valida casos de `block` y de `allow` con threshold bajo.
+
+### Cierre real
+
+La slice deja operativo el gating por confidence dentro de la decisión, aunque la integración con callers del servidor quede para slices posteriores.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness"`
+
+---
+
+## 1.8V B157. Confidence real contextual en la decisión de readiness — **Slice cerrada (spec 242)**
+
+### Resultado técnico registrado
+
+`Spec 242` completa el contrato de decisión con la señal real aportada por el caller:
+
+- `FeatureReadinessContext` acepta `resolutionConfidence`;
+- `FeatureReadinessDecision` expone `actualResolutionConfidence`;
+- la cobertura unitaria valida la propagación del valor sin alterar aún la acción final.
+
+### Cierre real
+
+La slice prepara decisiones explicables basadas en confidence sin recalcular la resolución dentro de `featureReadiness`.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness"`
+
+---
+
+## 1.8U B157. Threshold requerido en la decisión de readiness — **Slice cerrada (spec 241)**
+
+### Resultado técnico registrado
+
+`Spec 241` hace autocontenida la decisión de readiness respecto a la policy de confidence:
+
+- `FeatureReadinessDecision` expone `requiredResolutionConfidence`;
+- `decideFeatureReadiness()` rellena el threshold correspondiente al feature en todas sus ramas;
+- la cobertura unitaria fija el contrato de decisión enriquecida.
+
+### Cierre real
+
+La slice deja visible la policy aplicada sin necesitar consultas externas adicionales al getter de thresholds.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness"`
+
+---
+
+## 1.8T B157. Thresholds mínimos de confidence por feature — **Slice cerrada (spec 239)**
+
+### Resultado técnico registrado
+
+`Spec 239` centraliza la política mínima de confidence de resolución por feature:
+
+- `featureReadiness` expone `getRequiredResolutionConfidence()`;
+- hover y completion aceptan `low`, definition exige `medium`, references y rename exigen `high`;
+- la cobertura unitaria deja la política fijada antes de activar gates automáticos.
+
+### Cierre real
+
+La slice prepara la activación controlada de decisions por confidence sin dispersar thresholds en handlers del servidor.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness"`
+
+---
+
+## 1.8S B157. Orden canónico de confidence por feature — **Slice cerrada (spec 238)**
+
+### Resultado técnico registrado
+
+`Spec 238` fija la comparación básica de confidence de resolución en la capa de readiness:
+
+- `featureReadiness` define un orden canónico `low < medium < high`;
+- `compareResolutionConfidence()` centraliza la comparación;
+- la cobertura unitaria deja preparada la base para thresholds y gates posteriores.
+
+### Cierre real
+
+La slice elimina la necesidad de comparaciones ad hoc antes de introducir políticas por feature.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness"`
+
+---
+
+## 1.8R B157. Nota de ambigüedad en hover de usuario — **Slice cerrada (spec 236)**
+
+### Resultado técnico registrado
+
+`Spec 236` hace visible en el hover cuándo la resolución sigue siendo ambigua:
+
+- `provideHover()` proyecta si existen varios targets ganadores y cuántos son;
+- `formatUserHover()` renderiza una nota explícita de `Resolución ambigua`;
+- la cobertura unitaria valida un caso real con dos candidatos a distancia mínima.
+
+### Cierre real
+
+La slice mantiene el target principal actual, pero ya no oculta al usuario que el winner path sigue siendo ambiguo.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/hover"`
+
+---
+
+## 1.8Q B157. Reason code principal en hover de usuario — **Slice cerrada (spec 235)**
+
+### Resultado técnico registrado
+
+`Spec 235` añade explicabilidad directa del camino de resolución en el hover de usuario:
+
+- `provideHover()` pasa el `reasonCode` principal desde la resolución detallada;
+- `formatUserHover()` renderiza `Motivo de resolución` con el valor canónico del query engine;
+- la cobertura unitaria valida la proyección en el caso real de `global-fallback`.
+
+### Cierre real
+
+La slice mejora la trazabilidad visible de la resolución sin reinterpretar ni traducir la semántica del engine.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/hover"`
+
+---
+
+## 1.8P B157. Confidence general en hover de usuario — **Slice cerrada (spec 234)**
+
+### Resultado técnico registrado
+
+`Spec 234` proyecta la confidence general del winner path en el hover de símbolos de usuario:
+
+- `provideHover()` pasa la confidence desde `ResolvedTargetInfo`;
+- `formatUserHover()` renderiza `Confianza de resolución` sin mezclarla con la confidence de lineage;
+- la cobertura unitaria recoge tanto el formateador como el caso real de `global-fallback`.
+
+### Cierre real
+
+La slice lleva la primera señal compacta del query engine a una feature visible sin tocar la lógica de selección de targets.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/hover"`
+
+---
+
+## 1.8O B157. Resumen temporal en queryTrace — **Slice cerrada (spec 233)**
+
+### Resultado técnico registrado
+
+`Spec 233` añade metadatos temporales ligeros al snapshot de la última traza:
+
+- `TraceSnapshot` expone `startedAt`, `endedAt` y `durationMs`;
+- la duración se deriva en el cierre de `withTrace()`;
+- `getLastTrace()` devuelve un resumen temporal coherente junto al resto del snapshot.
+
+### Cierre real
+
+La slice aporta una señal diagnóstica ligera de coste sin introducir perf tooling adicional en el hot path.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8N B157. Step count en queryTrace — **Slice cerrada (spec 232)**
+
+### Resultado técnico registrado
+
+`Spec 232` añade un resumen directo del tamaño de la última traza capturada:
+
+- `TraceSnapshot` expone `stepCount`;
+- el valor se fija al cerrar la traza y coincide con `steps.length`;
+- `getLastTrace()` devuelve una copia coherente del resumen.
+
+### Cierre real
+
+La slice permite inspección rápida del volumen de pasos sin recorrer el array completo fuera de `queryTrace`.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8M B157. Acción derivada en queryTrace — **Slice cerrada (spec 231)**
+
+### Resultado técnico registrado
+
+`Spec 231` completa la descomposición ligera del nombre de paso en la traza:
+
+- `TraceStep` expone `action`;
+- `recordTraceStep()` deriva el sufijo posterior a `:` cuando existe;
+- pasos sin patrón compuesto conservan `action` indefinida.
+
+### Cierre real
+
+La slice evita parseo externo del nombre completo de paso y deja la semántica básica de la traza centralizada en `queryTrace`.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8L B157. Fase derivada en queryTrace — **Slice cerrada (spec 230)**
+
+### Resultado técnico registrado
+
+`Spec 230` enriquece cada paso de traza con una fase derivada del nombre compuesto:
+
+- `TraceStep` expone `phase`;
+- `recordTraceStep()` deriva el prefijo antes de `:` cuando existe;
+- pasos sin prefijo conservan `phase` indefinida.
+
+### Cierre real
+
+La slice mejora la inspección ligera de la traza sin imponer aún una taxonomía cerrada ni tocar los nombres ya emitidos.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryTrace"`
+
+---
+
+## 1.8K B157. Tipos de evidence en DocumentQueryContext — **Slice cerrada (spec 229)**
+
+### Resultado técnico registrado
+
+`Spec 229` proyecta una vista resumida de la evidence disponible en el contexto documental:
+
+- `DocumentQueryContext` expone `resolutionEvidenceKinds`;
+- la lista reutiliza los `kind` de `resolvedTargets?.evidence` sin tocar los payloads canónicos;
+- el resumen cubre casos simples, ambiguos y ausencia de contexto.
+
+### Cierre real
+
+La slice permite detectar qué explicaciones están disponibles sin inspeccionar toda la evidence heterogénea.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryContext"`
+
+---
+
+## 1.8J B157. Cardinalidad de targets en DocumentQueryContext — **Slice cerrada (spec 228)**
+
+### Resultado técnico registrado
+
+`Spec 228` proyecta la cardinalidad del resultado de resolución como un escalar directo del contexto documental:
+
+- `DocumentQueryContext` expone `resolutionTargetCount`;
+- el valor reutiliza `resolvedTargets?.targets.length` sin recomputar el query;
+- la surface cubre resolución simple, ambigua y ausencia de contexto.
+
+### Cierre real
+
+La slice permite a capas superiores leer cardinalidad sin navegar el resultado detallado completo.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryContext"`
+
+---
+
+## 1.8I B157. Bandera de ambigüedad en DocumentQueryContext — **Slice cerrada (spec 227)**
+
+### Resultado técnico registrado
+
+`Spec 227` proyecta la ambigüedad del winner path como surface booleana directa del contexto documental:
+
+- `DocumentQueryContext` expone `hasResolutionAmbiguity`;
+- la bandera se deriva de la evidence `distance-ambiguity` ya calculada por el query engine;
+- sin contexto resoluble, el valor degrada a `false`.
+
+### Cierre real
+
+La slice evita que capas superiores tengan que inspeccionar evidence estructurada solo para detectar empates mínimos.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryContext"`
+
+---
+
+## 1.8H B157. Reason code principal en DocumentQueryContext — **Slice cerrada (spec 226)**
+
+### Resultado técnico registrado
+
+`Spec 226` proyecta la causa principal del winner path como surface directa del contexto documental:
+
+- `DocumentQueryContext` expone `primaryResolutionReasonCode`;
+- el valor se deriva de `resolvedTargets?.reasonCodes[0]` sin recalcular la resolución;
+- la surface degrada a `undefined` cuando no existe contexto resoluble.
+
+### Cierre real
+
+La slice simplifica consumidores de reason codes y mantiene la fuente de verdad en el query engine detallado.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryContext"`
+
+---
+
+## 1.8G B157. Surface de confidence en DocumentQueryContext — **Slice cerrada (spec 225)**
+
+### Resultado técnico registrado
+
+`Spec 225` proyecta la confidence general del query engine como surface de conveniencia en el contexto documental:
+
+- `DocumentQueryContext` expone `resolutionConfidence`;
+- la proyección reutiliza `resolvedTargets?.confidence` sin recalcular la resolución;
+- el contexto degrada a `undefined` cuando no existe invocación resoluble.
+
+### Cierre real
+
+La slice mantiene la fuente de verdad dentro de `semanticQueryService` y prepara surfaces consumidoras más simples en capas superiores.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/queryContext"`
+
+---
+
+## 1.8F B157. Confidence scorer v1 del winner path — **Slice cerrada (spec 224)**
+
+### Resultado técnico registrado
+
+`Spec 224` sintetiza la evidence estabilizada en una confidence general del query engine:
+
+- `ResolvedTargetInfo` expone `confidence` con buckets `high`, `medium` y `low`;
+- el scorer reutiliza `reasonCodes`, lineage, misses contextuales y ambigüedad sin cambiar `targets`;
+- quedan cubiertas rutas altas, medias y bajas sobre el mismo módulo de resolución.
+
+### Cierre real
+
+La slice no cierra todavía `B157`, pero deja un scorer puro reutilizable para surfaces posteriores y futuras confidence gates.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/semanticQueryService"`
+
+---
+
 ## 1.9 B071A. Caché persistente por workspace y por proyecto — **Cerrada (specs 173 y 174)**
 
 ### Resultado técnico registrado

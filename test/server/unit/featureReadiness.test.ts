@@ -1,6 +1,12 @@
 import * as assert from 'assert/strict';
 
-import { decideFeatureReadiness, getSemanticReadinessLevel } from '../../../src/server/features/featureReadiness';
+import {
+  compareResolutionConfidence,
+  decideFeatureReadiness,
+  getRequiredResolutionConfidence,
+  isResolutionConfidenceSufficient,
+  getSemanticReadinessLevel
+} from '../../../src/server/features/featureReadiness';
 import type { ProgressReadinessSnapshot } from '../../../src/server/features/progressReadiness';
 
 function createSnapshot(levels: {
@@ -33,6 +39,73 @@ function createSnapshot(levels: {
 }
 
 suite('unit/featureReadiness (B158)', () => {
+  test('compareResolutionConfidence ordena low, medium y high', () => {
+    assert.ok(compareResolutionConfidence('low', 'medium') < 0);
+    assert.ok(compareResolutionConfidence('medium', 'high') < 0);
+    assert.equal(compareResolutionConfidence('high', 'high'), 0);
+  });
+
+  test('getRequiredResolutionConfidence expone la politica minima por feature', () => {
+    assert.equal(getRequiredResolutionConfidence('hover'), 'low');
+    assert.equal(getRequiredResolutionConfidence('completion'), 'low');
+    assert.equal(getRequiredResolutionConfidence('definition'), 'medium');
+    assert.equal(getRequiredResolutionConfidence('references'), 'high');
+    assert.equal(getRequiredResolutionConfidence('rename'), 'high');
+  });
+
+  test('isResolutionConfidenceSufficient respeta el threshold minimo por feature', () => {
+    assert.equal(isResolutionConfidenceSufficient('hover', 'low'), true);
+    assert.equal(isResolutionConfidenceSufficient('definition', 'low'), false);
+    assert.equal(isResolutionConfidenceSufficient('definition', 'medium'), true);
+    assert.equal(isResolutionConfidenceSufficient('references', 'medium'), false);
+    assert.equal(isResolutionConfidenceSufficient('references', 'high'), true);
+  });
+
+  test('decideFeatureReadiness expone la confidence requerida en la decision', () => {
+    const snapshot = createSnapshot({
+      activeContextReady: true,
+      projectReady: false,
+      workspaceReady: false
+    });
+
+    const decision = decideFeatureReadiness('definition', snapshot);
+    assert.equal(decision.requiredResolutionConfidence, 'medium');
+  });
+
+  test('decideFeatureReadiness propaga la confidence real cuando el contexto la aporta', () => {
+    const snapshot = createSnapshot({
+      activeContextReady: true,
+      projectReady: false,
+      workspaceReady: false
+    });
+
+    const decision = decideFeatureReadiness('definition', snapshot, { resolutionConfidence: 'low' });
+    assert.equal(decision.actualResolutionConfidence, 'low');
+  });
+
+  test('decideFeatureReadiness bloquea definition si la confidence es insuficiente', () => {
+    const snapshot = createSnapshot({
+      activeContextReady: true,
+      projectReady: false,
+      workspaceReady: false
+    });
+
+    const decision = decideFeatureReadiness('definition', snapshot, { resolutionConfidence: 'low' });
+    assert.equal(decision.action, 'block');
+    assert.match(decision.reason, /low < medium/);
+  });
+
+  test('decideFeatureReadiness mantiene hover permitido con confidence low', () => {
+    const snapshot = createSnapshot({
+      activeContextReady: true,
+      projectReady: false,
+      workspaceReady: false
+    });
+
+    const decision = decideFeatureReadiness('hover', snapshot, { resolutionConfidence: 'low' });
+    assert.equal(decision.action, 'allow');
+  });
+
   test('structural-only bloquea definition, references y rename', () => {
     const snapshot = createSnapshot({
       activeContextReady: false,

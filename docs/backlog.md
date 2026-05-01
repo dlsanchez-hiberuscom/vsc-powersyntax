@@ -158,12 +158,11 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Desbloquea:** B171, B175, B204, B206 y futuras ampliaciones explicables de la API pública
 - **Legacy refs:** absorbe B136
 - **Objetivo:** modelar formalmente por qué una resolución ganó o fue descartada.
+- **Estado real actual:** winner evidence, candidate pool, descartes por distancia/contexto, ambigüedad mínima, confidence del query engine, surfaces en `queryContext`, `queryTrace` y hover, y policy base por feature quedaron cubiertos en las specs `219-248`.
 - **Pendiente exacto:**
-  - evidence para candidatos ganadores;
-  - evidence para descartes y candidatos perdedores;
-  - reason codes normalizados;
-  - confidence formal calculada por feature;
-  - exposición segura en API/diagnostics/stats.
+  - exponer evidence/confidence de forma segura en API/diagnostics/stats;
+  - conectar los confidence gates con callers sensibles de serving;
+  - cerrar el tramo explicable sin duplicar semántica fuera del query engine.
 - **Cierre:** scope, visibilidad, library order, distance, readiness, confidence y descartes quedan trazados.
 
 ## B171 — Confidence gates por feature
@@ -172,6 +171,11 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Depende de:** B157, B158, B141
 - **Desbloquea:** B031, B032, B036, B208, B217
 - **Objetivo:** que cada feature opere solo con el nivel de confianza adecuado.
+- **Estado real actual:** el comparador de confidence, los thresholds por feature y la decision base con `fallbackAction` ya existen en `featureReadiness`.
+- **Pendiente exacto:**
+  - conectar `FeatureReadinessDecision` con handlers sensibles como `definition`, `references` y `rename`;
+  - degradar o bloquear en runtime segun confidence real sin abrir heuristicas duplicadas;
+  - ampliar cobertura de serving seguro y mensajes de decision en consumers reales.
 - **Cierre:** rename y references peligrosas exigen confianza alta; otras degradan con seguridad.
 
 ## B160 — Query result cache con claves semánticas estables

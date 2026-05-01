@@ -41,7 +41,12 @@ export function provideHover(
     return {
       contents: {
         kind: MarkupKind.Markdown,
-        value: formatUserHover(definition)
+        value: formatUserHover(definition, {
+          confidence: resolved.confidence,
+          reasonCode: resolved.reasonCodes[0],
+          ambiguous: resolved.targets.length > 1,
+          targetCount: resolved.targets.length
+        })
       }
     };
   }

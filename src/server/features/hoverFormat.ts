@@ -7,6 +7,7 @@
  */
 
 import { Entity, EntityKind, type EntityLineage } from '../knowledge/types';
+import type { QueryReasonCode, QueryResolutionConfidence } from '../knowledge/resolution/semanticQueryService';
 
 const KIND_NAME: Record<string, string> = {
   Type: 'Objeto / Estructura',
@@ -15,6 +16,13 @@ const KIND_NAME: Record<string, string> = {
   Event: 'Evento',
   Variable: 'Variable'
 };
+
+export interface HoverResolutionSummary {
+  confidence?: QueryResolutionConfidence;
+  reasonCode?: QueryReasonCode;
+  ambiguous?: boolean;
+  targetCount?: number;
+}
 
 export function formatLineageHover(lineage?: EntityLineage): string | null {
   if (!lineage) {
@@ -50,7 +58,7 @@ export function formatLineageHover(lineage?: EntityLineage): string | null {
   return segments.length > 0 ? segments.join(' · ') : null;
 }
 
-export function formatUserHover(entity: Entity): string {
+export function formatUserHover(entity: Entity, resolution?: HoverResolutionSummary): string {
   const out: string[] = [];
   const access = entity.access ? `${entity.access} ` : '';
 
@@ -91,6 +99,26 @@ export function formatUserHover(entity: Entity): string {
   if (lineage) {
     out.push('');
     out.push(lineage);
+  }
+
+  if (resolution?.confidence) {
+    out.push('');
+    out.push(`*Confianza de resolución:* ${resolution.confidence}`);
+  }
+
+  if (resolution?.reasonCode) {
+    out.push('');
+    out.push(`*Motivo de resolución:* ${resolution.reasonCode}`);
+  }
+
+  if (resolution?.ambiguous) {
+    out.push('');
+    out.push(`*Resolución ambigua:* ${resolution.targetCount ?? 0} candidatos con distancia mínima`);
+  }
+
+  if (typeof resolution?.targetCount === 'number' && resolution.targetCount > 0) {
+    out.push('');
+    out.push(`*Candidatos ganadores:* ${resolution.targetCount}`);
   }
 
   if (entity.containerName) {

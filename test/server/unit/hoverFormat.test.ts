@@ -52,4 +52,24 @@ suite('unit/hoverFormat (B103)', () => {
     assert.match(md, /Autoridad:\* derived/);
     assert.match(md, /Confianza:\* direct/);
   });
+
+  test('muestra confidence general de resolucion cuando se aporta', () => {
+    const md = formatUserHover(fn(), { confidence: 'high' });
+    assert.match(md, /Confianza de resolución:\* high/);
+  });
+
+  test('muestra reason code principal cuando se aporta', () => {
+    const md = formatUserHover(fn(), { reasonCode: 'member-hierarchy' });
+    assert.match(md, /Motivo de resolución:\* member-hierarchy/);
+  });
+
+  test('muestra nota de ambiguedad cuando se aporta', () => {
+    const md = formatUserHover(fn(), { ambiguous: true, targetCount: 2 });
+    assert.match(md, /Resolución ambigua:\* 2 candidatos con distancia mínima/);
+  });
+
+  test('muestra el numero de candidatos ganadores cuando se aporta', () => {
+    const md = formatUserHover(fn(), { targetCount: 2 });
+    assert.match(md, /Candidatos ganadores:\* 2/);
+  });
 });

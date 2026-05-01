@@ -1,0 +1,20 @@
+# Tasks - Spec 228 QueryContext target count (B157)
+
+## 1. Preparacion
+
+- [x] T1. Confirmar que la cardinalidad ya existe en el resultado detallado.
+- [x] T2. Confirmar la validacion estrecha reutilizable.
+
+## 2. Implementacion
+
+- [x] T3. Modelar `resolutionTargetCount` en `DocumentQueryContext`.
+- [x] T4. Poblarla desde `resolvedTargets`.
+- [x] T5. Añadir cobertura unitaria focalizada.
+
+## 3. Validacion
+
+- [x] T6. Ejecutar la validacion estrecha del slice.
+
+## 4. Cierre
+
+- [x] T7. Registrar la slice cerrada en `docs/done-log.md`.
