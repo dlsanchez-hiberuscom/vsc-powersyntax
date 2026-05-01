@@ -9,7 +9,7 @@
 
 > **El plugin debe descubrir e indexar muy rápido sin bloquear.**
 
-Toda spec nueva debe respetar esta meta. Si una mejora aumenta complejidad pero no mejora velocidad percibida, estabilidad, seguridad semántica u utilidad profesional real, no debe priorizarse sobre el core.
+Toda spec nueva debe respetar esta meta. Si una mejora aumenta complejidad pero no mejora velocidad percibida, estabilidad, seguridad semántica, entendimiento real de PowerBuilder o utilidad profesional, no debe priorizarse sobre el core.
 
 ---
 
@@ -18,11 +18,12 @@ Toda spec nueva debe respetar esta meta. Si una mejora aumenta complejidad pero 
 - Ejecutar por orden de prioridad global.
 - No abrir ítems si sus dependencias no están cerradas, salvo trabajo preparatorio claro.
 - Crear sub-specs solo cuando vaya a implementarse el ítem.
-- No cerrar si falta código real, tests/validación, documentación alineada y actualización de roadmap/current-focus si aplica.
+- No cerrar si falta código real, tests/validación suficiente, documentación alineada y actualización de roadmap/current-focus si aplica.
 - Si un ítem crece demasiado, dividir en sub-specs, no duplicar ítems padre.
-- Registrar deuda nueva en Backlog derivado.
-- Tratar `plugin_old` como guía, no como código a portar por inercia.
-- Las dependencias hacia ítems Done se consideran ya satisfechas y quedan como trazabilidad histórica.
+- Registrar deuda nueva en **Backlog derivado**.
+- Tratar `plugin_old` como guía, dataset y referencia de patrones probados, no como código a portar por inercia.
+- Las dependencias hacia ítems `Done` se consideran ya satisfechas y quedan solo como trazabilidad histórica.
+- No sacrificar la meta maestra por features secundarias.
 
 ---
 
@@ -30,9 +31,16 @@ Toda spec nueva debe respetar esta meta. Si una mejora aumenta complejidad pero 
 
 - **Open:** sin slice activa de cierre.
 - **Partial:** implementación parcial o primer corte operativo, pero faltan criterios de cierre.
-- **Ready for closure:** código y tests básicos existen; falta revisión final, docs o validación ampliada.
+- **Ready for closure:** código y tests básicos existen; falta revisión final, documentación o validación ampliada.
 - **Blocked:** no puede avanzar por dependencia, entorno o decisión explícita.
 - **Done:** código, tests, documentación y validación cerrados; vive en `done-log.md`, no en backlog activo.
+
+Un ítem `Partial` debe incluir, siempre que sea posible:
+
+```md
+**Pendiente exacto:**
+- ...
+```
 
 ---
 
@@ -50,13 +58,25 @@ Pendiente de cierre operativo fino.
 
 Foco principal actual.
 
+### L2.5 — PowerBuilder semantic understanding
+
+Nuevo carril para mejorar el entendimiento real de PowerBuilder antes de DataWindow profundo, build avanzado o automatización IA.
+
 ### L3 — Validación fuerte, salud interna y excelencia operativa
 
-Preparación y validación transversal permitida si no bloquea L2.
+Validación real, corpus, health, performance y calidad operativa.
 
 ### L4 — Especialización PowerBuilder y automatización
 
-Solo después de consolidar L0-L3, salvo investigación preparatoria.
+DataWindow, PBAutoBuild, ORCA/PBL y especialización del ecosistema.
+
+### L4.5 — AI-ready PowerBuilder context
+
+Contexto semántico read-only para IA antes de automatización write-enabled.
+
+### L5 — Documentación IA-first y workflows
+
+Gobierno documental, workflows de usuario y reglas diagnósticas.
 
 ---
 
@@ -119,6 +139,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** persistencia
 - **Depende de:** B155, B167, B168
+- **Desbloquea:** B160, B030, B118
 - **Objetivo:** evitar cold indexing en cada reapertura.
 - **Pendiente exacto:**
   - medir cold vs warm;
@@ -134,7 +155,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** explicabilidad
 - **Depende de:** B156
-- **Desbloquea:** B171, B175 y futuras ampliaciones explicables de la API pública
+- **Desbloquea:** B171, B175, B204, B206 y futuras ampliaciones explicables de la API pública
 - **Legacy refs:** absorbe B136
 - **Objetivo:** modelar formalmente por qué una resolución ganó o fue descartada.
 - **Pendiente exacto:**
@@ -149,7 +170,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** seguridad de serving
 - **Depende de:** B157, B158, B141
-- **Desbloquea:** B031, B032, B036
+- **Desbloquea:** B031, B032, B036, B208, B217
 - **Objetivo:** que cada feature opere solo con el nivel de confianza adecuado.
 - **Cierre:** rename y references peligrosas exigen confianza alta; otras degradan con seguridad.
 
@@ -169,13 +190,14 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** productividad segura
 - **Depende de:** B156, B157, B171, B160
+- **Desbloquea:** B218, B222
 - **Objetivo:** referencias cross-file y contexto fuerte sin matching superficial.
 - **Cierre:** results precisos, separados por confianza y explicables sobre topología real.
 
 ## B032 — Rename controlado
 - **Estado:** Open
 - **Track:** productividad segura
-- **Depende de:** B156, B157, B158, B171
+- **Depende de:** B156, B157, B158, B171, B208
 - **Objetivo:** ampliar rename solo en escenarios semánticamente seguros.
 - **Pendiente exacto:**
   - conectar con confidence gates;
@@ -198,6 +220,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** UX profesional
 - **Depende de:** B134, B141
+- **Desbloquea:** B216
 - **Objetivo:** unificar progreso + proyecto activo + acciones de mantenimiento.
 - **Pendiente exacto:**
   - estado de project model;
@@ -209,9 +232,180 @@ El detalle técnico de cierre vive en `done-log.md`.
 ## B067 — Formateador configurable
 - **Estado:** Open
 - **Track:** productividad
-- **Depende de:** B156
+- **Depende de:** B156, B205
 - **Objetivo:** formateo configurable solo sobre base sintáctica/semántica fiable.
 - **Cierre:** formatter sin romper constructs PowerBuilder reales.
+
+---
+
+# L2.5 — PowerBuilder semantic understanding
+
+## B204 — Source origin model unificado
+- **Estado:** Open
+- **Track:** core topology / provenance
+- **Depende de:** B141, B172
+- **Desbloquea:** B171, B192, B193, B217, B220
+- **Objetivo:** clasificar de forma uniforme el origen de cada documento, símbolo y snapshot semántico.
+- **Debe contener:**
+  - `solution-source`;
+  - `workspace-ws_objects`;
+  - `pbl-folder-source`;
+  - `orca-staging`;
+  - `pbl-dump-source`;
+  - `generated`;
+  - `unknown`;
+  - prioridad explícita entre sources;
+  - warnings por duplicidad entre source real y staging;
+  - integración con lineage/evidence.
+- **Cierre:** todas las queries, diagnostics y surfaces públicas explican de dónde viene cada símbolo y priorizan source real frente a staging/export.
+
+## B205 — PowerBuilder grammar canonical module
+- **Estado:** Open
+- **Track:** parsing / grammar governance
+- **Depende de:** B151, B152
+- **Desbloquea:** B162, B202, B117, B067
+- **Objetivo:** centralizar patrones, keywords y matchers estructurales de PowerBuilder en un módulo canónico.
+- **Debe contener:**
+  - keywords PowerScript;
+  - patrones de function/subroutine/event/on-handler;
+  - patrones de `forward global type`;
+  - patrones de `global type ... from ...`;
+  - matchers de apertura/cierre de bloques;
+  - soporte para `IF`, `FOR`, `DO`, `CHOOSE CASE`, `TRY`;
+  - tests unitarios de gramática;
+  - migración progresiva desde regex dispersas.
+- **Cierre:** parser, diagnostics y features consumen patrones compartidos sin duplicar regex críticas.
+
+## B206 — Rich PowerBuilder symbol metadata
+- **Estado:** Open
+- **Track:** semantic model
+- **Depende de:** B157, B204
+- **Desbloquea:** B031, B032, B065, B117, B207, B209, B210, B217
+- **Objetivo:** enriquecer progresivamente el modelo de símbolo con metadata específica de PowerBuilder.
+- **Debe contener inicialmente:**
+  - `containerKind`;
+  - `containerSignature`;
+  - `fileObjectName`;
+  - `declarationScope`;
+  - `implementationKind`;
+  - `ownerName`;
+  - `parameterCount`;
+  - `returnType`;
+  - `access`;
+  - `sourceOrigin`;
+  - `confidence`.
+- **Fuera de alcance inicial:**
+  - no añadir campos no usados por ninguna feature;
+  - no romper contratos públicos existentes.
+- **Cierre:** las features semánticas distinguen prototype, implementation, on-handler, external function, member/local/parameter y owner real.
+
+## B207 — External functions and native dependency model
+- **Estado:** Open
+- **Track:** PowerBuilder ecosystem / native dependencies
+- **Depende de:** B206
+- **Desbloquea:** B202, B217, B222
+- **Objetivo:** modelar funciones externas, DLL/PBX/PBNI y dependencias nativas sin tratarlas como símbolos internos.
+- **Debe contener:**
+  - parseo de `EXTERNAL FUNCTION`;
+  - parseo de `EXTERNAL SUBROUTINE`;
+  - `library "..."`;
+  - `alias for`;
+  - clasificación `dll`, `pbx`, `unknown`;
+  - hover con dependencia externa;
+  - confidence downgrade para references/rename;
+  - diagnostics informativos si no hay definition interna.
+- **Cierre:** el plugin reconoce dependencias nativas y evita prometer navegación interna falsa.
+
+## B208 — Dynamic string reference detector
+- **Estado:** Open
+- **Track:** semantic safety
+- **Depende de:** B157, B206
+- **Desbloquea:** B171, B032, B217, B219, B222
+- **Objetivo:** detectar referencias semánticamente relevantes dentro de strings dinámicos y degradar confidence cuando afecten operaciones peligrosas.
+- **Debe contener:**
+  - `Open("w_xxx")`;
+  - `DataObject = "d_xxx"`;
+  - `TriggerEvent(..., "event")`;
+  - `PostEvent(..., "event")`;
+  - `EvaluateJavaScriptSync/Async`;
+  - JSON paths;
+  - SQL dinámico;
+  - `Describe/Modify/Evaluate` de DataWindow;
+  - clasificación `safe literal`, `probable`, `dynamic`, `unknown`.
+- **Cierre:** rename/references/code actions bloquean o degradan cuando un símbolo aparece en strings dinámicos.
+
+## B209 — PowerBuilder call model and invocation classification
+- **Estado:** Open
+- **Track:** semantic resolution
+- **Depende de:** B157, B206
+- **Desbloquea:** B031, B032, B210, B218, B222
+- **Objetivo:** clasificar llamadas PowerBuilder según forma y riesgo semántico.
+- **Debe contener:**
+  - llamada no cualificada;
+  - llamada `this.uf_xxx()`;
+  - llamada `parent.uf_xxx()`;
+  - llamada `super::uf_xxx()`;
+  - llamada `ancestor::event`;
+  - llamada a global function;
+  - llamada dinámica;
+  - llamada a external function;
+  - confidence por tipo de llamada;
+  - evidence de resolución.
+- **Cierre:** references, definition y rename explican cómo fue resuelta cada invocación.
+
+## B210 — PowerBuilder event model
+- **Estado:** Open
+- **Track:** semantic model / events
+- **Depende de:** B206, B209
+- **Desbloquea:** B065, B031, B213, B217, B222
+- **Objetivo:** modelar eventos PowerBuilder como entidades semánticas de primera clase.
+- **Debe contener:**
+  - `on object.event`;
+  - eventos de controles;
+  - eventos de Window/UserObject/Menu;
+  - `create/destroy`;
+  - eventos cualificados;
+  - `TriggerEvent`;
+  - `PostEvent`;
+  - relación event-owner;
+  - ancestor event resolution;
+  - evidence/confidence.
+- **Cierre:** el plugin navega y explica eventos sin tratarlos como funciones planas.
+
+## B211 — Transaction and SQLCA semantic model
+- **Estado:** Open
+- **Track:** PowerBuilder database semantics
+- **Depende de:** B206, B209
+- **Desbloquea:** B117, B184, B212, B217
+- **Objetivo:** modelar el uso de `Transaction`, `SQLCA`, `SetTransObject`, `Retrieve`, `Update` y SQL embebido.
+- **Debe contener:**
+  - detección de variables `transaction`;
+  - `SQLCA` como transaction global especial;
+  - `SetTransObject`;
+  - `SetTrans`;
+  - `Retrieve`;
+  - `Update`;
+  - SQL estático/dinámico;
+  - diagnostics básicos de transaction desconocida;
+  - confidence downgrade si la transaction es dinámica.
+- **Cierre:** el plugin explica relaciones básicas entre código, DataStore/DataWindow y transaction object.
+
+## B213 — PowerBuilder object lifecycle model
+- **Estado:** Open
+- **Track:** semantic model / lifecycle
+- **Depende de:** B210
+- **Desbloquea:** B065, B217, B045
+- **Objetivo:** modelar create/destroy, constructor/destructor y llamadas ancestor en objetos PowerBuilder.
+- **Debe contener:**
+  - `on object.create`;
+  - `on object.destroy`;
+  - `call super::create`;
+  - `call super::destroy`;
+  - `TriggerEvent(this, "constructor")`;
+  - `TriggerEvent(this, "destructor")`;
+  - warnings suaves por lifecycle sospechoso;
+  - evidence en hierarchy inspection.
+- **Cierre:** hierarchy inspection y hover explican flujo de inicialización/destrucción.
 
 ---
 
@@ -221,6 +415,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** validación
 - **Depende de:** B141, B155
+- **Desbloquea:** B221
 - **Objetivo:** validar sobre PFC 2025 Solution/Workspace y corpus legacy.
 - **Cierre:** corpus reales integrados en el ciclo, no solo fixtures sintéticos.
 
@@ -291,6 +486,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** salud interna
 - **Depende de:** B126, B162, B172
+- **Desbloquea:** B216
 - **Objetivo:** revisar coherencia de caches, índices, readiness y snapshots.
 - **Pendiente exacto:**
   - checks formales por capa;
@@ -299,6 +495,40 @@ El detalle técnico de cierre vive en `done-log.md`.
   - integración con status y event log.
 - **Cierre:** health checker detecta degradación interna antes del bug visible.
 
+## B221 — PowerBuilder public corpus matrix
+- **Estado:** Open
+- **Track:** QA / corpus
+- **Depende de:** B030
+- **Desbloquea:** B222
+- **Objetivo:** definir matriz reproducible de corpus públicos PowerBuilder para validar parsing, discovery, serving y performance.
+- **Debe contener:**
+  - PFC 2025 Solution;
+  - PFC 2025 Workspace;
+  - DataWindow examples;
+  - PBL dump examples;
+  - ORCA/build examples;
+  - native/PBNI examples;
+  - modern JSON/WebView2 examples;
+  - criterios de inclusión/exclusión;
+  - modo de descarga/preparación documentado.
+- **Cierre:** existe una matriz reproducible para validar el plugin contra PowerBuilder real.
+
+## B222 — PowerBuilder semantic golden suite
+- **Estado:** Open
+- **Track:** QA semántica / PowerBuilder
+- **Depende de:** B157, B171, B221
+- **Objetivo:** fijar resultados esperados de semántica PowerBuilder real.
+- **Debe contener:**
+  - scope resolution local/shared/global/instance;
+  - prototype vs implementation;
+  - inherited members;
+  - event handlers;
+  - external functions;
+  - DataObject literal binding;
+  - dynamic downgrade cases;
+  - sourceOrigin conflicts.
+- **Cierre:** cambios futuros no rompen comportamiento semántico esencial sin detectarlo.
+
 ---
 
 # L4 — Especialización PowerBuilder y automatización
@@ -306,9 +536,26 @@ El detalle técnico de cierre vive en `done-log.md`.
 ## B117 — DataWindow safe mode mínimo
 - **Estado:** Open
 - **Track:** PB ecosystem
-- **Depende de:** L0-L3 suficientemente maduros
+- **Depende de:** L0-L3 suficientemente maduros, B205, B211
 - **Objetivo:** soporte seguro mínimo de `.srd`.
 - **Cierre:** detección, SQL base, args, columnas, bandas principales, hover/navegación básica.
+
+## B212 — DataObject binding model
+- **Estado:** Open
+- **Track:** PowerBuilder / DataWindow bridge
+- **Depende de:** B117, B208, B211
+- **Desbloquea:** B041, B217, B218
+- **Objetivo:** modelar relaciones entre PowerScript, DataWindow controls, DataStores y objetos `.srd`.
+- **Debe contener:**
+  - `dw_1.DataObject = "d_xxx"`;
+  - `dw_1.SetTransObject(SQLCA)`;
+  - `dw_1.Retrieve(...)`;
+  - `DataStore lds`;
+  - `lds.DataObject = "d_xxx"`;
+  - args de retrieve;
+  - confidence por literal/dinámico;
+  - navegación desde control/variable a `.srd`.
+- **Cierre:** el plugin navega de PowerScript a DataWindow y explica bindings básicos.
 
 ## B139 — DataWindow safe-mode desde `plugin_old`
 - **Estado:** Open
@@ -320,7 +567,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 ## B041 — Catálogo y navegación de DataWindow
 - **Estado:** Open
 - **Track:** PB ecosystem
-- **Depende de:** B117, B139
+- **Depende de:** B117, B139, B212
 - **Objetivo:** DataWindow/DataStore como entidades semánticas de primer nivel.
 - **Cierre:** navegación y catálogo básicos integrados.
 
@@ -338,6 +585,59 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Objetivo:** cubrir `dw_1.Object`.
 - **Cierre:** navegación/validación seguras en acceso a `.Object`.
 
+## B214 — PowerBuilder Object Explorer
+- **Estado:** Open
+- **Track:** UX profesional
+- **Depende de:** B141, B157, B171
+- **Desbloquea:** B203, B217
+- **Objetivo:** ofrecer una vista navegable del modelo PowerBuilder del workspace.
+- **Debe contener:**
+  - projects;
+  - libraries;
+  - object kinds;
+  - Application/Window/UserObject/Menu/DataWindow/Function/Structure;
+  - readiness por nodo;
+  - sourceOrigin;
+  - filtros;
+  - abrir objeto;
+  - acciones contextuales seguras.
+- **Cierre:** el usuario navega el proyecto PowerBuilder sin conocer rutas físicas.
+
+## B215 — Current Object Context panel
+- **Estado:** Open
+- **Track:** UX / semantic context
+- **Depende de:** B157, B171, B206, B210
+- **Desbloquea:** B217
+- **Objetivo:** mostrar contexto semántico del objeto activo.
+- **Debe contener:**
+  - object kind/name;
+  - sourceOrigin;
+  - project/library;
+  - ancestor chain;
+  - variables visibles;
+  - functions/events/prototypes;
+  - DataObject bindings si existen;
+  - diagnostics relevantes;
+  - readiness/confidence.
+- **Cierre:** el programador entiende rápidamente dónde está y qué contexto semántico tiene.
+
+## B216 — Project Health Dashboard
+- **Estado:** Open
+- **Track:** health / UX
+- **Depende de:** B176, B107
+- **Desbloquea:** B187, B198
+- **Objetivo:** mostrar salud del workspace en una vista útil y accionable.
+- **Debe contener:**
+  - readiness;
+  - indexing status;
+  - cache/warm resume status;
+  - diagnostics summary;
+  - project model status;
+  - sourceOrigin conflicts;
+  - build readiness;
+  - PBAutoBuild/ORCA availability cuando aplique.
+- **Cierre:** el usuario entiende si el plugin/proyecto está sano y qué acción tomar.
+
 ## B043 — Integración con PBAutoBuild
 - **Estado:** Open
 - **Track:** build
@@ -349,6 +649,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** build / tooling detection
 - **Depende de:** B043, B141
+- **Desbloquea:** B182, B183, B187
 - **Objetivo:** detectar `PBAutoBuild250.exe`, versión/capabilities y disponibilidad de entorno.
 - **Cierre:** el plugin informa si PBAutoBuild está disponible sin bloquear ni lanzar build.
 
@@ -356,6 +657,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** build / project model
 - **Depende de:** B181, B141
+- **Desbloquea:** B183, B185, B187
 - **Objetivo:** descubrir y validar JSON de PBAutoBuild.
 - **Cierre:** el plugin sabe qué build files existen, qué proyecto representan y si son utilizables.
 
@@ -363,6 +665,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** build / execution
 - **Depende de:** B181, B182, B126
+- **Desbloquea:** B184, B185, B187
 - **Objetivo:** ejecutar PBAutoBuild sin bloquear Extension Host ni LSP.
 - **Cierre:** build observable, cancelable y seguro desde VS Code.
 
@@ -370,6 +673,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** build / diagnostics
 - **Depende de:** B183, B063
+- **Desbloquea:** B185, B187
 - **Objetivo:** convertir logs de build/error en diagnósticos navegables cuando sea posible.
 - **Cierre:** errores de build aparecen en Problems Panel sin inventar ubicaciones.
 
@@ -377,13 +681,15 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** build / UX
 - **Depende de:** B183, B184, B107
+- **Desbloquea:** B186, B187
 - **Objetivo:** comandos de usuario para build frecuente.
-- **Cierre:** el usuario puede ejecutar builds habituales sin recordar comandos manuales.
+- **Cierre:** el usuario ejecuta builds habituales sin recordar comandos manuales.
 
 ## B186 — PBAutoBuild CI/CD helper export
 - **Estado:** Open
 - **Track:** build / automation
 - **Depende de:** B185, B110
+- **Desbloquea:** B140, B198
 - **Objetivo:** generar ayudas reproducibles para CI/CD.
 - **Cierre:** build local validado se puede llevar a CI/CD sin acoplarse a proveedor.
 
@@ -391,6 +697,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** build / health
 - **Depende de:** B181, B182, B184, B176
+- **Desbloquea:** B194, B198
 - **Objetivo:** unificar estado de build moderno en health checker.
 - **Cierre:** el usuario entiende si el workspace está listo para build moderno.
 
@@ -398,6 +705,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / ORCA
 - **Depende de:** B141, B109, B176
+- **Desbloquea:** B189, B190, B191, B193, B194
 - **Objetivo:** adaptador ORCA opcional, out-of-process y separado del hot path.
 - **Cierre:** skeleton operativo para invocar ORCA sin acoplarlo al core semántico.
 
@@ -405,6 +713,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / ORCA
 - **Depende de:** B188
+- **Desbloquea:** B190, B191
 - **Objetivo:** detectar si ORCA puede usarse y validar entorno/versiones.
 - **Cierre:** ausencia de ORCA no rompe el plugin y queda explicada claramente.
 
@@ -412,6 +721,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / PBL discovery
 - **Depende de:** B188, B189, B141
+- **Desbloquea:** B191, B192
 - **Objetivo:** listar PBLs y objetos read-only e integrarlos en project model.
 - **Cierre:** el plugin entiende topología PBL legacy sin modificar nada.
 
@@ -419,13 +729,15 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / export
 - **Depende de:** B190, B155
+- **Desbloquea:** B192, B193
 - **Objetivo:** exportar objetos desde PBL a staging indexable.
 - **Cierre:** proyecto PBL-only puede analizarse desde VS Code sin modificar PBL.
 
 ## B192 — ORCA staging provenance and source priority
 - **Estado:** Open
 - **Track:** legacy ecosystem / source model
-- **Depende de:** B172, B190, B191
+- **Depende de:** B204, B190, B191
+- **Desbloquea:** B193, B194
 - **Objetivo:** evitar confusión entre source real y source exportado.
 - **Cierre:** serving y diagnósticos explican de dónde viene cada símbolo.
 
@@ -433,6 +745,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / import
 - **Depende de:** B191, B192, B184
+- **Desbloquea:** B194, B196
 - **Objetivo:** importar cambios a PBL de forma explícita, controlada y compilada.
 - **Cierre:** import seguro con preflight, backup, compile result y rollback documentado.
 
@@ -440,6 +753,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / build
 - **Depende de:** B193, B176
+- **Desbloquea:** B195, B197
 - **Objetivo:** comandos legacy regenerate/rebuild vía ORCA.
 - **Cierre:** operaciones legacy observables y seguras desde VS Code.
 
@@ -447,6 +761,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / packaging
 - **Depende de:** B194
+- **Desbloquea:** B198
 - **Objetivo:** evaluar si exponer creación de ejecutables/PBD/DLL vía ORCA.
 - **Cierre:** decisión documentada sin contaminar ruta PBAutoBuild.
 
@@ -454,6 +769,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** legacy ecosystem / safety
 - **Depende de:** B192, B193
+- **Desbloquea:** B197
 - **Objetivo:** proteger contra inconsistencias PBL/staging/source real.
 - **Cierre:** evita importar source equivocado o desactualizado.
 
@@ -461,6 +777,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Estado:** Open
 - **Track:** observability / event log
 - **Depende de:** B163, B183, B194
+- **Desbloquea:** B198
 - **Objetivo:** registrar eventos técnicos de build y ORCA.
 - **Cierre:** fallos de build/ORCA diagnosticables sin reconstrucción manual.
 
@@ -476,7 +793,7 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Track:** legacy ecosystem / spec automation
 - **Depende de:** B191, B192, B193, B196, B197
 - **Objetivo:** permitir que una spec modifique source exportado y actualice PBL afectadas controladamente.
-- **Cierre:** una spec puede dejar PBL actualizadas con trazabilidad, validación y recuperación.
+- **Cierre:** una spec deja PBL actualizadas con trazabilidad, validación y recuperación.
 
 ## B200 — Bulk PBL export/import orchestration
 - **Estado:** Open
@@ -484,6 +801,81 @@ El detalle técnico de cierre vive en `done-log.md`.
 - **Depende de:** B199
 - **Objetivo:** coordinar export/import masivo de múltiples PBL.
 - **Cierre:** sincronización amplia contra PBL segura y observable.
+
+---
+
+# L4.5 — AI-ready PowerBuilder context
+
+## B217 — AI context pack for current object
+- **Estado:** Open
+- **Track:** AI / API / context
+- **Depende de:** B109, B157, B171, B206, B215
+- **Desbloquea:** B218, B219, B220
+- **Objetivo:** generar un paquete read-only de contexto semántico del objeto activo para IA.
+- **Debe contener:**
+  - object metadata;
+  - source excerpt;
+  - sourceOrigin;
+  - project/library;
+  - ancestor chain;
+  - functions/events/prototypes;
+  - referenced symbols;
+  - diagnostics;
+  - DataObject bindings si existen;
+  - evidence/confidence;
+  - related files.
+- **Cierre:** Copilot recibe contexto rico y fiable sin leer todo el workspace.
+
+## B218 — Spec impact analyzer
+- **Estado:** Open
+- **Track:** AI / impact analysis
+- **Depende de:** B031, B065, B157, B171, B209, B210
+- **Desbloquea:** B219
+- **Objetivo:** calcular impacto probable de una spec o cambio.
+- **Debe contener:**
+  - símbolos afectados;
+  - referencias seguras/probables;
+  - descendientes;
+  - overrides;
+  - eventos relacionados;
+  - DataWindows relacionadas si hay bindings;
+  - build targets afectados si se conocen;
+  - confidence del análisis.
+- **Cierre:** la IA planifica cambios con impacto explícito y no modifica a ciegas.
+
+## B219 — Safe edit plan generator
+- **Estado:** Open
+- **Track:** AI / safe automation
+- **Depende de:** B218, B171, B157
+- **Objetivo:** generar un plan de edición seguro antes de aplicar cambios.
+- **Debe contener:**
+  - archivos/objetos a tocar;
+  - razón de cada cambio;
+  - riesgos;
+  - sourceOrigin;
+  - confidence;
+  - tests recomendados;
+  - docs afectadas;
+  - casos bloqueados por ambigüedad.
+- **Cierre:** la IA propone cambios con trazabilidad antes de editar.
+
+## B220 — AI-readable semantic workspace manifest
+- **Estado:** Open
+- **Track:** AI / API / automation
+- **Depende de:** B109, B157, B204, B214
+- **Objetivo:** exportar un manifiesto semántico compacto y versionado para agentes IA.
+- **Debe contener:**
+  - projects;
+  - libraries;
+  - object list;
+  - inheritance summary;
+  - exported symbols;
+  - diagnostics summary;
+  - sourceOrigin summary;
+  - readiness;
+  - schema version;
+  - límites para no exportar demasiado código.
+- **Cierre:** agentes externos entienden la estructura del workspace sin escanear todos los archivos manualmente.
 
 ---
 
@@ -535,6 +927,17 @@ El detalle técnico de cierre vive en `done-log.md`.
 6. B036 — Code actions básicas
 7. B107 — Status bar con contexto de proyecto
 
+## PowerBuilder semantic understanding — siguiente bloque técnico recomendado
+
+Ejecutar después de estabilizar B157/B171 o en preparación sin bloquear foco:
+
+1. B204 — Source origin model unificado
+2. B206 — Rich PowerBuilder symbol metadata
+3. B208 — Dynamic string reference detector
+4. B209 — PowerBuilder call model and invocation classification
+5. B210 — PowerBuilder event model
+6. B211 — Transaction and SQLCA semantic model
+
 ## Persistencia robusta pendiente
 
 Ejecutar en paralelo solo si no bloquea el foco principal:
@@ -552,6 +955,7 @@ Puede avanzar en modo preparatorio:
 2. B069
 3. B068
 4. B119
+5. B221
 
 ---
 
