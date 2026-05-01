@@ -17,6 +17,10 @@ import {
   PROGRESS_NOTIFICATION,
   type ProgressNotification
 } from '../shared/types';
+import {
+  POWERBUILDER_PROJECT_MARKER_GLOB,
+  POWERBUILDER_SOURCE_GLOB
+} from '../shared/powerbuilderFiles';
 
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
@@ -73,9 +77,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     ],
     outputChannel,
     synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher(
-        '**/*.{pbw,pbt,pbproj,pbsln}'
-      )
+      fileEvents: [
+        vscode.workspace.createFileSystemWatcher(POWERBUILDER_PROJECT_MARKER_GLOB),
+        vscode.workspace.createFileSystemWatcher(POWERBUILDER_SOURCE_GLOB)
+      ]
     },
     initializationOptions: {
       cacheStorageUri: (context.storageUri ?? context.globalStorageUri)?.toString()

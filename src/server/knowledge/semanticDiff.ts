@@ -157,8 +157,7 @@ export function diffSemanticSnapshots(
 
   return {
     changed:
-      (previous?.identity ?? null) !== (next?.identity ?? null)
-      || exportedIdsAdded.length > 0
+      exportedIdsAdded.length > 0
       || exportedIdsRemoved.length > 0
       || exportedIdsUpdated.length > 0
       || dependencyKeysAdded.length > 0

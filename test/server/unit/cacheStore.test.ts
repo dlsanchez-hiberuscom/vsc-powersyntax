@@ -97,6 +97,11 @@ suite('unit/cacheStore', () => {
         }
         return null;
       },
+      getFilesForProject(projectUri: string) {
+        if (projectUri === projectA) return ['file:///workspace/project-a/u_a.sru'];
+        if (projectUri === projectB) return ['file:///workspace/project-b/u_b.sru'];
+        return [];
+      },
       getLibrariesForFile(uri: string) {
         return this.getProjectForFile(uri)?.libraries ?? [];
       },
@@ -159,6 +164,11 @@ suite('unit/cacheStore', () => {
           return { projectUri: projectB, kind: 'target', name: 'project-b', libraries: ['file:///workspace/project-b/'] };
         }
         return null;
+      },
+      getFilesForProject(projectUri: string) {
+        if (projectUri === projectA) return ['file:///workspace/project-a/u_a.sru'];
+        if (projectUri === projectB) return ['file:///workspace/project-b/u_b.sru'];
+        return [];
       },
       getLibrariesForFile(uri: string) {
         return this.getProjectForFile(uri)?.libraries ?? [];

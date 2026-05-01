@@ -25,6 +25,10 @@
 import { normalizeUri } from '../system/uriUtils';
 import type { Entity } from './types';
 
+function cloneValue<T>(value: T): T {
+  return structuredClone(value);
+}
+
 export class HotContextCache {
   private activeUri: string | null = null;
   private kbVersion = -1;
@@ -64,17 +68,18 @@ export class HotContextCache {
   // ---- Entidades del documento activo --------------------------------------
 
   getActiveEntities(): Entity[] | undefined {
-    return this.activeEntities;
+    return this.activeEntities ? cloneValue(this.activeEntities) : undefined;
   }
 
   setActiveEntities(entities: Entity[]): void {
-    this.activeEntities = entities;
+    this.activeEntities = cloneValue(entities);
   }
 
   // ---- Miembros heredados --------------------------------------------------
 
   getInheritedMembers(typeName: string): Entity[] | undefined {
-    return this.inheritedMembers.get(typeName.toLowerCase());
+    const members = this.inheritedMembers.get(typeName.toLowerCase());
+    return members ? cloneValue(members) : undefined;
   }
 
   setInheritedMembers(typeName: string, members: Entity[]): void {
@@ -85,7 +90,7 @@ export class HotContextCache {
       const oldest = this.inheritedMembers.keys().next().value;
       if (oldest !== undefined) this.inheritedMembers.delete(oldest);
     }
-    this.inheritedMembers.set(key, members);
+    this.inheritedMembers.set(key, cloneValue(members));
   }
 
   /** Spec 119: estadísticas para introspección. */

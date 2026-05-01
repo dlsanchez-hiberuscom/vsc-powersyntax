@@ -121,8 +121,8 @@ function extractSignatureContext(document: TextDocument, position: Position): { 
   let activeParameter = 0;
   let depth = 0;
   
-  const analysis = getDocumentAnalysis(document);
-  const strippedLines = analysis.strippedLines;
+  const snapshot = getDocumentAnalysis(document).snapshot;
+  const strippedLines = snapshot.maskedText.lines;
 
   // Limitar la búsqueda hacia atrás a unas cuantas líneas para evitar bloqueos
   const maxLinesBack = 5;
@@ -133,8 +133,8 @@ function extractSignatureContext(document: TextDocument, position: Position): { 
   let foundOpenParen = false;
   
   while (currentLine >= startLine) {
-    const originalLineText = analysis.lines[currentLine];
-    const mask = analysis.masks[currentLine];
+    const originalLineText = strippedLines[currentLine];
+    const mask = snapshot.maskedText.masks[currentLine];
     
     if (currentLine < position.line) {
       currentCharacter = originalLineText.length - 1;

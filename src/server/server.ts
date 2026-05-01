@@ -1,5 +1,6 @@
 import {
   createConnection,
+  FileChangeType,
   ProposedFeatures,
   TextDocuments,
   TextDocumentSyncKind,
@@ -16,7 +17,7 @@ import {
   PROGRESS_NOTIFICATION,
   type ProgressNotification
 } from '../shared/types';
-import { invalidateDocumentAnalysis, clearDocumentAnalysisCache, setAnalysisBackends } from './analysis/analysisCache';
+import { getDocumentAnalysis, invalidateDocumentAnalysis, clearDocumentAnalysisCache, setAnalysisBackends } from './analysis/analysisCache';
 import { getAnalysisCacheStats } from './analysis/analysisCache';
 import {
   cancelScheduledDiagnostics,
@@ -49,17 +50,21 @@ import { cacheServingResult, invalidateServingCacheEntries } from './cache/servi
 import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
 import { createReadinessTracker } from './workspace/readiness';
-import { buildProjectRegistry } from './workspace/projectRegistry';
-import { buildUnifiedProjectModel } from './workspace/unifiedProjectModel';
 import { DocumentCache } from './knowledge/DocumentCache';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
 import { InheritanceGraph } from './knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from './knowledge/HotContextCache';
-import { createSemanticInvalidationPlan } from './knowledge/semanticInvalidation';
+import {
+  createSemanticInvalidationPlan,
+  createSnapshotAwareInvalidationPlan
+} from './knowledge/semanticInvalidation';
 import { ServingCache, makeKey as makeServingKey } from './knowledge/ServingCache';
 import { getLastTrace } from './knowledge/queryTrace';
 import { SystemCatalog } from './knowledge/system/SystemCatalog';
 import { getIndexerStatus, indexWorkspace } from './indexer/workspaceIndexer';
+import { createFileWatcherDebouncer } from './system/fileWatcherDebouncer';
+import { applyWatchedFileEvents } from './workspace/watchedFileIntake';
+import { isPowerBuilderSourceUri } from '../shared/powerbuilderFiles';
 
 // ---------------------------------------------------------------------------
 // Inicialización (Bootstrap)
@@ -80,6 +85,41 @@ const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
 const servingCache = new ServingCache<unknown>();
+const watcherIntake = createFileWatcherDebouncer({
+  delayMs: 75,
+  maxPending: 256,
+  onFlush: (events) => {
+    void scheduler.enqueueBackground({
+      id: `watcher-intake-${Date.now()}`,
+      priority: TaskPriority.Background,
+      execute: async (token) => {
+        if (token.isCancelled) return;
+        const result = await applyWatchedFileEvents({
+          events,
+          fs,
+          documentCache,
+          knowledgeBase,
+          workspaceState,
+          hotContextCache,
+          servingCache,
+          servingCacheFlushCoordinator,
+          isDocumentOpen: (uri) => documents.get(uri) !== undefined,
+          clearDiagnostics: (uri) => {
+            connection.sendDiagnostics({ uri, diagnostics: [] as Diagnostic[] });
+          },
+          log: (message) => connection.console.log(message)
+        });
+        if (result.reindexed > 0 || result.removed > 0) {
+          connection.console.log(
+            `[WATCHER] Flush ${result.massive ? 'masivo' : 'incremental'} aplicado: ${result.reindexed} reindexados, ${result.removed} eliminados, ${result.skipped} omitidos, proyectos: ${result.touchedProjects.join(', ') || 'ninguno'}.`
+          );
+        }
+      }
+    }).catch((error) => {
+      connection.console.error(`[WATCHER] Error en intake: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
+});
 let cacheStore: SemanticCacheStore | null = null;
 let cacheStorageUri: string | null = null;
 let lastServingSnapshotRestoreEntries = 0;
@@ -213,24 +253,14 @@ connection.onInitialized(() => {
         connection.console.log(`  - PBSLN: ${roots.solutions.length}, PBPROJ: ${roots.projects.length}`);
         connection.console.log(`  - Modo: ${workspaceState.getMode()}`);
 
-        // Construir el project registry tras conocer topología y archivos.
-        const registry = buildProjectRegistry(
-          workspaceState.getTopology(),
-          workspaceState.getAllSourceFiles()
-        );
-        workspaceState.setProjectRegistry(registry);
-        const projectModel = buildUnifiedProjectModel(
-          workspaceState.getTopology(),
-          registry,
-          workspaceState.getAllSourceFiles()
-        );
-        workspaceState.setProjectModel(projectModel);
-        connection.console.log(`  - Proyectos detectados: ${registry.getAllProjects().length}`);
+        workspaceState.refreshProjectRouting();
+        const projectModel = workspaceState.getProjectModel();
+        connection.console.log(`  - Proyectos detectados: ${projectModel?.getProjects().length ?? 0}`);
 
         const cacheMetadata = {
           workspaceMode: workspaceState.getMode(),
           rootUris: workspaceFolders,
-          projectStats: projectModel.getStats()
+          projectStats: projectModel?.getStats()
         } as const;
 
         if (cacheStorageUri) {
@@ -662,7 +692,17 @@ documents.onDidOpen((event) => {
 
 documents.onDidChangeContent((event) => {
   activeDocumentUri = event.document.uri;
-  const invalidationPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
+  const previousSnapshot = knowledgeBase.getDocumentSnapshot(event.document.uri) ?? undefined;
+  const previousPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
+  const nextAnalysis = getDocumentAnalysis(event.document);
+  const nextPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
+  const invalidationPlan = createSnapshotAwareInvalidationPlan(
+    event.document.uri,
+    previousSnapshot,
+    nextAnalysis.snapshot,
+    previousPlan,
+    nextPlan
+  );
   for (const uri of invalidationPlan.allUris) {
     hotContextCache.invalidateForUri(uri);
   }
@@ -691,11 +731,28 @@ documents.onDidClose((event) => {
   });
 });
 
+connection.onDidChangeWatchedFiles((params) => {
+  for (const change of params.changes) {
+    if (!isPowerBuilderSourceUri(change.uri)) {
+      continue;
+    }
+
+    watcherIntake.push({
+      uri: change.uri,
+      kind:
+        change.type === FileChangeType.Created ? 'create'
+        : change.type === FileChangeType.Deleted ? 'delete'
+        : 'change'
+    });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Apagado (Shutdown)
 // ---------------------------------------------------------------------------
 
 connection.onShutdown(async () => {
+  watcherIntake.dispose();
   invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
   await servingCacheFlushCoordinator.flushIfDirty();
   scheduler.shutdown();
@@ -824,6 +881,7 @@ connection.onExecuteCommand(async (params) => {
       const stats = knowledgeBase.getStats();
       const sched = scheduler.getStatus();
       const projectStats = workspaceState.getProjectModel()?.getStats();
+      const activeProject = workspaceState.getProjectContextForFile(activeDocumentUri);
       return {
         kb: stats,
         scheduler: sched,
@@ -833,14 +891,16 @@ connection.onExecuteCommand(async (params) => {
         },
         workspace: {
           mode: workspaceState.getMode(),
-          files: workspaceState.getAllSourceFiles().length
+          files: workspaceState.getAllSourceFiles().length,
+          activeProject
         },
         indexer: getIndexerStatus(),
         caches: {
           analysis: getAnalysisCacheStats(),
           serving: servingCache.getStats(),
           documents: documentCache.getStats(),
-          hotContext: hotContextCache.getStats()
+          hotContext: hotContextCache.getStats(),
+          watcher: watcherIntake.getStats()
         },
         projectModel: projectStats,
         lastQueryTrace: getLastTrace(),

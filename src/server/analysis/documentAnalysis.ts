@@ -70,6 +70,13 @@ export interface DocumentAnalysis {
   snapshot: SemanticDocumentSnapshot;
 }
 
+export interface StructuralDocumentAnalysis {
+  uri: string;
+  version: number;
+  fingerprint: number;
+  snapshot: SemanticDocumentSnapshot;
+}
+
 /** FNV-1a 32-bit. Determinista, sin dependencias y rápido para buffers de texto. */
 function fingerprintOf(text: string): number {
   let h = 0x811c9dc5;
@@ -147,6 +154,39 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
     scopes,
     logicalStatements,
     snapshot
+  };
+}
+
+export function analyzeDocumentStructural(document: TextDocument): StructuralDocumentAnalysis {
+  const text = document.getText();
+  const lines = text.split(/\r?\n/);
+  if (lines.length > 0 && lines[0].charCodeAt(0) === 0xfeff) {
+    lines[0] = lines[0].slice(1);
+  }
+  const { lines: strippedLines, masks } = stripCommentsSmart(lines);
+  const sections = findSections(lines);
+  const typeBlocks = scanTypeBlocks(strippedLines);
+  const fingerprint = fingerprintOf(text);
+
+  return {
+    uri: document.uri,
+    version: document.version,
+    fingerprint,
+    snapshot: createSemanticSnapshot({
+      uri: document.uri,
+      version: document.version,
+      fingerprint,
+      sections,
+      typeBlocks,
+      strippedLines,
+      masks,
+      semanticFacts: [],
+      scopes: [],
+      logicalStatements: [],
+      controlBlocks: [],
+      pass: 'structural',
+      readiness: 'structural-only'
+    })
   };
 }
 

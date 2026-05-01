@@ -207,4 +207,48 @@ suite('unit/workspace', () => {
     assert.equal(files.length, 1);
     assert.ok(state.hasSourceFile('file:///proj/keep.sru'));
   });
+
+  test('refreshProjectRouting recompone registry y model desde topology + knownFiles', () => {
+    const state = new WorkspaceState();
+
+    state.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl']
+      }
+    });
+    state.addSourceFile('file:///proj/lib_app.pbl/u_demo.sru');
+
+    state.refreshProjectRouting();
+
+    assert.equal(state.getProjectRegistry()?.getProjectForFile('file:///proj/lib_app.pbl/u_demo.sru'), 'file:///proj/app.pbt');
+    assert.equal(state.getProjectModel()?.getProjectForFile('file:///proj/lib_app.pbl/u_demo.sru')?.projectUri, 'file:///proj/app.pbt');
+  });
+
+  test('getProjectContextForFile resume el proyecto activo desde el modelo unificado', () => {
+    const state = new WorkspaceState();
+
+    state.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl']
+      }
+    });
+    state.addSourceFile('file:///proj/lib_app.pbl/u_demo.sru');
+    state.refreshProjectRouting();
+
+    const context = state.getProjectContextForFile('file:///proj/lib_app.pbl/u_demo.sru');
+
+    assert.deepEqual(context, {
+      projectUri: 'file:///proj/app.pbt',
+      kind: 'target',
+      name: 'app',
+      libraries: ['file:///proj/lib_app.pbl'],
+      files: ['file:///proj/lib_app.pbl/u_demo.sru']
+    });
+  });
 });

@@ -9,6 +9,8 @@ import {
 } from './topology';
 import type { ProjectRegistry } from './projectRegistry';
 import type { UnifiedProjectModel } from './unifiedProjectModel';
+import { buildProjectRegistry } from './projectRegistry';
+import { buildUnifiedProjectModel } from './unifiedProjectModel';
 
 export interface WorkspaceRoots {
   /** URIs of .pbw files found (Workspace mode marker). */
@@ -21,6 +23,14 @@ export interface WorkspaceRoots {
   solutions: string[];
   /** URIs of .pbproj files found (Solution project marker). */
   projects: string[];
+}
+
+export interface ActiveProjectContext {
+  projectUri: string;
+  kind: 'target' | 'project';
+  name: string;
+  libraries: string[];
+  files: string[];
 }
 
 /**
@@ -57,6 +67,10 @@ export class WorkspaceState {
    */
   addSourceFile(uri: string): void {
     this.knownFiles.add(normalizeUri(uri));
+  }
+
+  removeSourceFile(uri: string): void {
+    this.knownFiles.delete(normalizeUri(uri));
   }
 
   /**
@@ -164,5 +178,24 @@ export class WorkspaceState {
 
   getProjectModel(): UnifiedProjectModel | null {
     return this.projectModel;
+  }
+
+  getProjectContextForFile(uri: string | null): ActiveProjectContext | null {
+    if (!uri) return null;
+    const project = this.projectModel?.getProjectForFile(uri);
+    if (!project) return null;
+    return {
+      projectUri: project.projectUri,
+      kind: project.kind,
+      name: project.name,
+      libraries: [...project.libraries],
+      files: this.projectModel?.getFilesForProject(project.projectUri) ?? []
+    };
+  }
+
+  refreshProjectRouting(): void {
+    const sourceFiles = this.getAllSourceFiles();
+    this.projectRegistry = buildProjectRegistry(this.topology, sourceFiles);
+    this.projectModel = buildUnifiedProjectModel(this.topology, sourceFiles);
   }
 }

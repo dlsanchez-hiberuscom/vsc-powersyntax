@@ -94,21 +94,23 @@ suite('unit/scopeResolution', () => {
       { id: 'n_cst', name: 'n_cst', kind: EntityKind.Type, uri: 'file:///n_cst.sru', line: 0, character: 0 },
       { id: 'of_foo', name: 'of_foo', kind: EntityKind.Function, containerName: 'n_cst', uri: 'file:///n_cst.sru', line: 5, character: 0 }
     ]);
-    
-    // Añadimos una variable local con ese tipo
-    const scope = kb.getScopeAt(uri, 15);
-    if (scope) {
-        scope.symbols.push({
-            id: 'lo_obj',
-            name: 'lo_obj',
-            kind: EntityKind.Variable,
-            datatype: 'n_cst',
-            containerName: 'w_test.of_test',
-            uri: uri,
-            line: 11,
-            character: 4
-        });
-    }
+
+    // B174 endurece las lecturas públicas de la KB; para añadir una variable
+    // local al scope hay que reinyectar el documento con los scopes modificados.
+    const currentRecord = kb.exportDocumentRecords().find((record) => record.uri === uri);
+    assert.ok(currentRecord);
+    currentRecord.scopes[0].children[0].children[0].symbols.push({
+      id: 'lo_obj',
+      name: 'lo_obj',
+      kind: EntityKind.Variable,
+      datatype: 'n_cst',
+      containerName: 'w_test.of_test',
+      uri,
+      line: 11,
+      character: 4
+    });
+    kb.upsertDocument(uri, currentRecord.facts, currentRecord.scopes, currentRecord.snapshot);
+
     kb.endBatchUpdate();
 
     const targets = resolveTargetEntity(

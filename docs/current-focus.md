@@ -86,7 +86,7 @@ El foco actual es **hacer que el motor sea más correcto, más incremental, más
 
 ## Fase activa actual
 
-### Fase 2 — Persistencia robusta y hot path compartido
+### Fase 2 — Persistencia robusta, hot path compartido y cierre de residuales Partial
 
 Este es el foco principal actual.
 
@@ -99,9 +99,9 @@ Cerrar la persistencia operativa y el serving compartido para que:
 - `HotContextCache` y `ServingCache` se conviertan en aceleraciones reales,
 - y la observabilidad interna explique readiness, cachés y winner paths.
 
-La base de esta fase ya quedó implementada y validada como segundo corte operativo; `Specs 173-174` cierran `B071A` con checkpoints y journals persistidos por proyecto, restore agregado por partición y ancla de workspace para huérfanos. `Specs 175-184` cierran `B071B` con `ServingCache` exportable/rehidratable, snapshot persistente en `cacheStore`, wiring de restore/persist en runtime, parseo de epoch, filtro simétrico por epoch, coordinador dirty, flush oportuno al poblar/invalidate/shutdown y observabilidad básica en `powerbuilder.showStats`. `Specs 185-192` cierran `B172` con el contrato base de lineage, su población documental inicial, normalización común, visibilidad en `semanticDiff`, `winnerLineage` en resolución, puente con el catálogo de sistema, surface visible en hover y exportación mínima estable en `ApiSymbol`. El siguiente paso inmediato es endurecer confidence gates sobre esta base.
+La base de esta fase ya quedó implementada y validada como segundo corte operativo; `Specs 173-174` cierran `B071A` con checkpoints y journals persistidos por proyecto, restore agregado por partición y ancla de workspace para huérfanos. `Specs 175-184` cierran `B071B` con `ServingCache` exportable/rehidratable, snapshot persistente en `cacheStore`, wiring de restore/persist en runtime, parseo de epoch, filtro simétrico por epoch, coordinador dirty, flush oportuno al poblar/invalidate/shutdown y observabilidad básica en `powerbuilder.showStats`. `Specs 185-192` cierran `B172` con el contrato base de lineage, su población documental inicial, normalización común, visibilidad en `semanticDiff`, `winnerLineage` en resolución, puente con el catálogo de sistema, surface visible en hover y exportación mínima estable en `ApiSymbol`. `Specs 193-197` cierran `B165`, `B166`, `B170`, `B153`, `B154`, `B126` y `B174`. `Specs 198-204` hacen snapshot-first `documentSymbols`, `completion`, `signatureHelp`, `diagnostics` y `semanticTokens`, con lo que cierran `B151A` y permiten cerrar `B151`. `Specs 205-206`, `216` y `217` convierten el indexador en un two-phase real con pase estructural ligero, publicación `structural-only` y observabilidad por pass, cerrando `B152A` y `B152`. `Specs 207-208` y `210` cablean el intake real del watcher, añaden massive mode y validan backpressure end-to-end, cerrando `B169A` y `B169`. `Specs 209`, `211-215` llevan `UnifiedProjectModel` al routing compartido, al watcher, al status activo y a partes del hot path, pero `B141A` sigue abierta para serving e invariantes finales. Tras esta ola, el único `Partial` activo que queda en esta fase es `B141A`.
 
-### Ola 149-174 ya materializada como base operativa de persistencia y serving
+### Ola 149-217 ya materializada como base operativa de persistencia, serving y hardening del core
 
 - `Specs 149-152` dejaron listos `UnifiedProjectModel` y la base persistente `schema` + `journal` + `checkpoint`.
 - `Specs 153-163` materializan puerto persistente de filesystem, `cacheStore`, `workspaceKey` estable, metadata de checkpoint, validación estricta de journal, export/restore defensivo, `journal` interactivo y warm resume real.
@@ -116,22 +116,30 @@ La base de esta fase ya quedó implementada y validada como segundo corte operat
 - `Spec 190` traduce `PbSystemSymbolProvenance` al vocabulario común mediante `systemProvenanceToLineage()`.
 - `Spec 191` añade un resumen mínimo de lineage en hover para símbolos de usuario y de sistema.
 - `Spec 192` amplía `ApiSymbol` con `ApiSymbolLineage` y fija `toApiSymbol()` como mapper público mínimo y estable.
+- `Spec 193` hace snapshot-first a `KnowledgeBase` para `symbols` y `scopes` documentales, reduciendo `B151` al consumo end-to-end pendiente.
+- `Spec 194` cierra `B165` con validacion directa sobre publish atomico observable en readers documentales; con el binding por epoch ya implantado, `B166` queda cerrada.
+- `Spec 195` hace diff-aware la invalidacion del runtime y cierra `B170`, `B153` y `B154` sobre el grafo inverso ya existente.
+- `Spec 196` cierra `B126` ampliando `getIndexerStatus()` con ultima actividad relevante y contador de ejecuciones parciales.
+- `Spec 197` cierra `B174` endureciendo `KnowledgeBase`, `DocumentCache` y `HotContextCache` frente a mutacion accidental.
+- `Specs 198-204` cierran la migracion snapshot-first visible de `documentSymbols`, `completion`, `signatureHelp`, `diagnostics` y `semanticTokens`, dejando cerradas `B151A` y `B151`.
+- `Specs 205-206`, `216` y `217` cierran el publish `structural-only`, el pase estructural ligero y la observabilidad por pass, dejando cerradas `B152A` y `B152`.
+- `Specs 207-208` y `210` cierran el intake real del watcher con massive mode, cache sweep selectivo/masivo y validacion end-to-end de backpressure, dejando cerradas `B169A` y `B169`.
+- `Specs 209`, `211-215` llevan `UnifiedProjectModel` a `libraryOrder`, `workspaceIndexer`, `projectRouting`, refresh por watcher y status activo, reduciendo `B141A` a serving e invariantes finales.
 
 Validación registrada:
 
-- `npm run compile`
-- `npm run test:unit` → `350 passing`
-- `npm test` → smoke `2 passing`, unit `350 passing`, integration `4 passing`
+- `npm run build:test`
+- `npm run test:unit` → `376 passing`
+- `npm test` → smoke `2 passing`, unit `376 passing`, integration `4 passing`
 
 ### Siguiente cierre natural dentro de esta fase
 
-1. **B171** — confidence gates por feature  
-2. **B031** — referencias más precisas y robustas  
-3. **B032** — rename controlado sobre evidencia fuerte  
-4. **B066** — CodeLens fiable sobre serving compartido  
-5. **B065** — hierarchy inspection madura  
-6. **B109** — API pública para integración  
-7. **B164** — Interning y compactación de memoria
+1. **B141A** — cierre runtime del `UnifiedProjectModel` compartido  
+2. **B122** — priorización por dependencias cercanas sobre el nuevo estado real  
+3. **B125** — indexación progresiva del workspace completo con watcher ya cableado  
+4. **B134** — modelo único de progreso y readiness  
+5. **B158** — modo degradado formal apoyado en readiness por pass  
+6. **B159** — gobernador de latencia integrado con serving y scheduler
 
 ---
 
@@ -159,6 +167,7 @@ En otras palabras:
 
 ### Trabajo permitido y prioritario
 
+- cerrar `B141A` como último residual `Partial` de esta ola y, sobre esa base ya estabilizada, reabrir `B122`, `B125`, `B134`, `B158` y `B159`,
 - conectar `queryTrace` y `reasonCodes` con lineage y confidence gates,
 - endurecer `references`, `rename` y `CodeLens` sobre el query engine compartido,
 - consolidar la API pública mínima sin abrir aún superficies más ambiciosas,
@@ -223,7 +232,7 @@ Antes de mover el foco, esta fase debe dejar evidencia razonable de mejora.
 - persistencia solo en puntos de estabilidad verificables,
 - `ServingCache` y `HotContextCache` consumidos de forma real en el hot path,
 - `queryTrace` y `reasonCodes` visibles para debugging y stats,
-- y documentación técnica actualizada y alineada con la ola 153-192.
+- y documentación técnica actualizada y alineada con la ola 153-217.
 
 ---
 
@@ -235,13 +244,17 @@ El siguiente paso natural, una vez cerrado este foco, es:
 
 Orden previsto:
 
-1. **B171** — Confidence gates por feature  
-2. **B031** — Referencias más precisas y robustas  
-3. **B032** — Rename controlado  
-4. **B066** — CodeLens de referencias y herencia  
-5. **B065** — Ancestor script navigation + hierarchy inspection  
-6. **B109** — API pública para integración  
-7. **B164** — Interning y compactación de memoria
+1. **B141A** — cierre del project model compartido en runtime  
+2. **B122** — priorización por dependencias semánticas cercanas  
+3. **B125** — indexación progresiva del workspace completo  
+4. **B134** — progreso y readiness unificados  
+5. **B158** — modo degradado formal  
+6. **B159** — gobernador de latencia  
+7. **B156** — query engine unificado sobre esa base  
+8. **B066** — CodeLens de referencias y herencia  
+9. **B065** — Ancestor script navigation + hierarchy inspection  
+10. **B109** — API pública para integración  
+11. **B164** — Interning y compactación de memoria
 
 ---
 

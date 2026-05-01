@@ -1,6 +1,6 @@
 import * as assert from 'assert/strict';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
-import { EntityKind } from '../../../src/server/knowledge/types';
+import { EntityKind, ScopeKind } from '../../../src/server/knowledge/types';
 import type { SemanticDocumentSnapshot } from '../../../src/server/analysis/semanticSnapshot';
 
 function createSnapshot(
@@ -115,21 +115,122 @@ suite('unit/knowledge', () => {
       );
 
       assert.equal(kb.getDocumentSnapshot(uri)?.fingerprint, 77);
+      assert.equal(kb.getEntitiesByUri(uri)[0]?.id, 'f');
       assert.equal(kb.getStats().snapshotDocuments, 1);
+    });
+
+    test('getStats desglosa snapshots por pass y readiness', () => {
+      const kb = new KnowledgeBase();
+
+      kb.upsertDocument(
+        'file:///structural.sru',
+        [],
+        [],
+        {
+          ...createSnapshot('file:///structural.sru', 1),
+          pass: 'structural',
+          readiness: 'structural-only'
+        }
+      );
+      kb.upsertDocument(
+        'file:///enriched.sru',
+        [],
+        [],
+        {
+          ...createSnapshot('file:///enriched.sru', 2),
+          pass: 'enriched',
+          readiness: 'nearby-semantic-ready'
+        }
+      );
+
+      const stats = kb.getStats();
+      assert.equal(stats.snapshotDocuments, 2);
+      assert.equal(stats.structuralSnapshots, 1);
+      assert.equal(stats.enrichedSnapshots, 1);
+      assert.equal(stats.structuralOnlySnapshots, 1);
+      assert.equal(stats.nearbySemanticReadySnapshots, 1);
+    });
+
+    test('getEntitiesByUri prioriza symbols del snapshot publicado', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///snapshot-entities.sru';
+      const facts = [{ id: 'stale', name: 'stale', kind: EntityKind.Function, uri, line: 1, character: 0 }];
+      const snapshotSymbols = [{ id: 'fresh', name: 'fresh', kind: EntityKind.Function, uri, line: 5, character: 0 }];
+
+      kb.upsertDocument(uri, facts, [], createSnapshot(uri, 91, snapshotSymbols));
+
+      assert.deepEqual(kb.getEntitiesByUri(uri).map((entity) => entity.id), ['fresh']);
+      assert.equal(kb.findDefinition('stale')?.id, 'stale');
+    });
+
+    test('getScopeAt prioriza scopes del snapshot publicado', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///snapshot-scopes.sru';
+      const staleScope = {
+        id: 'stale_scope',
+        kind: ScopeKind.Function,
+        uri,
+        startLine: 0,
+        endLine: 3,
+        children: [],
+        symbols: []
+      };
+      const snapshotScope = {
+        id: 'fresh_scope',
+        kind: ScopeKind.Function,
+        uri,
+        startLine: 10,
+        endLine: 20,
+        children: [],
+        symbols: []
+      };
+
+      kb.upsertDocument(
+        uri,
+        [{ id: 'f', name: 'f', kind: EntityKind.Function, uri, line: 10, character: 0 }],
+        [staleScope],
+        {
+          ...createSnapshot(uri, 92),
+          scopes: [snapshotScope]
+        }
+      );
+
+      assert.equal(kb.getScopeAt(uri, 1), null);
+      assert.equal(kb.getScopeAt(uri, 15)?.id, 'fresh_scope');
     });
 
     test('batch update publica atómicamente al final', () => {
       const kb = new KnowledgeBase();
       const uri = 'file:///atomic.sru';
+      const scope = {
+        id: 'atomic_scope',
+        kind: ScopeKind.Function,
+        uri,
+        startLine: 1,
+        endLine: 4,
+        children: [],
+        symbols: []
+      };
+      const symbols = [{ id: 'f_batch', name: 'f_batch', kind: EntityKind.Function, uri, line: 1, character: 0 }];
+      const snapshot = {
+        ...createSnapshot(uri, 101, symbols),
+        scopes: [scope]
+      };
 
       kb.beginBatchUpdate();
-      kb.upsertDocument(uri, [{ id: 'f_batch', name: 'f_batch', kind: EntityKind.Function, uri, line: 1, character: 0 }]);
+      kb.upsertDocument(uri, symbols, [scope], snapshot);
 
       assert.equal(kb.findDefinition('f_batch'), null);
+      assert.deepEqual(kb.getEntitiesByUri(uri), []);
+      assert.equal(kb.getScopeAt(uri, 2), null);
+      assert.equal(kb.getDocumentSnapshot(uri), null);
 
       kb.commitBatchUpdate();
 
       assert.ok(kb.findDefinition('f_batch'));
+      assert.deepEqual(kb.getEntitiesByUri(uri).map((entity) => entity.id), ['f_batch']);
+      assert.equal(kb.getScopeAt(uri, 2)?.id, 'atomic_scope');
+      assert.equal(kb.getDocumentSnapshot(uri)?.fingerprint, 101);
       assert.equal(kb.semanticEpoch, 1);
     });
 
@@ -168,6 +269,48 @@ suite('unit/knowledge', () => {
       assert.equal(records.length, 1);
       assert.equal(records[0].uri, uri);
       assert.equal(records[0].facts[0].id, 'f_export');
+    });
+
+    test('lecturas públicas y entradas publicadas no exponen referencias vivas', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///defensive.sru';
+      const inputFacts = [{ id: 'f_defensive', name: 'f_defensive', kind: EntityKind.Function, uri, line: 1, character: 0 }];
+      const inputScopes = [{
+        id: 'defensive_scope',
+        kind: ScopeKind.Function,
+        uri,
+        startLine: 1,
+        endLine: 5,
+        children: [],
+        symbols: []
+      }];
+      const inputSnapshot = {
+        ...createSnapshot(uri, 777, inputFacts),
+        scopes: inputScopes
+      };
+
+      kb.upsertDocument(uri, inputFacts, inputScopes, inputSnapshot);
+      inputFacts[0].name = 'mutated-outside';
+      inputScopes[0].id = 'mutated-outside';
+      inputSnapshot.symbols[0].name = 'mutated-outside';
+
+      const definition = kb.findDefinition('f_defensive');
+      const allDefinitions = kb.findAllDefinitions('f_defensive');
+      const entitiesByUri = kb.getEntitiesByUri(uri);
+      const scope = kb.getScopeAt(uri, 2);
+      const snapshot = kb.getDocumentSnapshot(uri);
+
+      definition!.name = 'mutated-read';
+      allDefinitions[0].name = 'mutated-read';
+      entitiesByUri[0].name = 'mutated-read';
+      scope!.id = 'mutated-read';
+      snapshot!.symbols[0].name = 'mutated-read';
+
+      assert.equal(kb.findDefinition('f_defensive')?.name, 'f_defensive');
+      assert.equal(kb.findAllDefinitions('f_defensive')[0].name, 'f_defensive');
+      assert.equal(kb.getEntitiesByUri(uri)[0].name, 'f_defensive');
+      assert.equal(kb.getScopeAt(uri, 2)?.id, 'defensive_scope');
+      assert.equal(kb.getDocumentSnapshot(uri)?.symbols[0].name, 'f_defensive');
     });
   });
 });

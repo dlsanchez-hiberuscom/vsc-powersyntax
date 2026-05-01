@@ -143,12 +143,13 @@ export function checkMissingReturn(
  * Aplica las tres comprobaciones SD11/SD12/SD13 a un documento completo.
  */
 export function runExtraDiagnostics(document: TextDocument): Diagnostic[] {
-  const analysis = getDocumentAnalysis(document);
+  const snapshot = getDocumentAnalysis(document).snapshot;
   const out: Diagnostic[] = [];
-  walkScopes(analysis.scopes, (scope) => {
-    out.push(...checkUnreachableAfterReturn(scope, analysis.strippedLines));
-    out.push(...checkUnbalancedParens(scope, analysis.strippedLines));
-    out.push(...checkMissingReturn(scope, analysis.strippedLines));
+  const strippedLines = snapshot.maskedText.lines;
+  walkScopes(snapshot.scopes, (scope) => {
+    out.push(...checkUnreachableAfterReturn(scope, strippedLines));
+    out.push(...checkUnbalancedParens(scope, strippedLines));
+    out.push(...checkMissingReturn(scope, strippedLines));
   });
   return out;
 }

@@ -2,7 +2,10 @@ import * as assert from 'assert/strict';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
+import {
+  analyzeDocument,
+  analyzeDocumentStructural
+} from '../../../src/server/analysis/documentAnalysis';
 import { loadFixture } from '../helpers/fixtureLoader';
 
 suite('unit/documentAnalysis', () => {
@@ -245,6 +248,25 @@ suite('unit/documentAnalysis', () => {
       role: 'implementation',
       confidence: 'direct'
     });
+  });
+
+  test('analyzeDocumentStructural publica snapshot structural-only sin facts ni scopes', () => {
+    const source = loadFixture('basic/sample_forward.sru');
+    const document = TextDocument.create(
+      'file:///documentAnalysis-structural.sru',
+      'powerbuilder',
+      1,
+      source
+    );
+
+    const analysis = analyzeDocumentStructural(document);
+
+    assert.equal(analysis.snapshot.pass, 'structural');
+    assert.equal(analysis.snapshot.readiness, 'structural-only');
+    assert.deepEqual(analysis.snapshot.symbols, []);
+    assert.deepEqual(analysis.snapshot.scopes, []);
+    assert.ok(analysis.snapshot.containerModel.sections.length >= 3);
+    assert.ok(analysis.snapshot.containerModel.typeBlocks.length > 0);
   });
 });
 

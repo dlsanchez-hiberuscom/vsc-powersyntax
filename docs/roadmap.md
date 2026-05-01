@@ -125,7 +125,7 @@ Cerrar el corazón del motor para que publique estado coherente, recalcule solo 
 
 ### Ola 133-148 ya materializada
 
-La primera ola de esta fase ya no es solo documental: las `Specs 133-148` quedaron implementadas y validadas como primer corte operativo del nuevo core semántico. El cierre definitivo de la fase sigue ligado a endurecer consumo end-to-end sobre esa base.
+La primera ola de esta fase ya no es solo documental: las `Specs 133-148` quedaron implementadas y validadas como primer corte operativo del nuevo core semántico. `Specs 193-197` cierran `B165`, `B166`, `B170`, `B153`, `B154`, `B126` y `B174`; `Specs 198-204` cierran `B151A` y `B151`; `Specs 205-206`, `216` y `217` cierran `B152A` y `B152`; `Specs 207-208` y `210` cierran `B169A` y `B169`; y la validacion acumulada permite dar por cerradas `B123` y `B124`. Tras esta ola, el cierre definitivo de la fase queda ligado a `B122`, `B125`, `B134`, `B158`, `B159` y al remate final de `B141A` como residual cross-phase.
 
 ---
 
@@ -150,7 +150,7 @@ Evitar recomputado innecesario entre sesiones y convertir la persistencia en una
 
 ### Base 149-163 ya materializada
 
-La serie `Specs 149-163` ya materializa el primer corte operativo de `B141`, `B155`, `B167`, `B168`, `B071`, `B071A` y `B174` con `UnifiedProjectModel`, `cacheStore`, `workspaceKey` estable, metadata robusta, `journal` validado, export/restore defensivo y warm resume real de `DocumentCache` + `KnowledgeBase`. `Specs 173-174` cierran `B071A` con checkpoints y journals persistidos por proyecto, ancla de workspace para huérfanos y restore agregado por partición. `Specs 175-184` cierran el primer corte real de `B071B`: `ServingCache` ya es serializable, persistente, filtrado por epoch, sincronizado con populate/invalidation/shutdown y observable en `powerbuilder.showStats`. `Specs 185-192` cierran `B172` con el contrato base de lineage, su población documental inicial, una normalización común, un semantic diff que reacciona a lineage, un winner path que ya expone esa información, el bridge del catálogo de sistema, la surface visible en hover y una exportación pública mínima del símbolo.
+La serie `Specs 149-163` ya materializa el primer corte operativo de `B141`, `B155`, `B167`, `B168`, `B071` y `B071A` con `UnifiedProjectModel`, `cacheStore`, `workspaceKey` estable, metadata robusta, `journal` validado, export/restore defensivo y warm resume real de `DocumentCache` + `KnowledgeBase`. `Specs 173-174` cierran `B071A` con checkpoints y journals persistidos por proyecto, ancla de workspace para huérfanos y restore agregado por partición. `Specs 175-184` cierran el primer corte real de `B071B`: `ServingCache` ya es serializable, persistente, filtrado por epoch, sincronizado con populate/invalidation/shutdown y observable en `powerbuilder.showStats`. `Specs 185-192` cierran `B172` con el contrato base de lineage, su población documental inicial, una normalización común, un semantic diff que reacciona a lineage, un winner path que ya expone esa información, el bridge del catálogo de sistema, la surface visible en hover y una exportación pública mínima del símbolo. `Spec 197` cierra `B174` blindando las lecturas publicadas de `KnowledgeBase`, `DocumentCache` y `HotContextCache` frente a mutaciones accidentales. `Specs 209`, `211-215` reducen `B141A` llevando el project model compartido al routing real, al watcher y al status activo, pero la fase sigue abierta hasta cerrar serving e invariantes finales.
 
 ---
 

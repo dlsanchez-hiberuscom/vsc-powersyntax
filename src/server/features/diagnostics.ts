@@ -9,6 +9,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DIAGNOSTIC_SOURCE } from '../../shared/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { runExtraDiagnostics } from './diagnosticsExtra';
 import { BlockKind } from '../model/types';
 import { findEnclosingSection } from '../parsing/sections';
@@ -171,8 +172,9 @@ function dedupAndCap(diags: Diagnostic[], cap: number): Diagnostic[] {
 }
 
 export function validateStructure(document: TextDocument): Diagnostic[] {
-  const analysis = getDocumentAnalysis(document);
-  const { lines, sections } = analysis;
+  const snapshot = getDocumentAnalysis(document).snapshot;
+  const lines = snapshot.maskedText.lines;
+  const sections = snapshot.containerModel.sections;
   const diagnostics: Diagnostic[] = [];
   const stack: Array<{ kind: BlockKind; line: number; text: string }> = [];
 
@@ -184,7 +186,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
   let contStartText = '';
 
   for (let i = 0; i < lines.length; i++) {
-    const raw = analysis.strippedLines[i];
+    const raw = lines[i];
     const trimmedRaw = raw.trim();
 
     if (!trimmedRaw && contBuffer === '') {
@@ -375,8 +377,11 @@ export function validateSemantics(
   systemCatalog: SystemCatalog,
   inheritanceGraph: InheritanceGraph
 ): Diagnostic[] {
-  const analysis = getDocumentAnalysis(document);
-  const { lines, sections, semanticFacts, scopes } = analysis;
+  const snapshot = getDocumentAnalysis(document).snapshot;
+  const lines = snapshot.maskedText.lines;
+  const sections = snapshot.containerModel.sections;
+  const semanticFacts = snapshot.symbols;
+  const scopes = snapshot.scopes;
   const diagnostics: Diagnostic[] = [];
 
   // Encontrar el tipo principal del archivo
@@ -416,7 +421,7 @@ export function validateSemantics(
 
   // --- SD2: Validación dentro de scopes Function/Event ---
   for (const rootScope of scopes) {
-    visitScopes(rootScope, analysis.strippedLines, sections, diagnostics, kb, systemCatalog,
+    visitScopes(rootScope, lines, sections, diagnostics, kb, systemCatalog,
       hierarchyMemberNames, localCallables);
   }
 
@@ -440,7 +445,7 @@ export function validateSemantics(
 
   // --- SD9: `return` fuera de función/evento (Spec 079) ---
   // --- SD10: `exit`/`continue` fuera de bucle (Spec 080) ---
-  checkOrphanedFlowKeywords(analysis, diagnostics);
+  checkOrphanedFlowKeywords(snapshot, diagnostics);
 
   return diagnostics;
 }
@@ -775,10 +780,13 @@ function checkDuplicateDeclarations(
  * ya disponibles en el `DocumentAnalysis`.
  */
 function checkOrphanedFlowKeywords(
-  analysis: import('../analysis/documentAnalysis').DocumentAnalysis,
+  snapshot: SemanticDocumentSnapshot,
   diagnostics: Diagnostic[]
 ): void {
-  const { strippedLines, scopes, controlBlocks, sections } = analysis;
+  const strippedLines = snapshot.maskedText.lines;
+  const scopes = snapshot.scopes;
+  const controlBlocks = snapshot.controlBlocks;
+  const sections = snapshot.containerModel.sections;
 
   const isInsideCallable = (line: number): boolean => {
     const visit = (s: import('../knowledge/types').Scope): boolean => {

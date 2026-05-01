@@ -63,10 +63,10 @@ export function provideCompletion(
   hotContext?: HotContextCache,
   kbVersion?: number
 ): CompletionItem[] | null {
-  const analysis = getDocumentAnalysis(document);
-  const lineText = analysis.strippedLines[position.line].substring(0, position.character);
+  const snapshot = getDocumentAnalysis(document).snapshot;
+  const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
   
-  const mask = analysis.masks[position.line];
+  const mask = snapshot.maskedText.masks[position.line];
   
   // If the character before the cursor is a comment or string, we should probably not show completions
   // unless we are specifically in a string-only completion context (not yet implemented)

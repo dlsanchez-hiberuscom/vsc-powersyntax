@@ -124,4 +124,26 @@ suite('unit/semanticDiff', () => {
 
     assert.deepEqual(diff.exportedIdsUpdated, ['of_run']);
   });
+
+  test('cambio solo cosmético mantiene fingerprintChanged pero no cambio semántico', () => {
+    const previous = createSnapshot({
+      fingerprint: 10,
+      identity: 'file:///semantic-diff.sru@10',
+      symbols: [
+        { id: 'of_run', name: 'of_run', kind: EntityKind.Function, uri: 'file:///semantic-diff.sru', line: 5, character: 0, signature: 'of_run()' }
+      ]
+    });
+    const next = createSnapshot({
+      fingerprint: 11,
+      identity: 'file:///semantic-diff.sru@11',
+      symbols: [
+        { id: 'of_run', name: 'of_run', kind: EntityKind.Function, uri: 'file:///semantic-diff.sru', line: 5, character: 0, signature: 'of_run()' }
+      ]
+    });
+
+    const diff = diffSemanticSnapshots(previous, next);
+
+    assert.equal(diff.changed, false);
+    assert.equal(diff.fingerprintChanged, true);
+  });
 });

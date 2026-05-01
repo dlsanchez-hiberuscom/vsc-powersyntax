@@ -24,6 +24,10 @@ interface PublishedKnowledgeState {
   publishedAt: number;
 }
 
+function cloneValue<T>(value: T): T {
+  return structuredClone(value);
+}
+
 function createEmptyState(): PublishedKnowledgeState {
   return {
     globalSymbols: new Map(),
@@ -41,12 +45,12 @@ function createEmptyState(): PublishedKnowledgeState {
 
 function cloneState(state: PublishedKnowledgeState): PublishedKnowledgeState {
   return {
-    globalSymbols: new Map(Array.from(state.globalSymbols.entries(), ([key, value]) => [key, [...value]])),
+    globalSymbols: new Map(Array.from(state.globalSymbols.entries(), ([key, value]) => [key, cloneValue(value)])),
     documentSymbols: new Map(Array.from(state.documentSymbols.entries(), ([key, value]) => [key, new Set(value)])),
-    entitiesByUri: new Map(Array.from(state.entitiesByUri.entries(), ([key, value]) => [key, [...value]])),
-    documentScopes: new Map(state.documentScopes),
+    entitiesByUri: new Map(Array.from(state.entitiesByUri.entries(), ([key, value]) => [key, cloneValue(value)])),
+    documentScopes: new Map(Array.from(state.documentScopes.entries(), ([key, value]) => [key, cloneValue(value)])),
     scopeIndex: new Map(),
-    documentSnapshots: new Map(state.documentSnapshots),
+    documentSnapshots: new Map(Array.from(state.documentSnapshots.entries(), ([key, value]) => [key, cloneValue(value)])),
     documentDependencies: new Map(Array.from(state.documentDependencies.entries(), ([key, value]) => [key, new Set(value)])),
     reverseDependencies: new Map(Array.from(state.reverseDependencies.entries(), ([key, value]) => [key, new Set(value)])),
     semanticEpoch: state.semanticEpoch,
@@ -171,9 +175,12 @@ export class KnowledgeBase {
     snapshot?: SemanticDocumentSnapshot
   ): void {
     const normalizedUri = normalizeUri(uri);
+    const nextFacts = cloneValue(facts);
+    const nextScopes = cloneValue(scopes);
+    const nextSnapshot = snapshot ? cloneValue(snapshot) : undefined;
 
     this.writeState((state) => {
-      this.indexDocumentIntoState(state, normalizedUri, facts, scopes, snapshot);
+      this.indexDocumentIntoState(state, normalizedUri, nextFacts, nextScopes, nextSnapshot);
     });
   }
 
@@ -193,7 +200,7 @@ export class KnowledgeBase {
    */
   findDefinition(symbolName: string): Entity | null {
     const entities = this.publishedState.globalSymbols.get(symbolName.toLowerCase());
-    return entities && entities.length > 0 ? entities[0] : null;
+    return entities && entities.length > 0 ? cloneValue(entities[0]) : null;
   }
 
   /**
@@ -201,7 +208,7 @@ export class KnowledgeBase {
    * Necesario para "Go to Definition" cuando hay múltiples coincidencias.
    */
   findAllDefinitions(symbolName: string): Entity[] {
-    return this.publishedState.globalSymbols.get(symbolName.toLowerCase()) || [];
+    return cloneValue(this.publishedState.globalSymbols.get(symbolName.toLowerCase()) || []);
   }
 
   /**
@@ -219,8 +226,8 @@ export class KnowledgeBase {
         || e.kind === EntityKind.Subroutine
         || e.kind === EntityKind.Event;
       if (!isCallable) continue;
-      if (!containerLc) return e;
-      if ((e.containerName ?? '').toLowerCase() === containerLc) return e;
+      if (!containerLc) return cloneValue(e);
+      if ((e.containerName ?? '').toLowerCase() === containerLc) return cloneValue(e);
     }
     return null;
   }
@@ -233,7 +240,7 @@ export class KnowledgeBase {
     for (const entities of this.publishedState.globalSymbols.values()) {
       result.push(...entities);
     }
-    return result;
+    return cloneValue(result);
   }
 
   /**
@@ -242,13 +249,20 @@ export class KnowledgeBase {
    * cuando ya se conoce el archivo de interés.
    */
   getEntitiesByUri(uri: string): Entity[] {
-    const entities = this.publishedState.entitiesByUri.get(normalizeUri(uri));
-    return entities ? [...entities] : [];
+    const normalizedUri = normalizeUri(uri);
+    const snapshotEntities = this.publishedState.documentSnapshots.get(normalizedUri)?.symbols;
+    if (snapshotEntities) {
+      return cloneValue(snapshotEntities);
+    }
+
+    const entities = this.publishedState.entitiesByUri.get(normalizedUri);
+    return cloneValue(entities ?? []);
   }
 
   /** Snapshot semántico publicado de un documento. */
   getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null {
-    return this.publishedState.documentSnapshots.get(normalizeUri(uri)) ?? null;
+    const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
+    return snapshot ? cloneValue(snapshot) : null;
   }
 
   /** Documentos que dependen semánticamente de símbolos exportados por una URI. */
@@ -282,7 +296,8 @@ export class KnowledgeBase {
    */
   getScopeAt(uri: string, line: number): Scope | null {
     const normalizedUri = normalizeUri(uri);
-    const scopes = this.publishedState.documentScopes.get(normalizedUri);
+    const scopes = this.publishedState.documentSnapshots.get(normalizedUri)?.scopes
+      ?? this.publishedState.documentScopes.get(normalizedUri);
     if (!scopes || scopes.length === 0) return null;
 
     let index = this.publishedState.scopeIndex.get(normalizedUri);
@@ -322,7 +337,7 @@ export class KnowledgeBase {
       // pero no podemos asumirlo porque hay scopes raíces consecutivos. El
       // recorrido es lineal acotado por la profundidad real (típico ≤ 3).
     }
-    return best;
+    return best ? cloneValue(best) : null;
   }
 
   /**
@@ -345,12 +360,26 @@ export class KnowledgeBase {
     }
     let indexedScopes = 0;
     for (const arr of this.publishedState.scopeIndex.values()) indexedScopes += arr.length;
+    let structuralSnapshots = 0;
+    let enrichedSnapshots = 0;
+    let structuralOnlySnapshots = 0;
+    let nearbySemanticReadySnapshots = 0;
+    for (const snapshot of this.publishedState.documentSnapshots.values()) {
+      if (snapshot.pass === 'structural') structuralSnapshots++;
+      if (snapshot.pass === 'enriched') enrichedSnapshots++;
+      if (snapshot.readiness === 'structural-only') structuralOnlySnapshots++;
+      if (snapshot.readiness === 'nearby-semantic-ready') nearbySemanticReadySnapshots++;
+    }
     return {
       totalEntities,
       indexedDocuments: this.publishedState.documentSymbols.size,
       indexedScopes,
       semanticEpoch: this.publishedState.semanticEpoch,
       snapshotDocuments: this.publishedState.documentSnapshots.size,
+      structuralSnapshots,
+      enrichedSnapshots,
+      structuralOnlySnapshots,
+      nearbySemanticReadySnapshots,
       dependencyDocuments: this.publishedState.documentDependencies.size,
       reverseDependencyKeys: this.publishedState.reverseDependencies.size,
       publishedAt: this.publishedState.publishedAt

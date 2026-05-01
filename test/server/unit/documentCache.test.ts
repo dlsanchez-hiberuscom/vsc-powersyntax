@@ -89,5 +89,41 @@ suite('unit/knowledge', () => {
 
       assert.ok(cache.isValid('file:///persist.sru', 'hash-persist'));
     });
+
+    test('set y get no exponen referencias mutables', () => {
+      const cache = new DocumentCache();
+      const uri = 'file:///mutable.sru';
+      const entry = {
+        version: 'hash-live',
+        symbols: [],
+        facts: [{ id: 'f_live', name: 'f_live', kind: EntityKind.Function, uri, line: 0, character: 0 }],
+        scopes: [],
+        snapshot: {
+          uri,
+          version: 1,
+          fingerprint: 1,
+          identity: `${uri}@1`,
+          pass: 'enriched' as const,
+          readiness: 'nearby-semantic-ready' as const,
+          containerModel: { sections: [], typeBlocks: [] },
+          symbols: [{ id: 'f_live', name: 'f_live', kind: EntityKind.Function, uri, line: 0, character: 0 }],
+          scopes: [],
+          logicalStatements: [],
+          maskedText: { lines: ['x'], masks: [new Uint8Array([0])] },
+          controlBlocks: []
+        }
+      };
+
+      cache.set(uri, entry);
+      entry.facts[0].name = 'mutated-outside';
+
+      const readA = cache.get(uri)!;
+      readA.facts[0].name = 'mutated-read';
+      readA.snapshot!.symbols[0].name = 'mutated-snapshot';
+
+      const readB = cache.get(uri)!;
+      assert.equal(readB.facts[0].name, 'f_live');
+      assert.equal(readB.snapshot!.symbols[0].name, 'f_live');
+    });
   });
 });

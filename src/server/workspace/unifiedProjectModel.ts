@@ -1,6 +1,6 @@
 import { normalizeUri } from '../system/uriUtils';
-import type { ProjectRegistry } from './projectRegistry';
 import type { WorkspaceTopology } from './topology';
+import { resolveProjectRouting } from './projectRouting';
 
 export interface UnifiedProjectNode {
   projectUri: string;
@@ -12,16 +12,18 @@ export interface UnifiedProjectNode {
 export interface UnifiedProjectModel {
   getProjects(): UnifiedProjectNode[];
   getProjectForFile(uri: string): UnifiedProjectNode | null;
+  getFilesForProject(projectUri: string): string[];
   getLibrariesForFile(uri: string): string[];
   getStats(): { projects: number; libraries: number; orphanFiles: number };
 }
 
 export function buildUnifiedProjectModel(
   topology: WorkspaceTopology,
-  registry: ProjectRegistry | null,
   sourceFiles: string[]
 ): UnifiedProjectModel {
   const nodes = new Map<string, UnifiedProjectNode>();
+  const projectFiles = new Map<string, string[]>();
+  const routing = resolveProjectRouting(topology, sourceFiles);
 
   for (const target of topology.targets) {
     nodes.set(normalizeUri(target.uri), {
@@ -41,13 +43,35 @@ export function buildUnifiedProjectModel(
     });
   }
 
+  for (const file of sourceFiles) {
+    const projectUri = routing.fileToProject.get(normalizeUri(file));
+    if (!projectUri) continue;
+    const normalizedProjectUri = normalizeUri(projectUri);
+    const project = nodes.get(normalizedProjectUri);
+    if (!project) continue;
+
+    const normalizedFile = normalizeUri(file);
+    const belongsToDeclaredLibrary = project.libraries.some((libraryUri) => {
+      const prefix = libraryUri.endsWith('/') ? normalizeUri(libraryUri) : `${normalizeUri(libraryUri)}/`;
+      return normalizedFile.startsWith(prefix);
+    });
+    if (!belongsToDeclaredLibrary) continue;
+
+    const files = projectFiles.get(normalizedProjectUri) ?? [];
+    files.push(normalizedFile);
+    projectFiles.set(normalizedProjectUri, files);
+  }
+
   return {
     getProjects(): UnifiedProjectNode[] {
       return [...nodes.values()].sort((a, b) => a.projectUri.localeCompare(b.projectUri));
     },
     getProjectForFile(uri: string): UnifiedProjectNode | null {
-      const projectUri = registry?.getProjectForFile(uri) ?? null;
+      const projectUri = routing.fileToProject.get(normalizeUri(uri)) ?? null;
       return projectUri ? nodes.get(normalizeUri(projectUri)) ?? null : null;
+    },
+    getFilesForProject(projectUri: string): string[] {
+      return [...(projectFiles.get(normalizeUri(projectUri)) ?? [])];
     },
     getLibrariesForFile(uri: string): string[] {
       return this.getProjectForFile(uri)?.libraries ?? [];

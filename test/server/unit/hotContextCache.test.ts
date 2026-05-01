@@ -89,4 +89,25 @@ suite('unit/HotContextCache', () => {
     assert.equal(cache.getInheritedMembers('n_cst_a')?.length, 1);
     assert.equal(cache.getInheritedMembers('N_CST_A')?.length, 1);
   });
+
+  test('getters y setters copian defensivamente', () => {
+    const cache = new HotContextCache();
+    const activeEntities = [makeEntity('foo')];
+    const inheritedMembers = [makeEntity('bar')];
+
+    cache.setActive('file:///a.sru', 1);
+    cache.setActiveEntities(activeEntities);
+    cache.setInheritedMembers('n_cst_a', inheritedMembers);
+
+    activeEntities[0].name = 'mutated-outside';
+    inheritedMembers[0].name = 'mutated-outside';
+
+    const readActive = cache.getActiveEntities()!;
+    const readMembers = cache.getInheritedMembers('n_cst_a')!;
+    readActive[0].name = 'mutated-read';
+    readMembers[0].name = 'mutated-read';
+
+    assert.equal(cache.getActiveEntities()?.[0].name, 'foo');
+    assert.equal(cache.getInheritedMembers('n_cst_a')?.[0].name, 'bar');
+  });
 });

@@ -5,6 +5,7 @@ import {
   prioritizeFilesForIndexing
 } from '../../../src/server/indexer/workspaceIndexer';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
+import type { UnifiedProjectModel } from '../../../src/server/workspace/unifiedProjectModel';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { IFileSystem, FileStat } from '../../../src/server/system/fileSystem';
@@ -98,19 +99,29 @@ suite('unit/workspaceIndexer/progress', () => {
 
   test('prioriza archivo activo y archivos de su proyecto', () => {
     const state = new WorkspaceState();
-    state.setProjectRegistry({
-      getProjectForFile(uri: string): string | null {
-        return uri.includes('/projA/') ? 'projA' : uri.includes('/projB/') ? 'projB' : null;
+    state.setProjectModel({
+      getProjects() {
+        return [];
       },
-      getAllProjects(): string[] {
-        return ['projA', 'projB'];
+      getProjectForFile(uri: string) {
+        return uri.includes('/projA/')
+          ? { projectUri: 'projA', kind: 'target', name: 'projA', libraries: [] }
+          : uri.includes('/projB/')
+            ? { projectUri: 'projB', kind: 'target', name: 'projB', libraries: [] }
+            : null;
       },
       getFilesForProject(projectUri: string): string[] {
         return projectUri === 'projA'
           ? ['file:///projA/active.sru', 'file:///projA/nearby.sru']
           : ['file:///projB/other.sru'];
+      },
+      getLibrariesForFile(): string[] {
+        return [];
+      },
+      getStats() {
+        return { projects: 2, libraries: 0, orphanFiles: 0 };
       }
-    });
+    } as UnifiedProjectModel);
 
     const ordered = prioritizeFilesForIndexing(
       ['file:///projB/other.sru', 'file:///projA/nearby.sru', 'file:///projA/active.sru'],
@@ -148,5 +159,92 @@ suite('unit/workspaceIndexer/progress', () => {
     assert.equal(status.degraded, true);
     assert.equal(status.byState.failed, 1);
     assert.equal(status.pass, undefined);
+    assert.equal(status.lastFailedUri, 'file:///proj/broken.sru');
+  });
+
+  test('status expone la última URI procesada', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache();
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    fs.files.set('file:///proj/only.sru', 'forward prototypes\nend prototypes\n');
+    state.addSourceFile('file:///proj/only.sru');
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+
+    const status = getIndexerStatus();
+    assert.equal(status.lastProcessedUri, 'file:///proj/only.sru');
+    assert.equal(status.lastFailedUri, undefined);
+  });
+
+  test('status contabiliza ejecuciones parciales por cancelación', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache();
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    fs.files.set('file:///proj/cancelled.sru', 'forward prototypes\nend prototypes\n');
+    state.addSourceFile('file:///proj/cancelled.sru');
+    cancelSource.cancel();
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+
+    const status = getIndexerStatus();
+    assert.equal(status.phase, 'partial');
+    assert.equal(status.partialRuns, 1);
+    assert.equal(status.degradedReason, 'partial-index');
+  });
+
+  test('publica snapshot structural-only antes de empezar enriched', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache();
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    fs.files.set('file:///proj/structural.sru', 'forward prototypes\nend prototypes\n');
+    state.addSourceFile('file:///proj/structural.sru');
+
+    let snapshotAtEnrichedStart = kb.getDocumentSnapshot('file:///proj/structural.sru');
+
+    await indexWorkspace(
+      fs,
+      cache,
+      kb,
+      state,
+      cancelSource.token,
+      undefined,
+      (current, total, meta) => {
+        if (current === 0 && total === 1 && meta.pass === 'enriched') {
+          snapshotAtEnrichedStart = kb.getDocumentSnapshot('file:///proj/structural.sru');
+        }
+      }
+    );
+
+    assert.equal(snapshotAtEnrichedStart?.pass, 'structural');
+    assert.equal(snapshotAtEnrichedStart?.readiness, 'structural-only');
+    assert.deepEqual(snapshotAtEnrichedStart?.symbols, []);
+    assert.equal(getIndexerStatus().structuralPublished, 1);
+  });
+
+  test('promueve el snapshot a nearby-semantic-ready al cerrar enriched', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache();
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    fs.files.set('file:///proj/enriched.sru', 'forward prototypes\nend prototypes\n');
+    state.addSourceFile('file:///proj/enriched.sru');
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+
+    const snapshot = kb.getDocumentSnapshot('file:///proj/enriched.sru');
+    assert.equal(snapshot?.pass, 'enriched');
+    assert.equal(snapshot?.readiness, 'nearby-semantic-ready');
+    assert.equal(getIndexerStatus().enrichedPublished, 1);
   });
 });

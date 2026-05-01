@@ -1,7 +1,7 @@
 import { SemanticTokens, SemanticTokensBuilder, SemanticTokensLegend } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
-import { DocumentAnalysis } from '../analysis/documentAnalysis';
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
@@ -74,19 +74,15 @@ export function provideSemanticTokens(
   kb: KnowledgeBase,
   inheritanceGraph: InheritanceGraph
 ): SemanticTokens {
-  const analysis = getDocumentAnalysis(document);
-
-  if (!analysis) {
-    return { data: [] };
-  }
+  const snapshot = getDocumentAnalysis(document).snapshot;
 
   const tokens: TokenEntry[] = [];
 
   // Coloreamos las declaraciones extraídas
-  emitDeclarations(analysis, tokens);
+  emitDeclarations(snapshot, tokens);
 
   // Coloreamos los usos
-  emitUsages(document, analysis, kb, inheritanceGraph, tokens);
+  emitUsages(document, snapshot, kb, inheritanceGraph, tokens);
 
   // Ordenar tokens: por línea, luego por carácter
   tokens.sort((a, b) => {
@@ -113,28 +109,26 @@ export function provideSemanticTokens(
   return builder.build();
 }
 
-function emitDeclarations(analysis: DocumentAnalysis, tokens: TokenEntry[]): void {
-  for (const fact of analysis.facts) {
-    if (fact.kind === 'section') continue;
-
+function emitDeclarations(snapshot: SemanticDocumentSnapshot, tokens: TokenEntry[]): void {
+  for (const fact of snapshot.symbols) {
     let tokenType: number;
     let modifiers = MODIFIER_MASK.declaration;
 
     switch (fact.kind) {
-      case 'variable':
+      case EntityKind.Variable:
         tokenType = TYPE_INDEX.variable;
         if (fact.scope === 'Local') modifiers |= MODIFIER_MASK.local;
         else if (fact.scope === 'Instancia') modifiers |= MODIFIER_MASK.instance;
         else if (fact.scope === 'Global' || fact.scope === 'Compartida') modifiers |= MODIFIER_MASK.global;
         break;
-      case 'function':
-      case 'subroutine':
+      case EntityKind.Function:
+      case EntityKind.Subroutine:
         tokenType = TYPE_INDEX.function;
         break;
-      case 'event':
+      case EntityKind.Event:
         tokenType = TYPE_INDEX.event;
         break;
-      case 'type':
+      case EntityKind.Type:
         tokenType = TYPE_INDEX.type;
         break;
       default:
@@ -147,8 +141,8 @@ function emitDeclarations(analysis: DocumentAnalysis, tokens: TokenEntry[]): voi
 
     tokens.push({
       line: fact.line,
-      char: fact.startCharacter,
-      length: fact.endCharacter - fact.startCharacter,
+      char: fact.character,
+      length: fact.name.length,
       type: tokenType,
       mods: modifiers
     });
@@ -183,20 +177,20 @@ function emitDeclarations(analysis: DocumentAnalysis, tokens: TokenEntry[]): voi
     }
   };
 
-  for (const scope of analysis.scopes) {
+  for (const scope of snapshot.scopes) {
     emitScopeSymbols(scope);
   }
 }
 
 function emitUsages(
   document: TextDocument,
-  analysis: DocumentAnalysis,
+  snapshot: SemanticDocumentSnapshot,
   kb: KnowledgeBase,
   inheritanceGraph: InheritanceGraph,
   tokens: TokenEntry[]
 ): void {
   // Aquí escanearemos strippedLines para encontrar usos
-  const lines = analysis.strippedLines;
+  const lines = snapshot.maskedText.lines;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -216,7 +210,7 @@ function emitUsages(
       const lowerId = identifier.toLowerCase();
 
       // Resolver localmente rápido
-      const scope = getScopeAtLine(analysis, i);
+      const scope = getScopeAtLine(snapshot, i);
       if (scope) {
         const local = scope.symbols.find(s => s.name.toLowerCase() === lowerId);
         if (local) {
@@ -278,7 +272,7 @@ function emitUsages(
   }
 }
 
-function getScopeAtLine(analysis: DocumentAnalysis, line: number): Scope | undefined {
+function getScopeAtLine(snapshot: SemanticDocumentSnapshot, line: number): Scope | undefined {
   const findDeepest = (scopes: Scope[]): Scope | undefined => {
     let bestMatch: Scope | undefined;
     for (const scope of scopes) {
@@ -291,7 +285,7 @@ function getScopeAtLine(analysis: DocumentAnalysis, line: number): Scope | undef
     return bestMatch;
   };
 
-  return findDeepest(analysis.scopes);
+  return findDeepest(snapshot.scopes);
 }
 
 function extractQualifier(line: string, identifierStart: number): string | undefined {

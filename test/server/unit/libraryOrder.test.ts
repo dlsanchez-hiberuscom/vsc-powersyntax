@@ -1,7 +1,7 @@
 import * as assert from 'assert/strict';
 import { resolveByLibraryOrder } from '../../../src/server/knowledge/resolution/libraryOrder';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
-import { buildProjectRegistry } from '../../../src/server/workspace/projectRegistry';
+import { buildUnifiedProjectModel } from '../../../src/server/workspace/unifiedProjectModel';
 import type { Entity } from '../../../src/server/knowledge/types';
 import { EntityKind } from '../../../src/server/knowledge/types';
 
@@ -27,11 +27,10 @@ suite('unit/libraryOrder', () => {
         libraries: ['file:///p/libA.pbl', 'file:///p/libB.pbl']
       }
     });
-    const reg = buildProjectRegistry(state.getTopology(), [
+    state.setProjectModel(buildUnifiedProjectModel(state.getTopology(), [
       'file:///p/libA.pbl/x.sru',
       'file:///p/libB.pbl/x.sru'
-    ]);
-    state.setProjectRegistry(reg);
+    ]));
 
     const candidates = [
       makeEntity('file:///p/libB.pbl/x.sru'),
@@ -51,11 +50,10 @@ suite('unit/libraryOrder', () => {
       kind: 'target',
       data: { uri: 'file:///p/extra.pbt', name: 'extra', libraries: ['file:///p/libB.pbl'] }
     });
-    const reg = buildProjectRegistry(state.getTopology(), [
+    state.setProjectModel(buildUnifiedProjectModel(state.getTopology(), [
       'file:///p/libA.pbl/x.sru',
       'file:///p/libB.pbl/x.sru'
-    ]);
-    state.setProjectRegistry(reg);
+    ]));
 
     const candidates = [
       makeEntity('file:///p/libB.pbl/x.sru'),

@@ -2,171 +2,173 @@ import { DocumentSymbol, SymbolKind } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { getDocumentAnalysis } from '../analysis/analysisCache';
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { createSectionSymbol, findEnclosingSection } from '../parsing/sections';
 import {
-  matchEventImplementationHeader,
-  matchFunctionImplementationHeader,
-  matchOnImplementationHeader,
-  matchTypeDefinition
-} from '../parsing/matchers';
-import {
-  createSymbol,
-  eventSelectionStart,
-  findBlockEnd
+  createSymbol
 } from '../utils/helpers';
-import {
-  END_TYPE_PATTERN,
-  END_FUNCTION_PATTERN,
-  END_SUBROUTINE_PATTERN,
-  END_EVENT_PATTERN,
-  END_ON_PATTERN
-} from '../parsing/grammar';
+import { EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
 export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[] {
-  const analysis = getDocumentAnalysis(document);
-  const { lines, sections } = analysis;
+  return extractDocumentSymbolsFromSnapshot(getDocumentAnalysis(document).snapshot);
+}
+
+export function extractDocumentSymbolsFromSnapshot(
+  snapshot: SemanticDocumentSnapshot
+): DocumentSymbol[] {
+  const lines = snapshot.maskedText.lines;
+  const sections = snapshot.containerModel.sections;
   const symbols: DocumentSymbol[] = [];
 
   for (const section of sections) {
     symbols.push(createSectionSymbol(lines, section));
   }
 
+  const callableScopes = flattenCallableScopes(snapshot.scopes);
   const typeSymbolsMap = new Map<string, DocumentSymbol>();
-  let currentContainerName: string | undefined;
-
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    const enclosingSection = findEnclosingSection(i, sections);
-
-    if (
-      enclosingSection?.kind === 'prototypes' ||
-      enclosingSection?.kind === 'variables'
-    ) {
-      i++;
+  for (const typeBlock of [...snapshot.containerModel.typeBlocks].sort(byStartLine)) {
+    const enclosingSection = findEnclosingSection(typeBlock.startLine, sections);
+    if (enclosingSection?.kind === 'forward') {
       continue;
     }
 
-    const typeMatch = matchTypeDefinition(line);
-    if (typeMatch) {
-      if (enclosingSection?.kind !== 'forward') {
-        currentContainerName = typeMatch.name.toLowerCase();
-      }
-      const endLine = findBlockEnd(lines, i, [END_TYPE_PATTERN]);
-      if (endLine > i) {
-        const sym = createSymbol(
-            typeMatch.name,
-            SymbolKind.Class,
-            i,
-            line.indexOf(typeMatch.name),
-            endLine,
-            lines[endLine].length,
-            typeMatch.container
-              ? `type from ${typeMatch.ancestor} within ${typeMatch.container}`
-              : `type from ${typeMatch.ancestor}`
-        );
+    const typeFact = findTypeFact(snapshot, typeBlock.name, typeBlock.startLine);
+    const symbol = createSymbol(
+      typeBlock.name,
+      SymbolKind.Class,
+      typeBlock.startLine,
+      typeFact?.character ?? findNameStart(lines[typeBlock.startLine], typeBlock.name),
+      typeBlock.endLine,
+      lines[typeBlock.endLine]?.length ?? 0,
+      buildTypeDetail(typeBlock, typeFact)
+    );
 
-        // Truco para LSP: expandir el rango del contenedor hasta el EOF
-        // para que VS Code permita anidar funciones y eventos que están más abajo.
-        sym.range.end.line = lines.length - 1;
-        sym.range.end.character = lines[lines.length - 1].length;
+    symbol.range.end.line = lines.length - 1;
+    symbol.range.end.character = lines[lines.length - 1]?.length ?? 0;
 
-        typeSymbolsMap.set(typeMatch.name.toLowerCase(), sym);
-
-        if (typeMatch.container) {
-          const parent = typeSymbolsMap.get(typeMatch.container.toLowerCase());
-          if (parent) {
-            parent.children!.push(sym);
-          } else {
-            symbols.push(sym);
-          }
-        } else {
-          symbols.push(sym);
-        }
-
-        i = endLine + 1;
-        continue;
-      }
-    }
-
-    if (!enclosingSection) {
-      const fn = matchFunctionImplementationHeader(line);
-      if (fn) {
-        const endPatterns =
-          fn.kind === 'function'
-            ? [END_FUNCTION_PATTERN]
-            : [END_SUBROUTINE_PATTERN];
-
-        const endLine = findBlockEnd(lines, i, endPatterns);
-        if (endLine > i) {
-          const sym = createSymbol(
-              fn.name,
-              SymbolKind.Function,
-              i,
-              line.indexOf(fn.name),
-              endLine,
-              lines[endLine].length,
-              fn.kind === 'function'
-                ? `function : ${fn.returnType}`
-                : 'subroutine'
-          );
-
-          if (currentContainerName) {
-            const parent = typeSymbolsMap.get(currentContainerName);
-            if (parent) {
-              parent.children!.push(sym);
-            } else {
-              symbols.push(sym);
-            }
-          } else {
-            symbols.push(sym);
-          }
-
-          i = endLine + 1;
-          continue;
-        }
-      }
-
-      const ev =
-        matchEventImplementationHeader(line) ?? matchOnImplementationHeader(line);
-
-      if (ev) {
-        const endLine = findBlockEnd(lines, i, [
-          END_EVENT_PATTERN,
-          END_ON_PATTERN
-        ]);
-
-        if (endLine > i) {
-          const sym = createSymbol(
-              ev.name,
-              SymbolKind.Event,
-              i,
-              eventSelectionStart(line, ev.name),
-              endLine,
-              lines[endLine].length,
-              ev.detail
-          );
-
-          if (currentContainerName) {
-            const parent = typeSymbolsMap.get(currentContainerName);
-            if (parent) {
-              parent.children!.push(sym);
-            } else {
-              symbols.push(sym);
-            }
-          } else {
-            symbols.push(sym);
-          }
-
-          i = endLine + 1;
-          continue;
-        }
-      }
-    }
-
-    i++;
+    typeSymbolsMap.set(typeBlock.name.toLowerCase(), symbol);
+    attachToContainer(symbols, typeSymbolsMap, typeBlock.container, symbol);
   }
 
-  symbols.sort((a, b) => a.range.start.line - b.range.start.line);
+  const callableFacts = snapshot.symbols
+    .filter((fact) => !fact.isPrototype && isCallableKind(fact.kind))
+    .sort((left, right) => left.line - right.line);
+
+  for (const fact of callableFacts) {
+    const scope = findCallableScope(callableScopes, fact.line, fact.kind);
+    const endLine = scope?.endLine ?? fact.line;
+    const symbol = createSymbol(
+      fact.name,
+      fact.kind === EntityKind.Event ? SymbolKind.Event : SymbolKind.Function,
+      fact.line,
+      fact.character,
+      endLine,
+      lines[endLine]?.length ?? fact.character + fact.name.length,
+      fact.signature
+    );
+
+    attachToContainer(symbols, typeSymbolsMap, fact.containerName, symbol);
+  }
+
+  sortSymbols(symbols);
   return symbols;
+}
+
+function buildTypeDetail(
+  typeBlock: SemanticDocumentSnapshot['containerModel']['typeBlocks'][number],
+  typeFact: SemanticDocumentSnapshot['symbols'][number] | undefined
+): string {
+  if (typeFact?.signature) {
+    return typeFact.signature;
+  }
+
+  const baseTypeName = typeFact?.baseTypeName ?? 'unknown';
+  return typeBlock.container
+    ? `type from ${baseTypeName} within ${typeBlock.container}`
+    : `type from ${baseTypeName}`;
+}
+
+function findTypeFact(
+  snapshot: SemanticDocumentSnapshot,
+  typeName: string,
+  startLine: number
+): SemanticDocumentSnapshot['symbols'][number] | undefined {
+  return snapshot.symbols.find(
+    (fact) => fact.kind === EntityKind.Type
+      && !fact.isPrototype
+      && fact.line === startLine
+      && fact.name.toLowerCase() === typeName.toLowerCase()
+  );
+}
+
+function flattenCallableScopes(scopes: Scope[]): Scope[] {
+  const out: Scope[] = [];
+  const walk = (list: Scope[]) => {
+    for (const scope of list) {
+      if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
+        out.push(scope);
+      }
+      if (scope.children.length > 0) {
+        walk(scope.children);
+      }
+    }
+  };
+
+  walk(scopes);
+  return out;
+}
+
+function findCallableScope(
+  scopes: Scope[],
+  line: number,
+  kind: EntityKind
+): Scope | undefined {
+  const expectedKind = kind === EntityKind.Event ? ScopeKind.Event : ScopeKind.Function;
+  return scopes.find((scope) => scope.startLine === line && scope.kind === expectedKind);
+}
+
+function findNameStart(line: string | undefined, name: string): number {
+  if (!line) {
+    return 0;
+  }
+
+  const index = line.toLowerCase().indexOf(name.toLowerCase());
+  return index >= 0 ? index : 0;
+}
+
+function isCallableKind(kind: EntityKind): boolean {
+  return kind === EntityKind.Function
+    || kind === EntityKind.Subroutine
+    || kind === EntityKind.Event;
+}
+
+function attachToContainer(
+  roots: DocumentSymbol[],
+  typeSymbolsMap: Map<string, DocumentSymbol>,
+  containerName: string | undefined,
+  symbol: DocumentSymbol
+): void {
+  const parent = containerName ? typeSymbolsMap.get(containerName.toLowerCase()) : undefined;
+  if (parent) {
+    parent.children!.push(symbol);
+    return;
+  }
+
+  roots.push(symbol);
+}
+
+function byStartLine(
+  left: { startLine: number },
+  right: { startLine: number }
+): number {
+  return left.startLine - right.startLine;
+}
+
+function sortSymbols(symbols: DocumentSymbol[]): void {
+  symbols.sort((left, right) => left.range.start.line - right.range.start.line);
+  for (const symbol of symbols) {
+    if (symbol.children && symbol.children.length > 0) {
+      sortSymbols(symbol.children);
+    }
+  }
 }

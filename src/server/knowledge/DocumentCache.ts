@@ -2,6 +2,10 @@ import { DocumentCacheEntry } from './types';
 import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
 import { normalizeUri } from '../system/uriUtils';
 
+function cloneValue<T>(value: T): T {
+  return structuredClone(value);
+}
+
 /**
  * Caché documental de alto rendimiento.
  * Almacena el resultado del parseo (Símbolos y Facts) por cada archivo.
@@ -15,14 +19,15 @@ export class DocumentCache {
    */
   set(uri: string, entry: DocumentCacheEntry): void {
     const normalized = normalizeUri(uri);
-    this.cache.set(normalized, entry);
+    this.cache.set(normalized, cloneValue(entry));
   }
 
   /**
    * Recupera la caché de un documento.
    */
   get(uri: string): DocumentCacheEntry | undefined {
-    return this.cache.get(normalizeUri(uri));
+    const entry = this.cache.get(normalizeUri(uri));
+    return entry ? cloneValue(entry) : undefined;
   }
 
   /** Snapshot semántico canónico asociado a una URI, si existe. */
@@ -34,7 +39,7 @@ export class DocumentCache {
    * Comprueba si la caché de un documento sigue siendo válida comparando la versión/hash.
    */
   isValid(uri: string, version: string | number): boolean {
-    const entry = this.get(uri);
+    const entry = this.cache.get(normalizeUri(uri));
     return entry !== undefined && entry.version === version;
   }
 

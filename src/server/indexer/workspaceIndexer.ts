@@ -6,7 +6,8 @@ import { normalizeUri } from '../system/uriUtils';
 import { DocumentCache } from '../knowledge/DocumentCache';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { WorkspaceState } from '../workspace/workspaceState';
-import { analyzeDocument } from '../analysis/documentAnalysis';
+import { analyzeDocument, analyzeDocumentStructural } from '../analysis/documentAnalysis';
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { createLatencyGovernor } from '../runtime/latencyGovernor';
 import type { ProgressPass } from '../../shared/types';
 
@@ -31,6 +32,16 @@ export interface IndexerProgressMeta {
 }
 
 export type IndexerProgressCallback = (current: number, total: number, meta: IndexerProgressMeta) => void;
+
+interface PreparedDocument {
+  uri: string;
+  hash: string;
+  content?: string;
+  facts?: ReturnType<typeof analyzeDocument>['semanticFacts'];
+  scopes?: ReturnType<typeof analyzeDocument>['scopes'];
+  structuralSnapshot: SemanticDocumentSnapshot;
+  enrichedSnapshot?: SemanticDocumentSnapshot;
+}
 
 /** Cada cuántos archivos se reporta progreso intermedio. */
 const DEFAULT_PROGRESS_INTERVAL = 25;
@@ -95,21 +106,29 @@ const indexerStatus: {
   current: number;
   structuralProcessed: number;
   enrichedProcessed: number;
+  structuralPublished: number;
+  enrichedPublished: number;
   yielded: number;
   workBudgetMs: number;
   degraded: boolean;
   degradedReason?: string;
   activeUri?: string;
   pass?: ProgressPass;
+  lastProcessedUri?: string;
+  lastFailedUri?: string;
+  partialRuns: number;
 } = {
   phase: 'idle',
   total: 0,
   current: 0,
   structuralProcessed: 0,
   enrichedProcessed: 0,
+  structuralPublished: 0,
+  enrichedPublished: 0,
   yielded: 0,
   workBudgetMs: TIME_SLICE_MS,
-  degraded: false
+  degraded: false,
+  partialRuns: 0
 };
 
 /** Spec 123: lectura del estado de un archivo (sólo lectura). */
@@ -124,12 +143,17 @@ export function getIndexerStatus(): {
   current: number;
   structuralProcessed: number;
   enrichedProcessed: number;
+  structuralPublished: number;
+  enrichedPublished: number;
   yielded: number;
   workBudgetMs: number;
   degraded: boolean;
   degradedReason?: string;
   activeUri?: string;
   pass?: ProgressPass;
+  lastProcessedUri?: string;
+  lastFailedUri?: string;
+  partialRuns: number;
   byState: Record<FileIndexState, number>;
 } {
   const byState: Record<FileIndexState, number> = {
@@ -167,10 +191,10 @@ export function prioritizeFilesForIndexing(
   }
 
   const normalizedActiveUri = normalizeUri(activeUri);
-  const registry = workspaceState.getProjectRegistry();
-  const activeProject = registry?.getProjectForFile(normalizedActiveUri) ?? null;
+  const projectModel = workspaceState.getProjectModel();
+  const activeProject = projectModel?.getProjectForFile(normalizedActiveUri) ?? null;
   const sameProject = new Set(
-    activeProject ? registry?.getFilesForProject(activeProject).map((uri) => normalizeUri(uri)) : []
+    activeProject ? projectModel?.getFilesForProject(activeProject.projectUri).map((uri) => normalizeUri(uri)) : []
   );
 
   return ordered.sort((left, right) => {
@@ -209,13 +233,7 @@ export async function indexWorkspace(
   let enrichedProcessed = 0;
   let committed = false;
   const latencyGovernor = createLatencyGovernor({ initialBudgetMs: TIME_SLICE_MS });
-  const preparedDocuments: Array<{
-    uri: string;
-    hash: string;
-    facts: ReturnType<typeof analyzeDocument>['semanticFacts'];
-    scopes: ReturnType<typeof analyzeDocument>['scopes'];
-    snapshot: ReturnType<typeof analyzeDocument>['snapshot'];
-  }> = [];
+  const preparedDocuments: PreparedDocument[] = [];
   // Spec 123: marcar todos como Pending al arrancar.
   fileStates.clear();
   for (const f of files) fileStates.set(f, FileIndexState.Pending);
@@ -224,12 +242,16 @@ export async function indexWorkspace(
   indexerStatus.current = 0;
   indexerStatus.structuralProcessed = 0;
   indexerStatus.enrichedProcessed = 0;
+  indexerStatus.structuralPublished = 0;
+  indexerStatus.enrichedPublished = 0;
   indexerStatus.yielded = 0;
   indexerStatus.workBudgetMs = latencyGovernor.getBudgetMs();
   indexerStatus.degraded = false;
   indexerStatus.degradedReason = undefined;
   indexerStatus.activeUri = activeUri;
   indexerStatus.pass = 'structural';
+  indexerStatus.lastProcessedUri = undefined;
+  indexerStatus.lastFailedUri = undefined;
 
   reportProgress(onProgress, 0, total, 'structural');
 
@@ -249,6 +271,7 @@ export async function indexWorkspace(
       }
 
       try {
+        indexerStatus.lastProcessedUri = uri;
         fileStates.set(uri, FileIndexState.Indexing);
         const content = await fs.readFile(uri);
         // Spec 126: skip si excede el budget.
@@ -262,13 +285,14 @@ export async function indexWorkspace(
         const cachedEntry = cache.get(uri);
 
         // Si ya está en caché y el hash coincide, saltamos el parseo
-        if (cache.isValid(uri, hash) && cachedEntry?.snapshot) {
+        if (cache.isValid(uri, hash) && cachedEntry?.snapshot && isEnrichedSnapshot(cachedEntry.snapshot)) {
           preparedDocuments.push({
             uri,
             hash,
             facts: cachedEntry.facts,
             scopes: cachedEntry.scopes,
-            snapshot: cachedEntry.snapshot
+            structuralSnapshot: createStructuralSnapshot(cachedEntry.snapshot),
+            enrichedSnapshot: cachedEntry.snapshot
           });
           structuralProcessed++;
           updateStatus('structural', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
@@ -278,25 +302,15 @@ export async function indexWorkspace(
           continue;
         }
 
-        // Parseo y análisis (los DocumentSymbols se calculan bajo demanda
-        // en el feature LSP correspondiente, evitando trabajo desperdiciado aquí).
+        // El primer pase solo necesita un snapshot estructural barato.
         const document = TextDocument.create(uri, 'powerbuilder', 1, content);
-        const analysis = analyzeDocument(document);
-
-        // Actualizar Caché
-        cache.set(uri, {
-          version: hash,
-          facts: analysis.semanticFacts,
-          symbols: [],
-          scopes: analysis.scopes,
-          snapshot: analysis.snapshot
-        });
+        const analysis = analyzeDocumentStructural(document);
         preparedDocuments.push({
           uri,
           hash,
-          facts: analysis.semanticFacts,
-          scopes: analysis.scopes,
-          snapshot: analysis.snapshot
+          content,
+          structuralSnapshot: analysis.snapshot,
+          enrichedSnapshot: undefined
         });
         structuralProcessed++;
         updateStatus('structural', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
@@ -325,9 +339,22 @@ export async function indexWorkspace(
         }
       } catch (e) {
         fileStates.set(uri, FileIndexState.Failed);
+        indexerStatus.lastFailedUri = uri;
         log(`[INDEXER] Error procesando ${uri}: ${String(e)}`);
       }
     }
+
+    kb.beginBatchUpdate();
+    for (const prepared of preparedDocuments) {
+      kb.upsertDocument(
+        prepared.uri,
+        prepared.structuralSnapshot.symbols,
+        prepared.structuralSnapshot.scopes,
+        prepared.structuralSnapshot
+      );
+    }
+    kb.commitBatchUpdate();
+    indexerStatus.structuralPublished = preparedDocuments.length;
 
     indexerStatus.phase = 'enriched';
     indexerStatus.pass = 'enriched';
@@ -343,7 +370,28 @@ export async function indexWorkspace(
         break;
       }
 
-      kb.upsertDocument(prepared.uri, prepared.facts, prepared.scopes, prepared.snapshot);
+      indexerStatus.lastProcessedUri = prepared.uri;
+      let facts = prepared.facts;
+      let scopes = prepared.scopes;
+      let enrichedSnapshot = prepared.enrichedSnapshot;
+
+      if (!facts || !scopes || !enrichedSnapshot) {
+        const document = TextDocument.create(prepared.uri, 'powerbuilder', 1, prepared.content ?? '');
+        const analysis = analyzeDocument(document);
+        facts = analysis.semanticFacts;
+        scopes = analysis.scopes;
+        enrichedSnapshot = analysis.snapshot;
+        cache.set(prepared.uri, {
+          version: prepared.hash,
+          facts,
+          symbols: [],
+          scopes,
+          snapshot: enrichedSnapshot
+        });
+      }
+
+      kb.upsertDocument(prepared.uri, facts, scopes, enrichedSnapshot);
+      indexerStatus.enrichedPublished = enrichedProcessed + 1;
       fileStates.set(prepared.uri, FileIndexState.Indexed);
       enrichedProcessed++;
       updateStatus('enriched', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
@@ -418,5 +466,22 @@ export async function indexWorkspace(
     indexerStatus.phase = 'partial';
     indexerStatus.degraded = true;
     indexerStatus.degradedReason = 'partial-index';
+    indexerStatus.partialRuns++;
   }
+}
+
+function isEnrichedSnapshot(snapshot: SemanticDocumentSnapshot): boolean {
+  return snapshot.pass === 'enriched' && snapshot.readiness === 'nearby-semantic-ready';
+}
+
+function createStructuralSnapshot(snapshot: SemanticDocumentSnapshot): SemanticDocumentSnapshot {
+  return {
+    ...snapshot,
+    pass: 'structural',
+    readiness: 'structural-only',
+    symbols: [],
+    scopes: [],
+    logicalStatements: [],
+    controlBlocks: []
+  };
 }

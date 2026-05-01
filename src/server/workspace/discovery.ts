@@ -2,6 +2,7 @@ import { CancellationToken } from '../runtime/cancellation';
 import { IFileSystem } from '../system/fileSystem';
 import { WorkspaceState } from './workspaceState';
 import { parseTopology } from './topology';
+import { POWERBUILDER_SOURCE_EXTENSIONS } from '../../shared/powerbuilderFiles';
 
 const IGNORED_DIRECTORIES = new Set([
   '.git',
@@ -19,9 +20,7 @@ const IGNORED_DIRECTORIES = new Set([
   '_backupfiles'
 ]);
 
-const PB_SOURCE_EXTENSIONS = new Set([
-  '.sru', '.srw', '.srm', '.sra', '.srs', '.srf', '.srd', '.srp', '.srj', '.srq'
-]);
+const PB_SOURCE_EXTENSIONS = new Set<string>(POWERBUILDER_SOURCE_EXTENSIONS);
 
 /**
  * Recorre recursivamente las carpetas del workspace descubriendo archivos PB.

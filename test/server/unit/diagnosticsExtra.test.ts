@@ -7,7 +7,8 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   checkUnreachableAfterReturn,
   checkUnbalancedParens,
-  checkMissingReturn
+  checkMissingReturn,
+  runExtraDiagnostics
 } from '../../../src/server/features/diagnosticsExtra';
 import { ScopeKind, type Scope } from '../../../src/server/knowledge/types';
 
@@ -70,5 +71,37 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     ];
     const scope = makeScope('file:///x.pbl', lines.length, lines);
     strictEqual(checkMissingReturn(scope, lines).length, 0);
+  });
+
+  test('runExtraDiagnostics consume snapshot publicado extremo a extremo', () => {
+    const document = TextDocument.create(
+      'file:///extra-diagnostics.sru',
+      'powerbuilder',
+      1,
+      [
+        'forward',
+        'global type uo_demo from nonvisualobject',
+        'end type',
+        'end forward',
+        '',
+        'global type uo_demo from nonvisualobject',
+        'end type',
+        '',
+        'forward prototypes',
+        'public function integer of_run()',
+        'end prototypes',
+        '',
+        'public function integer of_run();',
+        '  return 1',
+        '  li_value = 2',
+        'end function'
+      ].join('\n')
+    );
+
+    const diagnostics = runExtraDiagnostics(document);
+
+    strictEqual(diagnostics.length, 1);
+    ok(diagnostics[0].source!.includes('SD11'));
+    strictEqual(diagnostics[0].range.start.line, 14);
   });
 });

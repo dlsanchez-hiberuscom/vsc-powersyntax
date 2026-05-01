@@ -1,4 +1,6 @@
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { normalizeUri } from '../system/uriUtils';
+import { diffSemanticSnapshots } from './semanticDiff';
 
 export interface SemanticDependencySource {
   getDependentDocumentsForUri(uri: string): string[];
@@ -9,6 +11,16 @@ export interface SemanticInvalidationPlan {
   directlyImpactedUris: string[];
   transitivelyImpactedUris: string[];
   allUris: string[];
+}
+
+export function createDocumentOnlyInvalidationPlan(sourceUri: string): SemanticInvalidationPlan {
+  const source = normalizeUri(sourceUri);
+  return {
+    sourceUri: source,
+    directlyImpactedUris: [],
+    transitivelyImpactedUris: [],
+    allUris: [source]
+  };
 }
 
 export function createSemanticInvalidationPlan(
@@ -45,4 +57,53 @@ export function createSemanticInvalidationPlan(
     transitivelyImpactedUris: transitivelyImpactedUris.sort(),
     allUris: [source, ...directlyImpactedUris, ...transitivelyImpactedUris]
   };
+}
+
+export function mergeSemanticInvalidationPlans(
+  sourceUri: string,
+  ...plans: SemanticInvalidationPlan[]
+): SemanticInvalidationPlan {
+  const source = normalizeUri(sourceUri);
+  const direct = new Set<string>();
+  const transitive = new Set<string>();
+
+  for (const plan of plans) {
+    for (const uri of plan.directlyImpactedUris) {
+      const normalized = normalizeUri(uri);
+      if (normalized !== source) {
+        direct.add(normalized);
+      }
+    }
+    for (const uri of plan.transitivelyImpactedUris) {
+      const normalized = normalizeUri(uri);
+      if (normalized !== source) {
+        transitive.add(normalized);
+      }
+    }
+  }
+
+  const directlyImpactedUris = [...direct].sort();
+  const transitivelyImpactedUris = [...transitive].filter((uri) => !direct.has(uri)).sort();
+
+  return {
+    sourceUri: source,
+    directlyImpactedUris,
+    transitivelyImpactedUris,
+    allUris: [source, ...directlyImpactedUris, ...transitivelyImpactedUris]
+  };
+}
+
+export function createSnapshotAwareInvalidationPlan(
+  sourceUri: string,
+  previousSnapshot: SemanticDocumentSnapshot | undefined,
+  nextSnapshot: SemanticDocumentSnapshot | undefined,
+  previousPlan: SemanticInvalidationPlan,
+  nextPlan: SemanticInvalidationPlan
+): SemanticInvalidationPlan {
+  const diff = diffSemanticSnapshots(previousSnapshot, nextSnapshot);
+  if (!diff.changed) {
+    return createDocumentOnlyInvalidationPlan(sourceUri);
+  }
+
+  return mergeSemanticInvalidationPlans(sourceUri, previousPlan, nextPlan);
 }

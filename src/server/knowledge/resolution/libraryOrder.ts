@@ -17,20 +17,16 @@ interface RankInput {
 }
 
 function getLibraryIndexForUri(uri: string, state: WorkspaceState): { project: string | null; libIndex: number } {
-  const registry = state.getProjectRegistry();
-  const project = registry?.getProjectForFile(uri) ?? null;
+  const project = state.getProjectModel()?.getProjectForFile(uri) ?? null;
   if (!project) return { project: null, libIndex: Number.POSITIVE_INFINITY };
 
-  const topology = state.getTopology();
-  const target = topology.targets.find((t) => t.uri === project);
-  const proj = topology.projects.find((p) => p.uri === project);
-  const libs = (target?.libraries ?? proj?.libraries ?? []) as string[];
+  const libs = project.libraries;
 
   for (let i = 0; i < libs.length; i++) {
     const libDir = libs[i].endsWith('/') ? libs[i] : libs[i] + '/';
-    if (uri.startsWith(libDir)) return { project, libIndex: i };
+    if (uri.startsWith(libDir)) return { project: project.projectUri, libIndex: i };
   }
-  return { project, libIndex: Number.POSITIVE_INFINITY };
+  return { project: project.projectUri, libIndex: Number.POSITIVE_INFINITY };
 }
 
 export function resolveByLibraryOrder(
@@ -40,7 +36,7 @@ export function resolveByLibraryOrder(
   if (candidates.length <= 1) return candidates;
   const { activeUri, state } = input;
   const activeProject = activeUri
-    ? state.getProjectRegistry()?.getProjectForFile(activeUri) ?? null
+    ? state.getProjectModel()?.getProjectForFile(activeUri)?.projectUri ?? null
     : null;
 
   const ranked = candidates.map((entity, idx) => {
