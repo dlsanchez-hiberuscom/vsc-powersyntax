@@ -939,6 +939,39 @@ Los siguientes ítems ya no deben aparecer en backlog activo:
 - **Debe contener:** guía PBAutoBuild, guía JSON build, Problems Panel, ORCA read-only, ORCA export staging, ORCA import seguro, explicación PBL/source/export headers, troubleshooting, límites conocidos y recomendaciones CI/CD.
 - **Cierre:** README/docs explican cuándo usar PBAutoBuild, cuándo usar ORCA y qué riesgos existen.
 
+## B199 — Spec-driven PBL update workflow
+- **Estado:** Open
+- **Track:** legacy ecosystem / spec automation
+- **Depende de:** B191, B192, B193, B196, B197
+- **Objetivo:** permitir que una spec modifique source exportado y actualice las PBL afectadas de forma controlada al finalizar.
+- **Debe contener:**
+  - cálculo de objetos modificados por spec;
+  - import plan por objeto/PBL;
+  - preflight obligatorio;
+  - backup/checkpoint de PBL;
+  - import/compile secuencial y observable;
+  - rollback documentado;
+  - actualización de fingerprints;
+  - refresh de staging/index/cache;
+  - reporte final de spec aplicado a PBL.
+- **Cierre:** una spec puede dejar las PBL actualizadas sin edición manual, con trazabilidad, validación y recuperación.
+
+## B200 — Bulk PBL export/import orchestration
+- **Estado:** Open
+- **Track:** legacy ecosystem / automation
+- **Depende de:** B199
+- **Objetivo:** coordinar export/import masivo de múltiples PBL sin bloquear el plugin.
+- **Debe contener:**
+  - export completo inicial;
+  - import por lotes;
+  - orden seguro por dependencias;
+  - límite de concurrencia;
+  - progress UI;
+  - recovery por lote;
+  - logs por PBL;
+  - resumen final.
+- **Cierre:** el plugin puede sincronizar cambios amplios contra PBL de forma segura y observable.
+
 ---
 
 # 7. Current execution focus
