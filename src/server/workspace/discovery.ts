@@ -22,6 +22,8 @@ const IGNORED_DIRECTORIES = new Set([
 
 const PB_SOURCE_EXTENSIONS = new Set<string>(POWERBUILDER_SOURCE_EXTENSIONS);
 
+export type DiscoveryProgressHandler = (current: number, total: number) => void;
+
 /**
  * Recorre recursivamente las carpetas del workspace descubriendo archivos PB.
  */
@@ -29,13 +31,19 @@ export async function discoverWorkspace(
   roots: string[],
   fs: IFileSystem,
   state: WorkspaceState,
-  token: CancellationToken
+  token: CancellationToken,
+  onProgress?: DiscoveryProgressHandler
 ): Promise<void> {
-  
+  const progress = {
+    current: 0,
+    total: roots.length
+  };
+  onProgress?.(progress.current, progress.total);
+
   // Procesamos cada root (workspace folder) secuencialmente
   for (const rootUri of roots) {
     if (token.isCancelled) return;
-    await walkDirectory(rootUri, fs, state, token);
+    await walkDirectory(rootUri, fs, state, token, progress, onProgress);
   }
 }
 
@@ -43,11 +51,15 @@ async function walkDirectory(
   dirUri: string,
   fs: IFileSystem,
   state: WorkspaceState,
-  token: CancellationToken
+  token: CancellationToken,
+  progress: { current: number; total: number },
+  onProgress?: DiscoveryProgressHandler
 ): Promise<void> {
   if (token.isCancelled) return;
 
   const entries = await fs.readDirectory(dirUri);
+  progress.current++;
+  onProgress?.(progress.current, progress.total);
 
   // Permitir preempción interactiva antes de procesar un directorio grande
   await yieldToEventLoop();
@@ -68,7 +80,9 @@ async function walkDirectory(
         state.addRoot('libraries', entryUri);
       }
 
-      await walkDirectory(entryUri, fs, state, token);
+      progress.total++;
+      onProgress?.(progress.current, progress.total);
+      await walkDirectory(entryUri, fs, state, token, progress, onProgress);
     } else if (stat.isFile) {
       // Detección de roots
       if (lowerName.endsWith('.pbw')) {

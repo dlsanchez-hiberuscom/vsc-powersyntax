@@ -48,6 +48,7 @@ export type WorkspaceMode = 'workspace' | 'solution' | 'mixed' | 'unknown';
  */
 export class WorkspaceState {
   private knownFiles: Set<string> = new Set();
+  private indexDirty = true;
 
   private roots: WorkspaceRoots = {
     workspaces: [],
@@ -67,10 +68,12 @@ export class WorkspaceState {
    */
   addSourceFile(uri: string): void {
     this.knownFiles.add(normalizeUri(uri));
+    this.indexDirty = true;
   }
 
   removeSourceFile(uri: string): void {
     this.knownFiles.delete(normalizeUri(uri));
+    this.indexDirty = true;
   }
 
   /**
@@ -124,6 +127,7 @@ export class WorkspaceState {
    */
   clear(): void {
     this.knownFiles.clear();
+    this.indexDirty = true;
     this.roots = {
       workspaces: [],
       targets: [],
@@ -132,6 +136,7 @@ export class WorkspaceState {
       projects: []
     };
     this.topology = emptyTopology();
+    this.projectRegistry = null;
     this.projectModel = null;
   }
 
@@ -155,6 +160,7 @@ export class WorkspaceState {
     } else {
       (list as Array<{ uri: string }>).push(entry.data);
     }
+    this.indexDirty = true;
   }
 
   /** Devuelve la topología parseada actual (referencia, no clonada). */
@@ -197,5 +203,13 @@ export class WorkspaceState {
     const sourceFiles = this.getAllSourceFiles();
     this.projectRegistry = buildProjectRegistry(this.topology, sourceFiles);
     this.projectModel = buildUnifiedProjectModel(this.topology, sourceFiles);
+  }
+
+  isIndexDirty(): boolean {
+    return this.indexDirty;
+  }
+
+  markIndexClean(): void {
+    this.indexDirty = false;
   }
 }

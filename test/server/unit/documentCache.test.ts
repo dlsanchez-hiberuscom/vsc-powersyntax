@@ -125,5 +125,41 @@ suite('unit/knowledge', () => {
       assert.equal(readB.facts[0].name, 'f_live');
       assert.equal(readB.snapshot!.symbols[0].name, 'f_live');
     });
+
+    test('getStats expone strings internados y los libera al invalidar', () => {
+      const cache = new DocumentCache();
+      const uri = 'file:///compact-cache.sru';
+
+      cache.set(uri, {
+        version: 'hash-compact',
+        symbols: [],
+        facts: [
+          { id: 'w_cache.of_init', name: 'of_init', kind: EntityKind.Function, uri, line: 0, character: 0, containerName: 'w_cache' },
+          { id: 'w_cache.of_run', name: 'of_run', kind: EntityKind.Function, uri, line: 3, character: 0, containerName: 'w_cache' }
+        ],
+        scopes: [],
+        snapshot: {
+          uri,
+          version: 1,
+          fingerprint: 7,
+          identity: `${uri}@7`,
+          pass: 'enriched',
+          readiness: 'nearby-semantic-ready',
+          containerModel: { sections: [], typeBlocks: [{ name: 'w_cache', startLine: 0, endLine: 10 }] },
+          symbols: [
+            { id: 'w_cache.of_init', name: 'of_init', kind: EntityKind.Function, uri, line: 0, character: 0, containerName: 'w_cache' }
+          ],
+          scopes: [],
+          logicalStatements: [],
+          maskedText: { lines: [], masks: [] },
+          controlBlocks: []
+        }
+      });
+
+      assert.ok(cache.getStats().internedStrings > 0);
+
+      cache.invalidate(uri);
+      assert.equal(cache.getStats().internedStrings, 0);
+    });
   });
 });

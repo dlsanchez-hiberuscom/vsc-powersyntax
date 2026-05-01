@@ -26,7 +26,7 @@ npm run compile
 
 ## 5. Checklist
 
-- [ ] Existe latency governor.
-- [ ] El scheduler adapta trabajo de fondo bajo presion.
-- [ ] Los tests cubren al menos un escenario de proteccion efectiva.
-- [ ] La salida del governor es observable.
+- [x] Existe latency governor.
+- [x] El scheduler adapta trabajo de fondo bajo presion.
+- [x] Los tests cubren al menos un escenario de proteccion efectiva.
+- [x] La salida del governor es observable.

@@ -20,4 +20,20 @@ suite('unit/latencyGovernor', () => {
     assert.equal(governor.getBudgetMs(), 50);
     assert.equal(governor.getSnapshot().overloaded, false);
   });
+
+  test('bloquea background durante un cooldown breve tras sobrecarga', () => {
+    let now = 1000;
+    const governor = createLatencyGovernor({
+      initialBudgetMs: 50,
+      targetLatencyMs: 40,
+      cooldownMs: 200,
+      now: () => now
+    });
+
+    governor.recordElapsedMs(70);
+
+    assert.equal(governor.isBackgroundAllowed(), false);
+    now = 1301;
+    assert.equal(governor.isBackgroundAllowed(), true);
+  });
 });

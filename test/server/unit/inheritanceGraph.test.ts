@@ -19,8 +19,8 @@ suite('server/knowledge/resolution/InheritanceGraph', () => {
       { id: 'w_employee', name: 'w_employee', kind: EntityKind.Type, baseTypeName: 'w_sheet', uri: 'file:///w_employee.srw', line: 0, character: 0 },
       
       // Members of w_base
-      { id: 'of_init', name: 'of_init', kind: EntityKind.Function, containerName: 'w_base', uri: 'file:///w_base.srw', line: 10, character: 0 },
-      { id: 'ib_flag', name: 'ib_flag', kind: EntityKind.Variable, containerName: 'w_base', uri: 'file:///w_base.srw', line: 12, character: 0 },
+      { id: 'of_init', name: 'of_init', kind: EntityKind.Function, containerName: 'w_base', access: 'protected', uri: 'file:///w_base.srw', line: 10, character: 0 },
+      { id: 'ib_flag', name: 'ib_flag', kind: EntityKind.Variable, containerName: 'w_base', access: 'private', uri: 'file:///w_base.srw', line: 12, character: 0 },
       
       // Members of w_employee
       { id: 'of_load', name: 'of_load', kind: EntityKind.Function, containerName: 'w_employee', uri: 'file:///w_employee.srw', line: 20, character: 0 },
@@ -69,6 +69,29 @@ suite('server/knowledge/resolution/InheritanceGraph', () => {
     assert.ok(names.includes('ib_flag'));
     assert.ok(names.includes('of_load'));
     assert.ok(names.filter(n => n === 'of_init').length === 2);
+  });
+
+  test('getMemberClosure precalcula relacion, distancia y accesibilidad', () => {
+    const closure = graph.getMemberClosure('w_employee');
+    const inheritedFlag = closure.find((entry) => entry.entity.name === 'ib_flag');
+    const inheritedInit = closure.find((entry) => entry.entity.name === 'of_init' && entry.declaredIn === 'w_base');
+    const overrideInit = closure.find((entry) => entry.entity.name === 'of_init' && entry.declaredIn === 'w_employee');
+
+    assert.ok(inheritedFlag);
+    assert.strictEqual(inheritedFlag?.relation, 'inherited');
+    assert.strictEqual(inheritedFlag?.distance, 2);
+    assert.strictEqual(inheritedFlag?.accessible, false);
+    assert.strictEqual(inheritedFlag?.overriddenByCurrentType, false);
+
+    assert.ok(inheritedInit);
+    assert.strictEqual(inheritedInit?.relation, 'inherited');
+    assert.strictEqual(inheritedInit?.accessible, true);
+    assert.strictEqual(inheritedInit?.overriddenByCurrentType, true);
+
+    assert.ok(overrideInit);
+    assert.strictEqual(overrideInit?.relation, 'override');
+    assert.strictEqual(overrideInit?.distance, 0);
+    assert.strictEqual(overrideInit?.accessible, true);
   });
 
   test('Las cachés se limpian automáticamente cuando KnowledgeBase cambia', () => {

@@ -10,6 +10,8 @@ Plugin profesional de **Visual Studio Code** para **PowerBuilder 2025** y **Powe
 - **Go to Definition**
 - **Completion** contextual
 - **Signature Help**
+- **Inspección jerárquica activa** desde comando
+- **API pública mínima versionada** para herramientas y otras extensiones
 - **Diagnósticos estructurales y semánticos**
 - **Descubrimiento de Workspace y Solution**
 - **Indexación progresiva** con prioridad al archivo activo
@@ -30,7 +32,8 @@ Actualmente el plugin ya incluye una base funcional sólida con:
 
 - soporte inicial para **Workspace** (`.pbw`, `.pbt`) y **Solution** (`.pbsln`, `.pbproj`),
 - arquitectura **cliente ligero + servidor LSP separado**,
-- navegación y asistencia semántica base,
+- navegación y asistencia semántica base, incluida inspección jerárquica activa del objeto actual,
+- API pública mínima exportada desde la activación para stats y consulta de símbolos,
 - y una infraestructura preparada para seguir creciendo en rendimiento, semántica y validación sobre corpus reales.
 
 ## En evolución

@@ -17,6 +17,7 @@ import type { IFileSystem } from '../system/fileSystem';
 import { calculateHash } from '../system/hash';
 import { isPowerBuilderSourceUri } from '../../shared/powerbuilderFiles';
 import type { WorkspaceState } from './workspaceState';
+import { clearFileIndexState, FileIndexState, setFileIndexState } from '../indexer/workspaceIndexer';
 
 export interface ApplyWatchedFileEventsOptions {
   events: FsEvent[];
@@ -70,6 +71,7 @@ export async function applyWatchedFileEvents(
       opts.documentCache.invalidate(event.uri);
       opts.knowledgeBase.removeDocument(event.uri);
       opts.workspaceState.removeSourceFile(event.uri);
+      clearFileIndexState(event.uri);
       routingDirty = routingDirty || hadSourceFile;
       if (!massive) {
         for (const uri of invalidationPlan.allUris) {
@@ -91,11 +93,13 @@ export async function applyWatchedFileEvents(
     routingDirty = routingDirty || !hadSourceFile;
     projectCandidates.add(event.uri);
     if (opts.isDocumentOpen?.(event.uri)) {
+      setFileIndexState(event.uri, FileIndexState.Pending);
       skipped++;
       continue;
     }
 
     try {
+      setFileIndexState(event.uri, FileIndexState.Indexing);
       const previousSnapshot = opts.knowledgeBase.getDocumentSnapshot(event.uri) ?? undefined;
       const previousPlan = createSemanticInvalidationPlan(event.uri, opts.knowledgeBase);
       const content = await opts.fs.readFile(event.uri);
@@ -134,8 +138,10 @@ export async function applyWatchedFileEvents(
           opts.servingCacheFlushCoordinator
         );
       }
+      setFileIndexState(event.uri, FileIndexState.Indexed);
       reindexed++;
     } catch (error) {
+      setFileIndexState(event.uri, FileIndexState.Failed);
       skipped++;
       opts.log?.(`[WATCHER] No se pudo procesar ${event.kind} en ${event.uri}: ${error instanceof Error ? error.message : String(error)}`);
     }

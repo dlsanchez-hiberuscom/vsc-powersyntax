@@ -6,7 +6,13 @@ import type { Fact, Scope } from '../knowledge/types';
 
 export type SnapshotPass = 'structural' | 'enriched';
 
-export type LocalSemanticReadiness = 'structural-only' | 'nearby-semantic-ready';
+export type SemanticReadinessLevel =
+  | 'structural-only'
+  | 'nearby-semantic-ready'
+  | 'project-semantic-ready'
+  | 'workspace-semantic-ready';
+
+export type LocalSemanticReadiness = Extract<SemanticReadinessLevel, 'structural-only' | 'nearby-semantic-ready'>;
 
 export interface DocumentContainerModel {
   sections: SectionRange[];

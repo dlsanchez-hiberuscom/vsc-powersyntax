@@ -6,6 +6,7 @@ import { TaskScheduler, TaskPriority } from '../runtime/scheduler';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
+import type { WorkspaceState } from '../workspace/workspaceState';
 
 const DEFAULT_DIAGNOSTIC_DELAY_MS = 180;
 
@@ -18,7 +19,8 @@ export function scheduleDiagnostics(
   delayMs: number = DEFAULT_DIAGNOSTIC_DELAY_MS,
   kb?: KnowledgeBase,
   systemCatalog?: SystemCatalog,
-  inheritanceGraph?: InheritanceGraph
+  inheritanceGraph?: InheritanceGraph,
+  workspaceState?: WorkspaceState
 ): void {
   cancelScheduledDiagnostics(document.uri);
 
@@ -27,7 +29,7 @@ export function scheduleDiagnostics(
     void scheduler.runInteractive({
       id: `diagnostics-${document.uri}`,
       priority: TaskPriority.Interactive,
-      execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph)
+      execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState)
     });
   }, delayMs);
 
@@ -40,13 +42,14 @@ export function publishDiagnosticsNow(
   scheduler: TaskScheduler,
   kb?: KnowledgeBase,
   systemCatalog?: SystemCatalog,
-  inheritanceGraph?: InheritanceGraph
+  inheritanceGraph?: InheritanceGraph,
+  workspaceState?: WorkspaceState
 ): void {
   cancelScheduledDiagnostics(document.uri);
   void scheduler.runInteractive({
     id: `diagnostics-${document.uri}`,
     priority: TaskPriority.Interactive,
-    execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph)
+    execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState)
   });
 }
 

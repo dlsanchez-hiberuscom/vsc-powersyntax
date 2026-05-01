@@ -108,6 +108,7 @@ export interface ApiServerStats {
     libraries?: number;
     orphanFiles?: number;
   };
+  diagnostics?: ApiDiagnosticsSnapshot;
   caches?: {
     analysis?: { size?: number; capacity?: number };
     serving?: { size?: number; capacity?: number };
@@ -145,6 +146,47 @@ export interface ApiDiagnosticsTreeNode {
   total: number;
   byCode: Record<string, number>;
   bySeverity: Record<string, number>;
+  projectKey?: string;
+  projectLabel?: string;
+  objectKey?: string;
+  objectLabel?: string;
+  documentVersion?: number;
+  snapshotVersion?: number;
+  snapshotIdentity?: string;
+}
+
+export interface ApiDiagnosticsObjectNode {
+  key: string;
+  label: string;
+  total: number;
+  byCode: Record<string, number>;
+  bySeverity: Record<string, number>;
+  documents: ApiDiagnosticsTreeNode[];
+}
+
+export interface ApiDiagnosticsProjectNode {
+  key: string;
+  label: string;
+  total: number;
+  byCode: Record<string, number>;
+  bySeverity: Record<string, number>;
+  objects: ApiDiagnosticsObjectNode[];
+}
+
+export interface ApiDiagnosticsSnapshot {
+  totals: { error: number; warning: number; info: number; hint: number };
+  byFile: Record<string, number>;
+  byCode: Record<string, number>;
+  bySeverity: Record<string, number>;
+  documents: ApiDiagnosticsTreeNode[];
+  projects: ApiDiagnosticsProjectNode[];
+}
+
+export interface VscPowerSyntaxApi {
+  version: string;
+  isVersionCompatible(requested: string): boolean;
+  getServerStats(): Promise<ApiServerStats>;
+  querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
 }
 
 /**

@@ -21,13 +21,22 @@ import {
   POWERBUILDER_PROJECT_MARKER_GLOB,
   POWERBUILDER_SOURCE_GLOB
 } from '../shared/powerbuilderFiles';
+import {
+  PUBLIC_API_VERSION,
+  isApiVersionCompatible,
+  toApiSymbol,
+  type ApiQuerySymbolsRequest,
+  type ApiServerStats,
+  type VscPowerSyntaxApi,
+} from '../shared/publicApi';
 
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+export async function activate(context: vscode.ExtensionContext): Promise<VscPowerSyntaxApi | undefined> {
   const activationStart = performance.now();
+  const publicApi = createPublicApi();
 
   outputChannel = vscode.window.createOutputChannel('VSC PowerSyntax');
   context.subscriptions.push(outputChannel);
@@ -45,7 +54,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     outputChannel.appendLine(`[VSC PowerSyntax] ERROR: ${message}`);
     vscode.window.showErrorMessage(message);
-    return;
+    return undefined;
   }
 
   const serverOptions: ServerOptions = {
@@ -118,6 +127,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.inspectHierarchy', async () => {
+      if (!client) {
+        vscode.window.showErrorMessage('El cliente LSP no está disponible.');
+        return;
+      }
+
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showInformationMessage('No hay un editor activo para inspeccionar.');
+        return;
+      }
+
+      const payload = await client.sendRequest('workspace/executeCommand', {
+        command: 'powerbuilder.inspectHierarchy',
+        arguments: [
+          editor.document.uri.toString(),
+          editor.selection.active.line,
+          editor.selection.active.character
+        ]
+      });
+
+      renderHierarchyInspection(payload);
+    })
+  );
+
   // ---- Limpieza (Disposable) ----------------------------------------------
 
   context.subscriptions.push({
@@ -157,6 +192,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     outputChannel.appendLine(
       '[VSC PowerSyntax] Cliente LSP activado correctamente.'
     );
+    return publicApi;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -169,6 +205,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
 
     await stopClient();
+    return undefined;
   }
 }
 
@@ -214,6 +251,53 @@ async function stopClient(): Promise<void> {
       client = undefined;
     }
   }
+}
+
+function createPublicApi(): VscPowerSyntaxApi {
+  return Object.freeze({
+    version: PUBLIC_API_VERSION,
+    isVersionCompatible: isApiVersionCompatible,
+    async getServerStats(): Promise<ApiServerStats> {
+      const stats = await executeServerCommand<ApiServerStats>('powerbuilder.showStats');
+      return clonePlainData(stats ?? {});
+    },
+    async querySymbols(request: ApiQuerySymbolsRequest) {
+      const query = request.query ?? '';
+      const limit = typeof request.limit === 'number'
+        ? Math.max(0, Math.trunc(request.limit))
+        : Number.POSITIVE_INFINITY;
+      const symbols = (await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+        'vscode.executeWorkspaceSymbolProvider',
+        query
+      )) ?? [];
+      return symbols.slice(0, limit).map((symbol) => toApiSymbol({
+        name: symbol.name,
+        kind: vscode.SymbolKind[symbol.kind] ?? String(symbol.kind),
+        uri: symbol.location.uri.toString(),
+        line: symbol.location.range.start.line,
+        character: symbol.location.range.start.character,
+      }));
+    }
+  });
+}
+
+async function executeServerCommand<T>(command: string, args: unknown[] = []): Promise<T> {
+  if (!client) {
+    throw new Error('El cliente LSP no está disponible.');
+  }
+
+  const result = await client.sendRequest('workspace/executeCommand', {
+    command,
+    arguments: args,
+  });
+  return clonePlainData(result) as T;
+}
+
+function clonePlainData<T>(value: T): T {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -281,4 +365,66 @@ function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification): vo
       item.hide();
       break;
   }
+}
+
+function renderHierarchyInspection(payload: unknown): void {
+  outputChannel?.show(true);
+
+  if (!payload || typeof payload !== 'object') {
+    outputChannel?.appendLine('[Hierarchy] Respuesta inválida del servidor.');
+    return;
+  }
+
+  const inspection = payload as {
+    available?: boolean;
+    reason?: string;
+    uri?: string;
+    focusType?: string | null;
+    immediateAncestor?: string | null;
+    ancestorChain?: string[];
+    overriddenMembers?: Array<{ name: string; inheritedFrom: string | null }>;
+    closureSummary?: { own: number; inherited: number; override: number; inaccessible: number };
+    hierarchyTree?: HierarchyTreeNodePayload | null;
+  };
+
+  if (!inspection.available) {
+    outputChannel?.appendLine(`[Hierarchy] No disponible: ${inspection.reason ?? 'sin detalle'}`);
+    return;
+  }
+
+  outputChannel?.appendLine(`[Hierarchy] URI: ${inspection.uri ?? 'desconocida'}`);
+  outputChannel?.appendLine(`- Tipo foco: ${inspection.focusType ?? 'desconocido'}`);
+  outputChannel?.appendLine(`- Ancestro inmediato: ${inspection.immediateAncestor ?? 'ninguno'}`);
+  outputChannel?.appendLine(`- Cadena de ancestros: ${inspection.ancestorChain?.join(' -> ') || 'sin cadena'}`);
+  if (inspection.closureSummary) {
+    outputChannel?.appendLine(
+      `- Closure: propios=${inspection.closureSummary.own}, heredados=${inspection.closureSummary.inherited}, overrides=${inspection.closureSummary.override}, inaccesibles=${inspection.closureSummary.inaccessible}`
+    );
+  }
+  if (inspection.overriddenMembers && inspection.overriddenMembers.length > 0) {
+    outputChannel?.appendLine('- Overrides locales:');
+    for (const item of inspection.overriddenMembers) {
+      outputChannel?.appendLine(`  - ${item.name} <- ${item.inheritedFrom ?? 'origen desconocido'}`);
+    }
+  }
+  if (inspection.hierarchyTree) {
+    outputChannel?.appendLine('- Árbol de jerarquía:');
+    for (const line of formatHierarchyTreeLines(inspection.hierarchyTree)) {
+      outputChannel?.appendLine(`  ${line}`);
+    }
+  }
+}
+
+interface HierarchyTreeNodePayload {
+  name: string;
+  children: HierarchyTreeNodePayload[];
+}
+
+function formatHierarchyTreeLines(node: HierarchyTreeNodePayload, depth = 0): string[] {
+  const prefix = depth === 0 ? '- ' : `${'  '.repeat(depth)}- `;
+  const lines = [`${prefix}${node.name}`];
+  for (const child of node.children) {
+    lines.push(...formatHierarchyTreeLines(child, depth + 1));
+  }
+  return lines;
 }

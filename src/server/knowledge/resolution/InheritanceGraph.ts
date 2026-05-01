@@ -1,10 +1,21 @@
 import { KnowledgeBase } from '../KnowledgeBase';
 import { Entity, EntityKind } from '../types';
+import { isAccessibleFrom } from '../visibility';
+
+export interface MemberClosureEntry {
+  entity: Entity;
+  declaredIn: string | null;
+  distance: number;
+  relation: 'own' | 'inherited' | 'override';
+  accessible: boolean;
+  overriddenByCurrentType: boolean;
+}
 
 export class InheritanceGraph {
   private lastVersion = -1;
   private readonly ancestorCache = new Map<string, string[]>();
   private readonly hierarchyCache = new Map<string, string[]>();
+  private readonly memberClosureCache = new Map<string, MemberClosureEntry[]>();
   private readonly memberCache = new Map<string, Entity[]>();
   private readonly directDescendantsCache = new Map<string, string[]>();
   private readonly descendantsCache = new Map<string, string[]>();
@@ -19,6 +30,7 @@ export class InheritanceGraph {
     if (this.lastVersion !== currentVersion) {
       this.ancestorCache.clear();
       this.hierarchyCache.clear();
+      this.memberClosureCache.clear();
       this.memberCache.clear();
       this.directDescendantsCache.clear();
       this.descendantsCache.clear();
@@ -109,6 +121,70 @@ export class InheritanceGraph {
   }
 
   /**
+   * Precalcula la closure de miembros accesibles y heredados para un tipo dado.
+   */
+  getMemberClosure(typeName: string): MemberClosureEntry[] {
+    this.checkVersion();
+    const normalizedName = typeName.trim().toLowerCase();
+
+    if (!normalizedName) return [];
+
+    const cached = this.memberClosureCache.get(normalizedName);
+    if (cached) return [...cached];
+
+    const hierarchy = this.getTypeHierarchy(typeName);
+    const hierarchySet = new Set(hierarchy.map((name) => name.toLowerCase()));
+    const currentTypeMembers = new Set<string>();
+    const ancestorMembers = new Set<string>();
+    const collected: Entity[] = [];
+
+    for (const entity of this.kb.getAllEntities()) {
+      if (entity.kind === EntityKind.Type || !entity.containerName) {
+        continue;
+      }
+
+      const owner = entity.containerName.trim().toLowerCase();
+      if (!hierarchySet.has(owner)) {
+        continue;
+      }
+
+      collected.push(entity);
+      const key = `${entity.kind}:${entity.name.toLowerCase()}`;
+      if (owner === normalizedName) {
+        currentTypeMembers.add(key);
+      } else {
+        ancestorMembers.add(key);
+      }
+    }
+
+    const closure = collected.map((entity) => {
+      const declaredIn = entity.containerName ?? entity.ownerName ?? null;
+      const declaredInNormalized = declaredIn?.trim().toLowerCase() ?? '';
+      const key = `${entity.kind}:${entity.name.toLowerCase()}`;
+      const relation = declaredInNormalized === normalizedName
+        ? (ancestorMembers.has(key) ? 'override' : 'own')
+        : 'inherited';
+
+      return {
+        entity,
+        declaredIn,
+        distance: declaredIn ? this.getTypeDistance(typeName, declaredIn) : Number.POSITIVE_INFINITY,
+        relation,
+        accessible: isAccessibleFrom(entity, {
+          contextOwner: typeName,
+          isDescendant: (child, ancestor) => this.isDescendantOf(child, ancestor)
+        }),
+        overriddenByCurrentType: declaredInNormalized !== normalizedName && currentTypeMembers.has(key)
+      } satisfies MemberClosureEntry;
+    });
+
+    closure.sort((left, right) => left.distance - right.distance);
+    this.memberClosureCache.set(normalizedName, closure);
+    this.memberCache.set(normalizedName, closure.map((entry) => entry.entity));
+    return [...closure];
+  }
+
+  /**
    * Obtiene todos los miembros (funciones, variables, eventos) disponibles en la jerarquía de un tipo.
    * No incluye los propios tipos/clases, sino solo lo que contienen.
    */
@@ -121,32 +197,7 @@ export class InheritanceGraph {
     const cached = this.memberCache.get(normalizedName);
     if (cached) return [...cached];
 
-    const members: Entity[] = [];
-    const hierarchy = this.getTypeHierarchy(typeName);
-
-    const hierarchySet = new Set(hierarchy.map(h => h.toLowerCase()));
-
-    // Escaneamos toda la KB. En un entorno masivo esto se puede optimizar,
-    // pero para Phase 6 es suficientemente rápido porque es sobre el índice en memoria.
-    for (const entity of this.kb.getAllEntities()) {
-      if (entity.kind === EntityKind.Type) {
-        continue; // No queremos objetos, solo miembros.
-      }
-
-      if (entity.containerName) {
-        if (hierarchySet.has(entity.containerName.toLowerCase())) {
-          members.push(entity);
-        }
-      }
-    }
-
-    // Nota: no deduplicamos overrides aquí. Devolvemos todas las definiciones
-    // (incluidas las heredadas) para preservar `Show All Implementations`.
-    // Los consumidores que solo quieran el override más cercano deben filtrar
-    // mediante `sortAndFilterByDistance` o por nombre, según el caso.
-
-    this.memberCache.set(normalizedName, members);
-    return [...members];
+    return this.getMemberClosure(typeName).map((entry) => entry.entity);
   }
 
   /**

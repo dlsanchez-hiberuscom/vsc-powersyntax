@@ -255,5 +255,32 @@ suite('unit/scheduler', () => {
     assert.equal(status.preemptions.nearCancelledBackground, 1);
     assert.equal(status.activeBackgroundId, null);
   });
+
+  test('pospone background mientras la puerta de admision esta cerrada', async () => {
+    const scheduler = new TaskScheduler();
+    let allowBackground = false;
+    let started = false;
+
+    scheduler.setBackgroundAdmissionGate(() => allowBackground);
+
+    const backgroundPromise = scheduler.enqueueBackground({
+      id: 'bg-gated',
+      priority: TaskPriority.Background,
+      execute: () => {
+        started = true;
+        return 'background-result';
+      }
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(started, false);
+
+    allowBackground = true;
+    scheduler.requestDrain();
+
+    const result = await backgroundPromise;
+    assert.equal(result, 'background-result');
+    assert.equal(started, true);
+  });
 });
 

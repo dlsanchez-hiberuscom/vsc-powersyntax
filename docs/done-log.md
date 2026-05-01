@@ -579,6 +579,346 @@ La ola `Specs 198-217` consolida tres cierres reales del core incremental y redu
 
 ---
 
+## 1.23 B141/B141A. Library graph / project model unificado y adopción runtime — **Cerradas (specs 149-152, 209, 211-215 y 218)**
+
+### Resultado técnico registrado
+
+Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido de proyecto/routing del runtime:
+
+- `UnifiedProjectModel` actúa como única fuente de verdad project-aware en `cacheStore`, `workspaceIndexer`, `libraryOrder`, refresh por watcher y status del proyecto activo;
+- `WorkspaceState.clear()` reinicia también `projectRegistry`, evitando arrastrar routing legacy tras un reset completo del workspace;
+- el contrato de proyecto activo sigue derivándose del modelo unificado y el reset deja `getProjectContextForFile()` en estado seguro;
+- backlog, roadmap y current-focus dejan de tratar `B141A` como residual `Partial`.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `379 passing`
+- `npm test` → smoke `2 passing`, unit `379 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.24 B122. Priorización por dependencias semánticas cercanas — **Cerrada (spec 140)**
+
+### Resultado técnico registrado
+
+`Spec 140` queda cerrada sobre el runtime real del indexador:
+
+- el servidor pasa `activeDocumentUri` real a `indexWorkspace`, evitando que la prioridad quede reducida a orden físico cuando existe contexto activo;
+- `prioritizeFilesForIndexing()` ordena ahora por buckets explicables: activo, ancestros, owners/tipos cercanos, calls probables, proyecto y workspace;
+- el grafo inverso publicado y los snapshots semánticos del activo alimentan esa heurística sin reintroducir lógica duplicada en el hot path;
+- `getIndexerStatus()` expone `prioritySummary`, dejando visible la razón de prioridad observada por el runtime.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `381 passing`
+- `npm test` → smoke `2 passing`, unit `381 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.25 B125. Indexación progresiva del workspace completo — **Cerrada (spec 144)**
+
+### Resultado técnico registrado
+
+`Spec 144` queda cerrada sobre el runtime real del indexador y del watcher:
+
+- `watchedFileIntake` ya alimenta la misma file state machine que `workspaceIndexer`, dejando estado explícito para `create`, `change`, `delete`, saltos por documento abierto y fallos locales;
+- `getFileIndexState()` y `getIndexerStatus()` cubren ahora tanto la indexación completa del workspace como los lotes incrementales del watcher, sin abrir una segunda vía de estado;
+- el pipeline mantiene prioridad, yielding, preempción y backpressure ya existentes, pero ahora con visibilidad coherente de estados simultáneos mientras el workspace converge hacia `ready`.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/watchedFileIntake"`
+- `npm test` → smoke `2 passing`, unit `382 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.26 B134. Modelo de progreso y readiness del indexador — **Cerrada (spec 146)**
+
+### Resultado técnico registrado
+
+`Spec 146` queda cerrada sobre el runtime real del servidor:
+
+- discovery, indexación, watcher intake y `powerbuilder.showStats` derivan ahora del mismo snapshot de progreso/readiness en lugar de mezclar señales separadas de `readiness` e `indexer`;
+- el modelo distingue progreso operativo de disponibilidad semántica y publica `activeContextReady`, `projectReady` y `workspaceReady` sobre esa misma fuente;
+- `discoverWorkspace` expone progreso monotónico de discovery y el servidor reutiliza esa señal para transiciones coherentes sin abrir un segundo camino de status.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `specs/146-indexer-progress-readiness/quickstart.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/progressReadiness|unit/workspace|unit/watchedFileIntake"`
+- `npm test` → smoke `2 passing`, unit `386 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.27 B158. Modo degradado formal — **Cerrada (spec 147)**
+
+### Resultado técnico registrado
+
+`Spec 147` queda cerrada sobre el runtime real de serving:
+
+- existe ya una enumeración formal de niveles (`structural-only`, `nearby-semantic-ready`, `project-semantic-ready`, `workspace-semantic-ready`) y un helper único que decide `allow`, `degrade` o `block` por feature;
+- `hover` y `completion` consumen el contrato en modo degradado, mientras `definition`, `references` y `rename` se bloquean o habilitan según el nivel requerido sin fingir precisión semántica;
+- el mapping se apoya en la fuente única de progreso/readiness ya cerrada en `B134`, sin duplicar lógica en el query engine ni abrir una segunda vía de elegibilidad.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `specs/147-formal-degraded-mode/quickstart.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/featureReadiness|unit/progressReadiness|unit/definition|unit/references|unit/hover|unit/completion|unit/renamePreflight"`
+- `npm test` → smoke `2 passing`, unit `390 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing` (segunda ejecución; la primera fue ruido no reproducible de entorno)
+
+---
+
+## 1.28 B159. Gobernador de latencia del servidor — **Cerrada (spec 148)**
+
+### Resultado técnico registrado
+
+`Spec 148` queda cerrada sobre el runtime real del servidor:
+
+- el `latencyGovernor` deja de estar encapsulado solo en el indexador y pasa a proteger también el serving interactivo y la admisión de trabajo de fondo desde el `scheduler`;
+- existe una política explícita por tipo de request: `hover` y `completion` degradan bajo presión, `references` se bloquea bajo presión, y el background queda aplazado durante un cooldown corto sin romper el pipeline;
+- la presión de latencia ya es observable y reutilizable en el runtime, alineada con el contrato de degradación de `B158`.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `specs/148-server-latency-governor/quickstart.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/latencyGovernor|unit/scheduler|unit/featureReadiness|unit/hover|unit/completion|unit/references"`
+- `npm test` → smoke `2 passing`, unit `394 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.29 B156. Query engine unificado — **Cerrada (spec 164 + cierre operativo posterior)**
+
+### Resultado técnico registrado
+
+`B156` queda cerrada como capacidad real del runtime:
+
+- el helper común de contexto de query y el resolver semántico detallado alimentan ya el hot path de `hover`, `definition`, `signatureHelp`, `completion` y la resolución de declaración en `references`;
+- `references` deja de elegir definiciones solo por nombre cuando el acceso es cualificado y pasa a usar el mismo winner semántico que `definition`;
+- `completion` deja de depender de un contexto documental paralelo para obtener el objeto activo y el tipo del cualificador;
+- existe una prueba de consistencia cross-feature que fija el mismo contexto base entre `definition`, `references` y `completion`.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `specs/164-query-context-helper/quickstart.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/references|unit/completion|unit/queryEngineConsistency|unit/definition|unit/semanticQueryService"`
+- `npm test` → smoke `2 passing`, unit `396 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.30 B173. Precomputed member closures por tipo — **Cerrada**
+
+### Resultado técnico registrado
+
+`B173` queda cerrada como infraestructura reusable del runtime:
+
+- `InheritanceGraph` precomputa una closure de miembros por tipo con `relation`, `distance`, `accessible` y marca de override local;
+- `getMembers()` deja de reconstruir la misma lista plana por su cuenta y pasa a reutilizar esa closure cacheada;
+- la información precomputada ya queda disponible para consumers del query engine y deja preparada una base honesta para `B066`, `B065` y `B031`.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "InheritanceGraph|unit/completion|unit/definition|unit/references|unit/hover|unit/semanticQueryService"`
+- `npm test` → smoke `2 passing`, unit `397 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.31 B066. CodeLens de referencias y herencia — **Cerrada (spec 050 ampliada)**
+
+### Resultado técnico registrado
+
+`B066` deja de ser una lens cosmética y queda cerrada como feature usable:
+
+- el handler del servidor ya no usa `findAllDefinitions(name)` como proxy bruto de referencias y pasa a calcular conteos sobre el motor compartido de `references`;
+- los títulos de CodeLens incorporan información de overrides/herencia consumiendo `member closures` de `B173`;
+- existe caché de conteos por documento/epoch para no reescanear el workspace en cada solicitud;
+- si `references` no está lista por readiness o presión de latencia, la lens degrada honestamente y deja de exponer un comando engañoso.
+
+### Documentación afectada
+
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `specs/050-codelens-refs/spec.md`
+- `specs/050-codelens-refs/tasks.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/codeLensReferences|unit/references|unit/queryEngineConsistency|unit/featureReadiness"`
+- `npm test` → smoke `2 passing`, unit `400 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.32 B065. Ancestor script navigation + hierarchy inspection — **Cerrada (spec 059, absorbiendo B137)**
+
+### Resultado técnico registrado
+
+`B065` deja de ser un par de helpers aislados y queda cerrada como inspección jerárquica usable:
+
+- `getAncestorChain` y `buildHierarchyTree` pasan a alimentar una inspección estructurada del tipo activo con ancestro inmediato, cadena de ancestros, árbol de descendencia y overrides heredados;
+- el runtime reutiliza `member closures` de `B173` para explicar overrides locales e integrar accesibilidad y origen heredado sin duplicar lógica semántica;
+- la extensión publica el comando `PowerSyntax: Inspeccionar Jerarquía Activa`, que ejecuta la inspección sobre el documento y posición activos y expone el resultado de forma visible desde el cliente.
+
+### Documentación afectada
+
+- `README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `specs/059-ancestor-chain/spec.md`
+- `specs/059-ancestor-chain/plan.md`
+- `specs/059-ancestor-chain/tasks.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/hierarchyInspection|unit/ancestorNav|unit/hierarchyTree"`
+- `npm test` → smoke `2 passing`, unit `401 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing` (segunda ejecución; la primera falló por ruido no reproducible del host)
+
+---
+
+## 1.33 B109. API pública para integración — **Cerrada (spec 054 ampliada sobre specs 172 y 192)**
+
+### Resultado técnico registrado
+
+`B109` deja de ser solo un archivo de tipos y queda cerrada como superficie pública mínima real:
+
+- la activación de la extensión exporta una API versionada y estable para consumidores externos;
+- la API expone `getServerStats()` sobre el contrato maduro de `ApiServerStats` y `querySymbols()` sobre `ApiQuerySymbolsRequest`/`ApiSymbol`, sin abrir estructuras internas mutables ni prometer evidence que aún pertenece a `B157`;
+- el flujo `build:test` recompila ahora cliente y servidor antes de smoke/unit/integration, evitando validar contra artefactos obsoletos del `out/`.
+
+### Documentación afectada
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/testing.md`
+- `specs/054-public-api/spec.md`
+- `specs/054-public-api/plan.md`
+- `specs/054-public-api/tasks.md`
+
+### Validación registrada
+
+- `npm run test:smoke -- --grep "smoke/extension"`
+- `npm run test:unit -- --grep "unit/publicApi"`
+- `npm test` → smoke `2 passing`, unit `401 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.34 B164. Interning y compactación de memoria — **Cerrada**
+
+### Resultado técnico registrado
+
+`B164` queda cerrada como optimización interna real y observable:
+
+- `KnowledgeBase` y `DocumentCache` compactan por documento las strings calientes de URIs, ids, nombres, owners, tipos y contenedores antes de persistir facts/scopes/snapshots;
+- la compactación no introduce fugas silenciosas: al reemplazar o invalidar un documento, el interner libera sus referencias y el pool vuelve a tamaño cero cuando el documento desaparece;
+- el estado queda observable vía stats (`internedStrings`) para no dejar la optimización como una caja negra no verificable.
+
+### Documentación afectada
+
+- `docs/architecture.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/managedStringInterner|unit/knowledge"`
+- `npm test` → smoke `2 passing`, unit `404 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
+## 1.35 B063. Diagnostics snapshot agrupado — **Cerrada**
+
+### Resultado técnico registrado
+
+`B063` deja de ser un contador plano por URI y queda cerrada como snapshot diagnóstico agrupado y versionado:
+
+- `buildDiagnosticsSnapshot()` agrupa ahora por proyecto y por objeto, conserva `documentVersion` y `snapshotVersion`, y mantiene además la vista agregada por archivo/código/severidad para no perder consumidores previos;
+- `publishDiagnostics()` deja de mantener un resumen ad hoc divergente y reutiliza el mismo contrato enriquecido, con limpieza coherente al cerrar o eliminar archivos;
+- `powerbuilder.showStats` y la API pública mínima heredan ese snapshot agrupado como surface exportable ligera, sin introducir una UI nueva ni duplicar lógica de agregación.
+
+### Documentación afectada
+
+- `docs/architecture.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `specs/053-diagnostics-snapshot/spec.md`
+- `specs/053-diagnostics-snapshot/plan.md`
+- `specs/053-diagnostics-snapshot/tasks.md`
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/diagnosticsSnapshot|unit/diagnostics"`
+- `npm test` → smoke `2 passing`, unit `406 passing`, integration `4 passing`
+- `npm run test:performance` → `4 passing`
+
+---
+
 # 2. Auditoría 2026-04 — bugs críticos corregidos
 
 ## B143 — `end if` cerraba el scope de la función — **Corregido**
@@ -754,11 +1094,7 @@ Los siguientes ítems no aparecen ya como piezas separadas en el backlog activo 
 
 ## Ítems parciales que permanecen en el backlog activo
 
-Tras la normalización 2026-05, las antiguas épicas legacy ya no viven como `Partial`: vuelven a `Open` cuando el trabajo pendiente no cabe honestamente en un único corte. Después de `Specs 198-217`, el único trabajo activo `Partial` que permanece explícito en el backlog activo es:
-
-- B141A
-
-El resto del trabajo abierto debe seguir leyéndose directamente desde el backlog activo bajo estado `Open`, `Ready for closure` o `Blocked`.
+Tras la normalización 2026-05, las antiguas épicas legacy ya no viven como `Partial`: vuelven a `Open` cuando el trabajo pendiente no cabe honestamente en un único corte. Después de `Specs 198-218`, ya no queda ningún residual `Partial` heredado de esa ola: `B141A` se cierra con `Spec 218` y el resto del trabajo abierto debe seguir leyéndose directamente desde el backlog activo bajo estado `Open`, `Ready for closure` o `Blocked`.
 
 ---
 

@@ -160,6 +160,11 @@
         "command": "vscPowerSyntax.restartServer",
         "title": "PowerSyntax: Reiniciar Servidor de Lenguaje",
         "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.inspectHierarchy",
+        "title": "PowerSyntax: Inspeccionar Jerarquía Activa",
+        "category": "VSC PowerSyntax"
       }
     ],
     "iconThemes": [
@@ -196,7 +201,7 @@
     "watch": "tsc -b -w",
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
     "rebuild": "npm run clean && npm run compile",
-    "build:test": "tsc -p tsconfig.test.json",
+    "build:test": "tsc -b && tsc -p tsconfig.test.json",
     "test": "npm run build:test && vscode-test --label smoke --label unit --label integration",
     "test:smoke": "npm run build:test && vscode-test --label smoke",
     "test:unit": "npm run build:test && vscode-test --label unit",

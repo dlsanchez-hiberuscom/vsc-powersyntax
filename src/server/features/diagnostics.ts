@@ -23,6 +23,12 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { EntityKind, ScopeKind } from '../knowledge/types';
+import type { WorkspaceState } from '../workspace/workspaceState';
+import {
+  buildDiagnosticsSnapshot,
+  type DiagnosticsSnapshot,
+  type DiagnosticsSnapshotInputEntry,
+} from './diagnosticsSnapshot';
 import {
   PB_KEYWORDS,
   PB_BUILTIN_TYPES,
@@ -60,7 +66,8 @@ export function publishDiagnostics(
   document: TextDocument,
   kb?: KnowledgeBase,
   systemCatalog?: SystemCatalog,
-  inheritanceGraph?: InheritanceGraph
+  inheritanceGraph?: InheritanceGraph,
+  workspaceState?: WorkspaceState
 ): void {
   const structural = validateStructure(document);
   const semantic = (kb && systemCatalog && inheritanceGraph)
@@ -77,7 +84,7 @@ export function publishDiagnostics(
   const all = applySeverityOverrides([...structural, ...semantic, ...extra]);
   const merged = dedupAndCap(all, MAX_DIAGNOSTICS_PER_FILE);
   // Spec 117: actualizar contadores agregados.
-  recordDiagnosticsSummary(document.uri, merged);
+  recordDiagnosticsSummary(document, merged, workspaceState);
   connection.sendDiagnostics({
     uri: document.uri,
     diagnostics: merged
@@ -133,28 +140,87 @@ function applySeverityOverrides(diags: Diagnostic[]): Diagnostic[] {
  * exponer un resumen vía custom command sin necesidad de re-publicar.
  */
 const diagnosticsSummary = new Map<string, {
-  total: number;
-  byCode: Record<string, number>;
-  bySeverity: Record<string, number>;
+  diagnostics: readonly Diagnostic[];
+  projectKey?: string;
+  projectLabel?: string;
+  objectKey?: string;
+  objectLabel?: string;
+  documentVersion?: number;
+  snapshotVersion?: number;
+  snapshotIdentity?: string;
 }>();
 
-function recordDiagnosticsSummary(uri: string, merged: Diagnostic[]): void {
-  const byCode: Record<string, number> = {};
-  const bySeverity: Record<string, number> = {};
-  for (const d of merged) {
-    const src = d.source ?? 'PowerScript';
-    byCode[src] = (byCode[src] ?? 0) + 1;
-    const sev = String(d.severity ?? '');
-    bySeverity[sev] = (bySeverity[sev] ?? 0) + 1;
-  }
-  diagnosticsSummary.set(uri, { total: merged.length, byCode, bySeverity });
+function fallbackObjectLabel(uri: string): string {
+  const normalized = uri.replace(/[?#].*$/, '').replace(/\/+$/, '');
+  const fileName = normalized.slice(normalized.lastIndexOf('/') + 1);
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName || uri;
 }
 
-export function getDiagnosticsSummary(uri?: string): unknown {
-  if (uri) return diagnosticsSummary.get(uri) ?? null;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of diagnosticsSummary) out[k] = v;
-  return out;
+function resolvePrimaryObject(snapshot: SemanticDocumentSnapshot, uri: string): { key: string; label: string } {
+  const primary = snapshot.containerModel.typeBlocks.find((block) => !block.container)
+    ?? snapshot.containerModel.typeBlocks[0];
+  const label = primary?.name ?? fallbackObjectLabel(uri);
+  return {
+    key: label.toLowerCase(),
+    label,
+  };
+}
+
+function buildDiagnosticsSummaryEntry(
+  document: TextDocument,
+  merged: Diagnostic[],
+  workspaceState?: WorkspaceState
+): DiagnosticsSnapshotInputEntry {
+  const snapshot = getDocumentAnalysis(document).snapshot;
+  const projectContext = workspaceState?.getProjectContextForFile(document.uri);
+  const objectRef = resolvePrimaryObject(snapshot, document.uri);
+
+  return {
+    diagnostics: merged,
+    projectKey: projectContext?.projectUri ?? '__workspace__',
+    projectLabel: projectContext?.name ?? 'workspace',
+    objectKey: objectRef.key,
+    objectLabel: objectRef.label,
+    documentVersion: document.version,
+    snapshotVersion: snapshot.version,
+    snapshotIdentity: snapshot.identity,
+  };
+}
+
+function recordDiagnosticsSummary(
+  document: TextDocument,
+  merged: Diagnostic[],
+  workspaceState?: WorkspaceState
+): void {
+  if (merged.length === 0) {
+    diagnosticsSummary.delete(document.uri);
+    return;
+  }
+
+  diagnosticsSummary.set(document.uri, buildDiagnosticsSummaryEntry(document, merged, workspaceState));
+}
+
+export function clearDiagnosticsSummary(uri?: string): void {
+  if (uri) {
+    diagnosticsSummary.delete(uri);
+    return;
+  }
+
+  diagnosticsSummary.clear();
+}
+
+export function getDiagnosticsSummary(uri?: string): DiagnosticsSnapshot | DiagnosticsSnapshot['documents'][number] | null {
+  if (uri) {
+    const entry = diagnosticsSummary.get(uri);
+    if (!entry) {
+      return null;
+    }
+
+    return buildDiagnosticsSnapshot(new Map([[uri, entry]])).documents[0] ?? null;
+  }
+
+  return buildDiagnosticsSnapshot(diagnosticsSummary);
 }
 
 function dedupAndCap(diags: Diagnostic[], cap: number): Diagnostic[] {

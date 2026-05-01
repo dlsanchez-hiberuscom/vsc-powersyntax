@@ -5,6 +5,8 @@ import { calculateHash } from '../system/hash';
 import { normalizeUri } from '../system/uriUtils';
 import { DocumentCache } from '../knowledge/DocumentCache';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { collectSnapshotDependencyKeys } from '../knowledge/semanticDiff';
+import { PB_IDENTIFIER_SOURCE, PB_KEYWORDS } from '../parsing/grammar';
 import { WorkspaceState } from '../workspace/workspaceState';
 import { analyzeDocument, analyzeDocumentStructural } from '../analysis/documentAnalysis';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
@@ -41,6 +43,8 @@ interface PreparedDocument {
   scopes?: ReturnType<typeof analyzeDocument>['scopes'];
   structuralSnapshot: SemanticDocumentSnapshot;
   enrichedSnapshot?: SemanticDocumentSnapshot;
+  skipStructuralPublish?: boolean;
+  skipEnrichedPublish?: boolean;
 }
 
 /** Cada cuántos archivos se reporta progreso intermedio. */
@@ -84,6 +88,7 @@ function resolveMaxFileBytes(): number {
   return Number.isFinite(n) && n > 0 ? n : 4 * 1024 * 1024;
 }
 const MAX_FILE_BYTES = resolveMaxFileBytes();
+const PROBABLE_CALL_REGEX = new RegExp(`\\b(?:(this|super)\\.)?(${PB_IDENTIFIER_SOURCE})\\s*\\(`, 'gi');
 
 /**
  * Spec 123: máquina de estados por archivo durante la indexación.
@@ -99,6 +104,14 @@ export enum FileIndexState {
 const fileStates: Map<string, FileIndexState> = new Map();
 
 export type IndexerPhase = 'idle' | 'structural' | 'enriched' | 'partial' | 'ready';
+
+export interface IndexPrioritySummary {
+  strategy: 'lexicographic' | 'active-project' | 'semantic-nearby';
+  ancestors: number;
+  semantic: number;
+  probableCalls: number;
+  sameProject: number;
+}
 
 const indexerStatus: {
   phase: IndexerPhase;
@@ -117,6 +130,7 @@ const indexerStatus: {
   lastProcessedUri?: string;
   lastFailedUri?: string;
   partialRuns: number;
+  prioritySummary?: IndexPrioritySummary;
 } = {
   phase: 'idle',
   total: 0,
@@ -134,6 +148,14 @@ const indexerStatus: {
 /** Spec 123: lectura del estado de un archivo (sólo lectura). */
 export function getFileIndexState(uri: string): FileIndexState | undefined {
   return fileStates.get(uri);
+}
+
+export function setFileIndexState(uri: string, state: FileIndexState): void {
+  fileStates.set(normalizeUri(uri), state);
+}
+
+export function clearFileIndexState(uri: string): void {
+  fileStates.delete(normalizeUri(uri));
 }
 
 /** Spec 127: snapshot del estado global del indexer. */
@@ -154,6 +176,7 @@ export function getIndexerStatus(): {
   lastProcessedUri?: string;
   lastFailedUri?: string;
   partialRuns: number;
+  prioritySummary?: IndexPrioritySummary;
   byState: Record<FileIndexState, number>;
 } {
   const byState: Record<FileIndexState, number> = {
@@ -183,7 +206,8 @@ export function getIndexerStatus(): {
 export function prioritizeFilesForIndexing(
   files: string[],
   workspaceState: WorkspaceState,
-  activeUri?: string
+  activeUri?: string,
+  kb?: KnowledgeBase
 ): string[] {
   const ordered = [...files].sort();
   if (!activeUri) {
@@ -196,12 +220,15 @@ export function prioritizeFilesForIndexing(
   const sameProject = new Set(
     activeProject ? projectModel?.getFilesForProject(activeProject.projectUri).map((uri) => normalizeUri(uri)) : []
   );
+  const semanticPriority = kb
+    ? buildSemanticPriorityBuckets(kb, normalizedActiveUri)
+    : { ancestors: new Set<string>(), semantic: new Set<string>(), probableCalls: new Set<string>() };
 
   return ordered.sort((left, right) => {
     const leftUri = normalizeUri(left);
     const rightUri = normalizeUri(right);
-    const leftPriority = leftUri === normalizedActiveUri ? 0 : sameProject.has(leftUri) ? 1 : 2;
-    const rightPriority = rightUri === normalizedActiveUri ? 0 : sameProject.has(rightUri) ? 1 : 2;
+    const leftPriority = getPriorityBucket(leftUri, normalizedActiveUri, semanticPriority, sameProject);
+    const rightPriority = getPriorityBucket(rightUri, normalizedActiveUri, semanticPriority, sameProject);
     if (leftPriority !== rightPriority) {
       return leftPriority - rightPriority;
     }
@@ -227,7 +254,8 @@ export async function indexWorkspace(
   activeUri?: string
 ): Promise<void> {
   const log = logger || (() => {});
-  let files = prioritizeFilesForIndexing(workspaceState.getAllSourceFiles(), workspaceState, activeUri);
+  indexerStatus.prioritySummary = buildPrioritySummary(workspaceState, activeUri, kb);
+  let files = prioritizeFilesForIndexing(workspaceState.getAllSourceFiles(), workspaceState, activeUri, kb);
   const total = files.length;
   let structuralProcessed = 0;
   let enrichedProcessed = 0;
@@ -258,7 +286,25 @@ export async function indexWorkspace(
   if (total === 0) {
     indexerStatus.phase = 'ready';
     indexerStatus.pass = undefined;
+    workspaceState.markIndexClean();
     reportProgress(onProgress, 0, total, 'structural');
+    return;
+  }
+
+  if (canSkipFullIndex(files, cache, kb, workspaceState)) {
+    for (const uri of files) {
+      fileStates.set(uri, FileIndexState.Indexed);
+    }
+    indexerStatus.phase = 'ready';
+    indexerStatus.current = total;
+    indexerStatus.structuralProcessed = total;
+    indexerStatus.enrichedProcessed = total;
+    indexerStatus.structuralPublished = 0;
+    indexerStatus.enrichedPublished = 0;
+    indexerStatus.pass = undefined;
+    indexerStatus.lastProcessedUri = files[files.length - 1];
+    workspaceState.markIndexClean();
+    reportProgress(onProgress, total, total, 'enriched');
     return;
   }
 
@@ -286,13 +332,16 @@ export async function indexWorkspace(
 
         // Si ya está en caché y el hash coincide, saltamos el parseo
         if (cache.isValid(uri, hash) && cachedEntry?.snapshot && isEnrichedSnapshot(cachedEntry.snapshot)) {
+          const reusePublishedSnapshot = hasMatchingPublishedEnrichedSnapshot(kb, uri, cachedEntry.snapshot);
           preparedDocuments.push({
             uri,
             hash,
             facts: cachedEntry.facts,
             scopes: cachedEntry.scopes,
             structuralSnapshot: createStructuralSnapshot(cachedEntry.snapshot),
-            enrichedSnapshot: cachedEntry.snapshot
+            enrichedSnapshot: cachedEntry.snapshot,
+            skipStructuralPublish: reusePublishedSnapshot,
+            skipEnrichedPublish: reusePublishedSnapshot
           });
           structuralProcessed++;
           updateStatus('structural', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
@@ -344,24 +393,31 @@ export async function indexWorkspace(
       }
     }
 
-    kb.beginBatchUpdate();
-    for (const prepared of preparedDocuments) {
-      kb.upsertDocument(
-        prepared.uri,
-        prepared.structuralSnapshot.symbols,
-        prepared.structuralSnapshot.scopes,
-        prepared.structuralSnapshot
-      );
+    const structuralToPublish = preparedDocuments.filter((prepared) => !prepared.skipStructuralPublish);
+    if (structuralToPublish.length > 0) {
+      kb.beginBatchUpdate();
+      for (const prepared of structuralToPublish) {
+        kb.upsertDocument(
+          prepared.uri,
+          prepared.structuralSnapshot.symbols,
+          prepared.structuralSnapshot.scopes,
+          prepared.structuralSnapshot
+        );
+      }
+      kb.commitBatchUpdate();
     }
-    kb.commitBatchUpdate();
-    indexerStatus.structuralPublished = preparedDocuments.length;
+    indexerStatus.structuralPublished = structuralToPublish.length;
 
     indexerStatus.phase = 'enriched';
     indexerStatus.pass = 'enriched';
     indexerStatus.current = 0;
     reportProgress(onProgress, 0, total, 'enriched');
 
-    kb.beginBatchUpdate();
+    const hasEnrichedPublications = preparedDocuments.some((prepared) => !prepared.skipEnrichedPublish);
+    let enrichedPublished = 0;
+    if (hasEnrichedPublications) {
+      kb.beginBatchUpdate();
+    }
     sliceStart = Date.now();
     for (const prepared of preparedDocuments) {
       if (token.isCancelled) {
@@ -375,23 +431,26 @@ export async function indexWorkspace(
       let scopes = prepared.scopes;
       let enrichedSnapshot = prepared.enrichedSnapshot;
 
-      if (!facts || !scopes || !enrichedSnapshot) {
-        const document = TextDocument.create(prepared.uri, 'powerbuilder', 1, prepared.content ?? '');
-        const analysis = analyzeDocument(document);
-        facts = analysis.semanticFacts;
-        scopes = analysis.scopes;
-        enrichedSnapshot = analysis.snapshot;
-        cache.set(prepared.uri, {
-          version: prepared.hash,
-          facts,
-          symbols: [],
-          scopes,
-          snapshot: enrichedSnapshot
-        });
-      }
+      if (!prepared.skipEnrichedPublish) {
+        if (!facts || !scopes || !enrichedSnapshot) {
+          const document = TextDocument.create(prepared.uri, 'powerbuilder', 1, prepared.content ?? '');
+          const analysis = analyzeDocument(document);
+          facts = analysis.semanticFacts;
+          scopes = analysis.scopes;
+          enrichedSnapshot = analysis.snapshot;
+          cache.set(prepared.uri, {
+            version: prepared.hash,
+            facts,
+            symbols: [],
+            scopes,
+            snapshot: enrichedSnapshot
+          });
+        }
 
-      kb.upsertDocument(prepared.uri, facts, scopes, enrichedSnapshot);
-      indexerStatus.enrichedPublished = enrichedProcessed + 1;
+        kb.upsertDocument(prepared.uri, facts, scopes, enrichedSnapshot);
+        enrichedPublished++;
+        indexerStatus.enrichedPublished = enrichedPublished;
+      }
       fileStates.set(prepared.uri, FileIndexState.Indexed);
       enrichedProcessed++;
       updateStatus('enriched', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
@@ -414,6 +473,7 @@ export async function indexWorkspace(
       indexerStatus.phase = 'ready';
       indexerStatus.pass = undefined;
       indexerStatus.current = total;
+      workspaceState.markIndexClean();
     }
   } finally {
     if (kb.isBatchUpdating) {
@@ -484,4 +544,179 @@ function createStructuralSnapshot(snapshot: SemanticDocumentSnapshot): SemanticD
     logicalStatements: [],
     controlBlocks: []
   };
+}
+
+function hasMatchingPublishedEnrichedSnapshot(
+  kb: KnowledgeBase,
+  uri: string,
+  snapshot: SemanticDocumentSnapshot
+): boolean {
+  const published = kb.getDocumentSnapshot(uri);
+  return published?.identity === snapshot.identity
+    && isEnrichedSnapshot(published)
+    && isEnrichedSnapshot(snapshot);
+}
+
+function canSkipFullIndex(
+  files: string[],
+  cache: DocumentCache,
+  kb: KnowledgeBase,
+  workspaceState: WorkspaceState
+): boolean {
+  if (workspaceState.isIndexDirty()) {
+    return false;
+  }
+
+  return files.every((uri) => cache.hasSnapshot(uri) && kb.hasDocumentSnapshot(uri));
+}
+
+function buildPrioritySummary(
+  workspaceState: WorkspaceState,
+  activeUri: string | undefined,
+  kb?: KnowledgeBase
+): IndexPrioritySummary {
+  if (!activeUri) {
+    return {
+      strategy: 'lexicographic',
+      ancestors: 0,
+      semantic: 0,
+      probableCalls: 0,
+      sameProject: 0
+    };
+  }
+
+  const normalizedActiveUri = normalizeUri(activeUri);
+  const projectModel = workspaceState.getProjectModel();
+  const activeProject = projectModel?.getProjectForFile(normalizedActiveUri) ?? null;
+  const sameProject = new Set(
+    activeProject ? projectModel?.getFilesForProject(activeProject.projectUri).map((uri) => normalizeUri(uri)) : []
+  );
+  sameProject.delete(normalizedActiveUri);
+
+  const semanticPriority = kb
+    ? buildSemanticPriorityBuckets(kb, normalizedActiveUri)
+    : { ancestors: new Set<string>(), semantic: new Set<string>(), probableCalls: new Set<string>() };
+
+  const strategy = semanticPriority.ancestors.size > 0
+    || semanticPriority.semantic.size > 0
+    || semanticPriority.probableCalls.size > 0
+    ? 'semantic-nearby'
+    : 'active-project';
+
+  return {
+    strategy,
+    ancestors: semanticPriority.ancestors.size,
+    semantic: semanticPriority.semantic.size,
+    probableCalls: semanticPriority.probableCalls.size,
+    sameProject: sameProject.size
+  };
+}
+
+function getPriorityBucket(
+  uri: string,
+  activeUri: string,
+  buckets: {
+    ancestors: Set<string>;
+    semantic: Set<string>;
+    probableCalls: Set<string>;
+  },
+  sameProject: Set<string>
+): number {
+  if (uri === activeUri) return 0;
+  if (buckets.ancestors.has(uri)) return 1;
+  if (buckets.semantic.has(uri)) return 2;
+  if (buckets.probableCalls.has(uri)) return 3;
+  if (sameProject.has(uri)) return 4;
+  return 5;
+}
+
+function buildSemanticPriorityBuckets(
+  kb: KnowledgeBase,
+  activeUri: string
+): {
+  ancestors: Set<string>;
+  semantic: Set<string>;
+  probableCalls: Set<string>;
+} {
+  const activeSnapshot = kb.getDocumentSnapshot(activeUri);
+  if (!activeSnapshot) {
+    return {
+      ancestors: new Set<string>(),
+      semantic: new Set<string>(),
+      probableCalls: new Set<string>()
+    };
+  }
+
+  const ancestors = new Set<string>();
+  const semantic = new Set<string>();
+  const probableCalls = new Set<string>();
+
+  for (const symbol of activeSnapshot.symbols) {
+    if (!symbol.baseTypeName) {
+      continue;
+    }
+
+    for (const entity of kb.findAllDefinitions(symbol.baseTypeName)) {
+      const uri = normalizeUri(entity.uri);
+      if (uri !== activeUri) {
+        ancestors.add(uri);
+      }
+    }
+  }
+
+  for (const dependency of collectSnapshotDependencyKeys(activeSnapshot)) {
+    for (const entity of kb.findAllDefinitions(dependency)) {
+      const uri = normalizeUri(entity.uri);
+      if (uri !== activeUri && !ancestors.has(uri)) {
+        semantic.add(uri);
+      }
+    }
+  }
+
+  for (const dependentUri of kb.getDependentDocumentsForUri(activeUri)) {
+    const normalized = normalizeUri(dependentUri);
+    if (normalized !== activeUri && !ancestors.has(normalized)) {
+      semantic.add(normalized);
+    }
+  }
+
+  for (const probableCall of collectProbableCallNames(activeSnapshot)) {
+    for (const entity of kb.findAllDefinitions(probableCall)) {
+      const uri = normalizeUri(entity.uri);
+      if (uri !== activeUri && !ancestors.has(uri) && !semantic.has(uri)) {
+        probableCalls.add(uri);
+      }
+    }
+  }
+
+  return { ancestors, semantic, probableCalls };
+}
+
+function collectProbableCallNames(snapshot: SemanticDocumentSnapshot): string[] {
+  const names = new Set<string>();
+
+  for (const line of snapshot.maskedText.lines) {
+    if (!line) {
+      continue;
+    }
+
+    PROBABLE_CALL_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = PROBABLE_CALL_REGEX.exec(line)) !== null) {
+      const qualifier = match[1];
+      const name = match[2].toLowerCase();
+      if (PB_KEYWORDS.has(name)) {
+        continue;
+      }
+
+      const stringBefore = line.substring(0, match.index);
+      if (stringBefore.endsWith('.') && !qualifier) {
+        continue;
+      }
+
+      names.add(name);
+    }
+  }
+
+  return [...names];
 }

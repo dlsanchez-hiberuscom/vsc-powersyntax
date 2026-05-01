@@ -149,6 +149,42 @@ suite('unit/knowledge', () => {
       assert.equal(stats.enrichedSnapshots, 1);
       assert.equal(stats.structuralOnlySnapshots, 1);
       assert.equal(stats.nearbySemanticReadySnapshots, 1);
+      assert.ok(stats.internedStrings > 0);
+    });
+
+    test('libera strings internados al eliminar un documento', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///compact.sru';
+
+      kb.upsertDocument(uri, [
+        {
+          id: 'w_compact.of_init',
+          name: 'of_init',
+          kind: EntityKind.Function,
+          uri,
+          line: 1,
+          character: 0,
+          containerName: 'w_compact',
+          ownerName: 'w_compact',
+          datatype: 'string'
+        },
+        {
+          id: 'w_compact.of_run',
+          name: 'of_run',
+          kind: EntityKind.Function,
+          uri,
+          line: 5,
+          character: 0,
+          containerName: 'w_compact',
+          ownerName: 'w_compact',
+          datatype: 'string'
+        }
+      ]);
+
+      assert.ok(kb.getStats().internedStrings > 0);
+
+      kb.removeDocument(uri);
+      assert.equal(kb.getStats().internedStrings, 0);
     });
 
     test('getEntitiesByUri prioriza symbols del snapshot publicado', () => {

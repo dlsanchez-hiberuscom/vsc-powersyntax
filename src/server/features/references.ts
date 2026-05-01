@@ -14,6 +14,9 @@
 import { Location, Position, Range } from 'vscode-languageserver/node';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import type { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
+import type { HotContextCache } from '../knowledge/HotContextCache';
+import { resolveDocumentQueryTargets } from './queryContext';
 
 export interface ReferenceSource {
   uri: string;
@@ -40,17 +43,20 @@ export function provideReferences(
   document: TextDocument,
   position: Position,
   kb: KnowledgeBase,
+  graph: InheritanceGraph,
   sources: Iterable<ReferenceSource>,
-  options: { includeDeclaration?: boolean } = { includeDeclaration: true }
+  options: { includeDeclaration?: boolean } = { includeDeclaration: true },
+  hotContext?: HotContextCache
 ): Location[] {
-  const word = getWordAt(document, position);
+  const resolved = resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'references');
+  const word = resolved?.context.identifier ?? getWordAt(document, position);
   if (!word) return [];
   const wordLower = word.toLowerCase();
   const result: Location[] = [];
 
   // 1. Definiciones desde la KB
   if (options.includeDeclaration !== false) {
-    const defs = kb.findAllDefinitions(wordLower);
+    const defs = resolved?.targets.length ? resolved.targets : kb.findAllDefinitions(wordLower);
     for (const e of defs) {
       result.push(
         Location.create(e.uri, {

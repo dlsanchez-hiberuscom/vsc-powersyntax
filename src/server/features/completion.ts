@@ -5,31 +5,10 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
-import { resolveQualifierType } from '../knowledge/resolution/semanticQueryService';
 import { Entity, EntityKind } from '../knowledge/types';
-import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
-
-function getActiveEntities(
-  currentUri: string,
-  kb: KnowledgeBase,
-  hotContext?: HotContextCache,
-  kbVersion?: number
-): Entity[] {
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
-    const cached = hotContext.getActiveEntities();
-    if (cached) {
-      return cached;
-    }
-  }
-
-  const entities = kb.getEntitiesByUri(currentUri);
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
-    hotContext.setActiveEntities(entities);
-  }
-  return entities;
-}
+import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
 
 function getMembersForCompletion(
   typeName: string,
@@ -92,19 +71,15 @@ export function provideCompletion(
     }
   }
   
-  const currentUri = normalizeUri(document.uri);
+  const queryContext = createDocumentQueryContext(document, position, kb, graph, hotContext, 'completion');
+  const { currentUri, documentEntities, currentMainObject } = queryContext;
   const items: CompletionItem[] = [];
-
-  const documentEntities = getActiveEntities(currentUri, kb, hotContext, kbVersion);
-  const currentMainObject = documentEntities.find(
-    e => e.kind === EntityKind.Type
-  );
 
   if (qualifier) {
     // -----------------------------------------------------
     // SCENARIO 1: We have a qualifier (e.g. this. , ls_var.)
     // -----------------------------------------------------
-    const varType = resolveQualifierType(qualifier, currentUri, kb, position.line);
+    const varType = resolveDocumentQualifierType(document, qualifier, position, kb);
     if (varType) {
       let members: Entity[] = [];
 

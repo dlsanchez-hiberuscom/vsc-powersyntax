@@ -1,6 +1,8 @@
 import { DocumentCacheEntry } from './types';
 import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
 import { normalizeUri } from '../system/uriUtils';
+import { ManagedStringInterner } from './ManagedStringInterner';
+import { internDocumentCacheEntry } from './stringInterning';
 
 function cloneValue<T>(value: T): T {
   return structuredClone(value);
@@ -13,13 +15,17 @@ function cloneValue<T>(value: T): T {
  */
 export class DocumentCache {
   private cache: Map<string, DocumentCacheEntry> = new Map();
+  private stringInterner = new ManagedStringInterner();
 
   /**
    * Actualiza o inserta la caché para un documento.
    */
   set(uri: string, entry: DocumentCacheEntry): void {
     const normalized = normalizeUri(uri);
-    this.cache.set(normalized, cloneValue(entry));
+    const nextEntry = this.stringInterner.replaceDocument(normalized, (intern) =>
+      internDocumentCacheEntry(cloneValue(entry), intern)
+    );
+    this.cache.set(normalized, nextEntry);
   }
 
   /**
@@ -35,6 +41,10 @@ export class DocumentCache {
     return this.get(uri)?.snapshot;
   }
 
+  hasSnapshot(uri: string): boolean {
+    return this.cache.get(normalizeUri(uri))?.snapshot !== undefined;
+  }
+
   /**
    * Comprueba si la caché de un documento sigue siendo válida comparando la versión/hash.
    */
@@ -47,7 +57,9 @@ export class DocumentCache {
    * Invalida (borra) la caché de un documento.
    */
   invalidate(uri: string): void {
-    this.cache.delete(normalizeUri(uri));
+    const normalized = normalizeUri(uri);
+    this.cache.delete(normalized);
+    this.stringInterner.removeDocument(normalized);
   }
 
   /**
@@ -55,6 +67,7 @@ export class DocumentCache {
    */
   clear(): void {
     this.cache.clear();
+    this.stringInterner.clear();
   }
 
   exportDocumentRecords(): SemanticCacheDocumentRecord[] {
@@ -91,8 +104,11 @@ export class DocumentCache {
   /**
    * Spec 120: estadísticas básicas (size, capacity opcional).
    */
-  getStats(): { size: number } {
-    return { size: this.cache.size };
+  getStats(): { size: number; internedStrings: number } {
+    return {
+      size: this.cache.size,
+      internedStrings: this.stringInterner.getStats().uniqueStrings,
+    };
   }
 
   /**

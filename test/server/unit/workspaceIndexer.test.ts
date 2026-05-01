@@ -5,9 +5,11 @@ import {
   prioritizeFilesForIndexing
 } from '../../../src/server/indexer/workspaceIndexer';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
+import type { SemanticDocumentSnapshot } from '../../../src/server/analysis/semanticSnapshot';
 import type { UnifiedProjectModel } from '../../../src/server/workspace/unifiedProjectModel';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { EntityKind, type Fact } from '../../../src/server/knowledge/types';
 import { IFileSystem, FileStat } from '../../../src/server/system/fileSystem';
 import { createCancellationSource } from '../../../src/server/runtime/cancellation';
 
@@ -32,6 +34,29 @@ class FakeFileSystem implements IFileSystem {
   async deletePath(uri: string): Promise<void> {
     this.files.delete(uri);
   }
+}
+
+function createSnapshot(uri: string, symbols: Fact[], lines: string[] = []): SemanticDocumentSnapshot {
+  return {
+    uri,
+    version: 1,
+    fingerprint: 1,
+    identity: `${uri}@1`,
+    pass: 'enriched',
+    readiness: 'nearby-semantic-ready',
+    containerModel: {
+      sections: [],
+      typeBlocks: []
+    },
+    symbols,
+    scopes: [],
+    logicalStatements: [],
+    maskedText: {
+      lines,
+      masks: lines.map(() => new Uint8Array())
+    },
+    controlBlocks: []
+  };
 }
 
 suite('unit/workspaceIndexer/progress', () => {
@@ -104,9 +129,10 @@ suite('unit/workspaceIndexer/progress', () => {
         return [];
       },
       getProjectForFile(uri: string) {
-        return uri.includes('/projA/')
+        const normalized = uri.toLowerCase();
+        return normalized.includes('/proja/')
           ? { projectUri: 'projA', kind: 'target', name: 'projA', libraries: [] }
-          : uri.includes('/projB/')
+          : normalized.includes('/projb/')
             ? { projectUri: 'projB', kind: 'target', name: 'projB', libraries: [] }
             : null;
       },
@@ -130,6 +156,103 @@ suite('unit/workspaceIndexer/progress', () => {
     );
 
     assert.deepEqual(ordered, ['file:///projA/active.sru', 'file:///projA/nearby.sru', 'file:///projB/other.sru']);
+  });
+
+  test('prioriza ancestro, tipo relacionado y callable probable antes que el resto del proyecto', () => {
+    const state = new WorkspaceState();
+    const kb = new KnowledgeBase();
+
+    const activeUri = 'file:///projA/active.sru';
+    const parentUri = 'file:///projA/parent.sru';
+    const serviceUri = 'file:///projA/service.sru';
+    const callableUri = 'file:///projA/callable.sru';
+    const sameProjectUri = 'file:///projA/other.sru';
+    const workspaceUri = 'file:///projB/other.sru';
+
+    state.setProjectModel({
+      getProjects() {
+        return [];
+      },
+      getProjectForFile(uri: string) {
+        const normalized = uri.toLowerCase();
+        return normalized.includes('/proja/')
+          ? { projectUri: 'projA', kind: 'target', name: 'projA', libraries: [] }
+          : normalized.includes('/projb/')
+            ? { projectUri: 'projB', kind: 'target', name: 'projB', libraries: [] }
+            : null;
+      },
+      getFilesForProject(projectUri: string): string[] {
+        return projectUri === 'projA'
+          ? [activeUri, parentUri, serviceUri, callableUri, sameProjectUri]
+          : [workspaceUri];
+      },
+      getLibrariesForFile(): string[] {
+        return [];
+      },
+      getStats() {
+        return { projects: 2, libraries: 0, orphanFiles: 0 };
+      }
+    } as UnifiedProjectModel);
+
+    const parentSymbols: Fact[] = [{
+      id: 'n_parent',
+      name: 'n_parent',
+      kind: EntityKind.Type,
+      uri: parentUri,
+      line: 0,
+      character: 0
+    }];
+    const serviceSymbols: Fact[] = [{
+      id: 'n_service',
+      name: 'n_service',
+      kind: EntityKind.Type,
+      uri: serviceUri,
+      line: 0,
+      character: 0
+    }];
+    const callableSymbols: Fact[] = [{
+      id: 'of_service',
+      name: 'of_service',
+      kind: EntityKind.Function,
+      uri: callableUri,
+      line: 0,
+      character: 0
+    }];
+    const activeSymbols: Fact[] = [
+      {
+        id: 'n_child',
+        name: 'n_child',
+        kind: EntityKind.Type,
+        uri: activeUri,
+        line: 0,
+        character: 0,
+        baseTypeName: 'n_parent'
+      },
+      {
+        id: 'll_service',
+        name: 'll_service',
+        kind: EntityKind.Variable,
+        uri: activeUri,
+        line: 1,
+        character: 0,
+        datatype: 'n_service',
+        containerName: 'n_child'
+      }
+    ];
+
+    kb.upsertDocument(parentUri, parentSymbols, [], createSnapshot(parentUri, parentSymbols));
+    kb.upsertDocument(serviceUri, serviceSymbols, [], createSnapshot(serviceUri, serviceSymbols));
+    kb.upsertDocument(callableUri, callableSymbols, [], createSnapshot(callableUri, callableSymbols));
+    kb.upsertDocument(activeUri, activeSymbols, [], createSnapshot(activeUri, activeSymbols, ['of_service()']));
+
+    const ordered = prioritizeFilesForIndexing(
+      [workspaceUri, sameProjectUri, callableUri, serviceUri, parentUri, activeUri],
+      state,
+      activeUri,
+      kb
+    );
+
+    assert.deepEqual(ordered, [activeUri, parentUri, serviceUri, callableUri, sameProjectUri, workspaceUri]);
   });
 
   test('status expone degradación si hay archivos fallidos', async () => {
@@ -246,5 +369,110 @@ suite('unit/workspaceIndexer/progress', () => {
     assert.equal(snapshot?.pass, 'enriched');
     assert.equal(snapshot?.readiness, 'nearby-semantic-ready');
     assert.equal(getIndexerStatus().enrichedPublished, 1);
+  });
+
+  test('warm start no republica documentos sin cambios ni avanza semanticEpoch', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache();
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    fs.files.set('file:///proj/warm.sru', 'forward prototypes\nend prototypes\n');
+    state.addSourceFile('file:///proj/warm.sru');
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+    const epochAfterColdRun = kb.semanticEpoch;
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+
+    assert.equal(kb.semanticEpoch, epochAfterColdRun);
+    assert.equal(getIndexerStatus().structuralPublished, 0);
+    assert.equal(getIndexerStatus().enrichedPublished, 0);
+  });
+
+  test('status expone resumen de prioridad semantica del activo', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache();
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    const activeUri = 'file:///projA/active.sru';
+    const parentUri = 'file:///projA/parent.sru';
+    const serviceUri = 'file:///projA/service.sru';
+    const callableUri = 'file:///projA/callable.sru';
+    const sameProjectUri = 'file:///projA/other.sru';
+    const workspaceUri = 'file:///projB/other.sru';
+
+    for (const uri of [activeUri, parentUri, serviceUri, callableUri, sameProjectUri, workspaceUri]) {
+      state.addSourceFile(uri);
+      fs.files.set(uri, 'forward prototypes\nend prototypes\n');
+    }
+
+    state.setProjectModel({
+      getProjects() {
+        return [];
+      },
+      getProjectForFile(uri: string) {
+        const normalized = uri.toLowerCase();
+        return normalized.includes('/proja/')
+          ? { projectUri: 'projA', kind: 'target', name: 'projA', libraries: [] }
+          : normalized.includes('/projb/')
+            ? { projectUri: 'projB', kind: 'target', name: 'projB', libraries: [] }
+            : null;
+      },
+      getFilesForProject(projectUri: string): string[] {
+        return projectUri === 'projA'
+          ? [activeUri, parentUri, serviceUri, callableUri, sameProjectUri]
+          : [workspaceUri];
+      },
+      getLibrariesForFile(): string[] {
+        return [];
+      },
+      getStats() {
+        return { projects: 2, libraries: 0, orphanFiles: 0 };
+      }
+    } as UnifiedProjectModel);
+
+    const parentSymbols: Fact[] = [{ id: 'n_parent', name: 'n_parent', kind: EntityKind.Type, uri: parentUri, line: 0, character: 0 }];
+    const serviceSymbols: Fact[] = [{ id: 'n_service', name: 'n_service', kind: EntityKind.Type, uri: serviceUri, line: 0, character: 0 }];
+    const callableSymbols: Fact[] = [{ id: 'of_service', name: 'of_service', kind: EntityKind.Function, uri: callableUri, line: 0, character: 0 }];
+    const activeSymbols: Fact[] = [
+      { id: 'n_child', name: 'n_child', kind: EntityKind.Type, uri: activeUri, line: 0, character: 0, baseTypeName: 'n_parent' },
+      { id: 'll_service', name: 'll_service', kind: EntityKind.Variable, uri: activeUri, line: 1, character: 0, datatype: 'n_service', containerName: 'n_child' }
+    ];
+
+    const snapshots = new Map<string, SemanticDocumentSnapshot>([
+      [parentUri, createSnapshot(parentUri, parentSymbols)],
+      [serviceUri, createSnapshot(serviceUri, serviceSymbols)],
+      [callableUri, createSnapshot(callableUri, callableSymbols)],
+      [sameProjectUri, createSnapshot(sameProjectUri, [])],
+      [workspaceUri, createSnapshot(workspaceUri, [])],
+      [activeUri, createSnapshot(activeUri, activeSymbols, ['of_service()'])]
+    ]);
+
+    for (const [uri, snapshot] of snapshots.entries()) {
+      kb.upsertDocument(uri, snapshot.symbols, [], snapshot);
+      cache.set(uri, {
+        version: `hash:${uri}`,
+        symbols: [],
+        facts: snapshot.symbols,
+        scopes: [],
+        snapshot
+      });
+    }
+
+    state.markIndexClean();
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token, undefined, undefined, activeUri);
+
+    assert.deepEqual(getIndexerStatus().prioritySummary, {
+      strategy: 'semantic-nearby',
+      ancestors: 1,
+      semantic: 1,
+      probableCalls: 1,
+      sameProject: 4
+    });
   });
 });

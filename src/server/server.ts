@@ -8,7 +8,9 @@ import {
   InitializeResult,
   Hover,
   Diagnostic,
-  CodeActionKind
+  CodeActionKind,
+  Position,
+  Range
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -35,9 +37,15 @@ import { provideCompletion } from './features/completion';
 import { getSemanticTokensLegend, provideSemanticTokens } from './features/semanticTokens';
 import { provideCodeActions } from './features/codeActions';
 import { provideReferenceCodeLenses } from './features/codeLensReferences';
+import { buildHierarchyInspection } from './features/hierarchyInspection';
+import {
+  clearDiagnosticsSummary,
+  getDiagnosticsSummary
+} from './features/diagnostics';
 import { validateRenameTarget } from './features/renamePreflight';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
+import { createLatencyGovernor } from './runtime/latencyGovernor';
 import { NodeFileSystem } from './system/fileSystem';
 import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
 import { createCacheCheckpoint } from './cache/cacheCheckpoint';
@@ -47,6 +55,11 @@ import {
 } from './cache/servingCachePersistence';
 import { ServingCacheFlushCoordinator } from './cache/servingCacheFlushCoordinator';
 import { cacheServingResult, invalidateServingCacheEntries } from './cache/servingCacheRuntime';
+import {
+  buildProgressReadinessSnapshot,
+  toProgressNotification
+} from './features/progressReadiness';
+import { decideFeatureReadiness } from './features/featureReadiness';
 import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
 import { createReadinessTracker } from './workspace/readiness';
@@ -54,6 +67,8 @@ import { DocumentCache } from './knowledge/DocumentCache';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
 import { InheritanceGraph } from './knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from './knowledge/HotContextCache';
+import { Entity, EntityKind } from './knowledge/types';
+import { buildObjectInfo } from './features/objectInfo';
 import {
   createSemanticInvalidationPlan,
   createSnapshotAwareInvalidationPlan
@@ -61,7 +76,7 @@ import {
 import { ServingCache, makeKey as makeServingKey } from './knowledge/ServingCache';
 import { getLastTrace } from './knowledge/queryTrace';
 import { SystemCatalog } from './knowledge/system/SystemCatalog';
-import { getIndexerStatus, indexWorkspace } from './indexer/workspaceIndexer';
+import { getFileIndexState, getIndexerStatus, indexWorkspace } from './indexer/workspaceIndexer';
 import { createFileWatcherDebouncer } from './system/fileWatcherDebouncer';
 import { applyWatchedFileEvents } from './workspace/watchedFileIntake';
 import { isPowerBuilderSourceUri } from '../shared/powerbuilderFiles';
@@ -75,8 +90,12 @@ const serverStartTime = performance.now();
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 const scheduler = new TaskScheduler();
+const servingLatencyGovernor = createLatencyGovernor();
 const firstInvocation = new FirstInvocationTracker();
 const readiness = createReadinessTracker();
+const sendProgress = (p: ProgressNotification): void => {
+  void connection.sendNotification(PROGRESS_NOTIFICATION, p);
+};
 const fs = new NodeFileSystem();
 const workspaceState = new WorkspaceState();
 const documentCache = new DocumentCache();
@@ -85,6 +104,7 @@ const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
 const servingCache = new ServingCache<unknown>();
+const codeLensCache = new Map<string, { key: string; lenses: ReturnType<typeof provideReferenceCodeLenses> }>();
 const watcherIntake = createFileWatcherDebouncer({
   delayMs: 75,
   maxPending: 256,
@@ -105,6 +125,7 @@ const watcherIntake = createFileWatcherDebouncer({
           servingCacheFlushCoordinator,
           isDocumentOpen: (uri) => documents.get(uri) !== undefined,
           clearDiagnostics: (uri) => {
+            clearDiagnosticsSummary(uri);
             connection.sendDiagnostics({ uri, diagnostics: [] as Diagnostic[] });
           },
           log: (message) => connection.console.log(message)
@@ -113,6 +134,9 @@ const watcherIntake = createFileWatcherDebouncer({
           connection.console.log(
             `[WATCHER] Flush ${result.massive ? 'masivo' : 'incremental'} aplicado: ${result.reindexed} reindexados, ${result.removed} eliminados, ${result.skipped} omitidos, proyectos: ${result.touchedProjects.join(', ') || 'ninguno'}.`
           );
+        }
+        if (result.reindexed > 0 || result.removed > 0 || result.skipped > 0) {
+          publishRuntimeProgressReadiness();
         }
       }
     }).catch((error) => {
@@ -161,8 +185,168 @@ setAnalysisBackends(documentCache, knowledgeBase, {
 
 let activeDocumentUri: string | null = null;
 let workspaceFolders: string[] = [];
+const discoveryProgress = {
+  current: 0,
+  total: 0
+};
+
+function buildRuntimeProgressReadiness(activeUriOverride?: string | null) {
+  const indexerStatus = getIndexerStatus();
+  const workspaceFiles = workspaceState.getAllSourceFiles();
+  const activeUri = activeUriOverride ?? activeDocumentUri;
+  const activeProject = workspaceState.getProjectContextForFile(activeUri);
+  const activeProjectFiles = activeProject
+    ? workspaceState.getProjectModel()?.getFilesForProject(activeProject.projectUri) ?? []
+    : [];
+
+  return buildProgressReadinessSnapshot({
+    discovery: discoveryProgress,
+    indexer: indexerStatus,
+    activeUri,
+    activeProjectName: activeProject?.name,
+    activeProjectFiles,
+    workspaceFiles,
+    isSemanticallyReady: (uri) => {
+      const snapshot = knowledgeBase.getDocumentSnapshot(uri);
+      return documentCache.hasSnapshot(uri)
+        || snapshot?.readiness === 'nearby-semantic-ready'
+        || getFileIndexState(uri) === 'indexed';
+    }
+  });
+}
+
+function publishRuntimeProgressReadiness(): void {
+  const snapshot = buildRuntimeProgressReadiness();
+  readiness.transition(snapshot.readiness.state, snapshot.readiness.detail);
+  sendProgress(toProgressNotification(snapshot));
+}
+
+function isLatencyPressureHigh(): boolean {
+  return !servingLatencyGovernor.isBackgroundAllowed();
+}
+
+function recordInteractiveLatency(feature: string, elapsedMs: number): void {
+  servingLatencyGovernor.recordElapsedMs(elapsedMs);
+  scheduler.requestDrain();
+  if (isLatencyPressureHigh()) {
+    connection.console.log(`[LATENCY] Presion alta tras ${feature}: ${elapsedMs.toFixed(2)}ms.`);
+  }
+}
+
+function makeCodeLensSymbolKey(entity: Entity): string {
+  return `${entity.uri}#${entity.line}:${entity.character}:${entity.kind}:${entity.name}`;
+}
+
+function getCodeLensUnavailableReason(reason: string): string {
+  return reason.toLowerCase().includes('latencia') ? 'referencias pausadas' : 'referencias no listas';
+}
+
+function buildCodeLensCacheKey(document: TextDocument, readinessReason: string, readinessAction: string): string {
+  return [
+    document.uri,
+    document.version,
+    knowledgeBase.version,
+    knowledgeBase.semanticEpoch,
+    readinessAction,
+    readinessReason,
+    workspaceState.getAllSourceFiles().length
+  ].join('|');
+}
+
+function getCodeLensHierarchyMeta(entity: Entity): { relation?: 'override'; overrideCount: number } {
+  if (!entity.containerName) {
+    return { overrideCount: 0 };
+  }
+
+  const closureEntry = inheritanceGraph.getMemberClosure(entity.containerName).find((entry) =>
+    entry.entity.uri === entity.uri &&
+    entry.entity.line === entity.line &&
+    entry.entity.character === entity.character &&
+    entry.entity.kind === entity.kind &&
+    entry.entity.name === entity.name
+  );
+
+  const overrideCount = inheritanceGraph.getDescendants(entity.containerName).filter((descendant) =>
+    inheritanceGraph.getMemberClosure(descendant).some((entry) =>
+      entry.relation === 'override' &&
+      entry.entity.kind === entity.kind &&
+      entry.entity.name.toLowerCase() === entity.name.toLowerCase()
+    )
+  ).length;
+
+  return {
+    relation: closureEntry?.relation === 'override' ? 'override' : undefined,
+    overrideCount
+  };
+}
+
+async function collectWorkspaceReferenceSources(): Promise<Array<{ uri: string; content: string }>> {
+  const seen = new Set<string>();
+  const sources = await Promise.all(workspaceState.getAllSourceFiles().map(async (uri) => {
+    if (seen.has(uri)) {
+      return null;
+    }
+    seen.add(uri);
+
+    const openDocument = documents.get(uri);
+    if (openDocument) {
+      return { uri, content: openDocument.getText() };
+    }
+
+    try {
+      return { uri, content: await fs.readFile(uri) };
+    } catch {
+      return null;
+    }
+  }));
+
+  return sources.filter((source): source is { uri: string; content: string } => source !== null);
+}
+
+function buildReferenceProbe(entity: Entity): { document: TextDocument; position: Position } {
+  const callable = entity.kind === EntityKind.Function || entity.kind === EntityKind.Subroutine || entity.kind === EntityKind.Event;
+  const probeText = entity.containerName
+    ? `this.${entity.name}${callable ? '()' : ''}`
+    : `${entity.name}${callable ? '()' : ''}`;
+
+  return {
+    document: TextDocument.create(entity.uri, 'powerbuilder', 0, probeText),
+    position: Position.create(0, probeText.indexOf(entity.name) + 1)
+  };
+}
+
+async function buildCodeLensReferenceCounts(
+  symbols: Array<{
+    key: string;
+    entity: Entity;
+  }>
+): Promise<Map<string, number>> {
+  const sources = await collectWorkspaceReferenceSources();
+  const entries = symbols.map((symbol) => {
+    const probe = buildReferenceProbe(symbol.entity);
+    const references = provideReferences(
+      probe.document,
+      probe.position,
+      knowledgeBase,
+      inheritanceGraph,
+      sources,
+      { includeDeclaration: true },
+      hotContextCache
+    );
+
+    const declarationKey = `${symbol.entity.uri}#${symbol.entity.line}:${symbol.entity.character}`;
+    const count = references.filter((reference) =>
+      `${reference.uri}#${reference.range.start.line}:${reference.range.start.character}` !== declarationKey
+    ).length;
+
+    return [symbol.key, count] as const;
+  });
+
+  return new Map(entries);
+}
 
 scheduler.setLogger((msg) => connection.console.log(msg));
+scheduler.setBackgroundAdmissionGate(() => servingLatencyGovernor.isBackgroundAllowed());
 
 // ---------------------------------------------------------------------------
 // Ciclo de Vida (Lifecycle)
@@ -207,7 +391,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       renameProvider: { prepareProvider: true },
       // Spec 106: comandos personalizados expuestos vía workspace/executeCommand.
       executeCommandProvider: {
-        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo']
+        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy']
       }
     }
   };
@@ -221,20 +405,20 @@ connection.onInitialized(() => {
   // Lanzar el descubrimiento global de workspace en segundo plano (background)
   if (workspaceFolders.length > 0) {
     connection.console.log(`[WORKSPACE] Iniciando descubrimiento en ${workspaceFolders.length} raíces (roots)...`);
-
-    const sendProgress = (p: ProgressNotification): void => {
-      void connection.sendNotification(PROGRESS_NOTIFICATION, p);
-    };
-
-    sendProgress({ phase: 'discovering' });
-    readiness.transition('discovering');
+    discoveryProgress.current = 0;
+    discoveryProgress.total = workspaceFolders.length;
+    publishRuntimeProgressReadiness();
 
     scheduler.enqueueBackground({
       id: 'workspace-discovery',
       priority: TaskPriority.Background,
       execute: async (token) => {
         const { elapsedMs: discoveryMs } = await measureMsAsync(async () => {
-          await discoverWorkspace(workspaceFolders, fs, workspaceState, token);
+          await discoverWorkspace(workspaceFolders, fs, workspaceState, token, (current, total) => {
+            discoveryProgress.current = current;
+            discoveryProgress.total = total;
+            publishRuntimeProgressReadiness();
+          });
         });
 
         if (token.isCancelled) {
@@ -246,6 +430,7 @@ connection.onInitialized(() => {
 
         const filesCount = workspaceState.getAllSourceFiles().length;
         const roots = workspaceState.getRoots();
+        discoveryProgress.current = discoveryProgress.total;
         connection.console.log(`[WORKSPACE] Descubrimiento completado:`);
         connection.console.log(`  - Tiempos: ${formatTiming('discoverWorkspace', discoveryMs)}`);
         connection.console.log(`  - Archivos de código: ${filesCount}`);
@@ -291,8 +476,6 @@ connection.onInitialized(() => {
         // Iniciamos indexación incremental
         if (filesCount > 0) {
           connection.console.log(`[WORKSPACE] Iniciando indexación de ${filesCount} archivos...`);
-          sendProgress({ phase: 'indexing', current: 0, total: filesCount, pass: 'structural' });
-          readiness.transition('indexing', 'structural');
 
           const { elapsedMs: indexingMs } = await measureMsAsync(async () => {
             await indexWorkspace(
@@ -302,38 +485,21 @@ connection.onInitialized(() => {
               workspaceState,
               token,
               (msg) => connection.console.error(msg),
-              (current, total, meta) => {
-                sendProgress({
-                  phase: 'indexing',
-                  current,
-                  total,
-                  pass: meta.pass,
-                  degraded: meta.degraded,
-                  skipped: meta.skipped,
-                  failed: meta.failed,
-                  budgetMs: meta.budgetMs
-                });
-                readiness.transition('indexing', meta.pass);
-              }
+              (_current, _total, _meta) => {
+                publishRuntimeProgressReadiness();
+              },
+              activeDocumentUri ?? undefined
             );
           });
 
           if (!token.isCancelled) {
             const stats = knowledgeBase.getStats();
-            const indexerStatus = getIndexerStatus();
+            const runtimeStatus = buildRuntimeProgressReadiness();
             connection.console.log(`[WORKSPACE] Indexación completada:`);
             connection.console.log(`  - Tiempos: ${formatTiming('indexWorkspace', indexingMs)}`);
             connection.console.log(`  - Entidades en KB: ${stats.totalEntities}`);
-            if (indexerStatus.degraded) {
-              readiness.transition('degraded', indexerStatus.degradedReason);
-              sendProgress({
-                phase: 'degraded',
-                current: filesCount,
-                total: filesCount,
-                degraded: true,
-                skipped: indexerStatus.byState.skipped,
-                failed: indexerStatus.byState.failed
-              });
+            if (runtimeStatus.readiness.state === 'degraded') {
+              publishRuntimeProgressReadiness();
             } else {
               if (cacheStore) {
                 await cacheStore.persistCheckpoint(
@@ -348,8 +514,7 @@ connection.onInitialized(() => {
                 );
                 await persistServingSnapshot();
               }
-              readiness.transition('ready');
-              sendProgress({ phase: 'ready', current: filesCount, total: filesCount });
+              publishRuntimeProgressReadiness();
             }
           } else {
             connection.console.log(`[WORKSPACE] Indexación pausada cooperativamente.`);
@@ -357,8 +522,7 @@ connection.onInitialized(() => {
             readiness.transition('degraded', 'partial-index');
           }
         } else {
-          sendProgress({ phase: 'idle' });
-          readiness.transition('idle');
+          publishRuntimeProgressReadiness();
         }
       }
     }).catch(err => {
@@ -417,6 +581,9 @@ connection.onHover((params) => {
       id: `hover-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
+        const readinessDecision = decideFeatureReadiness('hover', buildRuntimeProgressReadiness(document.uri), {
+          latencyOverloaded: isLatencyPressureHigh()
+        });
         hotContextCache.setActive(document.uri, knowledgeBase.version);
         // Caché de serving: misma posición + misma versión de KB → reutilizar.
         const cacheKey = makeServingKey({
@@ -432,7 +599,13 @@ connection.onHover((params) => {
           return cached as ReturnType<typeof provideHover>;
         }
 
+        if (readinessDecision.action === 'block') {
+          connection.console.warn(`[hover] bloqueado: ${readinessDecision.reason}`);
+          return null;
+        }
+
         const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache));
+        recordInteractiveLatency('hover', elapsedMs);
 
         if (firstInvocation.isFirst('hover')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -482,6 +655,9 @@ connection.onDefinition((params) => {
       id: `definition-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
+        const readinessDecision = decideFeatureReadiness('definition', buildRuntimeProgressReadiness(document.uri), {
+          latencyOverloaded: isLatencyPressureHigh()
+        });
         hotContextCache.setActive(document.uri, knowledgeBase.version);
         const cacheKey = makeServingKey({
           feature: 'definition',
@@ -495,7 +671,13 @@ connection.onDefinition((params) => {
           return cached as ReturnType<typeof provideDefinition>;
         }
 
+        if (readinessDecision.action === 'block') {
+          connection.console.warn(`[definition] bloqueado: ${readinessDecision.reason}`);
+          return null;
+        }
+
         const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache));
+        recordInteractiveLatency('definition', elapsedMs);
 
         if (firstInvocation.isFirst('definition')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -522,15 +704,31 @@ connection.onReferences((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
   try {
+    const readinessDecision = decideFeatureReadiness('references', buildRuntimeProgressReadiness(document.uri), {
+      latencyOverloaded: isLatencyPressureHigh()
+    });
+    if (readinessDecision.action === 'block') {
+      connection.console.warn(`[references] bloqueado: ${readinessDecision.reason}`);
+      return [];
+    }
     const sources: { uri: string; content: string }[] = [];
     for (const doc of documents.all()) {
       sources.push({ uri: doc.uri, content: doc.getText() });
     }
     const { result, elapsedMs } = measureMs(() =>
-      provideReferences(document, params.position, knowledgeBase, sources, {
-        includeDeclaration: params.context?.includeDeclaration ?? true
-      })
+      provideReferences(
+        document,
+        params.position,
+        knowledgeBase,
+        inheritanceGraph,
+        sources,
+        {
+          includeDeclaration: params.context?.includeDeclaration ?? true
+        },
+        hotContextCache
+      )
     );
+    recordInteractiveLatency('references', elapsedMs);
     connection.console.log(formatTiming('references', elapsedMs));
     return result;
   } catch (error) {
@@ -569,6 +767,7 @@ connection.onSignatureHelp((params) => {
         }
 
         const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache));
+        recordInteractiveLatency('signatureHelp', elapsedMs);
 
         if (firstInvocation.isFirst('signatureHelp')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -602,6 +801,9 @@ connection.onCompletion((params) => {
       id: `completion-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
+        const readinessDecision = decideFeatureReadiness('completion', buildRuntimeProgressReadiness(document.uri), {
+          latencyOverloaded: isLatencyPressureHigh()
+        });
         hotContextCache.setActive(document.uri, knowledgeBase.version);
         const cacheKey = makeServingKey({
           feature: 'completion',
@@ -616,7 +818,13 @@ connection.onCompletion((params) => {
           return cached as ReturnType<typeof provideCompletion>;
         }
 
+        if (readinessDecision.action === 'block') {
+          connection.console.warn(`[completion] bloqueado: ${readinessDecision.reason}`);
+          return null;
+        }
+
         const { result, elapsedMs } = measureMs(() => provideCompletion(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, knowledgeBase.version));
+        recordInteractiveLatency('completion', elapsedMs);
 
         if (firstInvocation.isFirst('completion')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -676,11 +884,11 @@ documents.onDidOpen((event) => {
   activeDocumentUri = event.document.uri;
 
   try {
-    const { elapsedMs } = measureMs(() => publishDiagnosticsNow(connection, event.document, scheduler, knowledgeBase, systemCatalog, inheritanceGraph));
+    const { elapsedMs } = measureMs(() => publishDiagnosticsNow(connection, event.document, scheduler, knowledgeBase, systemCatalog, inheritanceGraph, workspaceState));
 
     if (firstInvocation.isFirst('diagnostics')) {
       const sinceStart = performance.now() - serverStartTime;
-      connection.console.log(formatTiming('Primeros diagnósticos (desde el inicio)', sinceStart));
+    scheduleDiagnostics(connection, event.document, scheduler, undefined, knowledgeBase, systemCatalog, inheritanceGraph, workspaceState);
     }
 
     connection.console.log(formatTiming('diagnósticos (onDidOpen)', elapsedMs));
@@ -724,6 +932,7 @@ documents.onDidClose((event) => {
     hotContextCache.invalidateForUri(uri);
   }
   invalidateServingCacheEntries(servingCache, invalidationPlan.allUris, servingCacheFlushCoordinator);
+  clearDiagnosticsSummary(event.document.uri);
 
   connection.sendDiagnostics({
     uri: event.document.uri,
@@ -781,31 +990,46 @@ connection.onCodeAction((params) => {
   }
 });
 
-connection.onCodeLens((params) => {
+connection.onCodeLens(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return [];
   try {
-    // Reutilizamos los DocumentSymbols ya servidos para identificar callables.
-    const docSymbols = extractDocumentSymbols(document);
-    const lensSymbols: Array<{ name: string; range: import('vscode-languageserver/node').Range }> = [];
-    const flatten = (syms: any[]): void => {
-      for (const s of syms) {
-        // SymbolKind.Function = 12, SymbolKind.Method = 6, SymbolKind.Event = 24
-        if (s.kind === 12 || s.kind === 6 || s.kind === 24) {
-          lensSymbols.push({ name: s.name, range: s.selectionRange ?? s.range });
-        }
-        if (Array.isArray(s.children) && s.children.length > 0) flatten(s.children);
-      }
-    };
-    flatten(docSymbols);
-
-    // Estimación rápida de referencias: cuenta de entidades global por nombre.
-    const counts = new Map<string, number>();
-    for (const s of lensSymbols) {
-      const refs = knowledgeBase.findAllDefinitions(s.name);
-      counts.set(s.name.toLowerCase(), Math.max(0, refs.length - 1));
+    const readinessDecision = decideFeatureReadiness('references', buildRuntimeProgressReadiness(document.uri), {
+      latencyOverloaded: isLatencyPressureHigh()
+    });
+    const cacheKey = buildCodeLensCacheKey(document, readinessDecision.reason, readinessDecision.action);
+    const cached = codeLensCache.get(document.uri);
+    if (cached?.key === cacheKey) {
+      return cached.lenses;
     }
-    return provideReferenceCodeLenses(lensSymbols, counts);
+
+    const callableEntities = knowledgeBase.getEntitiesByUri(document.uri).filter((entity) =>
+      entity.uri === document.uri &&
+      (entity.kind === EntityKind.Function || entity.kind === EntityKind.Subroutine || entity.kind === EntityKind.Event)
+    );
+
+    const lensSymbols = callableEntities.map((entity) => {
+      const hierarchy = getCodeLensHierarchyMeta(entity);
+      return {
+        key: makeCodeLensSymbolKey(entity),
+        entity,
+        name: entity.name,
+        range: Range.create(entity.line, entity.character, entity.line, entity.character + entity.name.length),
+        relation: hierarchy.relation,
+        overrideCount: hierarchy.overrideCount,
+        ...(readinessDecision.action === 'block'
+          ? { unavailableReason: getCodeLensUnavailableReason(readinessDecision.reason) }
+          : {})
+      };
+    });
+
+    const counts = readinessDecision.action === 'block'
+      ? new Map<string, number>()
+      : await buildCodeLensReferenceCounts(lensSymbols);
+
+    const lenses = provideReferenceCodeLenses(lensSymbols, counts);
+    codeLensCache.set(document.uri, { key: cacheKey, lenses });
+    return lenses;
   } catch (error) {
     connection.console.error(`[ERROR] codeLens: ${error instanceof Error ? error.message : String(error)}`);
     return [];
@@ -817,6 +1041,13 @@ connection.onCodeLens((params) => {
 connection.onPrepareRename((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
+  const readinessDecision = decideFeatureReadiness('rename', buildRuntimeProgressReadiness(document.uri), {
+    latencyOverloaded: isLatencyPressureHigh()
+  });
+  if (readinessDecision.action === 'block') {
+    connection.console.warn(`[rename] bloqueado: ${readinessDecision.reason}`);
+    return null;
+  }
   const line = document.getText().split(/\r?\n/)[params.position.line] ?? '';
   const match = wordAt(line, params.position.character);
   if (!match) return null;
@@ -835,6 +1066,13 @@ connection.onPrepareRename((params) => {
 connection.onRenameRequest((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
+  const readinessDecision = decideFeatureReadiness('rename', buildRuntimeProgressReadiness(document.uri), {
+    latencyOverloaded: isLatencyPressureHigh()
+  });
+  if (readinessDecision.action === 'block') {
+    connection.console.warn(`[rename] bloqueado: ${readinessDecision.reason}`);
+    return null;
+  }
   const preflight = validateRenameTarget(params.newName, { systemCatalog });
   if (!preflight.ok) {
     connection.console.warn(`[rename] bloqueado: ${preflight.reason}`);
@@ -882,12 +1120,14 @@ connection.onExecuteCommand(async (params) => {
       const sched = scheduler.getStatus();
       const projectStats = workspaceState.getProjectModel()?.getStats();
       const activeProject = workspaceState.getProjectContextForFile(activeDocumentUri);
+      const progressReadiness = buildRuntimeProgressReadiness();
       return {
         kb: stats,
         scheduler: sched,
         readiness: {
-          state: readiness.getState(),
-          detail: readiness.getDetail()
+          state: progressReadiness.readiness.state,
+          detail: progressReadiness.readiness.detail,
+          levels: progressReadiness.readiness.levels
         },
         workspace: {
           mode: workspaceState.getMode(),
@@ -895,6 +1135,12 @@ connection.onExecuteCommand(async (params) => {
           activeProject
         },
         indexer: getIndexerStatus(),
+        progressReadiness,
+        projectStatus: {
+          summary: progressReadiness.projectStatusText,
+          snapshot: progressReadiness.projectStatus
+        },
+        diagnostics: getDiagnosticsSummary(),
         caches: {
           analysis: getAnalysisCacheStats(),
           serving: servingCache.getStats(),
@@ -916,6 +1162,64 @@ connection.onExecuteCommand(async (params) => {
             }
           }
           : undefined
+      };
+    }
+    case 'powerbuilder.inspectHierarchy': {
+      const [uriArg, lineArg, characterArg] = params.arguments ?? [];
+      const uri = typeof uriArg === 'string' ? uriArg : activeDocumentUri;
+      if (!uri) {
+        return { available: false, reason: 'No hay documento activo.' };
+      }
+
+      const line = typeof lineArg === 'number' ? lineArg : undefined;
+      const character = typeof characterArg === 'number' ? characterArg : undefined;
+      const readinessDecision = decideFeatureReadiness('definition', buildRuntimeProgressReadiness(uri), {
+        latencyOverloaded: isLatencyPressureHigh()
+      });
+      if (readinessDecision.action === 'block') {
+        return { available: false, reason: readinessDecision.reason, uri, line, character };
+      }
+
+      const openDocument = documents.get(uri);
+      let content = openDocument?.getText();
+      if (!content) {
+        try {
+          content = await fs.readFile(uri);
+        } catch {
+          return { available: false, reason: 'No se pudo leer el documento.', uri, line, character };
+        }
+      }
+
+      const projectContext = workspaceState.getProjectContextForFile(uri);
+      const objectInfo = buildObjectInfo({
+        uri,
+        content,
+        line,
+        library: projectContext?.libraries[0],
+        project: projectContext?.projectUri
+      });
+      const focusType = objectInfo.globalType
+        ?? knowledgeBase.getEntitiesByUri(uri).find((entity) => entity.kind === EntityKind.Type)?.name
+        ?? null;
+
+      if (!focusType) {
+        return {
+          available: false,
+          reason: 'No se pudo determinar el tipo activo.',
+          uri,
+          line,
+          character,
+          objectInfo
+        };
+      }
+
+      return {
+        available: true,
+        uri,
+        line,
+        character,
+        objectInfo,
+        ...buildHierarchyInspection(focusType, inheritanceGraph)
       };
     }
     default:

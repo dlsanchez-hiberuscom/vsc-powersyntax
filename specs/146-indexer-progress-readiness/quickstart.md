@@ -26,7 +26,7 @@ npm run compile
 
 ## 5. Checklist
 
-- [ ] Existe fuente unica de progreso y readiness.
-- [ ] projectStatus o salida equivalente la consume.
-- [ ] Los tests cubren transiciones base.
-- [ ] La salida es coherente durante indexacion progresiva.
+- [x] Existe fuente unica de progreso y readiness.
+- [x] projectStatus o salida equivalente la consume.
+- [x] Los tests cubren transiciones base.
+- [x] La salida es coherente durante indexacion progresiva.

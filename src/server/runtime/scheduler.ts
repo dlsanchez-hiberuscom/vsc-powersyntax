@@ -78,6 +78,7 @@ export class TaskScheduler {
     interactiveCancelledBackground: 0,
     nearCancelledBackground: 0
   };
+  private backgroundAdmissionGate: (() => boolean) | undefined;
 
   // ---- Callback de registro/logs (opcional) -------------------------------
 
@@ -85,6 +86,14 @@ export class TaskScheduler {
 
   setLogger(fn: (message: string) => void): void {
     this.logFn = fn;
+  }
+
+  setBackgroundAdmissionGate(fn: (() => boolean) | undefined): void {
+    this.backgroundAdmissionGate = fn;
+  }
+
+  requestDrain(): void {
+    this.scheduleDrain();
   }
 
   private log(message: string): void {
@@ -262,6 +271,17 @@ export class TaskScheduler {
     });
   }
 
+  private scheduleDrainAfter(delayMs: number): void {
+    if (this.drainScheduled) {
+      return;
+    }
+    this.drainScheduled = true;
+    setTimeout(() => {
+      this.drainScheduled = false;
+      void this.drainQueues();
+    }, delayMs);
+  }
+
   private async drainQueues(): Promise<void> {
     while (this.activeInteractiveCount === 0) {
       // Prioridad Near sobre Background.
@@ -296,6 +316,10 @@ export class TaskScheduler {
         this.nearQueue.length === 0 &&
         !this.activeNearTask
       ) {
+        if (this.backgroundAdmissionGate && !this.backgroundAdmissionGate()) {
+          this.scheduleDrainAfter(25);
+          break;
+        }
         const queued = this.backgroundQueue.shift()!;
         if (queued.cancellation.token.isCancelled) {
           queued.reject(new Error(`Tarea ${queued.task.id} cancelada antes de ejecución`));

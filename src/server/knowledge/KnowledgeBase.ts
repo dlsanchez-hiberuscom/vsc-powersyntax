@@ -3,6 +3,8 @@ import { Entity, EntityKind, Fact, Scope } from './types';
 import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { collectSnapshotDependencyKeys } from './semanticDiff';
+import { ManagedStringInterner } from './ManagedStringInterner';
+import { internEntity, internScopes, internSemanticSnapshot } from './stringInterning';
 
 interface ScopeIndexEntry {
   start: number;
@@ -68,6 +70,8 @@ function cloneState(state: PublishedKnowledgeState): PublishedKnowledgeState {
 export class KnowledgeBase {
   private publishedState: PublishedKnowledgeState = createEmptyState();
   private stagedState: PublishedKnowledgeState | null = null;
+  private publishedStringInterner = new ManagedStringInterner();
+  private stagedStringInterner: ManagedStringInterner | null = null;
 
   /**
    * Profundidad de batch update. Mientras sea > 0, las operaciones
@@ -83,6 +87,7 @@ export class KnowledgeBase {
   beginBatchUpdate(): void {
     if (this.batchDepth === 0) {
       this.stagedState = cloneState(this.publishedState);
+      this.stagedStringInterner = this.publishedStringInterner.clone();
     }
     this.batchDepth++;
   }
@@ -101,9 +106,11 @@ export class KnowledgeBase {
   commitBatchUpdate(): void {
     if (this.batchDepth > 0) {
       this.batchDepth--;
-      if (this.batchDepth === 0 && this.stagedState) {
+      if (this.batchDepth === 0 && this.stagedState && this.stagedStringInterner) {
         this.publishState(this.stagedState);
+        this.publishedStringInterner = this.stagedStringInterner;
         this.stagedState = null;
+        this.stagedStringInterner = null;
       }
     }
   }
@@ -114,6 +121,7 @@ export class KnowledgeBase {
   rollbackBatchUpdate(): void {
     this.batchDepth = 0;
     this.stagedState = null;
+    this.stagedStringInterner = null;
   }
 
   /**
@@ -175,9 +183,14 @@ export class KnowledgeBase {
     snapshot?: SemanticDocumentSnapshot
   ): void {
     const normalizedUri = normalizeUri(uri);
-    const nextFacts = cloneValue(facts);
-    const nextScopes = cloneValue(scopes);
-    const nextSnapshot = snapshot ? cloneValue(snapshot) : undefined;
+    const { nextFacts, nextScopes, nextSnapshot } = this.currentStringInterner().replaceDocument(
+      normalizedUri,
+      (intern) => ({
+        nextFacts: cloneValue(facts).map((fact) => internEntity(fact, intern)),
+        nextScopes: internScopes(cloneValue(scopes), intern),
+        nextSnapshot: snapshot ? internSemanticSnapshot(cloneValue(snapshot), intern) : undefined,
+      })
+    );
 
     this.writeState((state) => {
       this.indexDocumentIntoState(state, normalizedUri, nextFacts, nextScopes, nextSnapshot);
@@ -190,6 +203,7 @@ export class KnowledgeBase {
    */
   removeDocument(uri: string): void {
     const normalizedUri = normalizeUri(uri);
+    this.currentStringInterner().removeDocument(normalizedUri);
     this.writeState((state) => {
       this.removeDocumentFromState(state, normalizedUri);
     });
@@ -263,6 +277,10 @@ export class KnowledgeBase {
   getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null {
     const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
     return snapshot ? cloneValue(snapshot) : null;
+  }
+
+  hasDocumentSnapshot(uri: string): boolean {
+    return this.publishedState.documentSnapshots.has(normalizeUri(uri));
   }
 
   /** Documentos que dependen semánticamente de símbolos exportados por una URI. */
@@ -345,6 +363,11 @@ export class KnowledgeBase {
    */
   clear(): void {
     this.writeState(() => createEmptyState(), true);
+    if (this.isBatchUpdating) {
+      this.stagedStringInterner = new ManagedStringInterner();
+    } else {
+      this.publishedStringInterner = new ManagedStringInterner();
+    }
   }
 
   /**
@@ -374,6 +397,7 @@ export class KnowledgeBase {
       totalEntities,
       indexedDocuments: this.publishedState.documentSymbols.size,
       indexedScopes,
+      internedStrings: this.publishedStringInterner.getStats().uniqueStrings,
       semanticEpoch: this.publishedState.semanticEpoch,
       snapshotDocuments: this.publishedState.documentSnapshots.size,
       structuralSnapshots,
@@ -496,21 +520,36 @@ export class KnowledgeBase {
 
   restoreDocumentRecords(records: SemanticCacheDocumentRecord[], semanticEpoch = 0): void {
     const nextState = createEmptyState();
+    const nextInterner = new ManagedStringInterner();
     for (const record of records) {
       const restoredRecord = structuredClone(record);
+      const { facts, scopes, snapshot } = nextInterner.replaceDocument(
+        normalizeUri(restoredRecord.uri),
+        (intern) => ({
+          facts: restoredRecord.facts.map((fact) => internEntity(fact, intern)),
+          scopes: internScopes(restoredRecord.scopes, intern),
+          snapshot: restoredRecord.snapshot ? internSemanticSnapshot(restoredRecord.snapshot, intern) : undefined,
+        })
+      );
       this.indexDocumentIntoState(
         nextState,
         normalizeUri(restoredRecord.uri),
-        restoredRecord.facts,
-        restoredRecord.scopes,
-        restoredRecord.snapshot
+        facts,
+        scopes,
+        snapshot
       );
     }
     nextState.semanticEpoch = semanticEpoch;
     nextState.publishedAt = Date.now();
     this.publishedState = nextState;
+    this.publishedStringInterner = nextInterner;
     this.stagedState = null;
+    this.stagedStringInterner = null;
     this.batchDepth = 0;
+  }
+
+  private currentStringInterner(): ManagedStringInterner {
+    return this.stagedStringInterner ?? this.publishedStringInterner;
   }
 
   private indexDocumentIntoState(

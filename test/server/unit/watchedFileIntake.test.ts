@@ -8,6 +8,7 @@ import { makeKey, ServingCache } from '../../../src/server/knowledge/ServingCach
 import type { IFileSystem, FileStat } from '../../../src/server/system/fileSystem';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
 import { applyWatchedFileEvents } from '../../../src/server/workspace/watchedFileIntake';
+import { FileIndexState, getFileIndexState, getIndexerStatus } from '../../../src/server/indexer/workspaceIndexer';
 
 class FakeFileSystem implements IFileSystem {
   readonly files = new Map<string, string>();
@@ -60,6 +61,7 @@ suite('unit/watchedFileIntake', () => {
     const servingCache = new ServingCache();
     const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
     const uri = 'file:///proj/w_demo.sru';
+    const before = getIndexerStatus().byState;
 
     fs.files.set(uri, [
       'forward',
@@ -93,6 +95,9 @@ suite('unit/watchedFileIntake', () => {
     assert.equal(workspaceState.hasSourceFile(uri), true);
     assert.equal(knowledgeBase.getDocumentSnapshot(uri)?.pass, 'enriched');
     assert.ok(documentCache.get(uri)?.facts.some((fact) => fact.name.toLowerCase() === 'of_demo'));
+    assert.equal(getFileIndexState(uri), FileIndexState.Indexed);
+    const after = getIndexerStatus().byState;
+    assert.equal(after[FileIndexState.Indexed] - before[FileIndexState.Indexed], 1);
   });
 
   test('create y delete refrescan el project model cuando cambia el inventario', async () => {
@@ -189,6 +194,7 @@ suite('unit/watchedFileIntake', () => {
     assert.equal(documentCache.get(uri), undefined);
     assert.equal(knowledgeBase.getDocumentSnapshot(uri), null);
     assert.deepEqual(clearedDiagnostics, [uri]);
+    assert.equal(getFileIndexState(uri), undefined);
   });
 
   test('omite reindexado si el documento está abierto', async () => {
@@ -200,6 +206,7 @@ suite('unit/watchedFileIntake', () => {
     const servingCache = new ServingCache();
     const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
     const uri = 'file:///proj/w_open.sru';
+    const before = getIndexerStatus().byState;
 
     fs.files.set(uri, 'forward\nend forward\n');
 
@@ -222,6 +229,9 @@ suite('unit/watchedFileIntake', () => {
     assert.deepEqual(result.touchedProjects, []);
     assert.equal(workspaceState.hasSourceFile(uri), true);
     assert.equal(knowledgeBase.getDocumentSnapshot(uri), null);
+    assert.equal(getFileIndexState(uri), FileIndexState.Pending);
+    const after = getIndexerStatus().byState;
+    assert.equal(after[FileIndexState.Pending] - before[FileIndexState.Pending], 1);
   });
 
   test('batch pequeño invalida serving cache solo para URIs afectadas', async () => {
@@ -291,5 +301,44 @@ suite('unit/watchedFileIntake', () => {
     assert.equal(result.massive, true);
     assert.deepEqual(result.touchedProjects, []);
     assert.equal(servingCache.size(), 0);
+  });
+
+  test('expone estados simultáneos del workspace en un batch mixto', async () => {
+    const fs = new FakeFileSystem();
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const workspaceState = new WorkspaceState();
+    const hotContextCache = new HotContextCache();
+    const servingCache = new ServingCache();
+    const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
+    const indexedUri = 'file:///proj/w_indexed.sru';
+    const pendingUri = 'file:///proj/w_pending.sru';
+    const before = getIndexerStatus().byState;
+
+    fs.files.set(indexedUri, 'forward\nend forward\n');
+    fs.files.set(pendingUri, 'forward\nend forward\n');
+
+    const result = await applyWatchedFileEvents({
+      events: [
+        { uri: indexedUri, kind: 'change' },
+        { uri: pendingUri, kind: 'change' }
+      ],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator,
+      isDocumentOpen: (uri) => uri === pendingUri
+    });
+
+    assert.equal(result.reindexed, 1);
+    assert.equal(result.skipped, 1);
+    assert.equal(getFileIndexState(indexedUri), FileIndexState.Indexed);
+    assert.equal(getFileIndexState(pendingUri), FileIndexState.Pending);
+    const after = getIndexerStatus().byState;
+    assert.equal(after[FileIndexState.Indexed] - before[FileIndexState.Indexed], 1);
+    assert.equal(after[FileIndexState.Pending] - before[FileIndexState.Pending], 1);
   });
 });

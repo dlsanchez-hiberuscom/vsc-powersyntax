@@ -4,6 +4,8 @@ export interface LatencyGovernorOptions {
   maxBudgetMs?: number;
   targetLatencyMs?: number;
   stepMs?: number;
+  cooldownMs?: number;
+  now?: () => number;
 }
 
 export interface LatencyGovernorSnapshot {
@@ -13,12 +15,15 @@ export interface LatencyGovernorSnapshot {
   targetLatencyMs: number;
   lastElapsedMs: number;
   overloaded: boolean;
+  cooldownMs: number;
+  blockedUntilMs: number;
 }
 
 export interface LatencyGovernor {
   getBudgetMs(): number;
   recordElapsedMs(elapsedMs: number): number;
   getSnapshot(): LatencyGovernorSnapshot;
+  isBackgroundAllowed(nowMs?: number): boolean;
 }
 
 export function createLatencyGovernor(options: LatencyGovernorOptions = {}): LatencyGovernor {
@@ -26,9 +31,12 @@ export function createLatencyGovernor(options: LatencyGovernorOptions = {}): Lat
   const maxBudgetMs = options.maxBudgetMs ?? 120;
   const targetLatencyMs = options.targetLatencyMs ?? 40;
   const stepMs = options.stepMs ?? 5;
+  const cooldownMs = options.cooldownMs ?? 250;
+  const now = options.now ?? Date.now;
   let currentBudgetMs = options.initialBudgetMs ?? 50;
   let lastElapsedMs = 0;
   let overloaded = false;
+  let blockedUntilMs = 0;
 
   return {
     getBudgetMs(): number {
@@ -39,9 +47,11 @@ export function createLatencyGovernor(options: LatencyGovernorOptions = {}): Lat
       if (elapsedMs > targetLatencyMs * 1.25) {
         currentBudgetMs = Math.max(minBudgetMs, currentBudgetMs - stepMs);
         overloaded = true;
+        blockedUntilMs = now() + cooldownMs;
       } else if (elapsedMs < targetLatencyMs * 0.6) {
         currentBudgetMs = Math.min(maxBudgetMs, currentBudgetMs + stepMs);
         overloaded = false;
+        blockedUntilMs = 0;
       } else {
         overloaded = false;
       }
@@ -54,8 +64,13 @@ export function createLatencyGovernor(options: LatencyGovernorOptions = {}): Lat
         maxBudgetMs,
         targetLatencyMs,
         lastElapsedMs,
-        overloaded
+        overloaded,
+        cooldownMs,
+        blockedUntilMs
       };
+    },
+    isBackgroundAllowed(nowMs = now()): boolean {
+      return nowMs >= blockedUntilMs;
     }
   };
 }

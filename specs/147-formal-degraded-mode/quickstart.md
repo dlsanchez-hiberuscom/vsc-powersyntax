@@ -26,7 +26,7 @@ npm run compile
 
 ## 5. Checklist
 
-- [ ] Existe enumeracion formal de niveles.
-- [ ] Al menos dos features consumen el contrato.
-- [ ] Los tests cubren degradacion y bloqueo seguro.
-- [ ] El mapping desde readiness es coherente.
+- [x] Existe enumeracion formal de niveles.
+- [x] Al menos dos features consumen el contrato.
+- [x] Los tests cubren degradacion y bloqueo seguro.
+- [x] El mapping desde readiness es coherente.

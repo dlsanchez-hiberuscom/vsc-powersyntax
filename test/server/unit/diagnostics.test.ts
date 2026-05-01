@@ -1,8 +1,15 @@
 import * as assert from 'assert/strict';
 
+import type { Connection } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { validateStructure, validateSemantics } from '../../../src/server/features/diagnostics';
+import {
+  clearDiagnosticsSummary,
+  getDiagnosticsSummary,
+  publishDiagnostics,
+  validateStructure,
+  validateSemantics,
+} from '../../../src/server/features/diagnostics';
 import { DIAGNOSTIC_SOURCE } from '../../../src/shared/types';
 import { loadFixture } from '../helpers/fixtureLoader';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
@@ -10,6 +17,7 @@ import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalo
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { setAnalysisBackends, clearDocumentAnalysisCache } from '../../../src/server/analysis/analysisCache';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
+import type { WorkspaceState } from '../../../src/server/workspace/workspaceState';
 
 suite('unit/diagnostics', () => {
   let kb: KnowledgeBase;
@@ -27,6 +35,7 @@ suite('unit/diagnostics', () => {
 
   teardown(() => {
     clearDocumentAnalysisCache();
+    clearDiagnosticsSummary();
   });
 
   test('validateStructure no devuelve errores en estructura simple válida', () => {
@@ -173,5 +182,76 @@ suite('unit/diagnostics', () => {
     const diags = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
     const sd10 = diags.filter(d => /'exit'/.test(d.message));
     assert.ok(sd10.length >= 1, 'esperaba al menos 1 SD10');
+  });
+
+  test('publishDiagnostics actualiza un snapshot agrupado por proyecto/objeto y versión', () => {
+    const source = [
+      'type w_main from window',
+      'end type',
+      '',
+      'public function integer of_test ()',
+      '  if true then',
+      '    return 1',
+      'end function'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///demo/w_main.srw', 'powerbuilder', 7, source);
+    const sent: Array<{ uri: string; diagnostics: unknown[] }> = [];
+    const connection = {
+      sendDiagnostics(payload: { uri: string; diagnostics: unknown[] }) {
+        sent.push(payload);
+      }
+    } as unknown as Connection;
+    const workspaceState = {
+      getProjectContextForFile: () => ({
+        projectUri: 'file:///demo/demo.pbt',
+        kind: 'target',
+        name: 'demo',
+        libraries: [],
+        files: [document.uri]
+      })
+    } as unknown as WorkspaceState;
+
+    publishDiagnostics(connection, document, undefined, undefined, undefined, workspaceState);
+
+    const snapshot = getDiagnosticsSummary() as {
+      totals: { error: number };
+      projects: Array<{
+        label: string;
+        objects: Array<{
+          label: string;
+          documents: Array<{
+            uri: string;
+            documentVersion?: number;
+            snapshotVersion?: number;
+            snapshotIdentity?: string;
+          }>;
+        }>;
+      }>;
+    };
+    const documentEntry = getDiagnosticsSummary(document.uri) as {
+      uri: string;
+      projectLabel: string;
+      objectLabel: string;
+      documentVersion?: number;
+    };
+
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].uri, document.uri);
+    assert.ok(sent[0].diagnostics.length > 0);
+    assert.ok(snapshot.totals.error > 0);
+    assert.equal(snapshot.projects.length, 1);
+    assert.equal(snapshot.projects[0].label, 'demo');
+    assert.equal(snapshot.projects[0].objects[0].label, 'w_main');
+    assert.equal(snapshot.projects[0].objects[0].documents[0].uri, document.uri);
+    assert.equal(snapshot.projects[0].objects[0].documents[0].documentVersion, 7);
+    assert.equal(snapshot.projects[0].objects[0].documents[0].snapshotVersion, 7);
+    assert.ok(snapshot.projects[0].objects[0].documents[0].snapshotIdentity);
+    assert.equal(documentEntry.uri, document.uri);
+    assert.equal(documentEntry.projectLabel, 'demo');
+    assert.equal(documentEntry.objectLabel, 'w_main');
+
+    clearDiagnosticsSummary(document.uri);
+    assert.equal(getDiagnosticsSummary(document.uri), null);
   });
 });

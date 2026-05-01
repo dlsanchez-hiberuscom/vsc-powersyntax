@@ -208,6 +208,33 @@ suite('unit/workspace', () => {
     assert.ok(state.hasSourceFile('file:///proj/keep.sru'));
   });
 
+  test('discovery reporta progreso monotono de directorios', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+    const progress: Array<{ current: number; total: number }> = [];
+
+    fs.addDir('file:///workspace');
+    fs.addDir('file:///workspace/lib');
+    fs.addFile('file:///workspace/lib/n_demo.sru');
+
+    await discoverWorkspace(
+      ['file:///workspace'],
+      fs,
+      state,
+      cancelSource.token,
+      (current, total) => progress.push({ current, total })
+    );
+
+    assert.deepEqual(progress[0], { current: 0, total: 1 });
+    assert.ok(progress.some((entry) => entry.total === 2));
+    assert.equal(progress[progress.length - 1]?.current, progress[progress.length - 1]?.total);
+    for (let index = 1; index < progress.length; index++) {
+      assert.ok(progress[index]!.current >= progress[index - 1]!.current);
+      assert.ok(progress[index]!.total >= progress[index - 1]!.current);
+    }
+  });
+
   test('refreshProjectRouting recompone registry y model desde topology + knownFiles', () => {
     const state = new WorkspaceState();
 
@@ -250,5 +277,38 @@ suite('unit/workspace', () => {
       libraries: ['file:///proj/lib_app.pbl'],
       files: ['file:///proj/lib_app.pbl/u_demo.sru']
     });
+  });
+
+  test('workspaceState marca dirty y permite marcar clean tras indexacion completa', () => {
+    const state = new WorkspaceState();
+
+    assert.equal(state.isIndexDirty(), true);
+
+    state.markIndexClean();
+    assert.equal(state.isIndexDirty(), false);
+
+    state.addSourceFile('file:///proj/lib_app.pbl/u_demo.sru');
+    assert.equal(state.isIndexDirty(), true);
+  });
+
+  test('clear reinicia registry y project model de routing', () => {
+    const state = new WorkspaceState();
+
+    state.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl']
+      }
+    });
+    state.addSourceFile('file:///proj/lib_app.pbl/u_demo.sru');
+    state.refreshProjectRouting();
+
+    state.clear();
+
+    assert.equal(state.getProjectRegistry(), null);
+    assert.equal(state.getProjectModel(), null);
+    assert.equal(state.getProjectContextForFile('file:///proj/lib_app.pbl/u_demo.sru'), null);
   });
 });

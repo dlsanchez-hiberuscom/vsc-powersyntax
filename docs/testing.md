@@ -49,6 +49,7 @@ Cada cambio debe validar lo suficiente, pero no sobreactuar.
 - las integraciones validan contratos reales,
 - las smoke validan arranque y wiring,
 - las performance validan presupuestos y regresiones.
+- cuando una suite ejerce la extensión real, el build previo debe recompilar cliente y servidor y no reutilizar `out/` obsoleto.
 
 ### 3.4 El rendimiento también se prueba
 No basta con que funcione.
