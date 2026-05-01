@@ -342,6 +342,27 @@ Las `Specs 185-192` cierran `B172`:
 
 ---
 
+## 1.11A B151. KB snapshot-first readers en KnowledgeBase — **Slice cerrada (spec 193)**
+
+### Resultado técnico registrado
+
+`Spec 193` reduce `B151` en un boundary pequeño y reusable:
+
+- `KnowledgeBase` prioriza `documentSnapshots` en `getEntitiesByUri()` y `getScopeAt()`;
+- el fallback legacy se conserva cuando el documento aún no tiene snapshot publicado;
+- tests unitarios focalizados cubren la lectura documental snapshot-first.
+
+### Cierre real
+
+`Spec 193` no cerraba por sí sola `B151`, pero deja preparado el consumo snapshot-first de features core y sirve de base a `Specs 198-204`, que terminan cerrando `B151A` y `B151`.
+
+### Validación registrada
+
+- `npm run test:unit -- --grep "unit/knowledgeBase"`
+- `npm run compile`
+
+---
+
 ## 1.12 B165. Publicación atómica del Knowledge Base y de los índices — **Cerrada (specs 134 y 194)**
 
 ### Resultado técnico registrado
@@ -553,7 +574,7 @@ Estos ítems ya no deben aparecer en el backlog activo. Si quedan referencias a 
 
 La ola `Specs 198-217` consolida tres cierres reales del core incremental y reduce el último residual `Partial` de topología compartida:
 
-- `Specs 198-204` hacen snapshot-first `documentSymbols`, `completion`, `signatureHelp`, `diagnostics` y `semanticTokens`, eliminan la recomposición semántica residual por feature y permiten cerrar `B151A` y `B151`.
+- Sobre la base de `Spec 193`, `Specs 198-204` hacen snapshot-first `documentSymbols`, `completion`, `signatureHelp`, `diagnostics` y `semanticTokens`, eliminan la recomposición semántica residual por feature y permiten cerrar `B151A` y `B151`.
 - `Specs 205-206`, `216` y `217` convierten el indexador en un pipeline de dos fases real con `analyzeDocumentStructural()`, publicación temprana `structural-only`, promoción explícita a `nearby-semantic-ready` y contadores por pass, permitiendo cerrar `B152A` y `B152`.
 - `Specs 207-208` y `210` cablean el intake real del watcher sobre el runtime, distinguen modo incremental frente a massive mode, barren caches derivadas de forma selectiva o global según el burst y validan el backpressure extremo a extremo, permitiendo cerrar `B169A` y `B169`.
 - `Specs 209`, `211-215` llevan `UnifiedProjectModel` a `workspaceIndexer`, `libraryOrder`, `projectRouting`, refresh por watcher y status activo; `B141A` queda reducido a serving e invariantes finales, pero no cerrado todavía.
