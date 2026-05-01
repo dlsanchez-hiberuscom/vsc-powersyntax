@@ -12,6 +12,25 @@ export enum EntityKind {
   Type = 'Type'
 }
 
+export type EntityLineageSourceKind = 'document' | 'project' | 'workspace' | 'system';
+
+export type EntityLineageAuthority = 'derived' | 'curated' | 'official' | 'project' | 'workspace' | 'custom';
+
+export type EntityLineagePhase = 'declaration' | 'prototype' | 'implementation';
+
+export type EntityLineageRole = 'prototype' | 'implementation' | 'override' | 'inherited';
+
+export type EntityLineageConfidence = 'direct' | 'inherited' | 'fallback';
+
+export interface EntityLineage {
+  sourceKind?: EntityLineageSourceKind;
+  authority?: EntityLineageAuthority;
+  phase?: EntityLineagePhase;
+  role?: EntityLineageRole;
+  inheritedFrom?: string;
+  confidence?: EntityLineageConfidence;
+}
+
 /**
  * Entidad semántica pura (desacoplada del AST o de la UI).
  */
@@ -70,6 +89,11 @@ export interface Entity {
    * Spec 110.
    */
   kindLabel?: string;
+  /**
+   * Provenance/lineage mínimo del símbolo para distinguir origen,
+   * fase de vida, rol de implementación, herencia y fiabilidad base.
+   */
+  lineage?: EntityLineage;
 }
 
 /**

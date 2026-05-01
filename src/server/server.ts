@@ -40,6 +40,12 @@ import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { NodeFileSystem } from './system/fileSystem';
 import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
 import { createCacheCheckpoint } from './cache/cacheCheckpoint';
+import {
+  persistServingCacheSnapshot,
+  restoreServingCacheSnapshot
+} from './cache/servingCachePersistence';
+import { ServingCacheFlushCoordinator } from './cache/servingCacheFlushCoordinator';
+import { cacheServingResult, invalidateServingCacheEntries } from './cache/servingCacheRuntime';
 import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
 import { createReadinessTracker } from './workspace/readiness';
@@ -76,6 +82,19 @@ const hotContextCache = new HotContextCache();
 const servingCache = new ServingCache<unknown>();
 let cacheStore: SemanticCacheStore | null = null;
 let cacheStorageUri: string | null = null;
+let lastServingSnapshotRestoreEntries = 0;
+let lastServingSnapshotPersistEntries = 0;
+const persistServingSnapshot = async (): Promise<void> => {
+  if (!cacheStore) {
+    lastServingSnapshotPersistEntries = 0;
+    return;
+  }
+
+  lastServingSnapshotPersistEntries = await persistServingCacheSnapshot(servingCache, cacheStore, knowledgeBase.semanticEpoch);
+};
+const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {
+  await persistServingSnapshot();
+});
 
 // Conectar caché interactiva con backends globales para evitar doble parseo
 setAnalysisBackends(documentCache, knowledgeBase, {
@@ -215,14 +234,23 @@ connection.onInitialized(() => {
         } as const;
 
         if (cacheStorageUri) {
-          cacheStore = createSemanticCacheStore(fs, cacheStorageUri, workspaceFolders);
+          cacheStore = createSemanticCacheStore(fs, cacheStorageUri, workspaceFolders, projectModel);
           const restore = await cacheStore.load(cacheMetadata);
           if (restore.decision.action === 'reuse' && restore.checkpoint.documents.length > 0) {
             documentCache.restoreDocumentRecords(restore.checkpoint.documents);
             knowledgeBase.restoreDocumentRecords(restore.checkpoint.documents, restore.checkpoint.semanticEpoch);
+            const restoredServingEntries = await restoreServingCacheSnapshot(
+              servingCache,
+              cacheStore,
+              restore.checkpoint.semanticEpoch
+            );
+            lastServingSnapshotRestoreEntries = restoredServingEntries;
             connection.console.log(
               `[CACHE] Warm resume restauró ${restore.checkpoint.documents.length} documentos (epoch ${restore.checkpoint.semanticEpoch}).`
             );
+            if (restoredServingEntries > 0) {
+              connection.console.log(`[CACHE] ServingCache restauró ${restoredServingEntries} entries persistidas.`);
+            }
           } else {
             connection.console.log(
               `[CACHE] Warm resume descartado: ${restore.decision.reason ?? 'sin estado persistente compatible'}.`
@@ -288,6 +316,7 @@ connection.onInitialized(() => {
                     }
                   )
                 );
+                await persistServingSnapshot();
               }
               readiness.transition('ready');
               sendProgress({ phase: 'ready', current: filesCount, total: filesCount });
@@ -381,7 +410,7 @@ connection.onHover((params) => {
         }
 
         connection.console.log(formatTiming('hover', elapsedMs));
-        servingCache.set(cacheKey, result);
+        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
         return result;
       }
     });
@@ -444,7 +473,7 @@ connection.onDefinition((params) => {
         }
 
         connection.console.log(formatTiming('definition', elapsedMs));
-        servingCache.set(cacheKey, result);
+        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
         return result;
       }
     });
@@ -517,7 +546,7 @@ connection.onSignatureHelp((params) => {
         }
 
         connection.console.log(formatTiming('signatureHelp', elapsedMs));
-        servingCache.set(cacheKey, result);
+        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
         return result;
       }
     });
@@ -565,7 +594,7 @@ connection.onCompletion((params) => {
         }
 
         connection.console.log(formatTiming('completion', elapsedMs));
-        servingCache.set(cacheKey, result);
+        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
         return result;
       }
     });
@@ -636,8 +665,8 @@ documents.onDidChangeContent((event) => {
   const invalidationPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
   for (const uri of invalidationPlan.allUris) {
     hotContextCache.invalidateForUri(uri);
-    servingCache.invalidate(uri);
   }
+  invalidateServingCacheEntries(servingCache, invalidationPlan.allUris, servingCacheFlushCoordinator);
 
   try {
     scheduleDiagnostics(connection, event.document, scheduler, undefined, knowledgeBase, systemCatalog, inheritanceGraph);
@@ -653,8 +682,8 @@ documents.onDidClose((event) => {
   invalidateDocumentAnalysis(event.document.uri);
   for (const uri of invalidationPlan.allUris) {
     hotContextCache.invalidateForUri(uri);
-    servingCache.invalidate(uri);
   }
+  invalidateServingCacheEntries(servingCache, invalidationPlan.allUris, servingCacheFlushCoordinator);
 
   connection.sendDiagnostics({
     uri: event.document.uri,
@@ -666,7 +695,9 @@ documents.onDidClose((event) => {
 // Apagado (Shutdown)
 // ---------------------------------------------------------------------------
 
-connection.onShutdown(() => {
+connection.onShutdown(async () => {
+  invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
+  await servingCacheFlushCoordinator.flushIfDirty();
   scheduler.shutdown();
   clearAllScheduledDiagnostics();
   clearDocumentAnalysisCache();
@@ -818,7 +849,11 @@ connection.onExecuteCommand(async (params) => {
             storageUri: cacheStore.storageUri,
             checkpointUri: cacheStore.checkpointUri,
             journalUri: cacheStore.journalUri,
-            workspaceKey: cacheStore.workspaceKey
+            workspaceKey: cacheStore.workspaceKey,
+            servingSnapshot: {
+              lastRestoredEntries: lastServingSnapshotRestoreEntries,
+              lastPersistedEntries: lastServingSnapshotPersistEntries
+            }
           }
           : undefined
       };

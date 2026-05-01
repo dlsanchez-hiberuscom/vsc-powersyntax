@@ -9,9 +9,11 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { PbSystemSymbolEntry } from '../knowledge/system/types';
+import { systemProvenanceToLineage } from '../knowledge/system/normalization';
 import type { HotContextCache } from '../knowledge/HotContextCache';
-import { Entity, EntityKind } from '../knowledge/types';
+import { EntityKind } from '../knowledge/types';
 import { resolveDocumentQueryTargets } from './queryContext';
+import { formatLineageHover, formatUserHover } from './hoverFormat';
 
 /**
  * Provee la información de Hover cuando el usuario pone el ratón sobre una palabra.
@@ -39,7 +41,7 @@ export function provideHover(
     return {
       contents: {
         kind: MarkupKind.Markdown,
-        value: buildUserEntityMarkdown(definition)
+        value: formatUserHover(definition)
       }
     };
   }
@@ -109,48 +111,10 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
     lines.push(`[📚 Documentación Oficial Appeon](${symbol.sourceUrl})`);
   }
 
-  return lines.join('\n');
-}
-
-/**
- * Formatea una Entity del usuario (KnowledgeBase) como Markdown básico.
- */
-function buildUserEntityMarkdown(entity: Entity): string {
-  const kindMap: Record<string, string> = {
-    'Type': 'Objeto / Estructura',
-    'Function': 'Función',
-    'Subroutine': 'Subrutina',
-    'Event': 'Evento',
-    'Variable': 'Variable'
-  };
-  const kindName = kindMap[entity.kind] || entity.kind;
-
-  const lines: string[] = [];
-  
-  // Firma: (Ámbito) Tipo Nombre
-  let signature = '';
-  if (entity.kind === EntityKind.Variable) {
-    const scopeStr = entity.scope ? `(${entity.scope}) ` : '';
-    const accessStr = entity.access ? `${entity.access} ` : '';
-    signature = `${scopeStr}${accessStr}${entity.datatype || 'any'} ${entity.name}`;
-  } else if (entity.kind === EntityKind.Function || entity.kind === EntityKind.Subroutine) {
-    signature = entity.signature || `${entity.kind.toLowerCase()} ${entity.name}(...)`;
-  } else {
-    signature = `(${kindName}) ${entity.name}`;
-  }
-
-  lines.push(`\`\`\`powerbuilder\n${signature}\n\`\`\``);
-  lines.push('---');
-  
-  if (entity.documentation) {
-    lines.push(entity.documentation);
+  const lineage = formatLineageHover(systemProvenanceToLineage(symbol.provenance));
+  if (lineage) {
     lines.push('');
-  }
-
-  if (entity.containerName) {
-    lines.push(`*Definido en:* \`${entity.containerName}\``);
-  } else {
-    lines.push(`Definido en el proyecto.`);
+    lines.push(lineage);
   }
 
   return lines.join('\n');

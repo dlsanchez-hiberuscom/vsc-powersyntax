@@ -253,6 +253,427 @@ La ola `Specs 153-172` consolidó un segundo corte operativo de:
 
 ---
 
+## 1.9 B071A. Caché persistente por workspace y por proyecto — **Cerrada (specs 173 y 174)**
+
+### Resultado técnico registrado
+
+Las `Specs 173-174` cierran `B071A` como capacidad operativa de persistencia fina:
+
+- `cacheStore` acepta `UnifiedProjectModel` para conocer la pertenencia de los documentos,
+- el checkpoint persistido se divide por proyecto,
+- el journal persistido se divide por proyecto con secuencias locales por partición,
+- los documentos huérfanos permanecen anclados a la partición de workspace,
+- y el warm resume recompone el conjunto agregado aplicando checkpoint y journal por partición.
+
+### Alcance trazado por spec
+
+- `Specs 173-174` materializan el cierre de `B071A`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `326 passing`
+- `npm test` → smoke `2 passing`, unit `326 passing`, integration `4 passing`
+
+---
+
+## 1.10 Hito 2026-05 — Spec 175 export y restore de ServingCache
+
+### Resultado técnico registrado
+
+`Spec 175` abre un primer corte operativo de `B071B`:
+
+- `ServingCache` expone `exportEntries()` y `restoreEntries()`,
+- el snapshot exportado queda desacoplado del estado interno,
+- y la restauración conserva orden LRU y capacidad como base para persistencia posterior.
+
+### Alcance trazado por spec
+
+- `Spec 175` materializa un avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `327 passing`
+- `npm test` → smoke `2 passing`, unit `327 passing`, integration `4 passing`
+
+---
+
+## 1.11 Hito 2026-05 — Spec 176 snapshot persistente de ServingCache en cacheStore
+
+### Resultado técnico registrado
+
+`Spec 176` amplía el primer corte operativo de `B071B`:
+
+- `cacheStore` expone persistencia y carga de snapshots de `ServingCache`,
+- el snapshot usa archivo dedicado y `schemaVersion`,
+- y una carga inválida degrada de forma segura a snapshot vacío.
+
+### Alcance trazado por spec
+
+- `Spec 176` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `329 passing`
+- `npm test` → smoke `2 passing`, unit `329 passing`, integration `4 passing`
+
+---
+
+## 1.12 Hito 2026-05 — Spec 177 wiring runtime de ServingCache persistente
+
+### Resultado técnico registrado
+
+`Spec 177` amplía el primer corte operativo de `B071B`:
+
+- existe helper de restore/persist entre `ServingCache` y `cacheStore`,
+- el runtime restaura entries persistidas tras warm resume compatible,
+- y el punto de persistencia estable del servidor guarda la snapshot actual de serving.
+
+### Alcance trazado por spec
+
+- `Spec 177` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `331 passing`
+- `npm test` → smoke `2 passing`, unit `331 passing`, integration `4 passing`
+
+---
+
+## 1.13 Hito 2026-05 — Spec 178 parseo de epoch en clave de ServingCache
+
+### Resultado técnico registrado
+
+`Spec 178` amplía el primer corte operativo de `B071B`:
+
+- `ServingCache` expone `kbVersionFromKey()`,
+- las claves válidas devuelven la epoch serializada,
+- y las claves inválidas degradan a `null` para permitir filtros seguros posteriores.
+
+### Alcance trazado por spec
+
+- `Spec 178` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `332 passing`
+- `npm test` → smoke `2 passing`, unit `332 passing`, integration `4 passing`
+
+---
+
+## 1.14 Hito 2026-05 — Spec 179 persistencia filtrada por epoch activa
+
+### Resultado técnico registrado
+
+`Spec 179` amplía el primer corte operativo de `B071B`:
+
+- `persistServingCacheSnapshot()` recibe la epoch activa del KB,
+- filtra la snapshot exportada por `kbVersionFromKey()`,
+- y descarta claves inválidas u obsoletas antes de persistir.
+
+### Alcance trazado por spec
+
+- `Spec 179` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `333 passing`
+- `npm test` → smoke `2 passing`, unit `333 passing`, integration `4 passing`
+
+---
+
+## 1.15 Hito 2026-05 — Spec 180 restore filtrado por epoch esperada
+
+### Resultado técnico registrado
+
+`Spec 180` completa el contrato básico de rehidratación de `B071B`:
+
+- `restoreServingCacheSnapshot()` recibe la epoch esperada del checkpoint,
+- filtra la snapshot cargada por `kbVersionFromKey()`,
+- y descarta claves inválidas u obsoletas antes de rehidratar `ServingCache`.
+
+### Alcance trazado por spec
+
+- `Spec 180` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `334 passing`
+- `npm test` → smoke `2 passing`, unit `334 passing`, integration `4 passing`
+
+---
+
+## 1.16 Hito 2026-05 — Spec 181 coordinador dirty para flush de ServingCache
+
+### Resultado técnico registrado
+
+`Spec 181` prepara el wiring operativo de `B071B`:
+
+- añade `ServingCacheFlushCoordinator`,
+- encapsula `markDirty()` y `flushIfDirty()`,
+- y converge si la caché vuelve a ensuciarse durante un flush en vuelo.
+
+### Alcance trazado por spec
+
+- `Spec 181` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `337 passing`
+- `npm test` → smoke `2 passing`, unit `337 passing`, integration `4 passing`
+
+---
+
+## 1.17 Hito 2026-05 — Spec 182 flush oportuno tras poblar ServingCache
+
+### Resultado técnico registrado
+
+`Spec 182` convierte la persistencia de `B071B` en algo útil durante la sesión activa:
+
+- añade `cacheServingResult()` como helper de runtime,
+- reutiliza `ServingCacheFlushCoordinator`,
+- y sustituye los `servingCache.set(...)` interactivos para disparar flush oportuno tras hover, definition, signatureHelp y completion.
+
+### Alcance trazado por spec
+
+- `Spec 182` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `339 passing`
+- `npm test` → smoke `2 passing`, unit `339 passing`, integration `4 passing`
+
+---
+
+## 1.18 Hito 2026-05 — Spec 183 flush tras invalidación y shutdown de ServingCache
+
+### Resultado técnico registrado
+
+`Spec 183` completa el circuito operativo principal de `B071B`:
+
+- añade `invalidateServingCacheEntries()` como helper de runtime,
+- lo conecta a `onDidChangeContent` y `onDidClose`,
+- y fuerza un flush final estable durante `onShutdown`.
+
+### Alcance trazado por spec
+
+- `Spec 183` materializa un nuevo avance parcial de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `341 passing`
+- `npm test` → smoke `2 passing`, unit `341 passing`, integration `4 passing`
+
+---
+
+## 1.19 Hito 2026-05 — Spec 184 cierre observable de B071B
+
+### Resultado técnico registrado
+
+`Spec 184` cierra formalmente `B071B`:
+
+- el servidor registra cuántas entradas de ServingCache restaura y persiste,
+- `powerbuilder.showStats` expone ese estado en `persistence.servingSnapshot`,
+- y el backlog deja `B071B` como `Done`.
+
+### Alcance trazado por spec
+
+- `Spec 184` materializa el cierre explícito de `B071B`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `341 passing`
+- `npm test` → smoke `2 passing`, unit `341 passing`, integration `4 passing`
+
+---
+
+## 1.20 Hito 2026-05 — Spec 185 contrato base de lineage para B172
+
+### Resultado técnico registrado
+
+`Spec 185` abre `B172`:
+
+- añade `EntityLineage` al modelo semántico central,
+- define vocabulario mínimo de origen, autoridad, fase, rol, herencia y fiabilidad,
+- y deja preparada la población real desde análisis para la siguiente slice.
+
+### Alcance trazado por spec
+
+- `Spec 185` materializa el primer avance parcial de `B172`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `341 passing`
+- `npm test` → smoke `2 passing`, unit `341 passing`, integration `4 passing`
+
+---
+
+## 1.21 Hito 2026-05 — Spec 186 población inicial de lineage desde análisis
+
+### Resultado técnico registrado
+
+`Spec 186` da el primer productor real a `B172`:
+
+- `analyzeDocument` puebla `lineage` en `semanticFacts`,
+- distingue prototype frente a implementation,
+- y propaga herencia documental mínima desde `baseTypeName`.
+
+### Alcance trazado por spec
+
+- `Spec 186` materializa un nuevo avance parcial de `B172`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `342 passing`
+- `npm test` → smoke `2 passing`, unit `342 passing`, integration `4 passing`
+
+---
+
+## 1.22 Hito 2026-05 — Spec 187 normalización de lineage en enrichEntity
+
+### Resultado técnico registrado
+
+`Spec 187` consolida el primer corte operativo de `B172`:
+
+- `enrichEntity` completa lineage mínimo cuando falta,
+- conserva overrides explícitos del caller,
+- y mantiene coherencia entre `isPrototype`, `implementationKind` y `lineage`.
+
+### Alcance trazado por spec
+
+- `Spec 187` materializa un nuevo avance parcial de `B172`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `344 passing`
+- `npm test` → smoke `2 passing`, unit `344 passing`, integration `4 passing`
+
+---
+
+## 1.23 Hito 2026-05 — Spec 188 semantic diff consciente de lineage
+
+### Resultado técnico registrado
+
+`Spec 188` hace operativo `B172` en la invalidación semántica:
+
+- `serializeEntity()` incorpora la parte estable de `lineage`,
+- cambios de provenance/phase/herencia ya marcan `exportedIdsUpdated`,
+- y el diff semántico deja de ignorar esta nueva información.
+
+### Alcance trazado por spec
+
+- `Spec 188` materializa un nuevo avance parcial de `B172`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `345 passing`
+- `npm test` → smoke `2 passing`, unit `345 passing`, integration `4 passing`
+
+---
+
+## 1.24 Hito 2026-05 — Spec 189 winner lineage en semanticQueryService
+
+### Resultado técnico registrado
+
+`Spec 189` conecta `B172` con el winner path de serving:
+
+- `ResolvedTargetInfo` expone `winnerLineage`,
+- el lineage del target ganador viaja junto a `reasonCodes` y `trace`,
+- y la confianza base se deriva sin romper consumidores existentes.
+
+### Alcance trazado por spec
+
+- `Spec 189` materializa un nuevo avance parcial de `B172`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `345 passing`
+- `npm test` → smoke `2 passing`, unit `345 passing`, integration `4 passing`
+
+---
+
+## 1.25 Hito 2026-05 — Spec 190 bridge de provenance del catálogo a lineage
+
+### Resultado técnico registrado
+
+`Spec 190` conecta el catálogo de sistema con el vocabulario común de `B172`:
+
+- añade `systemProvenanceToLineage()`,
+- fija `sourceKind: 'system'` y autoridad compatible con lineage,
+- y deriva una confianza base útil para dataset oficial o custom.
+
+### Alcance trazado por spec
+
+- `Spec 190` materializa un nuevo avance parcial de `B172`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `347 passing`
+- `npm test` → smoke `2 passing`, unit `347 passing`, integration `4 passing`
+
+---
+
+## 1.26 Hito 2026-05 — Spec 191 lineage mínimo visible en hover
+
+### Resultado técnico registrado
+
+`Spec 191` hace visible `B172` en una surface de usuario:
+
+- añade un formatter compacto de lineage para hover,
+- reutiliza el lineage de `Entity` para símbolos de usuario,
+- y deriva el lineage de símbolos de sistema desde `systemProvenanceToLineage()`.
+
+### Alcance trazado por spec
+
+- `Spec 191` materializa un nuevo avance parcial de `B172`.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `348 passing`
+- `npm test` → smoke `2 passing`, unit `348 passing`, integration `4 passing`
+
+---
+
+## 1.27 Hito 2026-05 — Spec 192 lineage mínimo en ApiSymbol
+
+### Resultado técnico registrado
+
+`Spec 192` consolida el cierre visible de `B172` y amplía `B109`:
+
+- añade `ApiSymbolLineage` al contrato público,
+- amplía `ApiSymbol` con `lineage?`,
+- y fija `toApiSymbol()` como mapper puro y defensivo.
+
+### Alcance trazado por spec
+
+- `Spec 192` cierra `B172`.
+- `Spec 192` amplía `B109` sin abrir aún una API más ambiciosa.
+
+### Validación registrada
+
+- `npm run compile`
+- `npm run test:unit` → `350 passing`
+- `npm test` → smoke `2 passing`, unit `350 passing`, integration `4 passing`
+
+---
+
 # 2. Auditoría 2026-04 — bugs críticos corregidos
 
 ## B143 — `end if` cerraba el scope de la función — **Corregido**

@@ -15,12 +15,30 @@ suite('unit/semanticQueryService', () => {
     kb.beginBatchUpdate();
     kb.upsertDocument('file:///w_base.sru', [
       { id: 'w_base', name: 'w_base', kind: EntityKind.Type, uri: 'file:///w_base.sru', line: 0, character: 0 },
-      { id: 'of_setdata', name: 'of_SetData', kind: EntityKind.Function, containerName: 'w_base', uri: 'file:///w_base.sru', line: 10, character: 4 }
+      {
+        id: 'of_setdata',
+        name: 'of_SetData',
+        kind: EntityKind.Function,
+        containerName: 'w_base',
+        uri: 'file:///w_base.sru',
+        line: 10,
+        character: 4,
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      }
     ]);
     
     kb.upsertDocument('file:///w_main.sru', [
       { id: 'w_main', name: 'w_main', kind: EntityKind.Type, baseTypeName: 'w_base', uri: 'file:///w_main.sru', line: 0, character: 0 },
-      { id: 'of_setdata', name: 'of_SetData', kind: EntityKind.Function, containerName: 'w_main', uri: 'file:///w_main.sru', line: 20, character: 4 },
+      {
+        id: 'of_setdata',
+        name: 'of_SetData',
+        kind: EntityKind.Function,
+        containerName: 'w_main',
+        uri: 'file:///w_main.sru',
+        line: 20,
+        character: 4,
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      },
       { id: 'lw_window', name: 'lw_window', kind: EntityKind.Variable, datatype: 'w_base', containerName: 'w_main', uri: 'file:///w_main.sru', line: 5, character: 0 }
     ]);
 
@@ -97,6 +115,14 @@ suite('unit/semanticQueryService', () => {
 
     assert.equal(resolved.targets.length, 1);
     assert.deepEqual(resolved.reasonCodes, ['member-hierarchy']);
+    assert.deepEqual(resolved.winnerLineage, {
+      sourceKind: 'document',
+      authority: 'derived',
+      phase: 'implementation',
+      role: 'implementation',
+      confidence: 'direct',
+      resolutionKind: 'member-hierarchy'
+    });
     assert.ok(resolved.trace.some((step) => step.name === 'targets:member-hierarchy'));
   });
 });

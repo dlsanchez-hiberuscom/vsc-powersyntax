@@ -28,6 +28,12 @@ export interface ServingKeyParts {
   extra?: string;
 }
 
+export interface ServingCacheEntry<T = unknown> {
+  key: string;
+  value: T;
+  insertedAt?: number;
+}
+
 /**
  * Construye una clave estable a partir de las partes que identifican
  * un resultado servido.
@@ -36,6 +42,16 @@ export function makeKey(p: ServingKeyParts): string {
   const uri = normalizeUri(p.uri);
   const extra = p.extra ?? '';
   return `${p.feature}|${uri}|${p.line}|${p.character}|${p.kbVersion}|${extra}`;
+}
+
+export function kbVersionFromKey(key: string): number | null {
+  const parts = key.split('|');
+  if (parts.length < 5) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(parts[4], 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
@@ -102,6 +118,29 @@ export class ServingCache<T = unknown> {
     }
     this.entries.set(key, value);
     if (this.ttlMs > 0) this.insertedAt.set(key, Date.now());
+  }
+
+  /** Exporta un snapshot ordenado de la LRU actual, de más antiguo a más reciente. */
+  exportEntries(): ServingCacheEntry<T>[] {
+    return [...this.entries.entries()].map(([key, value]) => ({
+      key,
+      value: structuredClone(value),
+      insertedAt: this.ttlMs > 0 ? this.insertedAt.get(key) : undefined
+    }));
+  }
+
+  /** Restaura un snapshot exportado preservando orden LRU y capacidad. */
+  restoreEntries(entries: ServingCacheEntry<T>[]): void {
+    this.entries.clear();
+    this.insertedAt.clear();
+
+    const retainedEntries = entries.slice(-this.maxEntries);
+    for (const entry of retainedEntries) {
+      this.entries.set(entry.key, structuredClone(entry.value));
+      if (this.ttlMs > 0) {
+        this.insertedAt.set(entry.key, entry.insertedAt ?? Date.now());
+      }
+    }
   }
 
   /**

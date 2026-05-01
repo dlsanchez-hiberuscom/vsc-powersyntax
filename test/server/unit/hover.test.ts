@@ -15,7 +15,20 @@ suite('unit/hover', () => {
   setup(() => {
     kb = new KnowledgeBase();
     kb.upsertDocument('file:///w_main.sru', [
-      { id: 'of_setdata', name: 'of_SetData', kind: EntityKind.Function, uri: 'file:///w_main.sru', line: 10, character: 4 }
+      {
+        id: 'of_setdata',
+        name: 'of_SetData',
+        kind: EntityKind.Function,
+        uri: 'file:///w_main.sru',
+        line: 10,
+        character: 4,
+        lineage: {
+          sourceKind: 'document',
+          authority: 'derived',
+          phase: 'implementation',
+          confidence: 'direct'
+        }
+      }
     ]);
     catalog = new SystemCatalog();
     graph = new InheritanceGraph(kb);
@@ -33,6 +46,8 @@ suite('unit/hover', () => {
     const value = (hover?.contents as any).value as string;
     assert.ok(value.includes('MessageBox'), 'Debe contener el nombre de la función');
     assert.ok(value.includes('docs.appeon.com'), 'Debe contener el enlace oficial de la documentación');
+    assert.ok(value.includes('*Origen:* system'), 'Debe incluir lineage de sistema');
+    assert.ok(value.includes('*Confianza:* direct'), 'Debe incluir confianza derivada');
   });
 
   test('provideHover devuelve Markdown de KnowledgeBase para función de usuario', () => {
@@ -44,7 +59,8 @@ suite('unit/hover', () => {
     assert.ok(hover, 'Hover no debería ser null');
     const value = (hover?.contents as any).value as string;
     assert.ok(value.includes('of_SetData'), 'Debe contener el nombre de la función');
-    assert.ok(value.includes('Definido en el proyecto'), 'Debe indicar que es del proyecto');
+    assert.ok(value.includes('*Origen:* document'), 'Debe exponer lineage del símbolo de usuario');
+    assert.ok(value.includes('*Confianza:* direct'), 'Debe indicar confianza directa');
   });
 
   test('provideHover devuelve null si no es un identificador valido', () => {

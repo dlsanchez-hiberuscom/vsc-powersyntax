@@ -99,30 +99,39 @@ Cerrar la persistencia operativa y el serving compartido para que:
 - `HotContextCache` y `ServingCache` se conviertan en aceleraciones reales,
 - y la observabilidad interna explique readiness, cachés y winner paths.
 
-La base de esta fase ya quedó implementada y validada como segundo corte operativo; lo pendiente pasa por completar particionado por proyecto, cache persistente de queries y gates de confianza sobre esta base.
+La base de esta fase ya quedó implementada y validada como segundo corte operativo; `Specs 173-174` cierran `B071A` con checkpoints y journals persistidos por proyecto, restore agregado por partición y ancla de workspace para huérfanos. `Specs 175-184` cierran `B071B` con `ServingCache` exportable/rehidratable, snapshot persistente en `cacheStore`, wiring de restore/persist en runtime, parseo de epoch, filtro simétrico por epoch, coordinador dirty, flush oportuno al poblar/invalidate/shutdown y observabilidad básica en `powerbuilder.showStats`. `Specs 185-192` cierran `B172` con el contrato base de lineage, su población documental inicial, normalización común, visibilidad en `semanticDiff`, `winnerLineage` en resolución, puente con el catálogo de sistema, surface visible en hover y exportación mínima estable en `ApiSymbol`. El siguiente paso inmediato es endurecer confidence gates sobre esta base.
 
-### Ola 149-172 ya materializada como base operativa de persistencia y serving
+### Ola 149-174 ya materializada como base operativa de persistencia y serving
 
 - `Specs 149-152` dejaron listos `UnifiedProjectModel` y la base persistente `schema` + `journal` + `checkpoint`.
 - `Specs 153-163` materializan puerto persistente de filesystem, `cacheStore`, `workspaceKey` estable, metadata de checkpoint, validación estricta de journal, export/restore defensivo, `journal` interactivo y warm resume real.
 - `Specs 164-172` materializan helper común de contexto de query, `ServingCache` ampliado, consumo real de `HotContextCache`, `queryTrace`, `reasonCodes` y snapshot de stats interno/público ampliado.
+- `Specs 173-174` cierran `B071A` con checkpoint y journal persistidos por proyecto, manteniendo ancla de workspace para huérfanos y restore agregado por partición.
+- `Specs 175-184` cierran `B071B`: `ServingCache` ya es persistente entre sesiones, filtrado por epoch, sincronizado con populate/invalidation/shutdown y observable vía `powerbuilder.showStats`.
+- `Spec 185` abre `B172` con `EntityLineage` como contrato común de origen, fase, rol, herencia y fiabilidad.
+- `Spec 186` puebla ese lineage desde `analyzeDocument` para prototype, implementation y herencia documental.
+- `Spec 187` normaliza ese lineage en `enrichEntity` y preserva overrides explícitos.
+- `Spec 188` hace que el `semanticDiff` vea cambios de lineage y pueda invalidar snapshots exportados por ese motivo.
+- `Spec 189` expone `winnerLineage` en `resolveTargetEntityDetailed` para el target ganador.
+- `Spec 190` traduce `PbSystemSymbolProvenance` al vocabulario común mediante `systemProvenanceToLineage()`.
+- `Spec 191` añade un resumen mínimo de lineage en hover para símbolos de usuario y de sistema.
+- `Spec 192` amplía `ApiSymbol` con `ApiSymbolLineage` y fija `toApiSymbol()` como mapper público mínimo y estable.
 
 Validación registrada:
 
 - `npm run compile`
-- `npm run test:unit` → `324 passing`
-- `npm test` → smoke `2 passing`, unit `324 passing`, integration `4 passing`
+- `npm run test:unit` → `350 passing`
+- `npm test` → smoke `2 passing`, unit `350 passing`, integration `4 passing`
 
 ### Siguiente cierre natural dentro de esta fase
 
-1. **B071A** — particionado persistente real por proyecto  
-2. **B071B** — cache de consultas frecuentes persistente  
-3. **B172** — provenance / lineage de simbolos  
-4. **B171** — confidence gates por feature  
-5. **B031** — referencias más precisas y robustas  
-6. **B032** — rename controlado sobre evidencia fuerte  
-7. **B066** — CodeLens fiable sobre serving compartido  
-8. **B065** — hierarchy inspection madura
+1. **B171** — confidence gates por feature  
+2. **B031** — referencias más precisas y robustas  
+3. **B032** — rename controlado sobre evidencia fuerte  
+4. **B066** — CodeLens fiable sobre serving compartido  
+5. **B065** — hierarchy inspection madura  
+6. **B109** — API pública para integración  
+7. **B164** — Interning y compactación de memoria
 
 ---
 
@@ -150,10 +159,9 @@ En otras palabras:
 
 ### Trabajo permitido y prioritario
 
-- cerrar el particionado persistente por proyecto sobre `cacheStore` y `workspaceKey`,
-- abrir `B071B` con reuse seguro de queries frecuentes,
 - conectar `queryTrace` y `reasonCodes` con lineage y confidence gates,
 - endurecer `references`, `rename` y `CodeLens` sobre el query engine compartido,
+- consolidar la API pública mínima sin abrir aún superficies más ambiciosas,
 - y mantener alineada la documentación técnica con el nuevo estado real del runtime.
 
 ### Resultado esperado de esta etapa
@@ -163,7 +171,7 @@ Al final de esta fase, el plugin debe:
 - reabrir workspaces grandes con warm resume seguro y medible,
 - reutilizar mejor `definition`, `signatureHelp` y `completion` en rutas repetidas,
 - exponer caches, persistence y winner paths desde surfaces internas y públicas ligeras,
-- y dejar lista la base para confidence gates, lineage y queries más ambiciosas.
+- y dejar lista la base para confidence gates y queries más ambiciosas.
 
 ---
 
@@ -215,7 +223,7 @@ Antes de mover el foco, esta fase debe dejar evidencia razonable de mejora.
 - persistencia solo en puntos de estabilidad verificables,
 - `ServingCache` y `HotContextCache` consumidos de forma real en el hot path,
 - `queryTrace` y `reasonCodes` visibles para debugging y stats,
-- y documentación técnica actualizada y alineada con la ola 153-172.
+- y documentación técnica actualizada y alineada con la ola 153-192.
 
 ---
 
@@ -227,14 +235,13 @@ El siguiente paso natural, una vez cerrado este foco, es:
 
 Orden previsto:
 
-1. **B172** — Provenance / lineage de símbolos  
-2. **B171** — Confidence gates por feature  
-3. **B071B** — Caché de consultas frecuentes  
-4. **B031** — Referencias más precisas y robustas  
-5. **B032** — Rename controlado  
-6. **B066** — CodeLens de referencias y herencia  
-7. **B065** — Ancestor script navigation + hierarchy inspection  
-8. **B164** — Interning y compactación de memoria
+1. **B171** — Confidence gates por feature  
+2. **B031** — Referencias más precisas y robustas  
+3. **B032** — Rename controlado  
+4. **B066** — CodeLens de referencias y herencia  
+5. **B065** — Ancestor script navigation + hierarchy inspection  
+6. **B109** — API pública para integración  
+7. **B164** — Interning y compactación de memoria
 
 ---
 

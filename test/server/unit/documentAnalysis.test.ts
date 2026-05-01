@@ -192,6 +192,60 @@ suite('unit/documentAnalysis', () => {
     assert.equal(analysis.snapshot.scopes, analysis.scopes);
     assert.ok(analysis.snapshot.identity.includes(String(analysis.fingerprint)));
   });
+
+  test('semanticFacts poblan lineage documental para prototype, implementation y herencia', () => {
+    const source = [
+      'forward',
+      'global type w_main from window',
+      'end type',
+      'end forward',
+      '',
+      'forward prototypes',
+      'public function integer of_only_proto();',
+      'end prototypes',
+      '',
+      'global type w_main from window',
+      'public function integer of_real();',
+      '  return 1',
+      'end function',
+      'end type'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///documentAnalysis-lineage.sru', 'powerbuilder', 1, source);
+    const analysis = analyzeDocument(document);
+
+    const typeFact = analysis.semanticFacts.find((fact) => fact.kind.toString().toLowerCase() === 'type');
+    const prototypeFact = analysis.semanticFacts.find((fact) => fact.name.toLowerCase() === 'of_only_proto');
+    const implementationFact = analysis.semanticFacts.find((fact) => fact.name.toLowerCase() === 'of_real');
+
+    assert.ok(typeFact, 'No se encontró el type fact esperado.');
+    assert.ok(prototypeFact, 'No se encontró el prototype fact esperado.');
+    assert.ok(implementationFact, 'No se encontró el implementation fact esperado.');
+
+    assert.deepEqual(typeFact!.lineage, {
+      sourceKind: 'document',
+      authority: 'derived',
+      phase: 'declaration',
+      inheritedFrom: 'window',
+      confidence: 'direct'
+    });
+
+    assert.deepEqual(prototypeFact!.lineage, {
+      sourceKind: 'document',
+      authority: 'derived',
+      phase: 'prototype',
+      role: 'prototype',
+      confidence: 'direct'
+    });
+
+    assert.deepEqual(implementationFact!.lineage, {
+      sourceKind: 'document',
+      authority: 'derived',
+      phase: 'implementation',
+      role: 'implementation',
+      confidence: 'direct'
+    });
+  });
 });
 
 function findScopeByName(

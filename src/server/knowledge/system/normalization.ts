@@ -3,6 +3,17 @@ import {
     PbSystemSymbolEntryDraft,
     PbSystemSymbolProvenance,
 } from './types';
+import type { EntityLineage } from '../types';
+
+export function systemProvenanceToLineage(provenance: PbSystemSymbolProvenance): EntityLineage {
+    return {
+        sourceKind: 'system',
+        authority: provenance.authority,
+        phase: 'implementation',
+        role: 'implementation',
+        confidence: provenance.authority === 'official' || provenance.authority === 'curated' ? 'direct' : 'fallback',
+    };
+}
 
 function inferProvenanceKind(
     dataset: PbSystemSymbolEntryDraft['dataset'],

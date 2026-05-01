@@ -6,12 +6,59 @@
 
 export const PUBLIC_API_VERSION = '0.1.0';
 
+export interface ApiSymbolLineage {
+  sourceKind?: 'document' | 'project' | 'workspace' | 'system';
+  authority?: 'derived' | 'curated' | 'official' | 'project' | 'workspace' | 'custom';
+  phase?: 'declaration' | 'prototype' | 'implementation';
+  role?: 'prototype' | 'implementation' | 'override' | 'inherited';
+  inheritedFrom?: string;
+  confidence?: 'direct' | 'inherited' | 'fallback';
+}
+
 export interface ApiSymbol {
   name: string;
   kind: string;
   uri: string;
   line: number;
   character: number;
+  lineage?: ApiSymbolLineage;
+}
+
+export interface ApiSymbolInput {
+  name: string;
+  kind: string;
+  uri: string;
+  line: number;
+  character: number;
+  lineage?: ApiSymbolLineage;
+}
+
+function cloneApiSymbolLineage(lineage?: ApiSymbolLineage): ApiSymbolLineage | undefined {
+  if (!lineage) {
+    return undefined;
+  }
+
+  const normalized: ApiSymbolLineage = {
+    ...(lineage.sourceKind ? { sourceKind: lineage.sourceKind } : {}),
+    ...(lineage.authority ? { authority: lineage.authority } : {}),
+    ...(lineage.phase ? { phase: lineage.phase } : {}),
+    ...(lineage.role ? { role: lineage.role } : {}),
+    ...(lineage.inheritedFrom ? { inheritedFrom: lineage.inheritedFrom } : {}),
+    ...(lineage.confidence ? { confidence: lineage.confidence } : {}),
+  };
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+export function toApiSymbol(symbol: ApiSymbolInput): ApiSymbol {
+  return {
+    name: symbol.name,
+    kind: symbol.kind,
+    uri: symbol.uri,
+    line: symbol.line,
+    character: symbol.character,
+    ...(cloneApiSymbolLineage(symbol.lineage) ? { lineage: cloneApiSymbolLineage(symbol.lineage) } : {}),
+  };
 }
 
 export interface ApiQuerySymbolsRequest {

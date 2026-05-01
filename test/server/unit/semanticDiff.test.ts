@@ -78,4 +78,50 @@ suite('unit/semanticDiff', () => {
 
     assert.deepEqual(collectSnapshotDependencyKeys(snapshot), ['n_parent', 'n_service']);
   });
+
+  test('cambios de lineage en diff marcan export actualizado', () => {
+    const previous = createSnapshot({
+      symbols: [
+        {
+          id: 'of_run',
+          name: 'of_run',
+          kind: EntityKind.Function,
+          uri: 'file:///semantic-diff.sru',
+          line: 5,
+          character: 0,
+          lineage: {
+            sourceKind: 'document',
+            authority: 'derived',
+            phase: 'prototype',
+            role: 'prototype',
+            confidence: 'direct'
+          }
+        }
+      ]
+    });
+
+    const next = createSnapshot({
+      symbols: [
+        {
+          id: 'of_run',
+          name: 'of_run',
+          kind: EntityKind.Function,
+          uri: 'file:///semantic-diff.sru',
+          line: 5,
+          character: 0,
+          lineage: {
+            sourceKind: 'document',
+            authority: 'derived',
+            phase: 'implementation',
+            role: 'implementation',
+            confidence: 'direct'
+          }
+        }
+      ]
+    });
+
+    const diff = diffSemanticSnapshots(previous, next);
+
+    assert.deepEqual(diff.exportedIdsUpdated, ['of_run']);
+  });
 });

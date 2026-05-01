@@ -6,7 +6,7 @@
  * @module features/hoverFormat
  */
 
-import { Entity, EntityKind } from '../knowledge/types';
+import { Entity, EntityKind, type EntityLineage } from '../knowledge/types';
 
 const KIND_NAME: Record<string, string> = {
   Type: 'Objeto / Estructura',
@@ -15,6 +15,40 @@ const KIND_NAME: Record<string, string> = {
   Event: 'Evento',
   Variable: 'Variable'
 };
+
+export function formatLineageHover(lineage?: EntityLineage): string | null {
+  if (!lineage) {
+    return null;
+  }
+
+  const segments: string[] = [];
+
+  if (lineage.sourceKind) {
+    segments.push(`*Origen:* ${lineage.sourceKind}`);
+  }
+
+  if (lineage.authority) {
+    segments.push(`*Autoridad:* ${lineage.authority}`);
+  }
+
+  if (lineage.phase) {
+    segments.push(`*Fase:* ${lineage.phase}`);
+  }
+
+  if (lineage.role) {
+    segments.push(`*Rol:* ${lineage.role}`);
+  }
+
+  if (lineage.inheritedFrom) {
+    segments.push(`*Hereda de:* ${lineage.inheritedFrom}`);
+  }
+
+  if (lineage.confidence) {
+    segments.push(`*Confianza:* ${lineage.confidence}`);
+  }
+
+  return segments.length > 0 ? segments.join(' · ') : null;
+}
 
 export function formatUserHover(entity: Entity): string {
   const out: string[] = [];
@@ -51,6 +85,12 @@ export function formatUserHover(entity: Entity): string {
   if (entity.documentation) {
     out.push('');
     out.push(entity.documentation);
+  }
+
+  const lineage = formatLineageHover(entity.lineage);
+  if (lineage) {
+    out.push('');
+    out.push(lineage);
   }
 
   if (entity.containerName) {

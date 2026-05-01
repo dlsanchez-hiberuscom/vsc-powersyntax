@@ -285,6 +285,17 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
     // dejamos que un prototipo posterior la sobreescriba.
     if (existing && f.declarationOnly && !existing.isPrototype) continue;
 
+    const phase = f.declarationOnly
+      ? 'prototype'
+      : entityKind === EntityKind.Function || entityKind === EntityKind.Subroutine || entityKind === EntityKind.Event
+        ? 'implementation'
+        : 'declaration';
+    const role = f.declarationOnly
+      ? 'prototype'
+      : entityKind === EntityKind.Function || entityKind === EntityKind.Subroutine || entityKind === EntityKind.Event
+        ? 'implementation'
+        : undefined;
+
     factMap.set(dedupKey, {
       id,
       name: f.name,
@@ -299,7 +310,15 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       parameters: f.parameters,
       scope: f.scope,
       access: f.access,
-      isPrototype: f.declarationOnly === true
+      isPrototype: f.declarationOnly === true,
+      lineage: {
+        sourceKind: 'document',
+        authority: 'derived',
+        phase,
+        ...(role ? { role } : {}),
+        ...(f.baseTypeName ? { inheritedFrom: f.baseTypeName } : {}),
+        confidence: 'direct'
+      }
     });
   }
 

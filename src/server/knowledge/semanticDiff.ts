@@ -63,7 +63,13 @@ function serializeEntity(entity: Entity): string {
     entity.access ?? '',
     String(entity.parameterCount ?? ''),
     String(entity.isExternal ?? false),
-    String(entity.isPrototype ?? false)
+    String(entity.isPrototype ?? false),
+    entity.lineage?.sourceKind ?? '',
+    entity.lineage?.authority ?? '',
+    entity.lineage?.phase ?? '',
+    entity.lineage?.role ?? '',
+    entity.lineage?.inheritedFrom ?? '',
+    entity.lineage?.confidence ?? ''
   ].join('|');
 }
 

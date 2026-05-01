@@ -49,13 +49,41 @@ function deriveSignatureLabel(e: Entity): string | undefined {
   return `${e.name}(${params})${ret}`;
 }
 
+function deriveLineage(e: Entity, implementationKind: Entity['implementationKind']): Entity['lineage'] {
+  if (e.lineage) {
+    return e.lineage;
+  }
+
+  const phase = e.isPrototype
+    ? 'prototype'
+    : implementationKind === 'function' || implementationKind === 'subroutine' || implementationKind === 'event'
+      ? 'implementation'
+      : 'declaration';
+  const role = e.isPrototype
+    ? 'prototype'
+    : implementationKind === 'function' || implementationKind === 'subroutine' || implementationKind === 'event'
+      ? 'implementation'
+      : undefined;
+
+  return {
+    sourceKind: 'document',
+    authority: 'derived',
+    phase,
+    ...(role ? { role } : {}),
+    ...(e.baseTypeName ? { inheritedFrom: e.baseTypeName } : {}),
+    confidence: 'direct'
+  };
+}
+
 export function enrichEntity(e: Entity): Entity {
+  const implementationKind = deriveImplementationKind(e);
   return {
     ...e,
     parameterCount: e.parameterCount ?? e.parameters?.length,
     ownerName: e.ownerName ?? e.containerName,
-    implementationKind: deriveImplementationKind(e),
+    implementationKind,
     kindLabel: e.kindLabel ?? deriveKindLabel(e),
-    signatureLabel: deriveSignatureLabel(e)
+    signatureLabel: deriveSignatureLabel(e),
+    lineage: deriveLineage(e, implementationKind)
   };
 }

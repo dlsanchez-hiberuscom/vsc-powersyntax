@@ -37,4 +37,19 @@ suite('unit/hoverFormat (B103)', () => {
     const md = formatUserHover(fn());
     assert.match(md, /w_main/);
   });
+
+  test('muestra lineage mínimo cuando existe', () => {
+    const md = formatUserHover(fn({
+      lineage: {
+        sourceKind: 'document',
+        authority: 'derived',
+        phase: 'prototype',
+        confidence: 'direct'
+      }
+    }));
+
+    assert.match(md, /Origen:\* document/);
+    assert.match(md, /Autoridad:\* derived/);
+    assert.match(md, /Confianza:\* direct/);
+  });
 });

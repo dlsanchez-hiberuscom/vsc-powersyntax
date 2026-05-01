@@ -1,4 +1,4 @@
-# Roadmap LEAN vNext — Plugin PowerBuilder 2025 para VS Code
+# Roadmap — Plugin PowerBuilder 2025 para VS Code
 
 **Documento técnico asociado:**
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
@@ -150,7 +150,7 @@ Evitar recomputado innecesario entre sesiones y convertir la persistencia en una
 
 ### Base 149-163 ya materializada
 
-La serie `Specs 149-163` ya materializa el primer corte operativo de `B141`, `B155`, `B167`, `B168`, `B071`, `B071A` y `B174` con `UnifiedProjectModel`, `cacheStore`, `workspaceKey` estable, metadata robusta, `journal` validado, export/restore defensivo y warm resume real de `DocumentCache` + `KnowledgeBase`. El siguiente cierre de Fase B es completar particionado por proyecto y abrir `B071B` sobre esta base.
+La serie `Specs 149-163` ya materializa el primer corte operativo de `B141`, `B155`, `B167`, `B168`, `B071`, `B071A` y `B174` con `UnifiedProjectModel`, `cacheStore`, `workspaceKey` estable, metadata robusta, `journal` validado, export/restore defensivo y warm resume real de `DocumentCache` + `KnowledgeBase`. `Specs 173-174` cierran `B071A` con checkpoints y journals persistidos por proyecto, ancla de workspace para huérfanos y restore agregado por partición. `Specs 175-184` cierran el primer corte real de `B071B`: `ServingCache` ya es serializable, persistente, filtrado por epoch, sincronizado con populate/invalidation/shutdown y observable en `powerbuilder.showStats`. `Specs 185-192` cierran `B172` con el contrato base de lineage, su población documental inicial, una normalización común, un semantic diff que reacciona a lineage, un winner path que ya expone esa información, el bridge del catálogo de sistema, la surface visible en hover y una exportación pública mínima del símbolo.
 
 ---
 
@@ -179,7 +179,7 @@ Unificar el motor de consultas semánticas y elevar la calidad visible de las fe
 
 ### Base 164-172 ya materializada
 
-La serie `Specs 164-172` ya materializa un primer corte operativo de `B156`, `B157`, `B160`, `B176` y `B109` con helper común de contexto de query, `ServingCache` ampliado, consumo real de `HotContextCache`, `queryTrace`, `reasonCodes` y snapshot de stats interno/público ampliado. El siguiente cierre de Fase C es conectar esta evidencia con lineage, confidence gates y features de serving más estrictas.
+La serie `Specs 164-172` ya materializa un primer corte operativo de `B156`, `B157`, `B160`, `B176` y `B109` con helper común de contexto de query, `ServingCache` ampliado, consumo real de `HotContextCache`, `queryTrace`, `reasonCodes` y snapshot de stats interno/público ampliado. `Specs 185-192` cierran `B172` y extienden `B109` con lineage mínimo por símbolo. El siguiente cierre de Fase C es usar esta evidencia para confidence gates y features de serving más estrictas.
 
 ---
 

@@ -50,4 +50,47 @@ suite('unit/enrichEntity', () => {
     };
     assert.equal(enrichEntity(e).implementationKind, 'instance-var');
   });
+
+  test('normaliza lineage mínimo cuando falta', () => {
+    const e: Entity = {
+      id: 'foo',
+      name: 'foo',
+      kind: EntityKind.Function,
+      uri: 'file:///x.sru',
+      line: 0,
+      character: 0,
+      isPrototype: true,
+      baseTypeName: 'window'
+    };
+
+    assert.deepEqual(enrichEntity(e).lineage, {
+      sourceKind: 'document',
+      authority: 'derived',
+      phase: 'prototype',
+      role: 'prototype',
+      inheritedFrom: 'window',
+      confidence: 'direct'
+    });
+  });
+
+  test('preserva lineage explícito del caller', () => {
+    const e: Entity = {
+      id: 'foo',
+      name: 'foo',
+      kind: EntityKind.Function,
+      uri: 'file:///x.sru',
+      line: 0,
+      character: 0,
+      lineage: {
+        sourceKind: 'system',
+        authority: 'official',
+        phase: 'implementation',
+        role: 'override',
+        inheritedFrom: 'powerobject',
+        confidence: 'fallback'
+      }
+    };
+
+    assert.deepEqual(enrichEntity(e).lineage, e.lineage);
+  });
 });

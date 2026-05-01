@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict';
-import { ServingCache, makeKey } from '../../../src/server/knowledge/ServingCache';
+import { ServingCache, kbVersionFromKey, makeKey } from '../../../src/server/knowledge/ServingCache';
 
 suite('unit/ServingCache', () => {
   test('makeKey produce claves estables y diferenciadas', () => {
@@ -75,5 +75,41 @@ suite('unit/ServingCache', () => {
 
     cache.invalidate();
     assert.equal(cache.size(), 0);
+  });
+
+  test('exportEntries y restoreEntries preservan LRU y copia defensiva', () => {
+    const cache = new ServingCache<{ label: string }>(3);
+    cache.set('a', { label: 'A' });
+    cache.set('b', { label: 'B' });
+    cache.get('a');
+
+    const exported = cache.exportEntries();
+
+    const restored = new ServingCache<{ label: string }>(3);
+    restored.restoreEntries(exported);
+
+    exported[0].value.label = 'mutated';
+
+    assert.deepEqual(
+      restored.exportEntries().map((entry) => [entry.key, entry.value.label]),
+      [['b', 'B'], ['a', 'A']]
+    );
+    assert.deepEqual(
+      cache.exportEntries().map((entry) => [entry.key, entry.value.label]),
+      [['b', 'B'], ['a', 'A']]
+    );
+
+    restored.set('c', { label: 'C' });
+    restored.set('d', { label: 'D' });
+
+    assert.deepEqual(restored.exportEntries().map((entry) => entry.key), ['a', 'c', 'd']);
+  });
+
+  test('kbVersionFromKey extrae la epoch de una clave válida y degrada en claves inválidas', () => {
+    const validKey = makeKey({ feature: 'hover', uri: 'file:///a.sru', line: 1, character: 2, kbVersion: 7, extra: '.' });
+
+    assert.equal(kbVersionFromKey(validKey), 7);
+    assert.equal(kbVersionFromKey('hover|file:///a.sru|1|2|not-a-number|.'), null);
+    assert.equal(kbVersionFromKey('invalid-key'), null);
   });
 });

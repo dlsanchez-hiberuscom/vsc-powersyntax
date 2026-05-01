@@ -119,7 +119,7 @@ El motor debe poder exponer:
 - qué caché está reutilizando,
 - y por qué una consulta devolvió un resultado.
 
-### 4.9 Estado real tras las olas 133-172
+### 4.9 Estado real tras las olas 133-192
 El repositorio ya materializa un primer corte operativo de:
 
 - snapshot semántico canónico por documento,
@@ -127,10 +127,13 @@ El repositorio ya materializa un primer corte operativo de:
 - diff semántico, dependencias inversas e invalidación dirigida/transitiva,
 - indexación estructural + enriquecida con prioridad al activo, budgets adaptativos, preempción y modo degradado,
 - `UnifiedProjectModel` como base topológica compartida,
-- `cacheStore` real sobre `cacheStorageUri` con `workspaceKey` estable, metadata de checkpoint y validación estricta de `journal`,
+- `cacheStore` real sobre `cacheStorageUri` con `workspaceKey` estable, metadata de checkpoint, validación estricta de `journal`, checkpoints y journals persistidos por proyecto,
 - warm resume de `DocumentCache` + `KnowledgeBase` con persistencia solo en `readiness` estable,
 - helper común de contexto de query y resolver detallado con `queryTrace` y `reasonCodes`,
 - `ServingCache` extendido a `hover`, `definition`, `signatureHelp` y `completion`, con consumo real de `HotContextCache`,
+- `EntityLineage` como contrato común de provenance/origen/fase/fiabilidad con bridge desde el catálogo de sistema,
+- surface visible de lineage en hover,
+- exportación pública mínima de lineage en `ApiSymbol`,
 - y snapshot de stats interno/público ampliado con `readiness`, `projectModel`, `persistence` y última traza de query.
 
 ---

@@ -410,24 +410,13 @@ Validación registrada del corte:
 - **Guía / referencia `plugin_old`:** revisar cualquier materialización persistente del knowledge base, project registry, symbol exports o caches del legacy.
 - **Cierre:** reaperturas claramente más rápidas en workspaces grandes.
 
-## B071A — Caché persistente por workspace y por proyecto
-- **Estado:** Partial
-- **Track:** persistencia
-- **Depende de:** B141, B071
-- **Desbloquea:** B071B
-- **Estado reciente:** `Specs 155-156` ya introducen `cacheStore` real y `workspaceKey` estable; sigue pendiente el particionado fino por proyecto.
-- **Objetivo:** particionar persistencia y reducir recomputación innecesaria.
-- **Guía / referencia `plugin_old`:** usar `projectRegistry.ts`, `PbLibraryGraph` y cualquier noción previa de proyecto/target del legacy como guía para particionar caches.
-- **Cierre:** invalidación localizada y reuse por proyecto.
-
 ## B071B — Caché de consultas frecuentes
-- **Estado:** Open
+- **Estado:** Done
 - **Track:** serving persistence
-- **Depende de:** B071A, B160
+- **Dependía de:** B071A, B160
 - **Desbloquea:** B031, B032, B107
-- **Objetivo:** reutilizar resultados de alto valor cuando sea seguro.
-- **Guía / referencia `plugin_old`:** revisar qué consultas repetían más coste en el legacy (hover, completion, references, info del objeto, etc.) para diseñar la capa persistente con criterio.
-- **Cierre:** reabrir y repetir consultas comunes se siente notablemente más ágil.
+- **Cierre real:** `Specs 175-184` hacen `ServingCache` exportable/rehidratable, añaden a `cacheStore` un snapshot persistente versionado, conectan restore/persist del runtime, filtran por epoch, suman coordinador dirty, reflejan populate/invalidation/shutdown y exponen el estado básico de la snapshot en `powerbuilder.showStats`.
+- **Resultado observable:** el servidor expone `lastRestoredEntries` y `lastPersistedEntries` para la snapshot de ServingCache.
 
 ## B164 — Interning y compactación de memoria
 - **Estado:** Open
@@ -474,10 +463,11 @@ Validación registrada del corte:
 - **Cierre:** scope, visibilidad, library order, distance, confidence y descartes quedan trazados.
 
 ## B172 — Provenance / lineage de símbolos
-- **Estado:** Open
+- **Estado:** Done
 - **Track:** explicabilidad
 - **Depende de:** B151, B157
 - **Desbloquea:** B176, B109, B111
+- **Estado reciente:** `Specs 185-192` introducen `EntityLineage` dentro de `Entity`, lo pueblan desde `analyzeDocument`, lo normalizan en `enrichEntity`, lo incorporan al `semanticDiff`, exponen `winnerLineage`, tienden el puente con el catálogo de sistema, muestran lineage mínimo en hover y lo estabilizan en `ApiSymbol`.
 - **Objetivo:** que cada símbolo sepa de dónde viene y qué grado de fiabilidad tiene.
 - **Guía / referencia `plugin_old`:** revisar `symbolIndex.ts`, `uniqueSymbols`, catálogo oficial/dataset curado, `publicApi.ts` y cualquier modelo del legacy que ya distinguiera orígenes o tipos de entidades.
 - **Cierre:** origen, fase, prototype/implementation, heredado, heurístico, oficial/manual quedan modelados.
@@ -577,7 +567,7 @@ Validación registrada del corte:
 - **Track:** plataforma
 - **Depende de:** B156, B157, B172
 - **Estado previo:** superficie inicial `shared/publicApi`.
-- **Estado reciente:** `Spec 172` amplía `ApiServerStats` con `readiness`, `indexer`, `projectModel`, `persistence` y `lastQueryTrace`.
+- **Estado reciente:** `Spec 172` amplía `ApiServerStats` con `readiness`, `indexer`, `projectModel`, `persistence` y `lastQueryTrace`; `Spec 192` añade `ApiSymbolLineage` y `toApiSymbol()` para exportar lineage mínimo estable por símbolo.
 - **Objetivo:** exponer capacidades semánticas sobre contratos maduros, no sobre hacks internos.
 - **Guía / referencia `plugin_old`:** `publicApi.ts`, `publicApiContract.ts`.
 - **Cierre:** API estable y mínima, con modelos explicables.
@@ -839,26 +829,23 @@ Validación registrada del corte:
 3. B167  
 4. B168  
 5. B071  
-6. B071A  
-7. B071B  
-8. B164  
-9. B174
+6. B164  
+7. B174
 
 ## Fase 3 — Query engine y serving profesional
 **Orden:**
 1. B156  
 2. B157  
-3. B172  
-4. B171  
-5. B160  
-6. B173  
-7. B031  
-8. B032  
-9. B036  
-10. B066  
-11. B065  
-12. B107  
-13. B109
+3. B171  
+4. B160  
+5. B173  
+6. B031  
+7. B032  
+8. B036  
+9. B066  
+10. B065  
+11. B107  
+12. B109
 
 ## Fase 4 — Validación / salud / excelencia
 **Orden:**

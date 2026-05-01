@@ -13,10 +13,15 @@ export type QueryReasonCode =
   | 'qualifier-type'
   | 'global-fallback';
 
+export type ResolvedWinnerLineage = NonNullable<Entity['lineage']> & {
+  resolutionKind: QueryReasonCode;
+};
+
 export interface ResolvedTargetInfo {
   context: InvocationContext;
   targets: Entity[];
   reasonCodes: QueryReasonCode[];
+  winnerLineage: ResolvedWinnerLineage | null;
   trace: TraceStep[];
 }
 
@@ -69,6 +74,30 @@ function getMembersForType(
     recordTraceStep('members:miss', { typeName, count: members.length });
   }
   return members;
+}
+
+function deriveWinnerLineage(target: Entity | undefined, reasonCodes: QueryReasonCode[]): ResolvedWinnerLineage | null {
+  if (!target || reasonCodes.length === 0) {
+    return null;
+  }
+
+  const resolutionKind = reasonCodes[0];
+  const base = target.lineage ?? {};
+  const confidence = base.confidence ?? (resolutionKind === 'global-fallback'
+    ? 'fallback'
+    : resolutionKind === 'super-hierarchy'
+      ? 'inherited'
+      : 'direct');
+
+  return {
+    sourceKind: base.sourceKind ?? 'document',
+    authority: base.authority ?? 'derived',
+    ...(base.phase ? { phase: base.phase } : {}),
+    ...(base.role ? { role: base.role } : {}),
+    ...(base.inheritedFrom ? { inheritedFrom: base.inheritedFrom } : {}),
+    confidence,
+    resolutionKind
+  };
 }
 
 export function resolveTargetEntityDetailed(
@@ -156,6 +185,7 @@ export function resolveTargetEntityDetailed(
     context,
     targets: result.targets,
     reasonCodes: result.reasonCodes,
+    winnerLineage: deriveWinnerLineage(result.targets[0], result.reasonCodes),
     trace
   };
 }
