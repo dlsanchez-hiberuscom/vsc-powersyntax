@@ -45,6 +45,8 @@ export async function discoverWorkspace(
     if (token.isCancelled) return;
     await walkDirectory(rootUri, fs, state, token, progress, onProgress);
   }
+
+  state.recomputeSourceOrigins();
 }
 
 async function walkDirectory(
@@ -64,6 +66,9 @@ async function walkDirectory(
   // Permitir preempción interactiva antes de procesar un directorio grande
   await yieldToEventLoop();
 
+  const files: Array<{ entryUri: string; lowerName: string }> = [];
+  const directories: Array<{ entryUri: string; lowerName: string }> = [];
+
   for (const [name, stat] of entries) {
     if (token.isCancelled) return;
 
@@ -74,40 +79,60 @@ async function walkDirectory(
       if (IGNORED_DIRECTORIES.has(lowerName)) {
         continue;
       }
-      
-      // Si es un .pbl (en algunos proyectos exportados los PBL son carpetas)
-      if (lowerName.endsWith('.pbl')) {
-        state.addRoot('libraries', entryUri);
-      }
-
-      progress.total++;
-      onProgress?.(progress.current, progress.total);
-      await walkDirectory(entryUri, fs, state, token, progress, onProgress);
+      directories.push({ entryUri, lowerName });
     } else if (stat.isFile) {
-      // Detección de roots
-      if (lowerName.endsWith('.pbw')) {
-        state.addRoot('workspaces', entryUri);
-        await tryParseTopology(entryUri, fs, state);
-      } else if (lowerName.endsWith('.pbt')) {
-        state.addRoot('targets', entryUri);
-        await tryParseTopology(entryUri, fs, state);
-      } else if (lowerName.endsWith('.pbl')) {
-        state.addRoot('libraries', entryUri); // PBL como archivo binario
-      } else if (lowerName.endsWith('.pbsln')) {
-        state.addRoot('solutions', entryUri);
-        await tryParseTopology(entryUri, fs, state);
-      } else if (lowerName.endsWith('.pbproj')) {
-        state.addRoot('projects', entryUri);
-        await tryParseTopology(entryUri, fs, state);
-      } else {
-        // Detección de código fuente
-        const extMatch = lowerName.match(/\.[^.]+$/);
-        if (extMatch && PB_SOURCE_EXTENSIONS.has(extMatch[0])) {
-          state.addSourceFile(entryUri);
-        }
+      files.push({ entryUri, lowerName });
+    }
+  }
+
+  files.sort(compareDiscoveryEntries);
+  directories.sort(compareDiscoveryEntries);
+
+  for (const file of files) {
+    if (token.isCancelled) return;
+
+    // Detección de roots
+    if (file.lowerName.endsWith('.pbw')) {
+      state.addRoot('workspaces', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.pbt')) {
+      state.addRoot('targets', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.pbl')) {
+      state.addRoot('libraries', file.entryUri); // PBL como archivo binario
+    } else if (file.lowerName.endsWith('.pbsln')) {
+      state.addRoot('solutions', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.pbproj')) {
+      state.addRoot('projects', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else {
+      const extMatch = file.lowerName.match(/\.[^.]+$/);
+      if (extMatch && PB_SOURCE_EXTENSIONS.has(extMatch[0])) {
+        state.addSourceFile(file.entryUri);
       }
     }
   }
+
+  for (const directory of directories) {
+    if (token.isCancelled) return;
+
+    // Si es un .pbl (en algunos proyectos exportados los PBL son carpetas)
+    if (directory.lowerName.endsWith('.pbl')) {
+      state.addRoot('libraries', directory.entryUri);
+    }
+
+    progress.total++;
+    onProgress?.(progress.current, progress.total);
+    await walkDirectory(directory.entryUri, fs, state, token, progress, onProgress);
+  }
+}
+
+function compareDiscoveryEntries(
+  left: { lowerName: string },
+  right: { lowerName: string }
+): number {
+  return left.lowerName.localeCompare(right.lowerName);
 }
 
 /**

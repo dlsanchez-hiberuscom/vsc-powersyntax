@@ -21,11 +21,46 @@ suite('unit/ServingCache', () => {
     assert.notEqual(k1, k3);
   });
 
+  test('makeKey cubre de forma estable los query types interactivos soportados', () => {
+    const hover = makeKey({ feature: 'hover', uri: 'file:///a.sru', line: 4, character: 8, kbVersion: 3 });
+    const definition = makeKey({ feature: 'definition', uri: 'file:///a.sru', line: 4, character: 8, kbVersion: 3 });
+    const signatureHelp = makeKey({ feature: 'signatureHelp', uri: 'file:///a.sru', line: 4, character: 8, kbVersion: 3 });
+    const completion = makeKey({ feature: 'completion', uri: 'file:///a.sru', line: 4, character: 8, kbVersion: 3, extra: '1|.' });
+
+    assert.notEqual(hover, definition);
+    assert.notEqual(definition, signatureHelp);
+    assert.notEqual(signatureHelp, completion);
+    assert.equal(
+      completion,
+      makeKey({ feature: 'completion', uri: 'file:///a.sru', line: 4, character: 8, kbVersion: 3, extra: '1|.' })
+    );
+  });
+
   test('get/set funciona', () => {
     const cache = new ServingCache<string>();
     cache.set('a', 'A');
     assert.equal(cache.get('a'), 'A');
     assert.equal(cache.get('missing'), undefined);
+  });
+
+  test('getStats hace observable el hit ratio y las evictions', () => {
+    const cache = new ServingCache<string>(2);
+    cache.set('a', 'A');
+    cache.set('b', 'B');
+
+    assert.equal(cache.get('a'), 'A');
+    assert.equal(cache.get('missing'), undefined);
+
+    cache.set('c', 'C');
+
+    assert.deepEqual(cache.getStats(), {
+      size: 2,
+      capacity: 2,
+      hits: 1,
+      misses: 1,
+      evictions: 1,
+      ttlMs: 0
+    });
   });
 
   test('LRU evicta el más antiguo al superar maxEntries', () => {
@@ -75,6 +110,29 @@ suite('unit/ServingCache', () => {
 
     cache.invalidate();
     assert.equal(cache.size(), 0);
+  });
+
+  test('observer recibe hits, misses e invalidaciones con métricas acumuladas', () => {
+    const events: Array<{ action: string; removed?: number; hits: number; misses: number }> = [];
+    const cache = new ServingCache<string>(4, 0, (event) => {
+      events.push({
+        action: event.action,
+        removed: event.removed,
+        hits: event.hits,
+        misses: event.misses,
+      });
+    });
+    const key = makeKey({ feature: 'hover', uri: 'file:///a.sru', line: 1, character: 2, kbVersion: 1 });
+
+    cache.set(key, 'A');
+    cache.get(key);
+    cache.get('missing');
+    cache.invalidate('file:///a.sru');
+
+    assert.deepEqual(events.map((event) => event.action), ['set', 'hit', 'miss', 'invalidate']);
+    assert.equal(events[1].hits, 1);
+    assert.equal(events[2].misses, 1);
+    assert.equal(events[3].removed, 1);
   });
 
   test('exportEntries y restoreEntries preservan LRU y copia defensiva', () => {

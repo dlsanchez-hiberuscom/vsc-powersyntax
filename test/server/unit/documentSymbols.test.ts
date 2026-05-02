@@ -129,4 +129,35 @@ suite('unit/documentSymbols', () => {
     assert.deepEqual(typeSymbol.children?.map((child) => child.name), ['of_run']);
     assert.equal(typeSymbol.children?.[0].range.end.line, 5);
   });
+
+  test('extractDocumentSymbols expone DataWindow .srd con bandas, tabla y retrieve', () => {
+    const document = TextDocument.create(
+      'file:///sample_datawindow.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$sample.srd',
+        'release 19;',
+        'datawindow(units=0)',
+        'header(height=100 color=67108864)',
+        'detail(height=76 color=67108864)',
+        'table(column=(type=long update=yes name=id dbname="customer.id")',
+        ' column=(type=char(100) update=yes name=name dbname="customer.name")',
+        ' retrieve="SELECT id, name FROM customer ORDER BY name" )'
+      ].join('\r\n')
+    );
+
+    const symbols = extractDocumentSymbols(document);
+    const root = symbols[0];
+    const childNames = root.children?.map((child) => child.name) ?? [];
+    const table = root.children?.find((child) => child.name === 'table');
+
+    assert.equal(root.name, 'sample_datawindow');
+    assert.ok(childNames.includes('header'));
+    assert.ok(childNames.includes('detail'));
+    assert.ok(table, 'Debe exponer el nodo table en el outline del .srd.');
+    assert.ok(table?.children?.some((child) => child.name === 'id'));
+    assert.ok(table?.children?.some((child) => child.name === 'name'));
+    assert.ok(table?.children?.some((child) => child.name === 'retrieve'));
+  });
 });

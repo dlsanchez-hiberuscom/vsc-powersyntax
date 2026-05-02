@@ -99,7 +99,6 @@ La siguiente etapa no es abrir más superficie, sino reforzar:
 
 - evidence;
 - confidence gates;
-- references/rename seguros;
 - cache semántica estable;
 - validación real;
 - workflows útiles para desarrolladores.
@@ -152,7 +151,9 @@ Evitar recomputado innecesario entre sesiones y convertir la persistencia en una
 
 ### Estado
 
-Parcialmente materializada. Pendientes principales:
+Bloque ya materializado y cerrado a nivel operativo inicial.
+
+Specs cerradas de esta fase ya trazadas en `done-log.md`:
 
 - `B155`;
 - `B167`;
@@ -189,19 +190,13 @@ Base materializada. Ya cerrados como bloque operativo:
 - `B066` CodeLens referencias/herencia;
 - `B065` hierarchy inspection;
 - `B109` API pública mínima;
+- `B157` Semantic evidence de primera clase;
+- `B171` Confidence gates por feature;
+- `B160` Query result cache con claves semánticas estables;
+- `B031` References robustas;
+- `B032` Rename controlado;
 - `B164` compactación de memoria;
 - `B063` diagnostics snapshot agrupado.
-
-Siguiente foco visible:
-
-- `B157` Semantic evidence de primera clase.
-
-Después:
-
-- `B171` Confidence gates;
-- `B160` Query result cache;
-- `B031` References robustas;
-- `B032` Rename controlado.
 
 ---
 
@@ -225,17 +220,20 @@ Convertir el producto en herramienta robusta para proyectos enterprise y legacy 
 
 ### Pendientes principales
 
-- `B030`;
-- `B069`;
-- `B068`;
-- `B119`;
 - `B070`;
-- `B118`;
-- `B161`;
 - `B162`;
-- `B163`;
-- `B175`;
-- `B176`.
+- `B175`.
+
+Bloque ya cerrado dentro de la fase:
+
+- `B030` validación real sobre workspace grande;
+- `B069` fixtures reales permanentes;
+- `B068` calibración real del performance budget;
+- `B119` performance regression suite;
+- `B118` integration test matrix del plugin;
+- `B161` golden tests semánticos end-to-end;
+- `B163` runtime journal exportable del motor;
+- `B176` health checker interno estructurado.
 
 ---
 
@@ -256,13 +254,16 @@ Extender el producto a piezas diferenciales del ecosistema PowerBuilder sin comp
 
 ### Pendientes principales
 
-- `B117`;
-- `B139`;
-- `B041`;
 - `B042`;
 - `B081`;
 - `B043`;
 - `B181-B187`.
+
+Bloque ya cerrado dentro de la fase:
+
+- `B117` DataWindow safe mode mínimo;
+- `B139` DataWindow safe-mode desde `plugin_old` rediseñado;
+- `B041` catálogo y navegación de DataWindow.
 
 ---
 
@@ -338,35 +339,31 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Fase C — Serving profesional y productividad segura**
+**Fase E — Especialización PowerBuilder**
 
 Con foco en:
 
-- `B157` — Semantic evidence de primera clase;
-- `B171` — Confidence gates por feature;
-- `B160` — Query result cache con claves semánticas estables;
-- `B031` — Referencias más precisas y robustas;
-- `B032` — Rename controlado.
+- `B042` — Soporte avanzado de DataWindow;
+- `B081` — Inteligencia de DataWindow y acceso a `.Object`.
 
 ### Trabajo paralelo permitido
 
-**Fase B — Persistencia robusta y reanudación real**
+**Fase D — Escala, salud interna y excelencia operativa**
 
 Solo si no bloquea el foco principal:
 
-- `B155`;
-- `B167`;
-- `B168`;
-- `B071`.
+- `B070`;
+- `B162`;
+- `B175`.
 
 ### Validación temprana permitida
 
-Preparar L3 sin bloquear foco principal:
+Mantener verde la base ya cerrada sin reabrir superficie funcional:
 
-- `B030`;
-- `B069`;
-- `B068`;
-- `B119`.
+- corpus reales;
+- smoke matrix;
+- golden suite semántica;
+- performance regression suite.
 
 ---
 

@@ -6,6 +6,7 @@ import {
   analyzeDocument,
   analyzeDocumentStructural
 } from '../../../src/server/analysis/documentAnalysis';
+import { EntityKind } from '../../../src/server/knowledge/types';
 import { loadFixture } from '../helpers/fixtureLoader';
 
 suite('unit/documentAnalysis', () => {
@@ -147,6 +148,28 @@ suite('unit/documentAnalysis', () => {
     assert.notEqual(a.fingerprint, c.fingerprint);
   });
 
+  test('analyzeDocument publica un stub navegable para archivos .srd', () => {
+    const source = [
+      '$PBExportHeader$d_customer.srd',
+      'release 39;',
+      'datawindow(units=0)'
+    ].join('\r\n');
+    const document = TextDocument.create('file:///d_customer.srd', 'powerbuilder', 1, source);
+
+    const analysis = analyzeDocument(document);
+    const structural = analyzeDocumentStructural(document);
+    const dataWindowType = analysis.semanticFacts.find((fact) => fact.kind === EntityKind.Type);
+    const structuralType = structural.snapshot.symbols.find((fact) => fact.kind === EntityKind.Type);
+
+    assert.ok(dataWindowType, 'El análisis enriquecido debe publicar un type stub para el .srd.');
+    assert.equal(dataWindowType?.name, 'd_customer');
+    assert.equal(dataWindowType?.baseTypeName, 'datawindow');
+    assert.equal(dataWindowType?.fileObjectName, 'd_customer');
+
+    assert.ok(structuralType, 'El snapshot estructural debe conservar el stub del .srd.');
+    assert.equal(structuralType?.name, 'd_customer');
+  });
+
   // -------------------------------------------------------------------------
   // Spec 064 — containerAt anidado para multi `type ... within`
   // -------------------------------------------------------------------------
@@ -227,6 +250,7 @@ suite('unit/documentAnalysis', () => {
 
     assert.deepEqual(typeFact!.lineage, {
       sourceKind: 'document',
+      sourceOrigin: 'unknown',
       authority: 'derived',
       phase: 'declaration',
       inheritedFrom: 'window',
@@ -235,6 +259,7 @@ suite('unit/documentAnalysis', () => {
 
     assert.deepEqual(prototypeFact!.lineage, {
       sourceKind: 'document',
+      sourceOrigin: 'unknown',
       authority: 'derived',
       phase: 'prototype',
       role: 'prototype',
@@ -243,11 +268,113 @@ suite('unit/documentAnalysis', () => {
 
     assert.deepEqual(implementationFact!.lineage, {
       sourceKind: 'document',
+      sourceOrigin: 'unknown',
       authority: 'derived',
       phase: 'implementation',
       role: 'implementation',
       confidence: 'direct'
     });
+  });
+
+  test('propaga metadata contractual de B206 para callable, member, local y parameter', () => {
+    const source = [
+      'forward',
+      'global type w_main from window',
+      'end type',
+      'end forward',
+      '',
+      'forward prototypes',
+      'public function long of_external (string as_input) library "kernel32.dll" alias for "OfExternal";',
+      'end prototypes',
+      '',
+      'global type w_main from window',
+      'integer ii_member',
+      'end type',
+      '',
+      'on w_main.create',
+      '  integer li_on',
+      'end on',
+      '',
+      'public function integer of_real (readonly string as_name);',
+      'integer li_local',
+      'return 1',
+      'end function'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///documentAnalysis-b206.srw', 'powerbuilder', 1, source);
+    const analysis = analyzeDocument(document);
+
+    const memberFact = analysis.semanticFacts.find((fact) => fact.name.toLowerCase() === 'ii_member');
+    const callableFact = analysis.semanticFacts.find((fact) => fact.name.toLowerCase() === 'of_real');
+    const onHandlerFact = analysis.semanticFacts.find((fact) => fact.kind === EntityKind.Event && fact.name.toLowerCase() === 'create');
+    const externalFact = analysis.semanticFacts.find((fact) => fact.name.toLowerCase() === 'of_external');
+    const callableScope = findScopeByName(analysis.scopes, 'of_real');
+    const parameter = callableScope?.symbols.find((symbol: any) => symbol.name.toLowerCase() === 'as_name');
+    const local = callableScope?.symbols.find((symbol: any) => symbol.name.toLowerCase() === 'li_local');
+
+    assert.equal(memberFact?.declarationScope, 'member');
+    assert.equal(memberFact?.fileObjectName, 'w_main');
+    assert.equal(memberFact?.containerKind, 'type');
+
+    assert.equal(callableFact?.declarationScope, 'callable');
+    assert.equal(callableFact?.fileObjectName, 'w_main');
+    assert.equal(callableFact?.ownerName, 'w_main');
+    assert.equal(callableFact?.parameterCount, 1);
+    assert.equal(callableFact?.implementationKind, 'function');
+    assert.equal(callableFact?.returnType, 'integer');
+    assert.match(callableFact?.signature ?? '', /of_real/i);
+
+    assert.equal(onHandlerFact?.declarationScope, 'callable');
+  assert.equal(onHandlerFact?.containerName, 'w_main');
+  assert.equal(onHandlerFact?.ownerName, 'w_main');
+    assert.equal(onHandlerFact?.implementationKind, 'on-handler');
+    assert.match(onHandlerFact?.signature ?? '', /^on\s+w_main\.create/i);
+
+    assert.equal(externalFact?.isExternal, true);
+    assert.equal(externalFact?.externalLibraryName, 'kernel32.dll');
+    assert.equal(externalFact?.externalAlias, 'OfExternal');
+    assert.equal(externalFact?.externalDependencyKind, 'dll');
+    assert.equal(externalFact?.implementationKind, 'external-function');
+
+    assert.equal(parameter?.declarationScope, 'parameter');
+    assert.equal(parameter?.fileObjectName, 'w_main');
+    assert.match(parameter?.containerSignature ?? '', /of_real/i);
+
+    assert.equal(local?.declarationScope, 'local');
+    assert.equal(local?.ownerName, 'w_main');
+    assert.equal(local?.fileObjectName, 'w_main');
+  });
+
+  test('analyzeDocument separa owner real y nombre de evento en on control.event', () => {
+    const source = [
+      'global type w_main from window',
+      'end type',
+      '',
+      'type cb_ok from commandbutton within w_main',
+      'end type',
+      '',
+      'on w_main.cb_ok.clicked',
+      '  integer li_clicks',
+      'end on'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///documentAnalysis-events.srw', 'powerbuilder', 1, source);
+    const analysis = analyzeDocument(document);
+
+    const eventFact = analysis.semanticFacts.find((fact) => fact.kind === EntityKind.Event && fact.name.toLowerCase() === 'clicked');
+    const eventScope = findScopeByName(analysis.scopes, 'cb_ok.clicked');
+    const local = eventScope?.symbols.find((symbol: any) => symbol.name.toLowerCase() === 'li_clicks');
+
+    assert.equal(eventFact?.containerName, 'cb_ok');
+    assert.equal(eventFact?.ownerName, 'cb_ok');
+    assert.equal(eventFact?.fileObjectName, 'w_main');
+    assert.equal(eventFact?.implementationKind, 'on-handler');
+    assert.match(eventFact?.signature ?? '', /^on\s+w_main\.cb_ok\.clicked/i);
+
+    assert.ok(eventScope);
+    assert.equal(eventScope?.parent?.id, 'cb_ok');
+    assert.equal(local?.ownerName, 'cb_ok');
+    assert.equal(local?.fileObjectName, 'w_main');
   });
 
   test('analyzeDocumentStructural publica snapshot structural-only sin facts ni scopes', () => {

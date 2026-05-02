@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict';
-import { parseExternalFunction } from '../../../src/server/parsing/externalFunctions';
+import { classifyExternalLibrary, parseExternalFunction } from '../../../src/server/parsing/externalFunctions';
 
 suite('unit/externalFunctions (B073)', () => {
   test('function ... library', () => {
@@ -21,5 +21,11 @@ suite('unit/externalFunctions (B073)', () => {
 
   test('línea no externa → null', () => {
     assert.equal(parseExternalFunction('integer i'), null);
+  });
+
+  test('clasifica dependencias dll, pbx y unknown', () => {
+    assert.equal(classifyExternalLibrary('kernel32.dll'), 'dll');
+    assert.equal(classifyExternalLibrary('native_driver.pbx'), 'pbx');
+    assert.equal(classifyExternalLibrary('libcustom.so'), 'unknown');
   });
 });

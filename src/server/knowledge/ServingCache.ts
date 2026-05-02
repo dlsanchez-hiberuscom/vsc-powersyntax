@@ -34,6 +34,20 @@ export interface ServingCacheEntry<T = unknown> {
   insertedAt?: number;
 }
 
+export interface ServingCacheEvent {
+  action: 'hit' | 'miss' | 'set' | 'evict' | 'invalidate';
+  key?: string;
+  uri?: string;
+  removed?: number;
+  size: number;
+  capacity: number;
+  hits: number;
+  misses: number;
+  evictions: number;
+}
+
+export type ServingCacheObserver = (event: ServingCacheEvent) => void;
+
 /**
  * Construye una clave estable a partir de las partes que identifican
  * un resultado servido.
@@ -76,8 +90,28 @@ export class ServingCache<T = unknown> {
   private misses = 0;
   private evictions = 0;
 
-  constructor(private readonly maxEntries: number = 256, ttlMs = 0) {
+  constructor(
+    private readonly maxEntries: number = 256,
+    ttlMs = 0,
+    private readonly observer?: ServingCacheObserver
+  ) {
     this.ttlMs = ttlMs;
+  }
+
+  private emitEvent(action: ServingCacheEvent['action'], context: Partial<ServingCacheEvent> = {}): void {
+    if (!this.observer) {
+      return;
+    }
+
+    this.observer({
+      action,
+      size: this.entries.size,
+      capacity: this.maxEntries,
+      hits: this.hits,
+      misses: this.misses,
+      evictions: this.evictions,
+      ...context
+    });
   }
 
   /** Recupera un valor y lo "calienta" (lo mueve al final de la LRU). */
@@ -85,6 +119,7 @@ export class ServingCache<T = unknown> {
     const value = this.entries.get(key);
     if (value === undefined) {
       this.misses++;
+      this.emitEvent('miss', { key });
       return undefined;
     }
     // Spec 118: TTL opcional. Si vencido, eliminar y devolver undefined.
@@ -95,12 +130,15 @@ export class ServingCache<T = unknown> {
         this.insertedAt.delete(key);
         this.evictions++;
         this.misses++;
+        this.emitEvent('evict', { key });
+        this.emitEvent('miss', { key });
         return undefined;
       }
     }
     this.entries.delete(key);
     this.entries.set(key, value);
     this.hits++;
+    this.emitEvent('hit', { key });
     return value;
   }
 
@@ -114,10 +152,12 @@ export class ServingCache<T = unknown> {
         this.entries.delete(oldest);
         this.insertedAt.delete(oldest);
         this.evictions++;
+        this.emitEvent('evict', { key: oldest });
       }
     }
     this.entries.set(key, value);
     if (this.ttlMs > 0) this.insertedAt.set(key, Date.now());
+    this.emitEvent('set', { key });
   }
 
   /** Exporta un snapshot ordenado de la LRU actual, de más antiguo a más reciente. */
@@ -148,17 +188,25 @@ export class ServingCache<T = unknown> {
    * entradas asociadas a ese archivo. Sin argumentos, vacía el caché.
    */
   invalidate(uri?: string): void {
+    let removed = 0;
     if (uri === undefined) {
+      removed = this.entries.size;
       this.entries.clear();
+      this.insertedAt.clear();
+      this.emitEvent('invalidate', { removed });
       return;
     }
 
     const normalized = normalizeUri(uri);
-    for (const key of this.entries.keys()) {
+    for (const key of [...this.entries.keys()]) {
       if (uriFromKey(key) === normalized) {
         this.entries.delete(key);
+        this.insertedAt.delete(key);
+        removed++;
       }
     }
+
+    this.emitEvent('invalidate', { uri: normalized, removed });
   }
 
   /** Tamaño actual (para inspección y tests). */

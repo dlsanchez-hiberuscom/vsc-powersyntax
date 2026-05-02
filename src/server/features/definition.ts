@@ -3,16 +3,21 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
-import { resolveDocumentQueryTargets } from './queryContext';
+import { provideDataWindowLegacyDefinition } from './dataWindowLegacySafeMode';
+import { resolveDocumentQueryTargets, type DocumentQueryContext } from './queryContext';
 
 export function provideDefinition(
   document: TextDocument,
   position: Position,
   kb: KnowledgeBase,
   graph: InheritanceGraph,
-  hotContext?: HotContextCache
+  hotContext?: HotContextCache,
+  queryContext?: DocumentQueryContext
 ): Location | Location[] | null {
-  const resolved = resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'definition');
+  const dataWindowDefinition = provideDataWindowLegacyDefinition(document, position);
+  if (dataWindowDefinition) return dataWindowDefinition;
+
+  const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'definition');
   if (!resolved) return null;
 
   const possibleTargets = resolved.targets;

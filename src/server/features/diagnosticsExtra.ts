@@ -20,11 +20,13 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { DIAGNOSTIC_SOURCE } from '../../shared/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { ScopeKind, type Scope } from '../knowledge/types';
+import {
+  END_EVENT_PATTERN,
+  END_FUNCTION_PATTERN,
+  FUNCTION_PATTERN
+} from '../parsing/grammar';
 
 const RETURN_STATEMENT_RE = /^\s*return(\s|;|$)/i;
-const END_FUNCTION_RE = /^\s*end\s+function\b/i;
-const END_EVENT_RE = /^\s*end\s+event\b/i;
-const FUNCTION_HEADER_RE = /\bfunction\s+([A-Za-z_$#%][\w$#%-]*)\s+([A-Za-z_$#%][\w$#%-]*)\s*\(/i;
 
 /** SD11: código inalcanzable tras `return` dentro del mismo nivel. */
 export function checkUnreachableAfterReturn(
@@ -47,7 +49,7 @@ export function checkUnreachableAfterReturn(
       sawReturn = false;
       continue;
     }
-    if (END_FUNCTION_RE.test(trimmed) || END_EVENT_RE.test(trimmed)) break;
+    if (END_FUNCTION_PATTERN.test(trimmed) || END_EVENT_PATTERN.test(trimmed)) break;
     if (sawReturn) {
       // Línea ejecutiva detrás de un return, mismo nivel: marcar.
       out.push({
@@ -118,7 +120,7 @@ export function checkMissingReturn(
   const out: Diagnostic[] = [];
   if (scope.kind !== ScopeKind.Function) return out;
   const headerLine = strippedLines[scope.startLine] ?? '';
-  const m = FUNCTION_HEADER_RE.exec(headerLine);
+  const m = FUNCTION_PATTERN.exec(headerLine);
   if (!m) return out;
   const returnType = m[1].toLowerCase();
   // Una función PowerScript con returnType `none` no necesita `return`.

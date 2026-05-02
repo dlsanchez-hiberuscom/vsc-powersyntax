@@ -93,9 +93,21 @@ export function matchOnImplementationHeader(
     return null;
   }
 
+  const qualifiedName = match[1];
+  const lastDot = qualifiedName.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot >= qualifiedName.length - 1) {
+    return null;
+  }
+
+  const qualifiedOwnerName = qualifiedName.slice(0, lastDot);
+  const ownerName = qualifiedOwnerName.split('.').pop();
+  const name = qualifiedName.slice(lastDot + 1);
+
   return {
-    name: match[1],
-    detail: 'on-event'
+    name,
+    detail: 'on-event',
+    ownerName,
+    qualifiedOwnerName
   };
 }
 

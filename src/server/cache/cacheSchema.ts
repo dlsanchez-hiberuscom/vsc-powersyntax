@@ -1,5 +1,6 @@
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import type { Fact, Scope } from '../knowledge/types';
+import type { SourceOrigin } from '../../shared/sourceOrigin';
 
 export const CACHE_SCHEMA_VERSION = 1;
 
@@ -9,11 +10,24 @@ export interface SemanticCacheProjectStats {
   orphanFiles: number;
 }
 
+export interface SemanticCacheDiscoverySnapshot {
+  sourceFiles: string[];
+  sourceOrigins?: Record<string, SourceOrigin>;
+  roots: {
+    workspaces: string[];
+    targets: string[];
+    libraries: string[];
+    solutions: string[];
+    projects: string[];
+  };
+}
+
 export interface SemanticCacheCheckpointMetadata {
   workspaceMode?: 'workspace' | 'solution' | 'mixed' | 'unknown';
   rootUris: string[];
   projectStats?: SemanticCacheProjectStats;
   publishedAt?: number;
+  discovery?: SemanticCacheDiscoverySnapshot;
 }
 
 export interface SemanticCacheDocumentRecord {
@@ -53,7 +67,20 @@ export function migrateCheckpoint(payload: Partial<SemanticCacheCheckpoint>): Se
       rootUris: [...(payload.metadata?.rootUris ?? [])].sort(),
       workspaceMode: payload.metadata?.workspaceMode,
       projectStats: payload.metadata?.projectStats,
-      publishedAt: payload.metadata?.publishedAt
+      publishedAt: payload.metadata?.publishedAt,
+      discovery: payload.metadata?.discovery
+        ? {
+            sourceFiles: [...(payload.metadata.discovery.sourceFiles ?? [])],
+            ...(payload.metadata.discovery.sourceOrigins ? { sourceOrigins: { ...payload.metadata.discovery.sourceOrigins } } : {}),
+            roots: {
+              workspaces: [...(payload.metadata.discovery.roots?.workspaces ?? [])],
+              targets: [...(payload.metadata.discovery.roots?.targets ?? [])],
+              libraries: [...(payload.metadata.discovery.roots?.libraries ?? [])],
+              solutions: [...(payload.metadata.discovery.roots?.solutions ?? [])],
+              projects: [...(payload.metadata.discovery.roots?.projects ?? [])]
+            }
+          }
+        : undefined
     },
     documents: payload.documents ?? []
   };

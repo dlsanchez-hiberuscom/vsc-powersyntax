@@ -22,8 +22,21 @@ import {
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
+import {
+  resolveQualifierType,
+  resolveTargetEntityDetailed,
+  type ResolvedTargetInfo,
+} from '../knowledge/resolution/semanticQueryService';
 import { EntityKind, ScopeKind } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
+import { buildHierarchyInspection } from './hierarchyInspection';
+import {
+  DATAWINDOW_BIND_OWNER_TYPES,
+  extractDataObjectLiteral,
+  resolveDataWindowDefinitionTargets,
+  resolveDataWindowRetrieveArguments,
+  type DataWindowRetrieveArgument,
+} from './dataWindowBindingModel';
 import {
   buildDiagnosticsSnapshot,
   type DiagnosticsSnapshot,
@@ -69,20 +82,7 @@ export function publishDiagnostics(
   inheritanceGraph?: InheritanceGraph,
   workspaceState?: WorkspaceState
 ): void {
-  const structural = validateStructure(document);
-  const semantic = (kb && systemCatalog && inheritanceGraph)
-    ? validateSemantics(document, kb, systemCatalog, inheritanceGraph)
-    : [];
-  // Spec 113-115: diagnósticos lexicales adicionales (SD11/SD12/SD13).
-  const extra = runExtraDiagnostics(document);
-  // Spec 094: dedup por (line, char, message). Bajo combinaciones de SD2 +
-  // SD6 + SD8 podía emitirse el mismo warning varias veces para el mismo
-  // símbolo cuando había rutas que coincidían.
-  // Spec 092/093: cap total para no saturar el cliente con diagnósticos
-  // ruidosos en archivos generados o muy largos.
-  // Spec 116: aplicar overrides de severidad antes de dedup/cap.
-  const all = applySeverityOverrides([...structural, ...semantic, ...extra]);
-  const merged = dedupAndCap(all, MAX_DIAGNOSTICS_PER_FILE);
+  const merged = buildDiagnosticsForDocument(document, kb, systemCatalog, inheritanceGraph);
   // Spec 117: actualizar contadores agregados.
   recordDiagnosticsSummary(document, merged, workspaceState);
   connection.sendDiagnostics({
@@ -93,6 +93,21 @@ export function publishDiagnostics(
 
 const MAX_DIAGNOSTICS_PER_FILE = 500;
 
+export function buildDiagnosticsForDocument(
+  document: TextDocument,
+  kb?: KnowledgeBase,
+  systemCatalog?: SystemCatalog,
+  inheritanceGraph?: InheritanceGraph
+): Diagnostic[] {
+  const structural = validateStructure(document);
+  const semantic = (kb && systemCatalog && inheritanceGraph)
+    ? validateSemantics(document, kb, systemCatalog, inheritanceGraph)
+    : [];
+  const extra = runExtraDiagnostics(document);
+  const all = applySeverityOverrides([...structural, ...semantic, ...extra]);
+  return dedupAndCap(all, MAX_DIAGNOSTICS_PER_FILE);
+}
+
 /**
  * Spec 116: overrides de severidad por código (campo `source` del diagnostic,
  * que se construye como `PowerScript:SDxx`). El cliente puede definir el
@@ -102,6 +117,7 @@ const MAX_DIAGNOSTICS_PER_FILE = 500;
 const severityMap = new Map<string, DiagnosticSeverity>();
 (() => {
   const raw = process.env.PB_SEVERITY_OVERRIDES;
+
   if (!raw) return;
   for (const part of raw.split(',')) {
     const [code, level] = part.split('=').map(s => s.trim());
@@ -110,6 +126,13 @@ const severityMap = new Map<string, DiagnosticSeverity>();
     if (sev != null) severityMap.set(code.toLowerCase(), sev);
   }
 })();
+
+type DataObjectBindingState = 'missing' | 'ambiguous' | 'dynamic';
+
+const DATAOBJECT_ASSIGN_REGEX = new RegExp(
+  `\\b(${PB_IDENTIFIER_SOURCE})\\s*\\.\\s*DataObject\\s*=\\s*([^;]+)`,
+  'gi'
+);
 
 function parseSeverity(level: string): DiagnosticSeverity | null {
   switch (level.toLowerCase()) {
@@ -185,6 +208,7 @@ function buildDiagnosticsSummaryEntry(
     documentVersion: document.version,
     snapshotVersion: snapshot.version,
     snapshotIdentity: snapshot.identity,
+    sourceOrigin: workspaceState?.getSourceOrigin?.(document.uri),
   };
 }
 
@@ -452,20 +476,6 @@ export function validateSemantics(
 
   // Encontrar el tipo principal del archivo
   const mainType = semanticFacts.find(f => f.kind === EntityKind.Type);
-  const mainTypeName = mainType?.name;
-
-  // Obtener todos los miembros de la jerarquía si hay tipo principal
-  const hierarchyMembers = mainTypeName
-    ? inheritanceGraph.getMembers(mainTypeName)
-    : [];
-  const hierarchyMemberNames = new Set(hierarchyMembers.map(m => m.name.toLowerCase()));
-
-  // Obtener todos los nombres de funciones/eventos/subroutines del archivo
-  const localCallables = new Set(
-    semanticFacts
-      .filter(f => f.kind === EntityKind.Function || f.kind === EntityKind.Subroutine || f.kind === EntityKind.Event)
-      .map(f => f.name.toLowerCase())
-  );
 
   // --- SD3: Tipos base inexistentes ---
   for (const fact of semanticFacts) {
@@ -487,8 +497,7 @@ export function validateSemantics(
 
   // --- SD2: Validación dentro de scopes Function/Event ---
   for (const rootScope of scopes) {
-    visitScopes(rootScope, lines, sections, diagnostics, kb, systemCatalog,
-      hierarchyMemberNames, localCallables);
+    visitScopes(rootScope, document.uri, lines, sections, diagnostics, kb, systemCatalog, inheritanceGraph);
   }
 
   // --- SD4: Variables locales no usadas ---
@@ -498,6 +507,18 @@ export function validateSemantics(
 
   // --- SD5: Variables de instancia privadas no usadas ---
   checkUnusedPrivateInstanceVars(semanticFacts, lines, sections, diagnostics);
+
+  // --- SD7: dependencias nativas externas sin implementación interna ---
+  checkExternalDependencies(semanticFacts, diagnostics);
+
+  // --- SD11x: binding transaccional básico para DataStore/DataWindow ---
+  if (mainType) {
+    for (const rootScope of scopes) {
+      checkDataObjectBindings(rootScope, document.uri, lines, mainType, diagnostics, kb);
+      checkTransactionBindings(rootScope, document.uri, lines, mainType, diagnostics, kb, systemCatalog);
+    }
+    checkLifecycleWarnings(mainType, semanticFacts, diagnostics, kb, inheritanceGraph);
+  }
 
   // --- SD6: Shadowing (Spec 027 / B035) ---
   for (const rootScope of scopes) {
@@ -516,6 +537,532 @@ export function validateSemantics(
   return diagnostics;
 }
 
+function checkExternalDependencies(
+  semanticFacts: import('../knowledge/types').Fact[],
+  diagnostics: Diagnostic[]
+): void {
+  for (const fact of semanticFacts) {
+    if (!fact.isExternal) {
+      continue;
+    }
+
+    if (fact.kind !== EntityKind.Function && fact.kind !== EntityKind.Subroutine) {
+      continue;
+    }
+
+    diagnostics.push({
+      severity: DiagnosticSeverity.Information,
+      range: Range.create(
+        Position.create(fact.line, fact.character),
+        Position.create(fact.line, fact.character + fact.name.length)
+      ),
+      message: `La declaración externa '${fact.name}' apunta a la dependencia nativa '${fact.externalLibraryName ?? 'unknown'}' y no tiene implementación interna navegable.`,
+      source: DIAGNOSTIC_SOURCE,
+      data: {
+        kind: 'native-dependency',
+        dependencyKind: fact.externalDependencyKind ?? 'unknown',
+        library: fact.externalLibraryName,
+        alias: fact.externalAlias
+      }
+    });
+  }
+}
+
+function checkLifecycleWarnings(
+  mainType: import('../knowledge/types').Fact,
+  semanticFacts: import('../knowledge/types').Fact[],
+  diagnostics: Diagnostic[],
+  kb: KnowledgeBase,
+  inheritanceGraph: InheritanceGraph
+): void {
+  const inspection = buildHierarchyInspection(mainType.name, inheritanceGraph, kb);
+  const focusType = mainType.name.toLowerCase();
+
+  for (const phase of inspection.lifecycle) {
+    if (phase.warnings.length === 0) {
+      continue;
+    }
+
+    const eventFact = semanticFacts.find((fact) =>
+      fact.kind === EntityKind.Event
+      && fact.name.toLowerCase() === phase.phase
+      && (fact.ownerName ?? fact.containerName)?.toLowerCase() === focusType
+    );
+    if (!eventFact) {
+      continue;
+    }
+
+    for (const warningCode of phase.warnings) {
+      diagnostics.push(buildLifecycleDiagnostic(eventFact, mainType.name, phase.phase, warningCode));
+    }
+  }
+}
+
+function buildLifecycleDiagnostic(
+  eventFact: import('../knowledge/types').Fact,
+  focusType: string,
+  phase: 'create' | 'destroy',
+  warningCode: string
+): Diagnostic {
+  const hook = phase === 'create' ? 'constructor' : 'destructor';
+
+  let message = `El lifecycle '${phase}' del objeto '${focusType}' tiene wiring sospechoso.`;
+  if (warningCode === `missing-super-${phase}`) {
+    message = `El lifecycle '${phase}' del objeto '${focusType}' no llama a super::${phase} pese a tener ancestro directo.`;
+  } else if (warningCode === `missing-trigger-${hook}`) {
+    message = `El lifecycle '${phase}' del objeto '${focusType}' declara el hook '${hook}' pero no lo dispara con TriggerEvent(this, "${hook}").`;
+  } else if (warningCode === `unresolved-${hook}`) {
+    message = `El lifecycle '${phase}' del objeto '${focusType}' dispara el hook '${hook}' pero no existe un event resoluble para ese hook.`;
+  }
+
+  return {
+    severity: DiagnosticSeverity.Warning,
+    range: Range.create(
+      Position.create(eventFact.line, eventFact.character),
+      Position.create(eventFact.line, eventFact.character + eventFact.name.length)
+    ),
+    message,
+    source: DIAGNOSTIC_SOURCE,
+    data: {
+      kind: 'lifecycle-warning',
+      code: warningCode,
+      phase,
+      focusType
+    }
+  };
+}
+
+type TransactionBindingState = 'known' | 'unknown' | 'dynamic';
+
+interface TransactionBinding {
+  state: TransactionBindingState;
+  line: number;
+  method: 'SetTransObject' | 'SetTrans';
+  argument: string;
+}
+
+interface RetrieveArgumentBinding {
+  dataObject: string;
+  retrieveArguments: DataWindowRetrieveArgument[];
+}
+
+const SIMPLE_TRANSACTION_ARG_REGEX = new RegExp(`^${PB_IDENTIFIER_SOURCE}$`, 'i');
+const TRANSACTION_BIND_CALL_REGEX = new RegExp(
+  `\\b(${PB_IDENTIFIER_SOURCE})\\s*\\.\\s*(SetTransObject|SetTrans)\\s*\\(([^)]*)\\)`,
+  'gi'
+);
+const TRANSACTION_OPERATION_CALL_REGEX = new RegExp(
+  `\\b(${PB_IDENTIFIER_SOURCE})\\s*\\.\\s*(Retrieve|Update)\\s*\\(`,
+  'gi'
+);
+
+function checkTransactionBindings(
+  scope: import('../knowledge/types').Scope,
+  currentUri: string,
+  strippedLines: string[],
+  mainType: import('../knowledge/types').Fact,
+  diagnostics: Diagnostic[],
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog
+): void {
+  if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
+    const bindings = new Map<string, TransactionBinding>();
+    const retrieveBindings = new Map<string, RetrieveArgumentBinding>();
+
+    for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
+      const raw = strippedLines[i];
+      if (!raw) continue;
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+
+      DATAOBJECT_ASSIGN_REGEX.lastIndex = 0;
+      let dataObjectMatch: RegExpExecArray | null;
+      while ((dataObjectMatch = DATAOBJECT_ASSIGN_REGEX.exec(raw)) !== null) {
+        const targetName = dataObjectMatch[1];
+        const expression = dataObjectMatch[2].trim();
+        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+
+        if (!targetType || !DATAWINDOW_BIND_OWNER_TYPES.has(targetType.toLowerCase())) {
+          continue;
+        }
+
+        const bindingKey = targetName.toLowerCase();
+        const literal = extractDataObjectLiteral(expression);
+        if (!literal) {
+          retrieveBindings.delete(bindingKey);
+          continue;
+        }
+
+        const targets = resolveDataWindowDefinitionTargets(literal, kb);
+        if (targets.length !== 1 || !kb.hasDocumentSnapshot(targets[0].uri)) {
+          retrieveBindings.delete(bindingKey);
+          continue;
+        }
+
+        retrieveBindings.set(bindingKey, {
+          dataObject: literal,
+          retrieveArguments: resolveDataWindowRetrieveArguments(literal, kb)
+        });
+      }
+
+      TRANSACTION_BIND_CALL_REGEX.lastIndex = 0;
+      let bindMatch: RegExpExecArray | null;
+      while ((bindMatch = TRANSACTION_BIND_CALL_REGEX.exec(raw)) !== null) {
+        const targetName = bindMatch[1];
+        const methodName = bindMatch[2] as TransactionBinding['method'];
+        const argument = bindMatch[3].trim();
+        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+
+        if (!targetType || !systemCatalog.resolveDataWindowFunctionForOwner(methodName, [targetType])) {
+          continue;
+        }
+
+        bindings.set(targetName.toLowerCase(), classifyTransactionBinding(argument, currentUri, i, mainType, kb));
+      }
+
+      TRANSACTION_OPERATION_CALL_REGEX.lastIndex = 0;
+      let operationMatch: RegExpExecArray | null;
+      while ((operationMatch = TRANSACTION_OPERATION_CALL_REGEX.exec(raw)) !== null) {
+        const targetName = operationMatch[1];
+        const operationName = operationMatch[2] as 'Retrieve' | 'Update';
+        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+
+        if (!targetType || !systemCatalog.resolveDataWindowFunctionForOwner(operationName, [targetType])) {
+          continue;
+        }
+
+        const binding = bindings.get(targetName.toLowerCase());
+        const col = raw.indexOf(operationName, operationMatch.index);
+
+        if (!binding) {
+          diagnostics.push(buildTransactionDiagnostic(i, col, operationName, targetName, 'missing'));
+        } else if (binding.state !== 'known') {
+          diagnostics.push(buildTransactionDiagnostic(i, col, operationName, targetName, binding.state, binding));
+        }
+
+        if (operationName !== 'Retrieve') {
+          continue;
+        }
+
+        const retrieveBinding = retrieveBindings.get(targetName.toLowerCase());
+        if (!retrieveBinding) {
+          continue;
+        }
+
+        const openParenCol = raw.indexOf('(', operationMatch.index);
+        const actualArgumentCount = extractInvocationArgumentCount(strippedLines, i, openParenCol);
+        if (actualArgumentCount == null || actualArgumentCount === retrieveBinding.retrieveArguments.length) {
+          continue;
+        }
+
+        diagnostics.push(
+          buildRetrieveArgumentDiagnostic(
+            i,
+            col,
+            targetName,
+            retrieveBinding.dataObject,
+            retrieveBinding.retrieveArguments,
+            actualArgumentCount
+          )
+        );
+      }
+    }
+  }
+
+  for (const child of scope.children) {
+    checkTransactionBindings(child, currentUri, strippedLines, mainType, diagnostics, kb, systemCatalog);
+  }
+}
+
+function checkDataObjectBindings(
+  scope: import('../knowledge/types').Scope,
+  currentUri: string,
+  strippedLines: string[],
+  mainType: import('../knowledge/types').Fact,
+  diagnostics: Diagnostic[],
+  kb: KnowledgeBase
+): void {
+  if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
+    for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
+      const raw = strippedLines[i];
+      if (!raw) continue;
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+
+      DATAOBJECT_ASSIGN_REGEX.lastIndex = 0;
+      let assignMatch: RegExpExecArray | null;
+      while ((assignMatch = DATAOBJECT_ASSIGN_REGEX.exec(raw)) !== null) {
+        const targetName = assignMatch[1];
+        const expression = assignMatch[2].trim();
+        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+
+        if (!targetType || !DATAWINDOW_BIND_OWNER_TYPES.has(targetType.toLowerCase())) {
+          continue;
+        }
+
+        const expressionCol = raw.indexOf(assignMatch[2], assignMatch.index);
+        const literal = extractDataObjectLiteral(expression);
+
+        if (literal === undefined) {
+          diagnostics.push(buildDataObjectBindingDiagnostic(i, expressionCol, targetName, 'dynamic', { expression }));
+          continue;
+        }
+
+        if (!literal) {
+          continue;
+        }
+
+        const targets = resolveDataWindowDefinitionTargets(literal, kb);
+        if (targets.length === 1) {
+          continue;
+        }
+
+        diagnostics.push(
+          buildDataObjectBindingDiagnostic(
+            i,
+            expressionCol,
+            targetName,
+            targets.length === 0 ? 'missing' : 'ambiguous',
+            { literal, targetCount: targets.length }
+          )
+        );
+      }
+    }
+  }
+
+  for (const child of scope.children) {
+    checkDataObjectBindings(child, currentUri, strippedLines, mainType, diagnostics, kb);
+  }
+}
+
+
+function buildDataObjectBindingDiagnostic(
+  line: number,
+  col: number,
+  targetName: string,
+  state: DataObjectBindingState,
+  options: {
+    literal?: string;
+    expression?: string;
+    targetCount?: number;
+  }
+): Diagnostic {
+  const startChar = col >= 0 ? col : 0;
+  const highlight = options.literal ?? options.expression ?? 'DataObject';
+  const range = Range.create(
+    Position.create(line, startChar),
+    Position.create(line, startChar + highlight.length)
+  );
+
+  if (state === 'dynamic') {
+    return {
+      severity: DiagnosticSeverity.Information,
+      range,
+      message: `La asignación dinámica de DataObject en '${targetName}' impide una navegación fiable hacia un .srd.`,
+      source: DIAGNOSTIC_SOURCE,
+      data: {
+        kind: 'dataobject-binding',
+        state,
+        confidence: 'low',
+        target: targetName,
+        expression: options.expression
+      }
+    };
+  }
+
+  return {
+    severity: state === 'missing' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
+    range,
+    message: state === 'missing'
+      ? `El DataObject literal '${options.literal ?? 'unknown'}' asignado a '${targetName}' no se encuentra como .srd indexado en el workspace.`
+      : `El DataObject literal '${options.literal ?? 'unknown'}' asignado a '${targetName}' no tiene un target único en el workspace; se degrada la confidence semántica.`,
+    source: DIAGNOSTIC_SOURCE,
+    data: {
+      kind: 'dataobject-binding',
+      state,
+      confidence: 'medium',
+      target: targetName,
+      dataObject: options.literal,
+      targetCount: options.targetCount
+    }
+  };
+}
+
+function extractInvocationArgumentCount(
+  strippedLines: string[],
+  startLine: number,
+  openParenCol: number
+): number | null {
+  if (openParenCol < 0) {
+    return null;
+  }
+
+  let text = '';
+  let depth = 0;
+
+  for (let line = startLine; line < strippedLines.length; line++) {
+    const raw = strippedLines[line];
+    const startCol = line === startLine ? openParenCol + 1 : 0;
+
+    for (let col = startCol; col < raw.length; col++) {
+      const char = raw[col];
+      if (char === '(') {
+        depth++;
+        text += char;
+        continue;
+      }
+
+      if (char === ')') {
+        if (depth === 0) {
+          return countInvocationArguments(text);
+        }
+
+        depth--;
+        text += char;
+        continue;
+      }
+
+      text += char;
+    }
+
+    text += '\n';
+  }
+
+  return null;
+}
+
+function countInvocationArguments(text: string): number {
+  if (text.trim().length === 0) {
+    return 0;
+  }
+
+  let depth = 0;
+  let count = 1;
+  for (const char of text) {
+    if (char === '(') {
+      depth++;
+      continue;
+    }
+
+    if (char === ')') {
+      if (depth > 0) {
+        depth--;
+      }
+      continue;
+    }
+
+    if (char === ',' && depth === 0) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
+function buildRetrieveArgumentDiagnostic(
+  line: number,
+  col: number,
+  targetName: string,
+  dataObject: string,
+  expectedArguments: readonly DataWindowRetrieveArgument[],
+  actualArgumentCount: number
+): Diagnostic {
+  const range = Range.create(
+    Position.create(line, Math.max(0, col)),
+    Position.create(line, Math.max(0, col) + 'Retrieve'.length)
+  );
+  const expectedArgumentCount = expectedArguments.length;
+  const expectedArgumentWord = expectedArgumentCount === 1 ? 'argumento' : 'argumentos';
+
+  return {
+    severity: DiagnosticSeverity.Warning,
+    range,
+    message: `La llamada '${targetName}.Retrieve(...)' enlazada al DataObject '${dataObject}' espera ${expectedArgumentCount} ${expectedArgumentWord} de retrieve y recibió ${actualArgumentCount}.`,
+    source: DIAGNOSTIC_SOURCE,
+    data: {
+      kind: 'dataobject-retrieve-args',
+      confidence: 'high',
+      target: targetName,
+      dataObject,
+      expectedArgumentCount,
+      actualArgumentCount,
+      expectedArguments: expectedArguments.map((argument) => argument.label)
+    }
+  };
+}
+
+function classifyTransactionBinding(
+  argument: string,
+  currentUri: string,
+  line: number,
+  mainType: import('../knowledge/types').Fact,
+  kb: KnowledgeBase
+): TransactionBinding {
+  if (!argument) {
+    return { state: 'unknown', line, method: 'SetTransObject', argument };
+  }
+
+  if (SIMPLE_TRANSACTION_ARG_REGEX.test(argument)) {
+    const qualifierType = resolveQualifierType(argument, currentUri, kb, line, mainType);
+    if (qualifierType?.toLowerCase() === 'transaction') {
+      return { state: 'known', line, method: 'SetTransObject', argument };
+    }
+
+    return { state: 'unknown', line, method: 'SetTransObject', argument };
+  }
+
+  return { state: 'dynamic', line, method: 'SetTransObject', argument };
+}
+
+function buildTransactionDiagnostic(
+  line: number,
+  col: number,
+  operationName: 'Retrieve' | 'Update',
+  targetName: string,
+  state: Exclude<TransactionBindingState, 'known'> | 'missing',
+  binding?: TransactionBinding
+): Diagnostic {
+  const startChar = col >= 0 ? col : 0;
+  const range = Range.create(
+    Position.create(line, startChar),
+    Position.create(line, startChar + operationName.length)
+  );
+
+  if (state === 'dynamic') {
+    return {
+      severity: DiagnosticSeverity.Information,
+      range,
+      message: `La operación '${targetName}.${operationName}()' usa un transaction object dinámico ('${binding?.argument ?? 'unknown'}'); se degrada la confidence semántica.`,
+      source: DIAGNOSTIC_SOURCE,
+      data: {
+        kind: 'transaction-binding',
+        state,
+        confidence: 'low',
+        operation: operationName,
+        target: targetName,
+        argument: binding?.argument
+      }
+    };
+  }
+
+  return {
+    severity: DiagnosticSeverity.Warning,
+    range,
+    message: state === 'missing'
+      ? `La operación '${targetName}.${operationName}()' no está asociada a un transaction object conocido mediante SetTransObject/SetTrans o SQLCA.`
+      : `La operación '${targetName}.${operationName}()' referencia un transaction object no resuelto ('${binding?.argument ?? 'unknown'}').`,
+    source: DIAGNOSTIC_SOURCE,
+    data: {
+      kind: 'transaction-binding',
+      state,
+      confidence: 'low',
+      operation: operationName,
+      target: targetName,
+      argument: binding?.argument
+    }
+  };
+}
+
 /**
  * Recorre recursivamente los scopes Function/Event buscando llamadas a funciones
  * desconocidas (SD2). Los nombres locales del scope, miembros heredados y
@@ -530,13 +1077,13 @@ const SD2_CALL_REGEX = new RegExp(
 
 function visitScopes(
   scope: import('../knowledge/types').Scope,
+  currentUri: string,
   strippedLines: string[],
   sections: import('../model/types').SectionRange[],
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
-  hierarchyMemberNames: Set<string>,
-  localCallables: Set<string>
+  inheritanceGraph: InheritanceGraph
 ): void {
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
     for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
@@ -575,16 +1122,25 @@ function visitScopes(
 
         if (PB_KEYWORDS.has(funcLower)) continue;
         if (PB_BUILTIN_TYPES.has(funcLower)) continue; // create type()
-        if (localCallables.has(funcLower)) continue;
-        if (hierarchyMemberNames.has(funcLower)) continue;
         if (systemCatalog.findSystemSymbol(funcName).length > 0) continue;
-        if (kb.findDefinition(funcName)) continue;
 
         // Si la llamada tiene un qualifier distinto de this/super, no validar aquí
         // Por ejemplo: dw_1.Retrieve() o obj.func()
         const matchStart = callMatch.index;
         const stringBefore = trimmed.substring(0, matchStart);
         if (stringBefore.endsWith('.') && !qualifier) continue;
+
+        const resolution = resolveTargetEntityDetailed(
+          qualifier ? { identifier: funcName, qualifier } : { identifier: funcName },
+          currentUri,
+          kb,
+          inheritanceGraph,
+          {
+            line: i,
+            traceLabel: 'diagnostics:sd2'
+          }
+        );
+        if (resolution.targets.length > 0) continue;
 
         const col = raw.indexOf(funcName, raw.length - raw.trimStart().length);
         diagnostics.push({
@@ -594,7 +1150,8 @@ function visitScopes(
             Position.create(i, (col >= 0 ? col : 0) + funcName.length)
           ),
           message: `La función '${funcName}' no se encuentra en la jerarquía del objeto ni en el catálogo del lenguaje.`,
-          source: DIAGNOSTIC_SOURCE
+          source: DIAGNOSTIC_SOURCE,
+          data: buildResolutionDiagnosticData(resolution)
         });
       }
     }
@@ -602,9 +1159,20 @@ function visitScopes(
 
   // Recorrer scopes hijos
   for (const child of scope.children) {
-    visitScopes(child, strippedLines, sections, diagnostics, kb, systemCatalog,
-      hierarchyMemberNames, localCallables);
+    visitScopes(child, currentUri, strippedLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph);
   }
+}
+
+function buildResolutionDiagnosticData(resolution: ResolvedTargetInfo): Record<string, unknown> {
+  return {
+    kind: 'semantic-evidence',
+    confidence: resolution.confidence,
+    reasonCodes: resolution.reasonCodes,
+    evidenceKinds: resolution.evidence.map((entry) => entry.kind),
+    targetCount: resolution.targets.length,
+    candidateCount: resolution.candidatePool.length,
+    hasAmbiguity: resolution.evidence.some((entry) => entry.kind === 'distance-ambiguity')
+  };
 }
 
 /**

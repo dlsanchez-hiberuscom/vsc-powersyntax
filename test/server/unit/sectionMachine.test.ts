@@ -17,8 +17,20 @@ suite('unit/sectionMachine (B055)', () => {
     assert.equal(sections[0].kind, 'prototypes');
   });
 
+  test('type prototypes / end prototypes reutiliza el matcher canónico', () => {
+    const src = ['type prototypes', 'public function integer of_test()', 'end prototypes'];
+    const sections = scanSections(src);
+    assert.equal(sections[0].kind, 'prototypes');
+  });
+
   test('type variables / end variables', () => {
     const src = ['type variables', 'integer i', 'end variables'];
+    const sections = scanSections(src);
+    assert.equal(sections[0].kind, 'variables');
+  });
+
+  test('owner type variables / end variables reutiliza el matcher canónico', () => {
+    const src = ['uo_customer type variables', 'integer i', 'end variables'];
     const sections = scanSections(src);
     assert.equal(sections[0].kind, 'variables');
   });

@@ -32,6 +32,17 @@ suite('unit/queryContext', () => {
     kb.upsertDocument('file:///w_main.sru', [
       { id: 'w_main', name: 'w_main', kind: EntityKind.Type, baseTypeName: 'w_base', uri: 'file:///w_main.sru', line: 0, character: 0 },
       {
+        id: 'create_main',
+        name: 'create',
+        kind: EntityKind.Event,
+        containerName: 'w_main',
+        uri: 'file:///w_main.sru',
+        line: 15,
+        character: 4,
+        implementationKind: 'on-handler',
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      },
+      {
         id: 'of_setdata_main',
         name: 'of_SetData',
         kind: EntityKind.Function,
@@ -71,6 +82,8 @@ suite('unit/queryContext', () => {
 
     assert.equal(queryContext.resolutionConfidence, 'high');
     assert.equal(queryContext.primaryResolutionReasonCode, 'member-hierarchy');
+    assert.equal(queryContext.invocationKind, 'unqualified-call');
+    assert.equal(queryContext.invocationRisk, 'safe');
     assert.equal(queryContext.hasResolutionAmbiguity, false);
     assert.equal(queryContext.resolutionTargetCount, 1);
     assert.deepEqual(queryContext.resolutionEvidenceKinds, ['winner-target', 'discarded-distance']);
@@ -94,9 +107,30 @@ suite('unit/queryContext', () => {
 
     assert.equal(queryContext.resolutionConfidence, undefined);
     assert.equal(queryContext.primaryResolutionReasonCode, undefined);
+    assert.equal(queryContext.invocationKind, undefined);
+    assert.equal(queryContext.invocationRisk, undefined);
     assert.equal(queryContext.hasResolutionAmbiguity, false);
     assert.equal(queryContext.resolutionTargetCount, 0);
     assert.deepEqual(queryContext.resolutionEvidenceKinds, []);
     assert.equal(queryContext.resolvedTargets, null);
+  });
+
+  test('createDocumentQueryContext expone invocationKind específico para this-call', () => {
+    const document = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, 'this.of_SetData()');
+    const queryContext = createDocumentQueryContext(document, { line: 0, character: 10 }, kb, graph);
+
+    assert.equal(queryContext.primaryResolutionReasonCode, 'member-hierarchy');
+    assert.equal(queryContext.invocationKind, 'this-call');
+    assert.equal(queryContext.invocationRisk, 'safe');
+  });
+
+  test('createDocumentQueryContext sintetiza contexto para TriggerEvent(this, "create")', () => {
+    const document = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, 'TriggerEvent(this, "create")');
+    const queryContext = createDocumentQueryContext(document, { line: 0, character: 22 }, kb, graph);
+
+    assert.deepEqual(queryContext.context, { identifier: 'create', qualifier: 'this' });
+    assert.equal(queryContext.primaryResolutionReasonCode, 'member-hierarchy');
+    assert.equal(queryContext.invocationKind, 'this-call');
+    assert.equal(queryContext.invocationRisk, 'safe');
   });
 });

@@ -33,6 +33,18 @@ suite('unit/hoverFormat (B103)', () => {
     assert.match(md, /kernel32\.dll/);
   });
 
+  test('muestra tipo y alias de dependencia nativa', () => {
+    const md = formatUserHover(fn({
+      isExternal: true,
+      externalLibraryName: 'native_driver.pbx',
+      externalDependencyKind: 'pbx',
+      externalAlias: 'PBXEntry'
+    }));
+
+    assert.match(md, /pbx/);
+    assert.match(md, /PBXEntry/);
+  });
+
   test('muestra container', () => {
     const md = formatUserHover(fn());
     assert.match(md, /w_main/);
@@ -71,5 +83,42 @@ suite('unit/hoverFormat (B103)', () => {
   test('muestra el numero de candidatos ganadores cuando se aporta', () => {
     const md = formatUserHover(fn(), { targetCount: 2 });
     assert.match(md, /Candidatos ganadores:\* 2/);
+  });
+
+  test('muestra metadata enriquecida de declarationScope, owner y callable contenedor', () => {
+    const md = formatUserHover({
+      id: 'li_total',
+      name: 'li_total',
+      kind: EntityKind.Variable,
+      uri: 'file:///x',
+      line: 0,
+      character: 0,
+      datatype: 'integer',
+      containerName: 'w_main.of_calc',
+      declarationScope: 'local',
+      containerKind: 'function',
+      containerSignature: 'public function integer of_calc (string as_name)',
+      fileObjectName: 'w_main'
+    });
+
+    assert.match(md, /Declaration scope:\* local/);
+    assert.match(md, /Owner real:.*w_main/);
+    assert.match(md, /Callable contenedor:.*of_calc/);
+    assert.match(md, /Container kind:\* function/);
+  });
+
+  test('muestra on-handler y external function con etiquetas específicas', () => {
+    const onHandler = formatUserHover(fn({
+      kind: EntityKind.Event,
+      signature: 'on w_main.create',
+      isPrototype: false
+    }));
+    const external = formatUserHover(fn({
+      isExternal: true,
+      externalLibraryName: 'kernel32.dll'
+    }));
+
+    assert.match(onHandler, /On-handler/);
+    assert.match(external, /External function declaration/);
   });
 });

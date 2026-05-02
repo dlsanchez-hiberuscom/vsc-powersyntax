@@ -1,5 +1,6 @@
 import { DocumentSymbol } from 'vscode-languageserver/node';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
+import type { SourceOrigin } from '../../shared/sourceOrigin';
 
 /**
  * Representa la naturaleza de una entidad global en PowerBuilder.
@@ -24,6 +25,7 @@ export type EntityLineageConfidence = 'direct' | 'inherited' | 'fallback';
 
 export interface EntityLineage {
   sourceKind?: EntityLineageSourceKind;
+  sourceOrigin?: SourceOrigin;
   authority?: EntityLineageAuthority;
   phase?: EntityLineagePhase;
   role?: EntityLineageRole;
@@ -52,6 +54,12 @@ export interface Entity {
   documentation?: string;
   /** Nombre del contenedor/objeto padre (ej. 'w_main'), útil para Scopes */
   containerName?: string;
+  /** Tipo/familia del contenedor (type, event, subroutine, file-object, ...). */
+  containerKind?: string;
+  /** Firma del contenedor callable cuando el símbolo vive dentro de él. */
+  containerSignature?: string;
+  /** Objeto principal del archivo SR*/
+  fileObjectName?: string;
   /** Nombre del tipo base/ancestro (ej. 'window' en `type w_main from window`). Clave para el futuro InheritanceGraph. */
   baseTypeName?: string;
   /** Tipo de dato de la variable (ej. 'integer', 'n_cst_string'). Fundamental para resolución de métodos. */
@@ -60,13 +68,13 @@ export interface Entity {
   parameters?: { label: string, documentation?: string }[];
   /** Ámbito de la entidad (ej. 'Local', 'Instancia', 'Global', 'Compartida', 'Argumento') */
   scope?: 'Local' | 'Instancia' | 'Global' | 'Compartida' | 'Argumento';
+  /** Declarative scope estable para distinguir member/local/parameter/callable/type. */
+  declarationScope?: 'type' | 'callable' | 'member' | 'local' | 'parameter';
   /** Nivel de acceso (ej. 'public', 'private', 'protected') */
   access?: string;
   // ---- Modelo enriquecido (Spec 021 / B064) -------------------------------
-  /** Tipo del contenedor (window, userobject, function, global, ...). */
-  containerKind?: string;
   /** Naturaleza de la implementación (function/event/subroutine/property/instance-var). */
-  implementationKind?: 'function' | 'event' | 'subroutine' | 'property' | 'instance-var' | 'type';
+  implementationKind?: 'function' | 'event' | 'subroutine' | 'property' | 'instance-var' | 'type' | 'on-handler' | 'external-function';
   /** Número de parámetros (cacheado para evitar recorrer `parameters`). */
   parameterCount?: number;
   /** Tipo de retorno (si aplica). */
@@ -77,6 +85,10 @@ export interface Entity {
   isExternal?: boolean;
   /** Nombre de la librería externa (DLL) cuando aplica. */
   externalLibraryName?: string;
+  /** Alias nativo declarado mediante `alias for`, cuando aplica. */
+  externalAlias?: string;
+  /** Clasificación estable de la dependencia nativa. */
+  externalDependencyKind?: 'dll' | 'pbx' | 'unknown';
   /** Marca el símbolo como prototipo (declaración `forward prototypes`) frente a la implementación. */
   isPrototype?: boolean;
   /**

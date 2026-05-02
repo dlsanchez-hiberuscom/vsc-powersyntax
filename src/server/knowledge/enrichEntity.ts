@@ -11,6 +11,16 @@ import { type Entity, EntityKind } from './types';
 
 function deriveImplementationKind(e: Entity): Entity['implementationKind'] {
   if (e.implementationKind) return e.implementationKind;
+  if (e.isExternal && (e.kind === EntityKind.Function || e.kind === EntityKind.Subroutine)) {
+    return 'external-function';
+  }
+  if (
+    e.kind === EntityKind.Event
+    && typeof e.signature === 'string'
+    && e.signature.trim().toLowerCase().startsWith('on ')
+  ) {
+    return 'on-handler';
+  }
   switch (e.kind) {
     case EntityKind.Function:
       return 'function';
@@ -25,6 +35,18 @@ function deriveImplementationKind(e: Entity): Entity['implementationKind'] {
     default:
       return undefined;
   }
+}
+
+function deriveDeclarationScope(e: Entity): Entity['declarationScope'] {
+  if (e.declarationScope) return e.declarationScope;
+  if (e.kind === EntityKind.Type) return 'type';
+  if (e.kind === EntityKind.Function || e.kind === EntityKind.Subroutine || e.kind === EntityKind.Event) {
+    return 'callable';
+  }
+  if (e.scope === 'Argumento') return 'parameter';
+  if (e.scope === 'Local') return 'local';
+  if (e.kind === EntityKind.Variable) return 'member';
+  return undefined;
 }
 
 function deriveKindLabel(e: Entity): string {
@@ -77,10 +99,23 @@ function deriveLineage(e: Entity, implementationKind: Entity['implementationKind
 
 export function enrichEntity(e: Entity): Entity {
   const implementationKind = deriveImplementationKind(e);
+  const declarationScope = deriveDeclarationScope(e);
+  const inferredOwnerName = (() => {
+    if (e.ownerName) return e.ownerName;
+    if ((declarationScope === 'local' || declarationScope === 'parameter') && e.containerName) {
+      const callableSeparator = e.containerName.indexOf('.');
+      if (callableSeparator > 0) {
+        return e.containerName.slice(0, callableSeparator);
+      }
+    }
+    return e.containerName ?? e.fileObjectName;
+  })();
+
   return {
     ...e,
+    declarationScope,
     parameterCount: e.parameterCount ?? e.parameters?.length,
-    ownerName: e.ownerName ?? e.containerName,
+    ownerName: inferredOwnerName,
     implementationKind,
     kindLabel: e.kindLabel ?? deriveKindLabel(e),
     signatureLabel: deriveSignatureLabel(e),

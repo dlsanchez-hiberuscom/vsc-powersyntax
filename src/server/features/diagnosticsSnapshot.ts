@@ -18,6 +18,7 @@ export interface DiagnosticsSnapshotInputEntry {
   documentVersion?: number;
   snapshotVersion?: number;
   snapshotIdentity?: string;
+  sourceOrigin?: import('../../shared/sourceOrigin').SourceOrigin;
 }
 
 export interface DiagnosticsSnapshotDocumentNode {
@@ -32,6 +33,7 @@ export interface DiagnosticsSnapshotDocumentNode {
   documentVersion?: number;
   snapshotVersion?: number;
   snapshotIdentity?: string;
+  sourceOrigin?: import('../../shared/sourceOrigin').SourceOrigin;
 }
 
 export interface DiagnosticsSnapshotObjectNode {
@@ -137,6 +139,7 @@ function normalizeEntry(uri: string, value: DiagnosticsSnapshotEntryValue): Diag
     ...(value.documentVersion !== undefined ? { documentVersion: value.documentVersion } : {}),
     ...(value.snapshotVersion !== undefined ? { snapshotVersion: value.snapshotVersion } : {}),
     ...(value.snapshotIdentity ? { snapshotIdentity: value.snapshotIdentity } : {}),
+    ...(value.sourceOrigin ? { sourceOrigin: value.sourceOrigin } : {}),
   };
 }
 
@@ -188,6 +191,7 @@ export function buildDiagnosticsSnapshot(
       ...(entry.documentVersion !== undefined ? { documentVersion: entry.documentVersion } : {}),
       ...(entry.snapshotVersion !== undefined ? { snapshotVersion: entry.snapshotVersion } : {}),
       ...(entry.snapshotIdentity ? { snapshotIdentity: entry.snapshotIdentity } : {}),
+      ...(entry.sourceOrigin ? { sourceOrigin: entry.sourceOrigin } : {}),
     };
 
     documents.push(documentNode);

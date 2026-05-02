@@ -29,6 +29,7 @@ suite('unit/publicApi (B109)', () => {
       character: 4,
       lineage: {
         sourceKind: 'document',
+        sourceOrigin: 'workspace-ws_objects',
         authority: 'derived',
         phase: 'implementation',
         confidence: 'direct'
@@ -43,6 +44,7 @@ suite('unit/publicApi (B109)', () => {
       character: 4,
       lineage: {
         sourceKind: 'document',
+        sourceOrigin: 'workspace-ws_objects',
         authority: 'derived',
         phase: 'implementation',
         confidence: 'direct'

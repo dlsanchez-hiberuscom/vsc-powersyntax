@@ -1,17 +1,34 @@
 import { KnowledgeBase } from '../KnowledgeBase';
 import { InheritanceGraph } from './InheritanceGraph';
 import type { HotContextCache } from '../HotContextCache';
-import { InvocationContext } from '../../utils/invocationContext';
-import { Entity, EntityKind, type EntityLineageConfidence } from '../types';
+import type { InvocationContext } from '../../utils/invocationContext';
+import { Entity, EntityKind, ScopeKind, type EntityLineageConfidence, type Scope } from '../types';
 import { normalizeUri } from '../../system/uriUtils';
-import { recordTraceStep, type TraceStep, withTrace } from '../queryTrace';
+import { annotateLastTraceResolution, recordTraceStep, type TraceStep, withTrace } from '../queryTrace';
 
 export type QueryReasonCode =
   | 'local-scope'
   | 'member-hierarchy'
   | 'super-hierarchy'
+  | 'parent-hierarchy'
+  | 'ancestor-hierarchy'
   | 'qualifier-type'
   | 'global-fallback';
+
+export type QueryInvocationKind =
+  | 'local-symbol'
+  | 'unqualified-call'
+  | 'this-call'
+  | 'parent-call'
+  | 'super-call'
+  | 'ancestor-call'
+  | 'qualified-call'
+  | 'qualified-static-call'
+  | 'global-call'
+  | 'dynamic-call'
+  | 'external-call';
+
+export type QueryInvocationRisk = 'safe' | 'inherited' | 'fallback' | 'dynamic' | 'external';
 
 export type ResolvedWinnerLineage = NonNullable<Entity['lineage']> & {
   confidence: EntityLineageConfidence;
@@ -29,6 +46,7 @@ export interface QueryEvidence {
   targetUri: string;
   targetContainer?: string;
   sourceKind?: NonNullable<Entity['lineage']>['sourceKind'];
+  sourceOrigin?: NonNullable<Entity['lineage']>['sourceOrigin'];
   authority?: NonNullable<Entity['lineage']>['authority'];
   phase?: NonNullable<Entity['lineage']>['phase'];
   role?: NonNullable<Entity['lineage']>['role'];
@@ -76,6 +94,9 @@ export interface ResolvedTargetInfo {
   context: InvocationContext;
   targets: Entity[];
   reasonCodes: QueryReasonCode[];
+  invocationKind: QueryInvocationKind;
+  invocationRisk: QueryInvocationRisk;
+  resolvedQualifierType?: string;
   winnerLineage: ResolvedWinnerLineage | null;
   confidence: QueryResolutionConfidence;
   evidence: QueryEvidenceEntry[];
@@ -146,6 +167,49 @@ function getMembersForType(
   return members;
 }
 
+function findTypeEntityByName(documentEntities: ReadonlyArray<Entity>, typeName: string | undefined): Entity | undefined {
+  if (!typeName) {
+    return undefined;
+  }
+
+  const wanted = typeName.toLowerCase();
+  return documentEntities.find(
+    (entity) => entity.kind === EntityKind.Type && entity.name.toLowerCase() === wanted
+  );
+}
+
+export function resolveCurrentObjectAtLine(
+  currentUri: string,
+  documentEntities: ReadonlyArray<Entity>,
+  kb: KnowledgeBase,
+  line?: number
+): Entity | undefined {
+  const typeEntities = documentEntities.filter((entity) => entity.kind === EntityKind.Type);
+  const rootType = typeEntities.find((entity) => !entity.containerName) ?? typeEntities[0];
+
+  if (line === undefined) {
+    return rootType;
+  }
+
+  const scope = kb.getScopeAt(currentUri, line);
+  let cursor: Scope | undefined = scope ?? undefined;
+  while (cursor) {
+    if (cursor.kind === ScopeKind.Type) {
+      const matched = findTypeEntityByName(typeEntities, cursor.id);
+      if (matched) {
+        return matched;
+      }
+    }
+    cursor = cursor.parent;
+  }
+
+  const nearestType = [...typeEntities]
+    .filter((entity) => entity.line <= line)
+    .sort((left, right) => right.line - left.line)[0];
+
+  return nearestType ?? rootType;
+}
+
 function deriveWinnerLineage(target: Entity | undefined, reasonCodes: QueryReasonCode[]): ResolvedWinnerLineage | null {
   if (!target || reasonCodes.length === 0) {
     return null;
@@ -155,12 +219,13 @@ function deriveWinnerLineage(target: Entity | undefined, reasonCodes: QueryReaso
   const base = target.lineage ?? {};
   const confidence = base.confidence ?? (resolutionKind === 'global-fallback'
     ? 'fallback'
-    : resolutionKind === 'super-hierarchy'
+    : resolutionKind === 'super-hierarchy' || resolutionKind === 'ancestor-hierarchy'
       ? 'inherited'
       : 'direct');
 
   return {
     sourceKind: base.sourceKind ?? 'document',
+    ...(base.sourceOrigin ? { sourceOrigin: base.sourceOrigin } : {}),
     authority: base.authority ?? 'derived',
     ...(base.phase ? { phase: base.phase } : {}),
     ...(base.role ? { role: base.role } : {}),
@@ -168,6 +233,78 @@ function deriveWinnerLineage(target: Entity | undefined, reasonCodes: QueryReaso
     confidence,
     resolutionKind
   };
+}
+
+function deriveInvocationKind(
+  context: InvocationContext,
+  reasonCodes: QueryReasonCode[],
+  target: Entity | undefined,
+  contextDiscards: ContextDiscardEvidence[]
+): QueryInvocationKind {
+  const qualifierLower = context.qualifier?.toLowerCase();
+
+  if (target?.isExternal) {
+    return 'external-call';
+  }
+
+  if (contextDiscards.length > 0) {
+    return 'dynamic-call';
+  }
+
+  if (reasonCodes[0] === 'local-scope') {
+    return 'local-symbol';
+  }
+
+  if (!context.qualifier) {
+    return reasonCodes[0] === 'global-fallback' ? 'global-call' : 'unqualified-call';
+  }
+
+  if (qualifierLower === 'this') {
+    return 'this-call';
+  }
+
+  if (qualifierLower === 'parent') {
+    return 'parent-call';
+  }
+
+  if (qualifierLower === 'super') {
+    return 'super-call';
+  }
+
+  if (qualifierLower === 'ancestor') {
+    return 'ancestor-call';
+  }
+
+  return context.separator === '::' ? 'qualified-static-call' : 'qualified-call';
+}
+
+function deriveInvocationRisk(
+  context: InvocationContext,
+  reasonCodes: QueryReasonCode[],
+  target: Entity | undefined,
+  contextDiscards: ContextDiscardEvidence[]
+): QueryInvocationRisk {
+  if (target?.isExternal) {
+    return 'external';
+  }
+
+  if (!target) {
+    return context.qualifier ? 'dynamic' : 'fallback';
+  }
+
+  if (contextDiscards.length > 0) {
+    return 'dynamic';
+  }
+
+  if (reasonCodes[0] === 'global-fallback') {
+    return 'fallback';
+  }
+
+  if (reasonCodes[0] === 'super-hierarchy' || reasonCodes[0] === 'ancestor-hierarchy') {
+    return 'inherited';
+  }
+
+  return 'safe';
 }
 
 function deriveResolutionConfidence(
@@ -189,7 +326,11 @@ function deriveResolutionConfidence(
     return 'low';
   }
 
-  if (winnerLineage?.confidence === 'inherited' || reasonCodes[0] === 'super-hierarchy') {
+  if (
+    winnerLineage?.confidence === 'inherited'
+    || reasonCodes[0] === 'super-hierarchy'
+    || reasonCodes[0] === 'ancestor-hierarchy'
+  ) {
     return 'medium';
   }
 
@@ -210,6 +351,7 @@ function buildWinnerEvidence(target: Entity | undefined, winnerLineage: Resolved
     targetUri: target.uri,
     ...(target.containerName ? { targetContainer: target.containerName } : {}),
     ...(winnerLineage.sourceKind ? { sourceKind: winnerLineage.sourceKind } : {}),
+    ...(winnerLineage.sourceOrigin ? { sourceOrigin: winnerLineage.sourceOrigin } : {}),
     ...(winnerLineage.authority ? { authority: winnerLineage.authority } : {}),
     ...(winnerLineage.phase ? { phase: winnerLineage.phase } : {}),
     ...(winnerLineage.role ? { role: winnerLineage.role } : {}),
@@ -304,12 +446,11 @@ export function resolveTargetEntityDetailed(
   const { result, trace } = withTrace(options.traceLabel ?? 'resolveTargetEntity', () => {
     const { identifier, qualifier } = context;
     const currentUri = normalizeUri(currentDocumentUri);
-    recordTraceStep('resolve:start', { identifier, qualifier, line: options.line });
+    recordTraceStep('resolve:start', { identifier, qualifier, separator: context.separator, line: options.line });
 
     const documentEntities = getDocumentEntities(currentUri, kb, options.hotContext);
-    const currentMainObject = documentEntities.find(
-      (entity) => entity.kind === EntityKind.Type
-    );
+    const currentMainObject = resolveCurrentObjectAtLine(currentUri, documentEntities, kb, options.line);
+    recordTraceStep('scope:current-object', { currentObject: currentMainObject?.name, owner: currentMainObject?.containerName, baseTypeName: currentMainObject?.baseTypeName });
 
     let possibleTargets: Entity[] = [];
     let reasonCodes: QueryReasonCode[] = [];
@@ -317,12 +458,19 @@ export function resolveTargetEntityDetailed(
     let distanceDiscards: DistanceDiscard[] = [];
     let contextDiscards: ContextDiscardEvidence[] = [];
     let distanceAmbiguity: RankedTargetsResult['ambiguity'] = null;
+    let resolvedQualifierType: string | undefined;
 
     if (qualifier) {
-      const varType = resolveQualifierType(qualifier, currentUri, kb, options.line);
-      recordTraceStep('qualifier:resolved', { qualifier, varType });
-      if (varType) {
-        if (varType.toLowerCase() === 'super' && currentMainObject?.baseTypeName) {
+      const qualifierLower = qualifier.toLowerCase();
+      resolvedQualifierType = resolveQualifierType(qualifier, currentUri, kb, options.line, currentMainObject);
+      recordTraceStep('qualifier:resolved', {
+        qualifier,
+        separator: context.separator,
+        resolvedQualifierType,
+        currentObject: currentMainObject?.name
+      });
+      if (resolvedQualifierType) {
+        if (qualifierLower === 'super' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
           const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph);
@@ -330,7 +478,23 @@ export function resolveTargetEntityDetailed(
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
           if (possibleTargets.length > 0) reasonCodes.push('super-hierarchy');
-        } else if (varType.toLowerCase() === 'this' && currentMainObject) {
+        } else if (qualifierLower === 'ancestor' && currentMainObject?.baseTypeName) {
+          const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
+          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph);
+          possibleTargets = ranked.winners;
+          distanceDiscards = ranked.discarded;
+          distanceAmbiguity = ranked.ambiguity;
+          if (possibleTargets.length > 0) reasonCodes.push('ancestor-hierarchy');
+        } else if (qualifierLower === 'parent' && currentMainObject?.containerName) {
+          const members = getMembersForType(currentMainObject.containerName, currentUri, kb, graph, options.hotContext);
+          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.containerName, graph);
+          possibleTargets = ranked.winners;
+          distanceDiscards = ranked.discarded;
+          distanceAmbiguity = ranked.ambiguity;
+          if (possibleTargets.length > 0) reasonCodes.push('parent-hierarchy');
+        } else if (qualifierLower === 'this' && currentMainObject) {
           const members = getMembersForType(currentMainObject.name, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
           const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph);
@@ -339,9 +503,9 @@ export function resolveTargetEntityDetailed(
           distanceAmbiguity = ranked.ambiguity;
           if (possibleTargets.length > 0) reasonCodes.push('member-hierarchy');
         } else {
-          const members = getMembersForType(varType, currentUri, kb, graph, options.hotContext);
+          const members = getMembersForType(resolvedQualifierType, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-          const ranked = rankTargetsByDistance(candidatePool, varType, graph);
+          const ranked = rankTargetsByDistance(candidatePool, resolvedQualifierType, graph);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
@@ -353,7 +517,7 @@ export function resolveTargetEntityDetailed(
             stage: 'qualifier',
             reason: 'qualifier-no-match',
             qualifier,
-            resolvedType: varType
+            resolvedType: resolvedQualifierType
           });
         }
       } else {
@@ -371,13 +535,17 @@ export function resolveTargetEntityDetailed(
           const localMatch = scope.symbols.find((symbol) => symbol.name.toLowerCase() === identifier.toLowerCase());
           if (localMatch) {
             recordTraceStep('targets:local-scope', { scope: scope.id });
+            recordTraceStep('invocation:classified', { invocationKind: 'local-symbol', invocationRisk: 'safe' });
             return {
               targets: [localMatch],
               reasonCodes: ['local-scope'] as QueryReasonCode[],
+              invocationKind: 'local-symbol' as QueryInvocationKind,
+              invocationRisk: 'safe' as QueryInvocationRisk,
               candidatePool: [localMatch],
               distanceDiscards: [],
               contextDiscards: [],
-              distanceAmbiguity: null
+              distanceAmbiguity: null,
+              resolvedQualifierType: undefined
             };
           }
         }
@@ -406,9 +574,20 @@ export function resolveTargetEntityDetailed(
       }
     }
 
+    const invocationKind = deriveInvocationKind(context, reasonCodes, possibleTargets[0], contextDiscards);
+    const invocationRisk = deriveInvocationRisk(context, reasonCodes, possibleTargets[0], contextDiscards);
+    recordTraceStep('invocation:classified', {
+      invocationKind,
+      invocationRisk,
+      resolvedQualifierType
+    });
+
     return {
       targets: possibleTargets,
       reasonCodes,
+      invocationKind,
+      invocationRisk,
+      resolvedQualifierType,
       candidatePool,
       distanceDiscards,
       contextDiscards,
@@ -424,19 +603,33 @@ export function resolveTargetEntityDetailed(
     result.contextDiscards,
     result.distanceAmbiguity
   );
+  const evidence = [
+    ...buildWinnerEvidence(result.targets[0], winnerLineage),
+    ...buildDistanceDiscardEvidence(result.distanceDiscards, result.reasonCodes[0]),
+    ...buildDistanceAmbiguityEvidence(result.distanceAmbiguity, result.reasonCodes[0]),
+    ...result.contextDiscards
+  ];
+
+  annotateLastTraceResolution({
+    confidence,
+    ...(result.reasonCodes[0] ? { primaryReasonCode: result.reasonCodes[0] } : {}),
+    invocationKind: result.invocationKind,
+    invocationRisk: result.invocationRisk,
+    evidenceKinds: evidence.map((entry) => entry.kind),
+    targetCount: result.targets.length,
+    hasAmbiguity: result.distanceAmbiguity !== null
+  });
 
   return {
     context,
     targets: result.targets,
     reasonCodes: result.reasonCodes,
+    invocationKind: result.invocationKind,
+    invocationRisk: result.invocationRisk,
+    ...(result.resolvedQualifierType ? { resolvedQualifierType: result.resolvedQualifierType } : {}),
     winnerLineage,
     confidence,
-    evidence: [
-      ...buildWinnerEvidence(result.targets[0], winnerLineage),
-      ...buildDistanceDiscardEvidence(result.distanceDiscards, result.reasonCodes[0]),
-      ...buildDistanceAmbiguityEvidence(result.distanceAmbiguity, result.reasonCodes[0]),
-      ...result.contextDiscards
-    ],
+    evidence,
     candidatePool: buildCandidatePool(result.candidatePool, result.reasonCodes[0]),
     trace
   };
@@ -477,17 +670,27 @@ export function sortAndFilterByDistance(targets: Entity[], fromType: string, gra
 
 /**
  * Resuelve un cualificador a su tipo de dato base (e.g. 'super', 'this', o 'n_cst_math').
- * Devuelve 'super' o 'this' directamente si es el caso, para que el llamante maneje el contexto.
+ * Devuelve keywords contextuales (`super`, `this`, `ancestor`) o el tipo
+ * resultante si puede resolverse de forma estática.
  */
 export function resolveQualifierType(
   qualifier: string,
   currentDocumentUri: string,
   kb: KnowledgeBase,
-  line?: number
+  line?: number,
+  currentObject?: Entity
 ): string | undefined {
   const qLower = qualifier.toLowerCase();
-  if (qLower === 'super' || qLower === 'this') {
+  if (qLower === 'sqlca') {
+    return 'transaction';
+  }
+
+  if (qLower === 'super' || qLower === 'this' || qLower === 'ancestor') {
     return qLower;
+  }
+
+  if (qLower === 'parent') {
+    return currentObject?.containerName;
   }
 
   const currentUri = normalizeUri(currentDocumentUri);

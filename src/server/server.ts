@@ -29,7 +29,7 @@ import {
 } from './analysis/diagnosticScheduler';
 import { extractDocumentSymbols } from './features/documentSymbols';
 import { provideHover } from './features/hover';
-import { provideWorkspaceSymbols } from './features/workspaceSymbols';
+import { provideWorkspaceSymbols, queryApiSymbols } from './features/workspaceSymbols';
 import { provideDefinition } from './features/definition';
 import { provideReferences } from './features/references';
 import { provideSignatureHelp } from './features/signatureHelp';
@@ -37,15 +37,21 @@ import { provideCompletion } from './features/completion';
 import { getSemanticTokensLegend, provideSemanticTokens } from './features/semanticTokens';
 import { provideCodeActions } from './features/codeActions';
 import { provideReferenceCodeLenses } from './features/codeLensReferences';
+import { buildCurrentObjectContext } from './features/currentObjectContext';
+import { buildImpactAnalysis } from './features/impactAnalysis';
 import { buildHierarchyInspection } from './features/hierarchyInspection';
+import { buildSemanticWorkspaceManifest } from './features/semanticWorkspaceManifest';
+import { buildSafeEditPlan } from './features/safeEditPlan';
 import {
   clearDiagnosticsSummary,
   getDiagnosticsSummary
 } from './features/diagnostics';
-import { validateRenameTarget } from './features/renamePreflight';
+import { provideRename } from './features/rename';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { createLatencyGovernor } from './runtime/latencyGovernor';
+import { buildRuntimeHealthReport } from './runtime/runtimeHealth';
+import { RuntimeJournal } from './runtime/runtimeJournal';
 import { NodeFileSystem } from './system/fileSystem';
 import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
 import { createCacheCheckpoint } from './cache/cacheCheckpoint';
@@ -60,6 +66,8 @@ import {
   toProgressNotification
 } from './features/progressReadiness';
 import { decideFeatureReadiness } from './features/featureReadiness';
+import { createDocumentQueryContext } from './features/queryContext';
+import { resolveServingReadiness } from './features/servingReadiness';
 import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
 import { createReadinessTracker } from './workspace/readiness';
@@ -74,7 +82,7 @@ import {
   createSnapshotAwareInvalidationPlan
 } from './knowledge/semanticInvalidation';
 import { ServingCache, makeKey as makeServingKey } from './knowledge/ServingCache';
-import { getLastTrace } from './knowledge/queryTrace';
+import { getLastTrace, subscribeTraceSnapshots } from './knowledge/queryTrace';
 import { SystemCatalog } from './knowledge/system/SystemCatalog';
 import { getFileIndexState, getIndexerStatus, indexWorkspace } from './indexer/workspaceIndexer';
 import { createFileWatcherDebouncer } from './system/fileWatcherDebouncer';
@@ -103,8 +111,40 @@ const knowledgeBase = new KnowledgeBase();
 const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
-const servingCache = new ServingCache<unknown>();
+const runtimeJournal = new RuntimeJournal(160);
+const servingCache = new ServingCache<unknown>(256, 0, (event) => {
+  runtimeJournal.record({
+    phase: event.action === 'invalidate' ? 'invalidation' : 'cache',
+    kind: 'serving-cache',
+    action: event.action,
+    severity: event.action === 'evict' ? 'warning' : 'info',
+    ...(event.action === 'hit' ? { hits: 1 } : {}),
+    ...(event.action === 'miss' ? { misses: 1 } : {}),
+    ...(event.action === 'evict' ? { evictions: 1 } : {}),
+    ...(event.action === 'invalidate' && event.removed !== undefined ? { invalidationCount: event.removed } : {}),
+    detail: {
+      ...(event.key ? { key: event.key } : {}),
+      ...(event.uri ? { uri: event.uri } : {}),
+      size: event.size,
+      capacity: event.capacity,
+      hits: event.hits,
+      misses: event.misses,
+      evictions: event.evictions
+    }
+  });
+});
 const codeLensCache = new Map<string, { key: string; lenses: ReturnType<typeof provideReferenceCodeLenses> }>();
+let lastHealthJournalSignature = '';
+
+type DefinitionCacheEntry = {
+  result: ReturnType<typeof provideDefinition>;
+  resolutionConfidence?: ReturnType<typeof createDocumentQueryContext>['resolutionConfidence'];
+};
+
+function isDefinitionCacheEntry(value: unknown): value is DefinitionCacheEntry {
+  return typeof value === 'object' && value !== null && 'result' in value;
+}
+
 const watcherIntake = createFileWatcherDebouncer({
   delayMs: 75,
   maxPending: 256,
@@ -136,6 +176,21 @@ const watcherIntake = createFileWatcherDebouncer({
           );
         }
         if (result.reindexed > 0 || result.removed > 0 || result.skipped > 0) {
+          runtimeJournal.record({
+            phase: 'invalidation',
+            kind: 'watched-files',
+            action: result.massive ? 'watcher-massive' : 'watcher-incremental',
+            severity: result.massive ? 'warning' : 'info',
+            invalidationCount: result.reindexed + result.removed,
+            detail: {
+              reindexed: result.reindexed,
+              removed: result.removed,
+              skipped: result.skipped,
+              touchedProjects: result.touchedProjects,
+            }
+          });
+        }
+        if (result.reindexed > 0 || result.removed > 0 || result.skipped > 0) {
           publishRuntimeProgressReadiness();
         }
       }
@@ -148,6 +203,9 @@ let cacheStore: SemanticCacheStore | null = null;
 let cacheStorageUri: string | null = null;
 let lastServingSnapshotRestoreEntries = 0;
 let lastServingSnapshotPersistEntries = 0;
+let lastPersistenceRestoreState: 'restored' | 'reused' | 'rebuilt' | undefined;
+let lastPersistenceRestoreReason: string | undefined;
+let lastRestoredCheckpointDocuments = 0;
 const persistServingSnapshot = async (): Promise<void> => {
   if (!cacheStore) {
     lastServingSnapshotPersistEntries = 0;
@@ -158,6 +216,23 @@ const persistServingSnapshot = async (): Promise<void> => {
 };
 const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {
   await persistServingSnapshot();
+});
+const disposeTraceSnapshotSubscription = subscribeTraceSnapshots((trace) => {
+  runtimeJournal.record({
+    phase: 'query',
+    kind: 'query-trace',
+    action: trace.label,
+    label: trace.label,
+    severity: trace.resolution?.confidence === 'low' || trace.resolution?.hasAmbiguity ? 'warning' : 'info',
+    durationMs: trace.durationMs,
+    detail: {
+      stepCount: trace.stepCount,
+      phases: trace.phases,
+      actions: trace.actions,
+      ...(trace.lastStepName ? { lastStepName: trace.lastStepName } : {}),
+      ...(trace.resolution ? { resolution: trace.resolution } : {}),
+    }
+  });
 });
 
 // Conectar caché interactiva con backends globales para evitar doble parseo
@@ -300,7 +375,16 @@ async function collectWorkspaceReferenceSources(): Promise<Array<{ uri: string; 
     }
   }));
 
-  return sources.filter((source): source is { uri: string; content: string } => source !== null);
+  const collected = sources.filter((source): source is { uri: string; content: string } => source !== null);
+  for (const document of documents.all()) {
+    if (seen.has(document.uri)) {
+      continue;
+    }
+    seen.add(document.uri);
+    collected.push({ uri: document.uri, content: document.getText() });
+  }
+
+  return collected;
 }
 
 function buildReferenceProbe(entity: Entity): { document: TextDocument; position: Position } {
@@ -391,7 +475,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       renameProvider: { prepareProvider: true },
       // Spec 106: comandos personalizados expuestos vía workspace/executeCommand.
       executeCommandProvider: {
-        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy']
+        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.semanticWorkspaceManifest']
       }
     }
   };
@@ -413,8 +497,41 @@ connection.onInitialized(() => {
       id: 'workspace-discovery',
       priority: TaskPriority.Background,
       execute: async (token) => {
+        let earlyRestoreApplied = false;
+        let earlyRestoreServingEntries = 0;
+
+        if (cacheStorageUri) {
+          cacheStore = createSemanticCacheStore(fs, cacheStorageUri, workspaceFolders);
+          const earlyRestore = await cacheStore.load({ rootUris: workspaceFolders });
+          if (earlyRestore.decision.action === 'reuse') {
+            workspaceState.restoreDiscoverySnapshot(earlyRestore.checkpoint.metadata.discovery);
+            if (earlyRestore.checkpoint.documents.length > 0) {
+              earlyRestoreApplied = true;
+              documentCache.restoreDocumentRecords(earlyRestore.checkpoint.documents);
+              knowledgeBase.restoreDocumentRecords(earlyRestore.checkpoint.documents, earlyRestore.checkpoint.semanticEpoch);
+              earlyRestoreServingEntries = await restoreServingCacheSnapshot(
+                servingCache,
+                cacheStore,
+                earlyRestore.checkpoint.semanticEpoch
+              );
+              connection.console.log(
+                `[CACHE] Warm resume restauró ${earlyRestore.checkpoint.documents.length} documentos antes del discovery.`
+              );
+              if (earlyRestoreServingEntries > 0) {
+                connection.console.log(`[CACHE] ServingCache restauró ${earlyRestoreServingEntries} entries persistidas.`);
+              }
+            } else if ((earlyRestore.checkpoint.metadata.discovery?.sourceFiles.length ?? 0) > 0) {
+              connection.console.log(
+                `[CACHE] Warm resume recuperó snapshot de discovery con ${earlyRestore.checkpoint.metadata.discovery?.sourceFiles.length ?? 0} archivos.`
+              );
+            }
+            publishRuntimeProgressReadiness();
+          }
+        }
+
+        const discoveredState = new WorkspaceState();
         const { elapsedMs: discoveryMs } = await measureMsAsync(async () => {
-          await discoverWorkspace(workspaceFolders, fs, workspaceState, token, (current, total) => {
+          await discoverWorkspace(workspaceFolders, fs, discoveredState, token, (current, total) => {
             discoveryProgress.current = current;
             discoveryProgress.total = total;
             publishRuntimeProgressReadiness();
@@ -428,6 +545,9 @@ connection.onInitialized(() => {
           return;
         }
 
+        discoveredState.refreshProjectRouting();
+        workspaceState.replaceFrom(discoveredState);
+
         const filesCount = workspaceState.getAllSourceFiles().length;
         const roots = workspaceState.getRoots();
         discoveryProgress.current = discoveryProgress.total;
@@ -438,39 +558,70 @@ connection.onInitialized(() => {
         connection.console.log(`  - PBSLN: ${roots.solutions.length}, PBPROJ: ${roots.projects.length}`);
         connection.console.log(`  - Modo: ${workspaceState.getMode()}`);
 
-        workspaceState.refreshProjectRouting();
         const projectModel = workspaceState.getProjectModel();
         connection.console.log(`  - Proyectos detectados: ${projectModel?.getProjects().length ?? 0}`);
 
         const cacheMetadata = {
           workspaceMode: workspaceState.getMode(),
           rootUris: workspaceFolders,
-          projectStats: projectModel?.getStats()
+          projectStats: projectModel?.getStats(),
+          discovery: workspaceState.exportDiscoverySnapshot()
         } as const;
 
         if (cacheStorageUri) {
           cacheStore = createSemanticCacheStore(fs, cacheStorageUri, workspaceFolders, projectModel);
           const restore = await cacheStore.load(cacheMetadata);
+          lastPersistenceRestoreReason = restore.decision.reason;
           if (restore.decision.action === 'reuse' && restore.checkpoint.documents.length > 0) {
-            documentCache.restoreDocumentRecords(restore.checkpoint.documents);
-            knowledgeBase.restoreDocumentRecords(restore.checkpoint.documents, restore.checkpoint.semanticEpoch);
-            const restoredServingEntries = await restoreServingCacheSnapshot(
-              servingCache,
-              cacheStore,
-              restore.checkpoint.semanticEpoch
-            );
-            lastServingSnapshotRestoreEntries = restoredServingEntries;
-            connection.console.log(
-              `[CACHE] Warm resume restauró ${restore.checkpoint.documents.length} documentos (epoch ${restore.checkpoint.semanticEpoch}).`
-            );
-            if (restoredServingEntries > 0) {
-              connection.console.log(`[CACHE] ServingCache restauró ${restoredServingEntries} entries persistidas.`);
+            lastPersistenceRestoreState = 'restored';
+            lastRestoredCheckpointDocuments = restore.checkpoint.documents.length;
+            if (!earlyRestoreApplied) {
+              documentCache.restoreDocumentRecords(restore.checkpoint.documents);
+              knowledgeBase.restoreDocumentRecords(restore.checkpoint.documents, restore.checkpoint.semanticEpoch);
+              const restoredServingEntries = await restoreServingCacheSnapshot(
+                servingCache,
+                cacheStore,
+                restore.checkpoint.semanticEpoch
+              );
+              lastServingSnapshotRestoreEntries = restoredServingEntries;
+              connection.console.log(
+                `[CACHE] Warm resume restauró ${restore.checkpoint.documents.length} documentos (epoch ${restore.checkpoint.semanticEpoch}).`
+              );
+              if (restoredServingEntries > 0) {
+                connection.console.log(`[CACHE] ServingCache restauró ${restoredServingEntries} entries persistidas.`);
+              }
+            } else {
+              lastServingSnapshotRestoreEntries = earlyRestoreServingEntries;
+              connection.console.log(
+                `[CACHE] Warm resume validó metadata compatible tras restaurar ${restore.checkpoint.documents.length} documentos antes del discovery.`
+              );
             }
+          } else if (restore.decision.action === 'reuse') {
+            lastPersistenceRestoreState = 'reused';
+            lastRestoredCheckpointDocuments = 0;
+            lastServingSnapshotRestoreEntries = 0;
+            connection.console.log('[CACHE] Warm resume reutilizó metadata compatible sin documentos persistidos.');
           } else {
+            if (earlyRestoreApplied) {
+              documentCache.clear();
+              knowledgeBase.clear();
+              servingCache.invalidate();
+            }
+            lastPersistenceRestoreState = 'rebuilt';
+            lastRestoredCheckpointDocuments = 0;
+            lastServingSnapshotRestoreEntries = 0;
             connection.console.log(
               `[CACHE] Warm resume descartado: ${restore.decision.reason ?? 'sin estado persistente compatible'}.`
             );
           }
+
+          await cacheStore.persistCheckpoint(
+            createCacheCheckpoint(
+              knowledgeBase.semanticEpoch,
+              documentCache.exportDocumentRecords(),
+              cacheMetadata
+            )
+          );
         }
 
         // Iniciamos indexación incremental
@@ -655,9 +806,7 @@ connection.onDefinition((params) => {
       id: `definition-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
-        const readinessDecision = decideFeatureReadiness('definition', buildRuntimeProgressReadiness(document.uri), {
-          latencyOverloaded: isLatencyPressureHigh()
-        });
+        const runtimeReadiness = buildRuntimeProgressReadiness(document.uri);
         hotContextCache.setActive(document.uri, knowledgeBase.version);
         const cacheKey = makeServingKey({
           feature: 'definition',
@@ -667,16 +816,36 @@ connection.onDefinition((params) => {
           kbVersion: knowledgeBase.version
         });
         const cached = servingCache.get(cacheKey);
-        if (cached !== undefined) {
-          return cached as ReturnType<typeof provideDefinition>;
+        if (isDefinitionCacheEntry(cached)) {
+          const readiness = resolveServingReadiness({
+            feature: 'definition',
+            consumerLabel: 'definition',
+            snapshot: runtimeReadiness,
+            blockedResult: null,
+            context: {
+              latencyOverloaded: isLatencyPressureHigh(),
+              resolutionConfidence: cached.resolutionConfidence
+            }
+          });
+          if (readiness.blocked) {
+            connection.console.warn(readiness.warningMessage);
+            return readiness.blockedResult;
+          }
+          return cached.result;
         }
+
+        const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'definition');
+        const readinessDecision = decideFeatureReadiness('definition', runtimeReadiness, {
+          latencyOverloaded: isLatencyPressureHigh(),
+          resolutionConfidence: queryContext.resolutionConfidence
+        });
 
         if (readinessDecision.action === 'block') {
           connection.console.warn(`[definition] bloqueado: ${readinessDecision.reason}`);
           return null;
         }
 
-        const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache));
+        const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, queryContext));
         recordInteractiveLatency('definition', elapsedMs);
 
         if (firstInvocation.isFirst('definition')) {
@@ -685,7 +854,10 @@ connection.onDefinition((params) => {
         }
 
         connection.console.log(formatTiming('definition', elapsedMs));
-        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
+        cacheServingResult(servingCache, cacheKey, {
+          result,
+          resolutionConfidence: queryContext.resolutionConfidence
+        }, servingCacheFlushCoordinator);
         return result;
       }
     });
@@ -700,21 +872,27 @@ connection.onDefinition((params) => {
 // Funcionalidades (Features) — Find References (Spec 025 / B023)
 // ---------------------------------------------------------------------------
 
-connection.onReferences((params) => {
+connection.onReferences(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
   try {
-    const readinessDecision = decideFeatureReadiness('references', buildRuntimeProgressReadiness(document.uri), {
-      latencyOverloaded: isLatencyPressureHigh()
+    hotContextCache.setActive(document.uri, knowledgeBase.version);
+    const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'references');
+    const readiness = resolveServingReadiness({
+      feature: 'references',
+      consumerLabel: 'references',
+      snapshot: buildRuntimeProgressReadiness(document.uri),
+      blockedResult: [],
+      context: {
+        latencyOverloaded: isLatencyPressureHigh(),
+        resolutionConfidence: queryContext.resolutionConfidence
+      }
     });
-    if (readinessDecision.action === 'block') {
-      connection.console.warn(`[references] bloqueado: ${readinessDecision.reason}`);
-      return [];
+    if (readiness.blocked) {
+      connection.console.warn(readiness.warningMessage);
+      return readiness.blockedResult;
     }
-    const sources: { uri: string; content: string }[] = [];
-    for (const doc of documents.all()) {
-      sources.push({ uri: doc.uri, content: doc.getText() });
-    }
+    const sources = await collectWorkspaceReferenceSources();
     const { result, elapsedMs } = measureMs(() =>
       provideReferences(
         document,
@@ -725,7 +903,8 @@ connection.onReferences((params) => {
         {
           includeDeclaration: params.context?.includeDeclaration ?? true
         },
-        hotContextCache
+        hotContextCache,
+        queryContext
       )
     );
     recordInteractiveLatency('references', elapsedMs);
@@ -914,6 +1093,16 @@ documents.onDidChangeContent((event) => {
   for (const uri of invalidationPlan.allUris) {
     hotContextCache.invalidateForUri(uri);
   }
+  runtimeJournal.record({
+    phase: 'invalidation',
+    kind: 'semantic-invalidation',
+    action: 'document-change',
+    invalidationCount: invalidationPlan.allUris.length,
+    detail: {
+      uri: event.document.uri,
+      allUris: invalidationPlan.allUris
+    }
+  });
   invalidateServingCacheEntries(servingCache, invalidationPlan.allUris, servingCacheFlushCoordinator);
 
   try {
@@ -931,6 +1120,16 @@ documents.onDidClose((event) => {
   for (const uri of invalidationPlan.allUris) {
     hotContextCache.invalidateForUri(uri);
   }
+  runtimeJournal.record({
+    phase: 'invalidation',
+    kind: 'semantic-invalidation',
+    action: 'document-close',
+    invalidationCount: invalidationPlan.allUris.length,
+    detail: {
+      uri: event.document.uri,
+      allUris: invalidationPlan.allUris
+    }
+  });
   invalidateServingCacheEntries(servingCache, invalidationPlan.allUris, servingCacheFlushCoordinator);
   clearDiagnosticsSummary(event.document.uri);
 
@@ -961,6 +1160,7 @@ connection.onDidChangeWatchedFiles((params) => {
 // ---------------------------------------------------------------------------
 
 connection.onShutdown(async () => {
+  disposeTraceSnapshotSubscription();
   watcherIntake.dispose();
   invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
   await servingCacheFlushCoordinator.flushIfDirty();
@@ -1041,12 +1241,21 @@ connection.onCodeLens(async (params) => {
 connection.onPrepareRename((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
-  const readinessDecision = decideFeatureReadiness('rename', buildRuntimeProgressReadiness(document.uri), {
-    latencyOverloaded: isLatencyPressureHigh()
+  hotContextCache.setActive(document.uri, knowledgeBase.version);
+  const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename-prepare');
+  const readiness = resolveServingReadiness({
+    feature: 'rename',
+    consumerLabel: 'rename',
+    snapshot: buildRuntimeProgressReadiness(document.uri),
+    blockedResult: null,
+    context: {
+      latencyOverloaded: isLatencyPressureHigh(),
+      resolutionConfidence: queryContext.resolutionConfidence
+    }
   });
-  if (readinessDecision.action === 'block') {
-    connection.console.warn(`[rename] bloqueado: ${readinessDecision.reason}`);
-    return null;
+  if (readiness.blocked) {
+    connection.console.warn(readiness.warningMessage);
+    return readiness.blockedResult;
   }
   const line = document.getText().split(/\r?\n/)[params.position.line] ?? '';
   const match = wordAt(line, params.position.character);
@@ -1063,53 +1272,43 @@ connection.onPrepareRename((params) => {
 // `onRenameRequest`: aplicamos el rename de variables locales en el mismo
 // scope (Spec 105). Renombrados cross-file siguen sin permitirse hasta
 // disponer de resolución fuerte; en su lugar bloqueamos con un error claro.
-connection.onRenameRequest((params) => {
+connection.onRenameRequest(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
-  const readinessDecision = decideFeatureReadiness('rename', buildRuntimeProgressReadiness(document.uri), {
-    latencyOverloaded: isLatencyPressureHigh()
-  });
-  if (readinessDecision.action === 'block') {
-    connection.console.warn(`[rename] bloqueado: ${readinessDecision.reason}`);
-    return null;
-  }
-  const preflight = validateRenameTarget(params.newName, { systemCatalog });
-  if (!preflight.ok) {
-    connection.console.warn(`[rename] bloqueado: ${preflight.reason}`);
-    return null;
-  }
-  const lines = document.getText().split(/\r?\n/);
-  const lineText = lines[params.position.line] ?? '';
-  const word = wordAt(lineText, params.position.character);
-  if (!word) return null;
-
-  // Solo aceptamos rename si el símbolo es local al scope actual.
-  const scope = knowledgeBase.getScopeAt(params.textDocument.uri, params.position.line);
-  if (!scope) return null;
-  const target = scope.symbols.find((s) => s.name.toLowerCase() === word.word.toLowerCase());
-  if (!target) {
-    connection.console.warn(`[rename] solo se permite rename de variables locales en el scope actual.`);
-    return null;
-  }
-
-  // Sustitución por word-boundary dentro del rango del scope.
-  const edits: import('vscode-languageserver/node').TextEdit[] = [];
-  const wordRe = new RegExp(`\\b${word.word.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, 'g');
-  for (let i = scope.startLine; i <= scope.endLine; i++) {
-    const text = lines[i] ?? '';
-    let m: RegExpExecArray | null;
-    wordRe.lastIndex = 0;
-    while ((m = wordRe.exec(text)) !== null) {
-      edits.push({
-        range: {
-          start: { line: i, character: m.index },
-          end: { line: i, character: m.index + word.word.length }
-        },
-        newText: params.newName
-      });
+  hotContextCache.setActive(document.uri, knowledgeBase.version);
+  const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename');
+  const readiness = resolveServingReadiness({
+    feature: 'rename',
+    consumerLabel: 'rename',
+    snapshot: buildRuntimeProgressReadiness(document.uri),
+    blockedResult: null,
+    context: {
+      latencyOverloaded: isLatencyPressureHigh(),
+      resolutionConfidence: queryContext.resolutionConfidence
     }
+  });
+  if (readiness.blocked) {
+    connection.console.warn(readiness.warningMessage);
+    return readiness.blockedResult;
   }
-  return { changes: { [params.textDocument.uri]: edits } };
+  const rename = provideRename(
+    document,
+    params.position,
+    params.newName,
+    knowledgeBase,
+    inheritanceGraph,
+    await collectWorkspaceReferenceSources(),
+    systemCatalog,
+    hotContextCache,
+    queryContext
+  );
+  if (!rename.edit) {
+    if (rename.reason) {
+      connection.console.warn(`[rename] bloqueado: ${rename.reason}`);
+    }
+    return null;
+  }
+  return rename.edit;
 });
 
 connection.onExecuteCommand(async (params) => {
@@ -1121,7 +1320,7 @@ connection.onExecuteCommand(async (params) => {
       const projectStats = workspaceState.getProjectModel()?.getStats();
       const activeProject = workspaceState.getProjectContextForFile(activeDocumentUri);
       const progressReadiness = buildRuntimeProgressReadiness();
-      return {
+      const baseStats = {
         kb: stats,
         scheduler: sched,
         readiness: {
@@ -1132,6 +1331,7 @@ connection.onExecuteCommand(async (params) => {
         workspace: {
           mode: workspaceState.getMode(),
           files: workspaceState.getAllSourceFiles().length,
+          sourceOrigins: workspaceState.getSourceOriginSummary(),
           activeProject
         },
         indexer: getIndexerStatus(),
@@ -1156,12 +1356,44 @@ connection.onExecuteCommand(async (params) => {
             checkpointUri: cacheStore.checkpointUri,
             journalUri: cacheStore.journalUri,
             workspaceKey: cacheStore.workspaceKey,
+            restoreState: lastPersistenceRestoreState,
+            restoreReason: lastPersistenceRestoreReason,
+            restoredDocuments: lastRestoredCheckpointDocuments,
             servingSnapshot: {
               lastRestoredEntries: lastServingSnapshotRestoreEntries,
               lastPersistedEntries: lastServingSnapshotPersistEntries
             }
           }
           : undefined
+      };
+      const health = buildRuntimeHealthReport({
+        readiness: baseStats.readiness,
+        indexer: baseStats.indexer,
+        scheduler: baseStats.scheduler,
+        projectModel: baseStats.projectModel,
+        caches: baseStats.caches,
+        lastQueryTrace: baseStats.lastQueryTrace ?? undefined,
+        persistence: baseStats.persistence,
+        diagnostics: undefined
+      });
+      const healthSignature = `${health.status}|${health.summary}`;
+      if (healthSignature !== lastHealthJournalSignature) {
+        runtimeJournal.record({
+          phase: 'health',
+          kind: 'runtime-health',
+          action: 'stats-snapshot',
+          severity: health.status === 'error' ? 'error' : health.status === 'warning' ? 'warning' : 'info',
+          detail: {
+            summary: health.summary,
+            counts: health.counts,
+          }
+        });
+        lastHealthJournalSignature = healthSignature;
+      }
+      return {
+        ...baseStats,
+        health,
+        runtimeJournal: runtimeJournal.snapshot(50)
       };
     }
     case 'powerbuilder.inspectHierarchy': {
@@ -1189,7 +1421,6 @@ connection.onExecuteCommand(async (params) => {
           return { available: false, reason: 'No se pudo leer el documento.', uri, line, character };
         }
       }
-
       const projectContext = workspaceState.getProjectContextForFile(uri);
       const objectInfo = buildObjectInfo({
         uri,
@@ -1219,8 +1450,201 @@ connection.onExecuteCommand(async (params) => {
         line,
         character,
         objectInfo,
-        ...buildHierarchyInspection(focusType, inheritanceGraph)
+        ...buildHierarchyInspection(focusType, inheritanceGraph, knowledgeBase)
       };
+    }
+    case 'powerbuilder.querySymbols': {
+      const [queryArg, limitArg] = params.arguments ?? [];
+      const query = typeof queryArg === 'string' ? queryArg : '';
+      const limit = typeof limitArg === 'number' && Number.isFinite(limitArg)
+        ? Math.max(0, Math.trunc(limitArg))
+        : 200;
+      return queryApiSymbols(query, knowledgeBase, limit);
+    }
+    case 'powerbuilder.currentObjectContext': {
+      const [uriArg, lineArg, characterArg, excerptArg, refsArg] = params.arguments ?? [];
+      const uri = typeof uriArg === 'string' ? uriArg : undefined;
+      if (!uri) {
+        return { available: false, reason: 'No se recibió una URI válida.' };
+      }
+
+      const openDocument = documents.get(uri);
+      let document = openDocument;
+      if (!document) {
+        try {
+          const content = await fs.readFile(uri);
+          document = TextDocument.create(uri, 'powerbuilder', 0, content);
+        } catch {
+          return { available: false, reason: 'No se pudo leer el documento solicitado.', uri };
+        }
+      }
+
+      return buildCurrentObjectContext(
+        document,
+        {
+          ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
+          ...(typeof characterArg === 'number' ? { character: Math.max(0, Math.trunc(characterArg)) } : {}),
+          ...(typeof excerptArg === 'number' ? { maxExcerptLines: Math.max(1, Math.trunc(excerptArg)) } : {}),
+          ...(typeof refsArg === 'number' ? { maxReferencedSymbols: Math.max(0, Math.trunc(refsArg)) } : {}),
+        },
+        knowledgeBase,
+        inheritanceGraph,
+        systemCatalog,
+        {
+          workspaceState,
+          hotContext: hotContextCache,
+        }
+      );
+    }
+    case 'powerbuilder.analyzeImpact': {
+      const [uriArg, lineArg, characterArg, safeRefsArg] = params.arguments ?? [];
+      const uri = typeof uriArg === 'string' ? uriArg : undefined;
+      if (!uri) {
+        return {
+          available: false,
+          reason: 'No se recibió una URI válida.',
+          safeReferences: [],
+          probableImpactFiles: [],
+          descendants: [],
+          overrides: [],
+          relatedEvents: [],
+          relatedDataWindows: [],
+          affectedSymbols: [],
+          buildTargets: [],
+        };
+      }
+
+      const openDocument = documents.get(uri);
+      let document = openDocument;
+      if (!document) {
+        try {
+          const content = await fs.readFile(uri);
+          document = TextDocument.create(uri, 'powerbuilder', 0, content);
+        } catch {
+          return {
+            available: false,
+            reason: 'No se pudo leer el documento solicitado.',
+            safeReferences: [],
+            probableImpactFiles: [],
+            descendants: [],
+            overrides: [],
+            relatedEvents: [],
+            relatedDataWindows: [],
+            affectedSymbols: [],
+            buildTargets: [],
+          };
+        }
+      }
+
+      return buildImpactAnalysis(
+        document,
+        {
+          ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
+          ...(typeof characterArg === 'number' ? { character: Math.max(0, Math.trunc(characterArg)) } : {}),
+          ...(typeof safeRefsArg === 'number' ? { maxSafeReferences: Math.max(0, Math.trunc(safeRefsArg)) } : {}),
+        },
+        knowledgeBase,
+        inheritanceGraph,
+        systemCatalog,
+        async (targetUri) => {
+          const opened = documents.get(targetUri);
+          if (opened) {
+            return opened.getText();
+          }
+          try {
+            return await fs.readFile(targetUri);
+          } catch {
+            return null;
+          }
+        },
+        {
+          workspaceState,
+          hotContext: hotContextCache,
+        }
+      );
+    }
+    case 'powerbuilder.safeEditPlan': {
+      const [uriArg, lineArg, characterArg, safeRefsArg] = params.arguments ?? [];
+      const uri = typeof uriArg === 'string' ? uriArg : undefined;
+      if (!uri) {
+        return {
+          available: false,
+          blocked: true,
+          reason: 'No se recibió una URI válida.',
+          objects: [],
+          files: [],
+          risks: [],
+          recommendedTests: [],
+          docsToReview: [],
+          blockedReasons: ['No se recibió una URI válida.'],
+        };
+      }
+
+      const openDocument = documents.get(uri);
+      let document = openDocument;
+      if (!document) {
+        try {
+          const content = await fs.readFile(uri);
+          document = TextDocument.create(uri, 'powerbuilder', 0, content);
+        } catch {
+          return {
+            available: false,
+            blocked: true,
+            reason: 'No se pudo leer el documento solicitado.',
+            objects: [],
+            files: [],
+            risks: [],
+            recommendedTests: [],
+            docsToReview: [],
+            blockedReasons: ['No se pudo leer el documento solicitado.'],
+          };
+        }
+      }
+
+      return buildSafeEditPlan(
+        document,
+        {
+          ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
+          ...(typeof characterArg === 'number' ? { character: Math.max(0, Math.trunc(characterArg)) } : {}),
+          ...(typeof safeRefsArg === 'number' ? { maxSafeReferences: Math.max(0, Math.trunc(safeRefsArg)) } : {}),
+        },
+        knowledgeBase,
+        inheritanceGraph,
+        systemCatalog,
+        async (targetUri) => {
+          const opened = documents.get(targetUri);
+          if (opened) {
+            return opened.getText();
+          }
+          try {
+            return await fs.readFile(targetUri);
+          } catch {
+            return null;
+          }
+        },
+        {
+          workspaceState,
+          hotContext: hotContextCache,
+        }
+      );
+    }
+    case 'powerbuilder.semanticWorkspaceManifest': {
+      const [maxObjectsArg, maxSymbolsArg] = params.arguments ?? [];
+      const progressReadiness = buildRuntimeProgressReadiness();
+      return buildSemanticWorkspaceManifest(
+        {
+          ...(typeof maxObjectsArg === 'number' ? { maxObjects: Math.max(1, Math.trunc(maxObjectsArg)) } : {}),
+          ...(typeof maxSymbolsArg === 'number' ? { maxSymbols: Math.max(1, Math.trunc(maxSymbolsArg)) } : {}),
+        },
+        knowledgeBase,
+        inheritanceGraph,
+        workspaceState,
+        getDiagnosticsSummary(),
+        {
+          state: progressReadiness.readiness.state,
+          detail: progressReadiness.readiness.detail,
+        }
+      );
     }
     default:
       return null;

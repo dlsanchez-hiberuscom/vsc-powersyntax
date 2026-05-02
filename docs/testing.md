@@ -71,6 +71,8 @@ Deben cubrir como mínimo:
 - apertura de archivo PowerBuilder,
 - contribution points principales.
 
+La matriz mínima actual de smoke real con `vscode-test` debe cubrir activación genérica, PFC Solution y PFC Workspace.
+
 ## 4.2 Unit tests
 **Objetivo:** validar lógica aislada, pura y reutilizable.
 
@@ -82,6 +84,9 @@ Deben cubrir prioritariamente:
 - scheduler/runtime,
 - query engine,
 - utilidades semánticas puras.
+
+Estado actual relevante:
+- `test/server/unit/runtimeJournal.test.ts`, `runtimeHealth.test.ts`, `queryTrace.test.ts`, `servingCache.test.ts` y `statusBarPresentation.test.ts` fijan el journal exportable del runtime, el health report estructurado, los observers de trace/cache y su proyección visible en stats/status.
 
 Regla:
 - no depender de VS Code,
@@ -115,6 +120,16 @@ Deben medir:
 
 ## 4.5 Golden / semantic tests
 **Objetivo:** proteger el comportamiento semántico del motor.
+
+Estado actual:
+- `test/server/unit/powerbuilderSemanticGolden.test.ts` ya fija el backbone PowerBuilder real para scope resolution local/shared/global/instance, prototypes vs implementations, herencia, event handlers, external functions, `DataObject` literal, rename eligibility, readiness gating, downgrade dinámico y conflictos de `sourceOrigin`.
+- `test/server/unit/currentObjectContext.test.ts` y `test/smoke/extension.test.ts` ya cubren el current object context pack read-only expuesto por API pública, con metadata, references, diagnostics y bindings `DataObject` sobre un archivo real.
+- `test/server/unit/impactAnalysis.test.ts` ya cubre el impact analyzer read-only sobre references, descendientes, events, DataWindows y build targets sin abrir edición automática.
+- `test/server/unit/safeEditPlan.test.ts` ya cubre el safe edit plan read-only con archivos, riesgos, tests, docs a revisar y bloqueos honestos sin tocar código.
+- `test/server/unit/semanticWorkspaceManifest.test.ts` ya cubre el manifiesto semántico compacto/versionado con projects, libraries, objects, herencia, diagnostics summary, sourceOrigin y readiness sin exportar código bruto.
+- `test/server/unit/dataWindowSafeMode.test.ts`, junto con `documentAnalysis|definition|hover|signatureHelp|diagnostics|powerbuilderSemanticGolden`, ya fija el safe mode mínimo de `.srd` con SQL base, args, columnas, bandas principales y navegación básica.
+- `test/server/unit/dataWindowLegacySafeMode.test.ts`, junto con `definition|hover`, ya fija el refuerzo legacy-safe de `.srd` para bandas, columnas `retrieve` y navegación/hover locales dentro del propio DataWindow.
+- `test/server/unit/documentSymbols.test.ts` y `test/server/unit/workspaceSymbols.test.ts` ya fijan el catálogo básico DataWindow: outline `.srd` con bandas/tabla/retrieve y publicación del stub `.srd` en workspace/API symbols.
 
 Deben fijar resultados esperados para:
 - hover,
@@ -153,6 +168,7 @@ Siempre validar:
 Siempre validar:
 - coherencia entre hover/completion/definition/references,
 - evidencia o trazabilidad cuando aplique,
+- confidence/readiness gates en consumers reales cuando cambie el wiring del servidor,
 - y estabilidad del resultado bajo contexto parcial o presión.
 
 ### 5.5 Escala
@@ -189,6 +205,9 @@ El corpus prioritario debe incluir:
 - PFC 2025 Workspace,
 - y proyectos legacy representativos cuando estén disponibles.
 
+La matriz reproducible de corpus públicos vive en `test/corpora/README.md`.
+El ciclo actual integra PFC 2025 Workspace, PFC 2025 Solution y un slot legacy controlado en `fixtures-local/public/legacy-pbl-dump`.
+
 ---
 
 ## 7. Reglas mínimas por tipo de cambio
@@ -209,6 +228,8 @@ Mínimo:
 - unit tests,
 - integración de comportamiento observable,
 - y performance test si puede afectar latencia o background work.
+
+Cuando el cambio además altera stats/status/health visibles, añadir al menos una smoke real del host para verificar el wiring cliente-servidor.
 
 ### 7.4 Cambio en persistencia / warm resume
 Mínimo:

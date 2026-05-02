@@ -107,9 +107,9 @@ export const EVENT_PATTERN = new RegExp(
 );
 
 // ON_EVENT_PATTERN: on [qualifier].[name]
-// Grupos: 1=Name
+// Grupos: 1=QualifiedName
 export const ON_EVENT_PATTERN = new RegExp(
-  `^${WS_OPT}on${WS_REQ}(${PB_IDENTIFIER_SOURCE}(?:\\.${PB_IDENTIFIER_SOURCE})+)${WS_OPT};?${WS_OPT}$`,
+  `^${WS_OPT}on${WS_REQ}(${PB_IDENTIFIER_SOURCE}(?:\.${PB_IDENTIFIER_SOURCE})+)${WS_OPT};?${WS_OPT}$`,
   'i'
 );
 
@@ -125,10 +125,10 @@ export const VARIABLE_PATTERN = new RegExp(
 // -----------------------------------------------------------------------------
 
 export const FORWARD_PROTOTYPES_START_PATTERN = new RegExp(`^${WS_OPT}forward${WS_REQ}prototypes\\b`, 'i');
-export const PROTOTYPES_START_PATTERN = new RegExp(`^${WS_OPT}prototypes\\b`, 'i');
+export const PROTOTYPES_START_PATTERN = new RegExp(`^${WS_OPT}(?:type${WS_REQ})?prototypes\\b`, 'i');
 export const END_PROTOTYPES_PATTERN = new RegExp(`^${WS_OPT}end${WS_REQ}prototypes\\b`, 'i');
 
-export const VARIABLES_START_PATTERN = new RegExp(`^${WS_OPT}(?:global${WS_REQ}variables|type${WS_REQ}variables|variables)\\b`, 'i');
+export const VARIABLES_START_PATTERN = new RegExp(`^${WS_OPT}(?:(?:${PB_IDENTIFIER_SOURCE}${WS_REQ})?type${WS_REQ}variables|global${WS_REQ}variables|variables)\\b`, 'i');
 export const END_VARIABLES_PATTERN = new RegExp(`^${WS_OPT}end${WS_REQ}variables\\b`, 'i');
 
 export const FORWARD_START_PATTERN = new RegExp(`^${WS_OPT}forward\\b`, 'i');

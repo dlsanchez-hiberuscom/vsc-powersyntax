@@ -26,11 +26,20 @@ export interface SymbolFact {
   detail?: string;
   declarationOnly?: boolean;
   containerName?: string;
+  containerKind?: string;
+  containerSignature?: string;
+  fileObjectName?: string;
+  declarationScope?: 'type' | 'callable' | 'member' | 'local' | 'parameter';
   baseTypeName?: string;
   datatype?: string;
   parameters?: { label: string, documentation?: string }[];
   scope?: 'Local' | 'Instancia' | 'Global' | 'Compartida' | 'Argumento';
   access?: string;
+  returnType?: string;
+  isExternal?: boolean;
+  externalLibraryName?: string;
+  externalAlias?: string;
+  externalDependencyKind?: 'dll' | 'pbx' | 'unknown';
   line: number;
   startCharacter: number;
   endCharacter: number;
@@ -51,4 +60,6 @@ export interface FunctionLikeMatch {
 export interface EventLikeMatch {
   name: string;
   detail: string;
+  ownerName?: string;
+  qualifiedOwnerName?: string;
 }

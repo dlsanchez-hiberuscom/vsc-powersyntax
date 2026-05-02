@@ -1,9 +1,13 @@
 import * as assert from 'assert/strict';
 
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { EntityKind } from '../../../src/server/knowledge/types';
 import { buildHierarchyInspection } from '../../../src/server/features/hierarchyInspection';
+import { loadFixture } from '../helpers/fixtureLoader';
 
 suite('unit/hierarchyInspection (B065)', () => {
   test('expone ancestro inmediato, arbol y overrides heredados', () => {
@@ -36,5 +40,33 @@ suite('unit/hierarchyInspection (B065)', () => {
     assert.equal(inspection.overriddenMembers[0].inheritedFrom, 'w_base');
     assert.equal(inspection.closureSummary.override, 1);
     assert.equal(inspection.closureSummary.own, 1);
+  });
+
+  test('expone evidencia lifecycle para create/destroy y constructor/destructor del tipo foco', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+    const source = loadFixture('basic/sample_forward.sru');
+    const document = TextDocument.create('file:///lifecycle-inspection.sru', 'powerbuilder', 1, source);
+    const analysis = analyzeDocument(document);
+
+    kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+
+    const inspection = buildHierarchyInspection('util_uo_permisos', graph, kb);
+    const lifecycle = (inspection as any).lifecycle;
+
+    assert.ok(Array.isArray(lifecycle), 'Hierarchy inspection debe proyectar un bloque lifecycle.');
+    assert.equal(lifecycle.length, 2);
+    assert.deepEqual(
+      lifecycle.map((entry: any) => ({
+        phase: entry.phase,
+        callsAncestor: entry.callsAncestor,
+        triggersHook: entry.triggersHook,
+        hookResolved: entry.hookResolved
+      })),
+      [
+        { phase: 'create', callsAncestor: true, triggersHook: 'constructor', hookResolved: true },
+        { phase: 'destroy', callsAncestor: true, triggersHook: 'destructor', hookResolved: true }
+      ]
+    );
   });
 });

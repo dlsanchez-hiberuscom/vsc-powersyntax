@@ -12,6 +12,16 @@ export interface TraceStep {
   ts: number;
 }
 
+export interface TraceResolutionSummary {
+  confidence?: 'high' | 'medium' | 'low';
+  primaryReasonCode?: string;
+  invocationKind?: string;
+  invocationRisk?: string;
+  evidenceKinds?: string[];
+  targetCount?: number;
+  hasAmbiguity?: boolean;
+}
+
 export interface TraceSnapshot {
   label: string;
   startedAt: number;
@@ -21,6 +31,7 @@ export interface TraceSnapshot {
   phases: string[];
   actions: string[];
   lastStepName?: string;
+  resolution?: TraceResolutionSummary;
   steps: TraceStep[];
 }
 
@@ -30,8 +41,11 @@ interface ActiveTrace {
   steps: TraceStep[];
 }
 
+type TraceSnapshotListener = (trace: TraceSnapshot) => void;
+
 let active: ActiveTrace | null = null;
 let lastTrace: TraceSnapshot | null = null;
+const traceSnapshotListeners = new Set<TraceSnapshotListener>();
 
 function deriveTracePhase(name: string): string | undefined {
   const separator = name.indexOf(':');
@@ -51,6 +65,24 @@ function cloneTraceStep(step: TraceStep): TraceStep {
     ...(step.detail !== undefined ? { detail: step.detail } : {}),
     ts: step.ts
   };
+}
+
+function cloneTraceResolutionSummary(summary?: TraceResolutionSummary): TraceResolutionSummary | undefined {
+  if (!summary) {
+    return undefined;
+  }
+
+  const cloned: TraceResolutionSummary = {
+    ...(summary.confidence ? { confidence: summary.confidence } : {}),
+    ...(summary.primaryReasonCode ? { primaryReasonCode: summary.primaryReasonCode } : {}),
+    ...(summary.invocationKind ? { invocationKind: summary.invocationKind } : {}),
+    ...(summary.invocationRisk ? { invocationRisk: summary.invocationRisk } : {}),
+    ...(summary.evidenceKinds ? { evidenceKinds: [...summary.evidenceKinds] } : {}),
+    ...(summary.targetCount !== undefined ? { targetCount: summary.targetCount } : {}),
+    ...(summary.hasAmbiguity !== undefined ? { hasAmbiguity: summary.hasAmbiguity } : {})
+  };
+
+  return Object.keys(cloned).length > 0 ? cloned : undefined;
 }
 
 function collectUniquePhases(steps: TraceStep[]): string[] {
@@ -124,7 +156,49 @@ export function getLastTrace(): TraceSnapshot | null {
       phases: [...lastTrace.phases],
       actions: [...lastTrace.actions],
       ...(lastTrace.lastStepName ? { lastStepName: lastTrace.lastStepName } : {}),
+      ...(cloneTraceResolutionSummary(lastTrace.resolution) ? { resolution: cloneTraceResolutionSummary(lastTrace.resolution) } : {}),
       steps: lastTrace.steps.map(cloneTraceStep)
     }
     : null;
+}
+
+export function subscribeTraceSnapshots(listener: TraceSnapshotListener): () => void {
+  traceSnapshotListeners.add(listener);
+  return () => {
+    traceSnapshotListeners.delete(listener);
+  };
+}
+
+function emitTraceSnapshot(snapshot: TraceSnapshot): void {
+  for (const listener of traceSnapshotListeners) {
+    listener({
+      label: snapshot.label,
+      startedAt: snapshot.startedAt,
+      endedAt: snapshot.endedAt,
+      durationMs: snapshot.durationMs,
+      stepCount: snapshot.stepCount,
+      phases: [...snapshot.phases],
+      actions: [...snapshot.actions],
+      ...(snapshot.lastStepName ? { lastStepName: snapshot.lastStepName } : {}),
+      ...(cloneTraceResolutionSummary(snapshot.resolution) ? { resolution: cloneTraceResolutionSummary(snapshot.resolution) } : {}),
+      steps: snapshot.steps.map(cloneTraceStep)
+    });
+  }
+}
+
+export function annotateLastTraceResolution(summary: TraceResolutionSummary): void {
+  if (!lastTrace) {
+    return;
+  }
+
+  const resolution = cloneTraceResolutionSummary(summary);
+  lastTrace = {
+    ...lastTrace,
+    ...(resolution ? { resolution } : {})
+  };
+
+  const snapshot = getLastTrace();
+  if (snapshot) {
+    emitTraceSnapshot(snapshot);
+  }
 }

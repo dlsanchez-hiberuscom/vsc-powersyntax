@@ -4,7 +4,10 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   resolveQualifierType,
   type QueryEvidenceEntry,
+  type QueryInvocationKind,
+  type QueryInvocationRisk,
   type QueryReasonCode,
+  resolveCurrentObjectAtLine,
   resolveTargetEntityDetailed,
   type QueryResolutionConfidence,
   type ResolvedTargetInfo
@@ -14,7 +17,7 @@ import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
 import { Entity, EntityKind } from '../knowledge/types';
 import { normalizeUri } from '../system/uriUtils';
-import { getInvocationContext, type InvocationContext } from '../utils/invocationContext';
+import { getEventApiInvocationContext, getInvocationContext, type InvocationContext } from '../utils/invocationContext';
 
 export interface DocumentQueryContext {
   context: InvocationContext | null;
@@ -24,6 +27,8 @@ export interface DocumentQueryContext {
   resolvedTargets: ResolvedTargetInfo | null;
   resolutionConfidence?: QueryResolutionConfidence;
   primaryResolutionReasonCode?: QueryReasonCode;
+  invocationKind?: QueryInvocationKind;
+  invocationRisk?: QueryInvocationRisk;
   hasResolutionAmbiguity: boolean;
   resolutionTargetCount: number;
   resolutionEvidenceKinds: QueryEvidenceEntry['kind'][];
@@ -58,9 +63,9 @@ export function createDocumentQueryContext(
 ): DocumentQueryContext {
   const currentUri = normalizeUri(document.uri);
   const documentEntities = getDocumentEntities(currentUri, kb, hotContext);
-  const currentMainObject = documentEntities.find((entity) => entity.kind === EntityKind.Type);
+  const currentMainObject = resolveCurrentObjectAtLine(currentUri, documentEntities, kb, position.line);
   const lines = document.getText().split(/\r?\n/);
-  const context = getInvocationContext(lines, position);
+  const context = getEventApiInvocationContext(lines, position) ?? getInvocationContext(lines, position);
   const resolvedTargets = context
     ? resolveTargetEntityDetailed(context, document.uri, kb, graph, {
       line: position.line,
@@ -77,6 +82,8 @@ export function createDocumentQueryContext(
     resolvedTargets,
     resolutionConfidence: resolvedTargets?.confidence,
     primaryResolutionReasonCode: resolvedTargets?.reasonCodes[0],
+    invocationKind: resolvedTargets?.invocationKind,
+    invocationRisk: resolvedTargets?.invocationRisk,
     hasResolutionAmbiguity: resolvedTargets?.evidence.some((entry) => entry.kind === 'distance-ambiguity') ?? false,
     resolutionTargetCount: resolvedTargets?.targets.length ?? 0,
     resolutionEvidenceKinds: resolvedTargets?.evidence.map((entry) => entry.kind) ?? []
@@ -100,5 +107,7 @@ export function resolveDocumentQualifierType(
   position: Position,
   kb: KnowledgeBase
 ): string | undefined {
-  return resolveQualifierType(qualifier, document.uri, kb, position.line);
+  const currentUri = normalizeUri(document.uri);
+  const currentObject = resolveCurrentObjectAtLine(currentUri, getDocumentEntities(currentUri, kb), kb, position.line);
+  return resolveQualifierType(qualifier, document.uri, kb, position.line, currentObject);
 }

@@ -80,6 +80,31 @@ suite('unit/cachePersistence', () => {
     assert.equal(restored.checkpoint.documents.length, 0);
   });
 
+  test('payload compatible sin schemaVersion explicito migra al schema actual y se reutiliza', () => {
+    const restored = resolveCheckpointRestore(
+      {
+        semanticEpoch: 12,
+        createdAt: 1,
+        metadata: { workspaceMode: 'workspace', rootUris: ['file:///workspace'] },
+        documents: [{ uri: 'file:///stale.sru', facts: [], scopes: [] }]
+      },
+      [
+        {
+          sequence: 1,
+          semanticEpoch: 13,
+          kind: 'remove',
+          uris: ['file:///stale.sru']
+        }
+      ],
+      { workspaceMode: 'workspace', rootUris: ['file:///workspace'] }
+    );
+
+    assert.equal(restored.decision.action, 'reuse');
+    assert.equal(restored.checkpoint.schemaVersion, CACHE_SCHEMA_VERSION);
+    assert.equal(restored.checkpoint.semanticEpoch, 13);
+    assert.equal(restored.checkpoint.documents.length, 0);
+  });
+
   test('journal inválido por secuencia duplicada fuerza rebuild limpio', () => {
     const restored = resolveCheckpointRestore(
       createCacheCheckpoint(2, [{ uri: 'file:///a.sru', facts: [], scopes: [] }], {
@@ -124,6 +149,48 @@ suite('unit/cachePersistence', () => {
 
     assert.equal(restored.decision.action, 'rebuild');
     assert.equal(restored.decision.reason, 'root-uris-mismatch');
+  });
+
+  test('checkpoint normaliza y conserva snapshot de discovery en metadata', () => {
+    const restored = resolveCheckpointRestore(
+      createCacheCheckpoint(2, [{ uri: 'file:///a.sru', facts: [], scopes: [] }], {
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace'],
+        discovery: {
+          sourceFiles: ['file:///workspace/lib.pbl/u_demo.sru', 'file:///workspace/lib.pbl/u_demo.sru'],
+          sourceOrigins: {
+            'file:///workspace/lib.pbl/u_demo.sru': 'pbl-folder-source'
+          },
+          roots: {
+            workspaces: ['file:///workspace/app.pbw'],
+            targets: [],
+            libraries: ['file:///workspace/lib.pbl', 'file:///workspace/lib.pbl'],
+            solutions: [],
+            projects: []
+          }
+        }
+      }),
+      [],
+      {
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      }
+    );
+
+    assert.equal(restored.decision.action, 'reuse');
+    assert.deepEqual(restored.checkpoint.metadata.discovery, {
+      sourceFiles: ['file:///workspace/lib.pbl/u_demo.sru'],
+      sourceOrigins: {
+        'file:///workspace/lib.pbl/u_demo.sru': 'pbl-folder-source'
+      },
+      roots: {
+        workspaces: ['file:///workspace/app.pbw'],
+        targets: [],
+        libraries: ['file:///workspace/lib.pbl'],
+        solutions: [],
+        projects: []
+      }
+    });
   });
 
   test('KnowledgeBase exporta y restaura registros documentales', () => {

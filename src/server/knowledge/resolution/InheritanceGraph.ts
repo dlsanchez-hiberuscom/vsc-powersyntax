@@ -11,6 +11,30 @@ export interface MemberClosureEntry {
   overriddenByCurrentType: boolean;
 }
 
+const VARIABLE_SCOPE_PRIORITY = new Map<NonNullable<Entity['scope']>, number>([
+  ['Compartida', 0],
+  ['Global', 1],
+  ['Instancia', 2],
+  ['Argumento', 3],
+  ['Local', 4],
+]);
+
+function compareMemberPriority(left: MemberClosureEntry, right: MemberClosureEntry): number {
+  if (left.distance !== right.distance) {
+    return left.distance - right.distance;
+  }
+
+  if (left.entity.kind === EntityKind.Variable && right.entity.kind === EntityKind.Variable) {
+    const leftPriority = VARIABLE_SCOPE_PRIORITY.get(left.entity.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
+    const rightPriority = VARIABLE_SCOPE_PRIORITY.get(right.entity.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+  }
+
+  return left.entity.line - right.entity.line;
+}
+
 export class InheritanceGraph {
   private lastVersion = -1;
   private readonly ancestorCache = new Map<string, string[]>();
@@ -178,7 +202,7 @@ export class InheritanceGraph {
       } satisfies MemberClosureEntry;
     });
 
-    closure.sort((left, right) => left.distance - right.distance);
+    closure.sort(compareMemberPriority);
     this.memberClosureCache.set(normalizedName, closure);
     this.memberCache.set(normalizedName, closure.map((entry) => entry.entity));
     return [...closure];

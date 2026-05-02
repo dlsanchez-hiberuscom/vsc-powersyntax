@@ -1,14 +1,21 @@
-# Corpus grande de pruebas — PFC 2025
+# Matriz de corpus públicos — PowerBuilder
 
 ## Objetivo
 
-Usar **PFC 2025** como corpus grande y realista para validar:
+Usar corpus públicos y reproducibles para validar:
 
 - carga del plugin,
 - arranque del servidor LSP,
 - indexación inicial,
 - apertura incremental,
-- y estabilidad sobre un workspace grande.
+- estabilidad sobre workspaces grandes,
+- y compatibilidad con fuentes legacy y especializaciones del ecosistema.
+
+La integración mínima actual del ciclo cubre:
+
+- **PFC 2025 Workspace**;
+- **PFC 2025 Solution**;
+- **legacy PBL dump** como slot de regresión real para fuentes exportadas.
 
 ## Repositorios recomendados
 
@@ -34,6 +41,34 @@ Motivo:
 - permite validar el plugin también sobre el formato **Solution**;
 - sirve para comprobar que el descubrimiento de proyecto funciona bien en ambos formatos.
 
+## Matriz pública reproducible
+
+| Categoría | Repositorios públicos recomendados | Fixture local recomendado | Uso principal |
+|---|---|---|---|
+| PFC 2025 Workspace | `OpenSourcePFCLibraries/2025-Workspace` | `fixtures-local/pfc/2025-Workspace` | smoke/performance sobre workspace real |
+| PFC 2025 Solution | `OpenSourcePFCLibraries/2025-Solution` | `fixtures-local/pfc/2025-Solution` | discovery y extension smoke sobre solution real |
+| DataWindow examples | `Appeon/PowerBuilder-Dw2Doc-Example`, `sebkirche/PowerBuilder-DataWindow`, `thansuoi113` DataWindow examples | `fixtures-local/public/datawindow-examples` | parser/links/hover DataWindow |
+| PBL dump examples | `gmai2006/powerbuilder-pbl-dump`, `rwxce/pb-toolkit`, `Hucxy/PBDWEDIT` | `fixtures-local/public/legacy-pbl-dump` | regresión sobre fuente legacy exportada |
+| ORCA/build examples | `Appeon/PowerBuilder-AutoBuild-Sales-Example`, `zrh535/pborca`, `zhj149/PowerBuilder-ORCA` | `fixtures-local/public/orca-build-examples` | flujos de build y staging separados del hot path |
+| Native/PBNI examples | `informaticon/cpp-pbni-framework`, `bruce-armstrong/pbnismtp`, `arnd-schmidt/pbwebview2` | `fixtures-local/public/native-pbni-examples` | detección de dependencias nativas y límites de rename/reference |
+| Modern JSON/WebView2 examples | `LEXBLAS/jsonapi`, `Appeon/PowerBuilder-Graph-Example-WebView2`, `lxb320124/pbidea` | `fixtures-local/public/modern-integrations` | JSON, WebView2 y código dinámico |
+
+## Criterios de inclusión
+
+- corpus público y clonable sin credenciales;
+- contenido mayoritariamente source-based y útil para el plugin;
+- representatividad clara de una categoría PowerBuilder real;
+- estructura suficientemente estable para repetir validaciones;
+- preparación local documentable sin contaminar `src/`.
+
+## Criterios de exclusión
+
+- mirrors privados o con licencia no verificable;
+- dumps binarios sin fuente legible por el plugin;
+- ejemplos puramente generados que no aportan comportamiento real;
+- corpus que mezclen source real con `orca-staging` sin procedencia clara;
+- dependencias que exijan modificar el producto para poder inspeccionarlas.
+
 ## Política del repositorio
 
 Este corpus **no debe mezclarse con el código productivo del plugin**.
@@ -47,14 +82,21 @@ fixtures-local/
   pfc/
     2025-Workspace/
     2025-Solution/
+  public/
+    legacy-pbl-dump/
+    datawindow-examples/
+    orca-build-examples/
+    native-pbni-examples/
+    modern-integrations/
 ```
 
 ## Flujo recomendado
 
-1. Clonar o copiar `2025-Workspace` en `fixtures-local/pfc/2025-Workspace`
-2. Clonar o copiar `2025-Solution` en `fixtures-local/pfc/2025-Solution`
-3. Usar primero `2025-Workspace` como corpus principal de smoke/performance
-4. Usar después `2025-Solution` como validación secundaria
+1. Clonar o copiar `2025-Workspace` en `fixtures-local/pfc/2025-Workspace`.
+2. Clonar o copiar `2025-Solution` en `fixtures-local/pfc/2025-Solution`.
+3. Clonar al menos un dump público de PBL en `fixtures-local/public/legacy-pbl-dump`.
+4. Añadir DataWindow / ORCA-build / native / modern integrations solo cuando la validación del área lo necesite.
+5. Mantener estos corpus fuera de Git y documentar localmente commit o tag si se usan para comparar regresiones.
 
 ## Qué validar con este corpus
 
@@ -63,6 +105,7 @@ fixtures-local/
 - el plugin activa correctamente;
 - el servidor LSP levanta;
 - el archivo activo responde con hover, símbolos y diagnósticos básicos.
+- las fuentes legacy exportadas siguen parseando y produciendo símbolos/diagnósticos estructurales.
 
 ### Performance
 
@@ -71,8 +114,17 @@ fixtures-local/
 - prioridad del archivo activo;
 - estabilidad del servidor con muchos archivos.
 
+## Integración actual en el ciclo
+
+- `test/smoke/pfc-workspace.extension.test.ts` valida la extensión real sobre **PFC 2025 Workspace**;
+- `test/smoke/pfc-solution.extension.test.ts` valida la extensión real sobre **PFC 2025 Solution**;
+- `test/server/performance/pfc-workspace.smoke.test.ts` y `pfc-workspace.perf.test.ts` validan **PFC 2025 Workspace**;
+- `test/server/performance/pfc-solution.smoke.test.ts` mantiene smoke parser/symbols sobre **PFC 2025 Solution**;
+- `test/server/performance/legacy-pbl-dump.smoke.test.ts` introduce regresión básica sobre **legacy PBL dump**.
+
 ## Qué no hacer
 
 - no commitear PFC dentro del repo principal;
+- no commitear corpus públicos auxiliares dentro del repo principal;
 - no usar el corpus grande como sustituto de los fixtures pequeños de unit tests;
 - no mezclar este corpus con `src/` ni con el código del producto.

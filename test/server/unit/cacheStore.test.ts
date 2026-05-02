@@ -76,6 +76,56 @@ suite('unit/cacheStore', () => {
     }
   });
 
+  test('load fuerza rebuild limpio si el checkpoint persistido esta truncado', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const store = createSemanticCacheStore(new NodeFileSystem(), storageUri, ['file:///workspace']);
+
+    try {
+      const persistedRoot = path.join(tempRoot, store.workspaceKey);
+      await fs.mkdir(persistedRoot, { recursive: true });
+      await fs.writeFile(path.join(persistedRoot, 'semantic-checkpoint.json'), '{"schemaVersion":', 'utf8');
+
+      const restored = await store.load({
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      });
+
+      assert.equal(restored.decision.action, 'rebuild');
+      assert.equal(restored.decision.reason, 'invalid-checkpoint-payload');
+      assert.deepEqual(restored.checkpoint.documents, []);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('load fuerza rebuild limpio si el journal persistido esta corrupto', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const store = createSemanticCacheStore(new NodeFileSystem(), storageUri, ['file:///workspace']);
+
+    try {
+      await store.persistCheckpoint(createCacheCheckpoint(3, [{ uri: 'file:///a.sru', version: 'hash-a', facts: [], scopes: [] }], {
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      }));
+
+      const persistedRoot = path.join(tempRoot, store.workspaceKey);
+      await fs.writeFile(path.join(persistedRoot, 'semantic-journal.json'), '[{"schemaVersion":1', 'utf8');
+
+      const restored = await store.load({
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      });
+
+      assert.equal(restored.decision.action, 'rebuild');
+      assert.equal(restored.decision.reason, 'invalid-checkpoint-payload');
+      assert.deepEqual(restored.checkpoint.documents, []);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test('persistCheckpoint particiona checkpoints por proyecto y recompone el restore agregado', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
     const storageUri = fsPathToUri(tempRoot);

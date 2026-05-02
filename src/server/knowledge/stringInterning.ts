@@ -28,6 +28,8 @@ export function internEntity(entity: Entity, intern: InternString): Entity {
     ...(entity.signature !== undefined ? { signature: intern(entity.signature) } : {}),
     ...(entity.documentation !== undefined ? { documentation: intern(entity.documentation) } : {}),
     ...(entity.containerName !== undefined ? { containerName: intern(entity.containerName) } : {}),
+    ...(entity.containerSignature !== undefined ? { containerSignature: intern(entity.containerSignature) } : {}),
+    ...(entity.fileObjectName !== undefined ? { fileObjectName: intern(entity.fileObjectName) } : {}),
     ...(entity.baseTypeName !== undefined ? { baseTypeName: intern(entity.baseTypeName) } : {}),
     ...(entity.datatype !== undefined ? { datatype: intern(entity.datatype) } : {}),
     ...(entity.parameters ? {
@@ -37,12 +39,15 @@ export function internEntity(entity: Entity, intern: InternString): Entity {
       }))
     } : {}),
     ...(entity.scope !== undefined ? { scope: intern(entity.scope) as Entity['scope'] } : {}),
+    ...(entity.declarationScope !== undefined ? { declarationScope: intern(entity.declarationScope) as Entity['declarationScope'] } : {}),
     ...(entity.access !== undefined ? { access: intern(entity.access) } : {}),
     ...(entity.containerKind !== undefined ? { containerKind: intern(entity.containerKind) } : {}),
     ...(entity.implementationKind !== undefined ? { implementationKind: intern(entity.implementationKind) as Entity['implementationKind'] } : {}),
     ...(entity.returnType !== undefined ? { returnType: intern(entity.returnType) } : {}),
     ...(entity.ownerName !== undefined ? { ownerName: intern(entity.ownerName) } : {}),
     ...(entity.externalLibraryName !== undefined ? { externalLibraryName: intern(entity.externalLibraryName) } : {}),
+    ...(entity.externalAlias !== undefined ? { externalAlias: intern(entity.externalAlias) } : {}),
+    ...(entity.externalDependencyKind !== undefined ? { externalDependencyKind: intern(entity.externalDependencyKind) as Entity['externalDependencyKind'] } : {}),
     ...(entity.signatureLabel !== undefined ? { signatureLabel: intern(entity.signatureLabel) } : {}),
     ...(entity.kindLabel !== undefined ? { kindLabel: intern(entity.kindLabel) } : {}),
     ...(entity.lineage ? { lineage: internLineage(entity.lineage, intern) } : {}),
@@ -126,6 +131,7 @@ function internOptional<T extends string | undefined>(value: T, intern: InternSt
 function internLineage(lineage: EntityLineage, intern: InternString): EntityLineage {
   return {
     ...(lineage.sourceKind !== undefined ? { sourceKind: intern(lineage.sourceKind) } : {}),
+    ...(lineage.sourceOrigin !== undefined ? { sourceOrigin: intern(lineage.sourceOrigin) as EntityLineage['sourceOrigin'] } : {}),
     ...(lineage.authority !== undefined ? { authority: intern(lineage.authority) } : {}),
     ...(lineage.phase !== undefined ? { phase: intern(lineage.phase) } : {}),
     ...(lineage.role !== undefined ? { role: intern(lineage.role) } : {}),

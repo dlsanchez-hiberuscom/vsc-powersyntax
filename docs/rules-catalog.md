@@ -97,25 +97,27 @@ Cada regla debe tener:
 
 ## PB-DW-001 — DataWindow not found
 
-- **Estado:** draft
+- **Estado:** active
 - **Severidad default:** warning
-- **Readiness mínima:** project-semantic-ready
-- **Confidence mínima:** high
-- **Aplica a:** `DataObject = "d_xxx"`
-
-## PB-DW-002 — DataObject assignment cannot be resolved
-
-- **Estado:** draft
-- **Severidad default:** info
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** medium
+- **Aplica a:** `DataObject = "d_xxx"` cuando no existe un `.srd` único indexado
 
-## PB-DW-003 — Dynamic Modify/Describe confidence downgrade
+## PB-DW-002 — Retrieve argument count mismatch
 
-- **Estado:** draft
+- **Estado:** active
+- **Severidad default:** warning
+- **Readiness mínima:** nearby-semantic-ready
+- **Confidence mínima:** high
+- **Aplica a:** `dw_1.Retrieve(...)`, `lds.Retrieve(...)` cuando el `DataObject` literal enlaza con un `.srd` único y la aridad no coincide con `arguments=(...)`
+
+## PB-DW-003 — DataObject assignment cannot be resolved
+
+- **Estado:** active
 - **Severidad default:** info
-- **Readiness mínima:** structural-only
+- **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** low
+- **Aplica a:** `DataObject` dinámico o literal ambiguo, cuando el binding no permite navegación ni serving fiable hacia un `.srd`
 
 ---
 

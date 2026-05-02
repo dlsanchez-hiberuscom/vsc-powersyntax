@@ -167,4 +167,46 @@ end subroutine
     const items = provideCompletion(doc, pos, kb, systemCatalog, graph, hotContext, kb.version);
     assert.ok(items?.some((item) => item.label === 'of_cached'));
   });
+
+  test('debe sugerir miembros de SQLCA como transaction especial', () => {
+    const doc = setupDocument('file:///test_sqlca.sru', `
+global type test_sqlca from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  SQLCA.
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'SQLCA.');
+    const pos = Position.create(lineIndex, 8);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items?.some((item) => item.label === 'DBHandle'));
+  });
+
+  test('debe sugerir SetTransObject y Retrieve para datastore tipado', () => {
+    const doc = setupDocument('file:///test_datastore.sru', `
+global type test_datastore from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  datastore ids_orders
+  ids_orders.
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'ids_orders.');
+    const pos = Position.create(lineIndex, 13);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items?.some((item) => item.label === 'SetTransObject'));
+    assert.ok(items?.some((item) => item.label === 'Retrieve'));
+  });
 });

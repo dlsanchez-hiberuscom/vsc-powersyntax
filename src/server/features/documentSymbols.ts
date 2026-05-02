@@ -3,6 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
+import { buildDataWindowLegacyDocumentSymbols } from './dataWindowLegacySafeMode';
 import { createSectionSymbol, findEnclosingSection } from '../parsing/sections';
 import {
   createSymbol
@@ -10,6 +11,10 @@ import {
 import { EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
 export function extractDocumentSymbols(document: TextDocument): DocumentSymbol[] {
+  if (document.uri.toLowerCase().endsWith('.srd')) {
+    return buildDataWindowLegacyDocumentSymbols(document);
+  }
+
   return extractDocumentSymbolsFromSnapshot(getDocumentAnalysis(document).snapshot);
 }
 

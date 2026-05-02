@@ -10,6 +10,12 @@ import { InvocationContext } from '../utils/invocationContext';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
+import { resolveDocumentQualifierType } from './queryContext';
+import {
+  DATAWINDOW_BIND_OWNER_TYPES,
+  findNearestDataObjectLiteralBinding,
+  resolveDataWindowRetrieveArguments,
+} from './dataWindowBindingModel';
 
 export function provideSignatureHelp(
   document: TextDocument,
@@ -28,9 +34,29 @@ export function provideSignatureHelp(
 
   const context: InvocationContext = { identifier, qualifier };
   const currentUri = normalizeUri(document.uri);
+  const ownerType = qualifier
+    ? resolveDocumentQualifierType(document, qualifier, position, kb)
+    : undefined;
+
+  const linkedRetrieveSignature = identifier.toLowerCase() === 'retrieve'
+    && qualifier
+    && ownerType
+    && DATAWINDOW_BIND_OWNER_TYPES.has(ownerType.toLowerCase())
+    ? buildLinkedDataWindowRetrieveSignature(document, qualifier, position.line, kb)
+    : null;
+  if (linkedRetrieveSignature) {
+    return {
+      signatures: [linkedRetrieveSignature],
+      activeSignature: 0,
+      activeParameter,
+    };
+  }
 
   // 1. Intentar resolver en SystemCatalog
-  const sysTargets = systemCatalog.findSystemSymbol(identifier);
+  const ownerScopedTarget = ownerType
+    ? systemCatalog.resolveMemberFunctionForOwner(identifier, [ownerType])
+    : undefined;
+  const sysTargets = ownerScopedTarget ? [ownerScopedTarget] : systemCatalog.findSystemSymbol(identifier);
   if (sysTargets.length > 0) {
     // Si hay qualifier, validar que aplique, pero para signature help
     // seremos un poco más permisivos si es una función de sistema
@@ -113,6 +139,36 @@ export function provideSignatureHelp(
   }
 
   return null;
+}
+
+function buildLinkedDataWindowRetrieveSignature(
+  document: TextDocument,
+  qualifier: string,
+  line: number,
+  kb: KnowledgeBase
+): SignatureInformation | null {
+  const dataObjectLiteral = findNearestDataObjectLiteralBinding(document, qualifier, line);
+  if (!dataObjectLiteral) {
+    return null;
+  }
+
+  const retrieveArguments = resolveDataWindowRetrieveArguments(dataObjectLiteral, kb);
+  if (retrieveArguments.length === 0) {
+    return null;
+  }
+
+  const parameters = retrieveArguments.map((argument) =>
+    ParameterInformation.create(
+      argument.label,
+      `Argumento de retrieve '${argument.name}' (${argument.type}) del DataWindow '${dataObjectLiteral}'.`
+    )
+  );
+
+  return SignatureInformation.create(
+    `Retrieve(${retrieveArguments.map((argument) => argument.label).join(', ')})`,
+    `Retrieve del DataWindow '${dataObjectLiteral}' enlazado por DataObject.`,
+    ...parameters
+  );
 }
 
 function extractSignatureContext(document: TextDocument, position: Position): { identifier: string; qualifier?: string; activeParameter: number } | null {

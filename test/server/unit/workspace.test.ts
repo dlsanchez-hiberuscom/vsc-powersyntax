@@ -77,6 +77,15 @@ class FakeFileSystem implements IFileSystem {
   }
 }
 
+class RecordingFileSystem extends FakeFileSystem {
+  readonly readOrder: string[] = [];
+
+  override async readDirectory(uri: string): Promise<[string, FileStat][]> {
+    this.readOrder.push(uri);
+    return super.readDirectory(uri);
+  }
+}
+
 suite('unit/workspace', () => {
   test('discovery encuentra roots y archivos validos', async () => {
     const fs = new FakeFileSystem();
@@ -235,6 +244,30 @@ suite('unit/workspace', () => {
     }
   });
 
+  test('discovery procesa siblings en orden estable antes de profundizar subárboles grandes', async () => {
+    const fs = new RecordingFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///workspace');
+    fs.addDir('file:///workspace/plugin_old');
+    fs.addDir('file:///workspace/plugin_old/deep');
+    fs.addDir('file:///workspace/fixtures-local');
+    fs.addFile('file:///workspace/fixtures-local/app.pbw');
+    fs.addDir('file:///workspace/fixtures-local/lib.pbl');
+    fs.addFile('file:///workspace/fixtures-local/lib.pbl/u_demo.sru');
+
+    await discoverWorkspace(['file:///workspace'], fs, state, cancelSource.token);
+
+    assert.deepEqual(fs.readOrder.slice(0, 4), [
+      'file:///workspace',
+      'file:///workspace/fixtures-local',
+      'file:///workspace/fixtures-local/lib.pbl',
+      'file:///workspace/plugin_old'
+    ]);
+    assert.ok(state.hasSourceFile('file:///workspace/fixtures-local/lib.pbl/u_demo.sru'));
+  });
+
   test('refreshProjectRouting recompone registry y model desde topology + knownFiles', () => {
     const state = new WorkspaceState();
 
@@ -289,6 +322,32 @@ suite('unit/workspace', () => {
 
     state.addSourceFile('file:///proj/lib_app.pbl/u_demo.sru');
     assert.equal(state.isIndexDirty(), true);
+  });
+
+  test('workspaceState exporta, restaura y reemplaza snapshots de discovery', () => {
+    const restored = new WorkspaceState();
+    restored.addRoot('workspaces', 'file:///proj/app.pbw');
+    restored.addRoot('libraries', 'file:///proj/lib_app.pbl');
+    restored.addSourceFile('file:///proj/lib_app.pbl/u_demo.sru', 'pbl-folder-source');
+
+    const snapshot = restored.exportDiscoverySnapshot();
+
+    const rehydrated = new WorkspaceState();
+    rehydrated.restoreDiscoverySnapshot(snapshot);
+
+    assert.deepEqual(rehydrated.getRoots(), snapshot.roots);
+    assert.deepEqual(rehydrated.getAllSourceFiles(), snapshot.sourceFiles);
+    assert.equal(rehydrated.getSourceOrigin('file:///proj/lib_app.pbl/u_demo.sru'), 'pbl-folder-source');
+
+    const discovered = new WorkspaceState();
+    discovered.addRoot('solutions', 'file:///proj/app.pbsln');
+    discovered.addSourceFile('file:///proj/lib_app.pbl/n_cst_calc.sru', 'solution-source');
+
+    rehydrated.replaceFrom(discovered);
+
+    assert.deepEqual(rehydrated.getRoots(), discovered.getRoots());
+    assert.deepEqual(rehydrated.getAllSourceFiles(), discovered.getAllSourceFiles());
+    assert.equal(rehydrated.getSourceOrigin('file:///proj/lib_app.pbl/n_cst_calc.sru'), 'solution-source');
   });
 
   test('clear reinicia registry y project model de routing', () => {

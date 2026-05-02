@@ -17,6 +17,19 @@
  * @module parsing/controlBlocks
  */
 
+import {
+  CHOOSE_CASE_OPEN_PATTERN,
+  DO_OPEN_PATTERN,
+  END_CHOOSE_PATTERN,
+  END_IF_PATTERN,
+  END_TRY_PATTERN,
+  FOR_OPEN_PATTERN,
+  IF_BLOCK_OPEN_PATTERN,
+  LOOP_PATTERN,
+  NEXT_PATTERN,
+  TRY_OPEN_PATTERN
+} from './grammar';
+
 export type ControlBlockKind = 'if' | 'for' | 'do' | 'choose-case' | 'try';
 
 export interface ControlBlockRange {
@@ -24,19 +37,6 @@ export interface ControlBlockRange {
   startLine: number;
   endLine: number;
 }
-
-const RE = {
-  if: /^if\b.*\bthen\s*$/i,
-  for: /^for\b/i,
-  do: /^do\b/i,
-  chooseCase: /^choose\s+case\b/i,
-  try: /^try\b/i,
-  endIf: /^end\s+if\b/i,
-  next: /^next\b/i,
-  loop: /^loop\b/i,
-  endChoose: /^end\s+choose\b/i,
-  endTry: /^end\s+try\b/i
-};
 
 /**
  * Recorre un fragmento de líneas (`strippedLines.slice(start, end+1)`) y
@@ -78,45 +78,45 @@ export function scanControlBlocks(
     }
 
     // Cierres
-    if (RE.endIf.test(line)) {
+    if (END_IF_PATTERN.test(line)) {
       popUntil(stack, 'if', i, out);
       continue;
     }
-    if (RE.next.test(line)) {
+    if (NEXT_PATTERN.test(line)) {
       popUntil(stack, 'for', i, out);
       continue;
     }
-    if (RE.loop.test(line)) {
+    if (LOOP_PATTERN.test(line)) {
       popUntil(stack, 'do', i, out);
       continue;
     }
-    if (RE.endChoose.test(line)) {
+    if (END_CHOOSE_PATTERN.test(line)) {
       popUntil(stack, 'choose-case', i, out);
       continue;
     }
-    if (RE.endTry.test(line)) {
+    if (END_TRY_PATTERN.test(line)) {
       popUntil(stack, 'try', i, out);
       continue;
     }
 
     // Aperturas
-    if (RE.if.test(line)) {
+    if (IF_BLOCK_OPEN_PATTERN.test(line)) {
       stack.push({ kind: 'if', line: logicalStart });
       continue;
     }
-    if (RE.for.test(line)) {
+    if (FOR_OPEN_PATTERN.test(line)) {
       stack.push({ kind: 'for', line: logicalStart });
       continue;
     }
-    if (RE.do.test(line)) {
+    if (DO_OPEN_PATTERN.test(line)) {
       stack.push({ kind: 'do', line: logicalStart });
       continue;
     }
-    if (RE.chooseCase.test(line)) {
+    if (CHOOSE_CASE_OPEN_PATTERN.test(line)) {
       stack.push({ kind: 'choose-case', line: logicalStart });
       continue;
     }
-    if (RE.try.test(line)) {
+    if (TRY_OPEN_PATTERN.test(line)) {
       stack.push({ kind: 'try', line: logicalStart });
       continue;
     }

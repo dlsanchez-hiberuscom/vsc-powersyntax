@@ -1,6 +1,6 @@
 import * as assert from 'assert/strict';
 
-import type { Connection } from 'vscode-languageserver/node';
+import { DiagnosticSeverity, type Connection } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
@@ -15,7 +15,9 @@ import { loadFixture } from '../helpers/fixtureLoader';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
+import { EntityKind } from '../../../src/server/knowledge/types';
 import { setAnalysisBackends, clearDocumentAnalysisCache } from '../../../src/server/analysis/analysisCache';
+import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import type { WorkspaceState } from '../../../src/server/workspace/workspaceState';
 
@@ -103,11 +105,357 @@ suite('unit/diagnostics', () => {
     const hasUnusedPrivate = messages.some(m => m.includes("La variable de instancia privada 'is_unused_var' no se usa en ningún método o evento del archivo."));
     const hasUnknownFunc = messages.some(m => m.includes("La función 'of_nonexistent_function' no se encuentra"));
     const hasUnknownFunc2 = messages.some(m => m.includes("La función 'of_also_missing' no se encuentra"));
+    const unknownFuncDiagnostic = diagnostics.find(d => d.message.includes("La función 'of_nonexistent_function' no se encuentra"));
 
     assert.ok(hasUnusedLocal, 'No se detectó variable local no usada');
     assert.ok(hasUnusedPrivate, 'No se detectó variable privada no usada');
     assert.ok(hasUnknownFunc, 'No se detectó función no existente');
     assert.ok(hasUnknownFunc2, 'No se detectó segunda función no existente');
+    assert.deepEqual(unknownFuncDiagnostic?.data, {
+      kind: 'semantic-evidence',
+      confidence: 'low',
+      reasonCodes: [],
+      evidenceKinds: [],
+      targetCount: 0,
+      candidateCount: 0,
+      hasAmbiguity: false
+    });
+  });
+
+  test('validateSemantics proyecta evidence del query engine en SD2 con qualifier semántico', () => {
+    const source = [
+      'global type w_base from window',
+      'end type',
+      '',
+      'global type w_child from w_base',
+      'public function integer of_test ()',
+      '  super.of_missing()',
+      '  return 0',
+      'end function',
+      'end type'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_evidence.srw', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missing = diagnostics.find(d => d.message.includes("La función 'of_missing' no se encuentra"));
+
+    assert.ok(missing, 'Esperaba un SD2 para super.of_missing().');
+    assert.deepEqual(missing?.data, {
+      kind: 'semantic-evidence',
+      confidence: 'low',
+      reasonCodes: [],
+      evidenceKinds: ['discarded-context'],
+      targetCount: 0,
+      candidateCount: 0,
+      hasAmbiguity: false
+    });
+  });
+
+  test('validateSemantics informa dependencias nativas externas sin implementación interna', () => {
+    const source = [
+      'global type w_native from window',
+      'end type',
+      'forward prototypes',
+      'public function long of_external (string as_input) library "kernel32.dll" alias for "OfExternal";',
+      'end prototypes'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_external.srw', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const external = diagnostics.find((diag) => diag.message.includes("La declaración externa 'of_external'"));
+
+    assert.ok(external, 'Esperaba un diagnóstico informativo para la external function.');
+    assert.equal(external?.severity, DiagnosticSeverity.Information);
+    assert.deepEqual(external?.data, {
+      kind: 'native-dependency',
+      dependencyKind: 'dll',
+      library: 'kernel32.dll',
+      alias: 'OfExternal'
+    });
+  });
+
+  test('validateSemantics avisa si create no llama a super::create teniendo ancestro', () => {
+    kb.upsertDocument('file:///w_base_lifecycle.srw', [
+      {
+        id: 'w_base_lifecycle',
+        name: 'w_base_lifecycle',
+        kind: EntityKind.Type,
+        uri: 'file:///w_base_lifecycle.srw',
+        line: 0,
+        character: 0,
+        baseTypeName: 'window'
+      }
+    ]);
+
+    const source = [
+      'global type w_child_lifecycle from w_base_lifecycle',
+      'end type',
+      '',
+      'on w_child_lifecycle.create',
+      '  TriggerEvent(this, "constructor")',
+      'end on',
+      '',
+      'event constructor;',
+      'end event'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_lifecycle_missing_super.srw', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missingSuper = diagnostics.find((diag) => diag.message.includes("no llama a super::create"));
+
+    assert.ok(missingSuper, 'Esperaba un warning lifecycle por falta de super::create.');
+    assert.equal(missingSuper?.severity, DiagnosticSeverity.Warning);
+    assert.deepEqual(missingSuper?.data, {
+      kind: 'lifecycle-warning',
+      code: 'missing-super-create',
+      phase: 'create',
+      focusType: 'w_child_lifecycle'
+    });
+  });
+
+  test('validateSemantics avisa si create declara constructor pero no lo dispara', () => {
+    const source = [
+      'global type w_lifecycle_missing_trigger from window',
+      'end type',
+      '',
+      'on w_lifecycle_missing_trigger.create',
+      '  call super::create',
+      'end on',
+      '',
+      'event constructor;',
+      'end event'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_lifecycle_missing_trigger.srw', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missingTrigger = diagnostics.find((diag) => diag.message.includes("declara el hook 'constructor' pero no lo dispara"));
+
+    assert.ok(missingTrigger, 'Esperaba un warning lifecycle por constructor no disparado.');
+    assert.equal(missingTrigger?.severity, DiagnosticSeverity.Warning);
+    assert.deepEqual(missingTrigger?.data, {
+      kind: 'lifecycle-warning',
+      code: 'missing-trigger-constructor',
+      phase: 'create',
+      focusType: 'w_lifecycle_missing_trigger'
+    });
+  });
+
+  test('validateSemantics relaciona SetTransObject con variables transaction conocidas', () => {
+    const source = [
+      'global type n_tx from nonvisualobject',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      'public subroutine of_test()',
+      '  transaction ltr_db',
+      '  datastore ids_orders',
+      '  ids_orders.SetTransObject(ltr_db)',
+      '  ids_orders.Retrieve()',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_transaction_known.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const transactionDiagnostics = diagnostics.filter((diag) => String(diag.data && (diag.data as { kind?: string }).kind) === 'transaction-binding');
+
+    assert.equal(transactionDiagnostics.length, 0);
+  });
+
+  test('validateSemantics acepta SQLCA como transaction global especial en SetTrans', () => {
+    const source = [
+      'global type n_sqlca from nonvisualobject',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      'public subroutine of_test()',
+      '  datastore ids_orders',
+      '  ids_orders.SetTrans(SQLCA)',
+      '  ids_orders.Update()',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_sqlca_known.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const transactionDiagnostics = diagnostics.filter((diag) => String(diag.data && (diag.data as { kind?: string }).kind) === 'transaction-binding');
+
+    assert.equal(transactionDiagnostics.length, 0);
+  });
+
+  test('validateSemantics avisa cuando Retrieve no tiene transaction conocida', () => {
+    const source = [
+      'global type n_tx_missing from nonvisualobject',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      'public subroutine of_test()',
+      '  datastore ids_orders',
+      '  ids_orders.Retrieve()',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_transaction_missing.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missing = diagnostics.find((diag) => diag.message.includes('ids_orders.Retrieve()') && diag.message.includes('transaction object conocido'));
+
+    assert.ok(missing, 'Esperaba un diagnóstico para Retrieve sin transaction conocida.');
+    assert.equal(missing?.severity, DiagnosticSeverity.Warning);
+    assert.deepEqual(missing?.data, {
+      kind: 'transaction-binding',
+      state: 'missing',
+      confidence: 'low',
+      operation: 'Retrieve',
+      target: 'ids_orders',
+      argument: undefined
+    });
+  });
+
+  test('validateSemantics degrada confidence cuando SetTransObject es dinámico', () => {
+    const source = [
+      'global type n_tx_dynamic from nonvisualobject',
+      'end type',
+      'forward prototypes',
+      'public function transaction of_resolve_tx()',
+      'public subroutine of_test()',
+      'end prototypes',
+      'public function transaction of_resolve_tx();',
+      '  transaction ltr_db',
+      '  return ltr_db',
+      'end function',
+      'public subroutine of_test()',
+      '  datastore ids_orders',
+      '  ids_orders.SetTransObject(of_resolve_tx())',
+      '  ids_orders.Update()',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_transaction_dynamic.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const dynamic = diagnostics.find((diag) => diag.message.includes('confidence semántica') && diag.message.includes('ids_orders.Update()'));
+
+    assert.ok(dynamic, 'Esperaba un diagnóstico informativo para binding transaccional dinámico.');
+    assert.equal(dynamic?.severity, DiagnosticSeverity.Information);
+    assert.deepEqual(dynamic?.data, {
+      kind: 'transaction-binding',
+      state: 'dynamic',
+      confidence: 'low',
+      operation: 'Update',
+      target: 'ids_orders',
+      argument: 'of_resolve_tx('
+    });
+  });
+
+  test('validateSemantics avisa cuando un DataObject literal no apunta a un .srd conocido', () => {
+    const source = [
+      'global type w_dw_missing from window',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_bind()',
+      'end prototypes',
+      'public subroutine of_bind()',
+      '  datastore ids_orders',
+      '  ids_orders.DataObject = "d_missing_orders"',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_dataobject_missing.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missing = diagnostics.find((diag) => diag.message.includes('d_missing_orders') && diag.message.includes('no se encuentra como .srd indexado'));
+
+    assert.ok(missing, 'Esperaba un warning por DataObject literal sin target .srd.');
+    assert.equal(missing?.severity, DiagnosticSeverity.Warning);
+    assert.deepEqual(missing?.data, {
+      kind: 'dataobject-binding',
+      state: 'missing',
+      confidence: 'medium',
+      target: 'ids_orders',
+      dataObject: 'd_missing_orders',
+      targetCount: 0
+    });
+  });
+
+  test('validateSemantics degrada confidence cuando el binding de DataObject es dinámico', () => {
+    const source = [
+      'global type w_dw_dynamic from window',
+      'end type',
+      'forward prototypes',
+      'public function string of_resolve_dw()',
+      'public subroutine of_bind()',
+      'end prototypes',
+      'public function string of_resolve_dw();',
+      '  return "d_orders"',
+      'end function',
+      'public subroutine of_bind()',
+      '  datastore ids_orders',
+      '  ids_orders.DataObject = of_resolve_dw()',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_dataobject_dynamic.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const dynamic = diagnostics.find((diag) => diag.message.includes('asignación dinámica de DataObject'));
+
+    assert.ok(dynamic, 'Esperaba un diagnóstico informativo por DataObject dinámico.');
+    assert.equal(dynamic?.severity, DiagnosticSeverity.Information);
+    assert.deepEqual(dynamic?.data, {
+      kind: 'dataobject-binding',
+      state: 'dynamic',
+      confidence: 'low',
+      target: 'ids_orders',
+      expression: 'of_resolve_dw()'
+    });
+  });
+
+  test('validateSemantics avisa cuando Retrieve no respeta la aridad de argumentos del .srd enlazado', () => {
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_sales_orders.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_sales_orders.srd',
+        'release 39;',
+        'table(retrieve="PBSELECT( VERSION(400) TABLE(NAME=~"sales_order~" ) ARG(NAME = ~"custarg~" TYPE = number) " arguments=(("custarg", number)) )" )'
+      ].join('\r\n')
+    );
+    const dataWindowAnalysis = analyzeDocument(dataWindowDocument);
+    kb.upsertDocument(
+      dataWindowDocument.uri,
+      dataWindowAnalysis.semanticFacts,
+      dataWindowAnalysis.scopes,
+      dataWindowAnalysis.snapshot
+    );
+
+    const source = [
+      'global type w_dw_retrieve_args from window',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_bind()',
+      'end prototypes',
+      'public subroutine of_bind()',
+      '  datastore ids_orders',
+      '  ids_orders.SetTrans(SQLCA)',
+      '  ids_orders.DataObject = "d_sales_orders"',
+      '  ids_orders.Retrieve()',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_dataobject_retrieve_arity.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const mismatch = diagnostics.find((diag) => diag.message.includes('ids_orders.Retrieve') && diag.message.includes('espera 1 argumento'));
+
+    assert.ok(mismatch, 'Esperaba un warning por aridad incorrecta en Retrieve enlazado a un DataObject literal.');
+    assert.equal(mismatch?.severity, DiagnosticSeverity.Warning);
+    assert.deepEqual(mismatch?.data, {
+      kind: 'dataobject-retrieve-args',
+      confidence: 'high',
+      target: 'ids_orders',
+      dataObject: 'd_sales_orders',
+      expectedArgumentCount: 1,
+      actualArgumentCount: 0,
+      expectedArguments: ['number custarg']
+    });
   });
 
   test('validateStructure soporta IF multi-línea con continuación &', () => {
@@ -209,7 +557,8 @@ suite('unit/diagnostics', () => {
         name: 'demo',
         libraries: [],
         files: [document.uri]
-      })
+      }),
+      getSourceOrigin: () => 'workspace-ws_objects'
     } as unknown as WorkspaceState;
 
     publishDiagnostics(connection, document, undefined, undefined, undefined, workspaceState);
@@ -225,6 +574,7 @@ suite('unit/diagnostics', () => {
             documentVersion?: number;
             snapshotVersion?: number;
             snapshotIdentity?: string;
+            sourceOrigin?: string;
           }>;
         }>;
       }>;
@@ -234,6 +584,7 @@ suite('unit/diagnostics', () => {
       projectLabel: string;
       objectLabel: string;
       documentVersion?: number;
+      sourceOrigin?: string;
     };
 
     assert.equal(sent.length, 1);
@@ -247,9 +598,11 @@ suite('unit/diagnostics', () => {
     assert.equal(snapshot.projects[0].objects[0].documents[0].documentVersion, 7);
     assert.equal(snapshot.projects[0].objects[0].documents[0].snapshotVersion, 7);
     assert.ok(snapshot.projects[0].objects[0].documents[0].snapshotIdentity);
+    assert.equal(snapshot.projects[0].objects[0].documents[0].sourceOrigin, 'workspace-ws_objects');
     assert.equal(documentEntry.uri, document.uri);
     assert.equal(documentEntry.projectLabel, 'demo');
     assert.equal(documentEntry.objectLabel, 'w_main');
+    assert.equal(documentEntry.sourceOrigin, 'workspace-ws_objects');
 
     clearDiagnosticsSummary(document.uri);
     assert.equal(getDiagnosticsSummary(document.uri), null);

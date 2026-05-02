@@ -103,4 +103,73 @@ end subroutine
     assert.ok(result.signatures[0].label.toLowerCase().includes('mid'));
     assert.strictEqual(result.activeParameter, 1); // porque está después de la primera coma de Mid
   });
+
+  test('debe priorizar la firma DataWindow de Retrieve para datastore tipado', () => {
+    const doc = setupDocument('file:///test_dw_signature.sru', `
+global type w_tx_sig from window
+  datastore ids_orders
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  ids_orders.Retrieve(
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('ids_orders.Retrieve('));
+    const pos = Position.create(lineIndex, 22);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph);
+
+    assert.ok(result);
+    assert.ok(result.signatures.some((signature) => signature.label === 'Retrieve(argument...)'));
+    assert.ok(!result.signatures.some((signature) => signature.label.includes('urlName')), 'No debe priorizar la firma REST de Retrieve.');
+  });
+
+  test('debe especializar la firma de Retrieve usando los argumentos del .srd enlazado por DataObject', () => {
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_sales_orders.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_sales_orders.srd',
+        'release 39;',
+        'table(retrieve="PBSELECT( VERSION(400) TABLE(NAME=~"sales_order~" ) ARG(NAME = ~"custarg~" TYPE = number) " arguments=(("custarg", number)) )" )'
+      ].join('\r\n')
+    );
+    const dataWindowAnalysis = analyzeDocument(dataWindowDocument);
+    kb.upsertDocument(
+      dataWindowDocument.uri,
+      dataWindowAnalysis.semanticFacts,
+      dataWindowAnalysis.scopes,
+      dataWindowAnalysis.snapshot
+    );
+
+    const doc = setupDocument('file:///test_dw_signature_bound.sru', `
+global type w_tx_sig_bound from window
+  datastore ids_orders
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  ids_orders.DataObject = "d_sales_orders"
+  ids_orders.Retrieve(
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('ids_orders.Retrieve('));
+    const pos = Position.create(lineIndex, 22);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph);
+
+    assert.ok(result);
+    assert.ok(result.signatures.some((signature) => signature.label === 'Retrieve(number custarg)'));
+    assert.strictEqual(result.activeParameter, 0);
+  });
 });

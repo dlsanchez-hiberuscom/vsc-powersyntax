@@ -1,5 +1,6 @@
 import { Position, CompletionItem, CompletionItemKind, InsertTextFormat } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
@@ -100,6 +101,22 @@ export function provideCompletion(
         
         items.push(createCompletionItem(m, '1_member_'));
       }
+
+      for (const sys of systemCatalog.listMembersForOwner([varType])) {
+        if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
+        if (seen.has(sys.name.toLowerCase())) continue;
+        seen.add(sys.name.toLowerCase());
+
+        items.push(createSystemCompletionItem(sys, '1_member_'));
+      }
+
+      for (const sys of systemCatalog.listEventsForOwner([varType])) {
+        if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
+        if (seen.has(sys.name.toLowerCase())) continue;
+        seen.add(sys.name.toLowerCase());
+
+        items.push(createSystemCompletionItem(sys, '1_member_'));
+      }
     }
   } else {
     // -----------------------------------------------------
@@ -192,5 +209,20 @@ function createCompletionItem(entity: Entity, sortPrefix: string): CompletionIte
     detail: entity.signature || (entity.datatype ? `${entity.datatype} ${entity.name}` : undefined),
     documentation: entity.documentation,
     sortText: sortPrefix + entity.name.toLowerCase()
+  };
+}
+
+function createSystemCompletionItem(entry: PbSystemSymbolEntry, sortPrefix: string): CompletionItem {
+  return {
+    label: entry.name,
+    kind: entry.kind === 'event'
+      ? CompletionItemKind.Event
+      : entry.kind === 'callable'
+        ? CompletionItemKind.Method
+        : CompletionItemKind.Keyword,
+    detail: entry.summary,
+    documentation: entry.summary,
+    insertTextFormat: InsertTextFormat.PlainText,
+    sortText: sortPrefix + entry.name.toLowerCase()
   };
 }

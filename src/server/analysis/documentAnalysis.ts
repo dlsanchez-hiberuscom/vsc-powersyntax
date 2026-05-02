@@ -11,6 +11,7 @@ import {
   matchTypeDefinition,
   matchVariableDeclaration
 } from '../parsing/matchers';
+import { classifyExternalLibrary, parseExternalFunction } from '../parsing/externalFunctions';
 import { eventSelectionStart, firstNonWhitespace } from '../utils/helpers';
 import {
   END_FUNCTION_PATTERN,
@@ -26,6 +27,8 @@ import {
   createSemanticSnapshot,
   type SemanticDocumentSnapshot
 } from './semanticSnapshot';
+import { inferSourceOrigin } from '../../shared/sourceOrigin';
+import { getBasename } from '../system/uriUtils';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
 
@@ -118,7 +121,9 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
     typeBlocks,
     document.uri
   );
-  const semanticFacts = mapToSemanticFacts(facts, document.uri);
+  const stubFacts = buildFileObjectStubFacts(document.uri, lines);
+  const allFacts = stubFacts.length > 0 ? [...stubFacts, ...facts] : facts;
+  const semanticFacts = mapToSemanticFacts(allFacts, document.uri, inferSourceOrigin(document.uri));
 
   // Bloques de control globales del documento (luego se filtran por scope cuando hace falta).
   const controlBlocks = scanControlBlocks(strippedLines, 0, strippedLines.length - 1);
@@ -149,7 +154,7 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
     sections,
     controlBlocks,
     typeBlocks,
-    facts,
+    facts: allFacts,
     semanticFacts,
     scopes,
     logicalStatements,
@@ -167,6 +172,8 @@ export function analyzeDocumentStructural(document: TextDocument): StructuralDoc
   const sections = findSections(lines);
   const typeBlocks = scanTypeBlocks(strippedLines);
   const fingerprint = fingerprintOf(text);
+  const stubFacts = buildFileObjectStubFacts(document.uri, lines);
+  const semanticFacts = mapToSemanticFacts(stubFacts, document.uri, inferSourceOrigin(document.uri));
 
   return {
     uri: document.uri,
@@ -180,7 +187,7 @@ export function analyzeDocumentStructural(document: TextDocument): StructuralDoc
       typeBlocks,
       strippedLines,
       masks,
-      semanticFacts: [],
+      semanticFacts,
       scopes: [],
       logicalStatements: [],
       controlBlocks: [],
@@ -188,6 +195,44 @@ export function analyzeDocumentStructural(document: TextDocument): StructuralDoc
       readiness: 'structural-only'
     })
   };
+}
+
+function buildFileObjectStubFacts(uri: string, lines: string[]): SymbolFact[] {
+  const objectName = inferDataWindowObjectName(uri);
+  if (!objectName) {
+    return [];
+  }
+
+  const firstLine = lines[0] ?? '';
+  const startCharacter = findCaseInsensitive(firstLine, objectName);
+  const selectionStart = startCharacter >= 0 ? startCharacter : 0;
+
+  return [
+    {
+      name: objectName,
+      kind: 'type',
+      detail: 'type from datawindow',
+      declarationScope: 'type',
+      baseTypeName: 'datawindow',
+      fileObjectName: objectName,
+      line: 0,
+      startCharacter: selectionStart,
+      endCharacter: selectionStart + objectName.length
+    }
+  ];
+}
+
+function inferDataWindowObjectName(uri: string): string | undefined {
+  const basename = getBasename(uri);
+  if (!basename.toLowerCase().endsWith('.srd')) {
+    return undefined;
+  }
+
+  return basename.slice(0, -4) || undefined;
+}
+
+function findCaseInsensitive(text: string, needle: string): number {
+  return text.toLowerCase().indexOf(needle.toLowerCase());
 }
 
 /**
@@ -199,13 +244,12 @@ function scanTypeBlocks(
   strippedLines: string[]
 ): Array<{ name: string; container?: string; startLine: number; endLine: number }> {
   const out: Array<{ name: string; container?: string; startLine: number; endLine: number }> = [];
-  const RE_TYPE = /^\s*(?:global\s+|public\s+|private\s+|protected\s+)?type\s+([a-zA-Z_$#%][\w$#%-]*)\s+from\s+[a-zA-Z_$#%][\w$#%`-]*(?:\s+within\s+([a-zA-Z_$#%][\w$#%`-]*))?/i;
   const stack: Array<{ name: string; container?: string; startLine: number }> = [];
   for (let i = 0; i < strippedLines.length; i++) {
     const line = strippedLines[i];
-    const m = RE_TYPE.exec(line);
-    if (m) {
-      stack.push({ name: m[1], container: m[2], startLine: i });
+    const match = matchTypeDefinition(line);
+    if (match) {
+      stack.push({ name: match.name, container: match.container, startLine: i });
       continue;
     }
     if (END_TYPE_PATTERN.test(line) && stack.length > 0) {
@@ -256,7 +300,13 @@ function pushScopeArguments(
   rawLine: string,
   lineIndex: number,
   uri: string,
-  scope: Scope
+  scope: Scope,
+  metadata?: {
+    containerKind?: string;
+    containerSignature?: string;
+    fileObjectName?: string;
+    ownerName?: string;
+  }
 ): void {
   const argMatch = line.match(/\((.*?)\)/);
   if (!argMatch || argMatch[1].trim() === '') {
@@ -293,12 +343,17 @@ function pushScopeArguments(
       character: rawLine.indexOf(rawName),
       datatype: type,
       containerName: scope.id,
-      scope: 'Argumento'
+      scope: 'Argumento',
+      declarationScope: 'parameter',
+      containerKind: metadata?.containerKind,
+      containerSignature: metadata?.containerSignature,
+      fileObjectName: metadata?.fileObjectName,
+      ownerName: metadata?.ownerName
     });
   }
 }
 
-function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
+function mapToSemanticFacts(facts: SymbolFact[], uri: string, sourceOrigin: ReturnType<typeof inferSourceOrigin>): Fact[] {
   const factMap = new Map<string, Fact>();
 
   for (const f of facts) {
@@ -335,6 +390,24 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       : entityKind === EntityKind.Function || entityKind === EntityKind.Subroutine || entityKind === EntityKind.Event
         ? 'implementation'
         : undefined;
+    const implementationKind = f.isExternal
+      ? 'external-function'
+      : entityKind === EntityKind.Event && typeof f.detail === 'string' && f.detail.trim().toLowerCase().startsWith('on ')
+        ? 'on-handler'
+        : entityKind === EntityKind.Function
+          ? 'function'
+          : entityKind === EntityKind.Subroutine
+            ? 'subroutine'
+            : entityKind === EntityKind.Event
+              ? 'event'
+              : entityKind === EntityKind.Type
+                ? 'type'
+                : f.scope === 'Instancia'
+                  ? 'instance-var'
+                  : undefined;
+    const ownerName = f.declarationScope === 'type'
+      ? (f.containerName ?? f.fileObjectName ?? f.name)
+      : (f.containerName ?? f.fileObjectName);
 
     factMap.set(dedupKey, {
       id,
@@ -349,10 +422,23 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string): Fact[] {
       datatype: f.datatype,
       parameters: f.parameters,
       scope: f.scope,
+      declarationScope: f.declarationScope,
       access: f.access,
+      containerKind: f.containerKind,
+      containerSignature: f.containerSignature,
+      fileObjectName: f.fileObjectName,
+      ownerName,
+      parameterCount: f.parameters?.length,
+      implementationKind,
+      returnType: f.returnType,
+      isExternal: f.isExternal,
+      externalLibraryName: f.externalLibraryName,
+      externalAlias: f.externalAlias,
+      externalDependencyKind: f.externalDependencyKind,
       isPrototype: f.declarationOnly === true,
       lineage: {
         sourceKind: 'document',
+        sourceOrigin,
         authority: 'derived',
         phase,
         ...(role ? { role } : {}),
@@ -388,6 +474,14 @@ function collectFactsAndScopes(
 
   let currentTypeScope: Scope | undefined;
   let currentFuncScope: Scope | undefined;
+  const rootTypeBlocks = typeBlocks
+    .filter((block) => !block.container)
+    .sort((left, right) => left.startLine - right.startLine);
+  const rootFileObjectName = rootTypeBlocks[0]?.name;
+  let currentCallableKind: string | undefined;
+  let currentCallableSignature: string | undefined;
+  let currentCallableFileObjectName: string | undefined;
+  let currentCallableOwnerName: string | undefined;
 
   for (const section of sections) {
     const sectionName = section.kind === 'forward' ? 'forward' : section.kind === 'prototypes' ? 'prototypes' : 'variables';
@@ -416,11 +510,15 @@ function collectFactsAndScopes(
           facts.push({
             name: variable.name,
             kind: 'variable',
+            containerName: rootFileObjectName,
             detail: `${variable.type}${variable.modifiers ? ` (${variable.modifiers})` : ''}`,
             datatype: variable.type,
             scope: scope,
+            declarationScope: 'member',
             access: variable.modifiers?.toLowerCase().includes('private') ? 'private' : 
                     variable.modifiers?.toLowerCase().includes('protected') ? 'protected' : 'public',
+            containerKind: rootFileObjectName ? 'type' : undefined,
+            fileObjectName: rootFileObjectName,
             line: i,
             startCharacter: rawLine.indexOf(variable.name),
             endCharacter: rawLine.indexOf(variable.name) + variable.name.length
@@ -430,14 +528,42 @@ function collectFactsAndScopes(
       }
 
       if (section.kind === 'prototypes') {
+        const external = parseExternalFunction(line);
+        if (external) {
+          facts.push({
+            name: external.name,
+            kind: external.kind,
+            detail: rawLine.trim().replace(/;\s*$/, ''),
+            containerName: rootFileObjectName,
+            containerKind: rootFileObjectName ? 'type' : undefined,
+            fileObjectName: rootFileObjectName,
+            declarationScope: 'callable',
+            parameters: extractParameters(line),
+            returnType: external.returnType,
+            isExternal: true,
+            externalLibraryName: external.library,
+            externalAlias: external.alias,
+            externalDependencyKind: classifyExternalLibrary(external.library),
+            line: i,
+            startCharacter: rawLine.indexOf(external.name),
+            endCharacter: rawLine.indexOf(external.name) + external.name.length
+          });
+          continue;
+        }
+
         const fn = matchFunctionPrototype(line);
         if (fn) {
           facts.push({
             name: fn.name,
             kind: fn.kind,
             declarationOnly: true,
-            detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
+            detail: rawLine.trim().replace(/;\s*$/, ''),
+            containerName: rootFileObjectName,
+            containerKind: rootFileObjectName ? 'type' : undefined,
+            fileObjectName: rootFileObjectName,
+            declarationScope: 'callable',
             parameters: extractParameters(line),
+            returnType: fn.returnType,
             line: i,
             startCharacter: rawLine.indexOf(fn.name),
             endCharacter: rawLine.indexOf(fn.name) + fn.name.length
@@ -452,7 +578,11 @@ function collectFactsAndScopes(
             name: ev.name,
             kind: 'event',
             declarationOnly: true,
-            detail: ev.detail,
+            detail: rawLine.trim().replace(/;\s*$/, ''),
+            containerName: rootFileObjectName,
+            containerKind: rootFileObjectName ? 'type' : undefined,
+            fileObjectName: rootFileObjectName,
+            declarationScope: 'callable',
             parameters: extractParameters(line),
             line: i,
             startCharacter: start,
@@ -471,6 +601,9 @@ function collectFactsAndScopes(
             declarationOnly: true,
             baseTypeName: ty.ancestor,
             detail: ty.container ? `type from ${ty.ancestor} within ${ty.container}` : `type from ${ty.ancestor}`,
+            containerKind: ty.container ? 'type' : 'file-object',
+            fileObjectName: ty.container ? rootFileObjectName : ty.name,
+            declarationScope: 'type',
             line: i,
             startCharacter: rawLine.indexOf(ty.name),
             endCharacter: rawLine.indexOf(ty.name) + ty.name.length
@@ -599,6 +732,10 @@ function collectFactsAndScopes(
       ) {
         currentFuncScope.endLine = i;
         currentFuncScope = undefined;
+        currentCallableKind = undefined;
+        currentCallableSignature = undefined;
+        currentCallableFileObjectName = undefined;
+        currentCallableOwnerName = undefined;
         continue;
       }
 
@@ -615,6 +752,8 @@ function collectFactsAndScopes(
         if (currentFuncScope) currentFuncScope.endLine = i - 1; // Previous one didn't close properly
 
         const containerName = containerAt(i);
+        const callableSignature = rawLine.trim().replace(/;\s*$/, '');
+        const fileObjectName = rootFileObjectName ?? containerName;
         currentContainerName = containerName;
         // Asegura que existe un Type-scope para `containerName` (puede ser
         // distinto del último encontrado linealmente cuando hay varios `within`).
@@ -636,20 +775,33 @@ function collectFactsAndScopes(
           symbols: []
         };
         parentScope.children.push(currentFuncScope);
+        currentCallableKind = fn.kind;
+        currentCallableSignature = callableSignature;
+        currentCallableFileObjectName = fileObjectName;
+        currentCallableOwnerName = containerName;
 
         facts.push({
           name: fn.name,
           kind: fn.kind,
           declarationOnly: false,
           containerName,
-          detail: fn.kind === 'function' ? `function : ${fn.returnType}` : 'subroutine',
+          containerKind: containerName ? 'type' : undefined,
+          detail: callableSignature,
+          fileObjectName: fileObjectName,
+          declarationScope: 'callable',
           parameters: extractParameters(line),
+          returnType: fn.returnType,
           line: i,
           startCharacter: rawLine.indexOf(fn.name),
           endCharacter: rawLine.indexOf(fn.name) + fn.name.length
         });
 
-        pushScopeArguments(line, rawLine, i, uri, currentFuncScope);
+        pushScopeArguments(line, rawLine, i, uri, currentFuncScope, {
+          containerKind: fn.kind,
+          containerSignature: callableSignature,
+          fileObjectName,
+          ownerName: containerName
+        });
         continue;
       }
 
@@ -657,7 +809,9 @@ function collectFactsAndScopes(
       if (ev) {
         if (currentFuncScope) currentFuncScope.endLine = i - 1;
 
-        const containerName = containerAt(i);
+        const containerName = ev.ownerName ?? containerAt(i);
+        const callableSignature = rawLine.trim().replace(/;\s*$/, '');
+        const fileObjectName = rootFileObjectName ?? containerAt(i) ?? containerName;
         currentContainerName = containerName;
         const parentScope = ensureTypeScope(containerName) ?? globalScope;
         if (parentScope !== globalScope && parentScope.endLine < lines.length - 1) {
@@ -674,21 +828,57 @@ function collectFactsAndScopes(
           symbols: []
         };
         parentScope.children.push(currentFuncScope);
+        currentCallableKind = 'event';
+        currentCallableSignature = callableSignature;
+        currentCallableFileObjectName = fileObjectName;
+        currentCallableOwnerName = containerName;
 
         const start = eventSelectionStart(line, ev.name);
         facts.push({
           name: ev.name,
           kind: 'event',
           declarationOnly: false,
-          containerName: containerAt(i),
-          detail: ev.detail,
+          containerName,
+          containerKind: containerName ? 'type' : undefined,
+          detail: callableSignature,
+          fileObjectName: fileObjectName,
+          declarationScope: 'callable',
           parameters: extractParameters(line),
           line: i,
           startCharacter: start,
           endCharacter: start + ev.name.length
         });
 
-        pushScopeArguments(line, rawLine, i, uri, currentFuncScope);
+        pushScopeArguments(line, rawLine, i, uri, currentFuncScope, {
+          containerKind: 'event',
+          containerSignature: callableSignature,
+          fileObjectName,
+          ownerName: containerName
+        });
+        continue;
+      }
+
+      const external = parseExternalFunction(line);
+      if (external) {
+        const containerName = containerAt(i);
+        facts.push({
+          name: external.name,
+          kind: external.kind,
+          containerName,
+          containerKind: containerName ? 'type' : undefined,
+          detail: rawLine.trim().replace(/;\s*$/, ''),
+          fileObjectName: rootFileObjectName ?? containerName,
+          declarationScope: 'callable',
+          parameters: extractParameters(line),
+          returnType: external.returnType,
+          isExternal: true,
+          externalLibraryName: external.library,
+          externalAlias: external.alias,
+          externalDependencyKind: classifyExternalLibrary(external.library),
+          line: i,
+          startCharacter: rawLine.indexOf(external.name),
+          endCharacter: rawLine.indexOf(external.name) + external.name.length
+        });
         continue;
       }
 
@@ -705,7 +895,12 @@ function collectFactsAndScopes(
             character: rawLine.indexOf(localVar.name),
             datatype: localVar.type,
             containerName: currentFuncScope.id,
-            scope: 'Local'
+            scope: 'Local',
+            declarationScope: 'local',
+            containerKind: currentCallableKind,
+            containerSignature: currentCallableSignature,
+            fileObjectName: currentCallableFileObjectName,
+            ownerName: currentCallableOwnerName
           });
 
           // Soporte para declaraciones múltiples: `Integer li_a, li_b, li_c`.
@@ -721,7 +916,12 @@ function collectFactsAndScopes(
               character: extra.character,
               datatype: localVar.type,
               containerName: currentFuncScope.id,
-              scope: 'Local'
+              scope: 'Local',
+              declarationScope: 'local',
+              containerKind: currentCallableKind,
+              containerSignature: currentCallableSignature,
+              fileObjectName: currentCallableFileObjectName,
+              ownerName: currentCallableOwnerName
             });
           }
         }
@@ -740,7 +940,10 @@ function collectFactsAndScopes(
             detail: `${instVar.type}${instVar.modifiers ? ` (${instVar.modifiers})` : ''}`,
             datatype: instVar.type,
             scope: 'Instancia',
+            declarationScope: 'member',
             access,
+            containerKind: 'type',
+            fileObjectName: rootFileObjectName ?? currentTypeScope.id,
             line: i,
             startCharacter: rawLine.indexOf(instVar.name),
             endCharacter: rawLine.indexOf(instVar.name) + instVar.name.length
@@ -755,7 +958,10 @@ function collectFactsAndScopes(
               detail: `${instVar.type}${instVar.modifiers ? ` (${instVar.modifiers})` : ''}`,
               datatype: instVar.type,
               scope: 'Instancia',
+              declarationScope: 'member',
               access,
+              containerKind: 'type',
+              fileObjectName: rootFileObjectName ?? currentTypeScope.id,
               line: i,
               startCharacter: extra.character,
               endCharacter: extra.character + extra.name.length

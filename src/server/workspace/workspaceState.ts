@@ -1,5 +1,11 @@
 import { normalizeUri } from '../system/uriUtils';
 import {
+  inferSourceOrigin,
+  pickPreferredSourceOrigin,
+  summarizeSourceOrigins,
+  type SourceOrigin
+} from '../../shared/sourceOrigin';
+import {
   emptyTopology,
   type WorkspaceTopology,
   type TargetInfo,
@@ -33,6 +39,36 @@ export interface ActiveProjectContext {
   files: string[];
 }
 
+export interface WorkspaceDiscoverySnapshot {
+  sourceFiles: string[];
+  sourceOrigins?: Record<string, SourceOrigin>;
+  roots: WorkspaceRoots;
+}
+
+function cloneRoots(roots: WorkspaceRoots): WorkspaceRoots {
+  return {
+    workspaces: [...roots.workspaces],
+    targets: [...roots.targets],
+    libraries: [...roots.libraries],
+    solutions: [...roots.solutions],
+    projects: [...roots.projects]
+  };
+}
+
+function normalizeRootList(uris: string[] | undefined): string[] {
+  return [...new Set((uris ?? []).map((uri) => normalizeUri(uri)))].sort();
+}
+
+function normalizeRoots(roots?: Partial<WorkspaceRoots>): WorkspaceRoots {
+  return {
+    workspaces: normalizeRootList(roots?.workspaces),
+    targets: normalizeRootList(roots?.targets),
+    libraries: normalizeRootList(roots?.libraries),
+    solutions: normalizeRootList(roots?.solutions),
+    projects: normalizeRootList(roots?.projects)
+  };
+}
+
 /**
  * Modo de proyecto detectado durante el discovery.
  *
@@ -47,7 +83,7 @@ export type WorkspaceMode = 'workspace' | 'solution' | 'mixed' | 'unknown';
  * Mantiene el inventario global de archivos descubiertos en el workspace.
  */
 export class WorkspaceState {
-  private knownFiles: Set<string> = new Set();
+  private knownFiles: Map<string, SourceOrigin> = new Map();
   private indexDirty = true;
 
   private roots: WorkspaceRoots = {
@@ -66,8 +102,10 @@ export class WorkspaceState {
   /**
    * Registra un archivo de código fuente (.sr*) descubierto.
    */
-  addSourceFile(uri: string): void {
-    this.knownFiles.add(normalizeUri(uri));
+  addSourceFile(uri: string, sourceOrigin: SourceOrigin = 'unknown'): void {
+    const normalized = normalizeUri(uri);
+    const next = pickPreferredSourceOrigin(this.knownFiles.get(normalized), sourceOrigin);
+    this.knownFiles.set(normalized, next);
     this.indexDirty = true;
   }
 
@@ -97,7 +135,15 @@ export class WorkspaceState {
    * Devuelve todos los URIs de código fuente conocidos.
    */
   getAllSourceFiles(): string[] {
-    return Array.from(this.knownFiles);
+    return Array.from(this.knownFiles.keys());
+  }
+
+  getSourceOrigin(uri: string): SourceOrigin | undefined {
+    return this.knownFiles.get(normalizeUri(uri));
+  }
+
+  getSourceOriginSummary(): Partial<Record<SourceOrigin, number>> {
+    return summarizeSourceOrigins(this.knownFiles.values());
   }
 
   /**
@@ -105,6 +151,48 @@ export class WorkspaceState {
    */
   getRoots(): WorkspaceRoots {
     return this.roots;
+  }
+
+  exportDiscoverySnapshot(): WorkspaceDiscoverySnapshot {
+    const sourceOrigins: Record<string, SourceOrigin> = {};
+    for (const [uri, sourceOrigin] of this.knownFiles.entries()) {
+      sourceOrigins[uri] = sourceOrigin;
+    }
+
+    return {
+      sourceFiles: this.getAllSourceFiles(),
+      sourceOrigins,
+      roots: cloneRoots(this.roots)
+    };
+  }
+
+  restoreDiscoverySnapshot(snapshot?: Partial<WorkspaceDiscoverySnapshot> | null): void {
+    if (!snapshot) {
+      return;
+    }
+
+    const roots = normalizeRoots(snapshot.roots);
+    const hasSolutionRoots = roots.solutions.length > 0 || roots.projects.length > 0;
+    this.knownFiles = new Map(
+      normalizeRootList(snapshot.sourceFiles).map((uri) => [
+        uri,
+        snapshot.sourceOrigins?.[uri] ?? inferSourceOrigin(uri, { hasSolutionRoots })
+      ])
+    );
+    this.roots = roots;
+    this.topology = emptyTopology();
+    this.projectRegistry = null;
+    this.projectModel = null;
+    this.indexDirty = true;
+  }
+
+  replaceFrom(other: WorkspaceState): void {
+    this.knownFiles = new Map(other.getAllSourceFiles().map((uri) => [uri, other.getSourceOrigin(uri) ?? 'unknown']));
+    this.roots = cloneRoots(other.getRoots());
+    this.topology = structuredClone(other.getTopology());
+    this.projectRegistry = other.getProjectRegistry();
+    this.projectModel = other.getProjectModel();
+    this.indexDirty = other.isIndexDirty();
   }
 
   /**
@@ -128,13 +216,7 @@ export class WorkspaceState {
   clear(): void {
     this.knownFiles.clear();
     this.indexDirty = true;
-    this.roots = {
-      workspaces: [],
-      targets: [],
-      libraries: [],
-      solutions: [],
-      projects: []
-    };
+    this.roots = normalizeRoots();
     this.topology = emptyTopology();
     this.projectRegistry = null;
     this.projectModel = null;
@@ -203,6 +285,17 @@ export class WorkspaceState {
     const sourceFiles = this.getAllSourceFiles();
     this.projectRegistry = buildProjectRegistry(this.topology, sourceFiles);
     this.projectModel = buildUnifiedProjectModel(this.topology, sourceFiles);
+  }
+
+  recomputeSourceOrigins(): void {
+    const hasSolutionRoots = this.roots.solutions.length > 0 || this.roots.projects.length > 0;
+    this.knownFiles = new Map(
+      this.getAllSourceFiles().map((uri) => [
+        uri,
+        pickPreferredSourceOrigin(this.getSourceOrigin(uri), inferSourceOrigin(uri, { hasSolutionRoots }))
+      ])
+    );
+    this.indexDirty = true;
   }
 
   isIndexDirty(): boolean {

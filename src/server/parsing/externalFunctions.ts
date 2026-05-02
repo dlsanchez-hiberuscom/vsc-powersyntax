@@ -14,6 +14,21 @@ export interface ExternalFunctionDecl {
   alias?: string;
 }
 
+export type ExternalDependencyKind = 'dll' | 'pbx' | 'unknown';
+
+export function classifyExternalLibrary(library: string): ExternalDependencyKind {
+  const normalized = library.trim().toLowerCase();
+  if (normalized.endsWith('.dll')) {
+    return 'dll';
+  }
+
+  if (normalized.endsWith('.pbx')) {
+    return 'pbx';
+  }
+
+  return 'unknown';
+}
+
 // access: public/private/protected (opcional). Function returnType name(args). library "x" [alias for "Real"].
 const RE_FN = /^\s*(?:public|private|protected)?\s*function\s+([A-Za-z_][\w$#%-]*)\s+([A-Za-z_][\w$#%-]*)\s*\([^)]*\)\s+library\s+"([^"]+)"(?:\s+alias\s+for\s+"([^"]+)")?/i;
 const RE_SUB = /^\s*(?:public|private|protected)?\s*subroutine\s+([A-Za-z_][\w$#%-]*)\s*\([^)]*\)\s+library\s+"([^"]+)"(?:\s+alias\s+for\s+"([^"]+)")?/i;

@@ -22,17 +22,36 @@ import {
   POWERBUILDER_SOURCE_GLOB
 } from '../shared/powerbuilderFiles';
 import {
+  type ApiCurrentObjectContext,
+  type ApiCurrentObjectContextRequest,
+  type ApiImpactAnalysis,
+  type ApiImpactAnalysisRequest,
+  type ApiSafeEditPlan,
+  type ApiSafeEditPlanRequest,
+  type ApiSemanticWorkspaceManifest,
+  type ApiSemanticWorkspaceManifestRequest,
   PUBLIC_API_VERSION,
   isApiVersionCompatible,
-  toApiSymbol,
+  type ApiSymbol,
   type ApiQuerySymbolsRequest,
   type ApiServerStats,
   type VscPowerSyntaxApi,
 } from '../shared/publicApi';
+import {
+  buildStatusHealthReport,
+  buildStatusStatsReport,
+  buildStatusTooltipMarkdown,
+  formatStatusBarSummary,
+  type RuntimeStatusStats,
+} from './statusBarPresentation';
 
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
+let lastProgressNotification: ProgressNotification = { phase: 'idle' };
+let lastStatusStats: RuntimeStatusStats | undefined;
+let statusRefreshHandle: ReturnType<typeof setTimeout> | undefined;
+let statusRefreshVersion = 0;
 
 export async function activate(context: vscode.ExtensionContext): Promise<VscPowerSyntaxApi | undefined> {
   const activationStart = performance.now();
@@ -107,6 +126,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
 
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBarItem.name = 'VSC PowerSyntax';
+  statusBarItem.command = 'vscPowerSyntax.openStatusMenu';
   context.subscriptions.push(statusBarItem);
   applyProgressVisibility(statusBarItem);
 
@@ -114,6 +134,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('vscPowerSyntax.progress.show') && statusBarItem) {
         applyProgressVisibility(statusBarItem);
+        renderProgress(statusBarItem, lastProgressNotification, lastStatusStats);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(() => {
+      if (statusBarItem) {
+        scheduleStatusRefresh(statusBarItem, 60);
       }
     })
   );
@@ -153,10 +182,92 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.showStatusStats', async () => {
+      const stats = await fetchRuntimeStatusStats();
+      if (stats) {
+        lastStatusStats = stats;
+        if (statusBarItem) {
+          renderProgress(statusBarItem, lastProgressNotification, stats);
+        }
+      }
+      outputChannel?.show(true);
+      outputChannel?.appendLine(buildStatusStatsReport(stats));
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.showStatusHealth', async () => {
+      const stats = await fetchRuntimeStatusStats();
+      if (stats) {
+        lastStatusStats = stats;
+        if (statusBarItem) {
+          renderProgress(statusBarItem, lastProgressNotification, stats);
+        }
+      }
+      const report = buildStatusHealthReport(lastProgressNotification, stats);
+      outputChannel?.show(true);
+      outputChannel?.appendLine(report);
+      void vscode.window.showInformationMessage('PowerSyntax: resumen de salud escrito en el canal de salida.', 'Abrir salida')
+        .then(selection => {
+          if (selection === 'Abrir salida') {
+            outputChannel?.show(true);
+          }
+        });
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openStatusMenu', async () => {
+      const stats = await fetchRuntimeStatusStats();
+      if (stats) {
+        lastStatusStats = stats;
+      }
+
+      const selection = await vscode.window.showQuickPick([
+        {
+          label: '$(pulse) Ver salud del runtime',
+          description: stats?.readiness?.state ?? 'sin datos',
+          command: 'vscPowerSyntax.showStatusHealth'
+        },
+        {
+          label: '$(graph) Ver stats del servidor',
+          description: stats?.projectStatus?.summary ?? 'resumen del estado actual',
+          command: 'vscPowerSyntax.showStatusStats'
+        },
+        {
+          label: '$(tools) Ejecutar build de VS Code',
+          description: 'Abre la tarea de build configurada en el workspace',
+          command: 'workbench.action.tasks.build'
+        },
+        {
+          label: '$(git-branch) Inspeccionar jerarquía activa',
+          description: 'Usa el editor activo para navegación jerárquica',
+          command: 'vscPowerSyntax.inspectHierarchy'
+        },
+        {
+          label: '$(debug-restart) Reiniciar servidor',
+          description: 'Reinicia el cliente y el servidor LSP',
+          command: 'vscPowerSyntax.restartServer'
+        }
+      ], {
+        title: 'VSC PowerSyntax',
+        placeHolder: stats?.projectStatus?.summary ?? 'Selecciona una acción de mantenimiento'
+      });
+
+      if (!selection) {
+        return;
+      }
+
+      await vscode.commands.executeCommand(selection.command);
+    })
+  );
+
   // ---- Limpieza (Disposable) ----------------------------------------------
 
   context.subscriptions.push({
     dispose: () => {
+      clearStatusRefreshHandle();
       void stopClient();
     }
   });
@@ -176,8 +287,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     if (statusBarItem) {
       const item = statusBarItem;
       client.onNotification(PROGRESS_NOTIFICATION, (p: ProgressNotification) => {
-        renderProgress(item, p);
+        lastProgressNotification = p;
+        renderProgress(item, p, lastStatusStats);
+        scheduleStatusRefresh(item);
       });
+
+      scheduleStatusRefresh(item, 0);
     }
 
     const clientElapsed = performance.now() - clientStartTime;
@@ -236,6 +351,7 @@ async function restartClient(context: vscode.ExtensionContext): Promise<void> {
 }
 
 async function stopClient(): Promise<void> {
+  clearStatusRefreshHandle();
   if (client) {
     try {
       await client.stop();
@@ -266,17 +382,77 @@ function createPublicApi(): VscPowerSyntaxApi {
       const limit = typeof request.limit === 'number'
         ? Math.max(0, Math.trunc(request.limit))
         : Number.POSITIVE_INFINITY;
-      const symbols = (await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-        'vscode.executeWorkspaceSymbolProvider',
-        query
-      )) ?? [];
-      return symbols.slice(0, limit).map((symbol) => toApiSymbol({
-        name: symbol.name,
-        kind: vscode.SymbolKind[symbol.kind] ?? String(symbol.kind),
-        uri: symbol.location.uri.toString(),
-        line: symbol.location.range.start.line,
-        character: symbol.location.range.start.character,
-      }));
+      return executeServerCommand<ApiSymbol[]>('powerbuilder.querySymbols', [query, limit]);
+    },
+    async getCurrentObjectContext(request: ApiCurrentObjectContextRequest = {}): Promise<ApiCurrentObjectContext> {
+      const editor = vscode.window.activeTextEditor;
+      const uri = request.uri ?? editor?.document.uri.toString();
+      if (!uri) {
+        throw new Error('No hay un editor activo para construir el context pack.');
+      }
+
+      const line = typeof request.line === 'number'
+        ? Math.max(0, Math.trunc(request.line))
+        : editor?.selection.active.line;
+      const character = typeof request.character === 'number'
+        ? Math.max(0, Math.trunc(request.character))
+        : editor?.selection.active.character;
+
+      return executeServerCommand<ApiCurrentObjectContext>('powerbuilder.currentObjectContext', [
+        uri,
+        line,
+        character,
+        request.maxExcerptLines,
+        request.maxReferencedSymbols,
+      ]);
+    },
+    async analyzeImpact(request: ApiImpactAnalysisRequest = {}): Promise<ApiImpactAnalysis> {
+      const editor = vscode.window.activeTextEditor;
+      const uri = request.uri ?? editor?.document.uri.toString();
+      if (!uri) {
+        throw new Error('No hay un editor activo para analizar impacto.');
+      }
+
+      const line = typeof request.line === 'number'
+        ? Math.max(0, Math.trunc(request.line))
+        : editor?.selection.active.line;
+      const character = typeof request.character === 'number'
+        ? Math.max(0, Math.trunc(request.character))
+        : editor?.selection.active.character;
+
+      return executeServerCommand<ApiImpactAnalysis>('powerbuilder.analyzeImpact', [
+        uri,
+        line,
+        character,
+        request.maxSafeReferences,
+      ]);
+    },
+    async generateSafeEditPlan(request: ApiSafeEditPlanRequest = {}): Promise<ApiSafeEditPlan> {
+      const editor = vscode.window.activeTextEditor;
+      const uri = request.uri ?? editor?.document.uri.toString();
+      if (!uri) {
+        throw new Error('No hay un editor activo para generar un plan de edición seguro.');
+      }
+
+      const line = typeof request.line === 'number'
+        ? Math.max(0, Math.trunc(request.line))
+        : editor?.selection.active.line;
+      const character = typeof request.character === 'number'
+        ? Math.max(0, Math.trunc(request.character))
+        : editor?.selection.active.character;
+
+      return executeServerCommand<ApiSafeEditPlan>('powerbuilder.safeEditPlan', [
+        uri,
+        line,
+        character,
+        request.maxSafeReferences,
+      ]);
+    },
+    async getSemanticWorkspaceManifest(request: ApiSemanticWorkspaceManifestRequest = {}): Promise<ApiSemanticWorkspaceManifest> {
+      return executeServerCommand<ApiSemanticWorkspaceManifest>('powerbuilder.semanticWorkspaceManifest', [
+        request.maxObjects,
+        request.maxSymbols,
+      ]);
     }
   });
 }
@@ -286,11 +462,29 @@ async function executeServerCommand<T>(command: string, args: unknown[] = []): P
     throw new Error('El cliente LSP no está disponible.');
   }
 
-  const result = await client.sendRequest('workspace/executeCommand', {
-    command,
-    arguments: args,
-  });
-  return clonePlainData(result) as T;
+  const sendRequest = async (): Promise<T> => {
+    if (client!.needsStart()) {
+      await client!.start();
+    }
+    const result = await client!.sendRequest('workspace/executeCommand', {
+      command,
+      arguments: args,
+    });
+    return clonePlainData(result) as T;
+  };
+
+  try {
+    return await sendRequest();
+  } catch (error) {
+    if (!(error instanceof Error) || !/Client is not running/i.test(error.message)) {
+      throw error;
+    }
+
+    if (client.needsStart()) {
+      await client.start();
+    }
+    return sendRequest();
+  }
 }
 
 function clonePlainData<T>(value: T): T {
@@ -316,7 +510,62 @@ function applyProgressVisibility(item: vscode.StatusBarItem): void {
   }
 }
 
-function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification): void {
+function clearStatusRefreshHandle(): void {
+  if (statusRefreshHandle) {
+    clearTimeout(statusRefreshHandle);
+    statusRefreshHandle = undefined;
+  }
+}
+
+async function fetchRuntimeStatusStats(): Promise<RuntimeStatusStats | undefined> {
+  if (!client) {
+    return lastStatusStats;
+  }
+
+  try {
+    return clonePlainData(await executeServerCommand<RuntimeStatusStats>('powerbuilder.showStats'));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(`[VSC PowerSyntax] No se pudieron actualizar stats de status bar: ${message}`);
+    return lastStatusStats;
+  }
+}
+
+function scheduleStatusRefresh(item: vscode.StatusBarItem, delayMs = 120): void {
+  if (!client) {
+    return;
+  }
+
+  clearStatusRefreshHandle();
+  const requestVersion = ++statusRefreshVersion;
+  statusRefreshHandle = setTimeout(() => {
+    void (async () => {
+      const stats = await fetchRuntimeStatusStats();
+      if (requestVersion !== statusRefreshVersion) {
+        return;
+      }
+      lastStatusStats = stats;
+      renderProgress(item, lastProgressNotification, stats);
+    })();
+  }, delayMs);
+}
+
+function progressIcon(phase: ProgressNotification['phase']): string {
+  switch (phase) {
+    case 'discovering':
+    case 'indexing':
+      return '$(sync~spin)';
+    case 'degraded':
+    case 'partial':
+      return '$(warning)';
+    case 'ready':
+      return '$(check)';
+    case 'idle':
+      return '$(dashboard)';
+  }
+}
+
+function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification, stats?: RuntimeStatusStats): void {
   const show = vscode.workspace
     .getConfiguration('vscPowerSyntax')
     .get<boolean>('progress.show', true);
@@ -326,45 +575,14 @@ function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification): vo
     return;
   }
 
-  switch (p.phase) {
-    case 'discovering':
-      item.text = '$(sync~spin) PB: descubriendo';
-      item.tooltip = 'VSC PowerSyntax: descubriendo workspace';
-      item.show();
-      break;
-    case 'indexing': {
-      const cur = p.current ?? 0;
-      const total = p.total ?? 0;
-      const passLabel = p.pass === 'structural' ? 'estructural' : p.pass === 'enriched' ? 'semántico' : 'indexando';
-      item.text = total > 0
-        ? `$(sync~spin) PB: ${passLabel} ${cur}/${total}`
-        : `$(sync~spin) PB: ${passLabel}`;
-      item.tooltip = `VSC PowerSyntax: ${passLabel} archivos${p.budgetMs ? ` (budget ${p.budgetMs}ms)` : ''}`;
-      item.show();
-      break;
-    }
-    case 'partial':
-      item.text = '$(warning) PB: parcial';
-      item.tooltip = 'VSC PowerSyntax: indexación parcial (cancelada o reiniciada)';
-      item.show();
-      break;
-    case 'degraded': {
-      const skipped = p.skipped ?? 0;
-      const failed = p.failed ?? 0;
-      item.text = `$(warning) PB: degradado${p.total ? ` (${p.total})` : ''}`;
-      item.tooltip = `VSC PowerSyntax: índice degradado${skipped || failed ? ` · omitidos ${skipped}, fallidos ${failed}` : ''}`;
-      item.show();
-      break;
-    }
-    case 'ready':
-      item.text = `$(check) PB: listo${p.total ? ` (${p.total})` : ''}`;
-      item.tooltip = 'VSC PowerSyntax: índice listo';
-      item.show();
-      break;
-    case 'idle':
-      item.hide();
-      break;
-  }
+  const icon = progressIcon(p.phase);
+  const summary = formatStatusBarSummary(p, stats);
+  item.text = `${icon ? `${icon} ` : ''}PB: ${summary}`;
+  const tooltip = new vscode.MarkdownString(buildStatusTooltipMarkdown(p, stats), true);
+  tooltip.isTrusted = true;
+  item.tooltip = tooltip;
+  item.command = 'vscPowerSyntax.openStatusMenu';
+  item.show();
 }
 
 function renderHierarchyInspection(payload: unknown): void {
@@ -384,6 +602,16 @@ function renderHierarchyInspection(payload: unknown): void {
     ancestorChain?: string[];
     overriddenMembers?: Array<{ name: string; inheritedFrom: string | null }>;
     closureSummary?: { own: number; inherited: number; override: number; inaccessible: number };
+    lifecycle?: Array<{
+      phase: 'create' | 'destroy';
+      declaredIn: string | null;
+      callsAncestor: boolean;
+      triggersHook: 'constructor' | 'destructor' | null;
+      hookResolved: boolean;
+      hookDeclaredIn: string | null;
+      warnings: string[];
+    }>;
+    lifecycleWarnings?: string[];
     hierarchyTree?: HierarchyTreeNodePayload | null;
   };
 
@@ -406,6 +634,25 @@ function renderHierarchyInspection(payload: unknown): void {
     for (const item of inspection.overriddenMembers) {
       outputChannel?.appendLine(`  - ${item.name} <- ${item.inheritedFrom ?? 'origen desconocido'}`);
     }
+  }
+  if (inspection.lifecycle && inspection.lifecycle.length > 0) {
+    outputChannel?.appendLine('- Lifecycle:');
+    for (const item of inspection.lifecycle) {
+      const details = [
+        `declarado en ${item.declaredIn ?? 'origen desconocido'}`,
+        item.callsAncestor ? 'call super presente' : 'sin call super',
+        item.triggersHook
+          ? `${item.triggersHook} ${item.hookResolved ? `resuelto en ${item.hookDeclaredIn ?? 'origen desconocido'}` : 'no resuelto'}`
+          : 'sin trigger hook'
+      ];
+      outputChannel?.appendLine(`  - ${item.phase}: ${details.join(' · ')}`);
+      for (const warning of item.warnings) {
+        outputChannel?.appendLine(`    - warning: ${warning}`);
+      }
+    }
+  }
+  if (inspection.lifecycleWarnings && inspection.lifecycleWarnings.length > 0) {
+    outputChannel?.appendLine(`- Lifecycle warnings: ${inspection.lifecycleWarnings.join(', ')}`);
   }
   if (inspection.hierarchyTree) {
     outputChannel?.appendLine('- Árbol de jerarquía:');

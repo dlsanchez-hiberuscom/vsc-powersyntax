@@ -170,12 +170,14 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 ### B103. Hover enriquecido con metadatos PB — **Cerrada (spec 037)**
 ### B104. Soporte para eventos calificados y `on-handlers` — **Cerrada (spec 038)**
 ### B106. Comando de información del objeto actual — **Cerrada (spec 051)**
+### B107. Status bar con contexto de proyecto — **Cerrada (spec 052 + cierre runtime 2026-05)**
 
 **Resumen del bloque cerrado:**
 - modernización/obsoletas cubierta;
 - hover enriquecido con metadatos útiles;
 - `ON object_name.event_name` mejor soportado;
-- comando de información del objeto operativo.
+- comando de información del objeto operativo;
+- barra de estado unificada con resumen del proyecto activo, estado de `projectModel`, caches/persistencia y accesos rápidos a stats/salud/build.
 
 ---
 
@@ -189,6 +191,77 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - invalidación agrupada y más estable;
 - readiness del workspace formalizado;
 - fairness por root/proyecto incorporada.
+
+### B030. Validación sobre workspace grande real — **Cerrada (validación PFC + legacy 2026-05)**
+**Objetivo:** validar sobre PFC 2025 Solution/Workspace y corpus legacy.
+
+**Resultado registrado:**
+- PFC 2025 Workspace y PFC 2025 Solution quedan integrados como corpus reales del ciclo;
+- se añadió un slot legacy reproducible en `fixtures-local/public/legacy-pbl-dump` con helper dedicado y smoke real sobre fuente exportada;
+- `test/corpora/README.md` documenta la preparación reproducible y `docs/testing.md` la referencia como matriz activa de corpus.
+
+**Validación registrada:**
+- `npm run test:performance -- --grep "(PFC Workspace smoke|PFC Solution smoke|legacy PBL dump smoke)"`
+- `npm run test:smoke -- --grep "smoke/pfc-solution-extension"`
+
+### B069. Fixtures reales permanentes de PFC/legacy — **Cerrada (fixtures locales controlados 2026-05)**
+**Objetivo:** fixtures permanentes y mantenidos.
+
+**Resultado registrado:**
+- `fixtures-local/pfc/2025-Workspace` y `fixtures-local/pfc/2025-Solution` quedan fijados como fixtures reales del producto;
+- `fixtures-local/public/legacy-pbl-dump` queda formalizado como slot local permanente para regresión legacy;
+- `test/README.md` y `test/server/helpers/publicCorpusPaths.ts` dejan trazado estable para mantener estos corpus fuera de Git y dentro del ciclo de regresión.
+
+**Validación registrada:**
+- `npm run test:performance -- --grep "(PFC Workspace smoke|PFC Solution smoke|legacy PBL dump smoke)"`
+- `npm run test:smoke -- --grep "smoke/pfc-solution-extension"`
+
+### B221. PowerBuilder public corpus matrix — **Cerrada (matriz reproducible 2026-05)**
+**Objetivo:** definir matriz reproducible de corpus públicos PowerBuilder para validar parsing, discovery, serving y performance.
+
+**Resultado registrado:**
+- `test/corpora/README.md` define matriz pública reproducible con PFC 2025 Solution, PFC 2025 Workspace, DataWindow examples, PBL dump examples, ORCA/build examples, native/PBNI examples y modern JSON/WebView2 examples;
+- la matriz documenta criterios de inclusión/exclusión y modo de descarga/preparación local;
+- el ciclo actual deja trazado qué corpus están ya integrados de forma ejecutable y cuáles quedan listos para activarse por área.
+
+**Validación registrada:**
+- auditoría documental local de la matriz reproducible;
+- `npm run test:performance -- --grep "(PFC Workspace smoke|PFC Solution smoke|legacy PBL dump smoke)"`
+
+### B118. Integration test matrix del plugin — **Cerrada (smoke matrix 2026-05)**
+**Objetivo:** lifecycle real del plugin y workspaces reales.
+
+**Resultado registrado:**
+- `test/smoke/extension.test.ts` cubre activación y API pública mínima en `vscode-test`;
+- `test/smoke/pfc-solution.extension.test.ts` valida el ciclo real sobre PFC Solution;
+- `test/smoke/pfc-workspace.extension.test.ts` completa la matriz real sobre PFC Workspace;
+- la documentación de testing y corpus deja trazado explícito qué cubre esta matriz y sobre qué corpus se ejecuta.
+
+**Validación registrada:**
+- `npm run test:smoke -- --grep "smoke/(extension|pfc-solution-extension|pfc-workspace-extension)"`
+
+### B068. Calibración real del performance budget — **Cerrada (baseline real 2026-05)**
+**Objetivo:** convertir budgets teóricos en budgets medidos.
+
+**Resultado registrado:**
+- `docs/performance-budget.md` deja de tratar discovery/cold/warm/archivo activo como objetivos solo teóricos y fija budgets ejecutables sobre corpus reales;
+- `test/results/003-real-corpora-baseline.md` registra la medición base sobre PFC Workspace/Solution y legacy PBL dump;
+- la calibración actual queda trazada para revisión futura sin mezclarla con presupuestos de memoria aún pendientes.
+
+**Validación registrada:**
+- `npm run test:performance`
+
+### B119. Performance regression suite — **Cerrada (suite real 2026-05)**
+**Objetivo:** medir activación, primer hover, primer diagnostics, discovery, warm/cold index.
+
+**Resultado registrado:**
+- la suite de performance ya cubre discovery sobre PFC, cold/warm index, batch documental sobre corpus real, primer hover y primeros diagnostics del archivo activo;
+- la activación real queda cubierta por la matriz smoke sobre `vscode-test` y corpus PFC;
+- la base queda trazada en `test/results/003-real-corpora-baseline.md` para detectar regresiones futuras.
+
+**Validación registrada:**
+- `npm run test:performance`
+- `npm run test:smoke -- --grep "smoke/(extension|pfc-solution-extension|pfc-workspace-extension)"`
 
 ---
 
@@ -235,6 +308,46 @@ Este hito no implica que todos los ítems asociados estén cerrados. Los que sig
 - `npm run compile`
 - `npm run test:unit` → `309 passing`
 - `npm test` → smoke `2 passing`, unit `309 passing`, integration `4 passing`
+
+---
+
+## 1.7A Gobernanza documental IA y docs de producto
+
+### B201. IA-first documentation reorganization — **Cerrada**
+**Objetivo:** reorganizar la documentación para que IA tenga ruta clara, sin duplicidades ni contradicciones.
+
+**Resultado registrado:**
+- `docs/00-ai-entrypoint.md` creado como puerta de entrada mínima y orden de lectura;
+- `docs/product-operating-model.md` ampliado como documento propietario del modelo operativo;
+- `docs/current-focus.md` simplificado para exponer un único foco ejecutable;
+- `docs/spec-driven-development.md` y `docs/constitution.md` alineados con la ruta documental y el Definition of Done;
+- catálogo de agentes y propiedad única de información consolidados en la capa documental;
+- baseline de validación reforzado en `docs/testing.md`;
+- documento de referencia de `plugin_old` reformulado como `docs/plugin-old-migration-opportunities.md`.
+
+**Validación registrada:**
+- auditoría documental local contra criterios de cierre en backlog;
+- comprobación manual de orden de lectura, propiedad única y ausencia de contradicción operativa en docs canónicas.
+
+### B202. Rules catalog and diagnostics governance — **Cerrada**
+**Objetivo:** crear catálogo versionado de reglas diagnósticas.
+
+**Resultado registrado:**
+- `docs/rules-catalog.md` define plantilla canónica con ID estable, severidad, readiness, confidence, alcance, riesgo de falso positivo, tests y docs relacionadas;
+- se documentaron reglas estructurales, de símbolos, DataWindow, PBL/ORCA y externas con contratos consistentes.
+
+**Validación registrada:**
+- auditoría documental local de presencia de IDs, severidad, readiness, confidence, falsos positivos y tests en el catálogo.
+
+### B203. Developer workflows documentation — **Cerrada**
+**Objetivo:** documentar workflows reales de programación PowerBuilder.
+
+**Resultado registrado:**
+- `docs/developer-workflows.md` fija workflows canónicos para apertura de proyecto, entendimiento del objeto actual, navegación de herencia, DataWindows, build y preparación de contexto para IA;
+- backlog y roadmap ya pueden evaluarse contra workflows reales de valor profesional y no contra demos aisladas.
+
+**Validación registrada:**
+- auditoría documental local de cobertura de workflows visibles y trazabilidad con prioridades de producto.
 
 ---
 
@@ -1513,6 +1626,431 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 ---
 
 ## 1.35 B063. Diagnostics snapshot agrupado — **Cerrada**
+
+## 1.36 B171. Confidence gates por feature — **Cerrada (runtime coverage 2026-05)**
+
+**Objetivo:** que cada feature opere solo con el nivel de confianza adecuado.
+
+**Resultado registrado:**
+- `src/server/features/featureReadiness.ts` ya fija comparador, thresholds mínimos y decisión base por feature;
+- `src/server/features/servingReadiness.ts` encapsula el gate de runtime consumido por los handlers sensibles;
+- `src/server/server.ts` reutiliza ese gate en `references`, `prepareRename` y `rename` para devolver fallback seguro y mensaje estable cuando la confidence no alcanza el umbral requerido;
+- `test/server/unit/servingReadiness.test.ts` aporta evidencia negativa ejecutable para `references` y `rename` bajo confidence insuficiente, además del caso positivo con confidence alta.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(servingReadiness|featureReadiness)"`
+
+## 1.37 B167. Journaling transaccional de caché persistente — **Cerrada (recovery robusto 2026-05)**
+
+**Objetivo:** evitar corrupción de caché y estados incompletos.
+
+**Resultado registrado:**
+- `src/server/cache/cacheStore.ts` mantiene journal persistente, lo limpia al consolidar checkpoint y recompone el restore aplicando solo entradas válidas;
+- el loader distingue ahora entre estado ausente y payload JSON corrupto/truncado, forzando rebuild limpio cuando el journal o el checkpoint quedaron a medias;
+- la validación existente de secuencia y entradas del journal en `src/server/cache/cacheCheckpoint.ts` queda reforzada por recovery explícito ante corrupción parcial en disco;
+- `test/server/unit/cacheStore.test.ts` y `test/server/unit/cachePersistence.test.ts` cubren limpieza del journal, secuencias inválidas y truncado/corrupción parcial del estado persistido.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(cacheStore|cachePersistence)"`
+
+## 1.38 B168. Cache schema versioning + migraciones — **Cerrada (policy/documentation 2026-05)**
+
+**Objetivo:** versionar persistencia y decidir migrate/invalidate/rebuild con seguridad.
+
+**Resultado registrado:**
+- `src/server/cache/cacheSchema.ts` mantiene un schema persistente explícito para `checkpoint` y `journal`, con migradores internos para payloads compatibles del mismo corte;
+- `src/server/cache/cacheCheckpoint.ts` conserva la política canónica: payload compatible se normaliza y reutiliza, `schemaVersion` desconocido o incompatible fuerza `rebuild` limpio;
+- `docs/architecture.md` documenta la política oficial de migrate/rebuild y el contenido del schema persistente para checkpoint y journal;
+- `test/server/unit/cachePersistence.test.ts` cubre tanto el camino compatible sin `schemaVersion` explícito como el rebuild seguro por versión incompatible.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/cachePersistence"`
+
+## 1.39 B071. Warm indexing y resume de caché persistente — **Cerrada (observable closure 2026-05)**
+
+**Objetivo:** evitar cold indexing en cada reapertura.
+
+**Resultado registrado:**
+- la base de persistencia ya permite warm resume real de `DocumentCache` y `KnowledgeBase`, con reuse/rebuild seguro sobre `cacheStore` y `checkpoint` persistido;
+- `test/results/003-real-corpora-baseline.md` deja medido el delta cold/warm en corpus grandes reales de PFC Workspace;
+- `src/shared/publicApi.ts`, `src/server/server.ts` y `src/client/statusBarPresentation.ts` exponen ahora en stats/status si la reapertura quedó en `restored`, `reused` o `rebuilt`, junto con el número de documentos restaurados y la snapshot de serving reaprovechada;
+- la barra de estado y sus reportes dejan visible ese estado sin depender solo de logs internos.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(statusBarPresentation|publicApi)"`
+- `npm run test:performance`
+
+## 1.40 B205. PowerBuilder grammar canonical module — **Cerrada (shared grammar consolidation 2026-05)**
+
+**Objetivo:** centralizar patrones, keywords y matchers estructurales de PowerBuilder en un módulo canónico.
+
+**Resultado registrado:**
+- `src/server/parsing/grammar.ts` consolida keywords, matchers de secciones, bloques ejecutables y patrones estructurales reutilizados por parsing y diagnostics;
+- `src/server/parsing/controlBlocks.ts`, `src/server/parsing/sectionMachine.ts`, `src/server/features/diagnosticsExtra.ts` y `src/server/analysis/documentAnalysis.ts` dejan de duplicar regex críticas y consumen patrones compartidos o matchers canónicos;
+- la suite de gramática queda reforzada con cobertura de `type prototypes` y `owner type variables` en `test/server/unit/sectionMachine.test.ts`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(sectionMachine|matchers|documentAnalysis|diagnosticsExtra)"`
+
+## 1.41 B036. Code actions básicas — **Cerrada (safe quick-fix baseline 2026-05)**
+
+**Objetivo:** quick fixes pequeños, seguros y explicables.
+
+**Resultado registrado:**
+- `src/server/features/codeActions.ts` fija un catálogo mínimo y estable sobre SD7, limitado a un reemplazo simple dentro del rango diagnosticado;
+- cada action expone metadata explícita de `evidence`, `confidence` y tipo de edición segura;
+- el provider rechaza sugerencias no seguras fuera del patrón de identificador simple, evitando modificaciones peligrosas o ambiguas.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/codeActions"`
+
+## 1.42 B160. Query result cache con claves semánticas estables — **Cerrada (observable serving cache 2026-05)**
+
+**Objetivo:** cachear respuestas semánticas seguras.
+
+**Resultado registrado:**
+- `src/server/knowledge/ServingCache.ts` deja cubiertas claves estables para `hover`, `definition`, `signatureHelp` y `completion`, incluyendo discriminadores extra y epoch semántica;
+- `src/server/server.ts` reutiliza `resolveServingReadiness` también en cache hits de `definition`, de modo que el resultado cacheado sigue respetando readiness y `resolutionConfidence` antes de servirse;
+- `src/shared/publicApi.ts` y `src/client/statusBarPresentation.ts` hacen observable el hit ratio, misses y evictions del serving cache en stats y status.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(ServingCache|servingReadiness|statusBarPresentation)"`
+
+## 1.43 B157. Semantic evidence de primera clase — **Cerrada (diagnostics parity 2026-05)**
+
+**Objetivo:** modelar formalmente por qué una resolución ganó o fue descartada.
+
+**Resultado registrado:**
+- el query engine ya dejaba cubiertos `winner evidence`, `candidatePool`, descartes por distancia/contexto, ambigüedad mínima, `confidence`, `queryContext`, `queryTrace`, hover y policy base por feature;
+- `src/server/features/diagnostics.ts` reutiliza ahora `semanticQueryService` también para SD2, evitando reconstruir resolución local y proyectando un resumen seguro de `confidence`, `reasonCodes`, `evidenceKinds` y cardinalidad en `Diagnostic.data`;
+- diagnostics, stats/API y consumers sensibles quedan alineados sobre la misma semántica explicable sin abrir una segunda lógica de resolución.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/diagnostics"`
+
+## 1.44 B031. Referencias más precisas y robustas — **Cerrada (topología real + masking + family filtering 2026-05)**
+
+**Objetivo:** referencias cross-file y contexto fuerte sin matching superficial.
+
+**Resultado registrado:**
+- `src/server/server.ts` deja de limitar `references` a documentos abiertos y pasa a recopilar fuentes sobre `WorkspaceState`, preservando además documentos abiertos fuera del inventario para no perder contexto activo;
+- `src/server/features/references.ts` deja de escanear contenido crudo y reutiliza el masking canónico de strings/comentarios antes del matching textual, evitando falsos positivos en literales y comentarios;
+- cada ocurrencia candidata se revalida contra la misma familia semántica resuelta por el query engine compartido, de modo que owners homónimos no contaminan el resultado aunque exista match textual coincidente;
+- el resultado sigue bloqueado o habilitado por `confidence/readiness` del runtime ya cerrados en `B171`, manteniendo `references` explicable sobre topología real sin reabrir una segunda lógica de resolución.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/references"`
+- `npm run test:unit -- --grep "unit/queryEngineConsistency"`
+- `npm run test:unit -- --grep "unit/codeLensReferences|unit/references|unit/queryEngineConsistency|unit/featureReadiness"`
+
+## 1.45 B155. Checkpoints reales de indexación y resume robusto — **Cerrada (discovery snapshot + restore temprano validado 2026-05)**
+
+**Objetivo:** reaperturas rápidas y resume seguro del pipeline.
+
+**Resultado registrado:**
+- `src/server/cache/cacheSchema.ts` y `src/server/cache/cacheCheckpoint.ts` amplían el contrato persistente con un snapshot explícito de discovery (`roots` + `sourceFiles`) normalizado junto a la metadata ya existente del checkpoint;
+- `src/server/workspace/workspaceState.ts` expone export/restore/reemplazo controlado del snapshot de discovery para separar el estado restaurado del estado redescubierto sin contaminar el inventario real del workspace;
+- `src/server/server.ts` aplica ahora restore temprano de `DocumentCache`, `KnowledgeBase`, serving snapshot y discovery snapshot antes del redescubrimiento, ejecuta el discovery real sobre un `WorkspaceState` temporal y valida después la metadata completa antes de indexar o conservar el resume;
+- el servidor siembra además un checkpoint actualizado justo tras discovery, de modo que una sesión interrumpida durante la indexación ya conserva discovery/readiness base y puede reencolar solo trabajo pendiente o incompatible en la reapertura siguiente.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/workspace|unit/cachePersistence"`
+- `npm run test:unit -- --grep "unit/cacheStore|unit/statusBarPresentation|unit/publicApi"`
+
+## 1.46 B032. Rename controlado — **Cerrada (queryContext real + workspace edit seguro + bloqueo dinámico 2026-05)**
+
+**Objetivo:** ampliar rename solo en escenarios semánticamente seguros.
+
+**Resultado registrado:**
+- `src/server/features/rename.ts` introduce un helper puro que reutiliza `queryContext`, `references` y `renamePreflight` para construir `WorkspaceEdit` solo cuando existe un target único y seguro;
+- `src/server/server.ts` deja de renombrar por scope léxico local y delega `onRenameRequest` al helper semántico con fuentes reales del workspace;
+- el rename queda habilitado para variables locales, parámetros y miembros resueltos por qualifier/hierarchy con confidence alta, y bloqueado con razón estable ante ambigüedad, fallback global o hits dinámicos en strings;
+- `test/server/unit/rename.test.ts` cubre parámetros locales, miembros tipados cross-file, bloqueo por fallback global y bloqueo por referencias dinámicas.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/rename|unit/renamePreflight"`
+- `npm run test:unit -- --grep "unit/dynamicStringReferences|unit/rename|unit/renamePreflight|unit/references|unit/queryEngineConsistency|unit/featureReadiness|unit/servingReadiness|unit/codeLensReferences"`
+
+## 1.47 B208. Dynamic string reference detector — **Cerrada (clasificación conservadora + degradación honesta 2026-05)**
+
+**Objetivo:** detectar referencias relevantes en strings dinámicos y degradar operaciones peligrosas cuando no exista cobertura fiable.
+
+**Resultado registrado:**
+- `src/server/features/dynamicStringReferences.ts` añade un detector reusable con clasificación `safe-literal`, `probable`, `dynamic`, `unknown` sobre `Open`, `DataObject`, `PostEvent`, `TriggerEvent`, `EvaluateJavascriptSync/Async`, JSON paths, SQL dinámico y `Describe/Modify/Evaluate`;
+- `src/server/features/rename.ts` bloquea el rename cuando el símbolo aparece en un hit no seguro dentro de strings dinámicos;
+- `src/server/features/references.ts` degrada a definiciones cuando detecta ese riesgo, evitando prometer cobertura textual completa en presencia de referencias dinámicas;
+- la surface actual de code actions sigue siendo un quick-fix local de diagnóstico de rango único, por lo que no necesita una ruta adicional de degradación semántica para este cierre.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/dynamicStringReferences|unit/rename|unit/renamePreflight|unit/references"`
+- `npm run test:unit -- --grep "unit/dynamicStringReferences|unit/rename|unit/renamePreflight|unit/references|unit/queryEngineConsistency|unit/featureReadiness|unit/servingReadiness|unit/codeLensReferences"`
+
+## 1.48 B204. Source origin model unificado — **Cerrada (contrato compartido + persistence + API/diagnostics 2026-05)**
+
+**Objetivo:** clasificar de forma uniforme el origen de cada documento, símbolo y snapshot semántico.
+
+**Resultado registrado:**
+- `src/shared/sourceOrigin.ts` introduce un contrato compartido de `sourceOrigin` con prioridad explícita entre source real, staging, export, generated, backup y unknown;
+- `src/server/workspace/workspaceState.ts`, `src/server/workspace/discovery.ts`, `src/server/cache/cacheSchema.ts` y `src/server/cache/cacheCheckpoint.ts` persisten y restauran origen por archivo junto al snapshot de discovery del workspace;
+- `src/server/analysis/documentAnalysis.ts`, `src/server/knowledge/types.ts` y `src/server/knowledge/resolution/semanticQueryService.ts` propagan `sourceOrigin` a lineage y evidence del query engine;
+- `src/server/features/diagnostics.ts`, `src/server/features/diagnosticsSnapshot.ts`, `src/server/features/workspaceSymbols.ts`, `src/server/server.ts` y `src/client/extension.ts` exponen `sourceOrigin` en diagnostics snapshot, stats y API pública de `querySymbols()` sin abrir una surface paralela.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/sourceOrigin|unit/workspace|unit/cachePersistence|unit/publicApi"`
+- `npm run test:unit -- --grep "unit/sourceOrigin|unit/workspace|unit/cachePersistence|unit/publicApi|unit/workspaceSymbols|unit/diagnosticsSnapshot|unit/diagnostics"`
+- `npm run test:unit -- --grep "unit/sourceOrigin|unit/workspace|unit/cachePersistence|unit/publicApi|unit/workspaceSymbols|unit/diagnosticsSnapshot|unit/diagnostics|unit/queryEngineConsistency|unit/references|unit/rename|unit/renamePreflight|unit/featureReadiness|unit/servingReadiness"`
+
+## 1.49 B206. Rich PowerBuilder symbol metadata — **Cerrada (metadata contractual viva + hover/document analysis 2026-05)**
+
+**Objetivo:** enriquecer progresivamente el modelo de símbolo con metadata específica de PowerBuilder.
+
+**Resultado registrado:**
+- `src/server/analysis/documentAnalysis.ts`, `src/server/model/types.ts` y `src/server/knowledge/types.ts` propagan `containerKind`, `containerSignature`, `fileObjectName`, `declarationScope`, `implementationKind`, `ownerName`, `parameterCount`, `returnType`, `access` y `sourceOrigin` en el modelo real cuando aplica;
+- `src/server/knowledge/enrichEntity.ts` consolida derivaciones estables para `ownerName`, `declarationScope` e `implementationKind`, incluyendo distinción explícita entre `on-handler` y `external-function`;
+- `src/server/features/hoverFormat.ts` consume esa metadata para explicar prototype, implementation, on-handler, external function, member/local/parameter y owner real sin recomputar semántica fuera del backbone;
+- `src/server/knowledge/stringInterning.ts` y `src/server/knowledge/semanticDiff.ts` incorporan los nuevos campos para que la metadata enriquecida participe en internado, diff y persistencia sin modelos paralelos.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/documentAnalysis|unit/enrichEntity|unit/hoverFormat"`
+- `npm run test:unit -- --grep "unit/documentAnalysis|unit/enrichEntity|unit/hoverFormat|unit/hover|unit/semanticTokens|unit/documentSymbols|unit/references|unit/rename|unit/renamePreflight|unit/queryEngineConsistency"`
+- `npm run test:unit -- --grep "unit/documentAnalysis|unit/enrichEntity|unit/hoverFormat|unit/hover|unit/documentSymbols|unit/references|unit/rename|unit/renamePreflight|unit/queryEngineConsistency|unit/cachePersistence|unit/workspaceSymbols"`
+
+## 1.50 B209. PowerBuilder call model and invocation classification — **Cerrada (invocationKind/invocationRisk + parent/ancestor 2026-05)**
+
+**Objetivo:** clasificar llamadas PowerBuilder según forma y riesgo semántico.
+
+**Resultado registrado:**
+- `src/server/utils/invocationContext.ts` distingue ya `.` y `::`, preservando la forma sintáctica de invocación para `this`, `parent`, `super`, `ancestor` y qualifiers tipados;
+- `src/server/knowledge/resolution/semanticQueryService.ts` resuelve el current object real por línea/scope, añade `invocationKind`, `invocationRisk` y `resolvedQualifierType`, y soporta `parent.uf_xxx()` y `ancestor::event` como rutas explícitas del query engine compartido;
+- `src/server/features/queryContext.ts`, `src/server/knowledge/queryTrace.ts` y `src/shared/publicApi.ts` propagan la clasificación de invocación a traces y contexto compartido, de modo que definition/references/rename/completion/signatureHelp puedan explicar cómo se resolvió cada callsite;
+- los tests focalizados cubren `invocationContext`, `queryContext`, `semanticQueryService` y `definition`, y la validación lateral mantiene verdes `references`, `rename`, `renamePreflight`, `queryEngineConsistency`, `completion` y `signatureHelp`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "server/utils/invocationContext|unit/queryContext|unit/semanticQueryService|unit/definition"`
+- `npm run test:unit -- --grep "server/utils/invocationContext|unit/queryContext|unit/semanticQueryService|unit/definition|unit/references|unit/rename|unit/renamePreflight|unit/queryEngineConsistency|unit/completion|unit/signatureHelp"`
+
+## 1.51 B210. PowerBuilder event model — **Cerrada (owner real + TriggerEvent/PostEvent estables 2026-05)**
+
+**Objetivo:** modelar eventos PowerBuilder como entidades semánticas de primera clase.
+
+**Resultado registrado:**
+- `src/server/parsing/grammar.ts`, `src/server/parsing/matchers.ts` y `src/server/model/types.ts` separan owner y event name en `on object.event`, preservando además la firma cualificada original del handler;
+- `src/server/analysis/documentAnalysis.ts` cuelga el scope del evento del owner real, estabiliza `containerName`/`ownerName` de on-handlers y deja de modelar los eventos como nombres planos `owner.event` dentro del backbone semántico;
+- `src/server/utils/invocationContext.ts`, `src/server/features/queryContext.ts`, `src/server/features/definition.ts` y `src/server/features/references.ts` sintetizan contexto semántico para literales estables de `TriggerEvent/PostEvent`, permitiendo navegación y referencias sobre eventos reales sin abrir un motor paralelo;
+- la validación lateral mantiene verdes `hover`, `hoverFormat`, `documentSymbols`, `semanticTokens`, `completion`, `signatureHelp`, `rename`, `renamePreflight`, `dynamicStringReferences` y `queryEngineConsistency` sobre el modelo nuevo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/matchers|unit/documentAnalysis|unit/definition"`
+- `npm run test:unit -- --grep "server/utils/invocationContext|unit/queryContext|unit/definition|unit/references"`
+- `npm run test:unit -- --grep "unit/matchers|unit/documentAnalysis|server/utils/invocationContext|unit/queryContext|unit/definition|unit/references|unit/rename|unit/renamePreflight|unit/queryEngineConsistency|unit/hover|unit/hoverFormat|unit/documentSymbols|unit/semanticTokens|unit/completion|unit/signatureHelp|unit/dynamicStringReferences"`
+
+## 1.52 B207. External functions and native dependency model — **Cerrada (dll/pbx/unknown + degradación honesta 2026-05)**
+
+**Objetivo:** modelar funciones externas, DLL/PBX/PBNI y dependencias nativas sin tratarlas como símbolos internos.
+
+**Resultado registrado:**
+- `src/server/parsing/externalFunctions.ts`, `src/server/model/types.ts`, `src/server/knowledge/types.ts` y `src/server/analysis/documentAnalysis.ts` conservan ya librería, alias y clasificación `dll`/`pbx`/`unknown` en el modelo real de external functions/subroutines;
+- `src/server/features/hoverFormat.ts` explica dependencia externa, alias y tipo nativo, mientras `src/server/features/rename.ts` bloquea rename y `src/server/features/references.ts` degrada a la declaración cuando el target es externo;
+- `src/server/features/diagnostics.ts` emite una nota informativa para dependencias nativas sin implementación interna navegable, evitando presentar la declaración externa como definition interna del workspace;
+- `src/server/knowledge/stringInterning.ts`, `src/server/knowledge/semanticDiff.ts`, `unit/cachePersistence` y `unit/workspaceSymbols` validan que la metadata nativa no quede muerta fuera del path inmediato de hover/serving.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/externalFunctions|unit/documentAnalysis|unit/hoverFormat|unit/rename|unit/references|unit/diagnostics"`
+- `npm run test:unit -- --grep "unit/externalFunctions|unit/documentAnalysis|unit/hoverFormat|unit/hover|unit/rename|unit/renamePreflight|unit/references|unit/diagnostics|unit/queryEngineConsistency|unit/semanticQueryService|unit/cachePersistence|unit/workspaceSymbols"`
+
+## 1.53 B211. Transaction and SQLCA semantic model — **Cerrada (SQLCA especial + binding básico transaction/DataWindow 2026-05)**
+
+**Objetivo:** modelar `Transaction`, `SQLCA`, `SetTransObject`, `SetTrans`, `Retrieve`, `Update` y SQL embebido sin semántica plana ni inventada.
+
+**Resultado registrado:**
+- `src/server/knowledge/resolution/semanticQueryService.ts` y `src/server/features/queryContext.ts` tratan ya `SQLCA` como transaction global especial, estabilizando el owner-type de `SQLCA.*` dentro del query engine compartido;
+- `src/server/features/completion.ts`, `src/server/features/hover.ts` y `src/server/features/signatureHelp.ts` resuelven members del catálogo filtrando por `ownerType`, con lo que `datastore/datawindow.Retrieve`, `Update`, `SetTransObject`, `SetTrans` y `SQLCA.DBHandle()` explican la entrada correcta del catálogo en vez de una coincidencia plana por nombre;
+- `src/server/features/diagnostics.ts` enlaza `SetTransObject`/`SetTrans` con `Retrieve`/`Update`, informa transaction desconocida y degrada la confidence cuando el binding es dinámico;
+- la parte de SQL estático/dinámico reaprovecha las piezas ya cerradas en `sqlRegions` y `dynamicStringReferences`, sin abrir un motor paralelo para B211.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/completion"`
+- `npm run test:unit -- --grep "unit/diagnostics"`
+- `npm run test:unit -- --grep "unit/(hover|signatureHelp)"`
+- `npm run test:unit -- --grep "unit/(completion|diagnostics|hover|signatureHelp|sqlRegions|dynamicStringReferences)"`
+
+## 1.54 B213. PowerBuilder object lifecycle model — **Cerrada (create/destroy + hooks constructor/destructor 2026-05)**
+
+**Objetivo:** modelar create/destroy, constructor/destructor y ancestor flow sin tratarlos como eventos o wiring planos.
+
+**Resultado registrado:**
+- `src/server/features/hierarchyInspection.ts` proyecta ya lifecycle create/destroy con evidence de `call super::create/destroy`, hook disparado (`constructor/destructor`), resolución del hook y warnings suaves por wiring sospechoso desde el snapshot semántico publicado;
+- `src/server/features/hover.ts` reutiliza ese mismo bloque para explicar `constructor/destructor` resueltos desde `TriggerEvent(this, ...)` y no presentarlos como eventos aislados;
+- `src/server/features/diagnostics.ts` emite warnings suaves reutilizando el mismo backbone (`missing-super-*`, `missing-trigger-*`, `unresolved-*`) cuando el lifecycle declarado por el tipo es sospechoso;
+- la navegación base de `call super::create` y de literales estables de `TriggerEvent/PostEvent` ya permanecía soportada por `definition` y el query engine compartido cerrado en `B210`, así que B213 se cerró como proyección consistente, no como un motor nuevo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/hierarchyInspection"`
+- `npm run test:unit -- --grep "unit/hover"`
+- `npm run test:unit -- --grep "unit/diagnostics"`
+- `npm run test:unit -- --grep "unit/(hierarchyInspection|hover|diagnostics|definition)"`
+
+## 1.55 B212. DataObject binding model — **Cerrada (bridge PowerScript/.srd + retrieve args 2026-05)**
+
+**Objetivo:** modelar bindings básicos entre PowerScript, DataWindow/DataStore y objetos `.srd` sin abrir un parser DataWindow paralelo ni fingir navegación para bindings dinámicos.
+
+**Resultado registrado:**
+- `src/server/analysis/documentAnalysis.ts` publica un stub navegable para `.srd` como `datawindow`, de forma que el objeto exportado entra en `KnowledgeBase` y puede servir como target semántico sin parsear `.srd` como PowerScript;
+- `src/server/features/definition.ts` y `src/server/features/hover.ts` reutilizan ese mismo backbone para navegar y explicar `DataObject = "d_xxx"` cuando el binding literal apunta a un `.srd` único ya indexado;
+- `src/server/features/signatureHelp.ts` especializa `Retrieve(...)` leyendo los args reales desde `arguments=(...)` y `ARG(...)` del snapshot `.srd` enlazado por `DataObject`, en vez de quedarse en la firma plana del catálogo;
+- `src/server/features/diagnostics.ts` distingue binding `DataObject` faltante, ambiguo o dinámico y además avisa cuando `Retrieve(...)` no respeta la aridad declarada por el `.srd`, compartiendo transaction, confidence y degradación honesta en el mismo flujo semántico.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(documentAnalysis|definition)"`
+- `npm run test:unit -- --grep "unit/signatureHelp"`
+- `npm run test:unit -- --grep "unit/diagnostics"`
+- `npm run test:unit -- --grep "unit/(documentAnalysis|definition|hover|diagnostics|signatureHelp)"`
+
+## 1.56 B222. PowerBuilder semantic golden suite — **Cerrada (backbone semántico congelado 2026-05)**
+
+**Objetivo:** fijar con evidencia ejecutable el comportamiento semántico PowerBuilder ya soportado por el backbone compartido para detectar regresiones antes de abrir más superficie.
+
+**Resultado registrado:**
+- `test/server/unit/powerbuilderSemanticGolden.test.ts` congela scope resolution, prototypes vs implementations, herencia visible, event handlers, external functions, binding `DataObject` literal, downgrade dinámico y conflictos de `sourceOrigin` sobre fixtures reales del repositorio;
+- el hallazgo de la suite destapó y corrigió un bug real en `src/server/knowledge/resolution/InheritanceGraph.ts`: para variables miembro a igual distancia de herencia, la closure ahora desempata con prioridad `Compartida -> Global -> Instancia` en vez de depender solo de la distancia;
+- `definition`, `hover`, `signatureHelp`, `diagnostics`, `references` y `rename` quedan cubiertos contra esa misma base semántica sin crear harnesses paralelos ni duplicar resolución.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/powerbuilderSemanticGolden"`
+- `npm run test:unit -- --grep "unit/(powerbuilderSemanticGolden|scopeResolution|semanticQueryService|definition|hover|signatureHelp|diagnostics|references|rename|renamePreflight|sourceOrigin)"`
+
+## 1.57 B217. AI context pack for current object — **Cerrada (contexto read-only fiable 2026-05)**
+
+**Objetivo:** servir a IA un paquete read-only del objeto activo con contexto semántico rico y trazable, sin releer todo el workspace ni reconstruir semántica fuera del backbone compartido.
+
+**Resultado registrado:**
+- `src/server/features/currentObjectContext.ts` construye ya un context pack del objeto activo a partir de `getDocumentAnalysis()`, `KnowledgeBase`, `hierarchyInspection`, diagnostics reales y bindings `DataObject`, incluyendo metadata, excerpt, `sourceOrigin`, proyecto/librería, ancestor chain, functions/events/prototypes, referenced symbols, diagnostics, evidence/confidence y related files;
+- `src/server/server.ts` expone el contrato por `powerbuilder.currentObjectContext`, y `src/client/extension.ts` lo publica vía `getCurrentObjectContext()` dentro de la API pública versionada de la extensión;
+- `src/server/features/diagnostics.ts` ahora comparte `buildDiagnosticsForDocument()` para que el context pack reutilice exactamente la misma lógica de diagnostics que el publish real, y `src/server/features/dataWindowBindingModel.ts` exporta un resumen de bindings reutilizable sin abrir otro parser o un flujo paralelo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/currentObjectContext"`
+- `npm run test:unit -- --grep "unit/(currentObjectContext|objectInfo|hierarchyInspection|diagnostics|signatureHelp|powerbuilderSemanticGolden)"`
+- `npm test -- --grep "smoke/extension"`
+
+## 1.58 B218. Spec impact analyzer — **Cerrada (impacto read-only explícito 2026-05)**
+
+**Objetivo:** calcular impacto probable de una spec o cambio usando el backbone semántico real, para que la IA no planifique ni edite a ciegas.
+
+**Resultado registrado:**
+- `src/server/features/impactAnalysis.ts` calcula ya símbolos afectados, referencias seguras, descendientes, overrides, eventos relacionados, DataWindows vinculadas, archivos probables de impacto y build targets conocidos reutilizando `references`, `InheritanceGraph`, `currentObjectContext` y `WorkspaceState` en un único resultado serializable;
+- `src/server/server.ts` expone el análisis por `powerbuilder.analyzeImpact`, y `src/client/extension.ts` lo añade a la API pública versionada como `analyzeImpact()` sin abrir todavía ejecución automática;
+- el análisis degrada con honestidad cuando no puede resolver un símbolo raíz y mantiene confidence/evidence explícitas cuando la resolución sí existe.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/impactAnalysis"`
+- `npm run test:unit -- --grep "unit/(impactAnalysis|currentObjectContext|references|hierarchyInspection|diagnostics|signatureHelp|powerbuilderSemanticGolden)"`
+
+## 1.59 B219. Safe edit plan generator — **Cerrada (plan read-only trazable 2026-05)**
+
+**Objetivo:** generar un plan de edición seguro antes de aplicar cambios, dejando explícitos archivos/objetos, razones, riesgos, tests, docs y bloqueos por ambigüedad.
+
+**Resultado registrado:**
+- `src/server/features/safeEditPlan.ts` construye ya un plan read-only a partir del impacto explícito, clasificando archivos por rol/riesgo, agregando tests recomendados, docs a revisar y bloqueos honestos cuando la confidence no alcanza;
+- `src/server/server.ts` expone el plan por `powerbuilder.safeEditPlan`, y `src/client/extension.ts` lo añade a la API pública versionada como `generateSafeEditPlan()` sin convertirlo en ejecución automática;
+- el plan mantiene trazabilidad suficiente para IA: objetos afectados, razones por archivo, riesgos, confidence y casos bloqueados, pero no toca código ni finge seguridad cuando el análisis es ambiguo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/safeEditPlan"`
+- `npm run test:unit -- --grep "unit/(safeEditPlan|impactAnalysis|currentObjectContext|references|hierarchyInspection|diagnostics|signatureHelp|powerbuilderSemanticGolden)"`
+
+## 1.60 B220. AI-readable semantic workspace manifest — **Cerrada (manifiesto compacto/versionado 2026-05)**
+
+**Objetivo:** exportar un manifiesto semántico compacto y versionado para agentes IA sin obligarlos a escanear manualmente todo el workspace.
+
+**Resultado registrado:**
+- `src/server/features/semanticWorkspaceManifest.ts` compone ya un manifiesto read-only con `projects`, `libraries`, `objects`, `inheritanceSummary`, `exportedSymbols`, `diagnosticsSummary`, `sourceOriginSummary`, `readiness`, `schemaVersion` y límites explícitos de payload;
+- `src/server/server.ts` lo expone por `powerbuilder.semanticWorkspaceManifest`, y `src/client/extension.ts` lo añade a la API pública versionada como `getSemanticWorkspaceManifest()`;
+- el resultado reutiliza `WorkspaceState`, `UnifiedProjectModel`, `KnowledgeBase`, `InheritanceGraph` y `diagnostics snapshot` ya publicados, sin exportar código bruto ni abrir un canal paralelo fuera del backbone semántico.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/semanticWorkspaceManifest"`
+- `npm run test:unit -- --grep "unit/(semanticWorkspaceManifest|safeEditPlan|impactAnalysis|currentObjectContext|references|hierarchyInspection|diagnostics|signatureHelp|powerbuilderSemanticGolden)"`
+
+## 1.61 B117. DataWindow safe mode mínimo — **Cerrada (safe mode .srd explícito 2026-05)**
+
+**Objetivo:** soporte seguro mínimo de `.srd` con detección, SQL base, argumentos, columnas, bandas principales y hover/navegación básica sin parsear DataWindow como PowerScript completo.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowSafeMode.ts` resume ya `retrieve`, `arguments`, columnas y bandas principales de snapshots `.srd` como un contrato read-only pequeño y reutilizable;
+- `src/server/features/hover.ts` proyecta ese resumen cuando un `DataObject` literal o type stub resuelve hacia un `.srd`, reforzando el safe mode sin abrir soporte avanzado;
+- la navegación básica sigue apoyada en los stubs `.srd` ya publicados por `documentAnalysis`, de modo que definition/hover/signatureHelp/diagnostics continúan sobre el mismo backbone semántico y no sobre un parser paralelo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(dataWindowSafeMode|hover)"`
+- `npm run test:unit -- --grep "unit/(dataWindowSafeMode|documentAnalysis|definition|hover|signatureHelp|diagnostics|currentObjectContext|impactAnalysis|safeEditPlan|powerbuilderSemanticGolden)"`
+
+## 1.62 B139. DataWindow safe-mode desde `plugin_old` — **Cerrada (legacy-safe rediseñado 2026-05)**
+
+**Objetivo:** reaprovechar parser/definition/hover seguros del legacy para reforzar el safe mode DataWindow sin abrir soporte avanzado completo.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowLegacySafeMode.ts` adapta de forma selectiva el conocimiento útil de `plugin_old` a un analizador puro de `.srd` con bandas, columnas `table(column=...)`, `retrieve` y referencias SQL simples dentro del propio DataWindow;
+- `src/server/features/definition.ts` y `src/server/features/hover.ts` incorporan un fast-path local para documentos `.srd`, permitiendo navegación y hover seguros sobre bandas y columnas SQL sin depender de stores globales ni del subsistema legacy completo;
+- el refuerzo mantiene el backbone actual: no usa `SymbolIndex`, no introduce async en hot path y no abre todavía expresiones, `DataWindowChild`, propiedades avanzadas ni mutación automática.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(dataWindowLegacySafeMode|definition|hover)"`
+- `npm run test:unit -- --grep "unit/(dataWindowLegacySafeMode|dataWindowSafeMode|documentAnalysis|definition|hover|signatureHelp|diagnostics|currentObjectContext|impactAnalysis|safeEditPlan|powerbuilderSemanticGolden)"`
+
+## 1.63 B041. Catálogo y navegación de DataWindow — **Cerrada (entidades de primer nivel 2026-05)**
+
+**Objetivo:** promover DataWindow/DataStore a entidades semánticas de primer nivel con catálogo y navegación básicos integrados.
+
+**Resultado registrado:**
+- `src/server/features/documentSymbols.ts` ya expone Document Symbols específicos para `.srd` usando el modelo legacy-safe, incluyendo root DataWindow, bandas, tabla, columnas y `retrieve`;
+- `workspaceSymbols` y `queryApiSymbols` ya publican los stubs `.srd` como tipos navegables del workspace, de modo que el catálogo básico DataWindow queda integrado también fuera del archivo activo;
+- el resultado no abre soporte avanzado todavía: reutiliza el safe mode `.srd` ya cerrado y mantiene la separación entre catálogo básico y DataWindow avanzado.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(documentSymbols|workspaceSymbols)"`
+- `npm run test:unit -- --grep "unit/(documentSymbols|workspaceSymbols|dataWindowLegacySafeMode|dataWindowSafeMode|documentAnalysis|definition|hover|signatureHelp|diagnostics|currentObjectContext|impactAnalysis|safeEditPlan|semanticWorkspaceManifest|powerbuilderSemanticGolden)"`
+
+## 1.64 B161. Golden tests semánticos end-to-end — **Cerrada (suite golden ampliada 2026-05)**
+
+**Objetivo:** fijar contratos visibles de comportamiento semántico para hover, definition, references, rename eligibility y readiness sin depender de interpretación manual del estado del motor.
+
+**Resultado registrado:**
+- `test/server/unit/powerbuilderSemanticGolden.test.ts` cubre ahora de forma explícita scope resolution, prototypes/implementation, herencia, event handlers, external functions, `DataObject` literal, `rename eligibility`, `readiness gating`, downgrade dinámico y conflictos de `sourceOrigin` sobre la misma base semántica compartida;
+- rename y references siguen validados además por sus suites propias, pero la suite golden ya fija también los contratos mínimos de rename eligibility y readiness que faltaban para cerrar `B161` sin depender solo de tests auxiliares separados;
+- el cierre no introduce otro harness: reutiliza `validateRenameTarget()`, `decideFeatureReadiness()` y el backbone semántico ya congelado por `B222`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/powerbuilderSemanticGolden"`
+- `npm run test:unit -- --grep "unit/(powerbuilderSemanticGolden|featureReadiness|renamePreflight|scopeResolution|semanticQueryService|definition|hover|signatureHelp|diagnostics|references|rename|sourceOrigin)"`
+
+## 1.65 B163. Semantic work journal / event log del motor — **Cerrada (runtime journal exportable 2026-05)**
+
+**Objetivo:** exponer un event log técnico del runtime para tuning y debugging sin abrir un subsistema paralelo ni romper el hot path.
+
+**Resultado registrado:**
+- `src/server/runtime/runtimeJournal.ts` introduce un ring buffer exportable con eventos tipados, fases, severidad, latencia y payload defensivo;
+- `src/server/knowledge/queryTrace.ts`, `src/server/knowledge/ServingCache.ts` y `src/server/server.ts` alimentan el journal desde traces resueltas, hits/misses/evictions/invalidationes del serving cache e invalidaciones documentales reales (`change`, `close`, watcher flush);
+- `src/shared/publicApi.ts` y `src/client/statusBarPresentation.ts` publican el snapshot del journal en `showStats` y lo resumen en status/health sin recalcular la observabilidad fuera del runtime.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(runtimeJournal|runtimeHealth|queryTrace|ServingCache|statusBarPresentation)"`
+- `npm run test:unit -- --grep "unit/(runtimeJournal|runtimeHealth|queryTrace|ServingCache|statusBarPresentation|publicApi|cachePersistence|servingCachePersistence|servingReadiness|featureReadiness)"`
+- `npm test -- --grep "smoke/extension"`
+
+## 1.66 B176. Health checker interno del motor — **Cerrada (health report estructurado 2026-05)**
+
+**Objetivo:** detectar degradación interna del motor antes del bug visible, con findings machine-readable reutilizables por stats y status.
+
+**Resultado registrado:**
+- `src/server/runtime/runtimeHealth.ts` construye un reporte estructurado `healthy/warning/error` con findings por capa (`runtime`, `scheduler`, `project-model`, `analysis-cache`, `serving-cache`, `hot-context`, `persistence`, `query`) y contadores por severidad;
+- `src/server/server.ts` integra ese reporte en `showStats`, reutilizando el estado real de readiness, scheduler, project model, cachés, persistencia y última query en vez de abrir un checker desconectado del runtime;
+- `src/client/statusBarPresentation.ts` proyecta counts, findings y tail del journal en el tooltip/health report, dejando alineadas las surfaces visibles con el contrato público compartido.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(runtimeJournal|runtimeHealth|queryTrace|ServingCache|statusBarPresentation)"`
+- `npm run test:unit -- --grep "unit/(runtimeJournal|runtimeHealth|queryTrace|ServingCache|statusBarPresentation|publicApi|cachePersistence|servingCachePersistence|servingReadiness|featureReadiness)"`
+- `npm test -- --grep "smoke/extension"`
 
 ### Resultado técnico registrado
 

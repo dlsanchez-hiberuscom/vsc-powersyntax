@@ -1,6 +1,8 @@
 import * as assert from 'assert/strict';
 import { SymbolKind } from 'vscode-languageserver/node';
-import { provideWorkspaceSymbols } from '../../../src/server/features/workspaceSymbols';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
+import { provideWorkspaceSymbols, queryApiSymbols } from '../../../src/server/features/workspaceSymbols';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { EntityKind } from '../../../src/server/knowledge/types';
 
@@ -41,5 +43,57 @@ suite('unit/workspaceSymbols', () => {
   test('provideWorkspaceSymbols returns empty array if no match', () => {
     const symbols = provideWorkspaceSymbols('non_existent', kb);
     assert.equal(symbols.length, 0);
+  });
+
+  test('queryApiSymbols preserva lineage rico para la API pública', () => {
+    kb.upsertDocument('file:///ws_objects/w_api.srw', [
+      {
+        id: 'of_api',
+        name: 'of_Api',
+        kind: EntityKind.Function,
+        uri: 'file:///ws_objects/w_api.srw',
+        line: 4,
+        character: 2,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'workspace-ws_objects',
+          authority: 'derived',
+          phase: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+
+    const symbols = queryApiSymbols('of_api', kb, 5);
+
+    assert.equal(symbols.length, 1);
+    assert.deepEqual(symbols[0].lineage, {
+      sourceKind: 'document',
+      sourceOrigin: 'workspace-ws_objects',
+      authority: 'derived',
+      phase: 'implementation',
+      confidence: 'direct'
+    });
+  });
+
+  test('workspace/api symbols incluyen el stub type publicado por un .srd', () => {
+    const document = TextDocument.create(
+      'file:///d_customer.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_customer.srd',
+        'release 39;',
+        'datawindow(units=0)'
+      ].join('\r\n')
+    );
+    const analysis = analyzeDocument(document);
+    kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+
+    const workspaceSymbols = provideWorkspaceSymbols('d_customer', kb);
+    const apiSymbols = queryApiSymbols('d_customer', kb, 5);
+
+    assert.ok(workspaceSymbols.some((entry) => entry.name === 'd_customer' && entry.kind === SymbolKind.Class));
+    assert.ok(apiSymbols.some((entry) => entry.name === 'd_customer' && entry.kind === 'Type'));
   });
 });

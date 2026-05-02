@@ -165,6 +165,21 @@
         "command": "vscPowerSyntax.inspectHierarchy",
         "title": "PowerSyntax: Inspeccionar Jerarquía Activa",
         "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openStatusMenu",
+        "title": "PowerSyntax: Abrir Menú de Estado",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.showStatusStats",
+        "title": "PowerSyntax: Mostrar Stats del Runtime",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.showStatusHealth",
+        "title": "PowerSyntax: Mostrar Salud del Runtime",
+        "category": "VSC PowerSyntax"
       }
     ],
     "iconThemes": [

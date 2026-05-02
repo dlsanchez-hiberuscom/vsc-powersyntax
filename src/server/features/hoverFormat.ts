@@ -6,6 +6,7 @@
  * @module features/hoverFormat
  */
 
+import { enrichEntity } from '../knowledge/enrichEntity';
 import { Entity, EntityKind, type EntityLineage } from '../knowledge/types';
 import type { QueryReasonCode, QueryResolutionConfidence } from '../knowledge/resolution/semanticQueryService';
 
@@ -59,17 +60,18 @@ export function formatLineageHover(lineage?: EntityLineage): string | null {
 }
 
 export function formatUserHover(entity: Entity, resolution?: HoverResolutionSummary): string {
+  const enriched = enrichEntity(entity);
   const out: string[] = [];
-  const access = entity.access ? `${entity.access} ` : '';
+  const access = enriched.access ? `${enriched.access} ` : '';
 
   let signature: string;
-  if (entity.kind === EntityKind.Variable) {
-    const scopeStr = entity.scope ? `(${entity.scope}) ` : '';
-    signature = `${scopeStr}${access}${entity.datatype ?? 'any'} ${entity.name}`;
-  } else if (entity.kind === EntityKind.Function || entity.kind === EntityKind.Subroutine) {
-    signature = entity.signature ?? `${access}${entity.kind.toLowerCase()} ${entity.name}(...)`;
+  if (enriched.kind === EntityKind.Variable) {
+    const scopeStr = enriched.scope ? `(${enriched.scope}) ` : '';
+    signature = `${scopeStr}${access}${enriched.datatype ?? 'any'} ${enriched.name}`;
+  } else if (enriched.kind === EntityKind.Function || enriched.kind === EntityKind.Subroutine) {
+    signature = enriched.signature ?? `${access}${enriched.kind.toLowerCase()} ${enriched.name}(...)`;
   } else {
-    signature = `(${KIND_NAME[entity.kind] ?? entity.kind}) ${entity.name}`;
+    signature = enriched.signature ?? `(${KIND_NAME[enriched.kind] ?? enriched.kind}) ${enriched.name}`;
   }
   out.push('```powerbuilder');
   out.push(signature);
@@ -77,25 +79,37 @@ export function formatUserHover(entity: Entity, resolution?: HoverResolutionSumm
   out.push('---');
 
   // Tag prototipo vs implementación.
-  if (entity.isPrototype === true) {
+  if (enriched.isPrototype === true) {
     out.push('*(Prototype)*');
-  } else if (entity.isPrototype === false &&
-    (entity.kind === EntityKind.Function ||
-      entity.kind === EntityKind.Subroutine ||
-      entity.kind === EntityKind.Event)) {
+  } else if (enriched.implementationKind === 'on-handler') {
+    out.push('*(On-handler)*');
+  } else if (enriched.implementationKind === 'external-function') {
+    out.push('*(External function declaration)*');
+  } else if (enriched.isPrototype === false &&
+    (enriched.kind === EntityKind.Function ||
+      enriched.kind === EntityKind.Subroutine ||
+      enriched.kind === EntityKind.Event)) {
     out.push('*(Implementation)*');
   }
 
-  if (entity.isExternal && entity.externalLibraryName) {
-    out.push(`**External library:** \`${entity.externalLibraryName}\``);
+  if (enriched.isExternal && enriched.externalLibraryName) {
+    out.push(`**External library:** \`${enriched.externalLibraryName}\``);
   }
 
-  if (entity.documentation) {
+  if (enriched.isExternal && enriched.externalDependencyKind) {
+    out.push(`**Native dependency kind:** \`${enriched.externalDependencyKind}\``);
+  }
+
+  if (enriched.isExternal && enriched.externalAlias) {
+    out.push(`**External alias:** \`${enriched.externalAlias}\``);
+  }
+
+  if (enriched.documentation) {
     out.push('');
-    out.push(entity.documentation);
+    out.push(enriched.documentation);
   }
 
-  const lineage = formatLineageHover(entity.lineage);
+  const lineage = formatLineageHover(enriched.lineage);
   if (lineage) {
     out.push('');
     out.push(lineage);
@@ -121,9 +135,37 @@ export function formatUserHover(entity: Entity, resolution?: HoverResolutionSumm
     out.push(`*Candidatos ganadores:* ${resolution.targetCount}`);
   }
 
-  if (entity.containerName) {
+  if (enriched.declarationScope) {
     out.push('');
-    out.push(`*Definido en:* \`${entity.containerName}\``);
+    out.push(`*Declaration scope:* ${enriched.declarationScope}`);
+  }
+
+  if (enriched.ownerName) {
+    out.push('');
+    out.push(`*Owner real:* \`${enriched.ownerName}\``);
+  }
+
+  if (enriched.fileObjectName && enriched.fileObjectName !== enriched.ownerName) {
+    out.push('');
+    out.push(`*Objeto archivo:* \`${enriched.fileObjectName}\``);
+  }
+
+  if (
+    (enriched.declarationScope === 'local' || enriched.declarationScope === 'parameter')
+    && enriched.containerSignature
+  ) {
+    out.push('');
+    out.push(`*Callable contenedor:* \`${enriched.containerSignature}\``);
+  }
+
+  if (enriched.containerKind) {
+    out.push('');
+    out.push(`*Container kind:* ${enriched.containerKind}`);
+  }
+
+  if (enriched.containerName) {
+    out.push('');
+    out.push(`*Definido en:* \`${enriched.containerName}\``);
   }
   return out.join('\n');
 }

@@ -15,14 +15,16 @@ El usuario abre un workspace o solution.
 El plugin debe:
 
 1. detectar modo: Workspace, Solution, mixed o PBL-only;
-2. mostrar estado de discovery/indexing;
+2. mostrar en la status bar el proyecto activo y el estado real de discovery/indexing;
 3. priorizar archivo activo;
 4. servir Document Symbols y Hover cuanto antes;
-5. continuar indexando en background.
+5. exponer desde esa status bar accesos rápidos a stats, salud del runtime y build;
+6. continuar indexando en background.
 
 Valor:
 
-- el usuario no espera a que el workspace completo termine.
+- el usuario no espera a que el workspace completo termine;
+- y la status bar deja de ser decorativa porque sirve como punto de mantenimiento y observabilidad.
 
 ---
 

@@ -1,6 +1,7 @@
 import { SymbolInformation, SymbolKind, Location, Position } from 'vscode-languageserver/node';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { Entity, EntityKind } from '../knowledge/types';
+import { toApiSymbol, type ApiSymbol } from '../../shared/publicApi';
 
 const MAX_RESULTS = 200;
 
@@ -34,6 +35,17 @@ function entityToSymbolInformation(entity: Entity): SymbolInformation {
   };
 }
 
+function entityToApiSymbol(entity: Entity): ApiSymbol {
+  return toApiSymbol({
+    name: entity.name,
+    kind: entity.kind,
+    uri: entity.uri,
+    line: entity.line,
+    character: entity.character,
+    lineage: entity.lineage
+  });
+}
+
 /**
  * Provee Workspace Symbols filtrando la KnowledgeBase por query.
  * Usado por VS Code cuando el usuario abre la búsqueda global de símbolos (Ctrl+T).
@@ -49,6 +61,23 @@ export function provideWorkspaceSymbols(query: string, kb: KnowledgeBase): Symbo
     // Substring match case-insensitive
     if (lowerQuery === '' || entity.id.includes(lowerQuery)) {
       results.push(entityToSymbolInformation(entity));
+    }
+  }
+
+  return results;
+}
+
+export function queryApiSymbols(query: string, kb: KnowledgeBase, limit = MAX_RESULTS): ApiSymbol[] {
+  const lowerQuery = query.toLowerCase();
+  const results: ApiSymbol[] = [];
+
+  for (const entity of kb.getAllEntities()) {
+    if (results.length >= limit) {
+      break;
+    }
+
+    if (lowerQuery === '' || entity.id.includes(lowerQuery)) {
+      results.push(entityToApiSymbol(entity));
     }
   }
 

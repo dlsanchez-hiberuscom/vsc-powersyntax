@@ -16,6 +16,11 @@ suite('unit/codeActions (B036)', () => {
     assert.match(actions[0].title, /DoEvents/);
     const edit = actions[0].edit?.changes?.['file:///x']?.[0];
     assert.equal(edit?.newText, 'DoEvents');
+    assert.deepEqual(actions[0].data, {
+      evidence: 'diagnostic:PowerScript:SD7',
+      confidence: 'high',
+      safeEdit: 'single-range-replacement'
+    });
   });
 
   test('sin sugerencia → sin acción', () => {
@@ -36,5 +41,16 @@ suite('unit/codeActions (B036)', () => {
       source: 'PowerScript:SD1'
     };
     assert.equal(provideCodeActions('file:///x', 'X()\n', [d]).length, 0);
+  });
+
+  test('rechaza sugerencias peligrosas fuera del identificador simple', () => {
+    const d = {
+      severity: DiagnosticSeverity.Warning,
+      range: Range.create(0, 0, 0, 5),
+      message: "'Yield' está marcada como obsoleta. Sugerencia: DoEvents(); MessageBox('x').",
+      source: 'PowerScript:SD7'
+    };
+
+    assert.equal(provideCodeActions('file:///x', 'Yield()\n', [d]).length, 0);
   });
 });

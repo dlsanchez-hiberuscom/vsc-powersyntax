@@ -1,4 +1,5 @@
-import type { EntityKind } from '../knowledge/types';
+import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
+import { EntityKind, type Entity, type Scope } from '../knowledge/types';
 import type { MemberClosureEntry } from '../knowledge/resolution/InheritanceGraph';
 import { buildHierarchyTree, type HierarchyNode } from './hierarchyTree';
 
@@ -16,6 +17,16 @@ export interface HierarchyInspectionSummary {
   inaccessible: number;
 }
 
+export interface HierarchyLifecyclePhase {
+  phase: 'create' | 'destroy';
+  declaredIn: string | null;
+  callsAncestor: boolean;
+  triggersHook: 'constructor' | 'destructor' | null;
+  hookResolved: boolean;
+  hookDeclaredIn: string | null;
+  warnings: string[];
+}
+
 export interface HierarchyInspection {
   focusType: string | null;
   immediateAncestor: string | null;
@@ -23,6 +34,8 @@ export interface HierarchyInspection {
   hierarchyTree: HierarchyNode | null;
   overriddenMembers: HierarchyOverrideInfo[];
   closureSummary: HierarchyInspectionSummary;
+  lifecycle: HierarchyLifecyclePhase[];
+  lifecycleWarnings: string[];
 }
 
 export interface HierarchyInspectionGraph {
@@ -31,9 +44,114 @@ export interface HierarchyInspectionGraph {
   getMemberClosure(typeName: string): MemberClosureEntry[];
 }
 
+export interface HierarchyInspectionKnowledge {
+  findAllDefinitions(symbolName: string): Entity[];
+  getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null;
+}
+
+function normalizeTypeName(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+function visitScopes(scopes: Scope[], visitor: (scope: Scope) => Scope | undefined): Scope | undefined {
+  for (const scope of scopes) {
+    const matched = visitor(scope);
+    if (matched) {
+      return matched;
+    }
+
+    const child = visitScopes(scope.children, visitor);
+    if (child) {
+      return child;
+    }
+  }
+
+  return undefined;
+}
+
+function findEventScope(snapshot: SemanticDocumentSnapshot, ownerName: string, eventName: 'create' | 'destroy'): Scope | undefined {
+  const wantedScopeId = `${normalizeTypeName(ownerName)}.${eventName}`;
+  return visitScopes(snapshot.scopes, (scope) => {
+    if (scope.id.toLowerCase() === wantedScopeId) {
+      return scope;
+    }
+    return undefined;
+  });
+}
+
+function findEffectiveEvent(
+  closure: MemberClosureEntry[],
+  eventName: 'create' | 'destroy' | 'constructor' | 'destructor'
+): MemberClosureEntry | undefined {
+  return closure.find((entry) =>
+    entry.entity.kind === EntityKind.Event
+    && entry.entity.name.toLowerCase() === eventName
+    && !entry.overriddenByCurrentType
+  );
+}
+
+function buildLifecycleInspection(
+  focusType: string,
+  ancestorChain: string[],
+  closure: MemberClosureEntry[],
+  knowledge: HierarchyInspectionKnowledge
+): HierarchyLifecyclePhase[] {
+  const phases: Array<{ phase: 'create' | 'destroy'; hook: 'constructor' | 'destructor' }> = [
+    { phase: 'create', hook: 'constructor' },
+    { phase: 'destroy', hook: 'destructor' }
+  ];
+
+  return phases.flatMap(({ phase, hook }) => {
+    const lifecycleEvent = findEffectiveEvent(closure, phase);
+    if (!lifecycleEvent) {
+      return [];
+    }
+
+    const declaredIn = lifecycleEvent.declaredIn ?? lifecycleEvent.entity.containerName ?? null;
+    const snapshot = knowledge.getDocumentSnapshot(lifecycleEvent.entity.uri);
+    const scope = snapshot && declaredIn ? findEventScope(snapshot, declaredIn, phase) : undefined;
+    const body = scope && snapshot
+      ? snapshot.maskedText.lines.slice(scope.startLine + 1, scope.endLine + 1).join('\n')
+      : '';
+
+    const callsAncestor = new RegExp(`\\bcall\\s+super\\s*::\\s*${phase}\\b`, 'i').test(body);
+    const triggerRegex = new RegExp(`\\bTriggerEvent\\s*\\(\\s*this\\s*,\\s*["']${hook}["']\\s*\\)`, 'i');
+    const triggersHook = triggerRegex.test(body) ? hook : null;
+    const hookEvent = findEffectiveEvent(closure, hook);
+    const hookResolved = triggersHook !== null && Boolean(hookEvent);
+    const hookDeclaredIn = hookEvent?.declaredIn ?? hookEvent?.entity.containerName ?? null;
+    const warnings: string[] = [];
+    const ownsLifecycleEvent = normalizeTypeName(declaredIn) === normalizeTypeName(focusType);
+    const ownsHook = normalizeTypeName(hookDeclaredIn) === normalizeTypeName(focusType);
+
+    if (ancestorChain.length > 0 && ownsLifecycleEvent && !callsAncestor) {
+      warnings.push(`missing-super-${phase}`);
+    }
+
+    if (triggersHook !== null && !hookResolved) {
+      warnings.push(`unresolved-${hook}`);
+    }
+
+    if (triggersHook === null && ownsLifecycleEvent && ownsHook) {
+      warnings.push(`missing-trigger-${hook}`);
+    }
+
+    return [{
+      phase,
+      declaredIn,
+      callsAncestor,
+      triggersHook,
+      hookResolved,
+      hookDeclaredIn,
+      warnings
+    } satisfies HierarchyLifecyclePhase];
+  });
+}
+
 export function buildHierarchyInspection(
   focusType: string | null,
-  graph: HierarchyInspectionGraph
+  graph: HierarchyInspectionGraph,
+  knowledge?: HierarchyInspectionKnowledge
 ): HierarchyInspection {
   if (!focusType) {
     return {
@@ -47,7 +165,9 @@ export function buildHierarchyInspection(
         inherited: 0,
         override: 0,
         inaccessible: 0
-      }
+      },
+      lifecycle: [],
+      lifecycleWarnings: []
     };
   }
 
@@ -87,6 +207,7 @@ export function buildHierarchyInspection(
         inaccessible: !entry.accessible
       };
     });
+  const lifecycle = knowledge ? buildLifecycleInspection(focusType, ancestorChain, closure, knowledge) : [];
 
   return {
     focusType,
@@ -94,6 +215,8 @@ export function buildHierarchyInspection(
     ancestorChain,
     hierarchyTree: buildHierarchyTree(focusType, (typeName) => graph.getDirectDescendants(typeName)),
     overriddenMembers,
-    closureSummary: summary
+    closureSummary: summary,
+    lifecycle,
+    lifecycleWarnings: lifecycle.flatMap((entry) => entry.warnings)
   };
 }

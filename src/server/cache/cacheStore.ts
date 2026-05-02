@@ -82,11 +82,16 @@ function joinUri(baseUri: string, segment: string): string {
 }
 
 async function tryReadJson<T>(fs: IFileSystem, uri: string): Promise<{ ok: true; value: T | undefined } | { ok: false }> {
+  const stat = await fs.stat(uri);
+  if (!stat?.isFile) {
+    return { ok: true, value: undefined };
+  }
+
   try {
     const raw = await fs.readFile(uri);
     return { ok: true, value: JSON.parse(raw) as T };
   } catch {
-    return { ok: true, value: undefined };
+    return { ok: false };
   }
 }
 

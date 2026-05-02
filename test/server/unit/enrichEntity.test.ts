@@ -93,4 +93,56 @@ suite('unit/enrichEntity', () => {
 
     assert.deepEqual(enrichEntity(e).lineage, e.lineage);
   });
+
+  test('deriva owner real para locals y parameters desde el callable container', () => {
+    const local: Entity = {
+      id: 'li_total',
+      name: 'li_total',
+      kind: EntityKind.Variable,
+      uri: 'file:///x.sru',
+      line: 0,
+      character: 0,
+      containerName: 'w_main.of_calc',
+      declarationScope: 'local'
+    };
+
+    const parameter: Entity = {
+      id: 'as_name',
+      name: 'as_name',
+      kind: EntityKind.Variable,
+      uri: 'file:///x.sru',
+      line: 0,
+      character: 0,
+      containerName: 'w_main.of_calc',
+      declarationScope: 'parameter'
+    };
+
+    assert.equal(enrichEntity(local).ownerName, 'w_main');
+    assert.equal(enrichEntity(parameter).ownerName, 'w_main');
+  });
+
+  test('distingue on-handler y external-function en implementationKind', () => {
+    const onHandler: Entity = {
+      id: 'w_main.create',
+      name: 'w_main.create',
+      kind: EntityKind.Event,
+      uri: 'file:///x.sru',
+      line: 0,
+      character: 0,
+      signature: 'on w_main.create'
+    };
+
+    const externalFn: Entity = {
+      id: 'of_external',
+      name: 'of_external',
+      kind: EntityKind.Function,
+      uri: 'file:///x.sru',
+      line: 0,
+      character: 0,
+      isExternal: true
+    };
+
+    assert.equal(enrichEntity(onHandler).implementationKind, 'on-handler');
+    assert.equal(enrichEntity(externalFn).implementationKind, 'external-function');
+  });
 });

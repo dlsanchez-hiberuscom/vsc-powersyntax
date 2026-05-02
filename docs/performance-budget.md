@@ -134,15 +134,16 @@ Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm te
 
 ---
 
-## 6. Objetivos iniciales de latencia
+## 6. Objetivos calibrados actuales
 
-Estos valores son **objetivos iniciales** y deberán recalibrarse con corpus reales.
+Estos valores ya quedan calibrados sobre **PFC 2025 Workspace/Solution** y un **legacy PBL dump** real en host de pruebas compartido.
+No son promesas absolutas por máquina, pero sí budgets ejecutables y trazables.
 
 ### 6.1 Activación y disponibilidad inicial
-- activación efectiva del cliente/servidor: **rápida y sin trabajo innecesario en arranque**
-- primer `Document Symbols`: **casi inmediato en archivos pequeños**
-- primer `Hover`: **rápido en archivo activo**
-- primera publicación de diagnósticos: **rápida pero sin saturar la edición**
+- activación efectiva del cliente/servidor: assert duro `< 2000ms` en `vscode-test` y warning operativo por encima de `500ms`;
+- primer `Document Symbols` en archivo pequeño: `< 50ms`;
+- primer `Hover` sobre archivo activo real: `< 50ms`;
+- primera evaluación de diagnósticos estructurales sobre archivo activo real: `< 100ms`.
 
 ### 6.2 Archivo activo
 Objetivo general:
@@ -152,9 +153,9 @@ Objetivo general:
 
 ### 6.3 Workspace
 Objetivo general:
-- discovery inicial: **rápido**
-- indexación cold: **progresiva y no bloqueante**
-- indexación warm: **claramente mejor que cold**
+- discovery inicial sobre PFC: `< 2000ms`;
+- indexación cold sobre PFC: `< 15000ms`;
+- indexación warm sobre PFC: `< 1000ms` y claramente mejor que cold;
 - memoria: **controlada y estable**
 
 ---
@@ -289,12 +290,21 @@ Ya es exigible que:
 
 ### 11.2 Pendiente de calibración fuerte
 Debe calibrarse mejor sobre corpus reales:
-- cold indexing,
-- warm indexing,
 - budgets de memoria por capa,
 - query cache hit ratio,
 - fan-out de invalidación,
-- y budgets en proyectos enterprise grandes.
+- y budgets en proyectos enterprise grandes no cubiertos aún por PFC/legacy actual.
+
+### 11.3 Baseline real actual
+
+Mediciones registradas en `test/results/003-real-corpora-baseline.md`:
+
+- discovery PFC Workspace (`831` archivos): `134.78ms`;
+- batch `analyzeDocument + documentSymbols` sobre `25` archivos PFC: `171.93ms`;
+- primer hover real en archivo activo PFC: `0.96ms`;
+- primeros diagnostics estructurales en archivo activo PFC: `0.77ms`;
+- indexación cold PFC (`23663` entidades): `10473.00ms`;
+- indexación warm PFC: `0.81ms`.
 
 ---
 

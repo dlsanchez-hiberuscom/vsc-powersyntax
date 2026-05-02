@@ -7,6 +7,7 @@ import {
   type SemanticCacheJournalEntry
 } from './cacheSchema';
 import { normalizeUri } from '../system/uriUtils';
+import { inferSourceOrigin } from '../../shared/sourceOrigin';
 
 export interface CacheRestoreDecision {
   action: 'reuse' | 'rebuild';
@@ -41,11 +42,33 @@ function createEmptyCheckpoint(metadata: Partial<SemanticCacheCheckpointMetadata
 }
 
 function normalizeMetadata(metadata: Partial<SemanticCacheCheckpointMetadata> = {}): SemanticCacheCheckpointMetadata {
+  const discovery = metadata.discovery;
   return {
     workspaceMode: metadata.workspaceMode,
     rootUris: [...new Set((metadata.rootUris ?? []).map((uri) => normalizeUri(uri)))].sort(),
     projectStats: metadata.projectStats ? { ...metadata.projectStats } : undefined,
-    publishedAt: metadata.publishedAt
+    publishedAt: metadata.publishedAt,
+    discovery: discovery
+      ? {
+          sourceFiles: [...new Set((discovery.sourceFiles ?? []).map((uri) => normalizeUri(uri)))].sort(),
+          ...(discovery.sourceOrigins
+            ? {
+                sourceOrigins: Object.fromEntries(
+                  Object.entries(discovery.sourceOrigins)
+                    .map(([uri, sourceOrigin]) => [normalizeUri(uri), sourceOrigin ?? inferSourceOrigin(uri)])
+                    .sort(([left], [right]) => left.localeCompare(right))
+                )
+              }
+            : {}),
+          roots: {
+            workspaces: [...new Set((discovery.roots?.workspaces ?? []).map((uri) => normalizeUri(uri)))].sort(),
+            targets: [...new Set((discovery.roots?.targets ?? []).map((uri) => normalizeUri(uri)))].sort(),
+            libraries: [...new Set((discovery.roots?.libraries ?? []).map((uri) => normalizeUri(uri)))].sort(),
+            solutions: [...new Set((discovery.roots?.solutions ?? []).map((uri) => normalizeUri(uri)))].sort(),
+            projects: [...new Set((discovery.roots?.projects ?? []).map((uri) => normalizeUri(uri)))].sort()
+          }
+        }
+      : undefined
   };
 }
 

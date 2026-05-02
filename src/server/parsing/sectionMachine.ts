@@ -7,19 +7,17 @@
  */
 
 import type { SectionRange, SectionKind } from '../model/types';
+import {
+  END_FORWARD_PATTERN,
+  END_PROTOTYPES_PATTERN,
+  END_VARIABLES_PATTERN,
+  FORWARD_PROTOTYPES_START_PATTERN,
+  FORWARD_START_PATTERN,
+  PROTOTYPES_START_PATTERN,
+  VARIABLES_START_PATTERN
+} from './grammar';
 
 type State = 'TopLevel' | 'InForward' | 'InPrototypes' | 'InVariables';
-
-const RE = {
-  forwardPrototypes: /^\s*forward\s+prototypes\b/i,
-  typePrototypes: /^\s*type\s+prototypes\b/i,
-  forward: /^\s*forward\b(?!\s+prototypes)/i,
-  endForward: /^\s*end\s+forward\b/i,
-  endPrototypes: /^\s*end\s+prototypes\b/i,
-  // `type variables` o `<owner> type variables`.
-  variables: /^\s*(?:[a-z_][\w-]*\s+)?type\s+variables\b/i,
-  endVariables: /^\s*end\s+variables\b/i
-};
 
 export function scanSections(lines: string[]): SectionRange[] {
   const out: SectionRange[] = [];
@@ -30,32 +28,32 @@ export function scanSections(lines: string[]): SectionRange[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (state === 'TopLevel') {
-      if (RE.forwardPrototypes.test(line) || RE.typePrototypes.test(line)) {
+      if (FORWARD_PROTOTYPES_START_PATTERN.test(line) || PROTOTYPES_START_PATTERN.test(line)) {
         state = 'InPrototypes';
         kind = 'prototypes';
         start = i;
-      } else if (RE.forward.test(line)) {
+      } else if (FORWARD_START_PATTERN.test(line) && !FORWARD_PROTOTYPES_START_PATTERN.test(line)) {
         state = 'InForward';
         kind = 'forward';
         start = i;
-      } else if (RE.variables.test(line)) {
+      } else if (VARIABLES_START_PATTERN.test(line)) {
         state = 'InVariables';
         kind = 'variables';
         start = i;
       }
       continue;
     }
-    if (state === 'InForward' && RE.endForward.test(line)) {
+    if (state === 'InForward' && END_FORWARD_PATTERN.test(line)) {
       out.push({ kind, startLine: start, endLine: i });
       state = 'TopLevel';
       continue;
     }
-    if (state === 'InPrototypes' && RE.endPrototypes.test(line)) {
+    if (state === 'InPrototypes' && END_PROTOTYPES_PATTERN.test(line)) {
       out.push({ kind, startLine: start, endLine: i });
       state = 'TopLevel';
       continue;
     }
-    if (state === 'InVariables' && RE.endVariables.test(line)) {
+    if (state === 'InVariables' && END_VARIABLES_PATTERN.test(line)) {
       out.push({ kind, startLine: start, endLine: i });
       state = 'TopLevel';
       continue;

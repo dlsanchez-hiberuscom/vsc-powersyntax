@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict';
-import { getLastTrace, recordTraceStep, withTrace } from '../../../src/server/knowledge/queryTrace';
+import { annotateLastTraceResolution, getLastTrace, recordTraceStep, subscribeTraceSnapshots, withTrace } from '../../../src/server/knowledge/queryTrace';
 
 suite('unit/queryTrace (B136)', () => {
   test('captura pasos en orden', () => {
@@ -65,6 +65,35 @@ suite('unit/queryTrace (B136)', () => {
     assert.equal(secondRead?.steps[0].name, 'targets:member-hierarchy');
   });
 
+  test('expone y clona el resumen de resolución del último query trace', () => {
+    withTrace('resolution-summary', () => {
+      recordTraceStep('targets:member-hierarchy');
+      return 1;
+    });
+
+    annotateLastTraceResolution({
+      confidence: 'high',
+      primaryReasonCode: 'member-hierarchy',
+      evidenceKinds: ['winner-target', 'discarded-distance'],
+      targetCount: 1,
+      hasAmbiguity: false
+    });
+
+    const firstRead = getLastTrace();
+    assert.deepEqual(firstRead?.resolution, {
+      confidence: 'high',
+      primaryReasonCode: 'member-hierarchy',
+      evidenceKinds: ['winner-target', 'discarded-distance'],
+      targetCount: 1,
+      hasAmbiguity: false
+    });
+
+    firstRead?.resolution?.evidenceKinds?.push('mutated');
+
+    const secondRead = getLastTrace();
+    assert.deepEqual(secondRead?.resolution?.evidenceKinds, ['winner-target', 'discarded-distance']);
+  });
+
   test('expone el resumen ordenado de fases únicas', () => {
     withTrace('phases', () => {
       recordTraceStep('resolve:start');
@@ -87,5 +116,24 @@ suite('unit/queryTrace (B136)', () => {
 
     const trace = getLastTrace();
     assert.deepEqual(trace?.actions, ['start', 'member-hierarchy']);
+  });
+
+  test('notifica snapshots anotados a los listeners externos', () => {
+    const received: string[] = [];
+    const dispose = subscribeTraceSnapshots((trace) => {
+      received.push(`${trace.label}:${trace.resolution?.confidence}`);
+    });
+
+    try {
+      withTrace('listener', () => {
+        recordTraceStep('resolve:start');
+        return 1;
+      });
+      annotateLastTraceResolution({ confidence: 'high' });
+
+      assert.deepEqual(received, ['listener:high']);
+    } finally {
+      dispose();
+    }
   });
 });

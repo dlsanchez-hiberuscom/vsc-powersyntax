@@ -47,7 +47,9 @@ suite('unit/matchers', () => {
     const result = matchOnImplementationHeader('on w_main.cb_accept.clicked;');
 
     assert.ok(result);
-    assert.equal(result?.name, 'w_main.cb_accept.clicked');
+    assert.equal(result?.name, 'clicked');
+    assert.equal(result?.ownerName, 'cb_accept');
+    assert.equal(result?.qualifiedOwnerName, 'w_main.cb_accept');
     assert.equal(result?.detail, 'on-event');
   });
 

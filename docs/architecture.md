@@ -120,6 +120,12 @@ La caché y la persistencia deben diseñarse con:
 - estrategia explícita de reanudación;
 - journaling cuando aplique.
 
+Política vigente de schema persistente:
+
+- payloads compatibles del schema actual, o payloads heredados sin campos opcionales/materializados, se normalizan mediante migradores internos antes del restore;
+- cualquier `schemaVersion` desconocido o incompatible fuerza `rebuild` limpio, sin migraciones ad hoc en caliente;
+- la política oficial es `migrate cuando la compatibilidad es estructuralmente segura, rebuild cuando no lo es`.
+
 ### 4.8 Explicabilidad y observabilidad
 
 El motor debe poder exponer:
@@ -186,13 +192,25 @@ El repositorio ya materializa un primer corte operativo de:
 - cacheStore, workspaceKey estable, checkpoints y journals persistidos por proyecto;
 - warm resume de `DocumentCache` + `KnowledgeBase`;
 - `ServingCache` extendido a hover/definition/signatureHelp/completion;
-- `EntityLineage` como contrato de provenance/origen/fase/fiabilidad;
+- `EntityLineage` como contrato de provenance/origen/fase/fiabilidad, ahora con `sourceOrigin` compartido con discovery, diagnostics y API pública;
+- metadata contractual de símbolo (`declarationScope`, `fileObjectName`, `containerSignature`, `ownerName`, `implementationKind`, `returnType`) ya sale del análisis y no se reconstruye por feature;
 - API pública mínima versionada;
+- current object context pack read-only servido por API pública/LSP, derivado del snapshot semántico, hierarchy inspection, diagnostics y bindings `DataObject` en vez de scans ad hoc para IA;
+- impact analyzer read-only servido por API pública/LSP, compuesto desde `references`, descendientes/overrides, events, bindings `DataObject` y project routing en vez de listas planas por nombre;
+- safe edit plan read-only servido por API pública/LSP, derivado del impacto explícito y del context pack para proponer archivos, riesgos, tests y docs sin ejecutar cambios;
+- semantic workspace manifest read-only servido por API pública/LSP, derivado de `WorkspaceState`, `UnifiedProjectModel`, `KnowledgeBase`, `InheritanceGraph` y diagnostics snapshot para exponer estructura compacta/versionada del workspace sin exportar código bruto;
 - diagnostics snapshot agrupado por proyecto/objeto;
 - compactación de strings calientes;
 - latency governor en serving/scheduler;
 - hierarchy inspection y CodeLens más fiables;
-- foco actual en `B157` para evidence/confidence de primera clase.
+- `RuntimeJournal` exportable del motor, alimentado desde `queryTrace`, `ServingCache` e invalidaciones documentales reales y servido por `showStats`/status sin abrir un canal paralelo;
+- health checker estructurado del runtime con findings por capa y severidad sobre readiness, scheduler, project model, cachés, persistencia y ambigüedad de query;
+- query engine compartido con modelo explícito de invocación PowerBuilder (`unqualified`, `this`, `parent`, `super`, `ancestor`, global, dynamic, external`) y propagación de `invocationKind`/`invocationRisk` a trace, context y operaciones semánticas;
+- eventos PowerBuilder tratados como entidades de primera clase: `on object.event` conserva owner real, `call super::create` resuelve sobre on-handlers reales y `TriggerEvent/PostEvent` con literal estable reusan el mismo backbone semántico.
+- lifecycle PowerBuilder integrado en surfaces visibles: `hierarchyInspection` reconstruye create/destroy desde snapshot semántico, hover explica `constructor/destructor` desde el mismo modelo y diagnostics emite warnings suaves (`missing-super-*`, `missing-trigger-*`, `unresolved-*`) sin abrir un segundo motor.
+- modelo transaccional básico integrado en el backbone: `SQLCA` se resuelve como `transaction` especial, `SetTransObject`/`SetTrans` enlazan con `Retrieve`/`Update` en diagnostics y las superficies interactivas (`completion`/`hover`/`signatureHelp`) filtran el catálogo por `ownerType` para DataWindow/DataStore sin lookup plano por nombre.
+- bridge DataWindow integrado en el mismo backbone: `.srd` publica stubs navegables sin parsearse como PowerScript, `DataObject = "d_xxx"` resuelve hacia el snapshot `.srd` ya indexado, `signatureHelp` reutiliza `arguments=(...)`/`ARG(...)` para especializar `Retrieve(...)`, el safe mode resume SQL base/columnas/bandas principales para hover, un analizador legacy-safe refuerza definition/hover dentro del propio `.srd` y `documentSymbols`/`workspaceSymbols` ya exponen catálogo básico DataWindow sin introducir stores globales ni soporte avanzado prematuro.
+- dependencias nativas externas modeladas como primer ciudadano ligero: `externalAlias`, `externalDependencyKind` (`dll`, `pbx`, `unknown`), hover explícito y degradación honesta de rename/references/diagnostics sin fingir implementation interna.
 
 ---
 
@@ -204,7 +222,7 @@ VS Code UI
       ├─ bootstrap mínimo
       ├─ commands ligeros
       ├─ estado visible
-      ├─ API pública mínima
+      ├─ API pública mínima + análisis/planes/context packs read-only
       └─ bridge LSP
 
 Language Server Process
@@ -253,7 +271,7 @@ Modelo y estrategia del workspace/proyecto: discovery, roots, project modes, exc
 
 ### 6.7 `parsing/`
 
-Conversión de archivos PowerBuilder en estructuras sintácticas reutilizables. Debe ser testeable sin VS Code y separado de semántica rica.
+Conversión de archivos PowerBuilder en estructuras sintácticas reutilizables. Debe ser testeable sin VS Code y separado de semántica rica. `parsing/grammar.ts` es el módulo canónico para keywords, matchers estructurales, secciones y bloques compartidos; parser, diagnostics y features deben consumirlo antes de introducir regex nuevas.
 
 ### 6.8 `knowledge/`
 
@@ -328,6 +346,12 @@ Regla: los contratos no exponen directamente entidades internas mutables del dom
 - journals;
 - resúmenes reutilizables.
 
+Schema persistente actual:
+
+- `semantic-checkpoint.json`: `schemaVersion`, `semanticEpoch`, `createdAt`, `metadata` (`workspaceMode`, `rootUris`, `projectStats`, `publishedAt`) y `documents` persistidos;
+- `semantic-journal.json`: `schemaVersion`, `sequence`, `semanticEpoch`, `createdAt`, `kind`, `uris` y `documents` opcionales para `upsert`;
+- si el payload conserva compatibilidad estructural, el restore normaliza campos faltantes; si no, la decisión canónica es invalidar y reconstruir.
+
 ### 7.4 Estado de origen y confianza
 
 - `sourceOrigin`;
@@ -351,7 +375,7 @@ Regla: los contratos no exponen directamente entidades internas mutables del dom
 - `ux/*` no accede a `core/domain/*` directamente.
 - `features/*` y `ux/*` respetan readiness/evidence/confidence.
 - `adapters/api-*` exponen contratos versionados, nunca entidades mutables internas.
-- cualquier futura integración IA consume API pública/tools/context packs, no dominio interno.
+- las integraciones IA consumen API pública/tools/context packs, no dominio interno.
 
 ---
 
