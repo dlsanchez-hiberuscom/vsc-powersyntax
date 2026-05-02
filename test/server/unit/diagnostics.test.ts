@@ -240,6 +240,123 @@ suite('unit/diagnostics', () => {
     });
   });
 
+  test('validateSemantics no avisa sobre boilerplate lifecycle de definicion PB con ancestro directo', () => {
+    kb.upsertDocument('file:///n_base.sru', [
+      {
+        id: 'n_base',
+        name: 'n_base',
+        kind: EntityKind.Type,
+        uri: 'file:///n_base.sru',
+        line: 0,
+        character: 0,
+        baseTypeName: 'pfc_n_base'
+      }
+    ]);
+
+    const source = [
+      'forward',
+      'global type pfc_n_cst_baseattrib from n_base',
+      'end type',
+      'end forward',
+      '',
+      'global type pfc_n_cst_baseattrib from n_base',
+      'end type',
+      'global pfc_n_cst_baseattrib pfc_n_cst_baseattrib',
+      '',
+      'on pfc_n_cst_baseattrib.create',
+      '  TriggerEvent( this, "constructor" )',
+      'end on',
+      '',
+      'on pfc_n_cst_baseattrib.destroy',
+      '  TriggerEvent( this, "destructor" )',
+      'end on'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///pfc_n_cst_baseattrib.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+
+    assert.equal(
+      diagnostics.some((diag) => diag.data?.kind === 'lifecycle-warning'),
+      false,
+      'El boilerplate create/destroy de un objeto PB no debería generar warnings lifecycle.'
+    );
+  });
+
+  test('validateSemantics no avisa sobre boilerplate lifecycle autoinstantiate sin hook explicito', () => {
+    kb.upsertDocument('file:///n_cst_baseattrib.sru', [
+      {
+        id: 'n_cst_baseattrib',
+        name: 'n_cst_baseattrib',
+        kind: EntityKind.Type,
+        uri: 'file:///n_cst_baseattrib.sru',
+        line: 0,
+        character: 0,
+        baseTypeName: 'n_base'
+      }
+    ]);
+
+    const source = [
+      'forward',
+      'global type pfc_n_cst_calculatorattrib from n_cst_baseattrib',
+      'end type',
+      'end forward',
+      '',
+      'global type pfc_n_cst_calculatorattrib from n_cst_baseattrib autoinstantiate',
+      'end type',
+      '',
+      'on pfc_n_cst_calculatorattrib.create',
+      '  TriggerEvent( this, "constructor" )',
+      'end on',
+      '',
+      'on pfc_n_cst_calculatorattrib.destroy',
+      '  TriggerEvent( this, "destructor" )',
+      'end on'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///pfc_n_cst_calculatorattrib.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+
+    assert.equal(
+      diagnostics.some((diag) => diag.data?.kind === 'lifecycle-warning'),
+      false,
+      'La variante autoinstantiate con create/destroy estructural no debería generar warnings lifecycle.'
+    );
+  });
+
+  test('validateSemantics no marca el tipo base como ausente cuando n_base ya está indexado', () => {
+    kb.upsertDocument('file:///proj/pfc libs/pfemain.pbl/n_base.sru', [
+      {
+        id: 'n_base',
+        name: 'n_base',
+        kind: EntityKind.Type,
+        uri: 'file:///proj/pfc libs/pfemain.pbl/n_base.sru',
+        line: 0,
+        character: 0,
+        baseTypeName: 'pfc_n_base'
+      }
+    ]);
+
+    const source = [
+      'forward',
+      'global type pfc_n_cst_baseattrib from n_base',
+      'end type',
+      'end forward',
+      '',
+      'global type pfc_n_cst_baseattrib from n_base',
+      'end type',
+      'global pfc_n_cst_baseattrib pfc_n_cst_baseattrib'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///proj/pfc libs/pfcmain.pbl/pfc_n_cst_baseattrib.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+
+    assert.equal(
+      diagnostics.some((diag) => diag.message.includes("El tipo base 'n_base' no se encuentra")),
+      false,
+      'Si n_base ya está en KB no debería emitirse el warning de tipo base ausente.'
+    );
+  });
+
   test('validateSemantics relaciona SetTransObject con variables transaction conocidas', () => {
     const source = [
       'global type n_tx from nonvisualobject',

@@ -73,6 +73,7 @@ Deben cubrir como mínimo:
 
 La matriz mínima actual de smoke real con `vscode-test` debe cubrir activación genérica, PFC Solution y PFC Workspace.
 Además, la smoke de formatting debe cubrir el provider manual y `formatOnSave` sobre un documento PowerBuilder real.
+La smoke de PFC Solution debe incluir además una muestra determinista de clases reales abierta en secuencia, pidiendo `Document Symbols`, para detectar caídas del LSP en rutas de persistencia/cache al abrir corpus legacy.
 
 ## 4.2 Unit tests
 **Objetivo:** validar lógica aislada, pura y reutilizable.
@@ -142,6 +143,10 @@ Deben fijar resultados esperados para:
 - rename eligibility,
 - readiness,
 - y reasoning semántico relevante.
+
+Cuando el cambio toque corpus reales PowerBuilder, añadir además casos focalizados para:
+- boilerplate exportado `on object.create/destroy` con `TriggerEvent(this, "constructor"/"destructor")` sin hook local explícito;
+- topología Solution/Project con rutas `Path="..."` que contienen espacios y ancestros repartidos entre librerías distintas del mismo proyecto (por ejemplo `pfcmain.pbl` -> `pfemain.pbl`).
 
 ---
 

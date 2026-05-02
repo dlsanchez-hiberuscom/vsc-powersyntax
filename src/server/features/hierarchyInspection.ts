@@ -90,6 +90,29 @@ function findEffectiveEvent(
   );
 }
 
+function isImplicitLifecycleHook(hook: 'constructor' | 'destructor'): boolean {
+  return hook === 'constructor' || hook === 'destructor';
+}
+
+function isLifecycleDefinitionBoilerplate(
+  body: string,
+  phase: 'create' | 'destroy',
+  hook: 'constructor' | 'destructor'
+): boolean {
+  if (!body.trim()) {
+    return false;
+  }
+
+  const triggerRegex = new RegExp(`\\bTriggerEvent\\s*\\(\\s*this\\s*,\\s*["']${hook}["']\\s*\\)`, 'ig');
+  const superRegex = new RegExp(`\\bcall\\s+super\\s*::\\s*${phase}\\b`, 'ig');
+  const stripped = body
+    .replace(triggerRegex, '')
+    .replace(superRegex, '')
+    .replace(/[;\s]/g, '');
+
+  return stripped.length === 0;
+}
+
 function buildLifecycleInspection(
   focusType: string,
   ancestorChain: string[],
@@ -111,28 +134,30 @@ function buildLifecycleInspection(
     const snapshot = knowledge.getDocumentSnapshot(lifecycleEvent.entity.uri);
     const scope = snapshot && declaredIn ? findEventScope(snapshot, declaredIn, phase) : undefined;
     const body = scope && snapshot
-      ? snapshot.maskedText.lines.slice(scope.startLine + 1, scope.endLine + 1).join('\n')
+      ? snapshot.maskedText.lines.slice(scope.startLine + 1, scope.endLine).join('\n')
       : '';
 
     const callsAncestor = new RegExp(`\\bcall\\s+super\\s*::\\s*${phase}\\b`, 'i').test(body);
     const triggerRegex = new RegExp(`\\bTriggerEvent\\s*\\(\\s*this\\s*,\\s*["']${hook}["']\\s*\\)`, 'i');
     const triggersHook = triggerRegex.test(body) ? hook : null;
     const hookEvent = findEffectiveEvent(closure, hook);
-    const hookResolved = triggersHook !== null && Boolean(hookEvent);
-    const hookDeclaredIn = hookEvent?.declaredIn ?? hookEvent?.entity.containerName ?? null;
+    const explicitHookDeclaredIn = hookEvent?.declaredIn ?? hookEvent?.entity.containerName ?? null;
+    const hookResolved = triggersHook !== null && (Boolean(hookEvent) || isImplicitLifecycleHook(hook));
+    const hookDeclaredIn = explicitHookDeclaredIn ?? (triggersHook !== null && hookResolved ? focusType : null);
     const warnings: string[] = [];
     const ownsLifecycleEvent = normalizeTypeName(declaredIn) === normalizeTypeName(focusType);
-    const ownsHook = normalizeTypeName(hookDeclaredIn) === normalizeTypeName(focusType);
+    const ownsHook = normalizeTypeName(explicitHookDeclaredIn) === normalizeTypeName(focusType);
+    const isDefinitionBoilerplate = !ownsHook && isLifecycleDefinitionBoilerplate(body, phase, hook);
 
-    if (ancestorChain.length > 0 && ownsLifecycleEvent && !callsAncestor) {
+    if (!isDefinitionBoilerplate && ancestorChain.length > 0 && ownsLifecycleEvent && !callsAncestor) {
       warnings.push(`missing-super-${phase}`);
     }
 
-    if (triggersHook !== null && !hookResolved) {
+    if (!isDefinitionBoilerplate && triggersHook !== null && !hookResolved) {
       warnings.push(`unresolved-${hook}`);
     }
 
-    if (triggersHook === null && ownsLifecycleEvent && ownsHook) {
+    if (!isDefinitionBoilerplate && triggersHook === null && ownsLifecycleEvent && ownsHook) {
       warnings.push(`missing-trigger-${hook}`);
     }
 

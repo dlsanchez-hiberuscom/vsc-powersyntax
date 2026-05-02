@@ -58,6 +58,60 @@ export interface SemanticCacheJournalEntry {
   documents?: SemanticCacheDocumentRecord[];
 }
 
+function cloneScopeForPersistence(scope: Scope): Scope {
+  return {
+    id: scope.id,
+    kind: scope.kind,
+    uri: scope.uri,
+    startLine: scope.startLine,
+    endLine: scope.endLine,
+    children: scope.children.map((child) => cloneScopeForPersistence(child)),
+    symbols: structuredClone(scope.symbols)
+  };
+}
+
+function cloneScopesForPersistence(scopes: Scope[]): Scope[] {
+  return scopes.map((scope) => cloneScopeForPersistence(scope));
+}
+
+function hydrateScopes(scopes: Scope[]): Scope[] {
+  const hydrated = structuredClone(scopes);
+
+  const visit = (scope: Scope, parent?: Scope): Scope => {
+    scope.parent = parent;
+    scope.children = scope.children.map((child) => visit(child, scope));
+    return scope;
+  };
+
+  return hydrated.map((scope) => visit(scope));
+}
+
+export function cloneDocumentRecordForPersistence(record: SemanticCacheDocumentRecord): SemanticCacheDocumentRecord {
+  return {
+    uri: record.uri,
+    version: record.version,
+    facts: structuredClone(record.facts),
+    scopes: cloneScopesForPersistence(record.scopes),
+    ...(record.snapshot
+      ? {
+          snapshot: {
+            ...structuredClone(record.snapshot),
+            scopes: cloneScopesForPersistence(record.snapshot.scopes)
+          }
+        }
+      : {})
+  };
+}
+
+export function hydrateDocumentRecord(record: SemanticCacheDocumentRecord): SemanticCacheDocumentRecord {
+  const hydrated = structuredClone(record);
+  hydrated.scopes = hydrateScopes(hydrated.scopes);
+  if (hydrated.snapshot) {
+    hydrated.snapshot.scopes = hydrateScopes(hydrated.snapshot.scopes);
+  }
+  return hydrated;
+}
+
 export function migrateCheckpoint(payload: Partial<SemanticCacheCheckpoint>): SemanticCacheCheckpoint {
   return {
     schemaVersion: payload.schemaVersion ?? CACHE_SCHEMA_VERSION,

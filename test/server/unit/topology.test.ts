@@ -41,12 +41,46 @@ suite('unit/topology', () => {
     }
   });
 
+  test('parsea .pbsln preservando project paths con espacios', () => {
+    const r = parseTopology(
+      'file:///sln/pfc.pbsln',
+      `<Project Path="generic_pfc_app.pbproj"/>\n<Project Path="security administrator.pbproj"/>`
+    );
+    assert.equal(r?.kind, 'solution');
+    if (r?.kind === 'solution') {
+      assert.deepEqual(r.data.projects, [
+        'file:///sln/generic_pfc_app.pbproj',
+        'file:///sln/security administrator.pbproj'
+      ]);
+    }
+  });
+
   test('parsea .pbproj extrayendo .pbl', () => {
     const r = parseTopology('file:///proj/core.pbproj', `<library>core.pbl</library>`);
     assert.equal(r?.kind, 'project');
     if (r?.kind === 'project') {
       assert.equal(r.data.name, 'core');
       assert.ok(r.data.libraries[0]!.endsWith('core.pbl'));
+    }
+  });
+
+  test('parsea .pbproj preservando library paths con espacios', () => {
+    const r = parseTopology(
+      'file:///proj/generic_pfc_app.pbproj',
+      [
+        '<Libraries AppEntry="pfc libs\\pfcapp.pbl">',
+        '  <Library Path="pfc libs\\pfcmain.pbl"/>',
+        '  <Library Path="pfc libs\\pfemain.pbl"/>',
+        '</Libraries>'
+      ].join('\n')
+    );
+    assert.equal(r?.kind, 'project');
+    if (r?.kind === 'project') {
+      assert.deepEqual(r.data.libraries, [
+        'file:///proj/pfc libs/pfcapp.pbl',
+        'file:///proj/pfc libs/pfcmain.pbl',
+        'file:///proj/pfc libs/pfemain.pbl'
+      ]);
     }
   });
 

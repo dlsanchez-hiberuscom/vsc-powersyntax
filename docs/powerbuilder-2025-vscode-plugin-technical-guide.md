@@ -105,6 +105,7 @@ Reglas:
 ```text
 - Solution no usa ws_objects.
 - PBL folder es fuente primaria.
+- .pbsln y .pbproj suelen serializar rutas en atributos Path="..." que pueden contener espacios; discovery/topology debe preservar la cadena entrecomillada completa antes de tokenizar.
 - .pb y build se ignoran por defecto.
 - _BackupFiles se ignora por defecto.
 - .pblmeta se indexa como metadata de librería.
@@ -474,6 +475,15 @@ on n_customer_service.create
 end on
 ```
 
+Regla adicional:
+
+```text
+- En SR* exportados por PowerBuilder es común que el bloque estructural `on object.create` / `on object.destroy`
+  contenga solo `TriggerEvent(this, "constructor")` / `TriggerEvent(this, "destructor")`, incluso sin
+  `event constructor/destructor` local explícito y, en corpus reales como PFC, a veces también sin `call super::*`.
+- Ese patrón debe tratarse como boilerplate de definición del objeto, no como wiring lifecycle sospechoso por sí mismo.
+```
+
 ### 9.2 `.srw` — Window
 
 Contiene:
@@ -627,7 +637,8 @@ Reglas:
 
 ```text
 - mostrar lifecycle outline.
-- diagnosticar falta de ancestor call si regla del proyecto lo exige.
+- diagnosticar falta de ancestor call si regla del proyecto lo exige y el bloque no es solo boilerplate estructural exportado.
+- no emitir `missing-super-*`, `missing-trigger-*` ni `unresolved-*` solo porque un SR* exportado use el patrón estructural create/destroy + TriggerEvent implícito del objeto.
 - permitir navegación create/destroy.
 ```
 

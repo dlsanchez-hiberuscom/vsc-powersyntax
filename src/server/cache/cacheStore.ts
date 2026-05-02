@@ -1,6 +1,7 @@
 import {
   CACHE_SCHEMA_VERSION,
   type CacheMutationKind,
+  cloneDocumentRecordForPersistence,
   type SemanticCacheCheckpoint,
   type SemanticCacheCheckpointMetadata,
   type SemanticCacheDocumentRecord,
@@ -145,11 +146,11 @@ function partitionCheckpointDocuments(
     const partition = project ? projectBuckets.get(normalizeUri(project.projectUri)) : undefined;
 
     if (!partition) {
-      workspaceDocuments.push(structuredClone(document));
+      workspaceDocuments.push(cloneDocumentRecordForPersistence(document));
       continue;
     }
 
-    partition.documents.push(structuredClone(document));
+    partition.documents.push(cloneDocumentRecordForPersistence(document));
   }
 
   return {
@@ -210,11 +211,11 @@ function partitionJournalMutation(
       const partition = project ? projectPartitions.get(normalizeUri(project.projectUri)) : undefined;
       if (!partition) {
         workspaceEntry.uris.push(document.uri);
-        workspaceEntry.documents?.push(structuredClone(document));
+        workspaceEntry.documents?.push(cloneDocumentRecordForPersistence(document));
         continue;
       }
       partition.uris.push(document.uri);
-      partition.documents?.push(structuredClone(document));
+      partition.documents?.push(cloneDocumentRecordForPersistence(document));
     }
   } else {
     for (const uri of entry.uris) {
@@ -268,7 +269,9 @@ export function createSemanticCacheStore(
       createdAt: Date.now(),
       kind: entry.kind,
       uris: [...entry.uris],
-      documents: entry.documents ? structuredClone(entry.documents) : undefined
+      documents: entry.documents
+        ? entry.documents.map((document) => cloneDocumentRecordForPersistence(document))
+        : undefined
     };
     entries.push(nextEntry);
     await tryWriteJson(fs, journalTargetUri, entries);
@@ -389,7 +392,10 @@ export function createSemanticCacheStore(
         projectNextSequences.clear();
         await fs.deletePath(partitionsManifestUri);
         await fs.deletePath(projectsUri);
-        await tryWriteJson(fs, checkpointUri, checkpoint);
+        await tryWriteJson(fs, checkpointUri, {
+          ...checkpoint,
+          documents: checkpoint.documents.map((document) => cloneDocumentRecordForPersistence(document))
+        });
       } else {
         partitionedPersistenceEnabled = true;
         projectJournalEntries.clear();

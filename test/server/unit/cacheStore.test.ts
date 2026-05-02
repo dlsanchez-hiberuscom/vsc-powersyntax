@@ -8,10 +8,62 @@ import {
   buildWorkspaceCacheKey,
   createSemanticCacheStore
 } from '../../../src/server/cache/cacheStore';
+import type { SemanticCacheDocumentRecord } from '../../../src/server/cache/cacheSchema';
 import type { ServingCacheEntry } from '../../../src/server/knowledge/ServingCache';
+import { ScopeKind, type Scope } from '../../../src/server/knowledge/types';
 import { NodeFileSystem } from '../../../src/server/system/fileSystem';
 import { fsPathToUri } from '../../../src/server/system/uriUtils';
 import type { UnifiedProjectModel } from '../../../src/server/workspace/unifiedProjectModel';
+
+function createCircularRecord(uri = 'file:///a.sru', version = 'hash-a'): SemanticCacheDocumentRecord {
+  const rootScope: Scope = {
+    id: 'global',
+    kind: ScopeKind.Global,
+    uri,
+    startLine: 0,
+    endLine: 20,
+    children: [],
+    symbols: []
+  };
+  const functionScope: Scope = {
+    id: 'pfc_n_cst_dwsrv_dropdownsearch.of_register',
+    kind: ScopeKind.Function,
+    uri,
+    startLine: 5,
+    endLine: 12,
+    parent: rootScope,
+    children: [],
+    symbols: []
+  };
+  rootScope.children.push(functionScope);
+
+  return {
+    uri,
+    version,
+    facts: [],
+    scopes: [rootScope],
+    snapshot: {
+      uri,
+      version: 1,
+      fingerprint: 1,
+      identity: `${uri}@1`,
+      pass: 'enriched',
+      readiness: 'nearby-semantic-ready',
+      containerModel: {
+        sections: [],
+        typeBlocks: []
+      },
+      symbols: [],
+      scopes: [rootScope],
+      logicalStatements: [],
+      maskedText: {
+        lines: [],
+        masks: []
+      },
+      controlBlocks: []
+    }
+  };
+}
 
 suite('unit/cacheStore', () => {
   test('workspace key es estable sin depender del orden de roots', () => {
@@ -71,6 +123,43 @@ suite('unit/cacheStore', () => {
       assert.equal(restored.decision.action, 'reuse');
       assert.equal(restored.checkpoint.semanticEpoch, 4);
       assert.equal(restored.checkpoint.documents.length, 2);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('serializa scopes circulares sin tumbar el journal y rehidrata parent al restaurar', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const store = createSemanticCacheStore(new NodeFileSystem(), storageUri, ['file:///workspace']);
+    const record = createCircularRecord('file:///workspace/pfc_n_cst_dwsrv_dropdownsearch.sru');
+
+    try {
+      await store.persistCheckpoint(createCacheCheckpoint(3, [record], {
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      }));
+
+      await store.appendJournalMutation({
+        semanticEpoch: 4,
+        kind: 'upsert',
+        uris: [record.uri],
+        documents: [record]
+      });
+
+      const restored = await store.load({
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      });
+
+      assert.equal(restored.decision.action, 'reuse');
+      assert.equal(restored.checkpoint.documents.length, 1);
+      assert.equal(restored.checkpoint.documents[0].scopes[0].children[0].parent?.id, 'global');
+      assert.equal(restored.checkpoint.documents[0].snapshot?.scopes[0].children[0].parent?.id, 'global');
+
+      const persistedRoot = path.join(tempRoot, store.workspaceKey);
+      const journalRaw = await fs.readFile(path.join(persistedRoot, 'semantic-journal.json'), 'utf8');
+      assert.doesNotMatch(journalRaw, /"parent"\s*:/);
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

@@ -1,5 +1,6 @@
 import {
   CACHE_SCHEMA_VERSION,
+  hydrateDocumentRecord,
   migrateCheckpoint,
   migrateJournalEntry,
   type SemanticCacheCheckpoint,
@@ -204,7 +205,7 @@ export function resolveCheckpointRestore(
       semanticEpoch,
       createdAt: checkpoint.createdAt,
       metadata: checkpoint.metadata,
-      documents: [...documents.values()]
+      documents: [...documents.values()].map((document) => hydrateDocumentRecord(document))
     },
     decision: { action: 'reuse' }
   };

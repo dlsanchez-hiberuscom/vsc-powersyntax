@@ -54,6 +54,7 @@ export function emptyTopology(): WorkspaceTopology {
 
 /** Tokens entre comillas, espacios o saltos de línea. */
 const TOKEN_REGEX = /["'<>]?([^"'<>\s,;]+)["'<>]?/g;
+const QUOTED_TOKEN_REGEX = /["']([^"']+)["']/g;
 
 function basenameNoExt(uri: string): string {
   const last = uri.substring(uri.lastIndexOf('/') + 1);
@@ -93,18 +94,32 @@ function extractTokensWithExt(content: string, exts: string[]): string[] {
   const seen = new Set<string>();
   const lower = exts.map((e) => e.toLowerCase());
 
-  let match: RegExpExecArray | null;
-  TOKEN_REGEX.lastIndex = 0;
-  while ((match = TOKEN_REGEX.exec(content)) !== null) {
-    const token = match[1];
-    if (!token) continue;
-    const tl = token.toLowerCase();
-    if (lower.some((e) => tl.endsWith(e))) {
-      if (!seen.has(tl)) {
+  const pushToken = (rawToken: string): void => {
+    for (const segment of rawToken.split(';')) {
+      const token = segment.trim();
+      if (!token) continue;
+      const tl = token.toLowerCase();
+      if (lower.some((e) => tl.endsWith(e)) && !seen.has(tl)) {
         seen.add(tl);
         result.push(token);
       }
     }
+  };
+
+  let match: RegExpExecArray | null;
+  QUOTED_TOKEN_REGEX.lastIndex = 0;
+  while ((match = QUOTED_TOKEN_REGEX.exec(content)) !== null) {
+    const token = match[1];
+    if (!token) continue;
+    pushToken(token);
+  }
+
+  const unquotedContent = content.replace(QUOTED_TOKEN_REGEX, ' ');
+  TOKEN_REGEX.lastIndex = 0;
+  while ((match = TOKEN_REGEX.exec(unquotedContent)) !== null) {
+    const token = match[1];
+    if (!token) continue;
+    pushToken(token);
   }
   return result;
 }

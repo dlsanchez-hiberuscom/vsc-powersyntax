@@ -26,4 +26,28 @@ suite('unit/unifiedProjectModel', () => {
     assert.deepEqual(model.getLibrariesForFile('file:///proj/libA.pbl/a.sru'), ['file:///proj/libA.pbl']);
     assert.equal(model.getStats().orphanFiles, 1);
   });
+
+  test('no marca huérfanos cuando las librerías del project usan rutas con espacios', () => {
+    const topology = emptyTopology();
+    topology.projects.push({
+      uri: 'file:///proj/generic_pfc_app.pbproj',
+      name: 'generic_pfc_app',
+      libraries: [
+        'file:///proj/pfc libs/pfcmain.pbl',
+        'file:///proj/pfc libs/pfemain.pbl'
+      ]
+    });
+
+    const files = [
+      'file:///proj/pfc libs/pfcmain.pbl/pfc_n_cst_baseattrib.sru',
+      'file:///proj/pfc libs/pfemain.pbl/n_base.sru'
+    ];
+    const model = buildUnifiedProjectModel(topology, files);
+
+    assert.equal(
+      model.getProjectForFile('file:///proj/pfc libs/pfemain.pbl/n_base.sru')?.projectUri,
+      'file:///proj/generic_pfc_app.pbproj'
+    );
+    assert.equal(model.getStats().orphanFiles, 0);
+  });
 });
