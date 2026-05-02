@@ -194,7 +194,8 @@ build outputs
 Regla obligatoria:
 
 ```text
-Todo archivo y símbolo debe tener sourceOrigin y sourceAuthority.
+Todo archivo y símbolo debe tener sourceOrigin explícito.
+La authority actual vive en lineage.authority; un sourceAuthority plano por archivo requeriría spec propia.
 ```
 
 ---
@@ -240,42 +241,36 @@ Reglas:
 
 ---
 
-## 4. Source authority
+## 4. Lineage authority actual
 
-Además de `sourceOrigin`, cada archivo debe tener `sourceAuthority`:
+Además de `sourceOrigin`, las entidades y queries actuales pueden exponer `authority` dentro de su lineage:
 
 ```text
-canonical-writeable
-canonical-readonly
-derived-writeable
-derived-readonly
-staging-writeable
-generated-readonly
-backup-readonly
-unknown-readonly
+derived
+curated
+official
+project
+workspace
+custom
 ```
 
 Uso:
 
 ```text
-canonical-writeable  -> fuente real editable.
-canonical-readonly   -> fuente real pero no modificable por política/permisos.
-derived-writeable    -> copia derivada aceptada por configuración explícita.
-derived-readonly     -> copia derivada no editable.
-staging-writeable    -> ORCA staging controlado.
-generated-readonly   -> generado; no editar.
-backup-readonly      -> backup; no editar.
-unknown-readonly     -> bloquear por seguridad.
+derived   -> inferido por análisis/documento.
+curated   -> mantenido manualmente o por catálogo controlado.
+official  -> proveniente de catálogo/documentación oficial.
+project   -> derivado del modelo de proyecto.
+workspace -> agregado a nivel workspace.
+custom    -> suministro externo/configuración específica.
 ```
 
 Reglas:
 
 ```text
-- Rename/refactor solo toca canonical-writeable.
-- ORCA import solo toca staging-writeable con preflight OK.
-- generated-readonly nunca se modifica.
-- backup-readonly nunca se modifica.
-- unknown-readonly bloquea operaciones destructivas.
+- operaciones peligrosas combinan sourceOrigin confiable + authority suficiente + confidence alta;
+- lineage.authority no equivale todavía a un sourceAuthority plano por archivo;
+- si se necesita un contrato write/read-only por archivo, debe abrirse spec propia antes de documentarlo como estado vigente.
 ```
 
 ---
@@ -408,7 +403,7 @@ ProjectGraph
   - resources[]
   - buildProfiles[]
   - sourceOrigins[]
-  - sourceAuthorities[]
+  - lineageAuthorities[]
 ```
 
 ```text
@@ -1099,33 +1094,25 @@ Features LSP deben consumir snapshots publicados, no recomponer análisis.
 ```text
 SemanticSnapshot
   - uri
+  - version
   - fingerprint
+  - identity
+  - pass
+  - readiness
+  - containerModel
+  - symbols
+  - scopes
+  - logicalStatements
+  - maskedText
+  - controlBlocks
+
+Metadatos servidos junto al snapshot o sus entidades derivadas
   - sourceOrigin
-  - sourceAuthority
-  - encoding
-  - lineEnding
+  - lineage.authority
   - objectKind
   - objectName
   - ancestor
   - library
-  - target
-  - project
-  - pass
-  - readiness
-  - confidence
-  - prototypes[]
-  - implementations[]
-  - events[]
-  - variables[]
-  - controls[]
-  - symbols[]
-  - dataWindowModel?
-  - sqlFragments[]
-  - resources[]
-  - dependencies[]
-  - diagnostics[]
-  - lineage
-  - evidence[]
 ```
 
 Reglas:
@@ -1374,7 +1361,7 @@ CorpusDescriptor
 5. Resolver referencias por texto.
 6. Ignorar library order.
 7. Ignorar sourceOrigin.
-8. Ignorar sourceAuthority.
+8. Ignorar sourceOrigin o la authority servida en lineage.
 9. Ignorar encoding/line endings.
 10. Mezclar ORCA staging con source real.
 11. Permitir rename con dynamic strings.
@@ -1428,7 +1415,7 @@ Definition of Done mínima:
 
 ## 32. Resumen ejecutivo para IA
 
-PowerBuilder 2025 debe modelarse como un ecosistema dual Workspace/Solution con objetos SR* individuales, librerías ordenadas, source origins explícitos, source authority, encoding preservado, scopes particulares, herencia, frameworks, DataWindow como sublenguaje, recursos externos y automatización separada entre PBAutoBuild moderno y ORCA legacy.
+PowerBuilder 2025 debe modelarse como un ecosistema dual Workspace/Solution con objetos SR* individuales, librerías ordenadas, source origins explícitos, authority servida en lineage, encoding preservado, scopes particulares, herencia, frameworks, DataWindow como sublenguaje, recursos externos y automatización separada entre PBAutoBuild moderno y ORCA legacy.
 
 El plugin debe construir snapshots semánticos incrementales, servir LSP desde estados publicados y usar readiness/evidence/confidence para evitar operaciones peligrosas.
 

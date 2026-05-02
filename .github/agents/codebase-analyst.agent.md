@@ -22,11 +22,12 @@ Evalúa siempre contra este orden:
 
 1. `docs/constitution.md`
 2. `docs/architecture.md`
-3. specs activas en `specs/`
-4. `docs/roadmap.md`
-5. `docs/backlog.md`
-6. `docs/current-focus.md`
-7. estado real del código
+3. `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+4. specs activas en `specs/`
+5. `docs/roadmap.md`
+6. `docs/backlog.md`
+7. `docs/current-focus.md`
+8. estado real del código
 
 ## Reglas
 

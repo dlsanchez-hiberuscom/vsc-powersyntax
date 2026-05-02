@@ -80,9 +80,13 @@ suite('unit/currentObjectContext (B217)', () => {
       'end event',
       'public subroutine of_build();',
       '  datastore ids_orders',
-      '  ids_orders.SetTrans(SQLCA)',
-      '  ids_orders.DataObject = "d_sales_orders"',
-      '  ids_orders.Retrieve()',
+      '  ids_orders.SetTrans(&',
+      '    SQLCA)',
+      '  ids_orders.DataObject = &',
+      '    "d_sales_orders"',
+      '  ids_orders.Retrieve(&',
+      '    1, &',
+      '    2)',
       '  of_inherited()',
       'end subroutine'
     ].join('\r\n'));
@@ -125,6 +129,6 @@ suite('unit/currentObjectContext (B217)', () => {
     assert.ok(context.evidence?.evidenceKinds.includes('winner-target'));
     assert.ok(context.relatedFiles?.some((entry) => entry.uri === baseUri && entry.role === 'ancestor'));
     assert.ok(context.relatedFiles?.some((entry) => entry.uri === dataWindowUri && entry.role === 'datawindow'));
-    assert.ok(context.sourceExcerpt?.text.includes('ids_orders.DataObject = "d_sales_orders"'));
+    assert.ok(context.sourceExcerpt?.text.includes('ids_orders.DataObject = &'));
   });
 });

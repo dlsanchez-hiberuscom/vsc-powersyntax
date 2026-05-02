@@ -250,7 +250,8 @@ suite('unit/diagnostics', () => {
       'public subroutine of_test()',
       '  transaction ltr_db',
       '  datastore ids_orders',
-      '  ids_orders.SetTransObject(ltr_db)',
+      '  ids_orders.SetTransObject(&',
+      '    ltr_db)',
       '  ids_orders.Retrieve()',
       'end subroutine'
     ].join('\r\n');
@@ -373,6 +374,63 @@ suite('unit/diagnostics', () => {
       target: 'ids_orders',
       dataObject: 'd_missing_orders',
       targetCount: 0
+    });
+  });
+
+  test('validateSemantics enlaza SetTrans, DataObject y Retrieve multilinea con continuaciones &', () => {
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_sales_orders_multiline.srd',
+      'powerbuilder-datawindow',
+      1,
+      [
+        '$PBExportHeader$d_sales_orders_multiline.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(retrieve="PBSELECT( VERSION(400) TABLE(NAME=~"sales_order~" ) ARG(NAME = ~"custarg~" TYPE = number) )" arguments=(("custarg", number)) )'
+      ].join('\r\n')
+    );
+    const dataWindowAnalysis = analyzeDocument(dataWindowDocument);
+    kb.upsertDocument(
+      dataWindowDocument.uri,
+      dataWindowAnalysis.semanticFacts,
+      dataWindowAnalysis.scopes,
+      dataWindowAnalysis.snapshot
+    );
+
+    const source = [
+      'global type w_dw_multiline from window',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_bind()',
+      'end prototypes',
+      'public subroutine of_bind()',
+      '  datastore ids_orders',
+      '  ids_orders.SetTrans(&',
+      '    SQLCA)',
+      '  ids_orders.DataObject = &',
+      '    "d_sales_orders_multiline"',
+      '  ids_orders.Retrieve(&',
+      '    1, &',
+      '    2)',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_dataobject_multiline.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const mismatch = diagnostics.find((diag) => diag.message.includes('ids_orders.Retrieve') && diag.message.includes('espera 1 argumento'));
+    const transactionDiagnostics = diagnostics.filter((diag) => String(diag.data && (diag.data as { kind?: string }).kind) === 'transaction-binding');
+
+    assert.equal(transactionDiagnostics.length, 0, 'SetTrans multilinea debe seguir dejando el binding transaccional en estado conocido.');
+    assert.ok(mismatch, 'Esperaba un warning por aridad incorrecta en Retrieve multilinea enlazado a un DataObject literal.');
+    assert.equal(mismatch?.severity, DiagnosticSeverity.Warning);
+    assert.deepEqual(mismatch?.data, {
+      kind: 'dataobject-retrieve-args',
+      confidence: 'high',
+      target: 'ids_orders',
+      dataObject: 'd_sales_orders_multiline',
+      expectedArgumentCount: 1,
+      actualArgumentCount: 2,
+      expectedArguments: ['number custarg']
     });
   });
 

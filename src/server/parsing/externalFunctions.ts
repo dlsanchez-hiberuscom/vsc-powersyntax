@@ -6,6 +6,8 @@
  * @module parsing/externalFunctions
  */
 
+import { PB_IDENTIFIER_SOURCE, TYPE_REFERENCE_SOURCE } from './grammar';
+
 export interface ExternalFunctionDecl {
   kind: 'function' | 'subroutine';
   returnType?: string;
@@ -30,8 +32,14 @@ export function classifyExternalLibrary(library: string): ExternalDependencyKind
 }
 
 // access: public/private/protected (opcional). Function returnType name(args). library "x" [alias for "Real"].
-const RE_FN = /^\s*(?:public|private|protected)?\s*function\s+([A-Za-z_][\w$#%-]*)\s+([A-Za-z_][\w$#%-]*)\s*\([^)]*\)\s+library\s+"([^"]+)"(?:\s+alias\s+for\s+"([^"]+)")?/i;
-const RE_SUB = /^\s*(?:public|private|protected)?\s*subroutine\s+([A-Za-z_][\w$#%-]*)\s*\([^)]*\)\s+library\s+"([^"]+)"(?:\s+alias\s+for\s+"([^"]+)")?/i;
+const RE_FN = new RegExp(
+  `^\\s*(?:public|private|protected)?\\s*function\\s+(${TYPE_REFERENCE_SOURCE})\\s+(${PB_IDENTIFIER_SOURCE})\\s*\\([^)]*\\)\\s+library\\s+"([^"]+)"(?:\\s+alias\\s+for\\s+"([^"]+)")?`,
+  'i'
+);
+const RE_SUB = new RegExp(
+  `^\\s*(?:public|private|protected)?\\s*subroutine\\s+(${PB_IDENTIFIER_SOURCE})\\s*\\([^)]*\\)\\s+library\\s+"([^"]+)"(?:\\s+alias\\s+for\\s+"([^"]+)")?`,
+  'i'
+);
 
 export function parseExternalFunction(line: string): ExternalFunctionDecl | null {
   let m = RE_FN.exec(line);

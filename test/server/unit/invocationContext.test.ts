@@ -11,7 +11,9 @@ suite('server/utils/invocationContext', () => {
     'ancestor::ue_save()',                       // 4
     'lnv_service  .  of_init()',                 // 5
     'w_main::of_close()',                        // 6
-    'dw_1.object.data[1].value'                  // 7
+    'dw_1.object.data[1].value',                 // 7
+    'svc#main.uf_done%()',                       // 8
+    'this.of_total$()'                           // 9
   ];
 
   test('Extrae identifier sin cualificador', () => {
@@ -63,5 +65,15 @@ suite('server/utils/invocationContext', () => {
   test('Extrae evento desde cb_ok.PostEvent("clicked")', () => {
     const ctx = getEventApiInvocationContext(['cb_ok.PostEvent("clicked")'], Position.create(0, 18));
     assert.deepStrictEqual(ctx, { identifier: 'clicked', qualifier: 'cb_ok', separator: '.' });
+  });
+
+  test('Reconoce qualifiers e identifiers con $, # y %', () => {
+    const ctx = getInvocationContext(lines, Position.create(8, 15));
+    assert.deepStrictEqual(ctx, { identifier: 'uf_done%', qualifier: 'svc#main', separator: '.' });
+  });
+
+  test('Reconoce un símbolo con sufijo $ al final del identificador', () => {
+    const ctx = getInvocationContext(lines, Position.create(9, 13));
+    assert.deepStrictEqual(ctx, { identifier: 'of_total$', qualifier: 'this', separator: '.' });
   });
 });

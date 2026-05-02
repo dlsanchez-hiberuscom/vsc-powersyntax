@@ -63,11 +63,11 @@ Se prioriza siempre:
 |---|---|---|
 | Fase A | L0 | Core semántico, readiness y latencia |
 | Fase B | L1 | Persistencia y reanudación |
-| Fase C | L2 | Query engine y serving profesional |
+| Fase C | L2 + L2.5 | Query engine, serving y entendimiento PowerBuilder |
 | Fase D | L3 | Validación, performance y health |
 | Fase E | L4 | Especialización PowerBuilder |
-| Fase F | L4/API | Plataforma abierta para automatización |
-| Fase G | L4/AI | Automatización avanzada e IA |
+| Fase F | L4.5 | Plataforma abierta para automatización segura |
+| Fase G | L5 | Documentación IA-first y workflows que sostienen la automatización |
 
 ---
 
@@ -256,14 +256,19 @@ Extender el producto a piezas diferenciales del ecosistema PowerBuilder sin comp
 
 - `B042`;
 - `B081`;
-- `B043`;
-- `B181-B187`.
+- `B181-B187`;
+- `B214-B216`.
 
 Bloque ya cerrado dentro de la fase:
 
 - `B117` DataWindow safe mode mínimo;
 - `B139` DataWindow safe-mode desde `plugin_old` rediseñado;
 - `B041` catálogo y navegación de DataWindow.
+
+Notas de orden:
+
+- `B043` se mantiene como épica contenedora; el trabajo ejecutable vive en `B181-B187`.
+- `B214-B216` deben consumir contratos read-only ya cerrados (`B217`, `B220`, `B176`, `B107`) y no abrir un segundo motor semántico o de health.
 
 ---
 

@@ -72,6 +72,7 @@ import {
   ELSE_CASE_PATTERN,
   LINE_COMMENT_PATTERN
 } from '../parsing/grammar';
+import type { LogicalStatement } from '../parsing/statementSplitter';
 
 
 export function publishDiagnostics(
@@ -514,8 +515,8 @@ export function validateSemantics(
   // --- SD11x: binding transaccional básico para DataStore/DataWindow ---
   if (mainType) {
     for (const rootScope of scopes) {
-      checkDataObjectBindings(rootScope, document.uri, lines, mainType, diagnostics, kb);
-      checkTransactionBindings(rootScope, document.uri, lines, mainType, diagnostics, kb, systemCatalog);
+      checkDataObjectBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb);
+      checkTransactionBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb, systemCatalog);
     }
     checkLifecycleWarnings(mainType, semanticFacts, diagnostics, kb, inheritanceGraph);
   }
@@ -659,7 +660,7 @@ const TRANSACTION_OPERATION_CALL_REGEX = new RegExp(
 function checkTransactionBindings(
   scope: import('../knowledge/types').Scope,
   currentUri: string,
-  strippedLines: string[],
+  snapshot: SemanticDocumentSnapshot,
   mainType: import('../knowledge/types').Fact,
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
@@ -668,19 +669,21 @@ function checkTransactionBindings(
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
     const bindings = new Map<string, TransactionBinding>();
     const retrieveBindings = new Map<string, RetrieveArgumentBinding>();
+    const statements = getLogicalStatementsForScope(snapshot, scope);
 
-    for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
-      const raw = strippedLines[i];
+    for (const statement of statements) {
+      const raw = statement.text;
       if (!raw) continue;
       const trimmed = raw.trim();
       if (!trimmed) continue;
+      const line = statement.startLine;
 
       DATAOBJECT_ASSIGN_REGEX.lastIndex = 0;
       let dataObjectMatch: RegExpExecArray | null;
       while ((dataObjectMatch = DATAOBJECT_ASSIGN_REGEX.exec(raw)) !== null) {
         const targetName = dataObjectMatch[1];
         const expression = dataObjectMatch[2].trim();
-        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+        const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
 
         if (!targetType || !DATAWINDOW_BIND_OWNER_TYPES.has(targetType.toLowerCase())) {
           continue;
@@ -711,13 +714,13 @@ function checkTransactionBindings(
         const targetName = bindMatch[1];
         const methodName = bindMatch[2] as TransactionBinding['method'];
         const argument = bindMatch[3].trim();
-        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+        const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
 
         if (!targetType || !systemCatalog.resolveDataWindowFunctionForOwner(methodName, [targetType])) {
           continue;
         }
 
-        bindings.set(targetName.toLowerCase(), classifyTransactionBinding(argument, currentUri, i, mainType, kb));
+        bindings.set(targetName.toLowerCase(), classifyTransactionBinding(argument, currentUri, line, mainType, kb));
       }
 
       TRANSACTION_OPERATION_CALL_REGEX.lastIndex = 0;
@@ -725,19 +728,19 @@ function checkTransactionBindings(
       while ((operationMatch = TRANSACTION_OPERATION_CALL_REGEX.exec(raw)) !== null) {
         const targetName = operationMatch[1];
         const operationName = operationMatch[2] as 'Retrieve' | 'Update';
-        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+        const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
 
         if (!targetType || !systemCatalog.resolveDataWindowFunctionForOwner(operationName, [targetType])) {
           continue;
         }
 
         const binding = bindings.get(targetName.toLowerCase());
-        const col = raw.indexOf(operationName, operationMatch.index);
+        const col = findStatementAnchorColumn(statement, operationName);
 
         if (!binding) {
-          diagnostics.push(buildTransactionDiagnostic(i, col, operationName, targetName, 'missing'));
+          diagnostics.push(buildTransactionDiagnostic(line, col, operationName, targetName, 'missing'));
         } else if (binding.state !== 'known') {
-          diagnostics.push(buildTransactionDiagnostic(i, col, operationName, targetName, binding.state, binding));
+          diagnostics.push(buildTransactionDiagnostic(line, col, operationName, targetName, binding.state, binding));
         }
 
         if (operationName !== 'Retrieve') {
@@ -750,14 +753,14 @@ function checkTransactionBindings(
         }
 
         const openParenCol = raw.indexOf('(', operationMatch.index);
-        const actualArgumentCount = extractInvocationArgumentCount(strippedLines, i, openParenCol);
+        const actualArgumentCount = extractInvocationArgumentCount(raw, openParenCol);
         if (actualArgumentCount == null || actualArgumentCount === retrieveBinding.retrieveArguments.length) {
           continue;
         }
 
         diagnostics.push(
           buildRetrieveArgumentDiagnostic(
-            i,
+            line,
             col,
             targetName,
             retrieveBinding.dataObject,
@@ -770,41 +773,44 @@ function checkTransactionBindings(
   }
 
   for (const child of scope.children) {
-    checkTransactionBindings(child, currentUri, strippedLines, mainType, diagnostics, kb, systemCatalog);
+    checkTransactionBindings(child, currentUri, snapshot, mainType, diagnostics, kb, systemCatalog);
   }
 }
 
 function checkDataObjectBindings(
   scope: import('../knowledge/types').Scope,
   currentUri: string,
-  strippedLines: string[],
+  snapshot: SemanticDocumentSnapshot,
   mainType: import('../knowledge/types').Fact,
   diagnostics: Diagnostic[],
   kb: KnowledgeBase
 ): void {
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
-    for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
-      const raw = strippedLines[i];
+    const statements = getLogicalStatementsForScope(snapshot, scope);
+
+    for (const statement of statements) {
+      const raw = statement.text;
       if (!raw) continue;
       const trimmed = raw.trim();
       if (!trimmed) continue;
+      const line = statement.startLine;
 
       DATAOBJECT_ASSIGN_REGEX.lastIndex = 0;
       let assignMatch: RegExpExecArray | null;
       while ((assignMatch = DATAOBJECT_ASSIGN_REGEX.exec(raw)) !== null) {
         const targetName = assignMatch[1];
         const expression = assignMatch[2].trim();
-        const targetType = resolveQualifierType(targetName, currentUri, kb, i, mainType);
+        const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
 
         if (!targetType || !DATAWINDOW_BIND_OWNER_TYPES.has(targetType.toLowerCase())) {
           continue;
         }
 
-        const expressionCol = raw.indexOf(assignMatch[2], assignMatch.index);
+        const expressionCol = findStatementAnchorColumn(statement, 'DataObject');
         const literal = extractDataObjectLiteral(expression);
 
         if (literal === undefined) {
-          diagnostics.push(buildDataObjectBindingDiagnostic(i, expressionCol, targetName, 'dynamic', { expression }));
+          diagnostics.push(buildDataObjectBindingDiagnostic(line, expressionCol, targetName, 'dynamic', { expression }));
           continue;
         }
 
@@ -819,7 +825,7 @@ function checkDataObjectBindings(
 
         diagnostics.push(
           buildDataObjectBindingDiagnostic(
-            i,
+            line,
             expressionCol,
             targetName,
             targets.length === 0 ? 'missing' : 'ambiguous',
@@ -831,7 +837,7 @@ function checkDataObjectBindings(
   }
 
   for (const child of scope.children) {
-    checkDataObjectBindings(child, currentUri, strippedLines, mainType, diagnostics, kb);
+    checkDataObjectBindings(child, currentUri, snapshot, mainType, diagnostics, kb);
   }
 }
 
@@ -848,7 +854,7 @@ function buildDataObjectBindingDiagnostic(
   }
 ): Diagnostic {
   const startChar = col >= 0 ? col : 0;
-  const highlight = options.literal ?? options.expression ?? 'DataObject';
+  const highlight = state === 'dynamic' ? 'DataObject' : options.literal ?? 'DataObject';
   const range = Range.create(
     Position.create(line, startChar),
     Position.create(line, startChar + highlight.length)
@@ -889,8 +895,7 @@ function buildDataObjectBindingDiagnostic(
 }
 
 function extractInvocationArgumentCount(
-  strippedLines: string[],
-  startLine: number,
+  statementText: string,
   openParenCol: number
 ): number | null {
   if (openParenCol < 0) {
@@ -900,35 +905,49 @@ function extractInvocationArgumentCount(
   let text = '';
   let depth = 0;
 
-  for (let line = startLine; line < strippedLines.length; line++) {
-    const raw = strippedLines[line];
-    const startCol = line === startLine ? openParenCol + 1 : 0;
-
-    for (let col = startCol; col < raw.length; col++) {
-      const char = raw[col];
-      if (char === '(') {
-        depth++;
-        text += char;
-        continue;
-      }
-
-      if (char === ')') {
-        if (depth === 0) {
-          return countInvocationArguments(text);
-        }
-
-        depth--;
-        text += char;
-        continue;
-      }
-
+  for (let col = openParenCol + 1; col < statementText.length; col++) {
+    const char = statementText[col];
+    if (char === '(') {
+      depth++;
       text += char;
+      continue;
     }
 
-    text += '\n';
+    if (char === ')') {
+      if (depth === 0) {
+        return countInvocationArguments(text);
+      }
+
+      depth--;
+      text += char;
+      continue;
+    }
+
+    text += char;
   }
 
   return null;
+}
+
+function getLogicalStatementsForScope(
+  snapshot: SemanticDocumentSnapshot,
+  scope: import('../knowledge/types').Scope
+): LogicalStatement[] {
+  return snapshot.logicalStatements.filter((statement) =>
+    statement.endLine >= scope.startLine + 1 && statement.startLine <= scope.endLine
+  );
+}
+
+function findStatementAnchorColumn(statement: LogicalStatement, token: string): number {
+  const loweredToken = token.toLowerCase();
+  for (const rawLine of statement.rawLines) {
+    const index = rawLine.toLowerCase().indexOf(loweredToken);
+    if (index >= 0) {
+      return index;
+    }
+  }
+
+  return 0;
 }
 
 function countInvocationArguments(text: string): number {

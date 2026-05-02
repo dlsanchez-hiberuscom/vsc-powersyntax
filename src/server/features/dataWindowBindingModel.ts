@@ -5,6 +5,7 @@ import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { EntityKind, ScopeKind, type Fact, type Scope } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
+import type { LogicalStatement } from '../parsing/statementSplitter';
 
 const DATAOBJECT_ASSIGN_REGEX = new RegExp(
   `\\b(${PB_IDENTIFIER_SOURCE})\\s*\\.\\s*DataObject\\s*=\\s*([^;]+)`,
@@ -48,13 +49,10 @@ export function findNearestDataObjectLiteralBinding(
   const callableScope = findCallableScopeAtLine(snapshot.scopes, line);
   const startLine = callableScope ? callableScope.startLine + 1 : 0;
   const targetId = targetName.toLowerCase();
+  const statements = getLogicalStatementsInRange(snapshot, startLine, line - 1);
 
-  for (let currentLine = line - 1; currentLine >= startLine; currentLine--) {
-    const raw = snapshot.maskedText.lines[currentLine];
-    if (!raw) {
-      continue;
-    }
-
+  for (let index = statements.length - 1; index >= 0; index--) {
+    const raw = statements[index].text;
     DATAOBJECT_ASSIGN_REGEX.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = DATAOBJECT_ASSIGN_REGEX.exec(raw)) !== null) {
@@ -125,9 +123,10 @@ export function collectDataObjectBindings(
   const bindings: DataWindowBindingSummary[] = [];
   const effectiveStart = Math.max(0, startLine);
   const effectiveEnd = Math.min(snapshot.maskedText.lines.length - 1, endLine);
+  const statements = getLogicalStatementsInRange(snapshot, effectiveStart, effectiveEnd);
 
-  for (let line = effectiveStart; line <= effectiveEnd; line++) {
-    const raw = snapshot.maskedText.lines[line];
+  for (const statement of statements) {
+    const raw = statement.text;
     if (!raw) {
       continue;
     }
@@ -138,6 +137,7 @@ export function collectDataObjectBindings(
       const targetName = match[1];
       const expression = match[2].trim();
       const literal = extractDataObjectLiteral(expression);
+      const line = statement.startLine;
 
       if (literal === undefined) {
         bindings.push({
@@ -178,6 +178,20 @@ export function collectDataObjectBindings(
   }
 
   return bindings;
+}
+
+function getLogicalStatementsInRange(
+  snapshot: SemanticDocumentSnapshot,
+  startLine: number,
+  endLine: number
+): LogicalStatement[] {
+  if (endLine < startLine) {
+    return [];
+  }
+
+  return snapshot.logicalStatements.filter((statement) =>
+    statement.endLine >= startLine && statement.startLine <= endLine
+  );
 }
 
 function findCallableScopeAtLine(scopes: readonly Scope[], line: number): Scope | null {

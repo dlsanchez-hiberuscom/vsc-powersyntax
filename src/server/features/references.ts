@@ -23,13 +23,22 @@ import { maskDocument } from '../parsing/codeMasking';
 import { hasBlockingDynamicStringReference } from './dynamicStringReferences';
 import { resolveDocumentQueryTargets, type DocumentQueryContext } from './queryContext';
 import { getEventApiInvocationContext, getInvocationContext } from '../utils/invocationContext';
+import { findPowerBuilderIdentifierSpan, hasPowerBuilderIdentifierBoundaries } from '../utils/pbIdentifier';
 
 export interface ReferenceSource {
   uri: string;
   content: string;
+  lines?: string[];
+  maskedLines?: string[];
 }
 
-const IDENT_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
+function getSourceLines(source: ReferenceSource): string[] {
+  return source.lines ?? source.content.split(/\r?\n/);
+}
+
+function getMaskedLines(source: ReferenceSource): string[] {
+  return source.maskedLines ?? maskDocument(source.content, { nested: true }).split(/\r?\n/);
+}
 
 function extractStringLiterals(line: string): Array<{ value: string; start: number; end: number }> {
   const literals: Array<{ value: string; start: number; end: number }> = [];
@@ -63,15 +72,7 @@ function extractStringLiterals(line: string): Array<{ value: string; start: numb
 function getWordAt(document: TextDocument, position: Position): string | null {
   const text = document.getText();
   const offset = document.offsetAt(position);
-  // Buscar inicio de palabra
-  let start = offset;
-  while (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])) start--;
-  let end = offset;
-  while (end < text.length && /[A-Za-z0-9_]/.test(text[end])) end++;
-  if (start === end) return null;
-  const word = text.slice(start, end);
-  if (!/^[A-Za-z_]/.test(word)) return null;
-  return word;
+  return findPowerBuilderIdentifierSpan(text, offset)?.word ?? null;
 }
 
 function buildResolvedFamilyKeys(targets: ReadonlyArray<Parameters<typeof buildSymbolKey>[0]>): Set<string> {
@@ -147,15 +148,18 @@ export function provideReferences(
   }
 
   // 2. Ocurrencias textuales en sources
-  const re = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi');
+  const re = new RegExp(escapeRegExp(word), 'gi');
   for (const src of sources) {
-    const lines = src.content.split(/\r?\n/);
-    const maskedLines = maskDocument(src.content, { nested: true }).split(/\r?\n/);
+    const lines = getSourceLines(src);
+    const maskedLines = getMaskedLines(src);
     for (let i = 0; i < lines.length; i++) {
       const scan = maskedLines[i] ?? '';
       re.lastIndex = 0;
       let m: RegExpExecArray | null;
       while ((m = re.exec(scan)) !== null) {
+        if (!hasPowerBuilderIdentifierBoundaries(scan, m.index, m.index + m[0].length)) {
+          continue;
+        }
         if (!matchesResolvedFamily(lines, src.uri, i, m.index, kb, graph, targetKeys)) {
           continue;
         }
@@ -204,4 +208,4 @@ function escapeRegExp(s: string): string {
 }
 
 // Re-export helper para tests si fuera necesario.
-export const _internals = { getWordAt, IDENT_RE };
+export const _internals = { getWordAt };

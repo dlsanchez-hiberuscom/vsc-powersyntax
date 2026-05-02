@@ -179,7 +179,9 @@ end subroutine
       'datawindow(units=0)',
       'header(height=88 color=67108864)',
       'detail(height=68 color=67108864)',
-      'table(column=(type=long update=yes name=id dbname="customer.id") retrieve="SELECT id FROM customer" arguments=(("custarg", number)) )'
+      'table(column=(type=long update=yes name=id dbname="customer.id")',
+      ' column=(type=char(40) update=yes name=status dbname="customer.status")',
+      ' retrieve="SELECT id, status FROM customer" arguments=(("custarg", number)) )'
     ].join('\r\n'));
     const doc = setupAnalyzedDocument('file:///w_dataobject_hover.srw', `
 global type w_dataobject_hover from window
@@ -201,6 +203,7 @@ end event
     assert.ok(value.includes('**DataWindow Safe Mode**'), 'Debe añadir el bloque de safe mode del .srd.');
     assert.ok(value.includes('SQL base:'), 'Debe incluir el SQL base del DataWindow.');
     assert.ok(value.includes('Columnas:'), 'Debe incluir un resumen de columnas.');
+    assert.ok(value.includes('status: char(40)'), 'Debe conservar tipos con paréntesis balanceados en el resumen de columnas.');
     assert.ok(value.includes('Bandas:'), 'Debe incluir un resumen de bandas principales.');
   });
 

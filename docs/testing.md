@@ -72,6 +72,7 @@ Deben cubrir como mínimo:
 - contribution points principales.
 
 La matriz mínima actual de smoke real con `vscode-test` debe cubrir activación genérica, PFC Solution y PFC Workspace.
+Además, la smoke de formatting debe cubrir el provider manual y `formatOnSave` sobre un documento PowerBuilder real.
 
 ## 4.2 Unit tests
 **Objetivo:** validar lógica aislada, pura y reutilizable.
@@ -87,6 +88,9 @@ Deben cubrir prioritariamente:
 
 Estado actual relevante:
 - `test/server/unit/runtimeJournal.test.ts`, `runtimeHealth.test.ts`, `queryTrace.test.ts`, `servingCache.test.ts` y `statusBarPresentation.test.ts` fijan el journal exportable del runtime, el health report estructurado, los observers de trace/cache y su proyección visible en stats/status.
+- `test/server/unit/referenceSourcePool.test.ts`, junto con `references.test.ts`, `rename.test.ts` y `codeLensReferences.test.ts`, fija el pool acotado por proyecto/candidatos y el reuso de `maskedText` en el hot path de `references`/`rename`/CodeLens.
+- `test/server/unit/watchedFileChangeBridge.test.ts` y `watchedFileIntake.test.ts` fijan el intake incremental de markers topológicos y la reconciliación de `sourceOrigin`/routing sin rediscovery completo.
+- `test/server/unit/powerBuilderFormatter.test.ts` fija el formatter conservador puro; `test/smoke/formatting.extension.test.ts` cubre provider manual y `formatOnSave` sobre VS Code real.
 
 Regla:
 - no depender de VS Code,
@@ -223,6 +227,8 @@ Mínimo:
 - integration test de la feature afectada,
 - y golden test si cambia comportamiento semántico visible.
 
+Si el cambio toca `references`, `rename` o CodeLens en hot path, debe cubrir además scope de candidatos (`direct/project/workspace`) y reuso de snapshot cuando exista.
+
 ### 7.3 Cambio en scheduler / invalidación / caché / runtime
 Mínimo:
 - unit tests,
@@ -230,6 +236,8 @@ Mínimo:
 - y performance test si puede afectar latencia o background work.
 
 Cuando el cambio además altera stats/status/health visibles, añadir al menos una smoke real del host para verificar el wiring cliente-servidor.
+
+Si el cambio toca watcher/topology/sourceOrigin incremental, cubrir el puente LSP -> watcher y el intake por batch con tests dedicados.
 
 ### 7.4 Cambio en persistencia / warm resume
 Mínimo:
@@ -253,8 +261,9 @@ Tras las olas 133-172, el baseline mínimo del repositorio queda en:
 
 Evidencia reciente registrada:
 
-- `npm run test:unit` → `324 passing`
-- `npm test` → smoke `2 passing`, unit `324 passing`, integration `4 passing`
+- la evidencia cuantitativa debe regenerarse desde una ejecución reciente y no fijarse aquí como número estático;
+- la matriz mínima actual incluye smoke real sobre activación genérica, PFC Solution y PFC Workspace, además de integración LSP sobre hover, document symbols y diagnostics.
+- la matriz mínima actual incluye también smoke real del formatter conservador en modo manual y `formatOnSave`.
 
 Notas operativas:
 

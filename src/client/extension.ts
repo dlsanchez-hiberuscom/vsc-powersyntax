@@ -44,6 +44,7 @@ import {
   formatStatusBarSummary,
   type RuntimeStatusStats,
 } from './statusBarPresentation';
+import { registerFormatting } from './formatting/registerFormatting';
 
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
@@ -59,6 +60,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
 
   outputChannel = vscode.window.createOutputChannel('VSC PowerSyntax');
   context.subscriptions.push(outputChannel);
+  context.subscriptions.push(...registerFormatting());
 
   outputChannel.appendLine('[VSC PowerSyntax] Activando extensión...');
 

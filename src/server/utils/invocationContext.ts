@@ -1,6 +1,6 @@
 import { Position } from 'vscode-languageserver/node';
+import { findPowerBuilderIdentifierSpan } from './pbIdentifier';
 
-const PB_IDENTIFIER_CHAR = /[a-zA-Z0-9_]/;
 const EVENT_API_METHOD_PREFIX_RE = /([a-zA-Z_$#%][\w$#%-]*)\s*\.\s*(tabtriggerevent|tabpostevent|triggerevent|postevent)\s*\(\s*$/i;
 const EVENT_API_GLOBAL_PREFIX_RE = /\b(tabtriggerevent|tabpostevent|triggerevent|postevent)\s*\(\s*([a-zA-Z_$#%][\w$#%-]*)\s*,\s*$/i;
 
@@ -86,23 +86,11 @@ export function getInvocationContext(lines: string[], position: Position): Invoc
   if (line < 0 || line >= lines.length) return null;
 
   const lineText = lines[line];
-  if (character < 0 || character >= lineText.length) return null;
+  const identifierSpan = findPowerBuilderIdentifierSpan(lineText, character);
+  if (!identifierSpan) return null;
 
-  if (!PB_IDENTIFIER_CHAR.test(lineText[character])) return null;
-
-  // 1. Expandir para obtener el identifier
-  let start = character;
-  while (start > 0 && PB_IDENTIFIER_CHAR.test(lineText[start - 1])) {
-    start--;
-  }
-
-  let end = character;
-  while (end < lineText.length - 1 && PB_IDENTIFIER_CHAR.test(lineText[end + 1])) {
-    end++;
-  }
-
-  const identifier = lineText.substring(start, end + 1);
-  if (/^\d+$/.test(identifier)) return null;
+  const identifier = identifierSpan.word;
+  const start = identifierSpan.start;
 
   // 2. Buscar cualificador hacia atrás
   let qStart = start - 1;
@@ -138,18 +126,16 @@ export function getInvocationContext(lines: string[], position: Position): Invoc
     qStart--;
   }
 
-  if (qStart < 0 || !PB_IDENTIFIER_CHAR.test(lineText[qStart])) {
+  if (qStart < 0) {
     return { identifier };
   }
 
-  // Extraer el cualificador
-  let qualEnd = qStart;
-  let qualStart = qStart;
-  while (qualStart > 0 && PB_IDENTIFIER_CHAR.test(lineText[qualStart - 1])) {
-    qualStart--;
+  const qualifierSpan = findPowerBuilderIdentifierSpan(lineText, qStart);
+  if (!qualifierSpan) {
+    return { identifier };
   }
 
-  const qualifier = lineText.substring(qualStart, qualEnd + 1);
+  const qualifier = qualifierSpan.word;
 
   return { identifier, qualifier, separator };
 }

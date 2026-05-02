@@ -128,6 +128,8 @@ Hoy el runtime ya dispone de:
 - yielding cooperativo,
 - cancelación/preempción del background,
 - backpressure del watcher,
+- refresco incremental de routing/provenance para markers de topología y altas calientes de SR* sin rediscovery completo,
+- pool acotado de fuentes para `references`/`rename`/CodeLens con reuso de `maskedText` ya indexado,
 - y progreso/readiness/modo degradado observables.
 
 Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm test` y, cuando toque latencia o presión sostenida, también `npm run test:performance`.

@@ -196,6 +196,73 @@
           "type": "boolean",
           "default": true,
           "description": "Mostrar el indicador de progreso de indexación en la barra de estado."
+        },
+        "vscPowerSyntax.formatting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar el formatter conservador para documentos PowerBuilder compatibles."
+        },
+        "vscPowerSyntax.formatting.formatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Aplicar el formatter propio al guardar documentos PowerBuilder compatibles."
+        },
+        "vscPowerSyntax.formatting.keywordCase": {
+          "type": "string",
+          "enum": ["preserve", "upper", "lower"],
+          "default": "preserve",
+          "description": "Case base para keywords PowerBuilder cuando no exista una opción más específica."
+        },
+        "vscPowerSyntax.formatting.statementCase": {
+          "type": "string",
+          "enum": ["preserve", "upper", "lower"],
+          "default": "preserve",
+          "description": "Case para keywords ejecutables como IF, ELSE, RETURN o END IF."
+        },
+        "vscPowerSyntax.formatting.typeCase": {
+          "type": "string",
+          "enum": ["preserve", "upper", "lower"],
+          "default": "preserve",
+          "description": "Case para bloques estructurales como GLOBAL TYPE, FORWARD PROTOTYPES o END TYPE."
+        },
+        "vscPowerSyntax.formatting.eventKeywordCase": {
+          "type": "string",
+          "enum": ["preserve", "upper", "lower"],
+          "default": "preserve",
+          "description": "Case para EVENT/ON y sus cierres."
+        },
+        "vscPowerSyntax.formatting.indentStyle": {
+          "type": "string",
+          "enum": ["spaces", "tabs"],
+          "default": "spaces",
+          "description": "Estilo de indentación del formatter conservador."
+        },
+        "vscPowerSyntax.formatting.indentSize": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "Tamaño de indentación cuando se usan espacios."
+        },
+        "vscPowerSyntax.formatting.trimTrailingWhitespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Recortar espacios al final de línea cuando el formatter aplica cambios."
+        },
+        "vscPowerSyntax.formatting.spaceAfterComma": {
+          "type": "boolean",
+          "default": true,
+          "description": "Normalizar un único espacio tras cada coma fuera de strings y comentarios."
+        },
+        "vscPowerSyntax.formatting.spaceAroundOperators": {
+          "type": "boolean",
+          "default": true,
+          "description": "Normalizar espacios alrededor de operadores relacionales y de asignación conservadores."
+        },
+        "vscPowerSyntax.formatting.normalizeBlankLines": {
+          "type": "string",
+          "enum": ["preserve", "compact"],
+          "default": "preserve",
+          "description": "Preservar o compactar líneas en blanco consecutivas durante el formateo."
         }
       }
     }

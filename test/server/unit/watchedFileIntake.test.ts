@@ -151,6 +151,79 @@ suite('unit/watchedFileIntake', () => {
     assert.deepEqual(deleteResult.touchedProjects, ['file:///proj/app.pbt']);
   });
 
+  test('create y delete de markers refrescan routing y provenance sin rediscovery completo', async () => {
+    const fs = new FakeFileSystem();
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const workspaceState = new WorkspaceState();
+    const hotContextCache = new HotContextCache();
+    const servingCache = new ServingCache();
+    const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
+    const markerUri = 'file:///proj/app.pbt';
+    const sourceUri = 'file:///proj/lib_app.pbl/u_refresh.sru';
+
+    workspaceState.addSourceFile(sourceUri, 'unknown');
+    await fs.writeFile(markerUri, 'LibList "lib_app.pbl"');
+
+    const createResult = await applyWatchedFileEvents({
+      events: [{ uri: markerUri, kind: 'create' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator
+    });
+
+    assert.equal(workspaceState.getProjectModel()?.getProjectForFile(sourceUri)?.projectUri, markerUri);
+    assert.equal(workspaceState.getSourceOrigin(sourceUri), 'pbl-folder-source');
+    assert.deepEqual(createResult.touchedProjects, [markerUri]);
+
+    const deleteResult = await applyWatchedFileEvents({
+      events: [{ uri: markerUri, kind: 'delete' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator
+    });
+
+    assert.equal(workspaceState.getProjectModel()?.getProjectForFile(sourceUri), null);
+    assert.deepEqual(deleteResult.touchedProjects, [markerUri]);
+  });
+
+  test('alta caliente de SR* reconcilia sourceOrigin con los roots ya conocidos', async () => {
+    const fs = new FakeFileSystem();
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const workspaceState = new WorkspaceState();
+    const hotContextCache = new HotContextCache();
+    const servingCache = new ServingCache();
+    const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
+    const solutionUri = 'file:///proj/app.pbsln';
+    const sourceUri = 'file:///proj/lib_app.pbl/u_hot.sru';
+
+    workspaceState.addRoot('solutions', solutionUri);
+    await fs.writeFile(sourceUri, 'forward\nend forward\n');
+
+    const result = await applyWatchedFileEvents({
+      events: [{ uri: sourceUri, kind: 'create' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator
+    });
+
+    assert.equal(result.reindexed, 1);
+    assert.equal(workspaceState.getSourceOrigin(sourceUri), 'pbl-folder-source');
+  });
+
   test('delete elimina cache, snapshot y limpia diagnósticos', async () => {
     const fs = new FakeFileSystem();
     const documentCache = new DocumentCache();

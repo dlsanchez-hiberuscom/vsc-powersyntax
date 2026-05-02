@@ -10,11 +10,13 @@ Plugin profesional de **Visual Studio Code** para **PowerBuilder 2025** y **Powe
 - **Go to Definition**
 - **Completion** contextual
 - **Signature Help**
+- **Formatter conservador configurable** para scripts PowerBuilder soportados
 - **Inspección jerárquica activa** desde comando
 - **API pública mínima versionada** para herramientas y otras extensiones
 - **Diagnósticos estructurales y semánticos**
 - **Descubrimiento de Workspace y Solution**
 - **Indexación progresiva** con prioridad al archivo activo
+- **Watcher incremental** que refresca routing/provenance al cambiar markers o entrar SR* nuevos
 - **Caché y scheduler** para mejorar la respuesta en proyectos grandes
 
 ## Diseñado para proyectos reales
@@ -33,19 +35,19 @@ Actualmente el plugin ya incluye una base funcional sólida con:
 - soporte inicial para **Workspace** (`.pbw`, `.pbt`) y **Solution** (`.pbsln`, `.pbproj`),
 - arquitectura **cliente ligero + servidor LSP separado**,
 - navegación y asistencia semántica base, incluida inspección jerárquica activa del objeto actual,
-- API pública mínima exportada desde la activación para stats y consulta de símbolos,
+- formatter conservador configurable y `formatOnSave` para documentos PowerScript soportados,
+- API pública mínima exportada desde la activación para stats, consulta de símbolos y superficies read-only como current object context, impact analysis, safe edit plan y semantic workspace manifest,
 - y una infraestructura preparada para seguir creciendo en rendimiento, semántica y validación sobre corpus reales.
 
 ## En evolución
 
 Las siguientes líneas de trabajo siguen en crecimiento:
 
-- endurecimiento del core semántico,
-- persistencia y warm indexing,
-- references y rename más robustos,
-- mejoras de rendimiento en workspaces grandes,
-- DataWindow,
-- integración con toolchain del ecosistema PowerBuilder,
+- DataWindow avanzado por encima del safe mode y del catálogo básico ya cerrados,
+- acceso semántico a `dw.Object` y superficies hijas de DataWindow,
+- integración moderna con PBAutoBuild y su health asociado,
+- dashboards/paneles UX construidos sobre contratos read-only ya cerrados,
+- budgets de memoria y reconciliación interna parser/symbol/LSP,
 - y automatización / IA sobre base madura.
 
 ## Filosofía del proyecto

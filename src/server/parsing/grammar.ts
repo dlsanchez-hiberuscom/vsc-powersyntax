@@ -9,7 +9,8 @@
 // -----------------------------------------------------------------------------
 
 export const PB_IDENTIFIER_START_SOURCE = '[a-zA-Z_$#%]';
-export const PB_IDENTIFIER_BODY_SOURCE = '[\\w$#%\\-]*';
+export const PB_IDENTIFIER_CHAR_SOURCE = '[a-zA-Z0-9_$#%-]';
+export const PB_IDENTIFIER_BODY_SOURCE = `${PB_IDENTIFIER_CHAR_SOURCE}*`;
 export const PB_IDENTIFIER_SOURCE = `${PB_IDENTIFIER_START_SOURCE}${PB_IDENTIFIER_BODY_SOURCE}`;
 
 // Para identificadores de tipo (ej: objetos con backticks o guiones, común en variables/referencias exportadas)

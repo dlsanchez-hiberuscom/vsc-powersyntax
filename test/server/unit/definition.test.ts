@@ -341,6 +341,44 @@ suite('unit/definition', () => {
     }
   });
 
+  test('provideDefinition resuelve identificadores PowerBuilder con sufijo $', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const document = TextDocument.create(
+      'file:///w_special_identifiers.sru',
+      'powerbuilder',
+      1,
+      [
+        'global type w_special_identifiers from window',
+        'end type',
+        '',
+        'forward prototypes',
+        'public function integer of_total$()',
+        'end prototypes',
+        '',
+        'public function integer of_total$();',
+        '  return 1',
+        'end function',
+        '',
+        'event open();',
+        '  this.of_total$()',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const analysis = analyzeDocument(document);
+    localKb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
+
+    const loc = provideDefinition(document, Position.create(12, 15), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, document.uri);
+      assert.equal(loc.range.start.line, 7);
+    }
+  });
+
   test('provideDefinition resuelve un DataObject literal contra un .srd ya indexado', () => {
     const localKb = new KnowledgeBase();
     const localGraph = new InheritanceGraph(localKb);

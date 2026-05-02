@@ -19,6 +19,15 @@ suite('unit/externalFunctions (B073)', () => {
     assert.equal(r?.alias, 'BarA');
   });
 
+  test('acepta nombres externos con $, # y %', () => {
+    const fn = parseExternalFunction('function int Foo$() library "k.dll"');
+    const sub = parseExternalFunction('subroutine Bar#%() library "k.dll" alias for "BarA"');
+    assert.ok(fn);
+    assert.ok(sub);
+    assert.equal(fn?.name, 'Foo$');
+    assert.equal(sub?.name, 'Bar#%');
+  });
+
   test('línea no externa → null', () => {
     assert.equal(parseExternalFunction('integer i'), null);
   });

@@ -67,8 +67,10 @@ function extractColumns(text: string): DataWindowSafeModeColumn[] {
       break;
     }
 
-    const name = /\bname\s*=\s*([A-Za-z_][\w$#%]*)/i.exec(body)?.[1]?.trim();
-    const type = /\btype\s*=\s*([^\s)]+)/i.exec(body)?.[1]?.trim();
+    const name = extractColumnAttribute(body, 'name');
+    const type = extractColumnAttribute(body, 'type');
+    const dbName = extractColumnAttribute(body, 'dbname');
+    const update = extractColumnAttribute(body, 'update');
     if (name && type) {
       const key = name.toLowerCase();
       if (!seen.has(key)) {
@@ -76,12 +78,8 @@ function extractColumns(text: string): DataWindowSafeModeColumn[] {
         columns.push({
           name,
           type,
-          ...( /\bdbname\s*=\s*"([^"]+)"/i.exec(body)?.[1]?.trim()
-            ? { dbName: /\bdbname\s*=\s*"([^"]+)"/i.exec(body)?.[1]?.trim() }
-            : {}),
-          ...( /\bupdate\s*=\s*(yes|no)/i.exec(body)?.[1]
-            ? { update: /\bupdate\s*=\s*(yes|no)/i.exec(body)?.[1].toLowerCase() === 'yes' }
-            : {}),
+          ...(dbName ? { dbName } : {}),
+          ...(update ? { update: update.toLowerCase() === 'yes' } : {}),
         });
       }
     }
@@ -125,4 +123,46 @@ function extractBalancedParenthesesContent(text: string, openParen: number): str
   }
 
   return null;
+}
+
+function extractColumnAttribute(body: string, attribute: string): string | undefined {
+  const match = new RegExp(`\\b${attribute}\\s*=\\s*`, 'i').exec(body);
+  if (!match) {
+    return undefined;
+  }
+
+  let index = match.index + match[0].length;
+  if (index >= body.length) {
+    return undefined;
+  }
+
+  if (body[index] === '"') {
+    index++;
+    let end = index;
+    while (end < body.length && body[end] !== '"') {
+      end++;
+    }
+    const value = body.slice(index, end).trim();
+    return value || undefined;
+  }
+
+  let depth = 0;
+  let end = index;
+  while (end < body.length) {
+    const char = body[end];
+    if (char === '(') {
+      depth++;
+    } else if (char === ')') {
+      if (depth === 0) {
+        break;
+      }
+      depth--;
+    } else if (/\s/.test(char) && depth === 0) {
+      break;
+    }
+    end++;
+  }
+
+  const value = body.slice(index, end).trim();
+  return value || undefined;
 }

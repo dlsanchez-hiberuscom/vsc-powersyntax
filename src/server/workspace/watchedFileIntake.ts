@@ -15,9 +15,10 @@ import {
 import { FsEvent } from '../system/fileWatcherDebouncer';
 import type { IFileSystem } from '../system/fileSystem';
 import { calculateHash } from '../system/hash';
-import { isPowerBuilderSourceUri } from '../../shared/powerbuilderFiles';
+import { isPowerBuilderProjectMarkerUri, isPowerBuilderSourceUri } from '../../shared/powerbuilderFiles';
 import type { WorkspaceState } from './workspaceState';
 import { clearFileIndexState, FileIndexState, setFileIndexState } from '../indexer/workspaceIndexer';
+import { parseTopology } from './topology';
 
 export interface ApplyWatchedFileEventsOptions {
   events: FsEvent[];
@@ -45,16 +46,24 @@ export interface WatchedFileIntakeResult {
 export async function applyWatchedFileEvents(
   opts: ApplyWatchedFileEventsOptions
 ): Promise<WatchedFileIntakeResult> {
-  const sourceEvents = opts.events.filter((event) => isPowerBuilderSourceUri(event.uri));
-  const massive = sourceEvents.length >= (opts.massiveChangeThreshold ?? 32);
+  const relevantEvents = opts.events.filter((event) => isPowerBuilderSourceUri(event.uri) || isPowerBuilderProjectMarkerUri(event.uri));
+  const massive = relevantEvents.length >= (opts.massiveChangeThreshold ?? 32);
   let reindexed = 0;
   let removed = 0;
   let skipped = 0;
   let routingDirty = false;
+  let sourceOriginsDirty = false;
   const touchedProjects = new Set<string>();
   const projectCandidates = new Set<string>();
 
   for (const event of opts.events) {
+    if (isPowerBuilderProjectMarkerUri(event.uri)) {
+      const markerTouched = await applyProjectMarkerEvent(event, opts.workspaceState, opts.fs, touchedProjects, opts.log);
+      routingDirty = routingDirty || markerTouched;
+      sourceOriginsDirty = sourceOriginsDirty || markerTouched;
+      continue;
+    }
+
     if (!isPowerBuilderSourceUri(event.uri)) {
       skipped++;
       continue;
@@ -73,6 +82,7 @@ export async function applyWatchedFileEvents(
       opts.workspaceState.removeSourceFile(event.uri);
       clearFileIndexState(event.uri);
       routingDirty = routingDirty || hadSourceFile;
+      sourceOriginsDirty = sourceOriginsDirty || hadSourceFile;
       if (!massive) {
         for (const uri of invalidationPlan.allUris) {
           opts.hotContextCache.invalidateForUri(uri);
@@ -91,6 +101,7 @@ export async function applyWatchedFileEvents(
     const hadSourceFile = opts.workspaceState.hasSourceFile(event.uri);
     opts.workspaceState.addSourceFile(event.uri);
     routingDirty = routingDirty || !hadSourceFile;
+  sourceOriginsDirty = sourceOriginsDirty || !hadSourceFile;
     projectCandidates.add(event.uri);
     if (opts.isDocumentOpen?.(event.uri)) {
       setFileIndexState(event.uri, FileIndexState.Pending);
@@ -156,6 +167,10 @@ export async function applyWatchedFileEvents(
     );
   }
 
+  if (sourceOriginsDirty) {
+    opts.workspaceState.recomputeSourceOrigins();
+  }
+
   if (routingDirty) {
     opts.workspaceState.refreshProjectRouting();
   }
@@ -174,4 +189,73 @@ export async function applyWatchedFileEvents(
     massive,
     touchedProjects: [...touchedProjects].sort()
   };
+}
+
+async function applyProjectMarkerEvent(
+  event: FsEvent,
+  workspaceState: WorkspaceState,
+  fs: IFileSystem,
+  touchedProjects: Set<string>,
+  log?: (message: string) => void
+): Promise<boolean> {
+  const rootKind = getMarkerRootKind(event.uri);
+  const topologyKind = getMarkerTopologyKind(event.uri);
+  if (!rootKind || !topologyKind) {
+    return false;
+  }
+
+  touchedProjects.add(event.uri);
+  workspaceState.removeTopologyEntry(topologyKind, event.uri);
+
+  if (event.kind === 'delete') {
+    workspaceState.removeRoot(rootKind, event.uri);
+    return true;
+  }
+
+  workspaceState.addRoot(rootKind, event.uri);
+  try {
+    const content = await fs.readFile(event.uri);
+    const entry = parseTopology(event.uri, content);
+    if (entry) {
+      workspaceState.addTopologyEntry(entry);
+    }
+  } catch (error) {
+    log?.(`[WATCHER] No se pudo reparsear marker ${event.uri}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  return true;
+}
+
+function getMarkerRootKind(uri: string): 'workspaces' | 'targets' | 'projects' | 'solutions' | null {
+  const normalized = uri.toLowerCase();
+  if (normalized.endsWith('.pbw')) {
+    return 'workspaces';
+  }
+  if (normalized.endsWith('.pbt')) {
+    return 'targets';
+  }
+  if (normalized.endsWith('.pbproj')) {
+    return 'projects';
+  }
+  if (normalized.endsWith('.pbsln')) {
+    return 'solutions';
+  }
+  return null;
+}
+
+function getMarkerTopologyKind(uri: string): 'workspace' | 'target' | 'project' | 'solution' | null {
+  const normalized = uri.toLowerCase();
+  if (normalized.endsWith('.pbw')) {
+    return 'workspace';
+  }
+  if (normalized.endsWith('.pbt')) {
+    return 'target';
+  }
+  if (normalized.endsWith('.pbproj')) {
+    return 'project';
+  }
+  if (normalized.endsWith('.pbsln')) {
+    return 'solution';
+  }
+  return null;
 }

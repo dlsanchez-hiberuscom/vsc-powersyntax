@@ -2052,6 +2052,43 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run test:unit -- --grep "unit/(runtimeJournal|runtimeHealth|queryTrace|ServingCache|statusBarPresentation|publicApi|cachePersistence|servingCachePersistence|servingReadiness|featureReadiness)"`
 - `npm test -- --grep "smoke/extension"`
 
+## 1.67 B224. Watcher topology and sourceOrigin reconciliation — **Cerrada (routing/provenance incremental 2026-05)**
+
+**Objetivo:** refrescar incrementalmente `project model`, routing y `sourceOrigin` cuando cambian markers (`.pbw`, `.pbt`, `.pbsln`, `.pbproj`) o aparecen SR* nuevos en caliente.
+
+**Resultado registrado:**
+- `src/server/workspace/watchedFileIntake.ts` trata markers de topología como eventos de primer nivel, reprocesa `roots`/topology, recomputa `sourceOrigin` y refresca `project routing` sin exigir rediscovery completo;
+- `src/server/workspace/workspaceState.ts` añade operaciones explícitas para retirar `roots` y entradas de topología ya invalidadas, de modo que delete/change de markers no dejan routing obsoleto;
+- `src/server/workspace/watchedFileChangeBridge.ts` y `src/server/server.ts` cierran el puente real LSP -> watcher para que los markers lleguen al intake incremental y no queden filtrados antes del runtime.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(watchedFileChangeBridge|watchedFileIntake|watcherPipeline|workspace)"`
+
+## 1.68 B223. References/rename sin barrido global en hot path — **Cerrada (candidate pool acotado 2026-05)**
+
+**Objetivo:** evitar que `references`, `rename` y CodeLens relean/remasqueen todo el workspace en la ruta interactiva.
+
+**Resultado registrado:**
+- `src/server/features/referenceSourcePool.ts` introduce un pool compartido de fuentes con scope `direct/project/multi-project/workspace`, basado en URIs candidatas reales y en el `project routing` vigente;
+- `src/server/features/references.ts`, `src/server/features/dynamicStringReferences.ts` y `src/server/server.ts` reutilizan líneas y `maskedText` ya publicados por snapshot cuando están disponibles, evitando split/remask globales por request;
+- CodeLens, `references` y `rename` ya consultan ese mismo pool acotado, manteniendo degradación honesta y sin relectura global por defecto en el hot path.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(referenceSourcePool|references|rename|codeLensReferences)"`
+
+## 1.69 B067. Formateador configurable — **Cerrada (formatter conservador cliente-side 2026-05)**
+
+**Objetivo:** formateo configurable solo sobre base sintáctica/semántica fiable.
+
+**Resultado registrado:**
+- `src/shared/formatting/powerBuilderFormatter.ts` introduce un formatter conservador, puro y configurable que respeta strings/comentarios y opera solo sobre un subconjunto PowerScript soportado;
+- `src/client/formatting/registerFormatting.ts` registra `DocumentFormattingEditProvider` y `formatOnSave`, manteniendo el cliente ligero y dejando el motor reutilizable fuera de VS Code;
+- `package.json` publica settings explícitas (`keywordCase`, `statementCase`, `eventKeywordCase`, indentación, espacios y `formatOnSave`) para controlar el comportamiento sin tocar DataWindow ni abrir un parser paralelo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/powerBuilderFormatter"`
+- `npm run test:smoke -- --grep "smoke/formatting-extension"`
+
 ### Resultado técnico registrado
 
 `B063` deja de ser un contador plano por URI y queda cerrada como snapshot diagnóstico agrupado y versionado:

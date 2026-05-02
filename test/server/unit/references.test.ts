@@ -54,6 +54,17 @@ suite('unit/references (B023)', () => {
     assert.equal(refs.length, 1, 'solo la línea 0 hace match');
   });
 
+  test('respeta límites PowerBuilder en identificadores con $, # y %', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+    const doc = TextDocument.create('file:///x_special.sru', 'powerbuilder', 1, 'uf_total$\nuf_total$helper\nsvc#main.uf_total$()\nuf_total%');
+    const refs = provideReferences(doc, Position.create(0, 8), kb, graph, [
+      { uri: 'file:///x_special.sru', content: doc.getText() }
+    ]);
+    const lines = refs.map((ref) => ref.range.start.line);
+    assert.deepEqual(lines, [0, 2], 'debe encontrar el símbolo exacto y la invocación cualificada, no prefijos parciales');
+  });
+
   test('ignora strings y comentarios al buscar ocurrencias textuales', () => {
     const kb = new KnowledgeBase();
     const graph = new InheritanceGraph(kb);

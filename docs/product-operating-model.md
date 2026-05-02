@@ -22,13 +22,15 @@ Su función es evitar duplicidad documental y dar a humanos e IA una forma clara
 ## 3. Orden real de trabajo
 
 1. L0 — Core readiness/latency.
-2. L1 — Persistencia.
+2. L1 — Persistencia y modelo de workspace/proyecto.
 3. L2 — Query engine y serving seguro.
-4. L3 — Validación real, health y performance.
-5. L4 — DataWindow y especialización PowerBuilder.
-6. Build/PBAutoBuild.
-7. ORCA/PBL legacy.
-8. API/IA y automatización avanzada.
+4. L2.5 — PowerBuilder semantic understanding.
+5. L3 — Validación real, health y performance.
+6. L4 — DataWindow y especialización PowerBuilder.
+7. L4 build — PBAutoBuild moderno y health asociado.
+8. L4 legacy — ORCA/PBL legacy.
+9. L4.5 — Contexto semántico read-only para API/IA.
+10. L5 — Documentación IA-first y workflows.
 
 ---
 
@@ -38,11 +40,11 @@ Su función es evitar duplicidad documental y dar a humanos e IA una forma clara
 |---|---|---|
 | Fase A | L0 | Core semántico, readiness y latencia |
 | Fase B | L1 | Persistencia y reanudación |
-| Fase C | L2 | Query engine y serving profesional |
+| Fase C | L2 + L2.5 | Query engine, serving y entendimiento PowerBuilder |
 | Fase D | L3 | Validación, performance y health |
 | Fase E | L4 | Especialización PowerBuilder |
-| Fase F | L4/API | Plataforma abierta para automatización |
-| Fase G | L4/AI | Automatización avanzada e IA |
+| Fase F | L4.5 | Plataforma abierta para automatización segura |
+| Fase G | L5 | Documentación IA-first y workflows que sostienen la automatización |
 
 ---
 

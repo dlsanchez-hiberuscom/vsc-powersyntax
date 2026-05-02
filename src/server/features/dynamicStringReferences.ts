@@ -83,7 +83,7 @@ export function detectDynamicStringReferences(
   const hits: DynamicStringReferenceHit[] = [];
 
   for (const source of sources) {
-    const lines = source.content.split(/\r?\n/);
+    const lines = source.lines ?? source.content.split(/\r?\n/);
     for (let line = 0; line < lines.length; line++) {
       for (const literal of extractStringLiterals(lines[line] ?? '')) {
         if (!includesIdentifier(literal.value, identifier)) {

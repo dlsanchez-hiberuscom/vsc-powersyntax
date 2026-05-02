@@ -52,15 +52,15 @@ Estado: cerrado como bloque operativo. Los ítems cerrados viven en `done-log.md
 
 ### L1 — Persistencia y modelo de workspace/proyecto
 
-Pendiente de cierre operativo fino.
+Base cerrada como bloque operativo; reabrir solo para gaps incrementales de routing, provenance o modelo de proyecto.
 
 ### L2 — Query engine y serving profesional
 
-Foco principal actual.
+Base materializada; este carril queda para refuerzos puntuales de serving, latencia y consultas compartidas.
 
 ### L2.5 — PowerBuilder semantic understanding
 
-Nuevo carril para mejorar el entendimiento real de PowerBuilder antes de DataWindow profundo, build avanzado o automatización IA.
+Base materializada para sourceOrigin, metadata enriquecida, eventos, invocaciones, lifecycle, transacciones y dependencias nativas; reabrir solo para gaps semánticos concretos.
 
 ### L3 — Validación fuerte, salud interna y excelencia operativa
 
@@ -88,7 +88,8 @@ Los siguientes ítems ya no deben aparecer como trabajo activo:
 B031, B032, B063, B065, B066, B071B, B109, B122, B123, B124, B125, B126,
 B134, B141, B141A, B151, B151A, B152, B152A, B153, B154, B155,
 B156, B158, B159, B163, B164, B165, B166, B169, B169A, B170,
-B172, B173, B174, B176
+B172, B173, B174, B176, B204, B206, B207, B208, B209, B210, B211, B213,
+B067, B223, B224
 ```
 
 El detalle técnico de cierre vive en `done-log.md`.
@@ -99,129 +100,19 @@ El detalle técnico de cierre vive en `done-log.md`.
 
 # L1 — Persistencia y modelo de workspace/proyecto
 
-Sin ítems activos tras el cierre completo de `B155`. El histórico de persistencia cerrada vive en `done-log.md`.
+Sin ítems activos inmediatos en L1 tras cerrar `B224`; reabrir solo si aparece otro gap incremental de routing o provenance.
 
 ---
 
 # L2 — Query engine y serving profesional
 
-## B067 — Formateador configurable
-- **Estado:** Open
-- **Track:** productividad
-- **Depende de:** B156, B205
-- **Objetivo:** formateo configurable solo sobre base sintáctica/semántica fiable.
-- **Cierre:** formatter sin romper constructs PowerBuilder reales.
+Sin refuerzos activos inmediatos en L2 tras cerrar `B067` y `B223`; reabrir solo para gaps nuevos de serving interactivo o productividad ya trazables.
 
 ---
 
 # L2.5 — PowerBuilder semantic understanding
 
-## B204 — Source origin model unificado
-- **Estado:** Closed
-- **Track:** core topology / provenance
-- **Depende de:** B141, B172
-- **Desbloquea:** B171, B192, B193, B217, B220
-- **Objetivo:** clasificar de forma uniforme el origen de cada documento, símbolo y snapshot semántico.
-- **Resultado real:**
-  - contrato compartido de `sourceOrigin` con prioridad explícita entre `solution-source`, `workspace-ws_objects`, `pbl-folder-source`, `manual-export-source`, `orca-staging`, `pbl-dump-source`, `generated`, `backup`, `unknown`;
-  - `WorkspaceState`, discovery y checkpoints persisten y restauran origen por archivo junto al snapshot semántico del workspace;
-  - `EntityLineage`, query evidence, diagnostics snapshot, `showStats` y la API pública de `querySymbols()` exponen ya `sourceOrigin` de forma estable;
-  - el runtime prefiere el origen de mayor prioridad al recomputar o fusionar procedencia para un mismo documento conocido.
-- **Cierre:** todas las queries, diagnostics y surfaces públicas explican de dónde viene cada símbolo y priorizan source real frente a staging/export.
-
-## B206 — Rich PowerBuilder symbol metadata
-- **Estado:** Closed
-- **Track:** semantic model
-- **Depende de:** B157, B204
-- **Desbloquea:** B031, B032, B065, B117, B207, B209, B210, B217
-- **Objetivo:** enriquecer progresivamente el modelo de símbolo con metadata específica de PowerBuilder.
-- **Resultado real:**
-  - `documentAnalysis` y `semanticFacts` ya emiten `containerKind`, `containerSignature`, `fileObjectName`, `declarationScope`, `implementationKind`, `ownerName`, `parameterCount`, `returnType`, `access` y `sourceOrigin` cuando aplican;
-  - `hoverFormat` consume el contrato enriquecido para distinguir prototype, implementation, on-handler, external function, member/local/parameter y owner real sin recomputar metadata fuera del backbone;
-  - `documentSymbols`, `references`, `rename`, `queryEngineConsistency`, `workspaceSymbols` y `cachePersistence` quedaron validados contra el modelo enriquecido sin romper contratos públicos;
-  - los campos añadidos no quedan muertos: se internan, participan en `semanticDiff` y quedan cubiertos por tests focalizados de `documentAnalysis`, `enrichEntity` y `hoverFormat`.
-- **Fuera de alcance inicial:**
-  - no añadir campos no usados por ninguna feature;
-  - no romper contratos públicos existentes.
-- **Cierre:** las features semánticas distinguen prototype, implementation, on-handler, external function, member/local/parameter y owner real.
-
-## B207 — External functions and native dependency model
-- **Estado:** Closed
-- **Track:** PowerBuilder ecosystem / native dependencies
-- **Depende de:** B206
-- **Desbloquea:** B202, B217, B222
-- **Objetivo:** modelar funciones externas, DLL/PBX/PBNI y dependencias nativas sin tratarlas como símbolos internos.
-- **Resultado real:**
-  - el parser y el backbone semántico conservan ya `library "..."`, `alias for`, `externalAlias` y `externalDependencyKind` (`dll`, `pbx`, `unknown`) para external functions y subroutines;
-  - `hoverFormat` explica librería, alias y tipo de dependencia nativa sin presentar la declaración externa como implementation interna del plugin;
-  - `rename` bloquea dependencias nativas externas y `references` degrada a la declaración cuando el target resuelto es externo, evitando prometer reescritura o cobertura interna falsa;
-  - `diagnostics` emite ya una nota informativa para declaraciones externas sin implementación interna navegable y la metadata nueva queda validada también en `semanticDiff`, `stringInterning`, `cachePersistence`, `workspaceSymbols` y `semanticQueryService`.
-- **Cierre:** el plugin reconoce dependencias nativas y evita prometer navegación interna falsa.
-
-## B208 — Dynamic string reference detector
-- **Estado:** Closed
-- **Track:** semantic safety
-- **Depende de:** B157, B206
-- **Desbloquea:** B171, B032, B217, B219, B222
-- **Objetivo:** detectar referencias semánticamente relevantes dentro de strings dinámicos y degradar confidence cuando afecten operaciones peligrosas.
-- **Resultado real:**
-  - detector conservador reusable para `Open("w_xxx")`, `DataObject = "d_xxx"`, `TriggerEvent`, `PostEvent`, `EvaluateJavaScriptSync/Async`, JSON paths, SQL dinámico y `Describe/Modify/Evaluate`;
-  - clasificación explícita `safe-literal`, `probable`, `dynamic`, `unknown` con tests focalizados;
-  - `rename` se bloquea cuando aparece un hit no seguro en strings dinámicos;
-  - `references` degrada a definiciones cuando hay hits dinámicos en vez de prometer cobertura textual falsa.
-- **Cierre:** rename/references/code actions bloquean o degradan cuando un símbolo aparece en strings dinámicos.
-
-## B209 — PowerBuilder call model and invocation classification
-- **Estado:** Closed
-- **Track:** semantic resolution
-- **Depende de:** B157, B206
-- **Desbloquea:** B031, B032, B210, B218, B222
-- **Objetivo:** clasificar llamadas PowerBuilder según forma y riesgo semántico.
-- **Resultado real:**
-  - `invocationContext` distingue ya `.` y `::`, y conserva la forma sintáctica de la invocación para `this`, `parent`, `super`, `ancestor` y qualifiers tipados;
-  - `semanticQueryService` resuelve el current object real por línea/scope, añade `invocationKind`/`invocationRisk`, y clasifica llamadas no cualificadas, `this.uf_xxx()`, `parent.uf_xxx()`, `super::uf_xxx()`, `ancestor::event`, global functions, llamadas dinámicas y external functions;
-  - `queryContext`, `queryTrace` y la API pública mínima propagan esa clasificación y el tipo de qualifier resuelto para que definition/references/rename/completion/signatureHelp compartan la misma explicación de resolución;
-  - la validación focal cubre `invocationContext`, `queryContext`, `semanticQueryService` y `definition`, y la pasada lateral mantiene verdes `references`, `rename`, `renamePreflight`, `queryEngineConsistency`, `completion` y `signatureHelp`.
-- **Cierre:** definition, references y rename comparten el mismo modelo de invocación y pueden explicar cada resolución con reason code, confidence y clasificación de invocación.
-
-## B210 — PowerBuilder event model
-- **Estado:** Closed
-- **Track:** semantic model / events
-- **Depende de:** B206, B209
-- **Desbloquea:** B065, B031, B213, B217, B222
-- **Objetivo:** modelar eventos PowerBuilder como entidades semánticas de primera clase.
-- **Resultado real:**
-  - el parser de `on object.event` separa ya owner y event name, preserva la firma cualificada y cuelga el scope del owner real en vez del `global type` por defecto;
-  - `documentAnalysis` materializa eventos de controles y de objetos raíz como `EntityKind.Event` con `implementationKind: on-handler`, `containerName`/`ownerName` correctos y `fileObjectName` estable;
-  - `definition`, `references` y `queryContext` resuelven ya `call super::create`, `TriggerEvent(this, "create")` y `cb_ok.PostEvent("clicked")` contra los on-handlers reales usando el mismo query engine compartido;
-  - `hover`, `documentSymbols`, `completion`, `signatureHelp`, `semanticTokens`, `rename` y `queryEngineConsistency` quedaron validados sin romper el backbone semántico ni la degradación conservadora de strings realmente dinámicos.
-- **Cierre:** el plugin navega y explica eventos, owners y literales estables de `TriggerEvent/PostEvent` sin tratarlos como funciones planas.
-
-## B211 — Transaction and SQLCA semantic model
-- **Estado:** Closed
-- **Track:** PowerBuilder database semantics
-- **Depende de:** B206, B209
-- **Desbloquea:** B117, B184, B212, B217
-- **Objetivo:** modelar el uso de `Transaction`, `SQLCA`, `SetTransObject`, `Retrieve`, `Update` y SQL embebido.
-- **Resultado real:**
-  - `semanticQueryService` y `queryContext` tratan `SQLCA` como transaction global especial, lo que estabiliza el owner-type de `SQLCA.*` dentro del backbone semántico compartido;
-  - `completion`, `hover` y `signatureHelp` consumen members del catálogo filtrados por `ownerType`, de modo que `datastore/datawindow.SetTransObject`, `SetTrans`, `Retrieve`, `Update` y `SQLCA.DBHandle()` explican la API correcta en vez de una coincidencia plana por nombre;
-  - `diagnostics` enlaza ya `SetTransObject`/`SetTrans` con `Retrieve`/`Update` cuando la transaction es resoluble, avisa cuando falta una transaction conocida y degrada la confidence cuando el binding es dinámico;
-  - la parte de SQL estático/dinámico queda apoyada en las piezas ya existentes de `sqlRegions` y `dynamicStringReferences`, y la validación integral mantiene verdes `completion`, `diagnostics`, `hover`, `signatureHelp`, `sqlRegions` y `dynamicStringReferences`.
-- **Cierre:** el plugin explica relaciones básicas entre código, DataStore/DataWindow y transaction object.
-
-## B213 — PowerBuilder object lifecycle model
-- **Estado:** Closed
-- **Track:** semantic model / lifecycle
-- **Depende de:** B210
-- **Desbloquea:** B065, B217, B045
-- **Objetivo:** modelar create/destroy, constructor/destructor y llamadas ancestor en objetos PowerBuilder.
-- **Resultado real:**
-  - `hierarchyInspection` proyecta ya create/destroy como fases lifecycle con evidencia de `call super::create/destroy`, hooks `constructor/destructor`, resolución del hook y warnings suaves por wiring sospechoso a partir del snapshot semántico publicado;
-  - `hover` reutiliza ese mismo bloque lifecycle para explicar `constructor/destructor` estables disparados desde `TriggerEvent(this, ...)` sin tratarlos como eventos planos ni recomputar semántica fuera del backbone;
-  - `diagnostics` emite ahora warnings suaves para lifecycle sospechoso (`missing-super-*`, hook declarado pero no disparado, hook disparado pero no resoluble) reutilizando el mismo modelo que hierarchy inspection;
-  - `definition` y la resolución de eventos sobre `call super::create` y `TriggerEvent/PostEvent` permanecen soportadas por el query engine compartido ya cerrado en `B210`, sin abrir un motor paralelo para B213.
-- **Cierre:** hierarchy inspection y hover explican flujo de inicialización/destrucción.
+Sin ítems activos tras mover `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213` al histórico cerrado de `done-log.md`.
 
 ---
 
@@ -253,23 +144,30 @@ Sin ítems activos tras el cierre completo de `B155`. El histórico de persisten
 ## B042 — Soporte avanzado de DataWindow
 - **Estado:** Open
 - **Track:** PB ecosystem
-- **Depende de:** B041
-- **Objetivo:** expresiones, propiedades avanzadas, funciones, relaciones con DataStore.
-- **Cierre:** soporte ampliado y estable.
+- **Depende de:** B041, B117, B139, B212
+- **Objetivo:** ampliar DataWindow por encima del safe mode, el catálogo básico y el bridge `DataObject/Retrieve` ya cerrados.
+- **Pendiente exacto:**
+  - expresiones y property blocks avanzados del `.srd`;
+  - controles, relaciones y superficies adicionales reutilizando el sublenguaje ya visible;
+  - soporte adicional sin mezclar DataWindow con PowerScript normal ni reimplementar el safe mode mínimo.
+- **Cierre:** existe soporte avanzado adicional de DataWindow, explícitamente separado del safe mode y del catálogo básico ya cerrados.
 
 ## B081 — Inteligencia de DataWindow y acceso a `.Object`
 - **Estado:** Open
 - **Track:** PB ecosystem
-- **Depende de:** B042
-- **Objetivo:** cubrir `dw_1.Object`.
-- **Cierre:** navegación/validación seguras en acceso a `.Object`.
+- **Depende de:** B042, B117, B139
+- **Objetivo:** resolver rutas `dw_1.Object...` y `GetChild()` sobre DataWindow/DataWindowChild sin fingir semántica donde no haya contexto.
+- **Pendiente exacto:**
+  - parser de rutas `Object.<control|column|property>`;
+  - navegación, hover y validación seguras para paths resolubles;
+  - degradación honesta para paths dinámicos, ambiguos o incompletos.
+- **Cierre:** acceso a `.Object` y rutas hijas navegables/validables cuando el path es resoluble y degradación explícita cuando no lo es.
 
 ## B214 — PowerBuilder Object Explorer
 - **Estado:** Open
 - **Track:** UX profesional
-- **Depende de:** B141, B157, B171
-- **Desbloquea:** B203, B217
-- **Objetivo:** ofrecer una vista navegable del modelo PowerBuilder del workspace.
+- **Depende de:** B141, B157, B171, B220
+- **Objetivo:** ofrecer una vista navegable del modelo PowerBuilder del workspace consumiendo `semanticWorkspaceManifest`, `querySymbols` y `project model`, sin motor semántico paralelo.
 - **Debe contener:**
   - projects;
   - libraries;
@@ -280,14 +178,13 @@ Sin ítems activos tras el cierre completo de `B155`. El histórico de persisten
   - filtros;
   - abrir objeto;
   - acciones contextuales seguras.
-- **Cierre:** el usuario navega el proyecto PowerBuilder sin conocer rutas físicas.
+- **Cierre:** el usuario navega el proyecto PowerBuilder sin conocer rutas físicas ni duplicar semántica fuera del backbone.
 
 ## B215 — Current Object Context panel
 - **Estado:** Open
 - **Track:** UX / semantic context
-- **Depende de:** B157, B171, B206, B210
-- **Desbloquea:** B217
-- **Objetivo:** mostrar contexto semántico del objeto activo.
+- **Depende de:** B157, B171, B206, B210, B217
+- **Objetivo:** proyectar en panel/vista el current object context read-only ya expuesto por API/LSP, sin reconstruir semántica localmente.
 - **Debe contener:**
   - object kind/name;
   - sourceOrigin;
@@ -298,14 +195,13 @@ Sin ítems activos tras el cierre completo de `B155`. El histórico de persisten
   - DataObject bindings si existen;
   - diagnostics relevantes;
   - readiness/confidence.
-- **Cierre:** el programador entiende rápidamente dónde está y qué contexto semántico tiene.
+- **Cierre:** el programador entiende rápidamente dónde está y qué contexto semántico tiene consumiendo el contrato read-only ya cerrado.
 
 ## B216 — Project Health Dashboard
 - **Estado:** Open
 - **Track:** health / UX
-- **Depende de:** B176, B107
-- **Desbloquea:** B187, B198
-- **Objetivo:** mostrar salud del workspace en una vista útil y accionable.
+- **Depende de:** B176, B107, B220
+- **Objetivo:** mostrar salud del workspace consumiendo health report, status bar y manifest semántico ya cerrados; integrar build solo cuando `B187` exista.
 - **Debe contener:**
   - readiness;
   - indexing status;
@@ -315,14 +211,21 @@ Sin ítems activos tras el cierre completo de `B155`. El histórico de persisten
   - sourceOrigin conflicts;
   - build readiness;
   - PBAutoBuild/ORCA availability cuando aplique.
-- **Cierre:** el usuario entiende si el plugin/proyecto está sano y qué acción tomar.
+- **Cierre:** el usuario entiende si el plugin/proyecto está sano y qué acción tomar sin abrir un segundo motor de health.
 
 ## B043 — Integración con PBAutoBuild
 - **Estado:** Open
-- **Track:** build
+- **Track:** build / epic
 - **Depende de:** B141
-- **Objetivo:** build moderno oficial.
-- **Cierre:** lanzar build, validar entorno, capturar errores y alimentar health del workspace.
+- **Objetivo:** épica contenedora del carril de build moderno oficial.
+- **Pendiente exacto:**
+  - detección/capabilities;
+  - discovery/validación de build files;
+  - runner out-of-process;
+  - parser de logs + Problems Panel;
+  - UX/comandos/perfiles;
+  - health unificado.
+- **Cierre:** `B181-B187` cerradas y build moderno observable end-to-end sin bloquear Extension Host ni LSP.
 
 ## B181 — PBAutoBuild capability detection
 - **Estado:** Open
@@ -498,18 +401,18 @@ Sin ítems activos tras el cierre completo de `B155`. El histórico de persisten
 **Orden inmediato:**
 
 1. B042 — Soporte avanzado de DataWindow
-2. B146 — PBAutoBuild baseline
-3. B052 — Project status enriquecido
-4. B070 — Memory budgets de caché e índice
+2. B181 — PBAutoBuild capability detection
+3. B070 — Memory budgets de caché e índice
+4. B162 — Reconciliación parser / symbol model / salida LSP
 
 ## Siguiente bloque técnico recomendado
 
 Ejecutar después de cerrar `B042` o preparar en paralelo sin abrir superficie write-enabled:
 
-1. B146 — PBAutoBuild baseline
-2. B052 — Project status enriquecido
-3. B049 — Code actions
-4. B070 — Memory budgets de caché e índice
+1. B181 — PBAutoBuild capability detection
+2. B216 — Project Health Dashboard
+3. B162 — Reconciliación parser / symbol model / salida LSP
+4. B214 — PowerBuilder Object Explorer
 
 ## Persistencia robusta pendiente
 
@@ -517,14 +420,14 @@ Sin línea de persistencia robusta prioritaria abierta tras el cierre de `B155`,
 
 ## Validación temprana permitida
 
-Sin nueva línea de validación temprana prioritaria abierta tras el cierre de `B161`; el siguiente frente de validación útil queda subordinado a `B042`, `B146` y `B070`.
+Sin nueva línea de validación temprana prioritaria abierta tras el cierre de `B161`; el siguiente frente de validación útil queda subordinado a `B042`, `B181`, `B070` y `B162`.
 
 ---
 
 # 7. Backlog derivado
 
-- Evaluar si `B083` debe convertirse en épica padre o eliminarse como duplicado funcional tras `B181-B187`.
-- Evaluar si `B048` debe convertirse en épica padre o eliminarse como duplicado funcional tras `B188-B196`.
+- Decidir si `B043` debe mantenerse como épica padre documental o absorberse completamente por `B181-B187`.
+- Decidir si el bloque ORCA debe agruparse bajo una épica padre explícita o mantenerse como secuencia `B188-B198`.
 - Definir política oficial de `.hiberus-powersyntax/orca-export/` en `.gitignore`.
 - Definir si staging ORCA puede editarse directamente o si debe abrirse readonly hasta `B193`.
 - Definir matriz de soporte: PowerBuilder 2025 workspace/solution, target `.pbt`, PBL-only legacy y source plain-text.

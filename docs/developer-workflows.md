@@ -108,3 +108,29 @@ El plugin debe poder generar contexto read-only:
 - evidence/confidence.
 
 Automatización write-enabled solo debe llegar después de API estable, confidence gates y validación suficiente.
+
+---
+
+## 8. Workflow 7 — Cambiar topología o scripts en caliente
+
+El usuario crea, modifica o elimina `targets/projects/solutions` o añade SR* nuevos mientras sigue trabajando.
+
+El plugin debe:
+
+- absorber cambios en `.pbw`, `.pbt`, `.pbproj` y `.pbsln` sin exigir rediscovery completo;
+- refrescar `project routing` y `sourceOrigin` cuando entren SR* nuevos o cambie la topología;
+- mantener status/readiness coherentes mientras el watcher procesa el batch;
+- degradar de forma segura si un marker no puede reprocesarse.
+
+---
+
+## 9. Workflow 8 — Normalizar scripts sin romper constructs reales
+
+El usuario quiere normalizar un script PowerBuilder soportado de forma manual o al guardar.
+
+El plugin debe:
+
+- ofrecer un formatter conservador y configurable para documentos PowerScript soportados;
+- respetar strings y comentarios;
+- no tratar DataWindow como PowerScript normal;
+- permitir `formatOnSave` sin introducir un motor semántico paralelo ni peso extra en el hot path.

@@ -131,6 +131,15 @@ export class WorkspaceState {
     }
   }
 
+  removeRoot(type: keyof WorkspaceRoots, uri: string): void {
+    const normalized = normalizeUri(uri);
+    const next = this.roots[type].filter((entry) => entry !== normalized);
+    if (next.length !== this.roots[type].length) {
+      this.roots[type] = next;
+      this.indexDirty = true;
+    }
+  }
+
   /**
    * Devuelve todos los URIs de código fuente conocidos.
    */
@@ -243,6 +252,42 @@ export class WorkspaceState {
       (list as Array<{ uri: string }>).push(entry.data);
     }
     this.indexDirty = true;
+  }
+
+  removeTopologyEntry(kind: 'workspace' | 'target' | 'project' | 'solution', uri: string): void {
+    const normalized = normalizeUri(uri);
+    if (kind === 'workspace') {
+      const next = this.topology.workspaces.filter((entry) => entry.uri !== normalized);
+      if (next.length !== this.topology.workspaces.length) {
+        this.topology.workspaces = next;
+        this.indexDirty = true;
+      }
+      return;
+    }
+
+    if (kind === 'target') {
+      const next = this.topology.targets.filter((entry) => entry.uri !== normalized);
+      if (next.length !== this.topology.targets.length) {
+        this.topology.targets = next;
+        this.indexDirty = true;
+      }
+      return;
+    }
+
+    if (kind === 'project') {
+      const next = this.topology.projects.filter((entry) => entry.uri !== normalized);
+      if (next.length !== this.topology.projects.length) {
+        this.topology.projects = next;
+        this.indexDirty = true;
+      }
+      return;
+    }
+
+    const next = this.topology.solutions.filter((entry) => entry.uri !== normalized);
+    if (next.length !== this.topology.solutions.length) {
+      this.topology.solutions = next;
+      this.indexDirty = true;
+    }
   }
 
   /** Devuelve la topología parseada actual (referencia, no clonada). */

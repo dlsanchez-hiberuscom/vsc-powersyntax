@@ -40,6 +40,7 @@ import { provideReferenceCodeLenses } from './features/codeLensReferences';
 import { buildCurrentObjectContext } from './features/currentObjectContext';
 import { buildImpactAnalysis } from './features/impactAnalysis';
 import { buildHierarchyInspection } from './features/hierarchyInspection';
+import { collectReferenceSourcePool } from './features/referenceSourcePool';
 import { buildSemanticWorkspaceManifest } from './features/semanticWorkspaceManifest';
 import { buildSafeEditPlan } from './features/safeEditPlan';
 import {
@@ -87,7 +88,8 @@ import { SystemCatalog } from './knowledge/system/SystemCatalog';
 import { getFileIndexState, getIndexerStatus, indexWorkspace } from './indexer/workspaceIndexer';
 import { createFileWatcherDebouncer } from './system/fileWatcherDebouncer';
 import { applyWatchedFileEvents } from './workspace/watchedFileIntake';
-import { isPowerBuilderSourceUri } from '../shared/powerbuilderFiles';
+import { toWatchedFsEvent } from './workspace/watchedFileChangeBridge';
+import { findPowerBuilderIdentifierSpan } from './utils/pbIdentifier';
 
 // ---------------------------------------------------------------------------
 // Inicialización (Bootstrap)
@@ -355,36 +357,20 @@ function getCodeLensHierarchyMeta(entity: Entity): { relation?: 'override'; over
   };
 }
 
-async function collectWorkspaceReferenceSources(): Promise<Array<{ uri: string; content: string }>> {
-  const seen = new Set<string>();
-  const sources = await Promise.all(workspaceState.getAllSourceFiles().map(async (uri) => {
-    if (seen.has(uri)) {
-      return null;
-    }
-    seen.add(uri);
+async function collectReferenceSourcesForQuery(
+  document: TextDocument,
+  queryContext?: ReturnType<typeof createDocumentQueryContext>
+): Promise<Array<{ uri: string; content: string; lines?: string[]; maskedLines?: string[] }>> {
+  const pool = await collectReferenceSourcePool({
+    currentUri: document.uri,
+    resolvedTargetUris: queryContext?.resolvedTargets?.targets.map((target) => target.uri) ?? [],
+    workspaceState,
+    fs,
+    getOpenDocument: (uri) => documents.get(uri),
+    getSnapshot: (uri) => knowledgeBase.getDocumentSnapshot(uri) ?? documentCache.getSnapshot(uri)
+  });
 
-    const openDocument = documents.get(uri);
-    if (openDocument) {
-      return { uri, content: openDocument.getText() };
-    }
-
-    try {
-      return { uri, content: await fs.readFile(uri) };
-    } catch {
-      return null;
-    }
-  }));
-
-  const collected = sources.filter((source): source is { uri: string; content: string } => source !== null);
-  for (const document of documents.all()) {
-    if (seen.has(document.uri)) {
-      continue;
-    }
-    seen.add(document.uri);
-    collected.push({ uri: document.uri, content: document.getText() });
-  }
-
-  return collected;
+  return pool.sources;
 }
 
 function buildReferenceProbe(entity: Entity): { document: TextDocument; position: Position } {
@@ -405,8 +391,28 @@ async function buildCodeLensReferenceCounts(
     entity: Entity;
   }>
 ): Promise<Map<string, number>> {
-  const sources = await collectWorkspaceReferenceSources();
-  const entries = symbols.map((symbol) => {
+  const sourceCache = new Map<string, Promise<Array<{ uri: string; content: string; lines?: string[]; maskedLines?: string[] }>>>();
+
+  const getSourcesForEntity = (entity: Entity) => {
+    const project = workspaceState.getProjectContextForFile(entity.uri);
+    const cacheKey = project?.projectUri ?? (workspaceState.getAllSourceFiles().length > 1 ? 'workspace-fallback' : entity.uri);
+    let pending = sourceCache.get(cacheKey);
+    if (!pending) {
+      pending = collectReferenceSourcePool({
+        currentUri: entity.uri,
+        resolvedTargetUris: [entity.uri],
+        workspaceState,
+        fs,
+        getOpenDocument: (uri) => documents.get(uri),
+        getSnapshot: (uri) => knowledgeBase.getDocumentSnapshot(uri) ?? documentCache.getSnapshot(uri)
+      }).then((pool) => pool.sources);
+      sourceCache.set(cacheKey, pending);
+    }
+    return pending;
+  };
+
+  const entries = await Promise.all(symbols.map(async (symbol) => {
+    const sources = await getSourcesForEntity(symbol.entity);
     const probe = buildReferenceProbe(symbol.entity);
     const references = provideReferences(
       probe.document,
@@ -424,7 +430,7 @@ async function buildCodeLensReferenceCounts(
     ).length;
 
     return [symbol.key, count] as const;
-  });
+  }));
 
   return new Map(entries);
 }
@@ -892,7 +898,7 @@ connection.onReferences(async (params) => {
       connection.console.warn(readiness.warningMessage);
       return readiness.blockedResult;
     }
-    const sources = await collectWorkspaceReferenceSources();
+    const sources = await collectReferenceSourcesForQuery(document, queryContext);
     const { result, elapsedMs } = measureMs(() =>
       provideReferences(
         document,
@@ -1141,17 +1147,12 @@ documents.onDidClose((event) => {
 
 connection.onDidChangeWatchedFiles((params) => {
   for (const change of params.changes) {
-    if (!isPowerBuilderSourceUri(change.uri)) {
+    const watcherEvent = toWatchedFsEvent(change);
+    if (!watcherEvent) {
       continue;
     }
 
-    watcherIntake.push({
-      uri: change.uri,
-      kind:
-        change.type === FileChangeType.Created ? 'create'
-        : change.type === FileChangeType.Deleted ? 'delete'
-        : 'change'
-    });
+    watcherIntake.push(watcherEvent);
   }
 });
 
@@ -1297,7 +1298,7 @@ connection.onRenameRequest(async (params) => {
     params.newName,
     knowledgeBase,
     inheritanceGraph,
-    await collectWorkspaceReferenceSources(),
+    await collectReferenceSourcesForQuery(document, queryContext),
     systemCatalog,
     hotContextCache,
     queryContext
@@ -1653,16 +1654,8 @@ connection.onExecuteCommand(async (params) => {
 
 /** Spec 105: extracción de identificador alrededor de una columna. */
 function wordAt(line: string, character: number): { word: string; start: number; end: number } | null {
-  if (!line || character < 0 || character > line.length) return null;
-  const ID_CHAR = /[A-Za-z0-9_$#%-]/;
-  let start = character;
-  while (start > 0 && ID_CHAR.test(line[start - 1])) start--;
-  let end = character;
-  while (end < line.length && ID_CHAR.test(line[end])) end++;
-  if (start === end) return null;
-  const word = line.slice(start, end);
-  if (!/^[A-Za-z_]/.test(word)) return null;
-  return { word, start, end };
+  const span = findPowerBuilderIdentifierSpan(line, character, { allowCursorAfterIdentifier: true });
+  return span ? { word: span.word, start: span.start, end: span.end } : null;
 }
 
 // ---------------------------------------------------------------------------

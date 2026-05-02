@@ -4,7 +4,7 @@
 
 `B042 — Soporte avanzado de DataWindow`
 
-Estado actual: `B031`, `B155`, `B032`, `B161`, `B163`, `B176`, `B208`, `B204`, `B206`, `B209`, `B210`, `B207`, `B211`, `B213`, `B212`, `B222`, `B217`, `B218`, `B219`, `B220`, `B117`, `B139` y `B041` ya quedaron cerradas con validación ejecutable y documentación alineada. Además, la spec 045 ya vive cerrada históricamente como `B131` (`.pblmeta` parser). Con el safe mode mínimo `.srd`, el refuerzo legacy-safe, la observabilidad interna del runtime ya materializada y el catálogo/navegación básicos ya integrados, el siguiente hueco estructural visible es `B042`: soporte avanzado de DataWindow sin romper el aislamiento del sublenguaje.
+Estado actual: `B031`, `B155`, `B032`, `B161`, `B163`, `B176`, `B208`, `B204`, `B206`, `B209`, `B210`, `B207`, `B211`, `B213`, `B212`, `B222`, `B217`, `B218`, `B219`, `B220`, `B117`, `B139`, `B041`, `B224`, `B223` y `B067` ya quedaron cerradas con validación ejecutable y documentación alineada. Además, la spec 045 ya vive cerrada históricamente como `B131` (`.pblmeta` parser). Con el safe mode mínimo `.srd`, el refuerzo legacy-safe, la observabilidad interna del runtime ya materializada y el catálogo/navegación básicos ya integrados, el siguiente hueco estructural visible vuelve a ser `B042`: soporte avanzado de DataWindow sin romper el aislamiento del sublenguaje.
 
 ---
 
@@ -49,7 +49,7 @@ Estado actual: `B031`, `B155`, `B032`, `B161`, `B163`, `B176`, `B208`, `B204`, `
 No abrir salvo causa clara:
 
 - mezclar expresiones y propiedades avanzadas de DataWindow con PowerScript normal;
-- formatter;
+- reabrir formatter salvo bug o regresión clara sobre la ruta conservadora ya cerrada;
 - automatización dependiente de DataWindow avanzado sin confidence/readiness explícitos.
 
 ---
@@ -65,10 +65,10 @@ No abrir salvo causa clara:
 
 ## 6. Siguiente foco natural
 
-1. `B146` — PBAutoBuild baseline.
-2. `B052` — Project status enriquecido.
-3. `B049` — Code actions.
-4. `B070` — Memory budgets de caché e índice.
+1. `B181` — PBAutoBuild capability detection.
+2. `B216` — Project Health Dashboard.
+3. `B070` — Memory budgets de caché e índice.
+4. `B162` — Reconciliación parser / symbol model / salida LSP.
 
 ---
 
