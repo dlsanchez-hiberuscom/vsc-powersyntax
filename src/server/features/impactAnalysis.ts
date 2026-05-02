@@ -2,6 +2,7 @@ import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { buildCurrentObjectContext } from './currentObjectContext';
+import { resolveAncestorDescriptor } from './ancestorDescriptor';
 import { createDocumentQueryContext } from './queryContext';
 import { provideReferences, type ReferenceSource } from './references';
 import type { WorkspaceState } from '../workspace/workspaceState';
@@ -48,13 +49,8 @@ function toImpactSymbol(entity: Entity): ApiCurrentObjectContextSymbol {
   };
 }
 
-function toImpactAncestor(name: string, kb: KnowledgeBase): ApiCurrentObjectAncestor {
-  const entity = kb.findAllDefinitions(name).find((candidate) => candidate.kind === EntityKind.Type);
-  return {
-    name,
-    ...(entity ? { uri: entity.uri } : {}),
-    ...(entity?.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
-  };
+function toImpactAncestor(name: string, kb: KnowledgeBase, systemCatalog: SystemCatalog): ApiCurrentObjectAncestor {
+  return resolveAncestorDescriptor(name, kb, systemCatalog);
 }
 
 function addRelatedFile(
@@ -224,7 +220,7 @@ export async function buildImpactAnalysis(
     ? rootEntity.name
     : rootEntity.ownerName ?? rootEntity.containerName ?? currentContext.objectInfo?.globalType ?? rootEntity.fileObjectName;
   const descendants = ownerType ? graph.getDescendants(ownerType) : [];
-  const descendantAncestors = descendants.map((name) => toImpactAncestor(name, kb));
+  const descendantAncestors = descendants.map((name) => toImpactAncestor(name, kb, systemCatalog));
   const overrides = ownerType ? collectOverrides(rootEntity, ownerType, descendants, graph) : [];
   const relatedEvents = [...(currentContext.members?.events ?? [])];
   const relatedDataWindows = [...(currentContext.dataWindowBindings ?? [])];

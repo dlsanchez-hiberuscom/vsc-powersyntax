@@ -131,4 +131,29 @@ suite('unit/currentObjectContext (B217)', () => {
     assert.ok(context.relatedFiles?.some((entry) => entry.uri === dataWindowUri && entry.role === 'datawindow'));
     assert.ok(context.sourceExcerpt?.text.includes('ids_orders.DataObject = &'));
   });
+
+  test('marca ancestros nativos del lenguaje como systemType en la cadena de contexto', () => {
+    const document = setupAnalyzedDocument('file:///proj/lib_app.pbl/pfc_n_crypterobject.sru', [
+      'forward',
+      'global type pfc_n_crypterobject from crypterobject',
+      'end type',
+      'end forward',
+      'global type pfc_n_crypterobject from crypterobject',
+      'end type'
+    ].join('\r\n'));
+
+    const context = buildCurrentObjectContext(
+      document,
+      undefined,
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.deepEqual(context.ancestorChain?.map((entry) => entry.name), ['crypterobject']);
+    assert.equal(context.ancestorChain?.[0]?.isSystemType, true);
+    assert.equal(context.ancestorChain?.[0]?.uri, undefined);
+  });
 });

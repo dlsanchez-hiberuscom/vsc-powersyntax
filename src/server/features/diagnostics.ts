@@ -482,7 +482,7 @@ export function validateSemantics(
   for (const fact of semanticFacts) {
     if (fact.kind === EntityKind.Type && fact.baseTypeName) {
       const baseLower = fact.baseTypeName.toLowerCase();
-      if (!PB_BUILTIN_TYPES.has(baseLower) && !kb.findDefinition(baseLower)) {
+      if (!PB_BUILTIN_TYPES.has(baseLower) && !kb.findDefinition(baseLower) && !systemCatalog.isKnownOwnerType(baseLower)) {
         diagnostics.push({
           severity: DiagnosticSeverity.Warning,
           range: Range.create(
@@ -518,7 +518,7 @@ export function validateSemantics(
       checkDataObjectBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb);
       checkTransactionBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb, systemCatalog);
     }
-    checkLifecycleWarnings(mainType, semanticFacts, diagnostics, kb, inheritanceGraph);
+    checkLifecycleWarnings(mainType, semanticFacts, diagnostics, kb, inheritanceGraph, systemCatalog);
   }
 
   // --- SD6: Shadowing (Spec 027 / B035) ---
@@ -574,9 +574,10 @@ function checkLifecycleWarnings(
   semanticFacts: import('../knowledge/types').Fact[],
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
-  inheritanceGraph: InheritanceGraph
+  inheritanceGraph: InheritanceGraph,
+  systemCatalog: SystemCatalog
 ): void {
-  const inspection = buildHierarchyInspection(mainType.name, inheritanceGraph, kb);
+  const inspection = buildHierarchyInspection(mainType.name, inheritanceGraph, kb, systemCatalog);
   const focusType = mainType.name.toLowerCase();
 
   for (const phase of inspection.lifecycle) {

@@ -1,0 +1,7 @@
+{
+    "vscPowerSyntax.formatting.enabled": true,
+    "vscPowerSyntax.formatting.statementCase": "preserve",
+    "vscPowerSyntax.formatting.eventKeywordCase": "preserve",
+    "vscPowerSyntax.formatting.indentSize": 3,
+    "vscPowerSyntax.formatting.formatOnSave": false
+}

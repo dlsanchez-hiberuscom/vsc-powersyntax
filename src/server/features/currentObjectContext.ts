@@ -4,6 +4,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { buildDiagnosticsForDocument } from './diagnostics';
+import { resolveAncestorDescriptor } from './ancestorDescriptor';
 import { buildHierarchyInspection } from './hierarchyInspection';
 import { buildObjectInfo } from './objectInfo';
 import { createDocumentQueryContext } from './queryContext';
@@ -220,15 +221,12 @@ function mapDataWindowBinding(binding: DataWindowBindingSummary): ApiCurrentObje
   };
 }
 
-function buildAncestorChain(ancestorNames: string[], kb: KnowledgeBase): ApiCurrentObjectAncestor[] {
-  return ancestorNames.map((name) => {
-    const entity = kb.findAllDefinitions(name).find((candidate) => candidate.kind === EntityKind.Type);
-    return {
-      name,
-      ...(entity ? { uri: entity.uri } : {}),
-      ...(entity?.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
-    };
-  });
+function buildAncestorChain(
+  ancestorNames: string[],
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog
+): ApiCurrentObjectAncestor[] {
+  return ancestorNames.map((name) => resolveAncestorDescriptor(name, kb, systemCatalog));
 }
 
 function addRelatedFile(
@@ -404,7 +402,7 @@ export function buildCurrentObjectContext(
     };
   }
 
-  const hierarchy = buildHierarchyInspection(focusType, graph, kb);
+  const hierarchy = buildHierarchyInspection(focusType, graph, kb, systemCatalog);
   const excerptLineBudget = clamp(
     typeof request?.maxExcerptLines === 'number' ? Math.trunc(request.maxExcerptLines) : DEFAULT_EXCERPT_LINES,
     8,
@@ -482,7 +480,9 @@ export function buildCurrentObjectContext(
       libraries: [...(projectContext?.libraries ?? [])]
     },
     sourceExcerpt,
-    ancestorChain: buildAncestorChain(hierarchy.ancestorChain, kb),
+    ancestorChain: hierarchy.ancestorDescriptors.length > 0
+      ? hierarchy.ancestorDescriptors
+      : buildAncestorChain(hierarchy.ancestorChain, kb, systemCatalog),
     members: memberGroups,
     referencedSymbols,
     diagnostics: summarizeDiagnostics(diagnostics),

@@ -21,7 +21,8 @@ import { formatLineageHover, formatUserHover } from './hoverFormat';
 function buildLifecycleHoverBlock(
   entity: import('../knowledge/types').Entity,
   kb: KnowledgeBase,
-  graph: InheritanceGraph
+  graph: InheritanceGraph,
+  catalog: SystemCatalog
 ): string | null {
   if (entity.kind !== EntityKind.Event) {
     return null;
@@ -37,7 +38,7 @@ function buildLifecycleHoverBlock(
     return null;
   }
 
-  const inspection = buildHierarchyInspection(focusType, graph, kb);
+  const inspection = buildHierarchyInspection(focusType, graph, kb, catalog);
   const lines: string[] = ['', '**Lifecycle**'];
 
   if (eventName === 'create' || eventName === 'destroy') {
@@ -132,7 +133,7 @@ export function provideHover(
   if (userDefinitions.length > 0) {
     // Tomamos la primera definición (el override más cercano o coincidencia exacta)
     const definition = userDefinitions[0];
-    const lifecycleBlock = buildLifecycleHoverBlock(definition, kb, graph);
+    const lifecycleBlock = buildLifecycleHoverBlock(definition, kb, graph, catalog);
     const dataWindowBlock = buildDataWindowHoverBlock(definition, kb);
     return {
       contents: {

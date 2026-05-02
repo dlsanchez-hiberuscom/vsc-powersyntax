@@ -112,11 +112,35 @@ Sin refuerzos activos inmediatos en L2 tras cerrar `B067` y `B223`; reabrir solo
 
 # L2.5 — PowerBuilder semantic understanding
 
-Sin ítems activos tras mover `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213` al histórico cerrado de `done-log.md`.
+Tras cerrar `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213`, L2.5 reabre solo para gaps semánticos concretos detectados en corpus reales.
+
+## B225 — Cobertura completa de ancestros nativos PowerBuilder
+- **Estado:** Partial
+- **Track:** semantic completeness
+- **Depende de:** B206, B209, B210
+- **Objetivo:** cerrar falsos positivos y huecos de resolución cuando la herencia termina en objetos nativos del runtime PowerBuilder servidos por `system catalog`.
+- **Avance actual:** diagnostics, current object context, impact analysis e inspectHierarchy ya distinguen ancestros nativos conocidos del catálogo del sistema y los proyectan como `system type`.
+- **Pendiente exacto:**
+  - ampliar el catálogo/índices de owner types base y sus alias nativos más allá de los casos ya conectados;
+  - reutilizar esa verdad única en diagnostics, hierarchy/current object context, impact analysis y queries derivadas;
+  - añadir casos positivos/negativos con ancestros nativos representativos del lenguaje y del framework base.
+- **Cierre:** los ancestros nativos conocidos no disparan SD3 ni quedan como `missing base type`, y las superficies read-only distinguen de forma estable entre tipos de sistema, framework y aplicación.
 
 ---
 
 # L3 — Validación fuerte, salud interna y excelencia operativa
+
+## B226 — Corpus enterprise OrderEntry como baseline operativo
+- **Estado:** Partial
+- **Track:** corpus real / performance
+- **Depende de:** B030, B069
+- **Objetivo:** convertir `fixtures-local/STD_FC_OrderEntry` en corpus local de regresión para discovery, indexación y routing sobre una aplicación PowerBuilder real híbrida.
+- **Avance actual:** ya existe baseline ejecutable de performance para discovery e indexación cold/warm sobre el corpus OrderEntry.
+- **Pendiente exacto:**
+  - ampliar la matriz más allá del baseline actual con smoke/semantics sobre clases representativas y variantes multiidioma;
+  - cubrir topología moderna parcial (`.pbproj` aislado sin `.pbsln`), `.pblmeta` disperso, `.srj` de deploy y recursos ruidosos sin tratarlos como fuente;
+  - medir sourceOrigin/routing/readiness sobre librerías base `STD_FC_PB_Base*`, `OES_*` y superficies mixtas `.NET DataStore`/deploy.
+- **Cierre:** OrderEntry queda integrado como corpus enterprise estable con performance + smoke/semantics reproducibles y reglas documentadas de qué ruido se ignora y qué superficie sí debe indexarse.
 
 ## B070 — Memory budgets de caché e índice
 - **Estado:** Open

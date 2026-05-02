@@ -114,6 +114,11 @@ export class SystemCatalog {
     return findApplicableEventsForOwnerType(ownerTypes);
   }
 
+  isKnownOwnerType(name: string): boolean {
+    const normalizedName = name.trim().toLowerCase();
+    return normalizedName.length > 0 && PB_SYSTEM_SYMBOL_REGISTRY.indexes.byOwnerType.has(normalizedName);
+  }
+
   // -- Métricas / introspección ---------------------------------------
 
   /** Tamaño total del catálogo (manual + generated). */

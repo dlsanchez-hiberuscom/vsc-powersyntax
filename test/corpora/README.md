@@ -15,7 +15,8 @@ La integración mínima actual del ciclo cubre:
 
 - **PFC 2025 Workspace**;
 - **PFC 2025 Solution**;
-- **legacy PBL dump** como slot de regresión real para fuentes exportadas.
+- **legacy PBL dump** como slot de regresión real para fuentes exportadas;
+- **STD_FC_OrderEntry** como slot enterprise local no público para discovery/indexación y regresión sobre aplicación real híbrida.
 
 ## Repositorios recomendados
 
@@ -79,6 +80,7 @@ Se usará como **fixture local controlado** en una carpeta ignorada por Git.
 
 ```text
 fixtures-local/
+  STD_FC_OrderEntry/
   pfc/
     2025-Workspace/
     2025-Solution/
@@ -95,8 +97,9 @@ fixtures-local/
 1. Clonar o copiar `2025-Workspace` en `fixtures-local/pfc/2025-Workspace`.
 2. Clonar o copiar `2025-Solution` en `fixtures-local/pfc/2025-Solution`.
 3. Clonar al menos un dump público de PBL en `fixtures-local/public/legacy-pbl-dump`.
-4. Añadir DataWindow / ORCA-build / native / modern integrations solo cuando la validación del área lo necesite.
-5. Mantener estos corpus fuera de Git y documentar localmente commit o tag si se usan para comparar regresiones.
+4. Si se dispone de una app enterprise local reproducible, ubicarla en `fixtures-local/STD_FC_OrderEntry` o un slot equivalente fuera de Git.
+5. Añadir DataWindow / ORCA-build / native / modern integrations solo cuando la validación del área lo necesite.
+6. Mantener estos corpus fuera de Git y documentar localmente commit o tag si se usan para comparar regresiones.
 
 ## Qué validar con este corpus
 
@@ -120,7 +123,8 @@ fixtures-local/
 - `test/smoke/pfc-solution.extension.test.ts` valida la extensión real sobre **PFC 2025 Solution**;
 - `test/server/performance/pfc-workspace.smoke.test.ts` y `pfc-workspace.perf.test.ts` validan **PFC 2025 Workspace**;
 - `test/server/performance/pfc-solution.smoke.test.ts` mantiene smoke parser/symbols sobre **PFC 2025 Solution**;
-- `test/server/performance/legacy-pbl-dump.smoke.test.ts` introduce regresión básica sobre **legacy PBL dump**.
+- `test/server/performance/legacy-pbl-dump.smoke.test.ts` introduce regresión básica sobre **legacy PBL dump**;
+- `test/server/performance/orderentry.perf.test.ts` y `orderentry.smoke.test.ts` fijan el slot enterprise local **STD_FC_OrderEntry** como baseline parcial de discovery/indexación y topología real híbrida.
 
 ## Qué no hacer
 

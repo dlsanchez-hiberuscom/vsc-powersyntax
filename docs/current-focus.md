@@ -6,6 +6,11 @@
 
 Estado actual: `B031`, `B155`, `B032`, `B161`, `B163`, `B176`, `B208`, `B204`, `B206`, `B209`, `B210`, `B207`, `B211`, `B213`, `B212`, `B222`, `B217`, `B218`, `B219`, `B220`, `B117`, `B139`, `B041`, `B224`, `B223` y `B067` ya quedaron cerradas con validación ejecutable y documentación alineada. Además, la spec 045 ya vive cerrada históricamente como `B131` (`.pblmeta` parser). Con el safe mode mínimo `.srd`, el refuerzo legacy-safe, la observabilidad interna del runtime ya materializada y el catálogo/navegación básicos ya integrados, el siguiente hueco estructural visible vuelve a ser `B042`: soporte avanzado de DataWindow sin romper el aislamiento del sublenguaje.
 
+Trazas paralelas activas que no desplazan ese foco principal:
+
+- `B225`, como refuerzo incremental de ancestros nativos del runtime PowerBuilder servidos por `system catalog`;
+- `B226`, como baseline enterprise parcial sobre `fixtures-local/STD_FC_OrderEntry` para discovery/indexación y futuras regresiones semánticas reales.
+
 ---
 
 ## 2. Por qué es prioritario
@@ -69,6 +74,7 @@ No abrir salvo causa clara:
 2. `B216` — Project Health Dashboard.
 3. `B070` — Memory budgets de caché e índice.
 4. `B162` — Reconciliación parser / symbol model / salida LSP.
+5. `B225/B226` — completar ancestros nativos del sistema y cobertura enterprise real sobre OrderEntry.
 
 ---
 

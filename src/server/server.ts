@@ -1451,7 +1451,7 @@ connection.onExecuteCommand(async (params) => {
         line,
         character,
         objectInfo,
-        ...buildHierarchyInspection(focusType, inheritanceGraph, knowledgeBase)
+        ...buildHierarchyInspection(focusType, inheritanceGraph, knowledgeBase, systemCatalog)
       };
     }
     case 'powerbuilder.querySymbols': {

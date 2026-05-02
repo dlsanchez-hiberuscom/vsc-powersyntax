@@ -138,7 +138,7 @@ Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm te
 
 ## 6. Objetivos calibrados actuales
 
-Estos valores ya quedan calibrados sobre **PFC 2025 Workspace/Solution** y un **legacy PBL dump** real en host de pruebas compartido.
+Estos valores ya quedan calibrados sobre **PFC 2025 Workspace/Solution**, un **legacy PBL dump** real y el corpus enterprise local **STD_FC_OrderEntry** en host de pruebas compartido.
 No son promesas absolutas por máquina, pero sí budgets ejecutables y trazables.
 
 ### 6.1 Activación y disponibilidad inicial
@@ -295,18 +295,21 @@ Debe calibrarse mejor sobre corpus reales:
 - budgets de memoria por capa,
 - query cache hit ratio,
 - fan-out de invalidación,
-- y budgets en proyectos enterprise grandes no cubiertos aún por PFC/legacy actual.
+- y budgets en portfolios enterprise más amplios que el baseline actual de PFC + legacy + OrderEntry.
 
 ### 11.3 Baseline real actual
 
 Mediciones registradas en `test/results/003-real-corpora-baseline.md`:
 
-- discovery PFC Workspace (`831` archivos): `134.78ms`;
-- batch `analyzeDocument + documentSymbols` sobre `25` archivos PFC: `171.93ms`;
-- primer hover real en archivo activo PFC: `0.96ms`;
-- primeros diagnostics estructurales en archivo activo PFC: `0.77ms`;
-- indexación cold PFC (`23663` entidades): `10473.00ms`;
-- indexación warm PFC: `0.81ms`.
+- discovery PFC Workspace (`831` archivos): `112.09ms`;
+- batch `analyzeDocument + documentSymbols` sobre `25` archivos PFC: `121.38ms`;
+- primer hover real en archivo activo PFC: `1.05ms`;
+- primeros diagnostics estructurales en archivo activo PFC: `0.75ms`;
+- indexación cold PFC (`21575` entidades): `13333.28ms`;
+- indexación warm PFC: `0.59ms`;
+- discovery OrderEntry (`744` archivos): `463.63ms`;
+- indexación cold OrderEntry (`23872` entidades): `12873.54ms`;
+- indexación warm OrderEntry: `0.75ms`.
 
 ---
 
@@ -319,7 +322,7 @@ Este documento debe revisarse cuando:
 - se introduzca persistencia nueva,
 - cambie el pipeline de parsing/knowledge,
 - se cierre una fase relevante del roadmap,
-- o se obtengan mediciones nuevas sobre PFC 2025 y corpus legacy representativos.
+- o se obtengan mediciones nuevas sobre PFC 2025, OrderEntry y corpus legacy representativos.
 
 ---
 

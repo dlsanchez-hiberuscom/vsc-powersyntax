@@ -48,6 +48,8 @@ test/
       pfc-workspace.perf.test.ts
       pfc-solution.smoke.test.ts
       legacy-pbl-dump.smoke.test.ts
+      orderentry.smoke.test.ts
+      orderentry.perf.test.ts
   smoke/
     extension.test.ts
     pfc-solution.extension.test.ts
@@ -61,6 +63,7 @@ Los tests de `performance/` buscan corpus local en:
 ```text
 fixtures-local/pfc/2025-Workspace/
 fixtures-local/pfc/2025-Solution/
+fixtures-local/STD_FC_OrderEntry/
 ```
 
 Si esas carpetas no existen, los tests de rendimiento se saltan automáticamente.

@@ -357,6 +357,51 @@ suite('unit/diagnostics', () => {
     );
   });
 
+  test('validateSemantics acepta ancestros nativos del catálogo como crypterobject', () => {
+    const source = [
+      'forward',
+      'global type pfc_n_crypterobject from crypterobject',
+      'end type',
+      'end forward',
+      '',
+      'global type pfc_n_crypterobject from crypterobject',
+      'end type',
+      'global pfc_n_crypterobject pfc_n_crypterobject',
+      '',
+      'type variables',
+      'Protected:',
+      'boolean        ib_IsObsolete',
+      'end variables',
+      '',
+      'forward prototypes',
+      'protected function integer of_messagebox (string as_id, string as_title, string as_text, icon ae_icon, button ae_button, integer ai_default)',
+      'end prototypes',
+      '',
+      'protected function integer of_messagebox (string as_id, string as_title, string as_text, icon ae_icon, button ae_button, integer ai_default);',
+      'Return MessageBox(as_title, as_text, ae_icon, ae_button, ai_default)',
+      'end function',
+      '',
+      'on pfc_n_crypterobject.create',
+      'call super::create',
+      'TriggerEvent( this, "constructor" )',
+      'end on',
+      '',
+      'on pfc_n_crypterobject.destroy',
+      'TriggerEvent( this, "destructor" )',
+      'call super::destroy',
+      'end on'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///pfc_n_crypterobject.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+
+    assert.equal(
+      diagnostics.some((diag) => diag.message.includes("El tipo base 'crypterobject' no se encuentra")),
+      false,
+      'Los ancestros nativos conocidos no deben marcarse como tipo base ausente.'
+    );
+  });
+
   test('validateSemantics relaciona SetTransObject con variables transaction conocidas', () => {
     const source = [
       'global type n_tx from nonvisualobject',

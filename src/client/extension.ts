@@ -32,6 +32,7 @@ import {
   type ApiSemanticWorkspaceManifestRequest,
   PUBLIC_API_VERSION,
   isApiVersionCompatible,
+  type ApiCurrentObjectAncestor,
   type ApiSymbol,
   type ApiQuerySymbolsRequest,
   type ApiServerStats,
@@ -53,103 +54,139 @@ let lastProgressNotification: ProgressNotification = { phase: 'idle' };
 let lastStatusStats: RuntimeStatusStats | undefined;
 let statusRefreshHandle: ReturnType<typeof setTimeout> | undefined;
 let statusRefreshVersion = 0;
+let commandsRegistered = false;
+let hostInitialized = false;
+const publicApiSingleton = createPublicApi();
 
 export async function activate(context: vscode.ExtensionContext): Promise<VscPowerSyntaxApi | undefined> {
   const activationStart = performance.now();
-  const publicApi = createPublicApi();
 
-  outputChannel = vscode.window.createOutputChannel('VSC PowerSyntax');
-  context.subscriptions.push(outputChannel);
-  context.subscriptions.push(...registerFormatting());
+  ensureHostInitialized(context);
+  const channel = outputChannel;
 
-  outputChannel.appendLine('[VSC PowerSyntax] Activando extensión...');
-
-  const serverModule = context.asAbsolutePath(
-    path.join('out', 'server', 'server.js')
-  );
-
-  if (!fs.existsSync(serverModule)) {
-    const message =
-      `No se ha encontrado el servidor LSP en: ${serverModule}. ` +
-      `Ejecuta la compilación del servidor antes de iniciar la extensión.`;
-
-    outputChannel.appendLine(`[VSC PowerSyntax] ERROR: ${message}`);
-    vscode.window.showErrorMessage(message);
-    return undefined;
+  if (!channel) {
+    throw new Error('No se pudo inicializar el canal de salida de VSC PowerSyntax.');
   }
 
-  const serverOptions: ServerOptions = {
-    run: {
-      module: serverModule,
-      transport: TransportKind.ipc
-    },
-    debug: {
-      module: serverModule,
-      transport: TransportKind.ipc,
-      options: {
-        execArgv: ['--nolazy', '--inspect=6010']
-      }
+  channel.appendLine('[VSC PowerSyntax] Activando extensión...');
+
+  try {
+    await startClient(context, { activationStart });
+    return publicApiSingleton;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    channel.appendLine(
+      `[VSC PowerSyntax] ERROR al iniciar el cliente LSP: ${message}`
+    );
+
+    vscode.window.showErrorMessage(
+      `No se pudo iniciar VSC PowerSyntax: ${message}`
+    );
+
+    await stopClient();
+    return undefined;
+  }
+}
+
+export async function deactivate(): Promise<void> {
+  await stopClient();
+}
+
+async function restartClient(context: vscode.ExtensionContext): Promise<void> {
+  const restartStart = performance.now();
+
+  try {
+    await stopClient();
+    await startClient(context);
+
+    if (!client || client.needsStart()) {
+      throw new Error('El cliente LSP no quedó operativo tras el reinicio.');
     }
-  };
 
-  const clientOptions: LanguageClientOptions = {
-    documentSelector: [
-      { scheme: 'file', language: 'powerbuilder' },
-      { scheme: 'file', language: 'powerbuilder-window' },
-      { scheme: 'file', language: 'powerbuilder-datawindow' },
-      { scheme: 'file', language: 'powerbuilder-userobject' },
-      { scheme: 'file', language: 'powerbuilder-function' },
-      { scheme: 'file', language: 'powerbuilder-menu' },
-      { scheme: 'file', language: 'powerbuilder-application' },
-      { scheme: 'file', language: 'powerbuilder-structure' },
-      { scheme: 'file', language: 'powerbuilder-pipeline' },
-      { scheme: 'untitled', language: 'powerbuilder' }
-    ],
-    outputChannel,
-    synchronize: {
-      fileEvents: [
-        vscode.workspace.createFileSystemWatcher(POWERBUILDER_PROJECT_MARKER_GLOB),
-        vscode.workspace.createFileSystemWatcher(POWERBUILDER_SOURCE_GLOB)
-      ]
-    },
-    initializationOptions: {
-      cacheStorageUri: (context.storageUri ?? context.globalStorageUri)?.toString()
+    const elapsed = performance.now() - restartStart;
+    outputChannel?.appendLine(
+      `[TIEMPO] Reinicio total del servidor: ${elapsed.toFixed(2)}ms`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(
+      `[VSC PowerSyntax] ERROR al reiniciar: ${message}`
+    );
+    vscode.window.showErrorMessage(
+      `Error al reiniciar VSC PowerSyntax: ${message}`
+    );
+  }
+}
+
+async function stopClient(): Promise<void> {
+  clearStatusRefreshHandle();
+  if (client) {
+    try {
+      await client.stop();
+      outputChannel?.appendLine(
+        '[VSC PowerSyntax] Cliente LSP detenido correctamente.'
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      outputChannel?.appendLine(
+        `[VSC PowerSyntax] ERROR al detener el cliente LSP: ${message}`
+      );
+    } finally {
+      client = undefined;
     }
-  };
+  }
+}
 
-  client = new LanguageClient(
-    SERVER_ID,
-    SERVER_NAME,
-    serverOptions,
-    clientOptions
-  );
+function ensureHostInitialized(context: vscode.ExtensionContext): void {
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel('VSC PowerSyntax');
+    context.subscriptions.push(outputChannel);
+  }
 
-  // ---- Barra de estado de progreso ----------------------------------------
+  if (!hostInitialized) {
+    context.subscriptions.push(...registerFormatting());
 
-  statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  statusBarItem.name = 'VSC PowerSyntax';
-  statusBarItem.command = 'vscPowerSyntax.openStatusMenu';
-  context.subscriptions.push(statusBarItem);
-  applyProgressVisibility(statusBarItem);
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    statusBarItem.name = 'VSC PowerSyntax';
+    statusBarItem.command = 'vscPowerSyntax.openStatusMenu';
+    context.subscriptions.push(statusBarItem);
+    applyProgressVisibility(statusBarItem);
 
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('vscPowerSyntax.progress.show') && statusBarItem) {
-        applyProgressVisibility(statusBarItem);
-        renderProgress(statusBarItem, lastProgressNotification, lastStatusStats);
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('vscPowerSyntax.progress.show') && statusBarItem) {
+          applyProgressVisibility(statusBarItem);
+          renderProgress(statusBarItem, lastProgressNotification, lastStatusStats);
+        }
+      })
+    );
+
+    context.subscriptions.push(
+      vscode.window.onDidChangeActiveTextEditor(() => {
+        if (statusBarItem) {
+          scheduleStatusRefresh(statusBarItem, 60);
+        }
+      })
+    );
+
+    context.subscriptions.push({
+      dispose: () => {
+        clearStatusRefreshHandle();
+        void stopClient();
       }
-    })
-  );
+    });
 
-  context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(() => {
-      if (statusBarItem) {
-        scheduleStatusRefresh(statusBarItem, 60);
-      }
-    })
-  );
+    hostInitialized = true;
+  }
 
-  // ---- Comandos -----------------------------------------------------------
+  ensureCommandsRegistered(context);
+}
+
+function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
+  if (commandsRegistered) {
+    return;
+  }
 
   context.subscriptions.push(
     vscode.commands.registerCommand('vscPowerSyntax.restartServer', async () => {
@@ -265,30 +302,115 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     })
   );
 
-  // ---- Limpieza (Disposable) ----------------------------------------------
+  commandsRegistered = true;
+}
 
-  context.subscriptions.push({
-    dispose: () => {
-      clearStatusRefreshHandle();
-      void stopClient();
+function createLanguageClient(
+  serverOptions: ServerOptions,
+  clientOptions: LanguageClientOptions
+): LanguageClient {
+  return new LanguageClient(
+    SERVER_ID,
+    SERVER_NAME,
+    serverOptions,
+    clientOptions
+  );
+}
+
+function buildClientRuntime(
+  context: vscode.ExtensionContext,
+  channel: vscode.OutputChannel
+): {
+  serverModule: string;
+  serverOptions: ServerOptions;
+  clientOptions: LanguageClientOptions;
+} {
+  const serverModule = context.asAbsolutePath(
+    path.join('out', 'server', 'server.js')
+  );
+
+  if (!fs.existsSync(serverModule)) {
+    throw new Error(
+      `No se ha encontrado el servidor LSP en: ${serverModule}. ` +
+      'Ejecuta la compilación del servidor antes de iniciar la extensión.'
+    );
+  }
+
+  const serverOptions: ServerOptions = {
+    run: {
+      module: serverModule,
+      transport: TransportKind.ipc
+    },
+    debug: {
+      module: serverModule,
+      transport: TransportKind.ipc,
+      options: {
+        execArgv: ['--nolazy', '--inspect=6010']
+      }
     }
-  });
+  };
 
-  // ---- Inicio --------------------------------------------------------------
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [
+      { scheme: 'file', language: 'powerbuilder' },
+      { scheme: 'file', language: 'powerbuilder-window' },
+      { scheme: 'file', language: 'powerbuilder-datawindow' },
+      { scheme: 'file', language: 'powerbuilder-userobject' },
+      { scheme: 'file', language: 'powerbuilder-function' },
+      { scheme: 'file', language: 'powerbuilder-menu' },
+      { scheme: 'file', language: 'powerbuilder-application' },
+      { scheme: 'file', language: 'powerbuilder-structure' },
+      { scheme: 'file', language: 'powerbuilder-pipeline' },
+      { scheme: 'untitled', language: 'powerbuilder' }
+    ],
+    outputChannel: channel,
+    synchronize: {
+      fileEvents: [
+        vscode.workspace.createFileSystemWatcher(POWERBUILDER_PROJECT_MARKER_GLOB),
+        vscode.workspace.createFileSystemWatcher(POWERBUILDER_SOURCE_GLOB)
+      ]
+    },
+    initializationOptions: {
+      cacheStorageUri: (context.storageUri ?? context.globalStorageUri)?.toString()
+    }
+  };
 
+  return {
+    serverModule,
+    serverOptions,
+    clientOptions
+  };
+}
+
+async function startClient(
+  context: vscode.ExtensionContext,
+  options: { activationStart?: number } = {}
+): Promise<void> {
+  if (client && !client.needsStart()) {
+    return;
+  }
+
+  const channel = outputChannel;
+  if (!channel) {
+    throw new Error('No se pudo inicializar el canal de salida de VSC PowerSyntax.');
+  }
+
+  const { serverModule, serverOptions, clientOptions } = buildClientRuntime(context, channel);
+  const nextClient = createLanguageClient(serverOptions, clientOptions);
   const clientStartTime = performance.now();
 
+  channel.appendLine(
+    `[VSC PowerSyntax] Iniciando cliente LSP usando: ${serverModule}`
+  );
+
+  client = nextClient;
+
   try {
-    outputChannel.appendLine(
-      `[VSC PowerSyntax] Iniciando cliente LSP usando: ${serverModule}`
-    );
+    await nextClient.start();
 
-    await client.start();
-
-    // Suscribir notificaciones de progreso del servidor.
     if (statusBarItem) {
       const item = statusBarItem;
-      client.onNotification(PROGRESS_NOTIFICATION, (p: ProgressNotification) => {
+      nextClient.onNotification(PROGRESS_NOTIFICATION, (p: ProgressNotification) => {
         lastProgressNotification = p;
         renderProgress(item, p, lastStatusStats);
         scheduleStatusRefresh(item);
@@ -298,76 +420,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     }
 
     const clientElapsed = performance.now() - clientStartTime;
-    const totalElapsed = performance.now() - activationStart;
-
-    outputChannel.appendLine(
+    channel.appendLine(
       `[TIEMPO] Inicio del cliente LSP: ${clientElapsed.toFixed(2)}ms`
     );
-    outputChannel.appendLine(
-      `[TIEMPO] Activación total del cliente: ${totalElapsed.toFixed(2)}ms`
-    );
-    outputChannel.appendLine(
+
+    if (typeof options.activationStart === 'number') {
+      const totalElapsed = performance.now() - options.activationStart;
+      channel.appendLine(
+        `[TIEMPO] Activación total del cliente: ${totalElapsed.toFixed(2)}ms`
+      );
+    }
+
+    channel.appendLine(
       '[VSC PowerSyntax] Cliente LSP activado correctamente.'
     );
-    return publicApi;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    outputChannel.appendLine(
-      `[VSC PowerSyntax] ERROR al iniciar el cliente LSP: ${message}`
-    );
-
-    vscode.window.showErrorMessage(
-      `No se pudo iniciar VSC PowerSyntax: ${message}`
-    );
-
     await stopClient();
-    return undefined;
-  }
-}
-
-export async function deactivate(): Promise<void> {
-  await stopClient();
-}
-
-async function restartClient(context: vscode.ExtensionContext): Promise<void> {
-  const restartStart = performance.now();
-
-  try {
-    await stopClient();
-    await activate(context);
-
-    const elapsed = performance.now() - restartStart;
-    outputChannel?.appendLine(
-      `[TIEMPO] Reinicio total del servidor: ${elapsed.toFixed(2)}ms`
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    outputChannel?.appendLine(
-      `[VSC PowerSyntax] ERROR al reiniciar: ${message}`
-    );
-    vscode.window.showErrorMessage(
-      `Error al reiniciar VSC PowerSyntax: ${message}`
-    );
-  }
-}
-
-async function stopClient(): Promise<void> {
-  clearStatusRefreshHandle();
-  if (client) {
-    try {
-      await client.stop();
-      outputChannel?.appendLine(
-        '[VSC PowerSyntax] Cliente LSP detenido correctamente.'
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      outputChannel?.appendLine(
-        `[VSC PowerSyntax] ERROR al detener el cliente LSP: ${message}`
-      );
-    } finally {
-      client = undefined;
-    }
+    throw error;
   }
 }
 
@@ -602,6 +671,8 @@ function renderHierarchyInspection(payload: unknown): void {
     focusType?: string | null;
     immediateAncestor?: string | null;
     ancestorChain?: string[];
+    immediateAncestorDescriptor?: ApiCurrentObjectAncestor | null;
+    ancestorDescriptors?: ApiCurrentObjectAncestor[];
     overriddenMembers?: Array<{ name: string; inheritedFrom: string | null }>;
     closureSummary?: { own: number; inherited: number; override: number; inaccessible: number };
     lifecycle?: Array<{
@@ -622,10 +693,21 @@ function renderHierarchyInspection(payload: unknown): void {
     return;
   }
 
+  const formatAncestor = (ancestor: ApiCurrentObjectAncestor | null | undefined, fallback?: string | null): string => {
+    if (!ancestor) {
+      return fallback ?? 'ninguno';
+    }
+    return ancestor.isSystemType ? `${ancestor.name} [system]` : ancestor.name;
+  };
+
+  const ancestorChain = inspection.ancestorDescriptors?.length
+    ? inspection.ancestorDescriptors.map((ancestor) => formatAncestor(ancestor))
+    : inspection.ancestorChain ?? [];
+
   outputChannel?.appendLine(`[Hierarchy] URI: ${inspection.uri ?? 'desconocida'}`);
   outputChannel?.appendLine(`- Tipo foco: ${inspection.focusType ?? 'desconocido'}`);
-  outputChannel?.appendLine(`- Ancestro inmediato: ${inspection.immediateAncestor ?? 'ninguno'}`);
-  outputChannel?.appendLine(`- Cadena de ancestros: ${inspection.ancestorChain?.join(' -> ') || 'sin cadena'}`);
+  outputChannel?.appendLine(`- Ancestro inmediato: ${formatAncestor(inspection.immediateAncestorDescriptor, inspection.immediateAncestor)}`);
+  outputChannel?.appendLine(`- Cadena de ancestros: ${ancestorChain.join(' -> ') || 'sin cadena'}`);
   if (inspection.closureSummary) {
     outputChannel?.appendLine(
       `- Closure: propios=${inspection.closureSummary.own}, heredados=${inspection.closureSummary.inherited}, overrides=${inspection.closureSummary.override}, inaccesibles=${inspection.closureSummary.inaccessible}`

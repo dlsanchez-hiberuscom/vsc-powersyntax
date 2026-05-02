@@ -106,9 +106,11 @@ Reglas:
 - Solution no usa ws_objects.
 - PBL folder es fuente primaria.
 - .pbsln y .pbproj suelen serializar rutas en atributos Path="..." que pueden contener espacios; discovery/topology debe preservar la cadena entrecomillada completa antes de tokenizar.
+- en apps reales modernizadas parcialmente puede existir .pbproj aislado sin .pbsln, junto a múltiples carpetas .pbl, .srj de deployment y .pblmeta solo en parte de las librerías; el plugin debe poder descubrir e indexar sin exigir topología completa desde el minuto cero.
 - .pb y build se ignoran por defecto.
 - _BackupFiles se ignora por defecto.
 - .pblmeta se indexa como metadata de librería.
+- variantes multiidioma como _e/_f/_i/_s son source real distinto y no deben colapsarse por stem, aunque compartan ancestros o propósito funcional.
 - Machine code no aplica en Solution: el formato usa Pcode.
 ```
 
@@ -612,6 +614,7 @@ Reglas:
 ```text
 - funciones/eventos pueden estar overloaded.
 - descendants pueden override/extend ancestor methods.
+- la ancestor chain puede terminar en tipos nativos del runtime (por ejemplo crypterobject u otros owner types del catálogo del sistema); diagnostics, hierarchy y APIs read-only deben resolverlos contra system catalog y marcarlos como system type, no reportarlos como tipos base ausentes del workspace.
 - la firma incluye nombre, return type, parámetros, BY VALUE/BY REF/READONLY y throws.
 - references deben distinguir override local, ancestor call y dynamic dispatch.
 - completion debe priorizar miembros visibles según contexto.

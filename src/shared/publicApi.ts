@@ -106,6 +106,7 @@ export interface ApiCurrentObjectAncestor {
   name: string;
   uri?: string;
   sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+  isSystemType?: boolean;
 }
 
 export interface ApiCurrentObjectReference {

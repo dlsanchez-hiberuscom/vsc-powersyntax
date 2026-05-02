@@ -58,4 +58,22 @@ suite('smoke/extension', () => {
     
     assert.ok(elapsed < 2000, `Activación demasiado lenta: ${elapsed.toFixed(2)}ms`);
   });
+
+  test('el comando restartServer puede ejecutarse repetidamente sin re-registrar comandos', async function () {
+    this.timeout(15000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    await ext!.activate();
+
+    await vscode.commands.executeCommand('vscPowerSyntax.restartServer');
+    await vscode.commands.executeCommand('vscPowerSyntax.restartServer');
+
+    const api = ext!.exports as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería seguir exportando una API pública tras reiniciar');
+
+    const stats = await api!.getServerStats();
+    assert.ok(stats && typeof stats === 'object', 'La API pública debería seguir respondiendo tras reiniciar');
+  });
 });

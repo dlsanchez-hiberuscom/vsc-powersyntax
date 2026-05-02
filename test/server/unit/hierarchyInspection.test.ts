@@ -5,6 +5,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
+import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { EntityKind } from '../../../src/server/knowledge/types';
 import { buildHierarchyInspection } from '../../../src/server/features/hierarchyInspection';
 import { loadFixture } from '../helpers/fixtureLoader';
@@ -68,5 +69,33 @@ suite('unit/hierarchyInspection (B065)', () => {
         { phase: 'destroy', callsAncestor: true, triggersHook: 'destructor', hookResolved: true }
       ]
     );
+  });
+
+  test('expone ancestros nativos conocidos como system type en hierarchy inspection', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+    const catalog = new SystemCatalog();
+
+    kb.beginBatchUpdate();
+    kb.upsertDocument('file:///pfc_n_crypterobject.sru', [
+      {
+        id: 'pfc_n_crypterobject',
+        name: 'pfc_n_crypterobject',
+        kind: EntityKind.Type,
+        uri: 'file:///pfc_n_crypterobject.sru',
+        line: 0,
+        character: 0,
+        baseTypeName: 'crypterobject'
+      }
+    ]);
+    kb.endBatchUpdate();
+
+    const inspection = buildHierarchyInspection('pfc_n_crypterobject', graph, kb, catalog);
+
+    assert.equal(inspection.immediateAncestor, 'crypterobject');
+    assert.equal(inspection.immediateAncestorDescriptor?.name, 'crypterobject');
+    assert.equal(inspection.immediateAncestorDescriptor?.isSystemType, true);
+    assert.deepEqual(inspection.ancestorDescriptors.map((entry) => entry.name), ['crypterobject']);
+    assert.equal(inspection.ancestorDescriptors[0]?.isSystemType, true);
   });
 });

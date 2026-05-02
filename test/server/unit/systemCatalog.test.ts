@@ -91,4 +91,10 @@ suite('unit/systemCatalog', () => {
       );
     }
   });
+
+  test('isKnownOwnerType reconoce ancestros nativos como crypterobject', () => {
+    assert.equal(catalog.isKnownOwnerType('crypterobject'), true);
+    assert.equal(catalog.isKnownOwnerType('CrypterObject'), true);
+    assert.equal(catalog.isKnownOwnerType('tipo_que_no_existe'), false);
+  });
 });

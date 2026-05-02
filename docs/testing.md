@@ -147,6 +147,7 @@ Deben fijar resultados esperados para:
 Cuando el cambio toque corpus reales PowerBuilder, añadir además casos focalizados para:
 - boilerplate exportado `on object.create/destroy` con `TriggerEvent(this, "constructor"/"destructor")` sin hook local explícito;
 - topología Solution/Project con rutas `Path="..."` que contienen espacios y ancestros repartidos entre librerías distintas del mismo proyecto (por ejemplo `pfcmain.pbl` -> `pfemain.pbl`).
+- solution-mode parcial con `.pbproj` aislado sin `.pbsln`, `.pblmeta` disperso, `.srj` de deployment y variantes multiidioma `_e/_f/_i/_s` conviviendo con ruido no fuente.
 
 ---
 
@@ -212,10 +213,11 @@ No deben usarse como sustituto de fixtures unitarios.
 El corpus prioritario debe incluir:
 - PFC 2025 Solution,
 - PFC 2025 Workspace,
+- un corpus enterprise local representativo cuando exista (por ejemplo `fixtures-local/STD_FC_OrderEntry`),
 - y proyectos legacy representativos cuando estén disponibles.
 
 La matriz reproducible de corpus públicos vive en `test/corpora/README.md`.
-El ciclo actual integra PFC 2025 Workspace, PFC 2025 Solution y un slot legacy controlado en `fixtures-local/public/legacy-pbl-dump`.
+El ciclo actual integra PFC 2025 Workspace, PFC 2025 Solution, un slot legacy controlado en `fixtures-local/public/legacy-pbl-dump` y un slot enterprise local en `fixtures-local/STD_FC_OrderEntry` para discovery/indexación sobre aplicación real.
 
 ---
 

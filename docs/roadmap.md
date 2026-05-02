@@ -198,6 +198,10 @@ Base materializada. Ya cerrados como bloque operativo:
 - `B164` compactación de memoria;
 - `B063` diagnostics snapshot agrupado.
 
+Gap incremental reabierto en esta fase:
+
+- `B225` cobertura completa de ancestros nativos PowerBuilder sobre `system catalog`, todavía parcial tras el primer cierre de SD3 + superficies read-only.
+
 ---
 
 ## Fase D — Escala, salud interna y excelencia operativa
@@ -220,6 +224,7 @@ Convertir el producto en herramienta robusta para proyectos enterprise y legacy 
 
 ### Pendientes principales
 
+- `B226`;
 - `B070`;
 - `B162`;
 - `B175`.
@@ -234,6 +239,10 @@ Bloque ya cerrado dentro de la fase:
 - `B161` golden tests semánticos end-to-end;
 - `B163` runtime journal exportable del motor;
 - `B176` health checker interno estructurado.
+
+Slice parcial activa dentro de la fase:
+
+- `B226` incorpora `STD_FC_OrderEntry` como baseline enterprise local de discovery/indexación, todavía pendiente de smoke/semantics adicionales y reglas completas de ruido/topología.
 
 ---
 

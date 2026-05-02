@@ -2,6 +2,9 @@ import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { EntityKind, type Entity, type Scope } from '../knowledge/types';
 import type { MemberClosureEntry } from '../knowledge/resolution/InheritanceGraph';
 import { buildHierarchyTree, type HierarchyNode } from './hierarchyTree';
+import { resolveAncestorDescriptor } from './ancestorDescriptor';
+import type { ApiCurrentObjectAncestor } from '../../shared/publicApi';
+import type { SystemCatalog } from '../knowledge/system/SystemCatalog';
 
 export interface HierarchyOverrideInfo {
   name: string;
@@ -31,6 +34,8 @@ export interface HierarchyInspection {
   focusType: string | null;
   immediateAncestor: string | null;
   ancestorChain: string[];
+  immediateAncestorDescriptor: ApiCurrentObjectAncestor | null;
+  ancestorDescriptors: ApiCurrentObjectAncestor[];
   hierarchyTree: HierarchyNode | null;
   overriddenMembers: HierarchyOverrideInfo[];
   closureSummary: HierarchyInspectionSummary;
@@ -176,13 +181,16 @@ function buildLifecycleInspection(
 export function buildHierarchyInspection(
   focusType: string | null,
   graph: HierarchyInspectionGraph,
-  knowledge?: HierarchyInspectionKnowledge
+  knowledge?: HierarchyInspectionKnowledge,
+  systemCatalog?: SystemCatalog
 ): HierarchyInspection {
   if (!focusType) {
     return {
       focusType: null,
       immediateAncestor: null,
       ancestorChain: [],
+      immediateAncestorDescriptor: null,
+      ancestorDescriptors: [],
       hierarchyTree: null,
       overriddenMembers: [],
       closureSummary: {
@@ -197,6 +205,9 @@ export function buildHierarchyInspection(
   }
 
   const ancestorChain = graph.getAncestors(focusType);
+  const ancestorDescriptors = knowledge
+    ? ancestorChain.map((name) => resolveAncestorDescriptor(name, knowledge, systemCatalog))
+    : ancestorChain.map((name) => ({ name }));
   const closure = graph.getMemberClosure(focusType);
   const inheritedByKey = new Map<string, MemberClosureEntry[]>();
   const summary: HierarchyInspectionSummary = {
@@ -238,6 +249,8 @@ export function buildHierarchyInspection(
     focusType,
     immediateAncestor: ancestorChain[0] ?? null,
     ancestorChain,
+    immediateAncestorDescriptor: ancestorDescriptors[0] ?? null,
+    ancestorDescriptors,
     hierarchyTree: buildHierarchyTree(focusType, (typeName) => graph.getDirectDescendants(typeName)),
     overriddenMembers,
     closureSummary: summary,
