@@ -107,6 +107,58 @@ suite('unit/semanticQueryService', () => {
     assert.equal(targets[0].uri, 'file:///global.srf');
   });
 
+  test('resolveTargetEntityDetailed prefiere source real frente a orca-staging en global fallback', () => {
+    kb.upsertDocument('file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_shared.sru', [
+      {
+        id: 'n_shared',
+        name: 'n_shared',
+        kind: EntityKind.Type,
+        uri: 'file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_shared.sru',
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'orca-staging',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+    kb.upsertDocument('file:///proj/src/n_shared.sru', [
+      {
+        id: 'n_shared',
+        name: 'n_shared',
+        kind: EntityKind.Type,
+        uri: 'file:///proj/src/n_shared.sru',
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'solution-source',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'n_shared' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.reasonCodes[0], 'global-fallback');
+    assert.equal(resolved.targets.length, 1);
+    assert.equal(resolved.targets[0]?.uri, 'file:///proj/src/n_shared.sru');
+    assert.equal(resolved.winnerLineage?.sourceOrigin, 'solution-source');
+  });
+
   test('resolveTargetEntity: unknown returns empty', () => {
     const targets = resolveTargetEntity(
       { identifier: 'of_unknown' },

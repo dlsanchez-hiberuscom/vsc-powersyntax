@@ -38,6 +38,11 @@ export interface IFileSystem {
   writeFile(uri: string, content: string): Promise<void>;
 
   /**
+   * Copia un archivo preservando su contenido binario.
+   */
+  copyFile(sourceUri: string, targetUri: string): Promise<void>;
+
+  /**
    * Elimina un archivo o directorio si existe.
    */
   deletePath(uri: string): Promise<void>;
@@ -116,6 +121,16 @@ export class NodeFileSystem implements IFileSystem {
 
     await fs.mkdir(path.dirname(fsPath), { recursive: true });
     await fs.writeFile(fsPath, content, 'utf8');
+  }
+
+  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
+    const sourceFsPath = uriToFsPath(sourceUri);
+    const targetFsPath = uriToFsPath(targetUri);
+    if (!sourceFsPath) throw new Error(`Invalid URI: ${sourceUri}`);
+    if (!targetFsPath) throw new Error(`Invalid URI: ${targetUri}`);
+
+    await fs.mkdir(path.dirname(targetFsPath), { recursive: true });
+    await fs.copyFile(sourceFsPath, targetFsPath);
   }
 
   async deletePath(uri: string): Promise<void> {

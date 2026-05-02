@@ -219,6 +219,30 @@ suite('unit/documentAnalysis', () => {
     assert.ok(analysis.snapshot.identity.includes(String(analysis.fingerprint)));
   });
 
+  test('respeta sourceOrigin contextual explícito en semanticFacts', () => {
+    const source = [
+      'forward',
+      'global type w_main from window',
+      'end type',
+      'end forward',
+      '',
+      'global type w_main from window',
+      'public function integer of_real();',
+      '  return 1',
+      'end function',
+      'end type'
+    ].join('\r\n');
+    const document = TextDocument.create('file:///proj/src/w_main.srw', 'powerbuilder', 1, source);
+
+    const analysis = analyzeDocument(document, { sourceOrigin: 'solution-source' });
+
+    const typeFact = analysis.semanticFacts.find((fact) => fact.kind.toString().toLowerCase() === 'type');
+    const implementationFact = analysis.semanticFacts.find((fact) => fact.name.toLowerCase() === 'of_real');
+
+    assert.equal(typeFact?.lineage?.sourceOrigin, 'solution-source');
+    assert.equal(implementationFact?.lineage?.sourceOrigin, 'solution-source');
+  });
+
   test('semanticFacts poblan lineage documental para prototype, implementation y herencia', () => {
     const source = [
       'forward',

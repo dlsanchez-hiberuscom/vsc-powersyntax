@@ -17,14 +17,21 @@ El plugin debe:
 1. detectar modo: Workspace, Solution, mixed o PBL-only;
 2. mostrar en la status bar el proyecto activo y el estado real de discovery/indexing;
 3. priorizar archivo activo;
-4. servir Document Symbols y Hover cuanto antes;
-5. exponer desde esa status bar accesos rápidos a stats, salud del runtime y build;
-6. continuar indexando en background.
+4. permitir abrir desde esa status bar un dashboard read-only de salud del proyecto reutilizando stats, manifest y build health ya publicados;
+5. exponer un Object Explorer read-only por proyecto/librería/kind con foco opcional en proyecto o archivo activo;
+6. servir Document Symbols y Hover cuanto antes;
+7. exponer desde esa status bar accesos rápidos a stats, salud del runtime y build;
+8. continuar indexando en background.
 
 Valor:
 
 - el usuario no espera a que el workspace completo termine;
-- y la status bar deja de ser decorativa porque sirve como punto de mantenimiento y observabilidad.
+- y la status bar deja de ser decorativa porque sirve como punto de mantenimiento, observabilidad y acceso al dashboard de salud.
+
+Estado actual:
+
+- el discovery ya distingue `PBL-only` cuando solo aparecen roots `.pbl`;
+- el project model y el Object Explorer proyectan esas librerías como nodos read-only sin requerir `.pbt/.pbproj` ni staging.
 
 ---
 
@@ -32,7 +39,7 @@ Valor:
 
 El usuario abre una ventana, user object o función.
 
-El plugin debe mostrar:
+El plugin debe mostrar, mediante el Current Object Context Panel read-only:
 
 - tipo de objeto;
 - librería/proyecto;
@@ -42,10 +49,6 @@ El plugin debe mostrar:
 - readiness;
 - sourceOrigin;
 - diagnostics relevantes.
-
-Feature futura relacionada:
-
-- Current Object Context Panel.
 
 ---
 
@@ -95,7 +98,13 @@ El plugin debe:
 Estado actual:
 
 - la capability detection read-only ya es visible en status/health del cliente;
-- discovery de JSON, runner, log parser y health unificado siguen pendientes en `B182-B187`.
+- discovery/validación read-only de build files JSON ya está cerrada en servidor y refresca incrementalmente por watcher;
+- el runner out-of-process ya está cerrado y expone comandos run/cancel con estado mínimo visible en status/stats/journal;
+- el parser de logs y Problems Panel ya están cerrados con publicación separada de problemas de build cuando hay mapeo fiable;
+- la health unificada del build moderno ya está cerrada y se reutiliza en status, menú y health report;
+- la UX final de perfiles/comandos ya está cerrada con último build recordado y selección explícita de build file utilizable;
+- el helper CI/CD ya está cerrado como bundle neutral y versionable en `tools/pbautobuild-ci/<perfil>` sin acoplar la extensión a un proveedor concreto.
+- el carril legacy ORCA ya tiene adapter base out-of-process y capability detection read-only visible en status/health; el comando del script activo consume `vscPowerSyntax.legacy.orcaPath` o `PB_ORCA_PATH` sin autodetección difusa por instalaciones locales, el export controlado a `.vsc-powersyntax/orca-export/orca-staging` usa `vscPowerSyntax.legacy.orcaSessionDll`, `PB_ORCA_DLL` o `pborc250.dll` para dejar source indexable sin tocar la PBL original, `vscPowerSyntax.importOrcaStaging` reutiliza ese último export persistido para ejecutar preflight, verificar drift del source real rastreado, hacer backup binario, correr `import-from-staging.orc` y dejar `last-import-ledger.json`, `vscPowerSyntax.regenerateOrcaLibraries` / `vscPowerSyntax.rebuildOrcaProject` reutilizan el mismo rail seguro para mantenimiento legacy sin abrir un segundo motor, la API pública `applySpecDrivenPblUpdate()` encadena safe edit plan + export fresco + edits explícitos sobre staging + import seguro sobre ese mismo rail, `applySpecDrivenPblUpdateBatch()` coordina múltiples PBL de forma secuencial con `stopOnError`, y el servidor persiste la secuencia técnica reciente de build/ORCA en `.vsc-powersyntax/runtime/build-orca-journal.json` además de publicarla por `showStats`.
 
 ---
 
@@ -114,6 +123,13 @@ El plugin debe poder generar contexto read-only:
 - sourceOrigin;
 - evidence/confidence.
 
+Estado actual:
+
+- el plugin ya puede exportar un repro pack semántico reproducible desde el editor activo, capturando `currentObjectContext`, `impactAnalysis`, `safeEditPlan`, `semanticWorkspaceManifest`, `serverStats`, diagnostics visibles y copias de archivos relacionados bajo `tools/semantic-repros`.
+- los diagnostics incluidos en ese contexto y en snapshots ya exponen `diagnostic.code` estable; tooling nuevo debe consumir ese campo y no parsear `source` como contrato primario.
+- la API pública v2 ya expone descriptor contractual, bridge read-only por tools, snapshot semántico exportable/importable, settings governance observable, knowledge packs curados y safe batch refactor planning sin abrir un segundo motor en cliente.
+- el cliente ya expone además un Diagnostics Explainability Panel read-only sobre los diagnostics emitidos, reutilizando el mismo contrato estable de `diagnostic.code`.
+
 Automatización write-enabled solo debe llegar después de API estable, confidence gates y validación suficiente.
 
 ---
@@ -124,8 +140,9 @@ El usuario crea, modifica o elimina `targets/projects/solutions` o añade SR* nu
 
 El plugin debe:
 
-- absorber cambios en `.pbw`, `.pbt`, `.pbproj` y `.pbsln` sin exigir rediscovery completo;
-- refrescar `project routing` y `sourceOrigin` cuando entren SR* nuevos o cambie la topología;
+- absorber cambios en `.pbw`, `.pbt`, `.pbproj`, `.pbsln` y build files JSON sin exigir rediscovery completo;
+- refrescar `project routing`, `sourceOrigin` y el catálogo read-only de build files cuando entren SR* nuevos o cambie la topología;
+- tratar `.pbw/.pbt/.pbproj/.pbsln` y `.pbl` como inputs de topología/discovery, no como documentos semánticos PowerScript aunque un override de lenguaje intente forzar ese camino;
 - mantener status/readiness coherentes mientras el watcher procesa el batch;
 - degradar de forma segura si un marker no puede reprocesarse.
 
@@ -141,3 +158,23 @@ El plugin debe:
 - respetar strings y comentarios;
 - no tratar DataWindow como PowerScript normal;
 - permitir `formatOnSave` delegando el cálculo al servidor LSP o degradando por presupuesto explícito, sin introducir un motor semántico paralelo ni peso extra en el hot path del cliente.
+
+---
+
+## 10. Workflow 9 — Preparar release y revisar marketplace readiness
+
+El mantenedor quiere validar una release sin improvisacion de ultima hora.
+
+El plugin y su repo deben poder:
+
+- generar un VSIX real y repetible;
+- inspeccionar el contenido publicado antes de empaquetar;
+- ejecutar smoke, unit/integration y gate de rendimiento dentro del mismo release lane;
+- y mantener README, changelog y workflow de release alineados con el estado real del producto.
+
+Estado actual:
+
+- `npm run package:vsix` genera `./.dist/vsc-powersyntax.vsix` con el runtime real de la extension;
+- `npm run package:vsix:list` inspecciona el contenido publicable;
+- `npm run release:verify` encadena tests base, gate de rendimiento y empaquetado;
+- `.github/workflows/release-readiness.yml` deja ese mismo carril disponible en CI.

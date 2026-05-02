@@ -124,7 +124,7 @@ fixtures-local/
 - `test/server/performance/pfc-workspace.smoke.test.ts` y `pfc-workspace.perf.test.ts` validan **PFC 2025 Workspace**;
 - `test/server/performance/pfc-solution.smoke.test.ts` mantiene smoke parser/symbols sobre **PFC 2025 Solution**;
 - `test/server/performance/legacy-pbl-dump.smoke.test.ts` introduce regresión básica sobre **legacy PBL dump**;
-- `test/server/performance/orderentry.perf.test.ts` y `orderentry.smoke.test.ts` fijan el slot enterprise local **STD_FC_OrderEntry** como baseline parcial de discovery/indexación y topología real híbrida.
+- `test/server/performance/orderentry.perf.test.ts`, `orderentry.smoke.test.ts` y `orderentry.semantic.test.ts` fijan el slot enterprise local **STD_FC_OrderEntry** como baseline operativo de discovery/indexación, smoke semántica y topología real híbrida con ruido no fuente explícitamente ignorado.
 
 ## Qué no hacer
 

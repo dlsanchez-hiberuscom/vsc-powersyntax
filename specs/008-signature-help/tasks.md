@@ -1,5 +1,7 @@
 # Tareas: Spec 008 — Ayuda de firmas (Signature Help)
 
+**Estado histórico:** cerrada y normalizada por B233.
+
 ## 1. Indexador y Estructura (B028)
 
 - [x] **T1.** Actualizar `Entity` y `SymbolFact` en `src/server/knowledge/types.ts` y `src/server/model/types.ts` para incluir un array de `parameters`.
@@ -24,5 +26,5 @@
 
 ## 5. Validación y Pruebas
 
-- [ ] **T11.** Crear tests unitarios en `test/server/unit/signatureHelp.test.ts`.
-- [ ] **T12.** Compilar y pasar la suite de pruebas (`npm run test:unit`).
+- [x] **T11.** Crear tests unitarios en `test/server/unit/signatureHelp.test.ts`.
+- [x] **T12.** Compilar y pasar la suite de pruebas (`npm run test:unit`).

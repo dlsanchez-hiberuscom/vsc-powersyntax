@@ -130,7 +130,7 @@ Hoy el runtime ya dispone de:
 - backpressure del watcher,
 - refresco incremental de routing/provenance para markers de topología y altas calientes de SR* sin rediscovery completo,
 - pool acotado de fuentes para `references`/`rename`/CodeLens con reuso de `maskedText` ya indexado,
-- consultas acotadas de símbolos para `workspaceSymbols`, API symbols, completion global y manifest semántico, evitando clonar toda la `KnowledgeBase` cuando existe `limit`,
+- mutaciones `upsert/remove` de `KnowledgeBase` con copy-on-write por bucket y consultas/conteos acotados por `kind` para serving y manifest, evitando clonar o recorrer toda la base cuando el hot path ya conoce el subconjunto necesario,
 - caché CodeLens LRU acotada y visible en stats/health,
 - reporte unificado de memory budgets por capa con estimates soft y estado agregado visible en stats/health/status,
 - cierre de documento sin borrar conocimiento semántico publicado mientras el archivo siga siendo fuente del workspace,
@@ -142,7 +142,7 @@ Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm te
 
 ## 6. Objetivos calibrados actuales
 
-Estos valores ya quedan calibrados sobre **PFC 2025 Workspace/Solution**, un **legacy PBL dump** real y el corpus enterprise local **STD_FC_OrderEntry** en host de pruebas compartido.
+Estos valores ya quedan calibrados sobre **PFC 2025 Workspace/Solution**, un **legacy PBL dump** real y el corpus enterprise local **STD_FC_OrderEntry** en host de pruebas compartido, con smoke semántica adicional sobre objetos representativos y ruido no fuente.
 No son promesas absolutas por máquina, pero sí budgets ejecutables y trazables.
 
 ### 6.1 Activación y disponibilidad inicial
@@ -249,6 +249,17 @@ Ante una regresión:
 4. decidir si se revierte, se mitiga o se acepta,
 5. y dejar rastro en la spec o documento técnico correspondiente.
 
+### 9.1 Gate ejecutable actual
+
+El gate ejecutable actual del presupuesto es `npm run test:performance:gate`.
+
+Hoy ese carril debe:
+
+- ejecutar budgets deterministas sobre el corpus publico `fixtures-local/public/legacy-pbl-dump` para hover, diagnostics y batch analysis del archivo activo;
+- incluir la suite `performance/large-workspace-incremental` para rafagas moderadas y masivas sobre workspaces sinteticos grandes;
+- serializar evidencia en `artifacts/performance/performance-budget-gate.json`;
+- y quedar reutilizable tanto en CI como en el release lane (`npm run release:verify`).
+
 ---
 
 ## 10. Estrategia de medición
@@ -316,6 +327,7 @@ Mediciones registradas en `test/results/003-real-corpora-baseline.md`:
 - discovery OrderEntry (`744` archivos): `463.63ms`;
 - indexación cold OrderEntry (`23872` entidades): `12873.54ms`;
 - indexación warm OrderEntry: `0.75ms`.
+- smoke semántica OrderEntry: `OK` sobre objetos representativos, solution-mode parcial y exclusión de `.srj`/`.pblmeta`/recursos no fuente.
 
 ---
 

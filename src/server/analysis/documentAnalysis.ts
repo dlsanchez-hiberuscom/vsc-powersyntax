@@ -27,7 +27,7 @@ import {
   createSemanticSnapshot,
   type SemanticDocumentSnapshot
 } from './semanticSnapshot';
-import { inferSourceOrigin } from '../../shared/sourceOrigin';
+import { inferSourceOrigin, type SourceOrigin } from '../../shared/sourceOrigin';
 import { getBasename } from '../system/uriUtils';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
@@ -80,6 +80,10 @@ export interface StructuralDocumentAnalysis {
   snapshot: SemanticDocumentSnapshot;
 }
 
+export interface DocumentAnalysisOptions {
+  sourceOrigin?: SourceOrigin;
+}
+
 /** FNV-1a 32-bit. Determinista, sin dependencias y rápido para buffers de texto. */
 function fingerprintOf(text: string): number {
   let h = 0x811c9dc5;
@@ -101,7 +105,11 @@ function stableScopeId(container: string | undefined, name: string): string {
   return `${container.toLowerCase()}.${lname}`;
 }
 
-export function analyzeDocument(document: TextDocument): DocumentAnalysis {
+function resolveAnalysisSourceOrigin(uri: string, options?: DocumentAnalysisOptions): SourceOrigin {
+  return options?.sourceOrigin ?? inferSourceOrigin(uri);
+}
+
+export function analyzeDocument(document: TextDocument, options?: DocumentAnalysisOptions): DocumentAnalysis {
   const text = document.getText();
   const lines = text.split(/\r?\n/);
   // Spec 087: BOM al principio del archivo. PowerBuilder genera SR* en
@@ -123,7 +131,7 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   );
   const stubFacts = buildFileObjectStubFacts(document.uri, lines);
   const allFacts = stubFacts.length > 0 ? [...stubFacts, ...facts] : facts;
-  const semanticFacts = mapToSemanticFacts(allFacts, document.uri, inferSourceOrigin(document.uri));
+  const semanticFacts = mapToSemanticFacts(allFacts, document.uri, resolveAnalysisSourceOrigin(document.uri, options));
 
   // Bloques de control globales del documento (luego se filtran por scope cuando hace falta).
   const controlBlocks = scanControlBlocks(strippedLines, 0, strippedLines.length - 1);
@@ -162,7 +170,7 @@ export function analyzeDocument(document: TextDocument): DocumentAnalysis {
   };
 }
 
-export function analyzeDocumentStructural(document: TextDocument): StructuralDocumentAnalysis {
+export function analyzeDocumentStructural(document: TextDocument, options?: DocumentAnalysisOptions): StructuralDocumentAnalysis {
   const text = document.getText();
   const lines = text.split(/\r?\n/);
   if (lines.length > 0 && lines[0].charCodeAt(0) === 0xfeff) {
@@ -173,7 +181,7 @@ export function analyzeDocumentStructural(document: TextDocument): StructuralDoc
   const typeBlocks = scanTypeBlocks(strippedLines);
   const fingerprint = fingerprintOf(text);
   const stubFacts = buildFileObjectStubFacts(document.uri, lines);
-  const semanticFacts = mapToSemanticFacts(stubFacts, document.uri, inferSourceOrigin(document.uri));
+  const semanticFacts = mapToSemanticFacts(stubFacts, document.uri, resolveAnalysisSourceOrigin(document.uri, options));
 
   return {
     uri: document.uri,

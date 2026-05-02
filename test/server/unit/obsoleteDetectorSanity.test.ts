@@ -1,4 +1,6 @@
 import * as assert from 'assert/strict';
+
+import { DIAGNOSTIC_CODES } from '../../../src/shared/diagnosticCodes';
 import { findObsoleteCalls } from '../../../src/server/features/obsoleteDetector';
 import { buildObsoleteIndex } from '../../../src/server/knowledge/obsoleteCatalog';
 
@@ -14,6 +16,7 @@ suite('unit/obsoleteDetectorSanity (B074)', () => {
     ]);
     assert.equal(diags.length, 1);
     assert.equal(diags[0].source, 'PowerScript:SD7');
+    assert.equal(diags[0].code, DIAGNOSTIC_CODES.sd7ObsoleteFunction);
     assert.match(diags[0].message, /DoEvents/);
   });
 

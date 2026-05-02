@@ -1,5 +1,7 @@
 import * as assert from 'assert/strict';
 import { DiagnosticSeverity, Range } from 'vscode-languageserver/node';
+
+import { DIAGNOSTIC_CODES } from '../../../src/shared/diagnosticCodes';
 import { provideCodeActions } from '../../../src/server/features/codeActions';
 
 suite('unit/codeActions (B036)', () => {
@@ -9,7 +11,8 @@ suite('unit/codeActions (B036)', () => {
       severity: DiagnosticSeverity.Warning,
       range: Range.create(0, 0, 0, 5),
       message: "'Yield' está marcada como obsoleta. Sugerencia: DoEvents.",
-      source: 'PowerScript:SD7'
+      source: 'PowerScript:SD7',
+      code: DIAGNOSTIC_CODES.sd7ObsoleteFunction
     };
     const actions = provideCodeActions('file:///x', content, [d]);
     assert.equal(actions.length, 1);
@@ -17,7 +20,7 @@ suite('unit/codeActions (B036)', () => {
     const edit = actions[0].edit?.changes?.['file:///x']?.[0];
     assert.equal(edit?.newText, 'DoEvents');
     assert.deepEqual(actions[0].data, {
-      evidence: 'diagnostic:PowerScript:SD7',
+      evidence: 'diagnostic:SD7',
       confidence: 'high',
       safeEdit: 'single-range-replacement'
     });
@@ -28,7 +31,8 @@ suite('unit/codeActions (B036)', () => {
       severity: DiagnosticSeverity.Warning,
       range: Range.create(0, 0, 0, 5),
       message: "obsoleto sin sugerencia",
-      source: 'PowerScript:SD7'
+      source: 'PowerScript:SD7',
+      code: DIAGNOSTIC_CODES.sd7ObsoleteFunction
     };
     assert.equal(provideCodeActions('file:///x', 'X()\n', [d]).length, 0);
   });
@@ -38,7 +42,8 @@ suite('unit/codeActions (B036)', () => {
       severity: DiagnosticSeverity.Warning,
       range: Range.create(0, 0, 0, 5),
       message: 'Sugerencia: A.',
-      source: 'PowerScript:SD1'
+      source: 'PowerScript:SD1',
+      code: 'SD1'
     };
     assert.equal(provideCodeActions('file:///x', 'X()\n', [d]).length, 0);
   });
@@ -48,7 +53,8 @@ suite('unit/codeActions (B036)', () => {
       severity: DiagnosticSeverity.Warning,
       range: Range.create(0, 0, 0, 5),
       message: "'Yield' está marcada como obsoleta. Sugerencia: DoEvents(); MessageBox('x').",
-      source: 'PowerScript:SD7'
+      source: 'PowerScript:SD7',
+      code: DIAGNOSTIC_CODES.sd7ObsoleteFunction
     };
 
     assert.equal(provideCodeActions('file:///x', 'Yield()\n', [d]).length, 0);

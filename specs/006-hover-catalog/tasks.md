@@ -1,5 +1,7 @@
 # Tareas: Spec 006 — Catálogo Oficial y Hover Enriquecido
 
+**Estado histórico:** cerrada y normalizada por B233.
+
 ## 1. Bloques de Implementación
 
 ### Tipos de Datos (B001)

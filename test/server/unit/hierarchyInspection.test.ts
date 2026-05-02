@@ -33,7 +33,7 @@ suite('unit/hierarchyInspection (B065)', () => {
     const inspection = buildHierarchyInspection('w_child', graph);
 
     assert.equal(inspection.immediateAncestor, 'w_base');
-    assert.deepEqual(inspection.ancestorChain, ['w_base', 'window']);
+    assert.deepEqual(inspection.ancestorChain, ['w_base', 'window', 'powerobject']);
     assert.equal(inspection.hierarchyTree?.name, 'w_child');
     assert.deepEqual(inspection.hierarchyTree?.children.map((child) => child.name), ['w_grandchild']);
     assert.equal(inspection.overriddenMembers.length, 1);
@@ -95,7 +95,8 @@ suite('unit/hierarchyInspection (B065)', () => {
     assert.equal(inspection.immediateAncestor, 'crypterobject');
     assert.equal(inspection.immediateAncestorDescriptor?.name, 'crypterobject');
     assert.equal(inspection.immediateAncestorDescriptor?.isSystemType, true);
-    assert.deepEqual(inspection.ancestorDescriptors.map((entry) => entry.name), ['crypterobject']);
+    assert.deepEqual(inspection.ancestorDescriptors.map((entry) => entry.name), ['crypterobject', 'powerobject']);
     assert.equal(inspection.ancestorDescriptors[0]?.isSystemType, true);
+    assert.equal(inspection.ancestorDescriptors[1]?.isSystemType, true);
   });
 });

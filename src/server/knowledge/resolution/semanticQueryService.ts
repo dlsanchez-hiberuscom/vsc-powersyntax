@@ -3,6 +3,7 @@ import { InheritanceGraph } from './InheritanceGraph';
 import type { HotContextCache } from '../HotContextCache';
 import type { InvocationContext } from '../../utils/invocationContext';
 import { Entity, EntityKind, ScopeKind, type EntityLineageConfidence, type Scope } from '../types';
+import { compareSourceOriginPriority } from '../../../shared/sourceOrigin';
 import { normalizeUri } from '../../system/uriUtils';
 import { annotateLastTraceResolution, recordTraceStep, type TraceStep, withTrace } from '../queryTrace';
 
@@ -52,6 +53,14 @@ export interface QueryEvidence {
   role?: NonNullable<Entity['lineage']>['role'];
   inheritedFrom?: string;
 }
+
+const VARIABLE_SCOPE_PRIORITY = new Map<NonNullable<Entity['scope']>, number>([
+  ['Local', 0],
+  ['Compartida', 1],
+  ['Global', 2],
+  ['Instancia', 3],
+  ['Argumento', 4],
+]);
 
 export interface DistanceDiscardEvidence {
   kind: 'discarded-distance';
@@ -407,6 +416,47 @@ function buildCandidatePool(candidates: Entity[], reasonCode: QueryReasonCode | 
   }));
 }
 
+function getEntitySourceOrigin(entity: Entity): NonNullable<NonNullable<Entity['lineage']>['sourceOrigin']> | 'unknown' {
+  return entity.lineage?.sourceOrigin ?? 'unknown';
+}
+
+function compareEntitiesBySourcePriority(left: Entity, right: Entity): number {
+  const sourcePriority = compareSourceOriginPriority(getEntitySourceOrigin(left), getEntitySourceOrigin(right));
+  if (sourcePriority !== 0) {
+    return sourcePriority;
+  }
+
+  if (left.kind === EntityKind.Variable && right.kind === EntityKind.Variable) {
+    const leftPriority = VARIABLE_SCOPE_PRIORITY.get(left.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
+    const rightPriority = VARIABLE_SCOPE_PRIORITY.get(right.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+  }
+
+  const uriOrder = left.uri.localeCompare(right.uri);
+  if (uriOrder !== 0) {
+    return uriOrder;
+  }
+
+  const lineOrder = left.line - right.line;
+  if (lineOrder !== 0) {
+    return lineOrder;
+  }
+
+  return left.character - right.character;
+}
+
+function preferTargetsBySourceOrigin(targets: Entity[]): Entity[] {
+  if (targets.length <= 1) {
+    return targets;
+  }
+
+  const sorted = [...targets].sort(compareEntitiesBySourcePriority);
+  const preferredOrigin = getEntitySourceOrigin(sorted[0]!);
+  return sorted.filter((target) => compareSourceOriginPriority(getEntitySourceOrigin(target), preferredOrigin) === 0);
+}
+
 function rankTargetsByDistance(targets: Entity[], fromType: string, graph: InheritanceGraph): RankedTargetsResult {
   if (targets.length <= 1) {
     return { winners: targets, discarded: [], ambiguity: null };
@@ -419,7 +469,9 @@ function rankTargetsByDistance(targets: Entity[], fromType: string, graph: Inher
 
   withDistance.sort((left, right) => left.distance - right.distance);
   const winnerDistance = withDistance[0].distance;
-  const winners = withDistance.filter((entry) => entry.distance === winnerDistance).map((entry) => entry.entity);
+  const winners = preferTargetsBySourceOrigin(
+    withDistance.filter((entry) => entry.distance === winnerDistance).map((entry) => entry.entity)
+  );
 
   return {
     winners,
@@ -565,11 +617,14 @@ export function resolveTargetEntityDetailed(
       }
 
       if (possibleTargets.length === 0) {
-        possibleTargets = kb.findAllDefinitions(identifier);
+        candidatePool = kb.findAllDefinitions(identifier);
+        possibleTargets = preferTargetsBySourceOrigin(candidatePool);
         if (possibleTargets.length > 0) {
-          candidatePool = [...possibleTargets];
           reasonCodes.push('global-fallback');
-          recordTraceStep('targets:global-fallback', { count: possibleTargets.length });
+          recordTraceStep('targets:global-fallback', {
+            count: possibleTargets.length,
+            candidateCount: candidatePool.length
+          });
         }
       }
     }

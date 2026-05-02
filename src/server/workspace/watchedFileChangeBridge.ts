@@ -1,10 +1,18 @@
 import { FileChangeType } from 'vscode-languageserver/node';
 
-import { isPowerBuilderProjectMarkerUri, isPowerBuilderSourceUri } from '../../shared/powerbuilderFiles';
+import {
+  isPbAutoBuildBuildFileCandidateUri,
+  isPowerBuilderProjectMarkerUri,
+  isPowerBuilderSourceUri
+} from '../../shared/powerbuilderFiles';
 import type { FsEvent } from '../system/fileWatcherDebouncer';
 
 export function toWatchedFsEvent(change: { uri: string; type: FileChangeType }): FsEvent | null {
-  if (!isPowerBuilderSourceUri(change.uri) && !isPowerBuilderProjectMarkerUri(change.uri)) {
+  if (
+    !isPowerBuilderSourceUri(change.uri)
+    && !isPowerBuilderProjectMarkerUri(change.uri)
+    && !isPbAutoBuildBuildFileCandidateUri(change.uri)
+  ) {
     return null;
   }
 

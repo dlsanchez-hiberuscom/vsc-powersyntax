@@ -1,5 +1,9 @@
 # Spec 005: Workspace Symbols & Go to Definition
 
+**Estado:** cerrada históricamente y normalizada por B233.
+
+**Nota histórica:** la feature quedó implementada y luego fue reforzada por specs posteriores de serving/query engine; la carpeta original carecía de `plan.md` mínimo.
+
 ## 1. Motivación
 
 Con la KnowledgeBase operativa y corregida (Spec 004 + parche D1-D3), el servidor ya conoce todas las entidades del workspace: funciones, tipos, variables y eventos, con su posición exacta. Sin embargo, ese conocimiento es invisible para el usuario.

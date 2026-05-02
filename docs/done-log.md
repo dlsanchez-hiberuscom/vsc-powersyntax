@@ -437,6 +437,63 @@ La slice no cierra todavia `B157`, pero ya explica por que un ancestro o miembro
 
 ---
 
+## 1.9 Hito 2026-05 — Bloque B241-B250 cerrado y validado
+
+### Resultado técnico registrado
+
+El bloque `B241-B250` deja cerrado, sobre código y documentación viva, un carril completo de plataforma abierta, explainability, validación operativa y release:
+
+- API pública v2 endurecida con descriptor contractual, inventario estable y compatibilidad versionada;
+- bridge read-only para tools/agentes locales o JSON-RPC sobre la API pública;
+- export/import versionado de semantic workspace snapshots;
+- gobernanza de settings y perfiles del producto sobre surfaces ya existentes;
+- panel read-only de diagnostics explainability en el cliente;
+- gate de budgets de performance en CI/local y suite de estrés incremental para workspaces grandes;
+- knowledge packs curados de frameworks/librerías PowerBuilder en el manifest semántico;
+- planner read-only de batch rename/refactor reutilizando preflight, impacto y safe edit plan;
+- carril de release repetible con VSIX real, changelog y workflow de marketplace readiness.
+
+### Alcance trazado por spec
+
+- `Spec 284` materializa `B241`.
+- `Spec 285` materializa `B242`.
+- `Spec 286` materializa `B243`.
+- `Spec 287` materializa `B244`.
+- `Spec 288` materializa `B245`.
+- `Spec 289` materializa `B246`.
+- `Spec 290` materializa `B247`.
+- `Spec 291` materializa `B248`.
+- `Spec 292` materializa `B249`.
+- `Spec 293` materializa `B250`.
+
+### Validación registrada
+
+- `npm run build:test`
+- `npm run test:unit -- --grep "unit/publicApi"`
+- `npm run test:unit -- --grep "unit/semanticWorkspaceSnapshot"`
+- `npm run test:unit -- --grep "unit/settingsGovernance"`
+- `npm run test:unit -- --grep "diagnosticsExplainabilityPanelModel"`
+- `npm run test:unit -- --grep "unit/(frameworkKnowledgePacks|semanticWorkspaceManifest)"`
+- `npm run test:unit -- --grep "unit/(safeBatchRefactorPlan|publicApi)"`
+- `node ./node_modules/@vscode/test-cli/out/bin.mjs --label performance --grep "performance/large-workspace-incremental"`
+- `npm run test:performance:gate`
+- `npm run test:smoke -- --grep "la extension se activa en menos de 500ms"`
+- `npm run package:vsix`
+- `npm run release:verify`
+
+### Documentación alineada
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/developer-workflows.md`
+- `docs/performance-budget.md`
+- `docs/roadmap.md`
+- `docs/testing.md`
+
+---
+
 ## 1.8D B157. Descartes contextuales de qualifier — **Slice cerrada (spec 222)**
 
 ### Resultado técnico registrado
@@ -2151,6 +2208,433 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 
 **Validación registrada:**
 - `npm run build:test ; npx mocha --ui tdd out/test/server/unit/documentSymbols.test.js out/test/server/unit/documentSymbolsReconciliation.test.js`
+
+## 1.75 B182. PBAutoBuild build-file discovery and validation — **Cerrada (spec 257, discovery read-only 2026-05)**
+
+**Objetivo:** descubrir build files JSON de PBAutoBuild, vincularlos a la topología real del workspace y clasificar su usabilidad sin ejecutar compilaciones.
+
+**Resultado registrado:**
+- `src/server/workspace/pbAutoBuildBuildFiles.ts`, junto con `discovery.ts` y `workspaceState.ts`, introduce un contrato read-only para candidatos JSON de PBAutoBuild, reason codes explícitos y clasificación `usable/invalid/ambiguous` contra `.pbw/.pbt/.pbproj/.pbsln` ya descubiertos;
+- `src/server/workspace/watchedFileIntake.ts`, `watchedFileChangeBridge.ts` y `src/client/extension.ts` incorporan refresh incremental de build files JSON sin mezclar esos eventos con invalidaciones semánticas masivas ni con el hot path interactivo;
+- `src/server/server.ts` y `src/shared/publicApi.ts` publican un resumen mínimo de build files en `showStats`, mientras `test/server/unit/pbAutoBuildBuildFiles.test.ts`, `workspace.test.ts` y `watchedFileIntake.test.ts` fijan parser, discovery, snapshot y watcher incremental.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/pbAutoBuildBuildFiles.test.js out/test/server/unit/workspace.test.js out/test/server/unit/watchedFileIntake.test.js`
+
+## 1.76 B229. sourceOrigin contextual en análisis documental — **Cerrada (spec 258, contextual provenance 2026-05)**
+
+**Objetivo:** alinear el provenance documental con `WorkspaceState`/routing para que análisis interactivo, indexador y watcher compartan el mismo `sourceOrigin` contextual y no dependan solo de la URI.
+
+**Resultado registrado:**
+- `src/server/analysis/documentAnalysis.ts` acepta ya `sourceOrigin` contextual explícito, de modo que lineage y snapshots no quedan fijados únicamente por `inferSourceOrigin(document.uri)`;
+- `src/server/analysis/analysisCache.ts` incorpora un resolver contextual y reanaliza cuando cambia el provenance aunque versión y fingerprint del documento se mantengan;
+- `src/server/indexer/workspaceIndexer.ts`, `src/server/workspace/watchedFileIntake.ts` y `src/server/server.ts` propagan `sourceOrigin` desde `WorkspaceState`, usan `inferSourceOrigin()` solo como fallback real y rematerializan snapshots cuando un cambio topológico altera el provenance sin tocar el archivo;
+- `test/server/unit/documentAnalysis.test.ts`, `analysisCache.test.ts` y `watchedFileIntake.test.ts`, junto con la validación de `sourceOrigin`, workspace, manifest y golden semántico, fijan el nuevo contrato contextual.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/sourceOrigin.test.js out/test/server/unit/documentAnalysis.test.js out/test/server/unit/analysisCache.test.js out/test/server/unit/watchedFileIntake.test.js out/test/server/unit/workspace.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/powerbuilderSemanticGolden.test.js`
+
+## 1.77 B226. Corpus enterprise OrderEntry como baseline operativo — **Cerrada (spec 251, enterprise baseline 2026-05)**
+
+**Objetivo:** convertir `fixtures-local/STD_FC_OrderEntry` en un baseline enterprise reproducible para discovery, indexación y regresión semántica proporcional sin mezclar corpus privado con el código del producto.
+
+**Resultado registrado:**
+- `src/shared/powerbuilderFiles.ts` deja de tratar `.srj` de deployment como fuente semántica del pipeline de workspace, manteniendo `.pblmeta` y recursos fuera del inventario fuente;
+- `test/server/performance/orderentry.smoke.test.ts` mantiene la cobertura de solution-mode parcial, `_BackupFiles` y variantes multiidioma reales del corpus;
+- `test/server/performance/orderentry.semantic.test.ts` añade smoke semántica reproducible sobre `nc_ac_orderentry`, `vc_oes_toolbar_e`, `wn_dotnet_datastore_e` y `ap_image_build`, fijando `sourceOrigin` de carpetas `.pbl`, topología parcial y exclusión explícita de `.srj`, `.pblmeta` y recursos HTML;
+- `test/corpora/README.md`, `docs/testing.md`, `docs/performance-budget.md` y `test/results/003-real-corpora-baseline.md` reflejan ya que OrderEntry deja de ser solo baseline parcial y pasa a baseline operativo local de discovery/indexación + smoke semántica.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/performance/orderentry.smoke.test.js out/test/server/performance/orderentry.semantic.test.js`
+- `npm run test:performance -- --grep "OrderEntry"`
+
+## 1.78 B225. Cobertura completa de ancestros nativos PowerBuilder — **Cerrada (spec 250, native runtime ancestors 2026-05)**
+
+**Objetivo:** cerrar falsos positivos y degradaciones read-only cuando la herencia llega a tipos nativos del runtime PowerBuilder servidos por `system catalog`.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/nativeAncestors.ts` introduce una fuente compartida de tipos/raíces runtime y de prolongación de cadena nativa sin listas duplicadas por feature;
+- `src/server/knowledge/system/SystemCatalog.ts` reconoce ahora también raíces runtime representativas como `powerobject`, `throwable` y `runtimeerror`, además de los owner types ya indexados;
+- `src/server/knowledge/resolution/InheritanceGraph.ts` completa la cadena cuando la KB termina en `window` u otros tipos nativos conocidos, de forma que hierarchy/current object context/impact analysis no se cortan antes del borde del runtime;
+- `test/server/unit/systemCatalog.test.ts`, `inheritanceGraph.test.ts`, `hierarchyInspection.test.ts`, `currentObjectContext.test.ts`, `diagnostics.test.ts` e `impactAnalysis.test.ts` fijan la nueva proyección estable entre sistema, framework y aplicación.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/systemCatalog.test.js out/test/server/unit/inheritanceGraph.test.js out/test/server/unit/hierarchyInspection.test.js out/test/server/unit/currentObjectContext.test.js out/test/server/unit/diagnostics.test.js`
+- `npx mocha --ui tdd out/test/server/unit/impactAnalysis.test.js`
+
+## 1.79 B183. PBAutoBuild command runner out-of-process — **Cerrada (spec 259, modern build runner 2026-05)**
+
+**Objetivo:** ejecutar PBAutoBuild desde VS Code sin bloquear Extension Host ni LSP, dejando el build observable, cancelable y seguro.
+
+**Resultado registrado:**
+- `src/server/build/pbAutoBuildRunner.ts` introduce un runner server-side dedicado con selección segura del build file utilizable, proceso hijo out-of-process, timeout y cancelación sin mezclar build moderno con el scheduler general;
+- `src/server/server.ts` expone `powerbuilder.runPbAutoBuild` y `powerbuilder.cancelPbAutoBuild`, añade el snapshot del runner a `showStats` y registra eventos del build en `runtimeJournal`;
+- `src/client/extension.ts`, `src/client/statusBarPresentation.ts` y `package.json` sustituyen la acción genérica de build por comandos run/cancel reales y proyectan el estado mínimo del runner en status/tooltip/reportes;
+- `src/shared/pbAutoBuildProtocol.ts` fija el contrato serializable del runner para cliente/servidor y evita duplicar shape del estado.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/pbAutoBuildRunner.test.js out/test/server/unit/statusBarPresentation.test.js`
+- `npm run test:smoke -- --grep "registra comandos de PBAutoBuild"`
+
+## 1.80 B184. PBAutoBuild log parser and Problems Panel integration — **Cerrada (spec 260, build problems 2026-05)**
+
+**Objetivo:** convertir la salida relevante del build moderno en problemas navegables sin inventar ubicaciones ni sobrescribir los diagnósticos semánticos del LSP.
+
+**Resultado registrado:**
+- `src/server/build/pbAutoBuildLogParser.ts` introduce un parser puro para la salida relevante de PBAutoBuild y un resumen estructurado de errores/warnings/fatals;
+- `src/server/build/pbAutoBuildProblems.ts` resuelve issues a entidades tipo del workspace solo cuando el objeto del log mapea de forma única y segura;
+- `src/server/server.ts`, `src/shared/pbAutoBuildProtocol.ts` y `src/client/extension.ts` transportan los problemas de build y los publican en una colección separada (`vscPowerSyntax-build`), evitando pisar el canal semántico principal;
+- los problemas previos se reemplazan por resultado de build y la salida no resoluble permanece en el canal/journal sin convertirse en diagnóstico falso.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/pbAutoBuildLogParser.test.js out/test/server/unit/pbAutoBuildProblems.test.js out/test/server/unit/pbAutoBuildRunner.test.js`
+- `npm run test:smoke -- --grep "registra comandos de PBAutoBuild"`
+
+## 1.81 B187. Unified build health model — **Cerrada (spec 261, build health 2026-05)**
+
+**Objetivo:** consolidar el estado del build moderno en una lectura única y reutilizable para status, menú y health report sin duplicar reglas entre superficies del cliente.
+
+**Resultado registrado:**
+- `src/client/build/pbAutoBuildHealth.ts` introduce el snapshot puro `ready/running/attention/blocked` a partir de capability detection, build files, runner y problemas recientes;
+- `src/client/statusBarPresentation.ts` y `src/client/extension.ts` reutilizan ese snapshot en tooltip, stats, health report, menú y API pública enriquecida del cliente;
+- la UX visible del build moderno ya consume una sola fuente de verdad sin recalcular disponibilidad o degradación en cada superficie.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/pbAutoBuildHealth.test.js out/test/server/unit/statusBarPresentation.test.js`
+- `npm run test:smoke -- --grep "registra comandos de PBAutoBuild"`
+
+## 1.82 B185. PBAutoBuild build profiles, commands and status UX — **Cerrada (spec 262, build UX 2026-05)**
+
+**Objetivo:** permitir builds frecuentes del carril moderno sin recordar rutas ni comandos manuales y sin duplicar la lógica ya cerrada de runner/parser/health.
+
+**Resultado registrado:**
+- `src/server/server.ts` expone al cliente la lista de build files PBAutoBuild utilizables;
+- `src/client/extension.ts` añade comandos para repetir el último build, elegir un build file utilizable y recordar el último perfil por workspace;
+- `src/client/statusBarPresentation.ts`, `package.json` y `test/smoke/extension.test.ts` proyectan el perfil recordado y los nuevos accesos rápidos en menú, tooltip y reportes visibles.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/statusBarPresentation.test.js`
+- `npm run test:smoke -- --grep "registra comandos de PBAutoBuild"`
+
+## 1.83 B043. Integración con PBAutoBuild — **Cerrada (épica moderna 2026-05)**
+
+**Objetivo:** cerrar la épica contenedora del carril moderno oficial de build tras completar capability detection, discovery, runner, parser, health y UX frecuente.
+
+**Resultado registrado:**
+- `B181-B187` quedan cerradas y dejan un carril moderno de PBAutoBuild observable, no bloqueante y usable desde VS Code;
+- la deuda restante se desplaza a `B186` como export reproducible de CI/CD, ya fuera del cierre técnico de la épica base `B043`.
+
+## 1.84 B186. PBAutoBuild CI/CD helper export — **Cerrada (spec 263, helper export 2026-05)**
+
+**Objetivo:** exportar una ayuda reproducible y versionable para llevar el build moderno de PBAutoBuild a CI/CD sin acoplarla a un proveedor concreto.
+
+**Resultado registrado:**
+- `src/client/build/pbAutoBuildCiHelper.ts` introduce un builder puro que genera `manifest.json`, README y scripts neutrales PowerShell/CMD/Bash a partir del build file/perfil utilizable ya cerrado;
+- `src/client/extension.ts` y `package.json` anaden el comando `vscPowerSyntax.exportPbAutoBuildCiHelper`, reutilizan el perfil recordado o uno utilizable del catalogo y escriben el bundle bajo `tools/pbautobuild-ci/<perfil>`;
+- el helper evita embeder el path local detectado como dependencia obligatoria y deja la resolucion del ejecutable al runner CI mediante `PB_AUTOBUILD_PATH`, manteniendo la exportacion agnostica del proveedor.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/pbAutoBuildCiHelper.test.js`
+- `npm run test:smoke -- --grep "PBAutoBuild"`
+
+## 1.85 B230. KnowledgeBase copy-on-write e índices de consulta acotada — **Cerrada (spec 264, KB incremental 2026-05)**
+
+**Objetivo:** reducir el coste de `upsert/remove` en `KnowledgeBase` evitando el clon amplio del estado publicado y reforzar las consultas acotadas para que las rutas interactivas no materialicen mas base de la necesaria.
+
+**Resultado registrado:**
+- `src/server/knowledge/KnowledgeBase.ts` pasa a publicar drafts con copy-on-write por bucket: clona superficialmente los mapas base y solo duplica arrays/sets tocados para ids, kinds y dependencias inversas, manteniendo atomicidad defensiva;
+- `queryEntities/countEntities` reutilizan ahora un indice por `EntityKind` y un total precalculado para evitar recorridos completos cuando el consumer ya conoce `kinds` o solo necesita un conteo acotado;
+- `src/server/features/semanticWorkspaceManifest.ts` consume esos conteos acotados y la nueva prueba `test/server/performance/knowledgeBase.perf.test.ts` fija el presupuesto incremental con miles de documentos sinteticos.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/knowledgeBase.test.js out/test/server/performance/knowledgeBase.perf.test.js`
+- `npm run test:performance -- --grep "knowledgeBase"`
+
+## 1.86 B231. Guards LSP para markers y PBL binario — **Cerrada (spec 265, lsp boundary guards 2026-05)**
+
+**Objetivo:** reforzar el borde cliente/servidor para que markers `.pbw/.pbt/.pbproj/.pbsln` y `.pbl` binarios sigan alimentando discovery/topologia pero no entren en providers semanticos PowerScript.
+
+**Resultado registrado:**
+- `src/shared/powerbuilderFiles.ts` define ahora `isPowerBuilderSemanticUri()` como contrato compartido de URIs servibles por el LSP, separando fuentes/consultas semanticas de markers topologicos y `.pbl` binarios;
+- `src/server/server.ts` aplica un guard central sobre diagnostics, documentSymbols, hover, definition, references, completion, semantic tokens, code actions, code lens y rename para devolver degradacion vacia en documentos no servibles aunque el cliente reciba un override de lenguaje;
+- `test/server/unit/powerbuilderFiles.test.ts` fija la clasificacion y `test/smoke/lsp-guards.extension.test.ts` fuerza un lenguaje servido sobre `.pbw/.pbt/.pbproj/.pbsln/.pbl` para verificar que no aparecen `Document Symbols` ni diagnostics, mientras `sample.sru` sigue respondiendo.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/powerbuilderFiles.test.js`
+- `npm run test:smoke -- --grep "lsp-guards"`
+
+## 1.87 B175. Repro packs automáticos para bugs semánticos — **Cerrada (spec 266, semantic repro pack 2026-05)**
+
+**Objetivo:** generar un bundle reproducible para bugs semánticos complejos sin reconstruir manualmente el contexto del runtime, reutilizando las surfaces read-only ya cerradas.
+
+**Resultado registrado:**
+- `src/client/repro/semanticReproPack.ts` introduce un builder puro del bundle con `manifest.json`, README, snapshots JSON (`currentObjectContext`, `impactAnalysis`, `safeEditPlan`, `semanticWorkspaceManifest`, `serverStats`, diagnostics del editor) y copias de archivos relevantes;
+- `src/client/extension.ts` y `package.json` añaden el comando `vscPowerSyntax.exportSemanticReproPack`, lo exponen en el menú de estado y exportan el pack bajo `tools/semantic-repros/<slug>-<timestamp>` o en un destino override para tests;
+- `test/server/unit/semanticReproPack.test.ts` fija el builder puro y `test/smoke/semantic-repro-pack.extension.test.ts` valida la exportación real desde `sample.sru` sin introducir un motor semántico paralelo ni ensuciar el repo en la smoke.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticReproPack.test.js`
+- `npm run test:smoke -- --grep "semantic-repro-pack"`
+
+## 1.88 B232. IDs diagnósticos implementados vs catálogo gobernado — **Cerrada (spec 267, diagnostic id contract 2026-05)**
+
+**Objetivo:** fijar una política estable para los IDs diagnósticos visibles, evitando una mezcla implícita entre catálogo `PB-*`, IDs históricos `SD*`/`dataobject-*` y consumers que parseaban `source`.
+
+**Resultado registrado:**
+- `src/shared/diagnosticCodes.ts` introduce la lista única de IDs emitidos hoy y helpers para leer `diagnostic.code` con fallback al sufijo legacy en `source`;
+- `src/server/features/diagnostics.ts`, `diagnosticsExtra.ts` y `obsoleteDetector.ts` emiten `diagnostic.code` estable para reglas `SD2-SD13`, `SD7`, familias `dataobject-*`, `retrieve-arity-mismatch`, `transaction-binding-*`, `native-dependency` y warnings lifecycle (`missing-super-*`, `missing-trigger-*`, `unresolved-*`);
+- `src/server/features/codeActions.ts` y los tests focales dejan de depender del parseo directo de `source` como contrato primario y consumen `diagnostic.code` con compatibilidad hacia atrás;
+- `docs/rules-catalog.md` deja explícito que el contrato emitido actual se gobierna por `diagnostic.code` y que `PB-*` sigue siendo taxonomía documental/objetivo, no ID runtime emitido.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/diagnostics.test.js out/test/server/unit/diagnosticsExtra.test.js out/test/server/unit/codeActions.test.js out/test/server/unit/obsolete.test.js out/test/server/unit/obsoleteDetectorSanity.test.js`
+
+## 1.89 B233. Higiene histórica de specs tempranas — **Cerrada (spec 268, early spec hygiene 2026-05)**
+
+**Objetivo:** dejar de mezclar specs activas con carpetas históricas incompletas (`003-009`, `012`) que podían parecer trabajo vivo solo por faltarles `spec.md`, `plan.md` o `tasks.md` mínimos.
+
+**Resultado registrado:**
+- las specs tempranas incompletas `003`, `004`, `005`, `006`, `007`, `008`, `009` y `012` quedan normalizadas con `spec.md/plan.md/tasks.md` mínimos y estado histórico explícito;
+- `specs/006-hover-catalog` y `specs/007-hierarchical-symbols` ya no dependen solo de `tasks.md`, y `specs/012-semantic-tokens` ya no queda como carpeta con una sola pieza;
+- `docs/spec-driven-development.md` documenta explícitamente cómo normalizar specs retroactivas sin reabrir una feature cerrada por ausencia de plantilla antigua;
+- el foco canónico deja de estar en higiene documental y se mueve a `B216`.
+
+**Validación registrada:**
+- auditoría local del inventario `specs/001-020` comprobando que las carpetas tempranas ya no carecen de `spec.md`, `plan.md` o `tasks.md`.
+
+## 1.90 B216. Project Health Dashboard — **Cerrada (spec 269, project health dashboard 2026-05)**
+
+**Objetivo:** mostrar la salud del workspace/proyecto en una vista read-only única consumiendo `health report`, status bar, manifest semántico y snapshot de build ya cerrados, sin abrir un segundo motor de health.
+
+**Resultado registrado:**
+- `src/client/projectHealthDashboard.ts` compone un dashboard markdown read-only sobre `powerbuilder.showStats`, `semanticWorkspaceManifest`, reports existentes de status/health y degradación honesta de ORCA legacy;
+- `src/client/extension.ts` y `package.json` añaden el comando `vscPowerSyntax.openProjectHealthDashboard`, lo registran en el menú de estado y abren el dashboard en un editor markdown lateral;
+- `src/client/statusBarPresentation.ts` enlaza el dashboard desde el tooltip de la status bar, manteniendo la UX de mantenimiento sobre el mismo backbone read-only;
+- `test/server/unit/projectHealthDashboard.test.ts` y la smoke focal en `test/smoke/extension.test.ts` validan el contenido del dashboard y la ejecución real del comando visible.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/projectHealthDashboard.test.js out/test/server/unit/statusBarPresentation.test.js`
+- `npm run test:smoke -- --grep "dashboard de salud del proyecto"`
+
+## 1.91 B214. PowerBuilder Object Explorer — **Cerrada (spec 270, powerbuilder object explorer 2026-05)**
+
+**Objetivo:** ofrecer una vista navegable del modelo PowerBuilder del workspace consumiendo `semanticWorkspaceManifest` y `project model` ya cerrados, sin motor semántico paralelo ni RPCs por nodo.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` y `src/server/features/semanticWorkspaceManifest.ts` enriquecen el manifest read-only con `projectUri`, `library`, `objectKind` y `readiness` por objeto para sostener la vista sin endpoints nuevos;
+- `src/client/objectExplorerModel.ts` construye un árbol puro proyecto -> librería -> kind -> objeto, con foco `workspace/current-project/current-file`, métricas de readiness agregadas y tooltips con `sourceOrigin`;
+- `src/client/objectExplorer.ts`, `src/client/extension.ts` y `package.json` registran la vista `powerbuilderObjectExplorer`, sus comandos de foco/refresco y la acción segura de abrir objeto desde el árbol;
+- `test/server/unit/objectExplorerModel.test.ts`, `test/server/unit/semanticWorkspaceManifest.test.ts` y la smoke focal en `test/smoke/extension.test.ts` validan el modelo, el contrato read-only y el foco sobre el archivo activo.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/objectExplorerModel.test.js out/test/server/unit/semanticWorkspaceManifest.test.js`
+- `npm run test:smoke -- --grep "Object Explorer en el archivo activo"`
+
+## 1.92 B215. Current Object Context Panel — **Cerrada (spec 271, current object context panel 2026-05)**
+
+**Objetivo:** proyectar el contexto semántico del objeto activo en una vista persistente read-only, reutilizando `currentObjectContext` y surfaces públicas ya cerradas sin reconstrucción local.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` y `src/server/features/currentObjectContext.ts` amplían el contrato con `visibleVariables`, combinando scope activo + member closure para exponer locals/args y miembros heredados sobre el mismo backbone read-only;
+- `src/client/currentObjectContextPanelModel.ts` y `src/client/currentObjectContextPanel.ts` construyen y sirven el panel `powerbuilderCurrentObjectContext`, siguiendo el editor activo y agrupando resumen, ancestros, variables visibles, members, diagnostics, bindings `DataObject`, references, related files y evidence;
+- `src/client/extension.ts` y `package.json` registran la vista, sus comandos de refresco/foco y la apertura segura de ubicaciones desde el panel;
+- `test/server/unit/currentObjectContext.test.ts`, `test/server/unit/currentObjectContextPanelModel.test.ts` y la smoke focal en `test/smoke/extension.test.ts` validan el contrato ampliado, el builder puro y la UX visible sobre archivo activo.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/currentObjectContext.test.js out/test/server/unit/currentObjectContextPanelModel.test.js`
+- `npm run test:smoke -- --grep "Current Object Context del archivo activo"`
+
+## 1.97 B192. ORCA staging provenance and source priority — **Cerrada (spec 276, provenance/source priority 2026-05)**
+
+**Objetivo:** fijar de forma efectiva la prioridad entre source real y `orca-staging` para que serving, query y manifest no dependan del orden de ingestión y expliquen con honestidad de dónde viene cada símbolo.
+
+**Resultado registrado:**
+- `src/server/knowledge/KnowledgeBase.ts` ordena buckets globales y por kind según la prioridad explícita de `sourceOrigin`, de modo que `findDefinition` y `findAllDefinitions` ya no dependen del orden en que entró primero el staging o el source real;
+- `src/server/knowledge/resolution/semanticQueryService.ts` desempata candidatos equivalentes y el `global-fallback` usando esa misma prioridad de provenance antes de fijar winner/confidence, evitando ambigüedades artificiales entre source real y `orca-staging`;
+- `test/server/unit/knowledgeBase.test.ts`, `semanticQueryService.test.ts`, `semanticWorkspaceManifest.test.ts` y `definition.test.ts` fijan el contrato `source real > orca-staging` en KB, query engine, manifest y Definition read-only.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/knowledgeBase.test.js out/test/server/unit/semanticQueryService.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/definition.test.js --grep "prioriza source real|prefiere source real frente a orca-staging"`
+
+## 1.103 B081. Inteligencia de DataWindow y acceso a `.Object` — **Cerrada (spec 283, DataWindow Object/GetChild navigation 2026-05)**
+
+**Objetivo:** resolver rutas `dw.Object...` y `GetChild()` sobre DataWindow/DataWindowChild reutilizando el backbone DataWindow ya existente, sin fingir semántica cuando el binding o la cadena child no sean defendibles.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowPropertyPaths.ts` amplía el bridge actual para reconocer property paths avanzados no solo en `Describe/Modify`, sino también en acceso directo `.Object.<control|column|property>` y en el primer argumento literal de `GetChild()`;
+- la resolución sigue reutilizando `DataWindowModel`, `findNearestDataObjectLiteralBinding()` y la cadena child ya existente para `report(...)` / `dddw.name`, incluyendo rutas hoja directas hacia report child o dropdown child cuando el target es único;
+- `test/server/unit/definition.test.ts` fija definición segura para `GetChild("state_id", ...)`, `GetChild("rpt_orders", ...)` y `dw_parent.Object.state_id.dddw.name`;
+- `test/server/unit/hover.test.ts` fija hover seguro para `dw_customer.Object.DataWindow.Table.Select`, manteniendo intacto el comportamiento previo de `Describe/Modify` y la degradación honesta cuando no hay binding resoluble.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/definition.test.js out/test/server/unit/hover.test.js`
+
+## 1.102 B200. Bulk PBL export/import orchestration — **Cerrada (spec 282, bulk PBL export/import orchestration 2026-05)**
+
+**Objetivo:** coordinar varias actualizaciones PBL sobre el workflow unitario ya cerrado en `B199` sin reabrir ORCA, manteniendo trazabilidad por item, corte temprano opcional y agregación defendible del resultado batch.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts`, `src/client/extension.ts` y `src/server/server.ts` publican `applySpecDrivenPblUpdateBatch()` como surface versionada para batches de requests con `stopOnError` y resultado agregado por item;
+- `src/server/build/specDrivenPblUpdate.ts` añade la orquestación batch secuencial reutilizando `applySpecDrivenPblUpdate()`, carga documental por item, journaling agregado y resumen `blocked/succeeded/blockedCount/stoppedEarly` sin duplicar el rail ORCA;
+- `test/server/unit/specDrivenPblUpdateBatch.test.ts` fija el caso feliz multi-item, el corte temprano cuando `stopOnError` es `true` y la continuación explícita cuando se desactiva;
+- el carril legacy queda ya automatizado tanto en modo unitario como batch, y el foco puede volver a la rama semántica profunda de DataWindow (`B081`).
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/specDrivenPblUpdateBatch.test.js out/test/server/unit/specDrivenPblUpdate.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.101 B199. Spec-driven PBL update workflow — **Cerrada (spec 281, spec-driven PBL update workflow 2026-05)**
+
+**Objetivo:** permitir que una spec automatice un cambio controlado sobre una sola PBL legacy sin inventar un motor nuevo, reutilizando el safe edit plan, el export/import ORCA ya cerrados y la observabilidad persistente del carril legacy.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts`, `src/client/extension.ts` y `src/server/server.ts` publican la API/versioned command `applySpecDrivenPblUpdate`, resolviendo editor activo/posición igual que `impactAnalysis` y `safeEditPlan` pero permitiendo además edits explícitos sobre staging;
+- `src/server/build/specDrivenPblUpdate.ts` orquesta `safeEditPlan`, export ORCA fresco, resolución de archivos staged mediante `trackedSources`, aplicación de edits explícitos y `runOrcaStagingImport()` sobre el mismo rail seguro con backup, ledger y journal técnico ya existentes;
+- el workflow bloquea cambios fuera del safe edit plan actual y no degrada la regla `source real > orca-staging` ni los gates de `stale staging` cerrados en `B192/B196`;
+- `test/server/unit/specDrivenPblUpdate.test.ts` fija el caso feliz de export + edit + import y el bloqueo cuando el edit queda fuera del plan seguro.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/specDrivenPblUpdate.test.js out/test/server/unit/orcaStagingImport.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.100 B197. Build and ORCA event journal — **Cerrada (spec 280, build and ORCA event journal 2026-05)**
+
+**Objetivo:** dejar una traza técnica persistente y reutilizable de build/ORCA sin abrir un subsistema de logging paralelo al `RuntimeJournal` ya cerrado en `B163`.
+
+**Resultado registrado:**
+- `src/server/runtime/runtimeJournal.ts` ahora acepta observers y `src/server/runtime/buildOrcaJournalStore.ts` proyecta solo `phase: build|legacy` a `.vsc-powersyntax/runtime/build-orca-journal.json`, con restore y ring buffer persistente por workspace;
+- `src/server/server.ts` conecta ese store al `RuntimeJournal`, expone `showStats.persistence.buildOrcaJournalUri`, enriquece los eventos de `pbautobuild-problems` con contexto del build file y registra eventos específicos de export ORCA además del runner genérico;
+- `src/shared/publicApi.ts` publica la nueva URI persistente y mantiene intacto el snapshot exportable del journal en memoria;
+- `test/server/unit/buildOrcaJournalStore.test.ts`, `runtimeJournal.test.ts`, `pbAutoBuildRunner.test.ts` y `orcaRunner.test.ts` fijan persistencia, restore, ring buffer y compatibilidad con los runners ya cerrados.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/runtimeJournal.test.js out/test/server/unit/buildOrcaJournalStore.test.js out/test/server/unit/pbAutoBuildRunner.test.js out/test/server/unit/orcaRunner.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.99 B196. PBL/source synchronization safety — **Cerrada (spec 279, PBL/source synchronization safety 2026-05)**
+
+**Objetivo:** impedir que el import ORCA toque una PBL con staging obsoleto respecto al source real, sin bloquear el caso válido en el que solo se edita staging a propósito para un workflow posterior.
+
+**Resultado registrado:**
+- `src/server/build/orcaStagingExport.ts` persiste fingerprints textuales del source real rastreado por librería en `last-export.state`, reutilizando el routing del workspace para enlazar source real y export ORCA;
+- `src/server/build/orcaStagingImport.ts` amplía el preflight de `import` para comparar los objetos staged con esos fingerprints persistidos, bloquear `PB-PBL-001` cuando el source real cambió desde el export y rechazar conflictos por múltiples candidatos de source real;
+- `src/shared/orcaProtocol.ts` publica los nuevos códigos de preflight `stale-staging` y `source-conflict` sin abrir un canal diagnóstico separado del rail ORCA;
+- `test/server/unit/orcaStagingImport.test.ts` fija que el import sigue siendo válido cuando solo cambia staging y se bloquea cuando cambió el source real desde el export.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/orcaStagingImport.test.js out/test/server/unit/orcaStagingExport.test.js out/test/server/unit/fileSystem.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.98 B194. ORCA regenerate and rebuild commands — **Cerrada (spec 278, ORCA regenerate/rebuild commands 2026-05)**
+
+**Objetivo:** completar la operativa legacy visible tras `B193`, exponiendo `regenerate/rebuild` sobre el mismo carril ORCA seguro sin abrir un segundo motor ni relajar preflight/backup.
+
+**Resultado registrado:**
+- `src/server/build/orcaStagingImport.ts` se generaliza como rail write-enabled ORCA y reutiliza preflight, backup binario, `compileResult` y ledgers persistidos para `regenerate` y `rebuild` además del import ya cerrado;
+- `src/shared/orcaProtocol.ts` y `src/server/server.ts` publican los nuevos contratos/comandos `powerbuilder.regenerateOrcaLibraries` y `powerbuilder.rebuildOrcaProject`, bloqueando rebuild cuando el export persistido no tiene target/project legacy válido;
+- `src/client/extension.ts`, `src/client/build/orcaDetection.ts` y `package.json` publican `vscPowerSyntax.regenerateOrcaLibraries` y `vscPowerSyntax.rebuildOrcaProject` en command palette/status menu sobre el mismo rail visible del cliente;
+- `test/server/unit/orcaStagingImport.test.ts` y la smoke ORCA de `test/smoke/extension.test.ts` fijan el script `regenerate`, el bloqueo de `rebuild` sin target persistido y el registro visible de los comandos nuevos.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/orcaStagingImport.test.js out/test/server/unit/orcaStagingExport.test.js out/test/server/unit/fileSystem.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.97 B193. ORCA import and compile controlled — **Cerrada (spec 277, ORCA import/compile controlled 2026-05)**
+
+**Objetivo:** importar source desde ORCA staging de forma explícita, controlada y observable, con preflight mínimo, backup binario, compile result y rollback documentado antes de abrir regenerate/rebuild.
+
+**Resultado registrado:**
+- `src/server/build/orcaStagingImport.ts`, `src/server/build/orcaStagingExport.ts` y `src/shared/orcaProtocol.ts` materializan el rail de import/compile sobre `last-export.state`, la captura de fingerprints de PBL, el backup binario real, `import-from-staging.orc` y `last-import-ledger.json` con `compileResult` y rollback disponible;
+- `src/server/system/fileSystem.ts` añade `copyFile()` para preservar PBL binarias reales y `src/server/server.ts` expone `powerbuilder.importOrcaStaging` reutilizando el `OrcaRunner` y el `RuntimeJournal` ya cerrados;
+- `src/client/extension.ts`, `src/client/build/orcaDetection.ts` y `package.json` publican `vscPowerSyntax.importOrcaStaging` en command palette y status menu, manteniendo la UX ORCA en el mismo carril visible del cliente;
+- `test/server/unit/orcaStagingImport.test.ts`, `orcaStagingExport.test.ts`, `fileSystem.test.ts` y la smoke ORCA de `test/smoke/extension.test.ts` fijan el preflight por fingerprint mismatch, el backup binario, el ledger persistido y el wiring visible del comando.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/orcaStagingImport.test.js out/test/server/unit/orcaStagingExport.test.js out/test/server/unit/fileSystem.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.96 B191. ORCA export to staging source — **Cerrada (spec 275, ORCA staging export 2026-05)**
+
+**Objetivo:** exportar roots `.pbl` a un staging indexable y reproducible sin tocar la PBL binaria, reutilizando el adapter ORCA ya cerrado y sin abrir todavía prioridad de source ni import/compile.
+
+**Resultado registrado:**
+- `src/shared/orcaProtocol.ts`, `src/server/build/orcaStagingExport.ts` y `src/server/server.ts` introducen la preparación server-side del export ORCA, el `script` pborca-compatible, el `state` persistido y la restauración de aliases tras discovery para `.vsc-powersyntax/orca-export/{orca-staging,scripts,state}`;
+- `src/server/workspace/workspaceState.ts`, `projectRouting.ts`, `projectRegistry.ts`, `unifiedProjectModel.ts` y `src/server/features/semanticWorkspaceManifest.ts` resuelven aliases explícitos desde cada carpeta staging hacia la librería `.pbl` original, evitando materializar el staging como una librería nueva;
+- `src/client/extension.ts`, `package.json` y `.gitignore` publican `vscPowerSyntax.exportOrcaStaging`, la setting `vscPowerSyntax.legacy.orcaSessionDll`, el fallback `PB_ORCA_DLL`/`pborc250.dll` y formalizan `orca-export` como artefacto local ignorado;
+- `test/server/unit/orcaStagingExport.test.ts`, `workspace.test.ts`, `semanticWorkspaceManifest.test.ts` y la smoke ORCA de `test/smoke/extension.test.ts` fijan el layout, el alias restore y el wiring visible del comando.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/orcaStagingExport.test.js out/test/server/unit/workspace.test.js out/test/server/unit/semanticWorkspaceManifest.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.95 B190. PBL library graph and directory discovery read-only — **Cerrada (spec 274, PBL graph/discovery read-only 2026-05)**
+
+**Objetivo:** entender workspaces legacy basados en `.pbl` como topología read-only real, sin staging aún y sin tocar PBL binaria.
+
+**Resultado registrado:**
+- `src/server/workspace/workspaceState.ts` detecta `pbl-only` cuando el discovery solo encuentra roots `.pbl` y deja de degradar ese caso a `unknown`;
+- `src/server/workspace/projectRouting.ts`, `projectRegistry.ts` y `unifiedProjectModel.ts` sintetizan nodos legacy `kind: library` para roots `.pbl` no cubiertos por `.pbt/.pbproj`, de forma que el proyecto activo y el routing read-only funcionen también en PBL-only;
+- `src/shared/publicApi.ts` y `src/server/features/semanticWorkspaceManifest.ts` publican esa topología legacy en el manifest read-only consumido por dashboard/Object Explorer;
+- `test/server/unit/workspace.test.ts`, `semanticWorkspaceManifest.test.ts`, `objectExplorerModel.test.ts`, `watchedFileIntake.test.ts` y la smoke focal del Object Explorer fijan el comportamiento de discovery, manifest y UX visible.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/workspace.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/objectExplorerModel.test.js out/test/server/unit/watchedFileIntake.test.js`
+- `npm run test:smoke -- --grep "Object Explorer"`
+
+## 1.94 B189. ORCA capability detection and environment validation — **Cerrada (spec 273, capability/env validation 2026-05)**
+
+**Objetivo:** detectar cuándo ORCA legacy puede usarse realmente, degradar con mensajes honestos cuando falta el tool o el entorno es inválido y publicar esa capability sin contaminar el hot path.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` añade `ApiOrcaCapabilitySnapshot` y `orcaTooling` para que la capability ORCA viaje en el snapshot público visible;
+- `src/client/build/orcaDetection.ts` resuelve capability ORCA en Windows desde `vscPowerSyntax.legacy.orcaPath` o `PB_ORCA_PATH`, distingue rutas ausentes/directorios inválidos y evita autodetección difusa por instalaciones locales;
+- `src/client/extension.ts`, `src/client/statusBarPresentation.ts` y `src/client/projectHealthDashboard.ts` consumen `orcaTooling` para ejecutar ORCA con preflight visible y proyectar capability + runner en menú, tooltip, stats y dashboard;
+- `test/server/unit/orcaDetection.test.ts`, `test/server/unit/statusBarPresentation.test.ts`, `test/server/unit/projectHealthDashboard.test.ts` y la smoke focal en `test/smoke/extension.test.ts` fijan la detección, la proyección visible y el comando end-to-end sobre un ejecutable de prueba.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/orcaDetection.test.js out/test/server/unit/statusBarPresentation.test.js out/test/server/unit/projectHealthDashboard.test.js`
+- `npm run test:smoke -- --grep "adapter ORCA legacy"`
+
+## 1.93 B188. ORCA adapter architecture — **Cerrada (spec 272, ORCA adapter architecture 2026-05)**
+
+**Objetivo:** abrir un adapter ORCA opcional, out-of-process y separado del hot path, con el mínimo wiring necesario para invocar scripts legacy sin contaminar discovery, semántica ni staging.
+
+**Resultado registrado:**
+- `src/shared/orcaProtocol.ts`, `src/server/build/orcaRunner.ts` y `src/server/server.ts` introducen un runner ORCA cancelable, observable en `showStats` y accesible por `powerbuilder.runOrcaScript/cancelOrcaScript` sin mezclarlo con el backbone semántico moderno;
+- `src/client/extension.ts` y `package.json` registran `vscPowerSyntax.runActiveOrcaScript` y `vscPowerSyntax.cancelOrcaScript`, apoyados en `vscPowerSyntax.legacy.orcaPath` como configuración explícita hasta que exista capability detection real;
+- `src/client/projectHealthDashboard.ts` deja de tratar ORCA como hueco abstracto y refleja el snapshot real del adapter base en el dashboard de salud;
+- `test/server/unit/orcaRunner.test.ts`, `test/server/unit/projectHealthDashboard.test.ts` y la smoke focal en `test/smoke/extension.test.ts` validan el runner, la observabilidad mínima y la ejecución end-to-end con un ejecutable de prueba.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/orcaRunner.test.js out/test/server/unit/projectHealthDashboard.test.js out/test/server/unit/currentObjectContextPanelModel.test.js`
+- `npm run test:smoke -- --grep "adapter ORCA legacy sobre el archivo activo"`
 
 ## 1.69 B067. Formateador configurable — **Cerrada (formatter conservador cliente-side 2026-05)**
 

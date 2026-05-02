@@ -280,6 +280,39 @@ end event
     assert.ok(value.includes('Ruta: `rpt_orders`'));
   });
 
+  test('provideHover resuelve dw_customer.Object.DataWindow.Table.Select usando el DataObject enlazado', () => {
+    setupAnalyzedDocument('file:///d_customer_object.srd', [
+      '$PBExportHeader$d_customer_object.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT id FROM customer")'
+    ].join('\r\n'));
+    const doc = setupAnalyzedDocument('file:///w_object_hover.srw', [
+      'global type w_object_hover from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_customer.DataObject = "d_customer_object"',
+      '  dw_customer.Object.DataWindow.Table.Select',
+      'end event'
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('Object.DataWindow.Table.Select'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('DataWindow.Table.Select') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.ok(hover);
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('DataWindow.Table.Select'));
+    assert.ok(value.includes('SELECT id FROM customer'));
+  });
+
   test('provideHover explica constructor como hook lifecycle disparado desde create', () => {
     const doc = setupAnalyzedDocument('file:///w_lifecycle_hover.sru', `
 global type w_lifecycle_hover from window

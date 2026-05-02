@@ -1,5 +1,9 @@
 # Spec 012: Semantic Tokens (B027)
 
+**Estado:** cerrada históricamente y normalizada por B233.
+
+**Nota histórica:** el provider `semanticTokens/full` existe hoy en `src/server/features/semanticTokens.ts` con cobertura unitaria en `test/server/unit/semanticTokens.test.ts`, pero la carpeta original no tenía `plan.md` ni `tasks.md`.
+
 ## 1. Motivación
 Con el backbone semántico ya implementado (KnowledgeBase, extracciones y scopes), el editor actualmente colorea el código PowerBuilder apoyándose de forma exclusiva en la gramática de TextMate (`powerbuilder.tmLanguage.json`). TextMate, al ser puramente léxico/regex, no puede distinguir el significado profundo de los tokens en todos los casos. Por ejemplo, no puede distinguir si un identificador genérico es una variable local, una variable de instancia, un parámetro, o una función oficial del sistema.
 

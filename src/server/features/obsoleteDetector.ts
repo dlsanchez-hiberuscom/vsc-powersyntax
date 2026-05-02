@@ -7,6 +7,8 @@
  */
 
 import { Diagnostic, DiagnosticSeverity, Position, Range } from 'vscode-languageserver/node';
+
+import { DIAGNOSTIC_CODES, withDiagnosticCode } from '../../shared/diagnosticCodes';
 import { maskDocument } from '../parsing/codeMasking';
 import { buildObsoleteIndex, type ObsoleteEntry } from '../knowledge/obsoleteCatalog';
 
@@ -32,14 +34,14 @@ export function findObsoleteCalls(
       if (!entry) continue;
       const start = Position.create(line, m.index);
       const end = Position.create(line, m.index + m[1].length);
-      out.push({
+      out.push(withDiagnosticCode({
         severity: DiagnosticSeverity.Warning,
         range: Range.create(start, end),
         message: entry.replacement
           ? `'${entry.name}' está marcada como obsoleta. Sugerencia: ${entry.replacement}.`
           : `'${entry.name}' está marcada como obsoleta.`,
         source: SOURCE
-      });
+      }, DIAGNOSTIC_CODES.sd7ObsoleteFunction));
     }
   }
   return out;

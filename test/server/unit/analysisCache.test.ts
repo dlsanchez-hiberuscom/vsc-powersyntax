@@ -12,6 +12,7 @@ import {
 } from '../../../src/server/analysis/analysisCache';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import type { SourceOrigin } from '../../../src/shared/sourceOrigin';
 import { loadFixture } from '../helpers/fixtureLoader';
 
 const source = loadFixture('basic/sample_forward.sru');
@@ -71,5 +72,30 @@ suite('unit/analysisCache', () => {
 
     assert.equal(documentCache.get(document.uri), undefined);
     assert.equal(knowledgeBase.getDocumentSnapshot(document.uri), null);
+  });
+
+  test('reanaliza si cambia el sourceOrigin contextual sin cambiar la versión', () => {
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const document = TextDocument.create('file:///proj/src/cache-origin.sru', 'powerbuilder', 1, source);
+    let currentSourceOrigin: SourceOrigin = 'unknown';
+
+    setAnalysisBackends(documentCache, knowledgeBase, undefined, () => currentSourceOrigin);
+
+    const first = getDocumentAnalysis(document);
+    const firstType = first.semanticFacts.find((fact) => fact.kind.toString().toLowerCase() === 'type');
+
+    currentSourceOrigin = 'solution-source';
+
+    const second = getDocumentAnalysis(document);
+    const secondType = second.semanticFacts.find((fact) => fact.kind.toString().toLowerCase() === 'type');
+    const persistedType = knowledgeBase.getDocumentSnapshot(document.uri)?.symbols.find(
+      (fact) => fact.kind.toString().toLowerCase() === 'type'
+    );
+
+    assert.notEqual(first, second);
+    assert.equal(firstType?.lineage?.sourceOrigin, 'unknown');
+    assert.equal(secondType?.lineage?.sourceOrigin, 'solution-source');
+    assert.equal(persistedType?.lineage?.sourceOrigin, 'solution-source');
   });
 });

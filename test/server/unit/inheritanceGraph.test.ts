@@ -38,17 +38,17 @@ suite('server/knowledge/resolution/InheritanceGraph', () => {
 
   test('getAncestors resuelve la cadena hacia arriba', () => {
     const ancestors = graph.getAncestors('w_employee');
-    assert.deepStrictEqual(ancestors, ['w_sheet', 'w_base', 'window']);
+    assert.deepStrictEqual(ancestors, ['w_sheet', 'w_base', 'window', 'powerobject']);
   });
 
-  test('getAncestors devuelve array vacío si no tiene base', () => {
+  test('getAncestors completa ancestros nativos runtime aunque no estén en KB', () => {
     const ancestors = graph.getAncestors('window');
-    assert.deepStrictEqual(ancestors, []);
+    assert.deepStrictEqual(ancestors, ['powerobject']);
   });
 
   test('getTypeHierarchy devuelve el propio objeto y sus ancestros', () => {
     const hierarchy = graph.getTypeHierarchy('w_employee');
-    assert.deepStrictEqual(hierarchy, ['w_employee', 'w_sheet', 'w_base', 'window']);
+    assert.deepStrictEqual(hierarchy, ['w_employee', 'w_sheet', 'w_base', 'window', 'powerobject']);
   });
 
   test('getTypeDistance calcula distancias correctamente', () => {
@@ -56,6 +56,7 @@ suite('server/knowledge/resolution/InheritanceGraph', () => {
     assert.strictEqual(graph.getTypeDistance('w_employee', 'w_sheet'), 1);
     assert.strictEqual(graph.getTypeDistance('w_employee', 'w_base'), 2);
     assert.strictEqual(graph.getTypeDistance('w_employee', 'window'), 3);
+    assert.strictEqual(graph.getTypeDistance('w_employee', 'powerobject'), 4);
     assert.strictEqual(graph.getTypeDistance('w_employee', 'w_unknown'), Number.POSITIVE_INFINITY);
   });
 
@@ -96,7 +97,7 @@ suite('server/knowledge/resolution/InheritanceGraph', () => {
 
   test('Las cachés se limpian automáticamente cuando KnowledgeBase cambia', () => {
     const initialAncestors = graph.getAncestors('w_employee');
-    assert.strictEqual(initialAncestors.length, 3);
+    assert.strictEqual(initialAncestors.length, 4);
 
     // Simulamos que w_sheet ahora hereda de w_new_base
     const newSheetEntity: Entity = { 
@@ -105,7 +106,7 @@ suite('server/knowledge/resolution/InheritanceGraph', () => {
     kb.upsertDocument('file:///w_sheet.srw', [newSheetEntity]);
 
     const newAncestors = graph.getAncestors('w_employee');
-    // window ya no está en la cadena, solo w_sheet y w_new_base (porque w_new_base no tiene definición conocida aquí)
+    // w_new_base sigue sin definición local, así que la cadena se completa solo con ancestros nativos conocidos del runtime.
     assert.deepStrictEqual(newAncestors, ['w_sheet', 'w_new_base']);
   });
 });

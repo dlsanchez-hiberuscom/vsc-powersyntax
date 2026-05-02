@@ -1,6 +1,7 @@
 import { CancellationToken } from '../runtime/cancellation';
 import { IFileSystem } from '../system/fileSystem';
 import { WorkspaceState } from './workspaceState';
+import { parsePbAutoBuildBuildFileCandidate } from './pbAutoBuildBuildFiles';
 import { parseTopology } from './topology';
 import { POWERBUILDER_SOURCE_EXTENSIONS } from '../../shared/powerbuilderFiles';
 
@@ -106,6 +107,8 @@ async function walkDirectory(
     } else if (file.lowerName.endsWith('.pbproj')) {
       state.addRoot('projects', file.entryUri);
       await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.json')) {
+      await tryParseBuildFile(file.entryUri, fs, state);
     } else {
       const extMatch = file.lowerName.match(/\.[^.]+$/);
       if (extMatch && PB_SOURCE_EXTENSIONS.has(extMatch[0])) {
@@ -161,5 +164,21 @@ async function tryParseTopology(
     }
   } catch {
     // Marker ilegible → ignorado.
+  }
+}
+
+async function tryParseBuildFile(
+  uri: string,
+  fs: IFileSystem,
+  state: WorkspaceState
+): Promise<void> {
+  try {
+    const content = await fs.readFile(uri);
+    const candidate = parsePbAutoBuildBuildFileCandidate(uri, content);
+    if (candidate) {
+      state.addBuildFileCandidate(candidate);
+    }
+  } catch {
+    // JSON ilegible → ignorado como candidato de build.
   }
 }

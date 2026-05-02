@@ -1,4 +1,5 @@
 import { normalizeUri } from '../system/uriUtils';
+import { compareSourceOriginPriority } from '../../shared/sourceOrigin';
 import { Entity, EntityKind, Fact, Scope } from './types';
 import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
@@ -15,6 +16,7 @@ interface ScopeIndexEntry {
 
 interface PublishedKnowledgeState {
   globalSymbols: Map<string, Entity[]>;
+  entitiesByKind: Map<EntityKind, Entity[]>;
   documentSymbols: Map<string, Set<string>>;
   entitiesByUri: Map<string, Entity[]>;
   documentScopes: Map<string, Scope[]>;
@@ -22,6 +24,7 @@ interface PublishedKnowledgeState {
   documentSnapshots: Map<string, SemanticDocumentSnapshot>;
   documentDependencies: Map<string, Set<string>>;
   reverseDependencies: Map<string, Set<string>>;
+  totalEntities: number;
   semanticEpoch: number;
   publishedAt: number;
 }
@@ -40,6 +43,7 @@ function cloneValue<T>(value: T): T {
 function createEmptyState(): PublishedKnowledgeState {
   return {
     globalSymbols: new Map(),
+    entitiesByKind: new Map(),
     documentSymbols: new Map(),
     entitiesByUri: new Map(),
     documentScopes: new Map(),
@@ -47,6 +51,7 @@ function createEmptyState(): PublishedKnowledgeState {
     documentSnapshots: new Map(),
     documentDependencies: new Map(),
     reverseDependencies: new Map(),
+    totalEntities: 0,
     semanticEpoch: 0,
     publishedAt: Date.now()
   };
@@ -54,17 +59,57 @@ function createEmptyState(): PublishedKnowledgeState {
 
 function cloneState(state: PublishedKnowledgeState): PublishedKnowledgeState {
   return {
-    globalSymbols: new Map(Array.from(state.globalSymbols.entries(), ([key, value]) => [key, cloneValue(value)])),
-    documentSymbols: new Map(Array.from(state.documentSymbols.entries(), ([key, value]) => [key, new Set(value)])),
-    entitiesByUri: new Map(Array.from(state.entitiesByUri.entries(), ([key, value]) => [key, cloneValue(value)])),
-    documentScopes: new Map(Array.from(state.documentScopes.entries(), ([key, value]) => [key, cloneValue(value)])),
-    scopeIndex: new Map(),
-    documentSnapshots: new Map(Array.from(state.documentSnapshots.entries(), ([key, value]) => [key, cloneValue(value)])),
-    documentDependencies: new Map(Array.from(state.documentDependencies.entries(), ([key, value]) => [key, new Set(value)])),
-    reverseDependencies: new Map(Array.from(state.reverseDependencies.entries(), ([key, value]) => [key, new Set(value)])),
+    globalSymbols: new Map(state.globalSymbols),
+    entitiesByKind: new Map(state.entitiesByKind),
+    documentSymbols: new Map(state.documentSymbols),
+    entitiesByUri: new Map(state.entitiesByUri),
+    documentScopes: new Map(state.documentScopes),
+    scopeIndex: new Map(state.scopeIndex),
+    documentSnapshots: new Map(state.documentSnapshots),
+    documentDependencies: new Map(state.documentDependencies),
+    reverseDependencies: new Map(state.reverseDependencies),
+    totalEntities: state.totalEntities,
     semanticEpoch: state.semanticEpoch,
     publishedAt: state.publishedAt
   };
+}
+
+function cloneArrayBucket<K, T>(map: Map<K, T[]>, key: K, touchedKeys: Set<K>): T[] {
+  const existing = map.get(key);
+  if (!existing) {
+    const created: T[] = [];
+    map.set(key, created);
+    touchedKeys.add(key);
+    return created;
+  }
+
+  if (touchedKeys.has(key)) {
+    return existing;
+  }
+
+  const cloned = [...existing];
+  map.set(key, cloned);
+  touchedKeys.add(key);
+  return cloned;
+}
+
+function getEntityBuckets(
+  state: PublishedKnowledgeState,
+  kinds: ReadonlySet<EntityKind> | undefined
+): Iterable<Entity[]> {
+  if (!kinds || kinds.size === 0) {
+    return state.globalSymbols.values();
+  }
+
+  return [...kinds].map((kind) => state.entitiesByKind.get(kind) ?? []);
+}
+
+function getEntitySourceOrigin(entity: Entity): NonNullable<NonNullable<Entity['lineage']>['sourceOrigin']> | 'unknown' {
+  return entity.lineage?.sourceOrigin ?? 'unknown';
+}
+
+function sortEntitiesBySourcePriority(entities: Entity[]): void {
+  entities.sort((left, right) => compareSourceOriginPriority(getEntitySourceOrigin(left), getEntitySourceOrigin(right)));
 }
 
 /**
@@ -276,7 +321,7 @@ export class KnowledgeBase {
     }
 
     const result: Entity[] = [];
-    for (const entities of this.publishedState.globalSymbols.values()) {
+    for (const entities of getEntityBuckets(this.publishedState, kinds)) {
       for (const entity of entities) {
         if (kinds && !kinds.has(entity.kind)) continue;
         if (query && !entity.id.includes(query)) continue;
@@ -292,11 +337,23 @@ export class KnowledgeBase {
     return cloneValue(result);
   }
 
-  countEntities(include?: (entity: Entity) => boolean): number {
+  countEntities(options?: EntityQueryOptions | ((entity: Entity) => boolean)): number {
+    const normalizedOptions = typeof options === 'function'
+      ? { include: options }
+      : options ?? {};
+    const query = normalizedOptions.query?.toLowerCase() ?? '';
+    const kinds = normalizedOptions.kinds ? new Set(normalizedOptions.kinds) : undefined;
+
+    if (!normalizedOptions.include && !query && !kinds) {
+      return this.publishedState.totalEntities;
+    }
+
     let count = 0;
-    for (const entities of this.publishedState.globalSymbols.values()) {
+    for (const entities of getEntityBuckets(this.publishedState, kinds)) {
       for (const entity of entities) {
-        if (!include || include(entity)) {
+        if (kinds && !kinds.has(entity.kind)) continue;
+        if (query && !entity.id.includes(query)) continue;
+        if (!normalizedOptions.include || normalizedOptions.include(entity)) {
           count++;
         }
       }
@@ -424,10 +481,6 @@ export class KnowledgeBase {
    * features de observabilidad puedan vigilar el coste real del índice.
    */
   getStats() {
-    let totalEntities = 0;
-    for (const entities of this.publishedState.globalSymbols.values()) {
-      totalEntities += entities.length;
-    }
     let indexedScopes = 0;
     for (const arr of this.publishedState.scopeIndex.values()) indexedScopes += arr.length;
     let structuralSnapshots = 0;
@@ -441,7 +494,7 @@ export class KnowledgeBase {
       if (snapshot.readiness === 'nearby-semantic-ready') nearbySemanticReadySnapshots++;
     }
     return {
-      totalEntities,
+      totalEntities: this.publishedState.totalEntities,
       indexedDocuments: this.publishedState.documentSymbols.size,
       indexedScopes,
       internedStrings: this.publishedStringInterner.getStats().uniqueStrings,
@@ -491,14 +544,19 @@ export class KnowledgeBase {
 
   private removeDocumentFromState(state: PublishedKnowledgeState, normalizedUri: string): void {
     const existingSymbolIds = state.documentSymbols.get(normalizedUri);
+    const existingEntities = state.entitiesByUri.get(normalizedUri) ?? [];
     this.removeDependenciesFromState(state, normalizedUri);
 
-    if (!existingSymbolIds) {
+    if (!existingSymbolIds && existingEntities.length === 0) {
+      state.documentSymbols.delete(normalizedUri);
+      state.documentScopes.delete(normalizedUri);
+      state.entitiesByUri.delete(normalizedUri);
+      state.scopeIndex.delete(normalizedUri);
       state.documentSnapshots.delete(normalizedUri);
       return;
     }
 
-    for (const id of existingSymbolIds) {
+    for (const id of existingSymbolIds ?? new Set<string>()) {
       const entities = state.globalSymbols.get(id);
       if (!entities) continue;
 
@@ -510,11 +568,25 @@ export class KnowledgeBase {
       }
     }
 
+    const kinds = new Set(existingEntities.map((entity) => entity.kind));
+    for (const kind of kinds) {
+      const entities = state.entitiesByKind.get(kind);
+      if (!entities) continue;
+
+      const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
+      if (filtered.length > 0) {
+        state.entitiesByKind.set(kind, filtered);
+      } else {
+        state.entitiesByKind.delete(kind);
+      }
+    }
+
     state.documentSymbols.delete(normalizedUri);
     state.documentScopes.delete(normalizedUri);
     state.entitiesByUri.delete(normalizedUri);
     state.scopeIndex.delete(normalizedUri);
     state.documentSnapshots.delete(normalizedUri);
+    state.totalEntities = Math.max(0, state.totalEntities - existingEntities.length);
   }
 
   private updateDependenciesFromSnapshot(
@@ -531,7 +603,7 @@ export class KnowledgeBase {
 
     state.documentDependencies.set(normalizedUri, dependencies);
     for (const dependency of dependencies) {
-      const reverse = state.reverseDependencies.get(dependency) ?? new Set<string>();
+      const reverse = new Set(state.reverseDependencies.get(dependency) ?? []);
       reverse.add(normalizedUri);
       state.reverseDependencies.set(dependency, reverse);
     }
@@ -547,9 +619,12 @@ export class KnowledgeBase {
       const reverse = state.reverseDependencies.get(dependency);
       if (!reverse) continue;
 
-      reverse.delete(normalizedUri);
-      if (reverse.size === 0) {
+      const nextReverse = new Set(reverse);
+      nextReverse.delete(normalizedUri);
+      if (nextReverse.size === 0) {
         state.reverseDependencies.delete(dependency);
+      } else {
+        state.reverseDependencies.set(dependency, nextReverse);
       }
     }
 
@@ -610,13 +685,32 @@ export class KnowledgeBase {
 
     const symbolIds = new Set<string>();
     const uriEntities: Entity[] = [];
+    const touchedGlobalIds = new Set<string>();
+    const touchedKinds = new Set<EntityKind>();
 
     for (const fact of facts) {
-      const existing = state.globalSymbols.get(fact.id) || [];
-      existing.push(fact);
-      state.globalSymbols.set(fact.id, existing);
+      const globalBucket = cloneArrayBucket(state.globalSymbols, fact.id, touchedGlobalIds);
+      globalBucket.push(fact);
+
+      const kindBucket = cloneArrayBucket(state.entitiesByKind, fact.kind, touchedKinds);
+      kindBucket.push(fact);
+
       symbolIds.add(fact.id);
       uriEntities.push(fact);
+    }
+
+    for (const symbolId of touchedGlobalIds) {
+      const globalBucket = state.globalSymbols.get(symbolId);
+      if (globalBucket) {
+        sortEntitiesBySourcePriority(globalBucket);
+      }
+    }
+
+    for (const kind of touchedKinds) {
+      const kindBucket = state.entitiesByKind.get(kind);
+      if (kindBucket) {
+        sortEntitiesBySourcePriority(kindBucket);
+      }
     }
 
     state.documentSymbols.set(normalizedUri, symbolIds);
@@ -624,6 +718,7 @@ export class KnowledgeBase {
     state.scopeIndex.delete(normalizedUri);
     if (uriEntities.length > 0) {
       state.entitiesByUri.set(normalizedUri, uriEntities);
+      state.totalEntities += uriEntities.length;
     }
     if (snapshot) {
       state.documentSnapshots.set(normalizedUri, snapshot);

@@ -200,7 +200,7 @@ Base materializada. Ya cerrados como bloque operativo:
 
 Gap incremental reabierto en esta fase:
 
-- `B225` cobertura completa de ancestros nativos PowerBuilder sobre `system catalog`, todavía parcial tras el primer cierre de SD3 + superficies read-only.
+- `B230`, `B231`, `B175`, `B232`, `B233`, `B216`, `B214`, `B215`, `B188`, `B189`, `B190`, `B191`, `B192`, `B193`, `B194`, `B196`, `B197`, `B199`, `B200` y `B081` quedan cerradas como refuerzo de coste interno, boundary del LSP, reproducibilidad read-only, contrato diagnóstico estable, higiene del inventario histórico, dashboard de salud, explorer del workspace, panel de contexto activo, adapter ORCA base, capability/env validation visible, graph legacy read-only, export controlado a staging, rail write-enabled completo de import/regenerate/rebuild, gating frente a source real obsoleto, journal técnico persistente de `build|legacy`, workflow spec-driven unitario de update PBL, su orquestación batch y el bridge DataWindow `.Object`/`GetChild()`; el siguiente bloque del orden pedido por el usuario sigue pendiente de ancla canónica en backlog/specs, quedando `B198` como deuda documental residual del carril legacy.
 
 ---
 
@@ -224,11 +224,7 @@ Convertir el producto en herramienta robusta para proyectos enterprise y legacy 
 
 ### Pendientes principales
 
-- `B226`;
-- `B229`;
-- `B230`;
-- `B231`;
-- `B175`.
+- sin gaps activos inmediatos en esta fase tras cerrar `B216`.
 
 Bloque ya cerrado dentro de la fase:
 
@@ -239,14 +235,18 @@ Bloque ya cerrado dentro de la fase:
 - `B118` integration test matrix del plugin;
 - `B161` golden tests semánticos end-to-end;
 - `B163` runtime journal exportable del motor;
+- `B230` KnowledgeBase copy-on-write e indices de consulta acotada.
+- `B231` guards LSP para markers y PBL binario.
+- `B175` repro packs automáticos para bugs semánticos.
+- `B232` contrato estable de IDs diagnósticos vía `diagnostic.code` (`specs/267-diagnostic-id-contract`).
+- `B233` higiene histórica de specs tempranas (`specs/268-early-spec-hygiene`).
+- `B216` dashboard read-only de salud del proyecto (`specs/269-project-health-dashboard`).
 - `B176` health checker interno estructurado;
+- `B226` baseline enterprise OrderEntry (`specs/251-orderentry-enterprise-baseline`);
+- `B229` sourceOrigin contextual en análisis documental (`specs/258-sourceorigin-contextual-document-analysis`);
 - `B070` memory budgets de caché e índice (`specs/255-memory-budgets`);
 - `B228` modelo interno sin DTOs LSP en `knowledge/parsing` (`specs/254-internal-model-no-lsp-dtos`);
 - `B162` reconciliación parser / symbol model / salida LSP (`specs/256-parser-symbol-lsp-reconciliation`).
-
-Slice parcial activa dentro de la fase:
-
-- `B226` incorpora `STD_FC_OrderEntry` como baseline enterprise local de discovery/indexación, todavía pendiente de smoke/semantics adicionales y reglas completas de ruido/topología.
 
 ---
 
@@ -267,9 +267,9 @@ Extender el producto a piezas diferenciales del ecosistema PowerBuilder sin comp
 
 ### Pendientes principales
 
-- `B081`;
-- `B181-B187`;
-- `B214-B216`.
+- `B195`;
+- `B198`;
+- el bloque `B241-B250` ya queda cerrado y trazado en `specs/284-293`; cualquier reapertura futura requiere regresion demostrable o cambio de alcance explicito.
 
 Bloque ya cerrado dentro de la fase:
 
@@ -278,12 +278,19 @@ Bloque ya cerrado dentro de la fase:
 - `B041` catálogo y navegación de DataWindow;
 - `B042` soporte avanzado de DataWindow (`specs/249-datawindow-advanced`);
 - `B181` capability detection read-only de `PBAutoBuild250.exe` (`specs/252-pbautobuild-capability-detection`);
+- `B182` discovery/validation read-only de build files JSON de PBAutoBuild (`specs/257-pbautobuild-build-file-discovery`);
+- `B183` runner out-of-process de PBAutoBuild (`specs/259-pbautobuild-runner-out-of-process`);
+- `B184` parser de logs y Problems Panel de PBAutoBuild (`specs/260-pbautobuild-log-parser-problems`);
+- `B186` helper exportable y neutral para CI/CD sobre PBAutoBuild (`specs/263-pbautobuild-cicd-helper-export`);
+- `B188` adapter ORCA base out-of-process (`specs/272-orca-adapter-architecture`);
+- `B216` dashboard read-only de salud del proyecto (`specs/269-project-health-dashboard`);
+- `B214` PowerBuilder Object Explorer read-only (`specs/270-powerbuilder-object-explorer`);
 - `B227` formatter server-side con budgets explícitos (`specs/253-formatter-server-budget`).
 
 Notas de orden:
 
-- `B043` se mantiene como épica contenedora; el trabajo ejecutable vive en `B181-B187`.
-- `B214-B216` deben consumir contratos read-only ya cerrados (`B217`, `B220`, `B176`, `B107`) y no abrir un segundo motor semántico o de health.
+- `B043` queda cerrada como épica base; con `B186` ya no queda deuda técnica inmediata en el carril moderno salvo operabilidad/documentación posterior (`B198`).
+- `B081` ya queda cerrada y movida a `docs/done-log.md`: el backbone DataWindow resuelve `.Object.<...>` y `GetChild()` sobre rutas hijas deterministas reutilizando `DataWindowModel`; el siguiente bloque pedido por el usuario queda ahora formalizado como `B241-B250` en backlog/specs y pasa a ser el frente activo.
 
 ---
 
@@ -303,11 +310,8 @@ Abrir contratos estables para consumo externo sin contaminar el núcleo.
 
 ### Pendientes principales
 
-- `B110`;
-- `B111`;
-- `B132`;
-- `B140`;
-- futuras AI context packs.
+- sin gaps activos inmediatos en esta fase tras cerrar `B241`, `B242`, `B243` y `B249` en `specs/284`, `285`, `286` y `292`.
+- deuda histórica previa (`B110`, `B111`, `B132`, `B140`) solo si vuelve a emerger un gap real no cubierto por el backbone actual.
 
 ---
 
@@ -325,6 +329,10 @@ Aprovechar plataforma madura para automatización e IA sin reescribir arquitectu
 - context packs;
 - impact analysis;
 - safe edit plans.
+
+### Pendientes principales
+
+- sin gaps activos inmediatos en esta fase tras cerrar `B244`, `B245`, `B246`, `B247`, `B248` y `B250` en `specs/287-291` y `293`.
 
 ---
 
@@ -359,20 +367,21 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Fase E — Especialización PowerBuilder**
+**Deuda operativa residual — `B198`**
 
 Con foco en:
 
-- `B182/B183/B187` — discovery, runner y health de build moderno.
+- documentar y endurecer troubleshooting del carril moderno/legacy ya materializado;
+- mantener verde el bloque `B241-B250` ya cerrado y el bridge DataWindow ya asentado;
+- dejar `B195` detrás de `B198`, sin reabrir el bloque recién cerrado.
 
 ### Trabajo paralelo permitido
 
-**Fase D — Escala, salud interna y excelencia operativa**
+**Fase E/Legacy — mantenimiento semántico y operabilidad residual**
 
 Solo si no bloquea el foco principal:
 
-- `B182/B183/B187`;
-- `B175`.
+- `B195`, como decisión de packaging legacy, solo cuando `B198` ya no deje deuda operativa relevante.
 
 ### Validación temprana permitida
 
@@ -381,7 +390,8 @@ Mantener verde la base ya cerrada sin reabrir superficie funcional:
 - corpus reales;
 - smoke matrix;
 - golden suite semántica;
-- performance regression suite.
+- performance regression suite;
+- release lane (`package:vsix` / `release:verify`) ya materializado.
 
 ---
 

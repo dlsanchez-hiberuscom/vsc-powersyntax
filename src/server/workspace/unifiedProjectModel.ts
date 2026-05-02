@@ -4,7 +4,7 @@ import { resolveProjectRouting } from './projectRouting';
 
 export interface UnifiedProjectNode {
   projectUri: string;
-  kind: 'target' | 'project';
+  kind: 'target' | 'project' | 'library';
   name: string;
   libraries: string[];
 }
@@ -19,11 +19,13 @@ export interface UnifiedProjectModel {
 
 export function buildUnifiedProjectModel(
   topology: WorkspaceTopology,
-  sourceFiles: string[]
+  sourceFiles: string[],
+  libraryRoots: string[] = [],
+  librarySourceAliases: Record<string, string[]> = {}
 ): UnifiedProjectModel {
   const nodes = new Map<string, UnifiedProjectNode>();
   const projectFiles = new Map<string, string[]>();
-  const routing = resolveProjectRouting(topology, sourceFiles);
+  const routing = resolveProjectRouting(topology, sourceFiles, libraryRoots, librarySourceAliases);
 
   for (const target of topology.targets) {
     nodes.set(normalizeUri(target.uri), {
@@ -43,6 +45,25 @@ export function buildUnifiedProjectModel(
     });
   }
 
+  const declaredLibraries = new Set(
+    [...topology.targets.flatMap((target) => target.libraries), ...topology.projects.flatMap((project) => project.libraries)]
+      .map((library) => normalizeUri(library))
+  );
+
+  for (const libraryRoot of libraryRoots) {
+    const normalizedLibraryRoot = normalizeUri(libraryRoot);
+    if (declaredLibraries.has(normalizedLibraryRoot)) {
+      continue;
+    }
+
+    nodes.set(normalizedLibraryRoot, {
+      projectUri: normalizedLibraryRoot,
+      kind: 'library',
+      name: basename(normalizedLibraryRoot),
+      libraries: [normalizedLibraryRoot]
+    });
+  }
+
   for (const file of sourceFiles) {
     const projectUri = routing.fileToProject.get(normalizeUri(file));
     if (!projectUri) continue;
@@ -52,8 +73,7 @@ export function buildUnifiedProjectModel(
 
     const normalizedFile = normalizeUri(file);
     const belongsToDeclaredLibrary = project.libraries.some((libraryUri) => {
-      const prefix = libraryUri.endsWith('/') ? normalizeUri(libraryUri) : `${normalizeUri(libraryUri)}/`;
-      return normalizedFile.startsWith(prefix);
+      return expandLibrarySourceRoots(libraryUri, librarySourceAliases).some((prefix) => normalizedFile.startsWith(prefix));
     });
     if (!belongsToDeclaredLibrary) continue;
 
@@ -82,8 +102,7 @@ export function buildUnifiedProjectModel(
         const normalizedUri = normalizeUri(uri);
         return !projects.some((project) =>
           project.libraries.some((libraryUri) => {
-            const prefix = libraryUri.endsWith('/') ? normalizeUri(libraryUri) : `${normalizeUri(libraryUri)}/`;
-            return normalizedUri.startsWith(prefix);
+            return expandLibrarySourceRoots(libraryUri, librarySourceAliases).some((prefix) => normalizedUri.startsWith(prefix));
           })
         );
       }).length;
@@ -94,4 +113,21 @@ export function buildUnifiedProjectModel(
       };
     }
   };
+}
+
+function basename(uri: string): string {
+  const normalized = uri.replace(/\/+$/, '');
+  const segment = normalized.substring(normalized.lastIndexOf('/') + 1);
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+function expandLibrarySourceRoots(libraryUri: string, aliases: Record<string, string[]>): string[] {
+  const normalizedLibraryUri = normalizeUri(libraryUri);
+  const sourceRoots = [normalizedLibraryUri, ...(aliases[normalizedLibraryUri] ?? [])]
+    .map((entry) => normalizeUri(entry));
+  return [...new Set(sourceRoots.map((entry) => (entry.endsWith('/') ? entry : `${entry}/`)))].sort();
 }

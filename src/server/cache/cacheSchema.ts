@@ -13,6 +13,7 @@ export interface SemanticCacheProjectStats {
 export interface SemanticCacheDiscoverySnapshot {
   sourceFiles: string[];
   sourceOrigins?: Record<string, SourceOrigin>;
+  librarySourceAliases?: Record<string, string[]>;
   roots: {
     workspaces: string[];
     targets: string[];
@@ -23,7 +24,7 @@ export interface SemanticCacheDiscoverySnapshot {
 }
 
 export interface SemanticCacheCheckpointMetadata {
-  workspaceMode?: 'workspace' | 'solution' | 'mixed' | 'unknown';
+  workspaceMode?: 'workspace' | 'solution' | 'mixed' | 'pbl-only' | 'unknown';
   rootUris: string[];
   projectStats?: SemanticCacheProjectStats;
   publishedAt?: number;

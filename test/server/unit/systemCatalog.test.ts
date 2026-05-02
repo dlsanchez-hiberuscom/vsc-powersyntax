@@ -92,9 +92,12 @@ suite('unit/systemCatalog', () => {
     }
   });
 
-  test('isKnownOwnerType reconoce ancestros nativos como crypterobject', () => {
+  test('isKnownOwnerType reconoce ancestros nativos y raíces runtime como crypterobject/powerobject', () => {
     assert.equal(catalog.isKnownOwnerType('crypterobject'), true);
     assert.equal(catalog.isKnownOwnerType('CrypterObject'), true);
+    assert.equal(catalog.isKnownOwnerType('powerobject'), true);
+    assert.equal(catalog.isKnownOwnerType('runtimeerror'), true);
+    assert.equal(catalog.isKnownOwnerType('throwable'), true);
     assert.equal(catalog.isKnownOwnerType('tipo_que_no_existe'), false);
   });
 });

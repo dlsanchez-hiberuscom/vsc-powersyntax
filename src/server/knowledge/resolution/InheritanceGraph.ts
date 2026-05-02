@@ -1,4 +1,5 @@
 import { KnowledgeBase } from '../KnowledgeBase';
+import { getNativeAncestorChain } from '../system/nativeAncestors';
 import { Entity, EntityKind } from '../types';
 import { isAccessibleFrom } from '../visibility';
 
@@ -83,6 +84,18 @@ export class InheritanceGraph {
       .map(t => t.baseTypeName)
       .filter((b): b is string => !!b && b.trim() !== '');
 
+    if (queue.length === 0) {
+      for (const nativeAncestor of getNativeAncestorChain(normalizedName)) {
+        if (!seen.has(nativeAncestor)) {
+          seen.add(nativeAncestor);
+          ancestors.push(nativeAncestor);
+        }
+      }
+
+      this.ancestorCache.set(normalizedName, ancestors);
+      return [...ancestors];
+    }
+
     while (queue.length > 0) {
       const current = queue.shift()!.trim();
       const currentNormalized = current.toLowerCase();
@@ -95,9 +108,19 @@ export class InheritanceGraph {
       ancestors.push(current);
 
       const parents = this.kb.findAllDefinitions(currentNormalized).filter(e => e.kind === EntityKind.Type);
+      let hasWorkspaceParent = false;
       for (const parent of parents) {
         if (parent.baseTypeName && parent.baseTypeName.trim() !== '') {
+          hasWorkspaceParent = true;
           queue.push(parent.baseTypeName);
+        }
+      }
+
+      if (!hasWorkspaceParent) {
+        for (const nativeAncestor of getNativeAncestorChain(currentNormalized)) {
+          if (!seen.has(nativeAncestor)) {
+            queue.push(nativeAncestor);
+          }
         }
       }
     }

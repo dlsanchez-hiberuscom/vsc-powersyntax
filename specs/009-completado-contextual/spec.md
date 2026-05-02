@@ -2,10 +2,10 @@
 
 ## 1. Meta
 
-- **Estado:** Activa
+- **Estado:** cerrada históricamente y normalizada por B233
 - **Fase del roadmap:** Fase 6 (Diagnósticos y productividad semántica base)
 - **Ticket/Backlog:** B029
-- **Foco actual:** Habilitar el autocompletado inteligente apoyado en el `semanticQueryService`, ofreciendo sugerencias precisas según el scope léxico y el grafo de herencia en el que se encuentre el cursor.
+- **Cierre histórico:** el completado contextual quedó implementado y más tarde fue refinado por specs de scoring y serving, pero la base ya estaba cerrada.
 
 ## 2. Contexto
 

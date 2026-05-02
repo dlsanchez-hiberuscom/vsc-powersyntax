@@ -7,6 +7,11 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import {
+  DIAGNOSTIC_CODES,
+  getDiagnosticCode,
+  withDiagnosticCode,
+} from '../../shared/diagnosticCodes';
 import { DIAGNOSTIC_SOURCE } from '../../shared/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
@@ -110,8 +115,8 @@ export function buildDiagnosticsForDocument(
 }
 
 /**
- * Spec 116: overrides de severidad por código (campo `source` del diagnostic,
- * que se construye como `PowerScript:SDxx`). El cliente puede definir el
+ * Spec 116/B232: overrides de severidad por `diagnostic.code`, con fallback
+ * al sufijo legacy en `source` (`PowerScript:SDxx`). El cliente puede definir el
  * env-var `PB_SEVERITY_OVERRIDES="SD11=hint,SD2=info"` para ajustar la
  * gravedad sin recompilar el servidor.
  */
@@ -150,10 +155,10 @@ function parseSeverity(level: string): DiagnosticSeverity | null {
 function applySeverityOverrides(diags: Diagnostic[]): Diagnostic[] {
   if (severityMap.size === 0) return diags;
   return diags.map(d => {
-    const src = (d.source ?? '').toLowerCase();
-    // Buscamos por sufijo "sdNN" tras los dos puntos.
-    const idx = src.lastIndexOf(':');
-    const code = idx >= 0 ? src.slice(idx + 1) : src;
+    const code = getDiagnosticCode(d)?.toLowerCase();
+    if (!code) {
+      return d;
+    }
     const override = severityMap.get(code);
     return override != null ? { ...d, severity: override } : d;
   });
@@ -483,7 +488,7 @@ export function validateSemantics(
     if (fact.kind === EntityKind.Type && fact.baseTypeName) {
       const baseLower = fact.baseTypeName.toLowerCase();
       if (!PB_BUILTIN_TYPES.has(baseLower) && !kb.findDefinition(baseLower) && !systemCatalog.isKnownOwnerType(baseLower)) {
-        diagnostics.push({
+        diagnostics.push(withDiagnosticCode({
           severity: DiagnosticSeverity.Warning,
           range: Range.create(
             Position.create(fact.line, fact.character),
@@ -491,7 +496,7 @@ export function validateSemantics(
           ),
           message: `El tipo base '${fact.baseTypeName}' no se encuentra en el workspace ni en el catálogo del lenguaje.`,
           source: DIAGNOSTIC_SOURCE
-        });
+        }, DIAGNOSTIC_CODES.sd3MissingBaseType));
       }
     }
   }
@@ -509,10 +514,10 @@ export function validateSemantics(
   // --- SD5: Variables de instancia privadas no usadas ---
   checkUnusedPrivateInstanceVars(semanticFacts, lines, sections, diagnostics);
 
-  // --- SD7: dependencias nativas externas sin implementación interna ---
+  // --- Dependencias nativas externas sin implementación interna ---
   checkExternalDependencies(semanticFacts, diagnostics);
 
-  // --- SD11x: binding transaccional básico para DataStore/DataWindow ---
+  // --- Binding transaccional/DataObject para DataStore y DataWindow ---
   if (mainType) {
     for (const rootScope of scopes) {
       checkDataObjectBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb);
@@ -551,7 +556,7 @@ function checkExternalDependencies(
       continue;
     }
 
-    diagnostics.push({
+    diagnostics.push(withDiagnosticCode({
       severity: DiagnosticSeverity.Information,
       range: Range.create(
         Position.create(fact.line, fact.character),
@@ -565,7 +570,7 @@ function checkExternalDependencies(
         library: fact.externalLibraryName,
         alias: fact.externalAlias
       }
-    });
+    }, DIAGNOSTIC_CODES.nativeDependency));
   }
 }
 
@@ -617,7 +622,7 @@ function buildLifecycleDiagnostic(
     message = `El lifecycle '${phase}' del objeto '${focusType}' dispara el hook '${hook}' pero no existe un event resoluble para ese hook.`;
   }
 
-  return {
+  return withDiagnosticCode({
     severity: DiagnosticSeverity.Warning,
     range: Range.create(
       Position.create(eventFact.line, eventFact.character),
@@ -631,10 +636,34 @@ function buildLifecycleDiagnostic(
       phase,
       focusType
     }
-  };
+  }, warningCode);
 }
 
 type TransactionBindingState = 'known' | 'unknown' | 'dynamic';
+
+function getDataObjectBindingDiagnosticCode(state: DataObjectBindingState): string {
+  switch (state) {
+    case 'missing':
+      return DIAGNOSTIC_CODES.dataObjectNotFound;
+    case 'ambiguous':
+      return DIAGNOSTIC_CODES.dataObjectAmbiguous;
+    case 'dynamic':
+      return DIAGNOSTIC_CODES.dataObjectDynamic;
+  }
+}
+
+function getTransactionBindingDiagnosticCode(
+  state: Exclude<TransactionBindingState, 'known'> | 'missing'
+): string {
+  switch (state) {
+    case 'missing':
+      return DIAGNOSTIC_CODES.transactionBindingMissing;
+    case 'unknown':
+      return DIAGNOSTIC_CODES.transactionBindingUnknown;
+    case 'dynamic':
+      return DIAGNOSTIC_CODES.transactionBindingDynamic;
+  }
+}
 
 interface TransactionBinding {
   state: TransactionBindingState;
@@ -862,7 +891,7 @@ function buildDataObjectBindingDiagnostic(
   );
 
   if (state === 'dynamic') {
-    return {
+    return withDiagnosticCode({
       severity: DiagnosticSeverity.Information,
       range,
       message: `La asignación dinámica de DataObject en '${targetName}' impide una navegación fiable hacia un .srd.`,
@@ -874,10 +903,10 @@ function buildDataObjectBindingDiagnostic(
         target: targetName,
         expression: options.expression
       }
-    };
+    }, getDataObjectBindingDiagnosticCode(state));
   }
 
-  return {
+  return withDiagnosticCode({
     severity: state === 'missing' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
     range,
     message: state === 'missing'
@@ -892,7 +921,7 @@ function buildDataObjectBindingDiagnostic(
       dataObject: options.literal,
       targetCount: options.targetCount
     }
-  };
+  }, getDataObjectBindingDiagnosticCode(state));
 }
 
 function extractInvocationArgumentCount(
@@ -994,7 +1023,7 @@ function buildRetrieveArgumentDiagnostic(
   const expectedArgumentCount = expectedArguments.length;
   const expectedArgumentWord = expectedArgumentCount === 1 ? 'argumento' : 'argumentos';
 
-  return {
+  return withDiagnosticCode({
     severity: DiagnosticSeverity.Warning,
     range,
     message: `La llamada '${targetName}.Retrieve(...)' enlazada al DataObject '${dataObject}' espera ${expectedArgumentCount} ${expectedArgumentWord} de retrieve y recibió ${actualArgumentCount}.`,
@@ -1008,7 +1037,7 @@ function buildRetrieveArgumentDiagnostic(
       actualArgumentCount,
       expectedArguments: expectedArguments.map((argument) => argument.label)
     }
-  };
+  }, DIAGNOSTIC_CODES.retrieveArityMismatch);
 }
 
 function classifyTransactionBinding(
@@ -1049,7 +1078,7 @@ function buildTransactionDiagnostic(
   );
 
   if (state === 'dynamic') {
-    return {
+    return withDiagnosticCode({
       severity: DiagnosticSeverity.Information,
       range,
       message: `La operación '${targetName}.${operationName}()' usa un transaction object dinámico ('${binding?.argument ?? 'unknown'}'); se degrada la confidence semántica.`,
@@ -1062,10 +1091,10 @@ function buildTransactionDiagnostic(
         target: targetName,
         argument: binding?.argument
       }
-    };
+    }, getTransactionBindingDiagnosticCode(state));
   }
 
-  return {
+  return withDiagnosticCode({
     severity: DiagnosticSeverity.Warning,
     range,
     message: state === 'missing'
@@ -1080,7 +1109,7 @@ function buildTransactionDiagnostic(
       target: targetName,
       argument: binding?.argument
     }
-  };
+  }, getTransactionBindingDiagnosticCode(state));
 }
 
 /**
@@ -1163,7 +1192,7 @@ function visitScopes(
         if (resolution.targets.length > 0) continue;
 
         const col = raw.indexOf(funcName, raw.length - raw.trimStart().length);
-        diagnostics.push({
+        diagnostics.push(withDiagnosticCode({
           severity: DiagnosticSeverity.Warning,
           range: Range.create(
             Position.create(i, col >= 0 ? col : 0),
@@ -1172,7 +1201,7 @@ function visitScopes(
           message: `La función '${funcName}' no se encuentra en la jerarquía del objeto ni en el catálogo del lenguaje.`,
           source: DIAGNOSTIC_SOURCE,
           data: buildResolutionDiagnosticData(resolution)
-        });
+        }, DIAGNOSTIC_CODES.sd2UnresolvedCallable));
       }
     }
   }
@@ -1226,7 +1255,7 @@ function checkUnusedLocals(
       }
 
       if (!used) {
-        diagnostics.push({
+        diagnostics.push(withDiagnosticCode({
           severity: DiagnosticSeverity.Hint,
           range: Range.create(
             Position.create(sym.line, sym.character),
@@ -1235,7 +1264,7 @@ function checkUnusedLocals(
           message: `La variable local '${sym.name}' está declarada pero no se usa.`,
           source: DIAGNOSTIC_SOURCE,
           tags: [1] // DiagnosticTag.Unnecessary
-        });
+        }, DIAGNOSTIC_CODES.sd4UnusedLocal));
       }
     }
   }
@@ -1280,7 +1309,7 @@ function checkUnusedPrivateInstanceVars(
     }
 
     if (!used) {
-      diagnostics.push({
+      diagnostics.push(withDiagnosticCode({
         severity: DiagnosticSeverity.Hint,
         range: Range.create(
           Position.create(pv.line, pv.character),
@@ -1289,7 +1318,7 @@ function checkUnusedPrivateInstanceVars(
         message: `La variable de instancia privada '${pv.name}' no se usa en ningún método o evento del archivo.`,
         source: DIAGNOSTIC_SOURCE,
         tags: [1] // DiagnosticTag.Unnecessary
-      });
+      }, DIAGNOSTIC_CODES.sd5UnusedPrivateInstance));
     }
   }
 }
@@ -1369,7 +1398,7 @@ export function checkShadowing(
         const collisions = byName.get(sym.name.toLowerCase());
         if (!collisions || collisions.length === 0) continue;
         const winner = collisions[0];
-        diagnostics.push({
+        diagnostics.push(withDiagnosticCode({
           severity: DiagnosticSeverity.Information,
           range: Range.create(
             Position.create(sym.line, sym.character),
@@ -1377,7 +1406,7 @@ export function checkShadowing(
           ),
           message: `La variable local '${sym.name}' oculta una variable de ámbito '${winner.scope}'.`,
           source: DIAGNOSTIC_SOURCE
-        });
+        }, DIAGNOSTIC_CODES.sd6Shadowing));
       }
     }
     for (const child of s.children) visit(child);
@@ -1404,7 +1433,7 @@ function checkDuplicateDeclarations(
       const key = sym.name.toLowerCase();
       const prev = seen.get(key);
       if (prev && prev.line !== sym.line) {
-        diagnostics.push({
+        diagnostics.push(withDiagnosticCode({
           severity: DiagnosticSeverity.Warning,
           range: Range.create(
             Position.create(sym.line, sym.character),
@@ -1412,7 +1441,7 @@ function checkDuplicateDeclarations(
           ),
           message: `La variable '${sym.name}' ya está declarada en este ámbito (línea ${prev.line + 1}).`,
           source: DIAGNOSTIC_SOURCE
-        });
+        }, DIAGNOSTIC_CODES.sd8DuplicateDeclaration));
       } else {
         seen.set(key, sym);
       }
@@ -1474,22 +1503,22 @@ function checkOrphanedFlowKeywords(
     if (sec) continue;
 
     if (RE_RETURN.test(line) && !isInsideCallable(i)) {
-      diagnostics.push({
+      diagnostics.push(withDiagnosticCode({
         severity: DiagnosticSeverity.Warning,
         range: Range.create(Position.create(i, 0), Position.create(i, line.length)),
         message: `La sentencia 'return' aparece fuera de una función o evento.`,
         source: DIAGNOSTIC_SOURCE
-      });
+      }, DIAGNOSTIC_CODES.sd9OrphanReturn));
       continue;
     }
     const m = RE_EXIT_OR_CONTINUE.exec(line);
     if (m && !isInsideLoop(i)) {
-      diagnostics.push({
+      diagnostics.push(withDiagnosticCode({
         severity: DiagnosticSeverity.Warning,
         range: Range.create(Position.create(i, 0), Position.create(i, line.length)),
         message: `La sentencia '${m[1].toLowerCase()}' aparece fuera de un bucle 'for' o 'do'.`,
         source: DIAGNOSTIC_SOURCE
-      });
+      }, DIAGNOSTIC_CODES.sd10OrphanLoopControl));
     }
   }
 }

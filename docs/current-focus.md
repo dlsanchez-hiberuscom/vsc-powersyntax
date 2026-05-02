@@ -2,32 +2,33 @@
 
 ## 1. Foco activo
 
-`B182 — PBAutoBuild build-file discovery and validation`
+`B198 — Build/ORCA documentation and troubleshooting`
 
-Estado actual: las seis specs pedidas (`B042`, `B181`, `B227`, `B228`, `B070`, `B162`) quedan cerradas y validadas. `B181` ya detecta `PBAutoBuild250.exe` de forma read-only, pero el build moderno sigue sin poder declararse usable mientras el plugin no descubra y valide los build files JSON reales del workspace. Por eso el siguiente hueco estructural pasa a ser `B182`.
+Estado actual: el bloque `B241-B250` queda cerrado, validado y registrado en `specs/284-public-api-v2-contract-hardening` a `specs/293-release-marketplace-readiness`, además de `docs/done-log.md`. Con ese cierre, la siguiente deuda canónica vuelve a ser `B198`, que ya no compite con gaps de plataforma abierta, explainability, performance gate ni release lane.
 
 Trazas paralelas activas que no desplazan ese foco principal:
 
-- `B225` (`specs/250-native-ancestors-system-catalog`), como refuerzo incremental de ancestros nativos del runtime PowerBuilder servidos por `system catalog`;
-- `B226` (`specs/251-orderentry-enterprise-baseline`), como baseline enterprise parcial sobre `fixtures-local/STD_FC_OrderEntry` para discovery/indexación y futuras regresiones semánticas reales.
+- `B195`, como decisión pendiente de packaging legacy solo despues de cerrar `B198`.
+- mantenimiento verde del bloque `B241-B250`, unicamente si aparece una regresion real.
 
 ---
 
 ## 2. Por qué es prioritario
 
-`B182` es ahora el siguiente guardrail operativo del build moderno:
+Este foco es prioritario porque el siguiente gap real ya no es técnico de plataforma sino de operabilidad/documentacion del carril legacy:
 
-- `B181` solo resuelve la capacidad de herramienta; todavía falta saber qué build files existen y si representan un proyecto utilizable;
-- `B183` y `B187` dependen directamente de este contrato read-only, así que abrir runner o health sin él sería fingir readiness;
-- cerrarlo ahora mantiene el cliente ligero y evita meter heurísticas de ejecución donde todavía falta discovery sólido.
+- `B241-B250` ya quedó cerrado con código, tests, specs y documentación viva alineada;
+- `B198` es ahora la deuda residual más directa para explicar cuándo usar PBAutoBuild, cuándo usar ORCA y cómo diagnosticar ambos carriles;
+- `B195` depende de despejar antes esa deuda operativa/documental.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- descubrir build files JSON de PBAutoBuild desde el workspace/modelo de proyecto sin ejecutar builds;
-- validar compatibilidad mínima, mapeo a proyecto y reason codes de invalidez o ausencia;
-- dejar ese contrato reutilizable por runner, health y UX posteriores.
+- documentar el flujo moderno PBAutoBuild y el carril legacy ORCA sobre el estado ya materializado del producto;
+- reforzar troubleshooting, criterios de uso y riesgos operativos sin abrir motores nuevos;
+- preservar verde el bloque `B241-B250` y el bridge DataWindow ya cerrado mientras se cierra la deuda documental residual;
+- mantener `B195` registrada y quieta hasta que `B198` quede despejada.
 
 ---
 
@@ -35,27 +36,27 @@ Trazas paralelas activas que no desplazan ese foco principal:
 
 No abrir salvo causa clara:
 
-- ejecutar builds reales antes de tener discovery/validation confiables;
-- parsear logs o abrir UX de perfiles/comandos sin contrato de build file estable;
-- mezclar validación read-only con runner o health antes de tiempo.
+- reabrir `B241-B250` sin evidencia de regresion;
+- abrir nueva superficie funcional mayor mientras `B198` siga siendo deuda canónica;
+- abrir `B195` por delante de `B198` sin justificarlo con bloqueo real.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- el plugin descubre build files relevantes y sabe a qué proyecto/workspace pertenecen;
-- cada build file queda clasificado como utilizable, inválido o ambiguo con reason codes claros;
-- runner/health pueden consumir ese contrato sin rehacer discovery por su cuenta.
+- `B198` queda cerrada con guía operativa y troubleshooting alineados al estado real del carril moderno/legacy;
+- el bloque `B241-B250` permanece verde y sin reaperturas espurias;
+- `B195` queda como siguiente decisión natural y no como deuda mezclada con documentación pendiente.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B183/B187` — runner out-of-process y health unificado del build moderno.
-2. `B225/B226` — completar ancestros nativos del sistema y cobertura enterprise real sobre OrderEntry.
+1. `B195` — packaging legacy, solo si `B198` queda cerrada sin nueva deuda operativa.
+2. mantenimiento verde del bloque `B241-B250` y del backbone DataWindow ya cerrado.
 
 ---
 
 ## 7. Regla final
 
-No anunciar build moderno operativo sin discovery y validación read-only de build files reales detrás.
+Toda integración legacy nueva debe consumir capability/estado compartidos y respetar el mismo principio de aislamiento: no puede invadir el hot path moderno ni duplicar motores ya cerrados del backbone semántico; la deuda documental no justifica reabrir arquitectura ya estable.

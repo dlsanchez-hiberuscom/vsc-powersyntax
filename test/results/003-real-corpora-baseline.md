@@ -29,10 +29,10 @@
 - **PFC Workspace smoke:** OK
 - **PFC Solution smoke:** OK
 - **legacy PBL dump smoke:** OK
-- **STD_FC_OrderEntry smoke/perf baseline:** OK
+- **STD_FC_OrderEntry smoke/perf/semantic baseline:** OK
 - **PFC Solution extension smoke:** OK
 - **PFC Workspace extension smoke:** OK
 
 ## 5. Conclusión
 
-El baseline deja de apoyarse solo en fixtures pequeños. El presupuesto operativo del plugin ya está calibrado sobre corpus reales y la suite de regresión cubre activación, archivo activo, discovery, cold/warm index, corpus legacy exportado y un slot enterprise local sobre OrderEntry.
+El baseline deja de apoyarse solo en fixtures pequeños. El presupuesto operativo del plugin ya está calibrado sobre corpus reales y la suite de regresión cubre activación, archivo activo, discovery, cold/warm index, corpus legacy exportado y un slot enterprise local sobre OrderEntry con smoke semántica reproducible.

@@ -11,6 +11,7 @@ import { WorkspaceState } from '../workspace/workspaceState';
 import { analyzeDocument, analyzeDocumentStructural } from '../analysis/documentAnalysis';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { createLatencyGovernor } from '../runtime/latencyGovernor';
+import { inferSourceOrigin } from '../../shared/sourceOrigin';
 import type { ProgressPass } from '../../shared/types';
 
 export type IndexerLogger = (msg: string) => void;
@@ -34,6 +35,17 @@ export interface IndexerProgressMeta {
 }
 
 export type IndexerProgressCallback = (current: number, total: number, meta: IndexerProgressMeta) => void;
+
+function resolveContextualSourceOrigin(uri: string, workspaceState: WorkspaceState) {
+  const contextual = workspaceState.getSourceOrigin(uri);
+  if (contextual && contextual !== 'unknown') {
+    return contextual;
+  }
+
+  return inferSourceOrigin(uri, {
+    hasSolutionRoots: workspaceState.getMode() === 'solution' || workspaceState.getMode() === 'mixed'
+  });
+}
 
 interface PreparedDocument {
   uri: string;
@@ -353,7 +365,9 @@ export async function indexWorkspace(
 
         // El primer pase solo necesita un snapshot estructural barato.
         const document = TextDocument.create(uri, 'powerbuilder', 1, content);
-        const analysis = analyzeDocumentStructural(document);
+        const analysis = analyzeDocumentStructural(document, {
+          sourceOrigin: resolveContextualSourceOrigin(uri, workspaceState)
+        });
         preparedDocuments.push({
           uri,
           hash,
@@ -434,7 +448,9 @@ export async function indexWorkspace(
       if (!prepared.skipEnrichedPublish) {
         if (!facts || !scopes || !enrichedSnapshot) {
           const document = TextDocument.create(prepared.uri, 'powerbuilder', 1, prepared.content ?? '');
-          const analysis = analyzeDocument(document);
+          const analysis = analyzeDocument(document, {
+            sourceOrigin: resolveContextualSourceOrigin(prepared.uri, workspaceState)
+          });
           facts = analysis.semanticFacts;
           scopes = analysis.scopes;
           enrichedSnapshot = analysis.snapshot;

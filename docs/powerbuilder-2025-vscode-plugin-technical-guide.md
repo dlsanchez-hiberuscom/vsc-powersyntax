@@ -173,7 +173,11 @@ Reglas:
 - ORCA puede exportar objetos a staging.
 - LibraryExport puede producir source textual.
 - El staging ORCA no es fuente canónica salvo configuración explícita.
+- El staging controlado actual vive en `.vsc-powersyntax/orca-export/orca-staging`, con script en `.vsc-powersyntax/orca-export/scripts/export-to-staging.orc` y estado en `.vsc-powersyntax/orca-export/state/last-export.state`.
+- El rail write-enabled actual genera `.vsc-powersyntax/orca-export/scripts/import-from-staging.orc`, `.vsc-powersyntax/orca-export/scripts/regenerate-from-staging.orc`, `.vsc-powersyntax/orca-export/scripts/rebuild-from-staging.orc`, backups binarios en `.vsc-powersyntax/orca-export/backups/<operationId>/` y ledgers en `.vsc-powersyntax/orca-export/state/last-*-ledger.json`.
 - Cualquier importación a PBL requiere preflight, backup, fingerprint y compile.
+- El gate actual ya bloquea PBL fingerprint mismatch, staging ausente y `stale staging` frente a source real rastreado.
+- Si solo hay roots `.pbl`, el plugin debe detectarlo como modo `PBL-only` y sintetizar un nodo read-only por librería para manifest/project model.
 ```
 
 ORCA permite automatizar tareas equivalentes al Library Painter, incluyendo importación, compilación, regeneración, consulta de objetos y gestión de librerías.
@@ -240,6 +244,22 @@ Reglas:
 - Import to PBL solo desde orca-staging controlado.
 - Source real gana siempre a staging.
 - Backup nunca debe indexarse como source principal.
+```
+
+Estado runtime actual:
+
+```text
+- KnowledgeBase ordena buckets globales y por kind con esta prioridad.
+- semanticQueryService desempata global fallback y candidatos equivalentes con la misma regla.
+- semanticWorkspaceManifest sirve primero source real cuando un límite de objetos trunca duplicados con orca-staging.
+```
+
+Estado actual del runtime:
+
+```text
+- `B229` ya queda cerrada: el análisis documental, la caché interactiva, el indexador y el watcher consumen `sourceOrigin` contextual desde `WorkspaceState`/routing cuando existe autoridad topológica.
+- `inferSourceOrigin()` queda como fallback cuando el workspace todavía no puede servir un origen mejor o solo conoce `unknown`.
+- si la topología cambia y altera `sourceOrigin`, los snapshots publicados se rematerializan sin exigir rediscovery global.
 ```
 
 ---
@@ -614,7 +634,7 @@ Reglas:
 ```text
 - funciones/eventos pueden estar overloaded.
 - descendants pueden override/extend ancestor methods.
-- la ancestor chain puede terminar en tipos nativos del runtime (por ejemplo crypterobject u otros owner types del catálogo del sistema); diagnostics, hierarchy y APIs read-only deben resolverlos contra system catalog y marcarlos como system type, no reportarlos como tipos base ausentes del workspace.
+- la ancestor chain puede terminar en tipos nativos del runtime (por ejemplo crypterobject, window o raíces como powerobject/throwable); diagnostics, hierarchy y APIs read-only deben resolverlos contra system catalog y completar la cadena nativa compartida sin reportarlos como tipos base ausentes del workspace.
 - la firma incluye nombre, return type, parámetros, BY VALUE/BY REF/READONLY y throws.
 - references deben distinguir override local, ancestor call y dynamic dispatch.
 - completion debe priorizar miembros visibles según contexto.
@@ -779,7 +799,7 @@ Estado actual del repo:
 - un refuerzo legacy-safe adicional permite hover/definition locales dentro del propio `.srd` para bandas y columnas SQL simples del `retrieve`, sin reintroducir el subsistema legacy completo.
 - el catálogo básico ya está integrado: `documentSymbols` expone root/bandas/tabla/columnas/`retrieve` y los workspace/API symbols publican el stub `.srd` como tipo navegable del workspace.
 - existe ya un `DataWindowModel` reutilizable por hover/definition/documentSymbols para el slice avanzado inicial;
-- ese slice avanzado cubre `report(name=... dataobject=...)`, `column.dddw.name` y property paths `Describe/Modify(...DataWindow.Table.Select)` cuando el binding `DataObject` literal y la cadena child son deterministas.
+- ese slice avanzado cubre `report(name=... dataobject=...)`, `column.dddw.name`, property paths `Describe/Modify(...DataWindow.Table.Select)`, acceso directo `dw.Object.<control|column|property>` y `GetChild()` cuando el binding `DataObject` literal y la cadena child son deterministas.
 
 Phase 2: bindings
   - DataObject assignments
@@ -797,8 +817,8 @@ Phase 3: advanced properties
   - DataWindowChild/DDDW
 
 Estado actual del repo:
-- el primer corte real de Phase 3 ya existe para relaciones `report(...)` y `DDDW`, junto con hover/definition seguros de `Describe/Modify` sobre `Table.Select`;
-- sigue fuera de alcance resolver `dw.Object...` completo o rutas dinámicas/ambiguas sin evidencia suficiente.
+- el primer corte real de Phase 3 ya existe para relaciones `report(...)` y `DDDW`, junto con hover/definition seguros de `Describe/Modify`, `.Object.<...>` y `GetChild()` sobre rutas resolubles del mismo backbone `DataWindowModel`;
+- sigue fuera de alcance resolver rutas dinámicas/ambiguas o fingir semántica cuando el `DataObject` o la cadena child no tienen evidencia suficiente.
 
 Phase 4: diagnostics
   - missing DataObject
@@ -951,8 +971,14 @@ Estado actual del producto:
 ```text
 - `B181` ya queda cubierta como capability detection read-only.
 - El cliente puede resolver `PBAutoBuild250.exe` por `vscPowerSyntax.build.pbAutoBuildPath`, `PB_AUTOBUILD_PATH` o candidatos instalados por defecto.
-- La detección solo informa disponibilidad/origen/capabilities básicas en status/health y no ejecuta builds.
-- Discovery de JSON, runner out-of-process, parser de logs y health unificado siguen abiertos en `B182-B187`.
+- El servidor ya descubre candidatos `*.json`, filtra build files PBAutoBuild por `BuildPlan`/hints mínimos, los vincula a markers `.pbw/.pbt/.pbproj/.pbsln` y los clasifica `usable/invalid/ambiguous` sin ejecutar builds.
+- El watcher incremental ya refresca ese catálogo read-only cuando cambian build files JSON o markers topológicos.
+- `B183` ya deja un runner out-of-process con `run/cancel`, timeout, selección segura del build file y estado mínimo visible en stats/journal/cliente.
+- `B184` ya parsea la salida relevante del build y publica problemas solo cuando el objeto del log resuelve de forma única a un archivo real del workspace.
+- `B187` ya unifica capability detection, build files, runner y problemas recientes en un snapshot reutilizable para status/health/menú.
+- `B185` ya recuerda el último build ejecutado por workspace y expone comandos para repetirlo o elegir un build file utilizable desde VS Code.
+- `B186` ya exporta un bundle neutral de CI/CD (`manifest`, README y scripts PowerShell/CMD/Bash) bajo `tools/pbautobuild-ci/<perfil>`, apoyado en el build file/perfil utilizable ya validado.
+- La deuda restante del ecosistema build moderno se concentra ahora en operabilidad/documentación (`B198`) y en la rama legacy ORCA, no en el carril tecnico base de PBAutoBuild.
 ```
 
 ---
@@ -1019,14 +1045,28 @@ write report
 Reglas:
 
 ```text
+- la DLL de sesión ORCA se resuelve desde `vscPowerSyntax.legacy.orcaSessionDll`, `PB_ORCA_DLL` o fallback `pborc250.dll`.
+- el staging exportado debe aliasarse a la librería `.pbl` original para routing/manifest antes de abrir import o prioridad de source.
 - toda escritura sobre PBL requiere preflight.
 - toda escritura sobre PBL requiere backup.
 - toda escritura sobre PBL requiere fingerprint.
 - toda escritura sobre PBL requiere compile result.
 - toda operación debe tener rollback/log.
 - nunca importar si el PBL cambió desde el export.
-- nunca importar si el source real tiene conflicto.
+- nunca importar si el source real correspondiente cambió desde el export.
 - nunca sobrescribir objeto más nuevo que staging.
+```
+
+Estado actual del runtime:
+
+```text
+- `vscPowerSyntax.importOrcaStaging` reutiliza `last-export.state` y ejecuta preflight antes de tocar la PBL.
+- `vscPowerSyntax.regenerateOrcaLibraries` y `vscPowerSyntax.rebuildOrcaProject` reutilizan ese mismo rail seguro para mantenimiento legacy.
+- `applySpecDrivenPblUpdate()` genera safe edit plan, fuerza export ORCA fresco, aplica edits explícitos sobre staging y reutiliza el mismo import con backup/ledger/journal para actualizar una PBL de forma controlada.
+- `applySpecDrivenPblUpdateBatch()` coordina varias requests sobre ese workflow unitario, corta temprano cuando `stopOnError` está activo y agrega resultados por item sin abrir otro motor ORCA.
+- El preflight actual ya bloquea fingerprint mismatch de PBL, staging ausente, staging vacío y `stale staging` frente a source real rastreado.
+- `rebuild` se bloquea si el export persistido no conserva un target/project legacy real.
+- Cada import persistida deja backup binario, `compileResult` y `last-import-ledger.json` con rollbackAvailable.
 ```
 
 Operation ledger obligatorio:
@@ -1050,6 +1090,13 @@ OrcaOperationLedger
   - errors[]
   - warnings[]
   - rollbackAvailable
+```
+
+Nota de implementación actual:
+
+```text
+- El runtime persiste hoy una versión library-level del ledger con `pblFingerprintBefore/After`, `backupRootUri`, `preflightResult`, `compileResult`, `warnings[]`, `errors[]` y `rollbackAvailable`.
+- El runtime persiste además `.vsc-powersyntax/runtime/build-orca-journal.json` con el snapshot reciente de eventos `build|legacy`, accesible también desde `showStats.persistence.buildOrcaJournalUri`.
 ```
 
 ---
@@ -1276,10 +1323,8 @@ PB-RES-002 PBR entry missing file
 PB-RES-003 INI/Profile key unresolved
 PB-RES-004 Generated/backup file indexed as source
 
-PB-PBL-001 Source newer than PBL
-PB-PBL-002 PBL newer than source
-PB-PBL-003 Stale ORCA staging
-PB-PBL-004 Import blocked: fingerprint mismatch
+PB-PBL-001 Staging source is stale
+PB-PBL-002 Import blocked by fingerprint mismatch
 
 PB-BUILD-001 PBAutoBuild not found
 PB-BUILD-002 Build JSON invalid

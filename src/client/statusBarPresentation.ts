@@ -1,5 +1,9 @@
 import type { ApiServerStats } from '../shared/publicApi';
+import type { OrcaRunSnapshot } from '../shared/orcaProtocol';
+import type { PbAutoBuildRunSnapshot } from '../shared/pbAutoBuildProtocol';
 import type { ProgressNotification, ProgressPass } from '../shared/types';
+import { buildPbAutoBuildHealthSnapshot } from './build/pbAutoBuildHealth';
+import { formatOrcaStatusInline } from './build/orcaDetection';
 import { formatPbAutoBuildStatusInline, type PbAutoBuildCapabilitySnapshot } from './build/pbAutoBuildDetection';
 
 export interface RuntimeStatusProjectSnapshot {
@@ -30,6 +34,22 @@ export interface RuntimeStatusStats extends ApiServerStats {
   projectStatus?: {
     summary?: string;
     snapshot?: RuntimeStatusProjectSnapshot;
+  };
+}
+
+export function enrichRuntimeStatusStats(stats?: RuntimeStatusStats): RuntimeStatusStats | undefined {
+  if (!stats) {
+    return undefined;
+  }
+
+  return {
+    ...stats,
+    buildHealth: buildPbAutoBuildHealthSnapshot({
+      buildTooling: stats.buildTooling,
+      buildFiles: stats.buildFiles,
+      buildRunner: stats.buildRunner,
+      buildProblems: stats.buildProblems
+    })
   };
 }
 
@@ -100,6 +120,103 @@ function formatPersistenceState(stats?: RuntimeStatusStats): string | undefined 
   }
 
   return 'reused';
+}
+
+function basenameFromPathOrUri(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.replace(/\\/g, '/');
+  const index = normalized.lastIndexOf('/');
+  return index >= 0 ? normalized.substring(index + 1) : normalized;
+}
+
+function formatDurationLabel(durationMs: number | undefined): string | undefined {
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs < 0) {
+    return undefined;
+  }
+  if (durationMs < 1000) {
+    return `${Math.round(durationMs)}ms`;
+  }
+  if (durationMs < 60_000) {
+    return `${(durationMs / 1000).toFixed(1)}s`;
+  }
+  return `${Math.round(durationMs / 1000)}s`;
+}
+
+export function formatPbAutoBuildRunInline(snapshot?: PbAutoBuildRunSnapshot): string | undefined {
+  if (!snapshot || snapshot.state === 'idle') {
+    return undefined;
+  }
+
+  const stateLabel = snapshot.state === 'running'
+    ? 'ejecutando'
+    : snapshot.state === 'succeeded'
+      ? 'último build ok'
+      : snapshot.state === 'failed'
+        ? 'último build falló'
+        : snapshot.state === 'cancelled'
+          ? 'último build cancelado'
+          : 'último build timeout';
+
+  return [
+    stateLabel,
+    basenameFromPathOrUri(snapshot.buildFileUri),
+    formatDurationLabel(snapshot.durationMs)
+  ].filter((part): part is string => Boolean(part)).join(' · ');
+}
+
+export function formatPbAutoBuildHealthInline(stats?: RuntimeStatusStats): string | undefined {
+  const snapshot = stats?.buildHealth;
+  if (!snapshot) {
+    return undefined;
+  }
+
+  const stateLabel = snapshot.state === 'ready'
+    ? 'listo'
+    : snapshot.state === 'running'
+      ? 'ejecutando'
+      : snapshot.state === 'attention'
+        ? 'atención'
+        : 'bloqueado';
+
+  return `${stateLabel} · ${snapshot.summary}`;
+}
+
+export function formatOrcaRunInline(snapshot?: OrcaRunSnapshot): string | undefined {
+  if (!snapshot || snapshot.state === 'idle') {
+    return undefined;
+  }
+
+  const stateLabel = snapshot.state === 'running'
+    ? 'ejecutando'
+    : snapshot.state === 'succeeded'
+      ? 'último ORCA ok'
+      : snapshot.state === 'failed'
+        ? 'último ORCA falló'
+        : snapshot.state === 'cancelled'
+          ? 'último ORCA cancelado'
+          : 'último ORCA timeout';
+
+  return [
+    stateLabel,
+    basenameFromPathOrUri(snapshot.scriptUri),
+    formatDurationLabel(snapshot.durationMs)
+  ].filter((part): part is string => Boolean(part)).join(' · ');
+}
+
+function formatPbAutoBuildProfileInline(stats?: RuntimeStatusStats): string | undefined {
+  const profile = stats?.buildProfile;
+  if (!profile) {
+    return undefined;
+  }
+
+  const label = profile.label ?? basenameFromPathOrUri(profile.buildFileUri);
+  if (!label) {
+    return undefined;
+  }
+
+  return [label, profile.detail].filter((part): part is string => Boolean(part)).join(' · ');
 }
 
 function formatServingSnapshotState(stats?: RuntimeStatusStats): string | undefined {
@@ -253,7 +370,12 @@ export function buildStatusTooltipMarkdown(
     formatServingSnapshotState(stats),
   ].filter((part): part is string => Boolean(part));
   pushIfPresent(lines, 'Persistencia', persistenceParts.join(' · ') || 'sin snapshot persistente');
+  pushIfPresent(lines, 'Build profile', formatPbAutoBuildProfileInline(stats));
+  pushIfPresent(lines, 'Build health', formatPbAutoBuildHealthInline(stats));
   pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats?.buildTooling));
+  pushIfPresent(lines, 'Build run', formatPbAutoBuildRunInline(stats?.buildRunner));
+  pushIfPresent(lines, 'ORCA', formatOrcaStatusInline(stats?.orcaTooling));
+  pushIfPresent(lines, 'ORCA run', formatOrcaRunInline(stats?.orcaRunner));
   pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
 
   const trace = stats?.lastQueryTrace;
@@ -268,7 +390,7 @@ export function buildStatusTooltipMarkdown(
   }
 
   lines.push('');
-  lines.push('[Stats](command:vscPowerSyntax.showStatusStats) | [Salud](command:vscPowerSyntax.showStatusHealth) | [Build](command:workbench.action.tasks.build) | [Jerarquía](command:vscPowerSyntax.inspectHierarchy) | [Reiniciar](command:vscPowerSyntax.restartServer)');
+  lines.push('[Dashboard](command:vscPowerSyntax.openProjectHealthDashboard) | [Stats](command:vscPowerSyntax.showStatusStats) | [Salud](command:vscPowerSyntax.showStatusHealth) | [Build](command:vscPowerSyntax.runPbAutoBuild) | [Último build](command:vscPowerSyntax.runLastPbAutoBuild) | [Elegir build](command:vscPowerSyntax.runPbAutoBuildWithPicker) | [Cancelar build](command:vscPowerSyntax.cancelPbAutoBuild) | [ORCA](command:vscPowerSyntax.runActiveOrcaScript) | [Cancelar ORCA](command:vscPowerSyntax.cancelOrcaScript) | [Jerarquía](command:vscPowerSyntax.inspectHierarchy) | [Reiniciar](command:vscPowerSyntax.restartServer)');
 
   return lines.join('\n');
 }
@@ -305,7 +427,12 @@ export function buildStatusStatsReport(stats?: RuntimeStatusStats): string {
     formatPersistenceState(stats),
     formatServingSnapshotState(stats),
   ].filter((part): part is string => Boolean(part)).join(' · '));
+  pushIfPresent(lines, 'Build profile', formatPbAutoBuildProfileInline(stats));
+  pushIfPresent(lines, 'Build health', formatPbAutoBuildHealthInline(stats));
   pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats.buildTooling));
+  pushIfPresent(lines, 'Build run', formatPbAutoBuildRunInline(stats.buildRunner));
+  pushIfPresent(lines, 'ORCA', formatOrcaStatusInline(stats.orcaTooling));
+  pushIfPresent(lines, 'ORCA run', formatOrcaRunInline(stats.orcaRunner));
   pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
   pushIfPresent(lines, 'Salud', stats.health ? [stats.health.status, formatHealthCounts(stats)].filter((part): part is string => Boolean(part)).join(' · ') : undefined);
   pushIfPresent(lines, 'Journal', formatRuntimeJournal(stats));
@@ -326,8 +453,18 @@ export function buildStatusHealthReport(
   pushIfPresent(lines, 'Indexer', [stats.indexer?.phase, typeof stats.indexer?.current === 'number' && typeof stats.indexer?.total === 'number' ? `${stats.indexer.current}/${stats.indexer.total}` : undefined].filter((part): part is string => Boolean(part)).join(' · '));
   pushIfPresent(lines, 'Resumen', stats.health?.summary ?? 'sin degradación visible en stats');
   pushIfPresent(lines, 'Checks', formatHealthCounts(stats));
+  pushIfPresent(lines, 'Build profile', formatPbAutoBuildProfileInline(stats));
+  pushIfPresent(lines, 'Build health', formatPbAutoBuildHealthInline(stats));
   pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats.buildTooling));
+  pushIfPresent(lines, 'Build run', formatPbAutoBuildRunInline(stats.buildRunner));
+  pushIfPresent(lines, 'ORCA', formatOrcaStatusInline(stats.orcaTooling));
+  pushIfPresent(lines, 'ORCA run', formatOrcaRunInline(stats.orcaRunner));
   pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
+  if (stats.buildHealth?.findings?.length) {
+    for (const finding of stats.buildHealth.findings.slice(0, 4)) {
+      lines.push(`- ${finding.severity.toUpperCase()} [build:${finding.layer}] ${finding.message}`);
+    }
+  }
   if (stats.health?.findings?.length) {
     for (const finding of stats.health.findings.slice(0, 5)) {
       lines.push(`- ${finding.severity.toUpperCase()} [${finding.layer}] ${finding.message}`);

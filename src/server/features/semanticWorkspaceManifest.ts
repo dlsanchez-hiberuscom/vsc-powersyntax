@@ -7,6 +7,8 @@ import { queryApiSymbols } from './workspaceSymbols';
 import type { DiagnosticsSnapshot } from './diagnosticsSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
+import { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import { listPowerBuilderFrameworkKnowledgePacks } from '../knowledge/system/frameworkKnowledgePacks';
 import { EntityKind } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
 
@@ -15,6 +17,20 @@ const DEFAULT_MAX_OBJECTS = 200;
 const DEFAULT_MAX_SYMBOLS = 400;
 const MAX_OBJECTS = 1000;
 const MAX_SYMBOLS = 2000;
+
+function inferObjectKindFromUri(uri: string): ApiSemanticWorkspaceManifestObject['objectKind'] {
+  const normalizedUri = uri.toLowerCase();
+  if (normalizedUri.endsWith('.sra')) return 'application';
+  if (normalizedUri.endsWith('.srw')) return 'window';
+  if (normalizedUri.endsWith('.sru')) return 'userobject';
+  if (normalizedUri.endsWith('.srm')) return 'menu';
+  if (normalizedUri.endsWith('.srd')) return 'datawindow';
+  if (normalizedUri.endsWith('.srf')) return 'function';
+  if (normalizedUri.endsWith('.srs')) return 'structure';
+  if (normalizedUri.endsWith('.srp')) return 'pipeline';
+  if (normalizedUri.endsWith('.srq')) return 'query';
+  return 'unknown';
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -26,7 +42,8 @@ export function buildSemanticWorkspaceManifest(
   graph: InheritanceGraph,
   workspaceState: WorkspaceState,
   diagnosticsSummary: DiagnosticsSnapshot | DiagnosticsSnapshot['documents'][number] | null,
-  readiness: { state?: string; detail?: string }
+  readiness: { state?: string; detail?: string },
+  systemCatalog: SystemCatalog = new SystemCatalog(),
 ): ApiSemanticWorkspaceManifest {
   const maxObjects = clamp(
     typeof request?.maxObjects === 'number' ? Math.trunc(request.maxObjects) : DEFAULT_MAX_OBJECTS,
@@ -49,25 +66,36 @@ export function buildSemanticWorkspaceManifest(
   }));
   const libraries = [...new Set(projects.flatMap((project) => project.libraries))].sort();
 
-  const typeFilter = (entity: { kind: EntityKind; baseTypeName?: string }) => entity.kind === EntityKind.Type;
   const visibleTypes = kb.queryEntities({ kinds: [EntityKind.Type], limit: maxObjects });
-  const totalTypes = kb.countEntities((entity) => typeFilter(entity));
+  const totalTypes = kb.countEntities({ kinds: [EntityKind.Type] });
   const totalSymbols = kb.countEntities();
-  const rootTypes = kb.countEntities((entity) =>
-    typeFilter(entity) && (!entity.baseTypeName || entity.baseTypeName.trim() === '')
-  );
-  const objects: ApiSemanticWorkspaceManifestObject[] = visibleTypes.map((entity) => ({
-    name: entity.name,
-    uri: entity.uri,
-    ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
-    ...(entity.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
-  }));
+  const rootTypes = kb.countEntities({
+    kinds: [EntityKind.Type],
+    include: (entity) => !entity.baseTypeName || entity.baseTypeName.trim() === ''
+  });
+  const objects: ApiSemanticWorkspaceManifestObject[] = visibleTypes.map((entity) => {
+    const projectContext = workspaceState.getProjectContextForFile(entity.uri);
+    const snapshot = kb.getDocumentSnapshot(entity.uri);
+    const library = workspaceState.resolveLibraryForFile(entity.uri, projectContext?.libraries);
+
+    return {
+      name: entity.name,
+      uri: entity.uri,
+      ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
+      ...(projectContext?.projectUri ? { projectUri: projectContext.projectUri } : {}),
+      ...(library ? { library } : {}),
+      objectKind: inferObjectKindFromUri(entity.uri),
+      ...(snapshot?.readiness ? { readiness: snapshot.readiness } : {}),
+      ...(entity.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
+    };
+  });
 
   const inheritanceItems = visibleTypes.map((entity) => ({
     name: entity.name,
     ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
     descendantCount: graph.getDescendants(entity.name).length,
   }));
+  const knowledgePacks = listPowerBuilderFrameworkKnowledgePacks(systemCatalog);
 
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
@@ -88,6 +116,10 @@ export function buildSemanticWorkspaceManifest(
     },
     exportedSymbols: queryApiSymbols('', kb, maxSymbols),
     diagnosticsSummary: diagnosticsSummary && 'documents' in diagnosticsSummary ? diagnosticsSummary : null,
+    knowledgePacks: {
+      total: knowledgePacks.length,
+      items: knowledgePacks,
+    },
     sourceOriginSummary: workspaceState.getSourceOriginSummary(),
     readiness: {
       ...(readiness.state ? { state: readiness.state } : {}),

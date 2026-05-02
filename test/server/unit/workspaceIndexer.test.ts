@@ -31,6 +31,9 @@ class FakeFileSystem implements IFileSystem {
   async writeFile(uri: string, content: string): Promise<void> {
     this.files.set(uri, content);
   }
+  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
+    this.files.set(targetUri, this.files.get(sourceUri) ?? '');
+  }
   async deletePath(uri: string): Promise<void> {
     this.files.delete(uri);
   }

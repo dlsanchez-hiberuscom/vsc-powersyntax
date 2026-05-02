@@ -23,6 +23,7 @@ import {
   resolveSystemObjectFunction,
   resolveSystemObjectFunctionForOwner
 } from './services/queryService';
+import { isKnownNativeAncestorType } from './nativeAncestors';
 import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
 import {
   PbSystemSymbolDataset,
@@ -116,7 +117,9 @@ export class SystemCatalog {
 
   isKnownOwnerType(name: string): boolean {
     const normalizedName = name.trim().toLowerCase();
-    return normalizedName.length > 0 && PB_SYSTEM_SYMBOL_REGISTRY.indexes.byOwnerType.has(normalizedName);
+    return normalizedName.length > 0
+      && (PB_SYSTEM_SYMBOL_REGISTRY.indexes.byOwnerType.has(normalizedName)
+        || isKnownNativeAncestorType(normalizedName));
   }
 
   // -- Métricas / introspección ---------------------------------------

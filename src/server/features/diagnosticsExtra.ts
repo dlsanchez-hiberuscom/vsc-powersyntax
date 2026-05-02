@@ -17,6 +17,7 @@
 import { Diagnostic, DiagnosticSeverity, Position, Range } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import { DIAGNOSTIC_CODES, withDiagnosticCode } from '../../shared/diagnosticCodes';
 import { DIAGNOSTIC_SOURCE } from '../../shared/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { ScopeKind, type Scope } from '../knowledge/types';
@@ -52,12 +53,12 @@ export function checkUnreachableAfterReturn(
     if (END_FUNCTION_PATTERN.test(trimmed) || END_EVENT_PATTERN.test(trimmed)) break;
     if (sawReturn) {
       // Línea ejecutiva detrás de un return, mismo nivel: marcar.
-      out.push({
+      out.push(withDiagnosticCode({
         severity: DiagnosticSeverity.Hint,
         range: Range.create(Position.create(i, 0), Position.create(i, line.length)),
         message: `Código inalcanzable: precedido por 'return' en la línea ${returnLine + 1}.`,
         source: `${DIAGNOSTIC_SOURCE}:SD11`
-      });
+      }, DIAGNOSTIC_CODES.sd11UnreachableAfterReturn));
       // Solo reportar la primera línea inalcanzable por bloque.
       sawReturn = false;
       continue;
@@ -97,12 +98,12 @@ export function checkUnbalancedParens(
       }
     }
     if (bad || depth !== 0) {
-      out.push({
+      out.push(withDiagnosticCode({
         severity: DiagnosticSeverity.Information,
         range: Range.create(Position.create(i, 0), Position.create(i, line.length)),
         message: `Paréntesis desbalanceados en la sentencia.`,
         source: `${DIAGNOSTIC_SOURCE}:SD12`
-      });
+      }, DIAGNOSTIC_CODES.sd12UnbalancedParens));
     }
   }
   return out;
@@ -129,7 +130,7 @@ export function checkMissingReturn(
     const line = strippedLines[i] ?? '';
     if (RETURN_STATEMENT_RE.test(line)) return out;
   }
-  out.push({
+  out.push(withDiagnosticCode({
     severity: DiagnosticSeverity.Warning,
     range: Range.create(
       Position.create(scope.startLine, 0),
@@ -137,7 +138,7 @@ export function checkMissingReturn(
     ),
     message: `La función '${m[2]}' declara retorno '${m[1]}' pero no contiene 'return'.`,
     source: `${DIAGNOSTIC_SOURCE}:SD13`
-  });
+  }, DIAGNOSTIC_CODES.sd13MissingReturn));
   return out;
 }
 

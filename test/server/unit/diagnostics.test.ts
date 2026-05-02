@@ -10,6 +10,7 @@ import {
   validateStructure,
   validateSemantics,
 } from '../../../src/server/features/diagnostics';
+import { DIAGNOSTIC_CODES } from '../../../src/shared/diagnosticCodes';
 import { DIAGNOSTIC_SOURCE } from '../../../src/shared/types';
 import { loadFixture } from '../helpers/fixtureLoader';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
@@ -111,6 +112,7 @@ suite('unit/diagnostics', () => {
     assert.ok(hasUnusedPrivate, 'No se detectó variable privada no usada');
     assert.ok(hasUnknownFunc, 'No se detectó función no existente');
     assert.ok(hasUnknownFunc2, 'No se detectó segunda función no existente');
+    assert.equal(unknownFuncDiagnostic?.code, DIAGNOSTIC_CODES.sd2UnresolvedCallable);
     assert.deepEqual(unknownFuncDiagnostic?.data, {
       kind: 'semantic-evidence',
       confidence: 'low',
@@ -166,6 +168,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(external, 'Esperaba un diagnóstico informativo para la external function.');
     assert.equal(external?.severity, DiagnosticSeverity.Information);
+    assert.equal(external?.code, DIAGNOSTIC_CODES.nativeDependency);
     assert.deepEqual(external?.data, {
       kind: 'native-dependency',
       dependencyKind: 'dll',
@@ -205,6 +208,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(missingSuper, 'Esperaba un warning lifecycle por falta de super::create.');
     assert.equal(missingSuper?.severity, DiagnosticSeverity.Warning);
+    assert.equal(missingSuper?.code, 'missing-super-create');
     assert.deepEqual(missingSuper?.data, {
       kind: 'lifecycle-warning',
       code: 'missing-super-create',
@@ -232,6 +236,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(missingTrigger, 'Esperaba un warning lifecycle por constructor no disparado.');
     assert.equal(missingTrigger?.severity, DiagnosticSeverity.Warning);
+    assert.equal(missingTrigger?.code, 'missing-trigger-constructor');
     assert.deepEqual(missingTrigger?.data, {
       kind: 'lifecycle-warning',
       code: 'missing-trigger-constructor',
@@ -465,6 +470,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(missing, 'Esperaba un diagnóstico para Retrieve sin transaction conocida.');
     assert.equal(missing?.severity, DiagnosticSeverity.Warning);
+    assert.equal(missing?.code, DIAGNOSTIC_CODES.transactionBindingMissing);
     assert.deepEqual(missing?.data, {
       kind: 'transaction-binding',
       state: 'missing',
@@ -500,6 +506,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(dynamic, 'Esperaba un diagnóstico informativo para binding transaccional dinámico.');
     assert.equal(dynamic?.severity, DiagnosticSeverity.Information);
+    assert.equal(dynamic?.code, DIAGNOSTIC_CODES.transactionBindingDynamic);
     assert.deepEqual(dynamic?.data, {
       kind: 'transaction-binding',
       state: 'dynamic',
@@ -529,6 +536,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(missing, 'Esperaba un warning por DataObject literal sin target .srd.');
     assert.equal(missing?.severity, DiagnosticSeverity.Warning);
+    assert.equal(missing?.code, DIAGNOSTIC_CODES.dataObjectNotFound);
     assert.deepEqual(missing?.data, {
       kind: 'dataobject-binding',
       state: 'missing',
@@ -585,6 +593,7 @@ suite('unit/diagnostics', () => {
     assert.equal(transactionDiagnostics.length, 0, 'SetTrans multilinea debe seguir dejando el binding transaccional en estado conocido.');
     assert.ok(mismatch, 'Esperaba un warning por aridad incorrecta en Retrieve multilinea enlazado a un DataObject literal.');
     assert.equal(mismatch?.severity, DiagnosticSeverity.Warning);
+    assert.equal(mismatch?.code, DIAGNOSTIC_CODES.retrieveArityMismatch);
     assert.deepEqual(mismatch?.data, {
       kind: 'dataobject-retrieve-args',
       confidence: 'high',
@@ -619,6 +628,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(dynamic, 'Esperaba un diagnóstico informativo por DataObject dinámico.');
     assert.equal(dynamic?.severity, DiagnosticSeverity.Information);
+    assert.equal(dynamic?.code, DIAGNOSTIC_CODES.dataObjectDynamic);
     assert.deepEqual(dynamic?.data, {
       kind: 'dataobject-binding',
       state: 'dynamic',
@@ -667,6 +677,7 @@ suite('unit/diagnostics', () => {
 
     assert.ok(mismatch, 'Esperaba un warning por aridad incorrecta en Retrieve enlazado a un DataObject literal.');
     assert.equal(mismatch?.severity, DiagnosticSeverity.Warning);
+    assert.equal(mismatch?.code, DIAGNOSTIC_CODES.retrieveArityMismatch);
     assert.deepEqual(mismatch?.data, {
       kind: 'dataobject-retrieve-args',
       confidence: 'high',
@@ -723,6 +734,7 @@ suite('unit/diagnostics', () => {
     const diags = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
     const sd8 = diags.filter(d => /ya está declarada/i.test(d.message));
     assert.ok(sd8.length >= 1, 'esperaba al menos 1 SD8');
+    assert.equal(sd8[0]?.code, DIAGNOSTIC_CODES.sd8DuplicateDeclaration);
   });
 
   test('SD9: return fuera de función/evento', () => {
@@ -735,6 +747,7 @@ suite('unit/diagnostics', () => {
     const diags = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
     const sd9 = diags.filter(d => /'return'/.test(d.message));
     assert.ok(sd9.length >= 1, 'esperaba al menos 1 SD9');
+    assert.equal(sd9[0]?.code, DIAGNOSTIC_CODES.sd9OrphanReturn);
   });
 
   test('SD10: exit/continue fuera de bucle', () => {
@@ -750,6 +763,7 @@ suite('unit/diagnostics', () => {
     const diags = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
     const sd10 = diags.filter(d => /'exit'/.test(d.message));
     assert.ok(sd10.length >= 1, 'esperaba al menos 1 SD10');
+    assert.equal(sd10[0]?.code, DIAGNOSTIC_CODES.sd10OrphanLoopControl);
   });
 
   test('publishDiagnostics actualiza un snapshot agrupado por proyecto/objeto y versión', () => {

@@ -30,16 +30,19 @@ function commonPrefixLength(a: string, b: string): number {
 
 export function resolveProjectRouting(
   topology: WorkspaceTopology,
-  sourceFiles: string[]
+  sourceFiles: string[],
+  libraryRoots: string[] = [],
+  librarySourceAliases: Record<string, string[]> = {}
 ): ProjectRouting {
   const markers: MarkerEntry[] = [];
+  const aliasesByLibrary = normalizeLibrarySourceAliases(librarySourceAliases);
 
   for (const target of topology.targets) {
     const markerUri = normalizeUri(target.uri);
     markers.push({
       markerUri,
       markerDir: withTrailingSlash(dirname(markerUri)),
-      libraryDirs: target.libraries.map((library) => withTrailingSlash(normalizeUri(library)))
+      libraryDirs: expandLibraryDirs(target.libraries, aliasesByLibrary)
     });
   }
   for (const project of topology.projects) {
@@ -47,7 +50,15 @@ export function resolveProjectRouting(
     markers.push({
       markerUri,
       markerDir: withTrailingSlash(dirname(markerUri)),
-      libraryDirs: project.libraries.map((library) => withTrailingSlash(normalizeUri(library)))
+      libraryDirs: expandLibraryDirs(project.libraries, aliasesByLibrary)
+    });
+  }
+  for (const libraryRoot of libraryRoots) {
+    const markerUri = normalizeUri(libraryRoot);
+    markers.push({
+      markerUri,
+      markerDir: withTrailingSlash(dirname(markerUri)),
+      libraryDirs: expandLibraryDirs([markerUri], aliasesByLibrary)
     });
   }
 
@@ -90,4 +101,27 @@ export function resolveProjectRouting(
   }
 
   return { fileToProject, projectToFiles };
+}
+
+function normalizeLibrarySourceAliases(aliases: Record<string, string[]>): Map<string, string[]> {
+  return new Map(
+    Object.entries(aliases).map(([libraryUri, sourceRoots]) => [
+      normalizeUri(libraryUri),
+      [...new Set(sourceRoots.map((sourceRoot) => withTrailingSlash(normalizeUri(sourceRoot))))].sort()
+    ])
+  );
+}
+
+function expandLibraryDirs(libraries: string[], aliasesByLibrary: Map<string, string[]>): string[] {
+  const expanded = new Set<string>();
+
+  for (const library of libraries) {
+    const normalizedLibrary = normalizeUri(library);
+    expanded.add(withTrailingSlash(normalizedLibrary));
+    for (const alias of aliasesByLibrary.get(normalizedLibrary) ?? []) {
+      expanded.add(withTrailingSlash(normalizeUri(alias)));
+    }
+  }
+
+  return [...expanded].sort();
 }

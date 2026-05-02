@@ -139,6 +139,10 @@ export async function buildSafeEditPlan(
   options: SafeEditPlanOptions = {}
 ): Promise<ApiSafeEditPlan> {
   const impact = await buildImpactAnalysis(document, request, kb, graph, systemCatalog, loadSource, options);
+  return buildSafeEditPlanFromImpact(impact);
+}
+
+export function buildSafeEditPlanFromImpact(impact: ApiImpactAnalysis): ApiSafeEditPlan {
   const blockedReasons = collectBlockedReasons(impact);
   const files = impact.probableImpactFiles.map((file) => ({
     uri: file.uri,

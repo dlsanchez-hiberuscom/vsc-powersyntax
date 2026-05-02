@@ -35,23 +35,34 @@ Cada regla debe tener:
 
 ## 3. Reglas estructurales SR*
 
-## 3.0 IDs implementados actualmente
+## 3.0 Contrato emitido actual
 
-La implementación actual conserva IDs históricos `SD*` y `dataobject-*` en código/tests. Los IDs `PB-*` de este catálogo gobiernan la taxonomía objetivo, pero no deben presentarse como contrato emitido hasta cerrar `B232`.
+Política vigente cerrada en `B232`:
 
-IDs visibles actuales:
+- el contrato público estable para tooling, snapshots, quick-fixes y troubleshooting es `diagnostic.code`;
+- algunos diagnósticos legacy todavía pueden conservar `source` con sufijo `PowerScript:SDx`, pero ese sufijo queda solo como compatibilidad hacia atrás y no debe usarse como clave primaria nueva;
+- los IDs `PB-*` de este catálogo siguen gobernando la taxonomía objetivo y la nomenclatura documental, pero no se anuncian como IDs emitidos por el runtime actual sin una spec de migración/alias explícita.
 
-- `SD2` / `PowerScript:SD2` — estructura PowerScript no balanceada o bloque genérico inválido.
-- `SD3` / `PowerScript:SD3` — referencia o ancestro no resuelto cuando readiness/confidence lo permiten.
-- `SD8` — declaración duplicada.
-- `SD9` — keyword de flujo huérfana.
-- `SD10` — `exit`/`continue` fuera de contexto válido.
-- `SD11` — código inalcanzable.
-- `SD12` — paréntesis no balanceados.
-- `SD13` — retorno faltante en función con return type.
-- `dataobject-not-found`, `dataobject-ambiguous`, `dataobject-dynamic`, `retrieve-arity-mismatch` — familia DataWindow/DataObject actual.
+IDs emitidos hoy:
 
-Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec propia; no cambiar IDs diagnósticos como edición documental.
+- `SD2` — llamada a callable no resuelto en la jerarquía del objeto ni en el catálogo del lenguaje.
+- `SD3` — tipo base ausente del workspace y del catálogo runtime.
+- `SD4` — variable local no usada.
+- `SD5` — variable privada de instancia no usada.
+- `SD6` — shadowing de variable local sobre ámbito más amplio.
+- `SD7` — llamada a función obsoleta con sugerencia de reemplazo cuando aplica.
+- `SD8` — declaración duplicada en el mismo scope.
+- `SD9` — `return` fuera de callable.
+- `SD10` — `exit`/`continue` fuera de bucle válido.
+- `SD11` — código inalcanzable tras `return`.
+- `SD12` — paréntesis desbalanceados.
+- `SD13` — función con return type sin `return`.
+- `dataobject-not-found`, `dataobject-ambiguous`, `dataobject-dynamic`, `retrieve-arity-mismatch` — familia actual de DataWindow/DataObject.
+- `transaction-binding-missing`, `transaction-binding-unknown`, `transaction-binding-dynamic` — binding transaccional insuficiente para `Retrieve/Update`.
+- `native-dependency` — external function/subroutine sin implementación interna navegable.
+- `missing-super-*`, `missing-trigger-*`, `unresolved-*` — familia actual de warnings lifecycle emitidos en `diagnostic.code`.
+
+Regla: cualquier renombrado futuro hacia `PB-*` requiere compatibilidad explícita o alias y una spec propia; no cambiar IDs diagnósticos emitidos como edición documental aislada.
 
 ## PB-STRUCT-001 — Forward type does not match global type
 
@@ -96,6 +107,7 @@ Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec 
 ## PB-SYM-002 — Shadowing
 
 - **Estado:** active
+- **ID emitido actual:** `SD6`
 - **Severidad default:** warning
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** high
@@ -104,6 +116,7 @@ Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec 
 ## PB-SYM-003 — Unused variable
 
 - **Estado:** active
+- **IDs emitidos actuales:** `SD4`, `SD5`
 - **Severidad default:** warning
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** medium
@@ -116,6 +129,7 @@ Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec 
 ## PB-DW-001 — DataWindow not found
 
 - **Estado:** active
+- **ID emitido actual:** `dataobject-not-found`
 - **Severidad default:** warning
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** medium
@@ -124,6 +138,7 @@ Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec 
 ## PB-DW-002 — Retrieve argument count mismatch
 
 - **Estado:** active
+- **ID emitido actual:** `retrieve-arity-mismatch`
 - **Severidad default:** warning
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** high
@@ -132,6 +147,7 @@ Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec 
 ## PB-DW-003 — DataObject assignment cannot be resolved
 
 - **Estado:** active
+- **IDs emitidos actuales:** `dataobject-ambiguous`, `dataobject-dynamic`
 - **Severidad default:** info
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** low
@@ -143,14 +159,14 @@ Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec 
 
 ## PB-PBL-001 — Staging source is stale
 
-- **Estado:** draft
+- **Estado:** active
 - **Severidad default:** error
 - **Readiness mínima:** project-semantic-ready
 - **Confidence mínima:** high
 
 ## PB-PBL-002 — Import blocked by fingerprint mismatch
 
-- **Estado:** draft
+- **Estado:** active
 - **Severidad default:** error
 - **Readiness mínima:** project-semantic-ready
 - **Confidence mínima:** high

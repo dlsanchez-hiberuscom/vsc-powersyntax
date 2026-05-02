@@ -1,5 +1,9 @@
 # Spec 004: Incremental Knowledge Pipeline & Document Cache
 
+**Estado:** cerrada históricamente y normalizada por B233.
+
+**Nota histórica:** la base quedó implementada y luego evolucionó en múltiples specs del pipeline incremental; la carpeta original sólo conservaba `spec.md` y `tasks.md`.
+
 ## 1. Motivación y Contexto
 
 Tras completar el descubrimiento de workspace (Spec 003), el servidor LSP sabe *dónde* están los archivos, pero sigue sin saber *qué contienen* hasta que el usuario los abre explícitamente.

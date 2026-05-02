@@ -14,6 +14,8 @@ import {
   TextEdit,
   WorkspaceEdit
 } from 'vscode-languageserver/node';
+
+import { DIAGNOSTIC_CODES, getDiagnosticCode } from '../../shared/diagnosticCodes';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 
 const SUGGESTION_RE = /Sugerencia:\s*([^.]+?)\./i;
@@ -28,7 +30,7 @@ export function provideCodeActions(
   const lines = content.split(/\r?\n/);
 
   for (const d of diagnostics) {
-    if (d.source !== 'PowerScript:SD7') continue;
+    if (getDiagnosticCode(d)?.toUpperCase() !== DIAGNOSTIC_CODES.sd7ObsoleteFunction) continue;
     const m = SUGGESTION_RE.exec(d.message ?? '');
     if (!m) continue;
     const replacement = m[1].trim();
@@ -46,7 +48,7 @@ export function provideCodeActions(
       edit: workspaceEdit,
       isPreferred: true,
       data: {
-        evidence: 'diagnostic:PowerScript:SD7',
+        evidence: 'diagnostic:SD7',
         confidence: 'high',
         safeEdit: 'single-range-replacement'
       }

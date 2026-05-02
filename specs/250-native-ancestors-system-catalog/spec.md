@@ -6,7 +6,7 @@ Completar la cobertura de ancestros nativos conocidos del runtime PowerBuilder p
 
 ## 2. Estado real actual
 
-`B225` esta `Partial`: diagnostics, current object context, impact analysis e inspectHierarchy ya distinguen algunos ancestros nativos conocidos como `system type`, pero falta ampliar catalogo e indices.
+`B225` queda `Closed`: el `system catalog` reconoce ya raices runtime como `powerobject`/`throwable`, `InheritanceGraph` completa la cadena nativa cuando la KB se corta en tipos del runtime y diagnostics + superficies read-only consumen la misma verdad compartida.
 
 ## 3. Objetivo
 
@@ -40,3 +40,10 @@ Usar el `system catalog` como fuente unica para owner types base y aliases nativ
 ## 8. Validacion requerida
 
 - `npm run test:unit -- --grep "systemCatalog|diagnostics|hierarchy|currentObjectContext|impactAnalysis"`
+
+## 9. Cierre registrado
+
+- `src/server/knowledge/system/nativeAncestors.ts` introduce la fuente compartida de tipos/ancestros nativos del runtime;
+- `src/server/knowledge/system/SystemCatalog.ts` deja de limitarse a owner types indexados y reconoce tambien raices runtime representativas;
+- `src/server/knowledge/resolution/InheritanceGraph.ts` prolonga la cadena cuando la herencia llega a tipos nativos conocidos y no existe mas KB local;
+- `test/server/unit/systemCatalog.test.ts`, `inheritanceGraph.test.ts`, `hierarchyInspection.test.ts`, `currentObjectContext.test.ts`, `diagnostics.test.ts` e `impactAnalysis.test.ts` fijan el contrato cerrado.

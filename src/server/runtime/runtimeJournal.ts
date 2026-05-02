@@ -23,6 +23,7 @@ function cloneJournalEvent(event: ApiRuntimeJournalEvent): ApiRuntimeJournalEven
 
 export class RuntimeJournal {
   private readonly events: ApiRuntimeJournalEvent[] = [];
+  private readonly observers: Array<(event: ApiRuntimeJournalEvent) => void> = [];
   private totalRecorded = 0;
   private dropped = 0;
 
@@ -50,6 +51,21 @@ export class RuntimeJournal {
       this.dropped++;
     }
     this.events.push(normalized);
+
+    if (this.observers.length > 0) {
+      const cloned = cloneJournalEvent(normalized);
+      for (const observer of this.observers) {
+        try {
+          observer(cloned);
+        } catch {
+          // Los observers no deben romper el hot path del journal.
+        }
+      }
+    }
+  }
+
+  addObserver(observer: (event: ApiRuntimeJournalEvent) => void): void {
+    this.observers.push(observer);
   }
 
   snapshot(limit = this.maxEntries): ApiRuntimeJournalSnapshot {

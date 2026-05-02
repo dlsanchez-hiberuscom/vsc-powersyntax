@@ -2,10 +2,10 @@
 
 ## 1. Meta
 
-- **Estado:** Activa
+- **Estado:** cerrada históricamente y normalizada por B233
 - **Fase del roadmap:** Fase 6 (Diagnósticos y productividad semántica base)
 - **Ticket/Backlog:** B028
-- **Foco actual:** Mostrar ayuda sobre parámetros y retornos de funciones/eventos mientras el usuario escribe, soportado por la KnowledgeBase y el motor semántico consolidado en Specs anteriores.
+- **Cierre histórico:** Signature Help quedó implementado sobre `KnowledgeBase`/`semanticQueryService` y hoy se valida con `src/server/features/signatureHelp.ts` y `test/server/unit/signatureHelp.test.ts`.
 
 ## 2. Contexto
 

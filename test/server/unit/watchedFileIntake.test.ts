@@ -46,6 +46,10 @@ class FakeFileSystem implements IFileSystem {
     this.files.set(uri, content);
   }
 
+  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
+    this.files.set(targetUri, this.files.get(sourceUri) ?? '');
+  }
+
   async deletePath(uri: string): Promise<void> {
     this.files.delete(uri);
   }
@@ -195,6 +199,72 @@ suite('unit/watchedFileIntake', () => {
     assert.deepEqual(deleteResult.touchedProjects, [markerUri]);
   });
 
+  test('create y delete de build files refrescan el catálogo read-only de PBAutoBuild', async () => {
+    const fs = new FakeFileSystem();
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const workspaceState = new WorkspaceState();
+    const hotContextCache = new HotContextCache();
+    const servingCache = new ServingCache();
+    const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
+    const markerUri = 'file:///proj/app.pbproj';
+    const buildFileUri = 'file:///proj/app.build.json';
+
+    workspaceState.addTopologyEntry({
+      kind: 'project',
+      data: {
+        uri: markerUri,
+        name: 'app',
+        libraries: []
+      }
+    });
+    workspaceState.refreshProjectRouting();
+    await fs.writeFile(
+      buildFileUri,
+      JSON.stringify({
+        BuildPlan: {
+          Projects: [{ Path: 'app.pbproj' }]
+        }
+      })
+    );
+
+    const createResult = await applyWatchedFileEvents({
+      events: [{ uri: buildFileUri, kind: 'create' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator
+    });
+
+    assert.deepEqual(workspaceState.getBuildFiles(), [
+      {
+        uri: buildFileUri,
+        hasBuildPlan: true,
+        referencedProjectUris: [markerUri],
+        status: 'usable',
+        representedProjectUri: markerUri
+      }
+    ]);
+    assert.deepEqual(createResult.touchedProjects, [markerUri]);
+
+    const deleteResult = await applyWatchedFileEvents({
+      events: [{ uri: buildFileUri, kind: 'delete' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator
+    });
+
+    assert.deepEqual(workspaceState.getBuildFiles(), []);
+    assert.deepEqual(deleteResult.touchedProjects, []);
+  });
+
   test('alta caliente de SR* reconcilia sourceOrigin con los roots ya conocidos', async () => {
     const fs = new FakeFileSystem();
     const documentCache = new DocumentCache();
@@ -222,6 +292,66 @@ suite('unit/watchedFileIntake', () => {
 
     assert.equal(result.reindexed, 1);
     assert.equal(workspaceState.getSourceOrigin(sourceUri), 'pbl-folder-source');
+  });
+
+  test('cambio topológico rematerializa snapshots con sourceOrigin contextual', async () => {
+    const fs = new FakeFileSystem();
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const workspaceState = new WorkspaceState();
+    const hotContextCache = new HotContextCache();
+    const servingCache = new ServingCache();
+    const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
+    const sourceUri = 'file:///proj/src/u_contextual.sru';
+    const solutionUri = 'file:///proj/app.pbsln';
+
+    await fs.writeFile(sourceUri, [
+      'forward',
+      'global type u_contextual from nonvisualobject',
+      'end type',
+      'end forward',
+      '',
+      'global type u_contextual from nonvisualobject',
+      'end type'
+    ].join('\n'));
+
+    const firstResult = await applyWatchedFileEvents({
+      events: [{ uri: sourceUri, kind: 'create' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator
+    });
+
+    const firstType = knowledgeBase.getDocumentSnapshot(sourceUri)?.symbols.find(
+      (fact) => fact.kind.toString().toLowerCase() === 'type'
+    );
+
+    await fs.writeFile(solutionUri, 'Projects = "app.pbproj"');
+
+    const secondResult = await applyWatchedFileEvents({
+      events: [{ uri: solutionUri, kind: 'create' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator
+    });
+
+    const secondType = knowledgeBase.getDocumentSnapshot(sourceUri)?.symbols.find(
+      (fact) => fact.kind.toString().toLowerCase() === 'type'
+    );
+
+    assert.equal(firstResult.reindexed, 1);
+    assert.equal(firstType?.lineage?.sourceOrigin, 'unknown');
+    assert.equal(workspaceState.getSourceOrigin(sourceUri), 'solution-source');
+    assert.equal(secondResult.reindexed, 1);
+    assert.equal(secondType?.lineage?.sourceOrigin, 'solution-source');
   });
 
   test('delete elimina cache, snapshot y limpia diagnósticos', async () => {

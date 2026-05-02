@@ -39,6 +39,10 @@ class CountingFileSystem implements IFileSystem {
     this.files.set(normalizeUri(uri), content);
   }
 
+  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
+    this.files.set(normalizeUri(targetUri), this.files.get(normalizeUri(sourceUri)) ?? this.files.get(sourceUri) ?? '');
+  }
+
   async deletePath(uri: string): Promise<void> {
     this.files.delete(normalizeUri(uri));
   }

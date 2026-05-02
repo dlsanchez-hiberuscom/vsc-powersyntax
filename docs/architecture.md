@@ -157,6 +157,10 @@ Reglas:
 - source generado no debe alimentar rename/import sin validación;
 - operaciones peligrosas requieren source origin confiable.
 
+Estado operativo actual:
+
+- `KnowledgeBase`, `semanticQueryService` y `semanticWorkspaceManifest` ya consumen esa misma prioridad de `sourceOrigin`, de forma que un duplicado entre source real y `orca-staging` se sirve primero desde el origen real y el staging queda como backing read-only.
+
 ### 4.10 Readiness, evidence y confidence como contrato transversal
 
 Las features no deben decidir localmente si un resultado es seguro. El sistema debe exponer contratos compartidos para:
@@ -194,34 +198,48 @@ El repositorio ya materializa un primer corte operativo de:
 - `ServingCache` extendido a hover/definition/signatureHelp/completion;
 - `EntityLineage` como contrato de provenance/origen/fase/fiabilidad, ahora con `sourceOrigin` compartido con discovery, diagnostics y API pública;
 - metadata contractual de símbolo (`declarationScope`, `fileObjectName`, `containerSignature`, `ownerName`, `implementationKind`, `returnType`) ya sale del análisis y no se reconstruye por feature;
-- API pública mínima versionada;
-- current object context pack read-only servido por API pública/LSP, derivado del snapshot semántico, hierarchy inspection, diagnostics y bindings `DataObject` en vez de scans ad hoc para IA;
+- API pública v2 versionada, con descriptor contractual, inventario estable de metodos/schemas/tools y helpers de compatibilidad;
+- bridge read-only JSON-RPC/local tool servido por API pública, con dispatch por nombre estable y payloads tipados en vez de accesos ad hoc al host;
+- semantic workspace snapshot exportable/importable desde cliente sobre el mismo manifest versionado, sin publicar estado semántico parcial;
+- gobernanza de settings y perfiles del producto servida por una surface compartida entre cliente y API pública, sin defaults opacos;
+- current object context pack read-only servido por API pública/LSP, derivado del snapshot semántico, hierarchy inspection, diagnostics y bindings `DataObject` en vez de scans ad hoc para IA, ahora ampliado con variables visibles para sostener surfaces UX sin recomputación local;
 - impact analyzer read-only servido por API pública/LSP, compuesto desde `references`, descendientes/overrides, events, bindings `DataObject` y project routing en vez de listas planas por nombre;
 - safe edit plan read-only servido por API pública/LSP, derivado del impacto explícito y del context pack para proponer archivos, riesgos, tests y docs sin ejecutar cambios;
-- semantic workspace manifest read-only servido por API pública/LSP, derivado de `WorkspaceState`, `UnifiedProjectModel`, `KnowledgeBase`, `InheritanceGraph` y diagnostics snapshot para exponer estructura compacta/versionada del workspace sin exportar código bruto;
+- safe batch refactor planning read-only servido por API pública/LSP y por el tool bridge, reutilizando `rename` preflight, `impact analysis` y `safe edit plan` en vez de abrir otra engine de impacto;
+- workflows write-enabled `applySpecDrivenPblUpdate` / `applySpecDrivenPblUpdateBatch` servidos por API pública/LSP, reutilizando `safeEditPlan`, export ORCA fresco, edits explícitos sobre staging y el mismo rail de import con backup/ledger/journal en vez de abrir un motor legacy paralelo;
+- exportación cliente-side de semantic repro packs reutilizando esas mismas surfaces read-only, `serverStats` y copias de archivos relacionados en un bundle versionable bajo `tools/semantic-repros`, sin abrir un motor paralelo en servidor;
+- semantic workspace manifest read-only servido por API pública/LSP, derivado de `WorkspaceState`, `UnifiedProjectModel`, `KnowledgeBase`, `InheritanceGraph`, knowledge packs curados y diagnostics snapshot para exponer estructura compacta/versionada del workspace sin exportar código bruto;
 - diagnostics snapshot agrupado por proyecto/objeto;
+- contrato diagnóstico estable por `diagnostic.code`, con helpers compartidos para leer IDs emitidos actuales y fallback al sufijo legacy de `source` solo donde aún haga falta compatibilidad;
 - compactación de strings calientes;
 - latency governor en serving/scheduler;
 - hierarchy inspection y CodeLens más fiables;
-- `RuntimeJournal` exportable del motor, alimentado desde `queryTrace`, `ServingCache` e invalidaciones documentales reales y servido por `showStats`/status sin abrir un canal paralelo;
+- `RuntimeJournal` exportable del motor, alimentado desde `queryTrace`, `ServingCache` e invalidaciones documentales reales, servido por `showStats`/status sin abrir un canal paralelo y ahora también proyectado a un journal persistente acotado para `phase: build|legacy`;
 - health checker estructurado del runtime con findings por capa y severidad sobre readiness, scheduler, project model, cachés, persistencia y ambigüedad de query;
 - watcher incremental completo sobre source + markers de topología, con refresh de `UnifiedProjectModel`/`sourceOrigin` desde el puente real LSP -> watcher y sin rediscovery completo para cambios calientes;
 - `references`, `rename` y CodeLens apoyados en un candidate pool compartido y acotado por query/proyecto, con reuso de líneas y `maskedText` ya publicados por snapshot en lugar de rereads/remasking globales;
 - formatter conservador configurable sobre documentos PowerScript soportados, alojado como motor puro compartido y ejecutado en servidor LSP mediante `powerbuilder.formatDocument`; el cliente conserva solo selector/configuración/UX ligera y el servidor aplica budgets explícitos por caracteres/líneas para degradar archivos grandes sin parsear DataWindow como PowerScript.
 - `knowledge/parsing/utils` ya usan tipos internos para posiciones/rangos/símbolos documentales y dejan `DocumentSymbol`/DTOs LSP en el borde de `features/documentSymbols`, protegidos además por un test arquitectónico de imports.
 - `documentSymbols` ejecuta ahora una reconciliación explícita entre `sections/typeBlocks` del parser, facts/scopes del snapshot y el árbol LSP a publicar, generando reason codes y reporte interno antes de servir el outline.
-- capability detection read-only de `PBAutoBuild250.exe` en cliente, resuelta por configuración/entorno/candidatos por defecto, cacheada y visible en status/health sin lanzar build; discovery, runner y log parser siguen abiertos en `B182-B187`.
+- carril moderno de build ya materializado en siete piezas: el cliente resuelve `PBAutoBuild250.exe` por configuración/entorno/candidatos por defecto, el servidor descubre/valida build files JSON y lista los utilizables, un runner server-side dedicado ejecuta `PBAutoBuild` out-of-process con selección segura/timeout/cancelación, un parser server-side resuelve problemas de build a una colección diagnóstica separada del canal semántico, el cliente consolida todo en un snapshot único de build health, recuerda/repite el último build frecuente por workspace y además exporta bundles neutrales de CI/CD (`manifest` + scripts) bajo `tools/pbautobuild-ci/<perfil>`; la deuda restante del ecosistema build moderno se desplaza a operabilidad/documentación (`B198`) y a la rama legacy ORCA.
 - runtime expone un reporte unificado de budgets de memoria por capa (`analysis`, `serving`, `documents`, `hot-context`, `code-lens`, `knowledge`) con estimates soft y vigilancia integrada en `showStats`, health checker y status visible.
+- cliente expone un dashboard read-only de salud del proyecto componiendo `showStats`, `semanticWorkspaceManifest`, reportes de status/health y snapshot de build ya publicados, sin abrir una ruta paralela de cálculo en servidor.
+- cliente expone también un Object Explorer read-only sobre `semanticWorkspaceManifest` enriquecido, agrupado por proyecto/librería/kind y filtrable por proyecto/archivo activo, sin consultas per-node ni un segundo índice local.
+- el project model unificado ya materializa también nodos legacy `kind: library` para roots `.pbl` no cubiertos por `.pbt/.pbproj`, permitiendo modo `pbl-only` y surfaces read-only coherentes antes de abrir staging ORCA.
+- cliente expone además un Current Object Context Panel read-only que sigue el editor activo y proyecta `currentObjectContext` ya servido por API pública, incluyendo ancestor chain, variables visibles, members, diagnostics, bindings `DataObject` y evidence/confidence sin motor semántico paralelo.
+- cliente expone tambien un Diagnostics Explainability Panel read-only que proyecta `diagnostic.code`, severidad y localizacion del editor activo sin parsear el Problems Panel ni recomputar diagnosticos.
+- carril ORCA legacy ya queda partido en cuatro capas: un adapter base server-side, out-of-process y cancelable; una capability read-only cliente-side resuelta desde configuración explícita o `PB_ORCA_PATH`, publicada como `orcaTooling`; un export controlado a `.vsc-powersyntax/orca-export/{orca-staging,scripts,state}` que persiste aliases desde cada carpeta staging hacia la librería `.pbl` original para que routing/manifest sigan atribuyendo proyecto y librería al graph legacy real, mientras `KnowledgeBase` y query/serving priorizan siempre el source real cuando ambos publican el mismo símbolo y `last-export.state` conserva fingerprints del source real rastreado por objeto; un rail write-enabled único que hoy materializa `import-from-staging.orc`, `regenerate-from-staging.orc`, `rebuild-from-staging.orc`, `applySpecDrivenPblUpdate` y `applySpecDrivenPblUpdateBatch`, siempre con preflight, backup binario, ledgers persistidos y journal técnico antes de tocar la PBL; y un journal técnico persistente en `.vsc-powersyntax/runtime/build-orca-journal.json` que conserva eventos `build|legacy` del mismo `RuntimeJournal`. `import` ya bloquea fingerprint mismatch y `stale staging`; la siguiente deuda del carril legacy queda en `B198`.
 - query engine compartido con modelo explícito de invocación PowerBuilder (`unqualified`, `this`, `parent`, `super`, `ancestor`, global, dynamic, external`) y propagación de `invocationKind`/`invocationRisk` a trace, context y operaciones semánticas;
 - eventos PowerBuilder tratados como entidades de primera clase: `on object.event` conserva owner real, `call super::create` resuelve sobre on-handlers reales y `TriggerEvent/PostEvent` con literal estable reusan el mismo backbone semántico.
 - lifecycle PowerBuilder integrado en surfaces visibles: `hierarchyInspection` reconstruye create/destroy desde snapshot semántico, hover explica `constructor/destructor` desde el mismo modelo y diagnostics emite warnings suaves (`missing-super-*`, `missing-trigger-*`, `unresolved-*`) sin abrir un segundo motor.
+- ancestros nativos del runtime servidos desde `system catalog`: una fuente compartida de tipos/raices runtime (`powerobject`, `throwable`, etc.) prolonga la cadena cuando la KB termina en `window` u otros tipos nativos conocidos, evitando cortes entre diagnostics y surfaces read-only.
 - modelo transaccional básico integrado en el backbone: `SQLCA` se resuelve como `transaction` especial, `SetTransObject`/`SetTrans` enlazan con `Retrieve`/`Update` en diagnostics y las superficies interactivas (`completion`/`hover`/`signatureHelp`) filtran el catálogo por `ownerType` para DataWindow/DataStore sin lookup plano por nombre.
-- bridge DataWindow integrado en el mismo backbone: `.srd` publica stubs navegables sin parsearse como PowerScript, `DataObject = "d_xxx"` resuelve hacia el snapshot `.srd` ya indexado, `signatureHelp` reutiliza `arguments=(...)`/`ARG(...)` para especializar `Retrieve(...)`, el safe mode resume SQL base/columnas/bandas principales para hover, `dataWindowModel` aporta un modelo reutilizable para hover/definition/documentSymbols y el slice avanzado actual cubre `report(name=... dataobject=...)`, `column.dddw.name` y property paths `Describe/Modify(...DataWindow.Table.Select)` sobre child DataWindows deterministas sin abrir todavía `.Object` completo ni stores globales paralelos.
+- bridge DataWindow integrado en el mismo backbone: `.srd` publica stubs navegables sin parsearse como PowerScript, `DataObject = "d_xxx"` resuelve hacia el snapshot `.srd` ya indexado, `signatureHelp` reutiliza `arguments=(...)`/`ARG(...)` para especializar `Retrieve(...)`, el safe mode resume SQL base/columnas/bandas principales para hover, `dataWindowModel` aporta un modelo reutilizable para hover/definition/documentSymbols y el slice avanzado actual cubre `report(name=... dataobject=...)`, `column.dddw.name`, property paths `Describe/Modify(...DataWindow.Table.Select)`, acceso directo `.Object.<control|column|property>` y `GetChild()` sobre child DataWindows deterministas, degradando con honestidad cuando el binding o la ruta no son defendibles y sin abrir stores globales paralelos.
 - dependencias nativas externas modeladas como primer ciudadano ligero: `externalAlias`, `externalDependencyKind` (`dll`, `pbx`, `unknown`), hover explícito y degradación honesta de rename/references/diagnostics sin fingir implementation interna.
 - cierre de documento ahora expulsa solo la caché interactiva de análisis y no borra `DocumentCache`/`KnowledgeBase`; la eliminación real de conocimiento queda reservada a eventos de borrado de archivo.
-- `workspaceSymbols`, API symbols, completion global y manifest semántico ya disponen de consultas acotadas sobre `KnowledgeBase` para evitar materializar toda la base cuando solo se necesitan resultados limitados.
+- `KnowledgeBase` ya publica mutaciones con copy-on-write por bucket (ids, kinds y dependencias), y `workspaceSymbols`, API symbols, completion global y manifest semántico consumen consultas/conteos acotados para evitar materializar toda la base cuando solo se necesitan resultados limitados.
 - CodeLens mantiene caché LRU acotada, invalidable por URI y visible en stats/health, en línea con los budgets de memoria pendientes de `B070`.
-- el selector LSP del cliente evita enviar markers `.pbw/.pbt/.pbproj/.pbsln` y `.pbl` binarios como documentos PowerScript; discovery/topología siguen observándolos por watcher.
+- el selector LSP del cliente y un guard server-side compartido evitan servir markers `.pbw/.pbt/.pbproj/.pbsln` y `.pbl` binarios como documentos PowerScript, aunque se fuerce un lenguaje servido; discovery/topología siguen observándolos por watcher.
 
 ---
 
@@ -301,7 +319,7 @@ Adaptadores finos para capacidades LSP: hover, completion, definition, reference
 Superficies visibles de producto para el desarrollador:
 
 - PowerBuilder Object Explorer;
-- Current Object Context;
+- Current Object Context Panel;
 - Project Health Dashboard;
 - status contextual;
 - comandos de inspección;
@@ -361,6 +379,7 @@ Schema persistente actual:
 
 - `semantic-checkpoint.json`: `schemaVersion`, `semanticEpoch`, `createdAt`, `metadata` (`workspaceMode`, `rootUris`, `projectStats`, `publishedAt`) y `documents` persistidos;
 - `semantic-journal.json`: `schemaVersion`, `sequence`, `semanticEpoch`, `createdAt`, `kind`, `uris` y `documents` opcionales para `upsert`;
+- `build-orca-journal.json`: `schemaVersion`, `updatedAt` y snapshot tipado de eventos persistidos para `phase: build|legacy`, accesible también desde `showStats.persistence.buildOrcaJournalUri`;
 - si el payload conserva compatibilidad estructural, el restore normaliza campos faltantes; si no, la decisión canónica es invalidar y reconstruir.
 
 ### 7.4 Estado de origen y confianza
@@ -387,7 +406,7 @@ Schema persistente actual:
 - `features/*` y `ux/*` respetan readiness/evidence/confidence.
 - `adapters/api-*` exponen contratos versionados, nunca entidades mutables internas.
 - las integraciones IA consumen API pública/tools/context packs, no dominio interno.
-- Deuda abierta: `B229` debe pasar `sourceOrigin` contextual desde `WorkspaceState` al análisis documental, dejando `inferSourceOrigin()` solo como fallback.
+- `B229` ya queda cerrada: `documentAnalysis`, `analysisCache`, indexador y watcher consumen `sourceOrigin` contextual desde `WorkspaceState`/routing y dejan `inferSourceOrigin()` solo como fallback cuando la autoridad contextual es inexistente o sigue en `unknown`.
 
 ---
 

@@ -31,8 +31,10 @@ import {
   type ApiCurrentObjectDataWindowBinding,
   type ApiCurrentObjectReference,
   type ApiCurrentObjectRelatedFile,
+  type ApiCurrentObjectVisibleVariable,
 } from '../../shared/publicApi';
 import type { WorkspaceState } from '../workspace/workspaceState';
+import { ScopeKind } from '../knowledge/types';
 
 const DEFAULT_EXCERPT_LINES = 48;
 const DEFAULT_REFERENCED_SYMBOLS = 24;
@@ -174,6 +176,67 @@ function collectMemberSymbols(
   }
 
   return { functions, events, prototypes };
+}
+
+function collectVisibleVariables(
+  documentUri: string,
+  focusType: string,
+  line: number | undefined,
+  kb: KnowledgeBase,
+  graph: InheritanceGraph,
+): ApiCurrentObjectVisibleVariable[] {
+  const visibleVariables: ApiCurrentObjectVisibleVariable[] = [];
+  const seen = new Set<string>();
+
+  const pushVariable = (
+    entity: Entity,
+    extra: Partial<ApiCurrentObjectVisibleVariable> = {},
+  ): void => {
+    const key = entity.name.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    visibleVariables.push({
+      name: entity.name,
+      uri: entity.uri,
+      line: entity.line,
+      character: entity.character,
+      ...(entity.datatype ? { datatype: entity.datatype } : {}),
+      ...(entity.scope ? { scope: entity.scope } : {}),
+      ...(entity.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
+      ...extra,
+    });
+  };
+
+  if (line !== undefined) {
+    let scope = kb.getScopeAt(documentUri, line);
+    while (scope && (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event)) {
+      for (const symbol of scope.symbols) {
+        if (symbol.kind !== EntityKind.Variable) {
+          continue;
+        }
+        pushVariable(symbol, {
+          declaredIn: scope.id,
+          relation: 'own',
+        });
+      }
+      scope = scope.parent ?? null;
+    }
+  }
+
+  for (const member of graph.getMemberClosure(focusType)) {
+    if (member.entity.kind !== EntityKind.Variable || member.overriddenByCurrentType) {
+      continue;
+    }
+
+    pushVariable(member.entity, {
+      declaredIn: member.declaredIn,
+      relation: member.relation,
+    });
+  }
+
+  return visibleVariables;
 }
 
 function summarizeDiagnostics(diagnostics: ApiCurrentObjectDiagnostic[]): NonNullable<ApiCurrentObjectContext['diagnostics']> {
@@ -416,6 +479,7 @@ export function buildCurrentObjectContext(
     excerptLineBudget
   );
   const memberGroups = collectMemberSymbols(focusType, analysis.semanticFacts, graph);
+  const visibleVariables = collectVisibleVariables(document.uri, focusType, line, kb, graph);
   const diagnostics = buildDiagnosticsForDocument(document, kb, systemCatalog, graph).map((diagnostic) => ({
     message: diagnostic.message,
     ...(diagnostic.code ? { code: String(diagnostic.code) } : {}),
@@ -484,6 +548,7 @@ export function buildCurrentObjectContext(
       ? hierarchy.ancestorDescriptors
       : buildAncestorChain(hierarchy.ancestorChain, kb, systemCatalog),
     members: memberGroups,
+    visibleVariables,
     referencedSymbols,
     diagnostics: summarizeDiagnostics(diagnostics),
     dataWindowBindings,

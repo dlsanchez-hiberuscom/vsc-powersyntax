@@ -44,58 +44,111 @@
     "languages": [
       {
         "id": "powerbuilder",
-        "aliases": ["PowerBuilder", "PowerScript", "pb"],
-        "extensions": [".srj", ".srq", ".pbt", ".pbw", ".pbl"],
+        "aliases": [
+          "PowerBuilder",
+          "PowerScript",
+          "pb"
+        ],
+        "extensions": [
+          ".srj",
+          ".srq",
+          ".pbt",
+          ".pbw",
+          ".pbl"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/powerbuilder.png", "light": "./icons/powerbuilder.png" }
+        "icon": {
+          "dark": "./icons/powerbuilder.png",
+          "light": "./icons/powerbuilder.png"
+        }
       },
       {
         "id": "powerbuilder-window",
-        "extensions": [".srw"],
+        "extensions": [
+          ".srw"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/window.svg", "light": "./icons/files/window.svg" }
+        "icon": {
+          "dark": "./icons/files/window.svg",
+          "light": "./icons/files/window.svg"
+        }
       },
       {
         "id": "powerbuilder-datawindow",
-        "extensions": [".srd"],
+        "extensions": [
+          ".srd"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/datawindow.svg", "light": "./icons/files/datawindow.svg" }
+        "icon": {
+          "dark": "./icons/files/datawindow.svg",
+          "light": "./icons/files/datawindow.svg"
+        }
       },
       {
         "id": "powerbuilder-userobject",
-        "extensions": [".sru"],
+        "extensions": [
+          ".sru"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/userobject.svg", "light": "./icons/files/userobject.svg" }
+        "icon": {
+          "dark": "./icons/files/userobject.svg",
+          "light": "./icons/files/userobject.svg"
+        }
       },
       {
         "id": "powerbuilder-function",
-        "extensions": [".srf"],
+        "extensions": [
+          ".srf"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/function.svg", "light": "./icons/files/function.svg" }
+        "icon": {
+          "dark": "./icons/files/function.svg",
+          "light": "./icons/files/function.svg"
+        }
       },
       {
         "id": "powerbuilder-menu",
-        "extensions": [".srm"],
+        "extensions": [
+          ".srm"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/menu.svg", "light": "./icons/files/menu.svg" }
+        "icon": {
+          "dark": "./icons/files/menu.svg",
+          "light": "./icons/files/menu.svg"
+        }
       },
       {
         "id": "powerbuilder-application",
-        "extensions": [".sra"],
+        "extensions": [
+          ".sra"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/application.svg", "light": "./icons/files/application.svg" }
+        "icon": {
+          "dark": "./icons/files/application.svg",
+          "light": "./icons/files/application.svg"
+        }
       },
       {
         "id": "powerbuilder-structure",
-        "extensions": [".srs"],
+        "extensions": [
+          ".srs"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/structure.svg", "light": "./icons/files/structure.svg" }
+        "icon": {
+          "dark": "./icons/files/structure.svg",
+          "light": "./icons/files/structure.svg"
+        }
       },
       {
         "id": "powerbuilder-pipeline",
-        "extensions": [".srp"],
+        "extensions": [
+          ".srp"
+        ],
         "configuration": "./language-configuration.json",
-        "icon": { "dark": "./icons/files/pipeline.svg", "light": "./icons/files/pipeline.svg" }
+        "icon": {
+          "dark": "./icons/files/pipeline.svg",
+          "light": "./icons/files/pipeline.svg"
+        }
       }
     ],
     "grammars": [
@@ -180,6 +233,136 @@
         "command": "vscPowerSyntax.showStatusHealth",
         "title": "PowerSyntax: Mostrar Salud del Runtime",
         "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openProjectHealthDashboard",
+        "title": "PowerSyntax: Abrir Dashboard de Salud del Proyecto",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.refreshCurrentObjectContextPanel",
+        "title": "PowerSyntax: Refrescar Current Object Context Panel",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.focusCurrentObjectContextPanel",
+        "title": "PowerSyntax: Mostrar Current Object Context Panel",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openCurrentObjectContextLocation",
+        "title": "PowerSyntax: Abrir Ubicación desde Current Object Context",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.refreshDiagnosticsExplainabilityPanel",
+        "title": "PowerSyntax: Refrescar Diagnostics Explainability",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.focusDiagnosticsExplainabilityPanel",
+        "title": "PowerSyntax: Mostrar Diagnostics Explainability",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openDiagnosticsExplainabilityLocation",
+        "title": "PowerSyntax: Abrir Ubicación desde Diagnostics Explainability",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.refreshObjectExplorer",
+        "title": "PowerSyntax: Refrescar Object Explorer",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.focusObjectExplorerOnCurrentProject",
+        "title": "PowerSyntax: Fijar Object Explorer en el Proyecto Activo",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.focusObjectExplorerOnCurrentFile",
+        "title": "PowerSyntax: Fijar Object Explorer en el Archivo Activo",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.clearObjectExplorerFocus",
+        "title": "PowerSyntax: Limpiar Foco del Object Explorer",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openObjectExplorerObject",
+        "title": "PowerSyntax: Abrir Objeto desde Object Explorer",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.runPbAutoBuild",
+        "title": "PowerSyntax: Ejecutar PBAutoBuild",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.runLastPbAutoBuild",
+        "title": "PowerSyntax: Repetir Último Build PBAutoBuild",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.runPbAutoBuildWithPicker",
+        "title": "PowerSyntax: Elegir Build PBAutoBuild y Ejecutar",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.cancelPbAutoBuild",
+        "title": "PowerSyntax: Cancelar PBAutoBuild Activo",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.exportPbAutoBuildCiHelper",
+        "title": "PowerSyntax: Exportar Helper CI/CD de PBAutoBuild",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.runActiveOrcaScript",
+        "title": "PowerSyntax: Ejecutar Script ORCA Activo",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.cancelOrcaScript",
+        "title": "PowerSyntax: Cancelar Script ORCA",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.exportOrcaStaging",
+        "title": "PowerSyntax: Exportar PBL Legacy a ORCA Staging",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.importOrcaStaging",
+        "title": "PowerSyntax: Importar ORCA Staging a PBL Legacy",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.regenerateOrcaLibraries",
+        "title": "PowerSyntax: Regenerate Librerías Legacy vía ORCA",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.rebuildOrcaProject",
+        "title": "PowerSyntax: Rebuild Proyecto Legacy vía ORCA",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.exportSemanticReproPack",
+        "title": "PowerSyntax: Exportar Repro Pack Semántico",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.showSettingsGovernance",
+        "title": "PowerSyntax: Ver Gobernanza de Settings",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.applySettingsProfile",
+        "title": "PowerSyntax: Aplicar Perfil de Settings",
+        "category": "VSC PowerSyntax"
       }
     ],
     "iconThemes": [
@@ -189,9 +372,99 @@
         "path": "./icons/powerbuilder-icons.json"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "powerbuilderObjectExplorer",
+          "name": "PowerBuilder Object Explorer",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "id": "powerbuilderCurrentObjectContext",
+          "name": "Current Object Context",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "id": "powerbuilderDiagnosticsExplainability",
+          "name": "Diagnostics Explainability",
+          "when": "workspaceFolderCount != 0"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "vscPowerSyntax.focusCurrentObjectContextPanel",
+          "when": "view == powerbuilderCurrentObjectContext",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vscPowerSyntax.refreshCurrentObjectContextPanel",
+          "when": "view == powerbuilderCurrentObjectContext",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vscPowerSyntax.focusDiagnosticsExplainabilityPanel",
+          "when": "view == powerbuilderDiagnosticsExplainability",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vscPowerSyntax.refreshDiagnosticsExplainabilityPanel",
+          "when": "view == powerbuilderDiagnosticsExplainability",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vscPowerSyntax.focusObjectExplorerOnCurrentProject",
+          "when": "view == powerbuilderObjectExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vscPowerSyntax.focusObjectExplorerOnCurrentFile",
+          "when": "view == powerbuilderObjectExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vscPowerSyntax.clearObjectExplorerFocus",
+          "when": "view == powerbuilderObjectExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vscPowerSyntax.refreshObjectExplorer",
+          "when": "view == powerbuilderObjectExplorer",
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vscPowerSyntax.openCurrentObjectContextLocation",
+          "when": "view == powerbuilderCurrentObjectContext && viewItem == currentObjectContext.item",
+          "group": "inline"
+        },
+        {
+          "command": "vscPowerSyntax.openDiagnosticsExplainabilityLocation",
+          "when": "view == powerbuilderDiagnosticsExplainability && viewItem == diagnosticsExplainability.item",
+          "group": "inline"
+        },
+        {
+          "command": "vscPowerSyntax.openObjectExplorerObject",
+          "when": "view == powerbuilderObjectExplorer && viewItem == powerbuilderObjectExplorer.object",
+          "group": "inline"
+        }
+      ]
+    },
     "configuration": {
       "title": "VSC PowerSyntax",
       "properties": {
+        "vscPowerSyntax.profile": {
+          "type": "string",
+          "enum": [
+            "balanced",
+            "interactive",
+            "legacy-safe"
+          ],
+          "default": "balanced",
+          "description": "Perfil gobernado del producto. Sirve como baseline defendible para settings críticos del cliente."
+        },
         "vscPowerSyntax.progress.show": {
           "type": "boolean",
           "default": true,
@@ -201,6 +474,16 @@
           "type": "string",
           "default": "",
           "description": "Ruta opcional a PBAutoBuild250.exe. Si queda vacía, el cliente probará PB_AUTOBUILD_PATH y candidatos instalados por defecto."
+        },
+        "vscPowerSyntax.legacy.orcaPath": {
+          "type": "string",
+          "default": "",
+          "description": "Ruta explícita al ejecutable ORCA legacy. Si queda vacía, el cliente probará PB_ORCA_PATH sin autodetección difusa por rutas instaladas."
+        },
+        "vscPowerSyntax.legacy.orcaSessionDll": {
+          "type": "string",
+          "default": "",
+          "description": "DLL de sesión ORCA para export a staging. Si queda vacía, el cliente probará PB_ORCA_DLL y caerá en pborc250.dll como valor por defecto para PowerBuilder 2025."
         },
         "vscPowerSyntax.formatting.enabled": {
           "type": "boolean",
@@ -214,31 +497,50 @@
         },
         "vscPowerSyntax.formatting.keywordCase": {
           "type": "string",
-          "enum": ["preserve", "upper", "lower"],
+          "enum": [
+            "preserve",
+            "upper",
+            "lower"
+          ],
           "default": "preserve",
           "description": "Case base para keywords PowerBuilder cuando no exista una opción más específica."
         },
         "vscPowerSyntax.formatting.statementCase": {
           "type": "string",
-          "enum": ["preserve", "upper", "lower"],
+          "enum": [
+            "preserve",
+            "upper",
+            "lower"
+          ],
           "default": "preserve",
           "description": "Case para keywords ejecutables como IF, ELSE, RETURN o END IF."
         },
         "vscPowerSyntax.formatting.typeCase": {
           "type": "string",
-          "enum": ["preserve", "upper", "lower"],
+          "enum": [
+            "preserve",
+            "upper",
+            "lower"
+          ],
           "default": "preserve",
           "description": "Case para bloques estructurales como GLOBAL TYPE, FORWARD PROTOTYPES o END TYPE."
         },
         "vscPowerSyntax.formatting.eventKeywordCase": {
           "type": "string",
-          "enum": ["preserve", "upper", "lower"],
+          "enum": [
+            "preserve",
+            "upper",
+            "lower"
+          ],
           "default": "preserve",
           "description": "Case para EVENT/ON y sus cierres."
         },
         "vscPowerSyntax.formatting.indentStyle": {
           "type": "string",
-          "enum": ["spaces", "tabs"],
+          "enum": [
+            "spaces",
+            "tabs"
+          ],
           "default": "spaces",
           "description": "Estilo de indentación del formatter conservador."
         },
@@ -277,22 +579,28 @@
         },
         "vscPowerSyntax.formatting.normalizeBlankLines": {
           "type": "string",
-          "enum": ["preserve", "compact"],
+          "enum": [
+            "preserve",
+            "compact"
+          ],
           "default": "preserve",
           "description": "Preservar o compactar líneas en blanco consecutivas durante el formateo."
         }
       }
     }
   },
-  "activationEvents": [ ],
+  "activationEvents": [],
   "files": [
-    "out/**",
+    "out/client/**",
+    "out/server/**",
+    "out/shared/**",
     "syntaxes/**",
     "icons/**",
     "language-configuration.json",
     "package.json",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -305,7 +613,11 @@
     "test:smoke": "npm run build:test && vscode-test --label smoke",
     "test:unit": "npm run build:test && vscode-test --label unit",
     "test:integration": "npm run build:test && vscode-test --label integration",
-    "test:performance": "npm run build:test && vscode-test --label performance"
+    "test:performance": "npm run build:test && vscode-test --label performance",
+    "test:performance:gate": "node ./tools/run-performance-budget-gate.mjs",
+    "package:vsix": "node -e \"require('fs').mkdirSync('.dist',{recursive:true})\" && vsce package --no-yarn --out ./.dist/vsc-powersyntax.vsix",
+    "package:vsix:list": "vsce ls --no-yarn",
+    "release:verify": "npm test && npm run test:performance:gate && npm run package:vsix"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
@@ -319,6 +631,7 @@
     "@types/vscode": "^1.100.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.1",
     "mocha": "^10.7.3",
     "ts-node": "^10.9.1",
     "typescript": "^5.9.2"

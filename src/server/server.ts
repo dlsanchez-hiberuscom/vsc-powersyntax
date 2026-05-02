@@ -15,6 +15,8 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { SERVER_NAME } from '../shared/types';
+import { inferSourceOrigin } from '../shared/sourceOrigin';
+import { isPowerBuilderSemanticUri } from '../shared/powerbuilderFiles';
 import {
   PROGRESS_NOTIFICATION,
   type ProgressNotification
@@ -45,6 +47,7 @@ import { buildImpactAnalysis } from './features/impactAnalysis';
 import { buildHierarchyInspection } from './features/hierarchyInspection';
 import { collectReferenceSourcePool } from './features/referenceSourcePool';
 import { buildSemanticWorkspaceManifest } from './features/semanticWorkspaceManifest';
+import { buildSafeBatchRefactorPlan } from './features/safeBatchRefactorPlan';
 import { buildSafeEditPlan } from './features/safeEditPlan';
 import {
   clearDiagnosticsSummary,
@@ -56,7 +59,18 @@ import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { createLatencyGovernor } from './runtime/latencyGovernor';
 import { buildRuntimeHealthReport } from './runtime/runtimeHealth';
 import { buildRuntimeMemoryReport } from './runtime/memoryBudgets';
+import { BuildOrcaJournalStore } from './runtime/buildOrcaJournalStore';
 import { RuntimeJournal } from './runtime/runtimeJournal';
+import {
+  PbAutoBuildRunner,
+  selectPbAutoBuildBuildFile,
+} from './build/pbAutoBuildRunner';
+import { OrcaRunner } from './build/orcaRunner';
+import { applySpecDrivenPblUpdate, applySpecDrivenPblUpdateBatch } from './build/specDrivenPblUpdate';
+import { runOrcaStagingImport, runOrcaWriteOperation } from './build/orcaStagingImport';
+import { prepareOrcaStagingExport, restoreOrcaStagingAliases } from './build/orcaStagingExport';
+import { parsePbAutoBuildLog } from './build/pbAutoBuildLogParser';
+import { resolvePbAutoBuildProblems } from './build/pbAutoBuildProblems';
 import { NodeFileSystem } from './system/fileSystem';
 import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
 import { createCacheCheckpoint } from './cache/cacheCheckpoint';
@@ -111,6 +125,11 @@ const readiness = createReadinessTracker();
 const sendProgress = (p: ProgressNotification): void => {
   void connection.sendNotification(PROGRESS_NOTIFICATION, p);
 };
+
+function isSemanticallyServedDocument(document: TextDocument): boolean {
+  const scheme = document.uri.split(':', 1)[0]?.toLowerCase();
+  return scheme !== 'file' || isPowerBuilderSemanticUri(document.uri);
+}
 const fs = new NodeFileSystem();
 const workspaceState = new WorkspaceState();
 const documentCache = new DocumentCache();
@@ -119,6 +138,12 @@ const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
 const runtimeJournal = new RuntimeJournal(160);
+const buildOrcaJournal = new BuildOrcaJournalStore(fs, { maxEntries: 128 });
+runtimeJournal.addObserver((event) => {
+  buildOrcaJournal.record(event);
+});
+const pbAutoBuildRunner = new PbAutoBuildRunner({ journal: runtimeJournal });
+const orcaRunner = new OrcaRunner({ journal: runtimeJournal });
 const servingCache = new ServingCache<unknown>(256, 0, (event) => {
   runtimeJournal.record({
     phase: event.action === 'invalidate' ? 'invalidation' : 'cache',
@@ -173,6 +198,7 @@ const watcherIntake = createFileWatcherDebouncer({
           servingCache,
           servingCacheFlushCoordinator,
           isDocumentOpen: (uri) => documents.get(uri) !== undefined,
+          getOpenDocument: (uri) => documents.get(uri),
           clearDiagnostics: (uri) => {
             clearDiagnosticsSummary(uri);
             connection.sendDiagnostics({ uri, diagnostics: [] as Diagnostic[] });
@@ -266,7 +292,13 @@ setAnalysisBackends(documentCache, knowledgeBase, {
       });
     }
   }
-});
+}, (uri) => (
+  workspaceState.getSourceOrigin(uri) && workspaceState.getSourceOrigin(uri) !== 'unknown'
+  ? workspaceState.getSourceOrigin(uri)!
+  : inferSourceOrigin(uri, {
+    hasSolutionRoots: workspaceState.getMode() === 'solution' || workspaceState.getMode() === 'mixed'
+  })
+));
 
 let activeDocumentUri: string | null = null;
 let workspaceFolders: string[] = [];
@@ -500,6 +532,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   if (params.workspaceFolders) {
     workspaceFolders = params.workspaceFolders.map(f => f.uri);
   }
+  buildOrcaJournal.configure(workspaceFolders);
   const initOptions = params.initializationOptions as { cacheStorageUri?: string } | undefined;
   cacheStorageUri = typeof initOptions?.cacheStorageUri === 'string' ? initOptions.cacheStorageUri : null;
 
@@ -532,7 +565,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       renameProvider: { prepareProvider: true },
       // Spec 106: comandos personalizados expuestos vía workspace/executeCommand.
       executeCommandProvider: {
-        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.semanticWorkspaceManifest', 'powerbuilder.formatDocument']
+        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.safeBatchRefactorPlan', 'powerbuilder.applySpecDrivenPblUpdate', 'powerbuilder.applySpecDrivenPblUpdateBatch', 'powerbuilder.semanticWorkspaceManifest', 'powerbuilder.formatDocument', 'powerbuilder.listPbAutoBuildBuildFiles', 'powerbuilder.runPbAutoBuild', 'powerbuilder.cancelPbAutoBuild', 'powerbuilder.runOrcaScript', 'powerbuilder.cancelOrcaScript', 'powerbuilder.exportOrcaStaging', 'powerbuilder.importOrcaStaging', 'powerbuilder.regenerateOrcaLibraries', 'powerbuilder.rebuildOrcaProject']
       }
     }
   };
@@ -602,6 +635,11 @@ connection.onInitialized(() => {
           return;
         }
 
+        const restoredOrcaStagingAliases = await restoreOrcaStagingAliases(workspaceFolders, fs, discoveredState);
+        if (restoredOrcaStagingAliases > 0) {
+          connection.console.log(`[WORKSPACE] ORCA staging restauró ${restoredOrcaStagingAliases} aliases hacia librerías legacy.`);
+        }
+
         discoveredState.refreshProjectRouting();
         workspaceState.replaceFrom(discoveredState);
 
@@ -617,6 +655,7 @@ connection.onInitialized(() => {
 
         const projectModel = workspaceState.getProjectModel();
         connection.console.log(`  - Proyectos detectados: ${projectModel?.getProjects().length ?? 0}`);
+        connection.console.log(`  - Build files PBAutoBuild: ${workspaceState.getBuildFileSummary().total}`);
 
         const cacheMetadata = {
           workspaceMode: workspaceState.getMode(),
@@ -750,6 +789,9 @@ connection.onDocumentSymbol((params) => {
   if (!document) {
     return [];
   }
+  if (!isSemanticallyServedDocument(document)) {
+    return [];
+  }
 
   try {
     return scheduler.runInteractive({
@@ -793,6 +835,9 @@ connection.onDocumentSymbol((params) => {
 connection.onHover((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) {
+    return null;
+  }
+  if (!isSemanticallyServedDocument(document)) {
     return null;
   }
 
@@ -867,6 +912,9 @@ connection.onWorkspaceSymbol((params) => {
 connection.onDefinition((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) {
+    return null;
+  }
+  if (!isSemanticallyServedDocument(document)) {
     return null;
   }
 
@@ -944,6 +992,7 @@ connection.onDefinition((params) => {
 connection.onReferences(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
+  if (!isSemanticallyServedDocument(document)) return [];
   try {
     hotContextCache.setActive(document.uri, knowledgeBase.version);
     const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'references');
@@ -995,6 +1044,9 @@ connection.onSignatureHelp((params) => {
   if (!document) {
     return null;
   }
+  if (!isSemanticallyServedDocument(document)) {
+    return null;
+  }
 
   try {
     return scheduler.runInteractive({
@@ -1041,6 +1093,9 @@ connection.onSignatureHelp((params) => {
 connection.onCompletion((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) {
+    return null;
+  }
+  if (!isSemanticallyServedDocument(document)) {
     return null;
   }
 
@@ -1100,6 +1155,9 @@ connection.languages.semanticTokens.on((params) => {
   if (!document) {
     return { data: [] };
   }
+  if (!isSemanticallyServedDocument(document)) {
+    return { data: [] };
+  }
 
   try {
     return scheduler.runInteractive({
@@ -1131,6 +1189,16 @@ connection.languages.semanticTokens.on((params) => {
 documents.onDidOpen((event) => {
   activeDocumentUri = event.document.uri;
 
+  if (!isSemanticallyServedDocument(event.document)) {
+    cancelScheduledDiagnostics(event.document.uri);
+    clearDiagnosticsSummary(event.document.uri);
+    connection.sendDiagnostics({
+      uri: event.document.uri,
+      diagnostics: [] as Diagnostic[]
+    });
+    return;
+  }
+
   try {
     const { elapsedMs } = measureMs(() => publishDiagnosticsNow(connection, event.document, scheduler, knowledgeBase, systemCatalog, inheritanceGraph, workspaceState));
 
@@ -1148,6 +1216,15 @@ documents.onDidOpen((event) => {
 
 documents.onDidChangeContent((event) => {
   activeDocumentUri = event.document.uri;
+  if (!isSemanticallyServedDocument(event.document)) {
+    cancelScheduledDiagnostics(event.document.uri);
+    clearDiagnosticsSummary(event.document.uri);
+    connection.sendDiagnostics({
+      uri: event.document.uri,
+      diagnostics: [] as Diagnostic[]
+    });
+    return;
+  }
   const previousSnapshot = knowledgeBase.getDocumentSnapshot(event.document.uri) ?? undefined;
   const previousPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
   const nextAnalysis = getDocumentAnalysis(event.document);
@@ -1184,6 +1261,15 @@ documents.onDidChangeContent((event) => {
 });
 
 documents.onDidClose((event) => {
+  if (!isSemanticallyServedDocument(event.document)) {
+    cancelScheduledDiagnostics(event.document.uri);
+    clearDiagnosticsSummary(event.document.uri);
+    connection.sendDiagnostics({
+      uri: event.document.uri,
+      diagnostics: [] as Diagnostic[]
+    });
+    return;
+  }
   cancelScheduledDiagnostics(event.document.uri);
   const invalidationPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
   evictDocumentAnalysis(event.document.uri);
@@ -1245,6 +1331,7 @@ connection.onShutdown(async () => {
 connection.onCodeAction((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return [];
+  if (!isSemanticallyServedDocument(document)) return [];
   try {
     return provideCodeActions(
       params.textDocument.uri,
@@ -1260,6 +1347,7 @@ connection.onCodeAction((params) => {
 connection.onCodeLens(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return [];
+  if (!isSemanticallyServedDocument(document)) return [];
   try {
     const readinessDecision = decideFeatureReadiness('references', buildRuntimeProgressReadiness(document.uri), {
       latencyOverloaded: isLatencyPressureHigh()
@@ -1308,6 +1396,7 @@ connection.onCodeLens(async (params) => {
 connection.onPrepareRename((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
+  if (!isSemanticallyServedDocument(document)) return null;
   hotContextCache.setActive(document.uri, knowledgeBase.version);
   const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename-prepare');
   const readiness = resolveServingReadiness({
@@ -1342,6 +1431,7 @@ connection.onPrepareRename((params) => {
 connection.onRenameRequest(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return null;
+  if (!isSemanticallyServedDocument(document)) return null;
   hotContextCache.setActive(document.uri, knowledgeBase.version);
   const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename');
   const readiness = resolveServingReadiness({
@@ -1387,6 +1477,7 @@ connection.onExecuteCommand(async (params) => {
       const projectStats = workspaceState.getProjectModel()?.getStats();
       const activeProject = workspaceState.getProjectContextForFile(activeDocumentUri);
       const progressReadiness = buildRuntimeProgressReadiness();
+      const buildOrcaJournalUri = buildOrcaJournal.storageUri;
       const baseStats = {
         kb: stats,
         scheduler: sched,
@@ -1425,20 +1516,28 @@ connection.onExecuteCommand(async (params) => {
           kb: stats,
         }),
         projectModel: projectStats,
+        buildFiles: workspaceState.getBuildFileSummary(),
+        buildRunner: pbAutoBuildRunner.getSnapshot(),
+        orcaRunner: orcaRunner.getSnapshot(),
         lastQueryTrace: getLastTrace(),
-        persistence: cacheStore
+        persistence: cacheStore || buildOrcaJournalUri
           ? {
-            storageUri: cacheStore.storageUri,
-            checkpointUri: cacheStore.checkpointUri,
-            journalUri: cacheStore.journalUri,
-            workspaceKey: cacheStore.workspaceKey,
-            restoreState: lastPersistenceRestoreState,
-            restoreReason: lastPersistenceRestoreReason,
-            restoredDocuments: lastRestoredCheckpointDocuments,
-            servingSnapshot: {
-              lastRestoredEntries: lastServingSnapshotRestoreEntries,
-              lastPersistedEntries: lastServingSnapshotPersistEntries
-            }
+            ...(buildOrcaJournalUri ? { buildOrcaJournalUri } : {}),
+            ...(cacheStore
+              ? {
+                storageUri: cacheStore.storageUri,
+                checkpointUri: cacheStore.checkpointUri,
+                journalUri: cacheStore.journalUri,
+                workspaceKey: cacheStore.workspaceKey,
+                restoreState: lastPersistenceRestoreState,
+                restoreReason: lastPersistenceRestoreReason,
+                restoredDocuments: lastRestoredCheckpointDocuments,
+                servingSnapshot: {
+                  lastRestoredEntries: lastServingSnapshotRestoreEntries,
+                  lastPersistedEntries: lastServingSnapshotPersistEntries
+                }
+              }
+              : {})
           }
           : undefined
       };
@@ -1479,6 +1578,238 @@ connection.onExecuteCommand(async (params) => {
         throw new Error('Solicitud de formato inválida.');
       }
       return formatDocument(request as Parameters<typeof formatDocument>[0]);
+    }
+    case 'powerbuilder.runPbAutoBuild': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        throw new Error('Solicitud de build inválida.');
+      }
+
+      const executablePath = typeof (request as { executablePath?: unknown }).executablePath === 'string'
+        ? (request as { executablePath: string }).executablePath
+        : '';
+      const buildFileUri = typeof (request as { buildFileUri?: unknown }).buildFileUri === 'string'
+        ? (request as { buildFileUri: string }).buildFileUri
+        : undefined;
+      const timeoutMs = typeof (request as { timeoutMs?: unknown }).timeoutMs === 'number'
+        ? (request as { timeoutMs: number }).timeoutMs
+        : undefined;
+
+      const activeProjectUri = workspaceState.getProjectContextForFile(activeDocumentUri)?.projectUri;
+      const selection = selectPbAutoBuildBuildFile(workspaceState.getBuildFiles(), activeProjectUri, buildFileUri);
+      if (!selection.buildFile) {
+        throw new Error(selection.detail ?? 'No se pudo seleccionar un build file utilizable.');
+      }
+
+      const runResult = await pbAutoBuildRunner.run({
+        executablePath,
+        buildFile: selection.buildFile,
+        timeoutMs
+      });
+
+      const parsed = parsePbAutoBuildLog(runResult.output);
+      const resolvedProblems = resolvePbAutoBuildProblems(
+        parsed.issues,
+        knowledgeBase,
+        workspaceState,
+        selection.buildFile.representedProjectUri
+      );
+      runtimeJournal.record({
+        phase: 'build',
+        kind: 'pbautobuild-problems',
+        action: 'parsed',
+        severity: resolvedProblems.summary.unresolved > 0 ? 'warning' : 'info',
+        detail: {
+          buildFileUri: selection.buildFile.uri,
+          representedProjectUri: selection.buildFile.representedProjectUri,
+          total: resolvedProblems.summary.total,
+          published: resolvedProblems.summary.published,
+          unresolved: resolvedProblems.summary.unresolved,
+          parserSummary: parsed.summary,
+        }
+      });
+
+      return {
+        ...runResult,
+        problems: resolvedProblems.problems,
+        problemSummary: resolvedProblems.summary
+      };
+    }
+    case 'powerbuilder.listPbAutoBuildBuildFiles': {
+      return workspaceState.getBuildFiles()
+        .filter((buildFile) => buildFile.status === 'usable')
+        .map((buildFile) => ({
+          uri: buildFile.uri,
+          label: basenameFromPathOrUri(buildFile.uri),
+          ...(buildFile.detail ? { detail: buildFile.detail } : {}),
+          ...(buildFile.representedProjectUri ? { representedProjectUri: buildFile.representedProjectUri } : {})
+        }));
+    }
+    case 'powerbuilder.cancelPbAutoBuild': {
+      const snapshot = pbAutoBuildRunner.cancel();
+      return {
+        cancelled: snapshot !== null,
+        snapshot: snapshot ?? pbAutoBuildRunner.getSnapshot()
+      };
+    }
+    case 'powerbuilder.runOrcaScript': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        throw new Error('Solicitud ORCA inválida.');
+      }
+
+      const executablePath = typeof (request as { executablePath?: unknown }).executablePath === 'string'
+        ? (request as { executablePath: string }).executablePath
+        : '';
+      const scriptUri = typeof (request as { scriptUri?: unknown }).scriptUri === 'string'
+        ? (request as { scriptUri: string }).scriptUri
+        : '';
+      const timeoutMs = typeof (request as { timeoutMs?: unknown }).timeoutMs === 'number'
+        ? (request as { timeoutMs: number }).timeoutMs
+        : undefined;
+
+      return orcaRunner.run({
+        executablePath,
+        scriptUri,
+        timeoutMs
+      });
+    }
+    case 'powerbuilder.cancelOrcaScript': {
+      const snapshot = orcaRunner.cancel();
+      return {
+        cancelled: snapshot !== null,
+        snapshot: snapshot ?? orcaRunner.getSnapshot()
+      };
+    }
+    case 'powerbuilder.exportOrcaStaging': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        throw new Error('Solicitud de export ORCA inválida.');
+      }
+
+      const executablePath = typeof (request as { executablePath?: unknown }).executablePath === 'string'
+        ? (request as { executablePath: string }).executablePath
+        : '';
+      const sessionLibrary = typeof (request as { sessionLibrary?: unknown }).sessionLibrary === 'string'
+        ? (request as { sessionLibrary: string }).sessionLibrary
+        : '';
+      const focusUri = typeof (request as { focusUri?: unknown }).focusUri === 'string'
+        ? (request as { focusUri: string }).focusUri
+        : activeDocumentUri ?? undefined;
+      const timeoutMs = typeof (request as { timeoutMs?: unknown }).timeoutMs === 'number'
+        ? (request as { timeoutMs: number }).timeoutMs
+        : undefined;
+
+      const prepared = await prepareOrcaStagingExport({
+        executablePath,
+        sessionLibrary,
+        focusUri,
+        timeoutMs
+      }, {
+        workspaceFolders,
+        workspaceState,
+        fs,
+      });
+
+      const result = await orcaRunner.run({
+        executablePath,
+        scriptUri: prepared.scriptUri,
+        timeoutMs,
+      });
+
+      runtimeJournal.record({
+        phase: 'legacy',
+        kind: 'orca-export',
+        action: result.snapshot.state === 'failed' || result.snapshot.state === 'timed-out' ? 'failed' : 'completed',
+        severity: result.snapshot.state === 'failed' || result.snapshot.state === 'timed-out' ? 'warning' : 'info',
+        detail: {
+          stateUri: prepared.stateUri,
+          scriptUri: prepared.scriptUri,
+          stagingRootUri: prepared.stagingRootUri,
+          sessionLibrary: prepared.sessionLibrary,
+          ...(prepared.selectedProject ? { selectedProject: prepared.selectedProject } : {}),
+          exportedLibraries: prepared.exportedLibraries.map((library) => ({
+            libraryUri: library.libraryUri,
+            stagingDirectoryUri: library.stagingDirectoryUri,
+          })),
+        }
+      });
+
+      return {
+        ...result,
+        stagingRootUri: prepared.stagingRootUri,
+        scriptUri: prepared.scriptUri,
+        stateUri: prepared.stateUri,
+        exportedLibraries: prepared.exportedLibraries,
+        sessionLibrary: prepared.sessionLibrary,
+        ...(prepared.selectedProject ? { selectedProject: prepared.selectedProject } : {}),
+      };
+    }
+    case 'powerbuilder.importOrcaStaging': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        throw new Error('Solicitud de import ORCA inválida.');
+      }
+
+      const executablePath = typeof (request as { executablePath?: unknown }).executablePath === 'string'
+        ? (request as { executablePath: string }).executablePath
+        : '';
+      const sessionLibrary = typeof (request as { sessionLibrary?: unknown }).sessionLibrary === 'string'
+        ? (request as { sessionLibrary: string }).sessionLibrary
+        : '';
+      const focusUri = typeof (request as { focusUri?: unknown }).focusUri === 'string'
+        ? (request as { focusUri: string }).focusUri
+        : activeDocumentUri ?? undefined;
+      const timeoutMs = typeof (request as { timeoutMs?: unknown }).timeoutMs === 'number'
+        ? (request as { timeoutMs: number }).timeoutMs
+        : undefined;
+
+      return runOrcaStagingImport({
+        executablePath,
+        sessionLibrary,
+        focusUri,
+        timeoutMs,
+      }, {
+        workspaceFolders,
+        workspaceState,
+        fs,
+        runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+        journal: runtimeJournal,
+      });
+    }
+    case 'powerbuilder.regenerateOrcaLibraries':
+    case 'powerbuilder.rebuildOrcaProject': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        throw new Error('Solicitud ORCA legacy inválida.');
+      }
+
+      const executablePath = typeof (request as { executablePath?: unknown }).executablePath === 'string'
+        ? (request as { executablePath: string }).executablePath
+        : '';
+      const sessionLibrary = typeof (request as { sessionLibrary?: unknown }).sessionLibrary === 'string'
+        ? (request as { sessionLibrary: string }).sessionLibrary
+        : '';
+      const focusUri = typeof (request as { focusUri?: unknown }).focusUri === 'string'
+        ? (request as { focusUri: string }).focusUri
+        : activeDocumentUri ?? undefined;
+      const timeoutMs = typeof (request as { timeoutMs?: unknown }).timeoutMs === 'number'
+        ? (request as { timeoutMs: number }).timeoutMs
+        : undefined;
+
+      return runOrcaWriteOperation({
+        executablePath,
+        sessionLibrary,
+        focusUri,
+        timeoutMs,
+        operation: params.command === 'powerbuilder.regenerateOrcaLibraries' ? 'regenerate' : 'rebuild',
+      }, {
+        workspaceFolders,
+        workspaceState,
+        fs,
+        runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+        journal: runtimeJournal,
+      });
     }
     case 'powerbuilder.inspectHierarchy': {
       const [uriArg, lineArg, characterArg] = params.arguments ?? [];
@@ -1712,6 +2043,197 @@ connection.onExecuteCommand(async (params) => {
         }
       );
     }
+    case 'powerbuilder.safeBatchRefactorPlan': {
+      const [requestArg] = params.arguments ?? [];
+      const request = typeof requestArg === 'object' && requestArg !== null ? requestArg as import('./../shared/publicApi').ApiSafeBatchRefactorPlanRequest : undefined;
+
+      return buildSafeBatchRefactorPlan(
+        request,
+        async (targetUri) => {
+          const opened = documents.get(targetUri);
+          if (opened) {
+            return opened;
+          }
+          try {
+            const content = await fs.readFile(targetUri);
+            return TextDocument.create(targetUri, 'powerbuilder', 0, content);
+          } catch {
+            return null;
+          }
+        },
+        knowledgeBase,
+        inheritanceGraph,
+        systemCatalog,
+        async (targetUri) => {
+          const opened = documents.get(targetUri);
+          if (opened) {
+            return opened.getText();
+          }
+          try {
+            return await fs.readFile(targetUri);
+          } catch {
+            return null;
+          }
+        },
+        {
+          workspaceState,
+          hotContext: hotContextCache,
+        }
+      );
+    }
+    case 'powerbuilder.applySpecDrivenPblUpdate': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        return {
+          available: false,
+          blocked: true,
+          reason: 'No se recibió una solicitud válida para el update PBL spec-driven.',
+          blockedReasons: ['No se recibió una solicitud válida para el update PBL spec-driven.'],
+          safeEditPlan: {
+            available: false,
+            blocked: true,
+            reason: 'No se recibió una solicitud válida para el update PBL spec-driven.',
+            objects: [],
+            files: [],
+            risks: [],
+            recommendedTests: [],
+            docsToReview: [],
+            blockedReasons: ['No se recibió una solicitud válida para el update PBL spec-driven.'],
+          },
+          appliedEdits: [],
+          ...(buildOrcaJournal.storageUri ? { journalUri: buildOrcaJournal.storageUri } : {}),
+        };
+      }
+
+      const uri = typeof (request as { uri?: unknown }).uri === 'string'
+        ? (request as { uri: string }).uri
+        : undefined;
+      if (!uri) {
+        return {
+          available: false,
+          blocked: true,
+          reason: 'No se recibió una URI válida para el update PBL spec-driven.',
+          blockedReasons: ['No se recibió una URI válida para el update PBL spec-driven.'],
+          safeEditPlan: {
+            available: false,
+            blocked: true,
+            reason: 'No se recibió una URI válida para el update PBL spec-driven.',
+            objects: [],
+            files: [],
+            risks: [],
+            recommendedTests: [],
+            docsToReview: [],
+            blockedReasons: ['No se recibió una URI válida para el update PBL spec-driven.'],
+          },
+          appliedEdits: [],
+          ...(buildOrcaJournal.storageUri ? { journalUri: buildOrcaJournal.storageUri } : {}),
+        };
+      }
+
+      const openDocument = documents.get(uri);
+      let document = openDocument;
+      if (!document) {
+        try {
+          const content = await fs.readFile(uri);
+          document = TextDocument.create(uri, 'powerbuilder', 0, content);
+        } catch {
+          return {
+            available: false,
+            blocked: true,
+            reason: 'No se pudo leer el documento solicitado para el update PBL spec-driven.',
+            blockedReasons: ['No se pudo leer el documento solicitado para el update PBL spec-driven.'],
+            safeEditPlan: {
+              available: false,
+              blocked: true,
+              reason: 'No se pudo leer el documento solicitado para el update PBL spec-driven.',
+              objects: [],
+              files: [],
+              risks: [],
+              recommendedTests: [],
+              docsToReview: [],
+              blockedReasons: ['No se pudo leer el documento solicitado para el update PBL spec-driven.'],
+            },
+            appliedEdits: [],
+            ...(buildOrcaJournal.storageUri ? { journalUri: buildOrcaJournal.storageUri } : {}),
+          };
+        }
+      }
+
+      return applySpecDrivenPblUpdate(
+        document,
+        request as import('../shared/publicApi').ApiSpecDrivenPblUpdateRequest,
+        {
+          workspaceFolders,
+          workspaceState,
+          fs,
+          kb: knowledgeBase,
+          graph: inheritanceGraph,
+          systemCatalog,
+          runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+          loadSource: async (targetUri) => {
+            const opened = documents.get(targetUri);
+            if (opened) {
+              return opened.getText();
+            }
+            try {
+              return await fs.readFile(targetUri);
+            } catch {
+              return null;
+            }
+          },
+          journal: runtimeJournal,
+          journalUri: buildOrcaJournal.storageUri,
+        }
+      );
+    }
+    case 'powerbuilder.applySpecDrivenPblUpdateBatch': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        return {
+          blocked: true,
+          stoppedEarly: false,
+          total: 0,
+          succeeded: 0,
+          blockedCount: 0,
+          items: [],
+          ...(buildOrcaJournal.storageUri ? { journalUri: buildOrcaJournal.storageUri } : {}),
+        };
+      }
+
+      return applySpecDrivenPblUpdateBatch(
+        request as import('../shared/publicApi').ApiSpecDrivenPblUpdateBatchRequest,
+        {
+          workspaceFolders,
+          workspaceState,
+          fs,
+          kb: knowledgeBase,
+          graph: inheritanceGraph,
+          systemCatalog,
+          runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+          loadSource: async (targetUri) => {
+            const opened = documents.get(targetUri);
+            if (opened) {
+              return opened.getText();
+            }
+            try {
+              return await fs.readFile(targetUri);
+            } catch {
+              return null;
+            }
+          },
+          loadDocument: async (targetUri) => {
+            const opened = documents.get(targetUri);
+            if (opened) {
+              return opened;
+            }
+            const content = await fs.readFile(targetUri);
+            return TextDocument.create(targetUri, 'powerbuilder', 0, content);
+          },
+          journal: runtimeJournal,
+          journalUri: buildOrcaJournal.storageUri,
+        }
+      );
+    }
     case 'powerbuilder.semanticWorkspaceManifest': {
       const [maxObjectsArg, maxSymbolsArg] = params.arguments ?? [];
       const progressReadiness = buildRuntimeProgressReadiness();
@@ -1739,6 +2261,12 @@ connection.onExecuteCommand(async (params) => {
 function wordAt(line: string, character: number): { word: string; start: number; end: number } | null {
   const span = findPowerBuilderIdentifierSpan(line, character, { allowCursorAfterIdentifier: true });
   return span ? { word: span.word, start: span.start, end: span.end } : null;
+}
+
+function basenameFromPathOrUri(value: string): string {
+  const normalized = value.replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
 }
 
 // ---------------------------------------------------------------------------

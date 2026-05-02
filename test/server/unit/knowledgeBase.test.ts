@@ -85,6 +85,48 @@ suite('unit/knowledge', () => {
       assert.ok(first);
     });
 
+    test('prioriza source real frente a orca-staging en buckets globales', () => {
+      const kb = new KnowledgeBase();
+      const stagedUri = 'file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_shared.sru';
+      const realUri = 'file:///proj/src/n_shared.sru';
+
+      kb.upsertDocument(stagedUri, [{
+        id: 'n_shared',
+        name: 'n_shared',
+        kind: EntityKind.Type,
+        uri: stagedUri,
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'orca-staging',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }]);
+      kb.upsertDocument(realUri, [{
+        id: 'n_shared',
+        name: 'n_shared',
+        kind: EntityKind.Type,
+        uri: realUri,
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'solution-source',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }]);
+
+      assert.equal(kb.findDefinition('n_shared')?.uri, realUri);
+      assert.deepEqual(kb.findAllDefinitions('n_shared').map((entity) => entity.uri), [realUri, stagedUri]);
+    });
+
     test('removeDocument no elimina entidades de otros archivos con el mismo nombre (D1)', () => {
       const kb = new KnowledgeBase();
       const uriA = 'file:///w_main.sru';
@@ -215,6 +257,25 @@ suite('unit/knowledge', () => {
 
       assert.equal(kb.findDefinition('of_one')?.name, 'of_one');
       assert.equal(kb.countEntities((entity) => entity.kind === EntityKind.Function), 2);
+    });
+
+    test('queryEntities y countEntities aceptan filtros por kind sin cambiar el contrato visible', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///kinds.sru';
+
+      kb.upsertDocument(uri, [
+        { id: 'w_kind', name: 'w_kind', kind: EntityKind.Type, uri, line: 1, character: 0 },
+        { id: 'of_kind', name: 'of_kind', kind: EntityKind.Function, uri, line: 2, character: 0 },
+        { id: 'ue_kind', name: 'ue_kind', kind: EntityKind.Event, uri, line: 3, character: 0 }
+      ]);
+
+      const onlyTypes = kb.queryEntities({ kinds: [EntityKind.Type] });
+      assert.deepEqual(onlyTypes.map((entity) => entity.id), ['w_kind']);
+      onlyTypes[0].name = 'mutated';
+
+      assert.equal(kb.findDefinition('w_kind')?.name, 'w_kind');
+      assert.equal(kb.countEntities({ kinds: [EntityKind.Type] }), 1);
+      assert.equal(kb.countEntities({ kinds: [EntityKind.Type, EntityKind.Function] }), 2);
     });
 
     test('getScopeAt prioriza scopes del snapshot publicado', () => {

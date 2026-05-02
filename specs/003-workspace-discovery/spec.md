@@ -1,5 +1,9 @@
 # Spec 003: Descubrimiento de Workspace
 
+**Estado:** cerrada históricamente y normalizada por B233.
+
+**Nota histórica:** esta base quedó implementada y más tarde reforzada por las specs `013`, `018`, `019` y `020`, pero la carpeta original no tenía `plan.md` mínimo.
+
 ## 1. Motivación y Contexto
 
 Hasta la Spec 002, el servidor LSP de PowerSyntax operaba de forma aislada archivo por archivo (Single File Mode). Esto permitía validar la gramática y el rendimiento inicial, pero carecía de visión global.

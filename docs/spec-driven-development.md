@@ -72,6 +72,12 @@ Estructura mínima de una spec activa:
 
 `quickstart.md` es obligatorio solo cuando aporta una validación o ruta de uso reproducible que no cabe claramente en `plan.md`; para slices históricas o documentación retroactiva puede omitirse si `plan.md` declara validación suficiente.
 
+Para specs históricas normalizadas retroactivamente (por ejemplo, las saneadas en `B233`), se acepta reconstruir `spec.md`, `plan.md` y `tasks.md` mínimos siempre que:
+
+- el estado quede explícito como `closed`, `superseded` o `absorbed`;
+- se cite evidencia real observable en el repo actual;
+- y no se reabra artificialmente la feature por ausencia de plantilla antigua.
+
 El número de carpeta en `specs/NNN-*` es un identificador secuencial de spec, no el ID del backlog. Cuando una spec implementa `Bxxx`, debe declararlo explícitamente en título o cuerpo para evitar colisiones como `specs/042-*` frente a `B042`.
 
 Checklist de revisión documental:

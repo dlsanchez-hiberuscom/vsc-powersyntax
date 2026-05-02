@@ -39,4 +39,25 @@ suite('unit/fileSystem', () => {
       await fs.rm(root, { recursive: true, force: true });
     }
   });
+
+  test('copyFile preserva el contenido binario del archivo origen', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-fs-'));
+    const nodeFs = new NodeFileSystem();
+    const sourcePath = path.join(root, 'legacy', 'app.pbl');
+    const backupPath = path.join(root, 'backup', 'app.pbl');
+    const sourceUri = fsPathToUri(sourcePath);
+    const backupUri = fsPathToUri(backupPath);
+    const payload = Buffer.from([0x50, 0x42, 0x4c, 0x00, 0xff, 0x10]);
+
+    try {
+      await fs.mkdir(path.dirname(sourcePath), { recursive: true });
+      await fs.writeFile(sourcePath, payload);
+
+      await nodeFs.copyFile(sourceUri, backupUri);
+
+      assert.deepEqual(await fs.readFile(backupPath), payload);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });

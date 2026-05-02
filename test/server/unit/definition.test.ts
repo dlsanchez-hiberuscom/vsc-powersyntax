@@ -95,6 +95,56 @@ suite('unit/definition', () => {
     }
   });
 
+  test('provideDefinition prefiere source real frente a orca-staging en global fallback', () => {
+    const stagedUri = 'file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_shared.sru';
+    const realUri = 'file:///proj/src/n_shared.sru';
+
+    kb.upsertDocument(stagedUri, [
+      {
+        id: 'n_shared',
+        name: 'n_shared',
+        kind: EntityKind.Type,
+        uri: stagedUri,
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'orca-staging',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+    kb.upsertDocument(realUri, [
+      {
+        id: 'n_shared',
+        name: 'n_shared',
+        kind: EntityKind.Type,
+        uri: realUri,
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'solution-source',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+
+    const doc = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, '  n_shared  ');
+    const loc = provideDefinition(doc, Position.create(0, 5), kb, graph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, realUri);
+    }
+  });
+
   test('provideDefinition reutiliza un queryContext precalculado sin cambiar el resultado', () => {
     const doc = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, '  of_SetData()  ');
     const position = Position.create(0, 5);
@@ -468,6 +518,164 @@ suite('unit/definition', () => {
     assert.ok(loc && !Array.isArray(loc));
     if (loc && !Array.isArray(loc)) {
       assert.equal(loc.uri, 'file:///d_states.srd');
+    }
+  });
+
+  test('provideDefinition navega GetChild(state_id, dwc_state) al DataWindow hijo verificado', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const parentDataWindow = TextDocument.create(
+      'file:///d_parent.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_parent.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(column=(type=char(10) update=yes name=state_id dbname="emp.state_id" dddw.name="d_states"))'
+      ].join('\r\n')
+    );
+    const childDataWindow = TextDocument.create(
+      'file:///d_states.srd',
+      'powerbuilder',
+      1,
+      '$PBExportHeader$d_states.srd\r\nrelease 39;\r\ndatawindow(units=0)'
+    );
+
+    for (const indexed of [parentDataWindow, childDataWindow]) {
+      const analysis = analyzeDocument(indexed);
+      localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    }
+
+    const document = TextDocument.create(
+      'file:///w_probe_getchild.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_probe_getchild from window',
+        '  datawindow dw_parent',
+        '  datawindowchild dwc_state',
+        'end type',
+        '',
+        'event open();',
+        '  dw_parent.DataObject = "d_parent"',
+        '  dw_parent.GetChild("state_id", dwc_state)',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const lineIndex = document.getText().split(/\r?\n/).findIndex((line) => line.includes('GetChild'));
+    const loc = provideDefinition(document, Position.create(lineIndex, 23), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, 'file:///d_states.srd');
+    }
+  });
+
+  test('provideDefinition navega dw_parent.Object.state_id.dddw.name al DataWindow hijo verificado', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const parentDataWindow = TextDocument.create(
+      'file:///d_parent.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_parent.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(column=(type=char(10) update=yes name=state_id dbname="emp.state_id" dddw.name="d_states"))'
+      ].join('\r\n')
+    );
+    const childDataWindow = TextDocument.create(
+      'file:///d_states.srd',
+      'powerbuilder',
+      1,
+      '$PBExportHeader$d_states.srd\r\nrelease 39;\r\ndatawindow(units=0)'
+    );
+
+    for (const indexed of [parentDataWindow, childDataWindow]) {
+      const analysis = analyzeDocument(indexed);
+      localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    }
+
+    const document = TextDocument.create(
+      'file:///w_probe_object.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_probe_object from window',
+        '  datawindow dw_parent',
+        'end type',
+        '',
+        'event open();',
+        '  dw_parent.DataObject = "d_parent"',
+        '  dw_parent.Object.state_id.dddw.name',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const lineIndex = document.getText().split(/\r?\n/).findIndex((line) => line.includes('Object.state_id.dddw.name'));
+    const loc = provideDefinition(document, Position.create(lineIndex, 23), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, 'file:///d_states.srd');
+    }
+  });
+
+  test('provideDefinition navega GetChild(rpt_orders, dwc_report) al report child verificado', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const parentDataWindow = TextDocument.create(
+      'file:///d_parent_report.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_parent_report.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'report(name=rpt_orders dataobject="d_orders")'
+      ].join('\r\n')
+    );
+    const childDataWindow = TextDocument.create(
+      'file:///d_orders.srd',
+      'powerbuilder',
+      1,
+      '$PBExportHeader$d_orders.srd\r\nrelease 39;\r\ndatawindow(units=0)'
+    );
+
+    for (const indexed of [parentDataWindow, childDataWindow]) {
+      const analysis = analyzeDocument(indexed);
+      localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    }
+
+    const document = TextDocument.create(
+      'file:///w_probe_getchild_report.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_probe_getchild_report from window',
+        '  datawindow dw_parent',
+        '  datawindowchild dwc_report',
+        'end type',
+        '',
+        'event open();',
+        '  dw_parent.DataObject = "d_parent_report"',
+        '  dw_parent.GetChild("rpt_orders", dwc_report)',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const lineIndex = document.getText().split(/\r?\n/).findIndex((line) => line.includes('GetChild'));
+    const loc = provideDefinition(document, Position.create(lineIndex, 23), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, 'file:///d_orders.srd');
     }
   });
 

@@ -1,5 +1,7 @@
 # Tareas: Spec 007 — Document Symbols Jerárquicos y Scopes Base
 
+**Estado histórico:** cerrada y normalizada por B233.
+
 ## 1. Base de Scopes (B020)
 
 - [x] **T1.** Actualizar `src/server/knowledge/types.ts` para que `Entity` y `SymbolFact` soporten el campo `containerName`.

@@ -31,3 +31,8 @@ fixtures-local/
 !.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/settings.json
+
+.dist/
+artifacts/
+.vsc-powersyntax/orca-export/
+.vsc-powersyntax/runtime/

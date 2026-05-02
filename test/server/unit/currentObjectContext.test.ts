@@ -52,6 +52,7 @@ suite('unit/currentObjectContext (B217)', () => {
       'end type',
       'end forward',
       'global type w_context_base from window',
+      'integer ii_base_counter',
       'end type',
       'public function integer of_inherited();',
       '  return 42',
@@ -121,6 +122,8 @@ suite('unit/currentObjectContext (B217)', () => {
     assert.ok(context.members?.functions.some((entry) => entry.name === 'of_build'));
     assert.ok(context.members?.prototypes.some((entry) => entry.name === 'of_only_proto'));
     assert.ok(context.members?.events.some((entry) => entry.name.toLowerCase() === 'create'));
+    assert.ok(context.visibleVariables?.some((entry) => entry.name === 'ids_orders' && entry.scope === 'Local'));
+    assert.ok(context.visibleVariables?.some((entry) => entry.name === 'ii_base_counter' && entry.scope === 'Instancia' && entry.relation === 'inherited'));
     assert.ok(context.referencedSymbols?.some((entry) => entry.target.name === 'of_inherited' && entry.reasonCode === 'member-hierarchy'));
     assert.equal(context.dataWindowBindings?.[0]?.dataObject, 'd_sales_orders');
     assert.equal(context.dataWindowBindings?.[0]?.retrieveArguments[0]?.name, 'custarg');
@@ -152,8 +155,9 @@ suite('unit/currentObjectContext (B217)', () => {
     );
 
     assert.equal(context.available, true);
-    assert.deepEqual(context.ancestorChain?.map((entry) => entry.name), ['crypterobject']);
+    assert.deepEqual(context.ancestorChain?.map((entry) => entry.name), ['crypterobject', 'powerobject']);
     assert.equal(context.ancestorChain?.[0]?.isSystemType, true);
+    assert.equal(context.ancestorChain?.[1]?.isSystemType, true);
     assert.equal(context.ancestorChain?.[0]?.uri, undefined);
   });
 });

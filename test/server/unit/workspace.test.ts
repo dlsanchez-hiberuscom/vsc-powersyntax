@@ -71,6 +71,10 @@ class FakeFileSystem implements IFileSystem {
     }
   }
 
+  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
+    await this.writeFile(targetUri, await this.readFile(sourceUri));
+  }
+
   async deletePath(uri: string): Promise<void> {
     this.files.delete(uri);
     this.dirs.delete(uri);
@@ -196,6 +200,20 @@ suite('unit/workspace', () => {
     assert.equal(state.getMode(), 'unknown');
   });
 
+  test('discovery devuelve modo pbl-only si solo hay roots legacy .pbl', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///legacy');
+    fs.addDir('file:///legacy/app.pbl');
+    fs.addFile('file:///legacy/app.pbl/w_demo.srw');
+
+    await discoverWorkspace(['file:///legacy'], fs, state, cancelSource.token);
+
+    assert.equal(state.getMode(), 'pbl-only');
+  });
+
   test('discovery excluye directorios .pb / build / _BackupFiles', async () => {
     const fs = new FakeFileSystem();
     const state = new WorkspaceState();
@@ -287,6 +305,43 @@ suite('unit/workspace', () => {
     assert.equal(state.getProjectModel()?.getProjectForFile('file:///proj/lib_app.pbl/u_demo.sru')?.projectUri, 'file:///proj/app.pbt');
   });
 
+  test('discovery descubre y clasifica build files JSON de PBAutoBuild', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///proj');
+    await fs.writeFile('file:///proj/app.pbproj', '<library>lib_app.pbl</library>');
+    await fs.writeFile(
+      'file:///proj/app.build.json',
+      JSON.stringify({
+        MetaInfo: { IDEVersion: '25.0' },
+        BuildPlan: {
+          Projects: [{ Path: 'app.pbproj' }]
+        }
+      })
+    );
+
+    await discoverWorkspace(['file:///proj'], fs, state, cancelSource.token);
+    state.refreshProjectRouting();
+
+    assert.deepEqual(state.getBuildFiles(), [
+      {
+        uri: 'file:///proj/app.build.json',
+        hasBuildPlan: true,
+        referencedProjectUris: ['file:///proj/app.pbproj'],
+        status: 'usable',
+        representedProjectUri: 'file:///proj/app.pbproj'
+      }
+    ]);
+    assert.deepEqual(state.getBuildFileSummary(), {
+      total: 1,
+      usable: 1,
+      invalid: 0,
+      ambiguous: 0
+    });
+  });
+
   test('getProjectContextForFile resume el proyecto activo desde el modelo unificado', () => {
     const state = new WorkspaceState();
 
@@ -312,6 +367,34 @@ suite('unit/workspace', () => {
     });
   });
 
+  test('refreshProjectRouting sintetiza un nodo legacy para workspaces PBL-only', () => {
+    const state = new WorkspaceState();
+
+    state.addRoot('libraries', 'file:///proj/lib_legacy.pbl');
+    state.addSourceFile('file:///proj/lib_legacy.pbl/u_demo.sru');
+    state.addSourceFile('file:///proj/lib_legacy.pbl/w_demo.srw');
+
+    state.refreshProjectRouting();
+
+    assert.equal(state.getProjectRegistry()?.getProjectForFile('file:///proj/lib_legacy.pbl/u_demo.sru'), 'file:///proj/lib_legacy.pbl');
+    assert.deepEqual(state.getProjectModel()?.getProjects(), [{
+      projectUri: 'file:///proj/lib_legacy.pbl',
+      kind: 'library',
+      name: 'lib_legacy.pbl',
+      libraries: ['file:///proj/lib_legacy.pbl']
+    }]);
+    assert.deepEqual(state.getProjectContextForFile('file:///proj/lib_legacy.pbl/w_demo.srw'), {
+      projectUri: 'file:///proj/lib_legacy.pbl',
+      kind: 'library',
+      name: 'lib_legacy.pbl',
+      libraries: ['file:///proj/lib_legacy.pbl'],
+      files: [
+        'file:///proj/lib_legacy.pbl/u_demo.sru',
+        'file:///proj/lib_legacy.pbl/w_demo.srw'
+      ]
+    });
+  });
+
   test('workspaceState marca dirty y permite marcar clean tras indexacion completa', () => {
     const state = new WorkspaceState();
 
@@ -329,6 +412,12 @@ suite('unit/workspace', () => {
     restored.addRoot('workspaces', 'file:///proj/app.pbw');
     restored.addRoot('libraries', 'file:///proj/lib_app.pbl');
     restored.addSourceFile('file:///proj/lib_app.pbl/u_demo.sru', 'pbl-folder-source');
+    restored.addBuildFileCandidate({
+      uri: 'file:///proj/app.build.json',
+      hasBuildPlan: true,
+      referencedProjectUris: ['file:///proj/app.pbw']
+    });
+    restored.refreshProjectRouting();
 
     const snapshot = restored.exportDiscoverySnapshot();
 
@@ -338,16 +427,24 @@ suite('unit/workspace', () => {
     assert.deepEqual(rehydrated.getRoots(), snapshot.roots);
     assert.deepEqual(rehydrated.getAllSourceFiles(), snapshot.sourceFiles);
     assert.equal(rehydrated.getSourceOrigin('file:///proj/lib_app.pbl/u_demo.sru'), 'pbl-folder-source');
+    assert.deepEqual(rehydrated.getBuildFiles(), snapshot.buildFiles);
 
     const discovered = new WorkspaceState();
     discovered.addRoot('solutions', 'file:///proj/app.pbsln');
     discovered.addSourceFile('file:///proj/lib_app.pbl/n_cst_calc.sru', 'solution-source');
+    discovered.addBuildFileCandidate({
+      uri: 'file:///proj/app.solution.build.json',
+      hasBuildPlan: true,
+      referencedProjectUris: ['file:///proj/app.pbsln']
+    });
+    discovered.refreshProjectRouting();
 
     rehydrated.replaceFrom(discovered);
 
     assert.deepEqual(rehydrated.getRoots(), discovered.getRoots());
     assert.deepEqual(rehydrated.getAllSourceFiles(), discovered.getAllSourceFiles());
     assert.equal(rehydrated.getSourceOrigin('file:///proj/lib_app.pbl/n_cst_calc.sru'), 'solution-source');
+    assert.deepEqual(rehydrated.getBuildFiles(), discovered.getBuildFiles());
   });
 
   test('clear reinicia registry y project model de routing', () => {

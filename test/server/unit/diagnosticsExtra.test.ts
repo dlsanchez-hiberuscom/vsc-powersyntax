@@ -4,6 +4,7 @@
 import { strictEqual, ok } from 'assert';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import { DIAGNOSTIC_CODES } from '../../../src/shared/diagnosticCodes';
 import {
   checkUnreachableAfterReturn,
   checkUnbalancedParens,
@@ -36,6 +37,7 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     const ds = checkUnreachableAfterReturn(scope, lines);
     strictEqual(ds.length, 1, 'SD11 esperado');
     ok(ds[0].source!.includes('SD11'));
+    strictEqual(ds[0].code, DIAGNOSTIC_CODES.sd11UnreachableAfterReturn);
     strictEqual(ds[0].range.start.line, 2);
   });
 
@@ -49,6 +51,7 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     const ds = checkUnbalancedParens(scope, lines);
     strictEqual(ds.length, 1);
     ok(ds[0].source!.includes('SD12'));
+    strictEqual(ds[0].code, DIAGNOSTIC_CODES.sd12UnbalancedParens);
   });
 
   test('SD13: warning si función con returnType no tiene return', () => {
@@ -61,6 +64,7 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     const ds = checkMissingReturn(scope, lines);
     strictEqual(ds.length, 1);
     ok(ds[0].source!.includes('SD13'));
+    strictEqual(ds[0].code, DIAGNOSTIC_CODES.sd13MissingReturn);
   });
 
   test('SD13: no warning si tiene return', () => {
@@ -102,6 +106,7 @@ suite('Sprint 3 / diagnosticsExtra', () => {
 
     strictEqual(diagnostics.length, 1);
     ok(diagnostics[0].source!.includes('SD11'));
+    strictEqual(diagnostics[0].code, DIAGNOSTIC_CODES.sd11UnreachableAfterReturn);
     strictEqual(diagnostics[0].range.start.line, 14);
   });
 });

@@ -24,9 +24,16 @@ export interface ProjectRegistry {
 
 export function buildProjectRegistry(
   topology: WorkspaceTopology,
-  sourceFiles: string[]
+  sourceFiles: string[],
+  libraryRoots: string[] = [],
+  librarySourceAliases: Record<string, string[]> = {}
 ): ProjectRegistry {
-  const { fileToProject, projectToFiles } = resolveProjectRouting(topology, sourceFiles);
+  const { fileToProject, projectToFiles } = resolveProjectRouting(
+    topology,
+    sourceFiles,
+    libraryRoots,
+    librarySourceAliases
+  );
 
   return {
     getProjectForFile(uri: string): string | null {

@@ -7,6 +7,7 @@ import { DocumentCache } from '../knowledge/DocumentCache';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { calculateHash } from '../system/hash';
 import { normalizeUri } from '../system/uriUtils';
+import { inferSourceOrigin, type SourceOrigin } from '../../shared/sourceOrigin';
 
 interface AnalysisPersistenceSink {
   appendUpsert(record: SemanticCacheDocumentRecord, semanticEpoch: number): void | Promise<void>;
@@ -15,8 +16,11 @@ interface AnalysisPersistenceSink {
 
 interface CachedAnalysis {
   version: number;
+  sourceOrigin: SourceOrigin;
   analysis: DocumentAnalysis;
 }
+
+type SourceOriginResolver = (uri: string) => SourceOrigin;
 
 /**
  * Spec 112: contadores de caché expuestos para debug/telemetría.
@@ -53,6 +57,7 @@ const PERF_LOG_ENABLED = process.env.PB_PERF_LOG === '1';
 let cacheBackend: DocumentCache | null = null;
 let kbBackend: KnowledgeBase | null = null;
 let persistenceBackend: AnalysisPersistenceSink | null = null;
+let sourceOriginResolver: SourceOriginResolver | null = null;
 
 /**
  * Conecta la caché de análisis interactivo con el DocumentCache y KnowledgeBase globales.
@@ -61,26 +66,34 @@ let persistenceBackend: AnalysisPersistenceSink | null = null;
 export function setAnalysisBackends(
   cache: DocumentCache,
   kb: KnowledgeBase,
-  persistence?: AnalysisPersistenceSink | null
+  persistence?: AnalysisPersistenceSink | null,
+  resolveSourceOrigin?: SourceOriginResolver | null
 ): void {
   cacheBackend = cache;
   kbBackend = kb;
   persistenceBackend = persistence ?? null;
+  sourceOriginResolver = resolveSourceOrigin ?? null;
 }
 
 export function clearAnalysisBackends(): void {
   cacheBackend = null;
   kbBackend = null;
   persistenceBackend = null;
+  sourceOriginResolver = null;
+}
+
+function resolveDocumentSourceOrigin(uri: string): SourceOrigin {
+  return sourceOriginResolver?.(uri) ?? inferSourceOrigin(uri);
 }
 
 export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
   // Spec 085: normalizamos la clave para que `file:///C:/X` y `file:///c:/X`
   // compartan entrada (consistente con DocumentCache/KnowledgeBase).
   const key = normalizeUri(document.uri);
+  const currentSourceOrigin = resolveDocumentSourceOrigin(document.uri);
   const cached = analysisByUri.get(key);
 
-  if (cached && cached.version === document.version) {
+  if (cached && cached.version === document.version && cached.sourceOrigin === currentSourceOrigin) {
     // Re-insertamos para LRU (Map preserva orden de inserción).
     analysisByUri.delete(key);
     analysisByUri.set(key, cached);
@@ -91,7 +104,7 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
   // Spec 111: short-circuit por fingerprint. Si la version cambió pero el
   // contenido es idéntico (toques cosméticos del cliente), reutilizamos el
   // análisis previo evitando reparseo y reindex de KB.
-  if (cached) {
+  if (cached && cached.sourceOrigin === currentSourceOrigin) {
     const t0fp = PERF_LOG_ENABLED ? Date.now() : 0;
     const fp = fingerprintOnly(document.getText());
     if (fp === cached.analysis.fingerprint) {
@@ -104,6 +117,7 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
       );
       const refreshed: CachedAnalysis = {
         version: document.version,
+        sourceOrigin: currentSourceOrigin,
         analysis: {
           ...cached.analysis,
           version: document.version,
@@ -124,7 +138,7 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
   cacheCounters.misses++;
 
   const t0 = PERF_LOG_ENABLED ? Date.now() : 0;
-  const analysis = analyzeDocument(document);
+  const analysis = analyzeDocument(document, { sourceOrigin: currentSourceOrigin });
   const hash = calculateHash(document.getText());
   if (PERF_LOG_ENABLED) {
     const elapsed = Date.now() - t0;
@@ -137,6 +151,7 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
 
   analysisByUri.set(key, {
     version: document.version,
+    sourceOrigin: currentSourceOrigin,
     analysis
   });
   // Evict LRU si se supera el tope.

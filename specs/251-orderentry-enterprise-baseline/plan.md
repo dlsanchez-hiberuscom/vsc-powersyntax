@@ -21,3 +21,9 @@ Extender el baseline existente de forma opt-in/local. El corpus vive en `fixture
 
 - performance OrderEntry;
 - tests con skip si falta corpus.
+
+## 5. Resultado ejecutado
+
+1. Se anadio una smoke semantica reproducible sobre objetos representativos del corpus OrderEntry.
+2. El baseline ahora cubre explicitamente `.pbproj` parcial, `sourceOrigin` en carpetas `.pbl` y exclusion de `.srj`/`.pblmeta`/recursos como ruido no fuente.
+3. La suite `npm run test:performance -- --grep "OrderEntry"` valida smoke, semantica y cold/warm index sin romper el comportamiento opt-in/local.

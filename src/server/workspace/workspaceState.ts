@@ -13,6 +13,15 @@ import {
   type SolutionInfo,
   type WorkspaceFile
 } from './topology';
+import {
+  clonePbAutoBuildBuildFileCandidate,
+  clonePbAutoBuildBuildFileInfo,
+  resolvePbAutoBuildBuildFiles,
+  summarizePbAutoBuildBuildFiles,
+  type PbAutoBuildBuildFileCandidate,
+  type PbAutoBuildBuildFileInfo,
+  type PbAutoBuildBuildFileSummary
+} from './pbAutoBuildBuildFiles';
 import type { ProjectRegistry } from './projectRegistry';
 import type { UnifiedProjectModel } from './unifiedProjectModel';
 import { buildProjectRegistry } from './projectRegistry';
@@ -33,7 +42,7 @@ export interface WorkspaceRoots {
 
 export interface ActiveProjectContext {
   projectUri: string;
-  kind: 'target' | 'project';
+  kind: 'target' | 'project' | 'library';
   name: string;
   libraries: string[];
   files: string[];
@@ -42,7 +51,9 @@ export interface ActiveProjectContext {
 export interface WorkspaceDiscoverySnapshot {
   sourceFiles: string[];
   sourceOrigins?: Record<string, SourceOrigin>;
+  librarySourceAliases?: Record<string, string[]>;
   roots: WorkspaceRoots;
+  buildFiles?: PbAutoBuildBuildFileInfo[];
 }
 
 function cloneRoots(roots: WorkspaceRoots): WorkspaceRoots {
@@ -75,16 +86,20 @@ function normalizeRoots(roots?: Partial<WorkspaceRoots>): WorkspaceRoots {
  * - `workspace`: solo se han encontrado markers clásicos (`.pbw`/`.pbt`).
  * - `solution`: solo se han encontrado markers de Solution (`.pbsln`/`.pbproj`).
  * - `mixed`: coexisten ambos tipos en el mismo workspace.
+ * - `pbl-only`: no hay markers `.pbw/.pbt/.pbsln/.pbproj`, pero sí roots `.pbl`.
  * - `unknown`: no se ha encontrado ningún marker reconocible.
  */
-export type WorkspaceMode = 'workspace' | 'solution' | 'mixed' | 'unknown';
+export type WorkspaceMode = 'workspace' | 'solution' | 'mixed' | 'pbl-only' | 'unknown';
 
 /**
  * Mantiene el inventario global de archivos descubiertos en el workspace.
  */
 export class WorkspaceState {
   private knownFiles: Map<string, SourceOrigin> = new Map();
+  private librarySourceAliases: Map<string, string[]> = new Map();
   private indexDirty = true;
+  private buildFileCandidates: Map<string, PbAutoBuildBuildFileCandidate> = new Map();
+  private buildFiles: PbAutoBuildBuildFileInfo[] = [];
 
   private roots: WorkspaceRoots = {
     workspaces: [],
@@ -155,6 +170,50 @@ export class WorkspaceState {
     return summarizeSourceOrigins(this.knownFiles.values());
   }
 
+  registerLibrarySourceAlias(libraryUri: string, sourceRootUri: string): void {
+    const normalizedLibraryUri = normalizeUri(libraryUri);
+    const normalizedSourceRootUri = normalizeUri(sourceRootUri);
+    const aliases = this.librarySourceAliases.get(normalizedLibraryUri) ?? [];
+    if (aliases.includes(normalizedSourceRootUri)) {
+      return;
+    }
+
+    aliases.push(normalizedSourceRootUri);
+    aliases.sort();
+    this.librarySourceAliases.set(normalizedLibraryUri, aliases);
+    this.indexDirty = true;
+  }
+
+  getLibrarySourceAliases(): Record<string, string[]> {
+    const aliases: Record<string, string[]> = {};
+    for (const [libraryUri, sourceRoots] of this.librarySourceAliases.entries()) {
+      aliases[libraryUri] = [...sourceRoots];
+    }
+    return aliases;
+  }
+
+  resolveLibraryForFile(uri: string, libraries?: string[]): string | undefined {
+    const normalizedUri = normalizeUri(uri);
+    const candidates = libraries ?? this.roots.libraries;
+    let bestLibrary: string | undefined;
+    let bestPrefix = -1;
+
+    for (const libraryUri of candidates) {
+      const sourceRoots = expandLibrarySourceRoots(libraryUri, this.librarySourceAliases);
+      for (const sourceRoot of sourceRoots) {
+        if (!normalizedUri.startsWith(sourceRoot)) {
+          continue;
+        }
+        if (sourceRoot.length > bestPrefix) {
+          bestPrefix = sourceRoot.length;
+          bestLibrary = libraryUri;
+        }
+      }
+    }
+
+    return bestLibrary;
+  }
+
   /**
    * Devuelve los roots descubiertos.
    */
@@ -171,7 +230,9 @@ export class WorkspaceState {
     return {
       sourceFiles: this.getAllSourceFiles(),
       sourceOrigins,
-      roots: cloneRoots(this.roots)
+      librarySourceAliases: this.getLibrarySourceAliases(),
+      roots: cloneRoots(this.roots),
+      buildFiles: this.getBuildFiles()
     };
   }
 
@@ -188,8 +249,16 @@ export class WorkspaceState {
         snapshot.sourceOrigins?.[uri] ?? inferSourceOrigin(uri, { hasSolutionRoots })
       ])
     );
+    this.librarySourceAliases = new Map(
+      Object.entries(snapshot.librarySourceAliases ?? {}).map(([libraryUri, sourceRoots]) => [
+        normalizeUri(libraryUri),
+        normalizeRootList(sourceRoots)
+      ])
+    );
     this.roots = roots;
     this.topology = emptyTopology();
+    this.buildFileCandidates = new Map();
+    this.buildFiles = (snapshot.buildFiles ?? []).map((buildFile) => clonePbAutoBuildBuildFileInfo(buildFile));
     this.projectRegistry = null;
     this.projectModel = null;
     this.indexDirty = true;
@@ -197,6 +266,13 @@ export class WorkspaceState {
 
   replaceFrom(other: WorkspaceState): void {
     this.knownFiles = new Map(other.getAllSourceFiles().map((uri) => [uri, other.getSourceOrigin(uri) ?? 'unknown']));
+    this.librarySourceAliases = new Map(
+      Object.entries(other.getLibrarySourceAliases()).map(([libraryUri, sourceRoots]) => [libraryUri, [...sourceRoots]])
+    );
+    this.buildFileCandidates = new Map(
+      [...other.buildFileCandidates.entries()].map(([uri, candidate]) => [uri, clonePbAutoBuildBuildFileCandidate(candidate)])
+    );
+    this.buildFiles = other.buildFiles.map((buildFile) => clonePbAutoBuildBuildFileInfo(buildFile));
     this.roots = cloneRoots(other.getRoots());
     this.topology = structuredClone(other.getTopology());
     this.projectRegistry = other.getProjectRegistry();
@@ -212,10 +288,12 @@ export class WorkspaceState {
   getMode(): WorkspaceMode {
     const hasWorkspace = this.roots.workspaces.length > 0 || this.roots.targets.length > 0;
     const hasSolution = this.roots.solutions.length > 0 || this.roots.projects.length > 0;
+    const hasLibraries = this.roots.libraries.length > 0;
 
     if (hasWorkspace && hasSolution) return 'mixed';
     if (hasSolution) return 'solution';
     if (hasWorkspace) return 'workspace';
+    if (hasLibraries) return 'pbl-only';
     return 'unknown';
   }
 
@@ -224,7 +302,10 @@ export class WorkspaceState {
    */
   clear(): void {
     this.knownFiles.clear();
+    this.librarySourceAliases.clear();
     this.indexDirty = true;
+    this.buildFileCandidates.clear();
+    this.buildFiles = [];
     this.roots = normalizeRoots();
     this.topology = emptyTopology();
     this.projectRegistry = null;
@@ -295,6 +376,42 @@ export class WorkspaceState {
     return this.topology;
   }
 
+  addBuildFileCandidate(candidate: PbAutoBuildBuildFileCandidate): boolean {
+    const next = clonePbAutoBuildBuildFileCandidate(candidate);
+    const previous = this.buildFileCandidates.get(next.uri);
+    if (previous && areBuildFileCandidatesEqual(previous, next)) {
+      return false;
+    }
+    this.buildFileCandidates.set(next.uri, next);
+    this.indexDirty = true;
+    return true;
+  }
+
+  removeBuildFileCandidate(uri: string): boolean {
+    const normalized = normalizeUri(uri);
+    const removed = this.buildFileCandidates.delete(normalized);
+    if (!removed) {
+      return false;
+    }
+    this.buildFiles = this.buildFiles.filter((buildFile) => buildFile.uri !== normalized);
+    this.indexDirty = true;
+    return true;
+  }
+
+  getBuildFiles(): PbAutoBuildBuildFileInfo[] {
+    return this.buildFiles.map((buildFile) => clonePbAutoBuildBuildFileInfo(buildFile));
+  }
+
+  getBuildFile(uri: string): PbAutoBuildBuildFileInfo | null {
+    const normalized = normalizeUri(uri);
+    const buildFile = this.buildFiles.find((entry) => entry.uri === normalized);
+    return buildFile ? clonePbAutoBuildBuildFileInfo(buildFile) : null;
+  }
+
+  getBuildFileSummary(): PbAutoBuildBuildFileSummary {
+    return summarizePbAutoBuildBuildFiles(this.buildFiles);
+  }
+
   // ---- Project Registry ---------------------------------------------------
 
   setProjectRegistry(registry: ProjectRegistry): void {
@@ -328,8 +445,10 @@ export class WorkspaceState {
 
   refreshProjectRouting(): void {
     const sourceFiles = this.getAllSourceFiles();
-    this.projectRegistry = buildProjectRegistry(this.topology, sourceFiles);
-    this.projectModel = buildUnifiedProjectModel(this.topology, sourceFiles);
+    const librarySourceAliases = this.getLibrarySourceAliases();
+    this.projectRegistry = buildProjectRegistry(this.topology, sourceFiles, this.roots.libraries, librarySourceAliases);
+    this.projectModel = buildUnifiedProjectModel(this.topology, sourceFiles, this.roots.libraries, librarySourceAliases);
+    this.buildFiles = resolvePbAutoBuildBuildFiles([...this.buildFileCandidates.values()], this.topology);
   }
 
   recomputeSourceOrigins(): void {
@@ -350,4 +469,24 @@ export class WorkspaceState {
   markIndexClean(): void {
     this.indexDirty = false;
   }
+}
+
+function expandLibrarySourceRoots(libraryUri: string, aliases: Map<string, string[]>): string[] {
+  const normalizedLibraryUri = normalizeUri(libraryUri);
+  const sourceRoots = [normalizedLibraryUri, ...(aliases.get(normalizedLibraryUri) ?? [])]
+    .map((entry) => normalizeUri(entry));
+  return [...new Set(sourceRoots.map((entry) => (entry.endsWith('/') ? entry : `${entry}/`)))].sort();
+}
+
+function areBuildFileCandidatesEqual(
+  left: PbAutoBuildBuildFileCandidate,
+  right: PbAutoBuildBuildFileCandidate
+): boolean {
+  if (left.uri !== right.uri || left.hasBuildPlan !== right.hasBuildPlan || left.parseError !== right.parseError) {
+    return false;
+  }
+  if (left.referencedProjectUris.length !== right.referencedProjectUris.length) {
+    return false;
+  }
+  return left.referencedProjectUris.every((uri, index) => uri === right.referencedProjectUris[index]);
 }

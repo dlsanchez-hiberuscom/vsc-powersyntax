@@ -12,7 +12,7 @@ import {
 
 interface DataWindowPropertyInvocation {
   targetName: string;
-  mode: 'describe' | 'modify';
+  mode: 'describe' | 'modify' | 'object' | 'getchild';
   path: string;
   pathRange: DataWindowRange;
 }
@@ -147,10 +147,15 @@ function resolvePropertyPath(
     };
   }
 
-  const separatorIndex = normalizedPath.indexOf('.');
-  if (separatorIndex < 0) {
+  if (!normalizedPath.includes('.')) {
+    const directChild = resolveDirectChildReference(normalizedPath, current, kb, cache, fullPath, breadcrumbs);
+    if (directChild) {
+      return directChild;
+    }
     return null;
   }
+
+  const separatorIndex = normalizedPath.indexOf('.');
 
   const head = normalizedPath.slice(0, separatorIndex);
   const tail = normalizedPath.slice(separatorIndex + 1);
@@ -193,6 +198,43 @@ function resolvePropertyPath(
   return resolvePropertyPath(tail, child, kb, cache, [...breadcrumbs, head], fullPath);
 }
 
+function resolveDirectChildReference(
+  name: string,
+  current: DataWindowModelTarget,
+  kb: KnowledgeBase,
+  cache: Map<string, DataWindowModelTarget | null>,
+  fullPath: string,
+  breadcrumbs: string[],
+): ResolvedDataWindowProperty | null {
+  const report = current.model.reports.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
+  if (report?.dataObject) {
+    const child = resolveSingleDataWindowTarget(report.dataObject, kb, cache);
+    return {
+      kind: 'dddw-name',
+      path: fullPath,
+      breadcrumbs: [...breadcrumbs, name],
+      targetDataObject: report.dataObject,
+      targetUri: child?.uri,
+      targetRange: child?.model.rootSelectionRange,
+    };
+  }
+
+  const tableColumn = current.model.tableColumns.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
+  if (!tableColumn?.dddwName) {
+    return null;
+  }
+
+  const child = resolveSingleDataWindowTarget(tableColumn.dddwName, kb, cache);
+  return {
+    kind: 'dddw-name',
+    path: fullPath,
+    breadcrumbs: [...breadcrumbs, name],
+    targetDataObject: tableColumn.dddwName,
+    targetUri: child?.uri,
+    targetRange: child?.model.rootSelectionRange,
+  };
+}
+
 function resolveSingleDataWindowTarget(
   dataObjectName: string,
   kb: KnowledgeBase,
@@ -229,6 +271,16 @@ function findDataWindowPropertyInvocation(
   document: TextDocument,
   position: Position,
 ): DataWindowPropertyInvocation | null {
+  const objectInvocation = findDirectObjectInvocation(document, position);
+  if (objectInvocation) {
+    return objectInvocation;
+  }
+
+  const getChildInvocation = findGetChildInvocation(document, position);
+  if (getChildInvocation) {
+    return getChildInvocation;
+  }
+
   const lineText = getLineText(document, position.line);
   const invocationMatch = /\b([a-z_][\w$#%]*)\s*\.\s*(Describe|Modify)\s*\(/i.exec(lineText);
   if (!invocationMatch) {
@@ -265,6 +317,79 @@ function findDataWindowPropertyInvocation(
   return {
     targetName: invocationMatch[1],
     mode,
+    path,
+    pathRange,
+  };
+}
+
+function findDirectObjectInvocation(
+  document: TextDocument,
+  position: Position,
+): DataWindowPropertyInvocation | null {
+  const lineText = getLineText(document, position.line);
+  const pattern = /\b([a-z_][\w$#%]*)\s*\.\s*object\s*\.\s*([a-z_][\w$#%]*(?:\s*\.\s*[a-z_][\w$#%]*)*)/ig;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(lineText)) !== null) {
+    const rawPath = match[2];
+    const pathStart = lineText.indexOf(rawPath, match.index);
+    if (pathStart < 0) {
+      continue;
+    }
+    const pathRange: DataWindowRange = {
+      start: { line: position.line, character: pathStart },
+      end: { line: position.line, character: pathStart + rawPath.length },
+    };
+    if (!rangeContains(pathRange, position)) {
+      continue;
+    }
+
+    return {
+      targetName: match[1],
+      mode: 'object',
+      path: rawPath.replace(/\s*\.\s*/g, '.'),
+      pathRange,
+    };
+  }
+
+  return null;
+}
+
+function findGetChildInvocation(
+  document: TextDocument,
+  position: Position,
+): DataWindowPropertyInvocation | null {
+  const lineText = getLineText(document, position.line);
+  const invocationMatch = /\b([a-z_][\w$#%]*)\s*\.\s*GetChild\s*\(/i.exec(lineText);
+  if (!invocationMatch) {
+    return null;
+  }
+
+  const openParenIndex = lineText.indexOf('(', invocationMatch.index);
+  if (openParenIndex < 0) {
+    return null;
+  }
+
+  const literal = findFirstStringLiteral(lineText, openParenIndex + 1);
+  if (!literal) {
+    return null;
+  }
+
+  const pathRange: DataWindowRange = {
+    start: { line: position.line, character: literal.startCharacter },
+    end: { line: position.line, character: literal.endCharacter },
+  };
+  if (!rangeContains(pathRange, position)) {
+    return null;
+  }
+
+  const path = literal.value.trim();
+  if (!path) {
+    return null;
+  }
+
+  return {
+    targetName: invocationMatch[1],
+    mode: 'getchild',
     path,
     pathRange,
   };

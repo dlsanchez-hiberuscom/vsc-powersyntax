@@ -49,6 +49,7 @@ test/
       pfc-solution.smoke.test.ts
       legacy-pbl-dump.smoke.test.ts
       orderentry.smoke.test.ts
+      orderentry.semantic.test.ts
       orderentry.perf.test.ts
   smoke/
     extension.test.ts
