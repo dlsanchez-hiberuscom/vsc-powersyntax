@@ -209,4 +209,33 @@ end subroutine
     assert.ok(items?.some((item) => item.label === 'SetTransObject'));
     assert.ok(items?.some((item) => item.label === 'Retrieve'));
   });
+
+  test('limita candidatos globales para completion con prefijo', () => {
+    const doc = setupDocument('file:///test_global_cap.sru', `
+global type test_global_cap from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  zz_
+end subroutine
+    `);
+
+    const uri = 'file:///globals.srf';
+    kb.upsertDocument(uri, Array.from({ length: 240 }, (_, index) => ({
+      id: `zz_cap_${index.toString().padStart(3, '0')}`,
+      name: `zz_cap_${index.toString().padStart(3, '0')}`,
+      kind: EntityKind.Function,
+      uri,
+      line: index,
+      character: 0
+    })));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'zz_');
+    const items = provideCompletion(doc, Position.create(lineIndex, 5), kb, systemCatalog, graph);
+
+    assert.equal(items?.filter((item) => String(item.label).startsWith('zz_cap_')).length, 200);
+  });
 });

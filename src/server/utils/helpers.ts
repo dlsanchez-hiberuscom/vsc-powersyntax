@@ -1,9 +1,9 @@
 import {
-  DocumentSymbol,
-  Position,
-  Range,
-  SymbolKind
-} from 'vscode-languageserver/node';
+  InternalDocumentSymbol,
+  InternalDocumentSymbolKind,
+  type TextPosition,
+  type TextRange,
+} from '../model/types';
 
 export function eventSelectionStart(line: string, name: string): number {
   const index = line.indexOf(name);
@@ -12,13 +12,13 @@ export function eventSelectionStart(line: string, name: string): number {
 
 export function createSymbol(
   name: string,
-  kind: SymbolKind,
+  kind: InternalDocumentSymbolKind,
   startLine: number,
   startCharacter: number,
   endLine: number,
   endCharacter: number,
   detail?: string
-): DocumentSymbol {
+): InternalDocumentSymbol {
   const safeStart = Math.max(0, startCharacter);
   const safeEnd = Math.max(0, endCharacter);
 
@@ -26,15 +26,25 @@ export function createSymbol(
     name,
     kind,
     detail,
-    range: Range.create(
-      Position.create(startLine, safeStart),
-      Position.create(endLine, safeEnd)
-    ),
-    selectionRange: Range.create(
-      Position.create(startLine, safeStart),
-      Position.create(startLine, safeStart + name.length)
-    ),
+    range: createRange(startLine, safeStart, endLine, safeEnd),
+    selectionRange: createRange(startLine, safeStart, startLine, safeStart + name.length),
     children: []
+  };
+}
+
+export function createPosition(line: number, character: number): TextPosition {
+  return { line, character };
+}
+
+export function createRange(
+  startLine: number,
+  startCharacter: number,
+  endLine: number,
+  endCharacter: number,
+): TextRange {
+  return {
+    start: createPosition(startLine, startCharacter),
+    end: createPosition(endLine, endCharacter),
   };
 }
 

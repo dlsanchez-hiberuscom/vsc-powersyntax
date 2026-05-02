@@ -1,5 +1,6 @@
 import type { ApiServerStats } from '../shared/publicApi';
 import type { ProgressNotification, ProgressPass } from '../shared/types';
+import { formatPbAutoBuildStatusInline, type PbAutoBuildCapabilitySnapshot } from './build/pbAutoBuildDetection';
 
 export interface RuntimeStatusProjectSnapshot {
   readiness?: string;
@@ -20,6 +21,7 @@ export interface RuntimeStatusActiveProject {
 }
 
 export interface RuntimeStatusStats extends ApiServerStats {
+  buildTooling?: PbAutoBuildCapabilitySnapshot;
   workspace?: {
     mode?: string;
     files?: number;
@@ -168,6 +170,39 @@ function formatRuntimeJournal(stats?: RuntimeStatusStats): string | undefined {
   return `${journal.events.length}/${journal.total} eventos · ${lastEvent.phase}/${lastEvent.action}`;
 }
 
+function formatBytes(bytes: number | undefined): string | undefined {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) {
+    return undefined;
+  }
+
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+  }
+
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KiB`;
+  }
+
+  return `${bytes} B`;
+}
+
+function formatMemoryBudget(stats?: RuntimeStatusStats): string | undefined {
+  const memory = stats?.memory;
+  if (!memory) {
+    return undefined;
+  }
+
+  const hottestLayer = [...memory.layers].sort((left, right) => right.usageRatio - left.usageRatio)[0];
+  const parts = [
+    memory.status,
+    `${formatBytes(memory.totalEstimatedBytes)} / ${formatBytes(memory.totalBudgetBytes)}`,
+    hottestLayer ? `${hottestLayer.label} ${Math.round(hottestLayer.usageRatio * 100)}%` : undefined,
+    typeof memory.process?.heapUsedBytes === 'number' ? `heap ${formatBytes(memory.process.heapUsedBytes)}` : undefined,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(' · ');
+}
+
 export function formatStatusBarSummary(
   progress: ProgressNotification,
   stats?: RuntimeStatusStats
@@ -218,6 +253,8 @@ export function buildStatusTooltipMarkdown(
     formatServingSnapshotState(stats),
   ].filter((part): part is string => Boolean(part));
   pushIfPresent(lines, 'Persistencia', persistenceParts.join(' · ') || 'sin snapshot persistente');
+  pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats?.buildTooling));
+  pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
 
   const trace = stats?.lastQueryTrace;
   if (trace?.label) {
@@ -268,6 +305,8 @@ export function buildStatusStatsReport(stats?: RuntimeStatusStats): string {
     formatPersistenceState(stats),
     formatServingSnapshotState(stats),
   ].filter((part): part is string => Boolean(part)).join(' · '));
+  pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats.buildTooling));
+  pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
   pushIfPresent(lines, 'Salud', stats.health ? [stats.health.status, formatHealthCounts(stats)].filter((part): part is string => Boolean(part)).join(' · ') : undefined);
   pushIfPresent(lines, 'Journal', formatRuntimeJournal(stats));
   return lines.join('\n');
@@ -287,6 +326,8 @@ export function buildStatusHealthReport(
   pushIfPresent(lines, 'Indexer', [stats.indexer?.phase, typeof stats.indexer?.current === 'number' && typeof stats.indexer?.total === 'number' ? `${stats.indexer.current}/${stats.indexer.total}` : undefined].filter((part): part is string => Boolean(part)).join(' · '));
   pushIfPresent(lines, 'Resumen', stats.health?.summary ?? 'sin degradación visible en stats');
   pushIfPresent(lines, 'Checks', formatHealthCounts(stats));
+  pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats.buildTooling));
+  pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
   if (stats.health?.findings?.length) {
     for (const finding of stats.health.findings.slice(0, 5)) {
       lines.push(`- ${finding.severity.toUpperCase()} [${finding.layer}] ${finding.message}`);

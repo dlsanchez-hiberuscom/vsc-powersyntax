@@ -1,5 +1,6 @@
 ---
-name: research-iza el repositorio y documentación en modo read-only para sintetizar información, detectar impacto y responder preguntas de investigación técnica.name: research-analyst
+name: research-analyst
+description: Analiza el repositorio y documentación en modo read-only para sintetizar información, detectar impacto y responder preguntas de investigación técnica.
 tools: ['search', 'web']
 target: vscode
 user-invocable: true
@@ -18,8 +19,8 @@ Prioriza siempre:
 2. `docs/architecture.md`
 3. specs activas en `specs/`
 4. `docs/roadmap.md`
-5. `docs/backlog.md`
-6. `docs/current-focus.md`
+5. `docs/current-focus.md`
+6. `docs/backlog.md`
 7. estado real del código
 8. fuentes externas solo si hacen falta
 

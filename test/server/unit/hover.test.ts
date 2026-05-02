@@ -207,6 +207,79 @@ end event
     assert.ok(value.includes('Bandas:'), 'Debe incluir un resumen de bandas principales.');
   });
 
+  test('provideHover resuelve Describe(DataWindow.Table.Select) usando el DataObject enlazado', () => {
+    setupAnalyzedDocument('file:///d_customer_list.srd', [
+      '$PBExportHeader$d_customer_list.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT id, name FROM customer")'
+    ].join('\r\n'));
+    const doc = setupAnalyzedDocument('file:///w_probe.srw', [
+      'global type w_probe from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_customer.DataObject = "d_customer_list"',
+      '  dw_customer.Describe("DataWindow.Table.Select")',
+      'end event'
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('DataWindow.Table.Select'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('DataWindow.Table.Select') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.ok(hover);
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('DataWindow.Table.Select'));
+    assert.ok(value.includes('SELECT id, name FROM customer'));
+  });
+
+  test('provideHover resuelve rutas anidadas de report child hacia Table.Select', () => {
+    setupAnalyzedDocument('file:///d_parent.srd', [
+      '$PBExportHeader$d_parent.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'report(name=rpt_orders dataobject="d_orders")'
+    ].join('\r\n'));
+    setupAnalyzedDocument('file:///d_orders.srd', [
+      '$PBExportHeader$d_orders.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT order_id, order_status FROM orders")'
+    ].join('\r\n'));
+    const doc = setupAnalyzedDocument('file:///w_report_hover.srw', [
+      'global type w_report_hover from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent"',
+      '  dw_parent.Describe("rpt_orders.DataWindow.Table.Select")',
+      'end event'
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('rpt_orders.DataWindow.Table.Select'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('rpt_orders.DataWindow.Table.Select') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.ok(hover);
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('rpt_orders.DataWindow.Table.Select'));
+    assert.ok(value.includes('SELECT order_id, order_status FROM orders'));
+    assert.ok(value.includes('Ruta: `rpt_orders`'));
+  });
+
   test('provideHover explica constructor como hook lifecycle disparado desde create', () => {
     const doc = setupAnalyzedDocument('file:///w_lifecycle_hover.sru', `
 global type w_lifecycle_hover from window

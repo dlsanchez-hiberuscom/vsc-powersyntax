@@ -130,6 +130,10 @@ Hoy el runtime ya dispone de:
 - backpressure del watcher,
 - refresco incremental de routing/provenance para markers de topología y altas calientes de SR* sin rediscovery completo,
 - pool acotado de fuentes para `references`/`rename`/CodeLens con reuso de `maskedText` ya indexado,
+- consultas acotadas de símbolos para `workspaceSymbols`, API symbols, completion global y manifest semántico, evitando clonar toda la `KnowledgeBase` cuando existe `limit`,
+- caché CodeLens LRU acotada y visible en stats/health,
+- reporte unificado de memory budgets por capa con estimates soft y estado agregado visible en stats/health/status,
+- cierre de documento sin borrar conocimiento semántico publicado mientras el archivo siga siendo fuente del workspace,
 - y progreso/readiness/modo degradado observables.
 
 Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm test` y, cuando toque latencia o presión sostenida, también `npm run test:performance`.
@@ -292,9 +296,11 @@ Ya es exigible que:
 
 ### 11.2 Pendiente de calibración fuerte
 Debe calibrarse mejor sobre corpus reales:
-- budgets de memoria por capa,
+- calibración fina de estimates y thresholds de memory budgets sobre portfolios enterprise más amplios,
 - query cache hit ratio,
 - fan-out de invalidación,
+- coste copy-on-write de mutaciones `KnowledgeBase` en workspaces grandes,
+- calibración fina de budgets del formatter server-side sobre documentos sintéticos/enterprise grandes,
 - y budgets en portfolios enterprise más amplios que el baseline actual de PFC + legacy + OrderEntry.
 
 ### 11.3 Baseline real actual

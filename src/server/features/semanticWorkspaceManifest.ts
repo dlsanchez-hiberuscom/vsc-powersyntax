@@ -49,15 +49,21 @@ export function buildSemanticWorkspaceManifest(
   }));
   const libraries = [...new Set(projects.flatMap((project) => project.libraries))].sort();
 
-  const allTypes = kb.getAllEntities().filter((entity) => entity.kind === EntityKind.Type);
-  const objects: ApiSemanticWorkspaceManifestObject[] = allTypes.slice(0, maxObjects).map((entity) => ({
+  const typeFilter = (entity: { kind: EntityKind; baseTypeName?: string }) => entity.kind === EntityKind.Type;
+  const visibleTypes = kb.queryEntities({ kinds: [EntityKind.Type], limit: maxObjects });
+  const totalTypes = kb.countEntities((entity) => typeFilter(entity));
+  const totalSymbols = kb.countEntities();
+  const rootTypes = kb.countEntities((entity) =>
+    typeFilter(entity) && (!entity.baseTypeName || entity.baseTypeName.trim() === '')
+  );
+  const objects: ApiSemanticWorkspaceManifestObject[] = visibleTypes.map((entity) => ({
     name: entity.name,
     uri: entity.uri,
     ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
     ...(entity.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
   }));
 
-  const inheritanceItems = allTypes.slice(0, maxObjects).map((entity) => ({
+  const inheritanceItems = visibleTypes.map((entity) => ({
     name: entity.name,
     ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
     descendantCount: graph.getDescendants(entity.name).length,
@@ -69,15 +75,15 @@ export function buildSemanticWorkspaceManifest(
     limits: {
       maxObjects,
       maxSymbols,
-      objectsTruncated: allTypes.length > maxObjects,
-      symbolsTruncated: kb.getAllEntities().length > maxSymbols,
+      objectsTruncated: totalTypes > maxObjects,
+      symbolsTruncated: totalSymbols > maxSymbols,
     },
     projects,
     libraries,
     objects,
     inheritanceSummary: {
-      totalTypes: allTypes.length,
-      roots: allTypes.filter((entity) => !entity.baseTypeName || entity.baseTypeName.trim() === '').length,
+      totalTypes,
+      roots: rootTypes,
       items: inheritanceItems,
     },
     exportedSymbols: queryApiSymbols('', kb, maxSymbols),

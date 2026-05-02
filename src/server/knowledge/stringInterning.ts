@@ -1,6 +1,5 @@
-import type { DocumentSymbol } from 'vscode-languageserver/node';
-
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
+import type { InternalDocumentSymbol } from '../model/types';
 import type { DocumentCacheEntry, Entity, EntityLineage, Scope } from './types';
 import type { InternString } from './ManagedStringInterner';
 
@@ -91,7 +90,7 @@ export function internSemanticSnapshot(
   return interned;
 }
 
-function internDocumentSymbol(symbol: DocumentSymbol, intern: InternString): DocumentSymbol {
+function internDocumentSymbol(symbol: InternalDocumentSymbol, intern: InternString): InternalDocumentSymbol {
   return {
     ...symbol,
     name: intern(symbol.name),

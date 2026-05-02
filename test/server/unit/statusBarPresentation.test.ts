@@ -67,6 +67,47 @@ suite('unit/statusBarPresentation (B107)', () => {
         lastPersistedEntries: 8
       }
     },
+    buildTooling: {
+      status: 'available',
+      source: 'config',
+      executablePath: 'C:/Program Files/Appeon/PowerBuilder 2025/pbautobuild250.exe',
+      versionLabel: '25.0 / 2025',
+      capabilities: ['json-build', 'pbc-compile'],
+      detail: 'PBAutoBuild disponible vía configuración.'
+    },
+    memory: {
+      status: 'warning',
+      totalEstimatedBytes: 80 * 1024 * 1024,
+      totalBudgetBytes: 128 * 1024 * 1024,
+      process: {
+        heapUsedBytes: 70 * 1024 * 1024,
+        heapTotalBytes: 96 * 1024 * 1024,
+        rssBytes: 120 * 1024 * 1024,
+        externalBytes: 2 * 1024 * 1024
+      },
+      layers: [
+        {
+          layer: 'knowledge',
+          label: 'knowledge index',
+          estimatedBytes: 50 * 1024 * 1024,
+          budgetBytes: 64 * 1024 * 1024,
+          usageRatio: 0.78,
+          status: 'healthy',
+          unitCount: 1200,
+          unitLabel: 'entities'
+        },
+        {
+          layer: 'documents',
+          label: 'document cache',
+          estimatedBytes: 30 * 1024 * 1024,
+          budgetBytes: 32 * 1024 * 1024,
+          usageRatio: 0.94,
+          status: 'warning',
+          unitCount: 20,
+          unitLabel: 'documents'
+        }
+      ]
+    },
     lastQueryTrace: {
       label: 'definition',
       confidence: 'high',
@@ -104,6 +145,8 @@ suite('unit/statusBarPresentation (B107)', () => {
     assert.match(tooltip, /Workspace: solution · 120 archivos/);
   assert.match(tooltip, /Cachés: analysis 12\/64 · serving 8\/32 · hit 75% \(9\/3\) · evict 1 · documents 20 · hot 4\/16/);
     assert.match(tooltip, /Persistencia: warm resume configurado · checkpoint listo · journal listo · restored 18 docs · serving 8 entries/);
+  assert.match(tooltip, /Build: PBAutoBuild 25\.0 \/ 2025 disponible · configuración/);
+    assert.match(tooltip, /Memoria: warning · 80\.0 MiB \/ 128\.0 MiB · document cache 94% · heap 70\.0 MiB/);
     assert.match(tooltip, /command:vscPowerSyntax.showStatusStats/);
     assert.match(tooltip, /command:vscPowerSyntax.showStatusHealth/);
     assert.match(tooltip, /command:workbench.action.tasks.build/);
@@ -116,6 +159,8 @@ suite('unit/statusBarPresentation (B107)', () => {
     assert.match(report, /Scheduler: near 1 · background 4 · interactiveBusy false/);
     assert.match(report, /Cachés: analysis 12\/64 · serving 8\/32 · hit 75% \(9\/3\) · evict 1 · documents 20 · hot 4\/16/);
     assert.match(report, /Persistencia: workspace-key · checkpoint · journal · restored 18 docs · serving 8 entries/);
+    assert.match(report, /Build: PBAutoBuild 25\.0 \/ 2025 disponible · configuración/);
+    assert.match(report, /Memoria: warning · 80\.0 MiB \/ 128\.0 MiB · document cache 94% · heap 70\.0 MiB/);
     assert.match(report, /Salud: warning · 1 warning · 0 error · 2 info/);
     assert.match(report, /Journal: 1\/3 eventos · query\/definition/);
   });
@@ -125,6 +170,8 @@ suite('unit/statusBarPresentation (B107)', () => {
 
     assert.match(report, /Resumen: cola near 1 · cola background 4 · 1 huérfanos/);
     assert.match(report, /Checks: 1 warning · 0 error · 2 info/);
+    assert.match(report, /Build: PBAutoBuild 25\.0 \/ 2025 disponible · configuración/);
+    assert.match(report, /Memoria: warning · 80\.0 MiB \/ 128\.0 MiB · document cache 94% · heap 70\.0 MiB/);
     assert.match(report, /INFO \[scheduler\] cola near 1/);
     assert.match(report, /WARNING \[project-model\] 1 huérfanos/);
     assert.match(report, /Journal: 1\/3 eventos · query\/definition/);

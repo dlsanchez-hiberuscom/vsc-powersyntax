@@ -11,6 +11,8 @@ import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
 import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
 
+const MAX_GLOBAL_COMPLETION_ENTITIES = 200;
+
 function getMembersForCompletion(
   typeName: string,
   currentUri: string,
@@ -166,17 +168,21 @@ export function provideCompletion(
       });
     }
 
-    for (const entity of kb.getAllEntities()) {
+    for (const entity of kb.queryEntities({
+      limit: MAX_GLOBAL_COMPLETION_ENTITIES,
+      include: (entity) => {
+        const isGlobalCandidate = entity.kind === EntityKind.Type
+          || (entity.kind === EntityKind.Function && !entity.containerName);
+        return isGlobalCandidate && entity.name.toLowerCase().startsWith(identifierPrefix);
+      }
+    })) {
       // Only include global entities that are types or global functions
       // Actually, we index local functions as EntityKind.Function, but they are bounded to a file/type.
       // A truly global function might just have no containerName.
-      if (entity.kind === EntityKind.Type || (entity.kind === EntityKind.Function && !entity.containerName)) {
-        if (!entity.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(entity.name.toLowerCase())) continue;
-        seen.add(entity.name.toLowerCase());
+      if (seen.has(entity.name.toLowerCase())) continue;
+      seen.add(entity.name.toLowerCase());
 
-        items.push(createCompletionItem(entity, '2_global_'));
-      }
+      items.push(createCompletionItem(entity, '2_global_'));
     }
   }
 

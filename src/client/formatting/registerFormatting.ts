@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
 
 import {
-  formatPowerBuilderText,
   type PowerBuilderFormatterBlankLineMode,
   type PowerBuilderFormatterCaseMode,
   type PowerBuilderFormatterIndentStyle,
   type PowerBuilderFormatterOptions,
 } from '../../shared/formatting/powerBuilderFormatter';
+import {
+  type PowerBuilderFormatDocumentRequest,
+  type PowerBuilderFormatDocumentResult,
+} from '../../shared/formatting/formatDocumentProtocol';
 
 const SUPPORTED_FORMATTING_LANGUAGES = [
   'powerbuilder',
@@ -26,8 +29,12 @@ const FORMATTING_SELECTOR = SUPPORTED_FORMATTING_LANGUAGES.flatMap((language) =>
 interface RuntimeFormattingConfig {
   enabled: boolean;
   formatOnSave: boolean;
+  maxDocumentChars?: number;
+  maxDocumentLines?: number;
   options: PowerBuilderFormatterOptions;
 }
+
+type FormattingTrigger = 'manual' | 'save';
 
 function normalizeCaseMode(value: unknown, fallback: PowerBuilderFormatterCaseMode): PowerBuilderFormatterCaseMode {
   return value === 'upper' || value === 'lower' || value === 'preserve' ? value : fallback;
@@ -45,6 +52,16 @@ function normalizeIndentSize(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : fallback;
 }
 
+function normalizeBudget(value: unknown, fallback: number): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  if (value <= 0) {
+    return undefined;
+  }
+  return Math.trunc(value);
+}
+
 function supportsFormatting(document: vscode.TextDocument): boolean {
   return SUPPORTED_FORMATTING_LANGUAGES.includes(document.languageId as typeof SUPPORTED_FORMATTING_LANGUAGES[number]);
 }
@@ -56,6 +73,8 @@ function getFormattingConfig(document: vscode.TextDocument): RuntimeFormattingCo
   return {
     enabled: config.get<boolean>('formatting.enabled', true),
     formatOnSave: config.get<boolean>('formatting.formatOnSave', false),
+    maxDocumentChars: normalizeBudget(config.get('formatting.maxDocumentChars'), 120_000),
+    maxDocumentLines: normalizeBudget(config.get('formatting.maxDocumentLines'), 4_000),
     options: {
       keywordCase,
       statementCase: normalizeCaseMode(config.get('formatting.statementCase'), keywordCase),
@@ -81,23 +100,66 @@ function getFullDocumentRange(document: vscode.TextDocument): vscode.Range {
   return new vscode.Range(new vscode.Position(0, 0), end);
 }
 
-function buildDocumentFormattingEdits(document: vscode.TextDocument, options: PowerBuilderFormatterOptions): vscode.TextEdit[] {
-  const original = document.getText();
-  const formatted = formatPowerBuilderText(original, options, getDocumentLineEnding(document));
-  if (formatted === original) {
-    return [];
+function showSkipNotice(result: PowerBuilderFormatDocumentResult, trigger: FormattingTrigger): void {
+  if (!result.detail) {
+    return;
   }
-  return [vscode.TextEdit.replace(getFullDocumentRange(document), formatted)];
+
+  if (trigger === 'manual') {
+    void vscode.window.showWarningMessage(result.detail);
+    return;
+  }
+
+  vscode.window.setStatusBarMessage(result.detail, 5000);
 }
 
-export function registerFormatting(): vscode.Disposable[] {
+async function buildDocumentFormattingEdits(
+  document: vscode.TextDocument,
+  config: RuntimeFormattingConfig,
+  formatDocument: (request: PowerBuilderFormatDocumentRequest) => Promise<PowerBuilderFormatDocumentResult>,
+  trigger: FormattingTrigger,
+): Promise<vscode.TextEdit[]> {
+  const request: PowerBuilderFormatDocumentRequest = {
+    text: document.getText(),
+    lineEnding: getDocumentLineEnding(document),
+    options: config.options,
+    maxDocumentChars: config.maxDocumentChars,
+    maxDocumentLines: config.maxDocumentLines,
+  };
+
+  const result = await formatDocument(request);
+  if (result.status === 'skipped') {
+    showSkipNotice(result, trigger);
+    return [];
+  }
+
+  if (result.status !== 'formatted' || result.formattedText === request.text) {
+    return [];
+  }
+
+  if (typeof result.formattedText !== 'string') {
+    return [];
+  }
+
+  return [vscode.TextEdit.replace(getFullDocumentRange(document), result.formattedText)];
+}
+
+export function registerFormatting(
+  formatDocument: (request: PowerBuilderFormatDocumentRequest) => Promise<PowerBuilderFormatDocumentResult>,
+): vscode.Disposable[] {
   const documentProvider = vscode.languages.registerDocumentFormattingEditProvider(FORMATTING_SELECTOR, {
-    provideDocumentFormattingEdits(document): vscode.TextEdit[] {
+    async provideDocumentFormattingEdits(document): Promise<vscode.TextEdit[]> {
       const config = getFormattingConfig(document);
       if (!supportsFormatting(document) || !config.enabled) {
         return [];
       }
-      return buildDocumentFormattingEdits(document, config.options);
+      try {
+        return await buildDocumentFormattingEdits(document, config, formatDocument, 'manual');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`No se pudo formatear el documento: ${message}`);
+        return [];
+      }
     }
   });
 
@@ -107,7 +169,7 @@ export function registerFormatting(): vscode.Disposable[] {
     if (!supportsFormatting(document) || !config.enabled || !config.formatOnSave) {
       return;
     }
-    event.waitUntil(Promise.resolve(buildDocumentFormattingEdits(document, config.options)));
+    event.waitUntil(buildDocumentFormattingEdits(document, config, formatDocument, 'save'));
   });
 
   return [documentProvider, formatOnSave];

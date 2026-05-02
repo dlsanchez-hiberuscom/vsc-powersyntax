@@ -13,6 +13,7 @@ import { systemProvenanceToLineage } from '../knowledge/system/normalization';
 import type { HotContextCache } from '../knowledge/HotContextCache';
 import { EntityKind } from '../knowledge/types';
 import { provideDataWindowLegacyHover } from './dataWindowLegacySafeMode';
+import { providePowerScriptDataWindowPropertyHover } from './dataWindowPropertyPaths';
 import { buildHierarchyInspection } from './hierarchyInspection';
 import { resolveDocumentQualifierType, resolveDocumentQueryTargets } from './queryContext';
 import { summarizeDataWindowSafeMode } from './dataWindowSafeMode';
@@ -116,7 +117,8 @@ export function provideHover(
   graph: InheritanceGraph,
   hotContext?: HotContextCache
 ): Hover | null {
-  const dataWindowHover = provideDataWindowLegacyHover(document, position);
+  const dataWindowHover = provideDataWindowLegacyHover(document, position)
+    ?? providePowerScriptDataWindowPropertyHover(document, position, kb);
   if (dataWindowHover) {
     return dataWindowHover;
   }

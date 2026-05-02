@@ -207,13 +207,21 @@ El repositorio ya materializa un primer corte operativo de:
 - health checker estructurado del runtime con findings por capa y severidad sobre readiness, scheduler, project model, cachés, persistencia y ambigüedad de query;
 - watcher incremental completo sobre source + markers de topología, con refresh de `UnifiedProjectModel`/`sourceOrigin` desde el puente real LSP -> watcher y sin rediscovery completo para cambios calientes;
 - `references`, `rename` y CodeLens apoyados en un candidate pool compartido y acotado por query/proyecto, con reuso de líneas y `maskedText` ya publicados por snapshot en lugar de rereads/remasking globales;
-- formatter conservador configurable sobre documentos PowerScript soportados, alojado como motor puro compartido + wiring ligero de cliente, sin parsear DataWindow como PowerScript ni mover semántica pesada al Extension Host.
+- formatter conservador configurable sobre documentos PowerScript soportados, alojado como motor puro compartido y ejecutado en servidor LSP mediante `powerbuilder.formatDocument`; el cliente conserva solo selector/configuración/UX ligera y el servidor aplica budgets explícitos por caracteres/líneas para degradar archivos grandes sin parsear DataWindow como PowerScript.
+- `knowledge/parsing/utils` ya usan tipos internos para posiciones/rangos/símbolos documentales y dejan `DocumentSymbol`/DTOs LSP en el borde de `features/documentSymbols`, protegidos además por un test arquitectónico de imports.
+- `documentSymbols` ejecuta ahora una reconciliación explícita entre `sections/typeBlocks` del parser, facts/scopes del snapshot y el árbol LSP a publicar, generando reason codes y reporte interno antes de servir el outline.
+- capability detection read-only de `PBAutoBuild250.exe` en cliente, resuelta por configuración/entorno/candidatos por defecto, cacheada y visible en status/health sin lanzar build; discovery, runner y log parser siguen abiertos en `B182-B187`.
+- runtime expone un reporte unificado de budgets de memoria por capa (`analysis`, `serving`, `documents`, `hot-context`, `code-lens`, `knowledge`) con estimates soft y vigilancia integrada en `showStats`, health checker y status visible.
 - query engine compartido con modelo explícito de invocación PowerBuilder (`unqualified`, `this`, `parent`, `super`, `ancestor`, global, dynamic, external`) y propagación de `invocationKind`/`invocationRisk` a trace, context y operaciones semánticas;
 - eventos PowerBuilder tratados como entidades de primera clase: `on object.event` conserva owner real, `call super::create` resuelve sobre on-handlers reales y `TriggerEvent/PostEvent` con literal estable reusan el mismo backbone semántico.
 - lifecycle PowerBuilder integrado en surfaces visibles: `hierarchyInspection` reconstruye create/destroy desde snapshot semántico, hover explica `constructor/destructor` desde el mismo modelo y diagnostics emite warnings suaves (`missing-super-*`, `missing-trigger-*`, `unresolved-*`) sin abrir un segundo motor.
 - modelo transaccional básico integrado en el backbone: `SQLCA` se resuelve como `transaction` especial, `SetTransObject`/`SetTrans` enlazan con `Retrieve`/`Update` en diagnostics y las superficies interactivas (`completion`/`hover`/`signatureHelp`) filtran el catálogo por `ownerType` para DataWindow/DataStore sin lookup plano por nombre.
-- bridge DataWindow integrado en el mismo backbone: `.srd` publica stubs navegables sin parsearse como PowerScript, `DataObject = "d_xxx"` resuelve hacia el snapshot `.srd` ya indexado, `signatureHelp` reutiliza `arguments=(...)`/`ARG(...)` para especializar `Retrieve(...)`, el safe mode resume SQL base/columnas/bandas principales para hover, un analizador legacy-safe refuerza definition/hover dentro del propio `.srd` y `documentSymbols`/`workspaceSymbols` ya exponen catálogo básico DataWindow sin introducir stores globales ni soporte avanzado prematuro.
+- bridge DataWindow integrado en el mismo backbone: `.srd` publica stubs navegables sin parsearse como PowerScript, `DataObject = "d_xxx"` resuelve hacia el snapshot `.srd` ya indexado, `signatureHelp` reutiliza `arguments=(...)`/`ARG(...)` para especializar `Retrieve(...)`, el safe mode resume SQL base/columnas/bandas principales para hover, `dataWindowModel` aporta un modelo reutilizable para hover/definition/documentSymbols y el slice avanzado actual cubre `report(name=... dataobject=...)`, `column.dddw.name` y property paths `Describe/Modify(...DataWindow.Table.Select)` sobre child DataWindows deterministas sin abrir todavía `.Object` completo ni stores globales paralelos.
 - dependencias nativas externas modeladas como primer ciudadano ligero: `externalAlias`, `externalDependencyKind` (`dll`, `pbx`, `unknown`), hover explícito y degradación honesta de rename/references/diagnostics sin fingir implementation interna.
+- cierre de documento ahora expulsa solo la caché interactiva de análisis y no borra `DocumentCache`/`KnowledgeBase`; la eliminación real de conocimiento queda reservada a eventos de borrado de archivo.
+- `workspaceSymbols`, API symbols, completion global y manifest semántico ya disponen de consultas acotadas sobre `KnowledgeBase` para evitar materializar toda la base cuando solo se necesitan resultados limitados.
+- CodeLens mantiene caché LRU acotada, invalidable por URI y visible en stats/health, en línea con los budgets de memoria pendientes de `B070`.
+- el selector LSP del cliente evita enviar markers `.pbw/.pbt/.pbproj/.pbsln` y `.pbl` binarios como documentos PowerScript; discovery/topología siguen observándolos por watcher.
 
 ---
 
@@ -379,6 +387,7 @@ Schema persistente actual:
 - `features/*` y `ux/*` respetan readiness/evidence/confidence.
 - `adapters/api-*` exponen contratos versionados, nunca entidades mutables internas.
 - las integraciones IA consumen API pública/tools/context packs, no dominio interno.
+- Deuda abierta: `B229` debe pasar `sourceOrigin` contextual desde `WorkspaceState` al análisis documental, dejando `inferSourceOrigin()` solo como fallback.
 
 ---
 

@@ -33,6 +33,8 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 - Herramientas mínimas por rol.
 - Lean antes que proliferación.
 - Documentación viva obligatoria.
+- Specs activas sin documentación mínima vuelven a `spec-orchestrator` antes de implementación.
+- Slices cerradas no cuentan como specs completas ni cierran épicas padre.
 
 ---
 
@@ -118,7 +120,17 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 
 ---
 
-## 9. Guardrails
+## 9. Reglas de specs faltantes y cierre
+
+- Si el foco activo no tiene spec propia, crear o pedir una spec nueva con siguiente ID libre; no reutilizar carpetas históricas por coincidencia numérica con `Bxxx`.
+- Toda spec activa debe tener `spec.md`, `plan.md` y `tasks.md`; `quickstart.md` se añade cuando aporte validación o uso reproducible.
+- Un slice puede registrarse como cerrado si su validación y documentación están completas, pero no mueve el ítem padre a Done salvo que todos los criterios del padre estén cumplidos.
+- El backlog contiene trabajo activo; el done-log contiene trabajo cerrado; current-focus contiene solo el foco inmediato.
+- Si código y documentación divergen, el agente debe alinear ambos o registrar backlog preciso antes de cerrar.
+
+---
+
+## 10. Guardrails
 
 - Ningún write-enabled ejecuta sin spec, plan o tarea madura.
 - Ningún agente cierra tarea sin validación y documentación.

@@ -89,9 +89,14 @@ Deben cubrir prioritariamente:
 
 Estado actual relevante:
 - `test/server/unit/runtimeJournal.test.ts`, `runtimeHealth.test.ts`, `queryTrace.test.ts`, `servingCache.test.ts` y `statusBarPresentation.test.ts` fijan el journal exportable del runtime, el health report estructurado, los observers de trace/cache y su proyección visible en stats/status.
+- `test/server/unit/pbAutoBuildDetection.test.ts`, junto con `statusBarPresentation.test.ts`, fija la detección read-only de `PBAutoBuild250.exe` por configuración/entorno/candidatos por defecto y su proyección visible en status/health sin lanzar build.
 - `test/server/unit/referenceSourcePool.test.ts`, junto con `references.test.ts`, `rename.test.ts` y `codeLensReferences.test.ts`, fija el pool acotado por proyecto/candidatos y el reuso de `maskedText` en el hot path de `references`/`rename`/CodeLens.
+- `test/server/unit/analysisCache.test.ts`, `knowledgeBase.test.ts` y `completion.test.ts` cubren la separación entre cierre de documento y borrado real de conocimiento, consultas acotadas sobre `KnowledgeBase` y cap de completion global.
 - `test/server/unit/watchedFileChangeBridge.test.ts` y `watchedFileIntake.test.ts` fijan el intake incremental de markers topológicos y la reconciliación de `sourceOrigin`/routing sin rediscovery completo.
-- `test/server/unit/powerBuilderFormatter.test.ts` fija el formatter conservador puro; `test/smoke/formatting.extension.test.ts` cubre provider manual y `formatOnSave` sobre VS Code real.
+- `test/server/unit/formatDocument.test.ts` y `powerBuilderFormatter.test.ts` fijan el formatter server-side, sus budgets explícitos y el motor puro reutilizado; `test/smoke/formatting.extension.test.ts` cubre provider manual y `formatOnSave` sobre VS Code real.
+- `test/server/unit/architectureImports.test.ts` fija el guardrail de `B228`, evitando que `knowledge/parsing/utils` vuelvan a importar `vscode-languageserver`; `documentSymbols.test.ts` mantiene verde el mapper de borde.
+- `test/server/unit/documentSymbolsReconciliation.test.ts`, junto con `documentSymbols.test.ts`, fija el reporte de reconciliación parser/snapshot/LSP y sus reason codes antes de publicar el outline.
+- `test/server/unit/memoryBudgets.test.ts`, junto con `runtimeHealth.test.ts` y `statusBarPresentation.test.ts`, fija el reporte unificado de budgets de memoria y su vigilancia visible.
 
 Regla:
 - no depender de VS Code,
@@ -123,6 +128,9 @@ Deben medir:
 - análisis por documento,
 - y consumo de memoria en escenarios representativos.
 
+Regla específica de runner:
+- las suites de performance ejecutadas por `vscode-test` deben usar únicamente Mocha/TDD (`suite`/`test` globals). No importar `node:test`, porque sus tests se registran y ejecutan durante la carga de archivos del runner, pueden solaparse con benchmarks Mocha y contaminar mediciones de cold indexing.
+
 ## 4.5 Golden / semantic tests
 **Objetivo:** proteger el comportamiento semántico del motor.
 
@@ -133,8 +141,9 @@ Estado actual:
 - `test/server/unit/safeEditPlan.test.ts` ya cubre el safe edit plan read-only con archivos, riesgos, tests, docs a revisar y bloqueos honestos sin tocar código.
 - `test/server/unit/semanticWorkspaceManifest.test.ts` ya cubre el manifiesto semántico compacto/versionado con projects, libraries, objects, herencia, diagnostics summary, sourceOrigin y readiness sin exportar código bruto.
 - `test/server/unit/dataWindowSafeMode.test.ts`, junto con `documentAnalysis|definition|hover|signatureHelp|diagnostics|powerbuilderSemanticGolden`, ya fija el safe mode mínimo de `.srd` con SQL base, args, columnas, bandas principales y navegación básica.
-- `test/server/unit/dataWindowLegacySafeMode.test.ts`, junto con `definition|hover`, ya fija el refuerzo legacy-safe de `.srd` para bandas, columnas `retrieve` y navegación/hover locales dentro del propio DataWindow.
-- `test/server/unit/documentSymbols.test.ts` y `test/server/unit/workspaceSymbols.test.ts` ya fijan el catálogo básico DataWindow: outline `.srd` con bandas/tabla/retrieve y publicación del stub `.srd` en workspace/API symbols.
+- `test/server/unit/dataWindowLegacySafeMode.test.ts`, junto con `definition|hover`, ya fija el refuerzo legacy-safe de `.srd` para bandas, columnas `retrieve`, `report(dataobject=...)`, `column.dddw.name` y navegación/hover locales hacia child DataWindows.
+- `test/server/unit/documentSymbols.test.ts` y `test/server/unit/workspaceSymbols.test.ts` ya fijan el catálogo DataWindow expuesto: outline `.srd` con bandas/tabla/retrieve, controls `report(...)` y publicación del stub `.srd` en workspace/API symbols.
+- `test/server/unit/hover.test.ts` y `test/server/unit/definition.test.ts` ya cubren property paths avanzados `Describe/Modify(...DataWindow.Table.Select)` y `Modify(...dddw.name)` cuando el binding `DataObject` literal resuelve de forma determinista.
 
 Deben fijar resultados esperados para:
 - hover,
@@ -235,6 +244,8 @@ Mínimo:
 - y golden test si cambia comportamiento semántico visible.
 
 Si el cambio toca `references`, `rename` o CodeLens en hot path, debe cubrir además scope de candidatos (`direct/project/workspace`) y reuso de snapshot cuando exista.
+
+Si el cambio toca selectors LSP o clasificación de markers, debe cubrir que `.pbw/.pbt/.pbproj/.pbsln/.pbl` alimentan discovery/topología sin servirse como PowerScript semántico.
 
 ### 7.3 Cambio en scheduler / invalidación / caché / runtime
 Mínimo:

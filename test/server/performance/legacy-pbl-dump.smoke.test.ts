@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 import * as fs from 'node:fs';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -10,21 +9,28 @@ import { extractDocumentSymbols } from '../../../src/server/features/documentSym
 import { getLegacyPblDumpPath, hasLegacyPblDump } from '../helpers/publicCorpusPaths';
 import { listFilesRecursive } from '../helpers/pfcPaths';
 
-test('legacy PBL dump smoke: análisis, symbols y diagnostics sobre fuente real exportada', { skip: !hasLegacyPblDump() }, () => {
-  const root = getLegacyPblDumpPath();
-  const files = listFilesRecursive(root, ['.sru', '.srw', '.srm', '.sra', '.srs', '.srf', '.srd', '.srp', '.srj', '.srq']);
+suite('performance/legacy-pbl-dump', () => {
+  test('legacy PBL dump smoke: análisis, symbols y diagnostics sobre fuente real exportada', function () {
+    if (!hasLegacyPblDump()) {
+      this.skip();
+      return;
+    }
 
-  assert.ok(files.length > 0, 'No se encontraron fuentes PowerBuilder en el corpus legacy PBL dump');
+    const root = getLegacyPblDumpPath();
+    const files = listFilesRecursive(root, ['.sru', '.srw', '.srm', '.sra', '.srs', '.srf', '.srd', '.srp', '.srj', '.srq']);
 
-  const targetFile = files[0];
-  const source = fs.readFileSync(targetFile, 'utf8');
-  const document = TextDocument.create(`file://${targetFile}`, 'powerbuilder', 1, source);
+    assert.ok(files.length > 0, 'No se encontraron fuentes PowerBuilder en el corpus legacy PBL dump');
 
-  const analysis = analyzeDocument(document);
-  const symbols = extractDocumentSymbols(document);
-  const diagnostics = validateStructure(document);
+    const targetFile = files[0];
+    const source = fs.readFileSync(targetFile, 'utf8');
+    const document = TextDocument.create(`file://${targetFile}`, 'powerbuilder', 1, source);
 
-  assert.ok(analysis.lines.length > 0, 'El análisis documental debería producir líneas');
-  assert.ok(Array.isArray(symbols), 'Document Symbols debería responder sobre el corpus legacy');
-  assert.ok(Array.isArray(diagnostics), 'Diagnostics estructurales debería responder sobre el corpus legacy');
+    const analysis = analyzeDocument(document);
+    const symbols = extractDocumentSymbols(document);
+    const diagnostics = validateStructure(document);
+
+    assert.ok(analysis.lines.length > 0, 'El análisis documental debería producir líneas');
+    assert.ok(Array.isArray(symbols), 'Document Symbols debería responder sobre el corpus legacy');
+    assert.ok(Array.isArray(diagnostics), 'Diagnostics estructurales debería responder sobre el corpus legacy');
+  });
 });

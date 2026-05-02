@@ -6,6 +6,36 @@ export interface SectionRange {
   endLine: number;
 }
 
+export interface TextPosition {
+  line: number;
+  character: number;
+}
+
+export interface TextRange {
+  start: TextPosition;
+  end: TextPosition;
+}
+
+export enum InternalDocumentSymbolKind {
+  Namespace = 'namespace',
+  Variable = 'variable',
+  Function = 'function',
+  Event = 'event',
+  Class = 'class',
+  Object = 'object',
+  Field = 'field',
+  String = 'string',
+}
+
+export interface InternalDocumentSymbol {
+  name: string;
+  kind: InternalDocumentSymbolKind;
+  detail?: string;
+  range: TextRange;
+  selectionRange: TextRange;
+  children: InternalDocumentSymbol[];
+}
+
 export type BlockKind =
   | 'forward'
   | 'prototypes'

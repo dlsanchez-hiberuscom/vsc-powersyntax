@@ -348,6 +348,30 @@ export interface ApiRuntimeHealthReport {
   checkedLayers: string[];
 }
 
+export interface ApiRuntimeMemoryLayerBudget {
+  layer: 'analysis' | 'serving' | 'documents' | 'hot-context' | 'code-lens' | 'knowledge';
+  label: string;
+  estimatedBytes: number;
+  budgetBytes: number;
+  usageRatio: number;
+  status: 'healthy' | 'warning' | 'error';
+  unitCount?: number;
+  unitLabel?: string;
+}
+
+export interface ApiRuntimeMemoryReport {
+  status: 'healthy' | 'warning' | 'error';
+  totalEstimatedBytes: number;
+  totalBudgetBytes: number;
+  layers: ApiRuntimeMemoryLayerBudget[];
+  process?: {
+    rssBytes?: number;
+    heapUsedBytes?: number;
+    heapTotalBytes?: number;
+    externalBytes?: number;
+  };
+}
+
 /**
  * Spec 128: estadísticas globales del servidor expuestas como contrato
  * estable. Los campos son opcionales para permitir extensiones sin romper
@@ -385,6 +409,7 @@ export interface ApiServerStats {
     libraries?: number;
     orphanFiles?: number;
   };
+  memory?: ApiRuntimeMemoryReport;
   diagnostics?: ApiDiagnosticsSnapshot;
   caches?: {
     analysis?: { size?: number; capacity?: number };
@@ -396,8 +421,9 @@ export interface ApiServerStats {
       evictions?: number;
       ttlMs?: number;
     };
-    documents?: { size?: number };
+    documents?: { size?: number; internedStrings?: number };
     hotContext?: { inheritedTypes?: number; capacity?: number };
+    codeLens?: { size?: number; capacity?: number; hits?: number; misses?: number; evictions?: number };
   };
   lastQueryTrace?: {
     label?: string;

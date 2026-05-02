@@ -1,4 +1,5 @@
 ---
+name: test-writer
 description: Escribe o amplía tests y fixtures de forma controlada, priorizando validación útil, mantenibilidad y bajo acoplamiento.
 tools: ['search', 'edit']
 target: vscode
@@ -23,8 +24,8 @@ Trabaja siempre con este orden de prioridad:
 2. `docs/architecture.md`
 3. specs activas en `specs/`
 4. `docs/roadmap.md`
-5. `docs/backlog.md`
-6. `docs/current-focus.md`
+5. `docs/current-focus.md`
+6. `docs/backlog.md`
 7. estado real del código
 
 ## Reglas obligatorias

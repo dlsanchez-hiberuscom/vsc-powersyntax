@@ -35,7 +35,8 @@ Actualmente el plugin ya incluye una base funcional sólida con:
 - soporte inicial para **Workspace** (`.pbw`, `.pbt`) y **Solution** (`.pbsln`, `.pbproj`),
 - arquitectura **cliente ligero + servidor LSP separado**,
 - navegación y asistencia semántica base, incluida inspección jerárquica activa del objeto actual,
-- formatter conservador configurable y `formatOnSave` para documentos PowerScript soportados,
+- formatter conservador configurable y `formatOnSave` delegados al servidor LSP con budgets explícitos por tamaño de documento,
+- detección read-only de `PBAutoBuild250.exe` vía configuración, entorno y candidatos por defecto, visible en status/health sin lanzar build,
 - API pública mínima exportada desde la activación para stats, consulta de símbolos y superficies read-only como current object context, impact analysis, safe edit plan y semantic workspace manifest,
 - y una infraestructura preparada para seguir creciendo en rendimiento, semántica y validación sobre corpus reales.
 
@@ -43,9 +44,8 @@ Actualmente el plugin ya incluye una base funcional sólida con:
 
 Las siguientes líneas de trabajo siguen en crecimiento:
 
-- DataWindow avanzado por encima del safe mode y del catálogo básico ya cerrados,
 - acceso semántico a `dw.Object` y superficies hijas de DataWindow,
-- integración moderna con PBAutoBuild y su health asociado,
+- discovery, runner y log parsing modernos sobre PBAutoBuild, con capability detection read-only ya cerrada,
 - dashboards/paneles UX construidos sobre contratos read-only ya cerrados,
 - budgets de memoria y reconciliación interna parser/symbol/LSP,
 - y automatización / IA sobre base madura.

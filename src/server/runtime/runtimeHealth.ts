@@ -146,6 +146,41 @@ export function buildRuntimeHealthReport(
     stats.caches?.hotContext?.capacity,
     'hot context cache'
   );
+  checkCapacityBudget(
+    findings,
+    checkedLayers,
+    'code-lens-cache',
+    'code-lens-cache',
+    stats.caches?.codeLens?.size,
+    stats.caches?.codeLens?.capacity,
+    'code lens cache'
+  );
+
+  if (stats.memory?.layers) {
+    for (const layer of stats.memory.layers) {
+      checkedLayers.add(`memory-${layer.layer}`);
+      if (layer.status === 'error') {
+        pushFinding(findings, checkedLayers, {
+          code: `memory-${layer.layer}-budget-exceeded`,
+          layer: 'memory',
+          severity: 'error',
+          message: `${layer.label} superó su budget estimado`,
+          detail: `${Math.round(layer.usageRatio * 100)}% del budget`,
+        });
+        continue;
+      }
+
+      if (layer.status === 'warning') {
+        pushFinding(findings, checkedLayers, {
+          code: `memory-${layer.layer}-near-limit`,
+          layer: 'memory',
+          severity: 'warning',
+          message: `${layer.label} cerca del budget estimado`,
+          detail: `${Math.round(layer.usageRatio * 100)}% del budget`,
+        });
+      }
+    }
+  }
 
   const servingHits = stats.caches?.serving?.hits ?? 0;
   const servingMisses = stats.caches?.serving?.misses ?? 0;

@@ -14,6 +14,21 @@ suite('unit/runtimeHealth (B176)', () => {
         serving: { size: 30, capacity: 32, hits: 3, misses: 9 },
         hotContext: { inheritedTypes: 14, capacity: 16 }
       },
+      memory: {
+        status: 'warning',
+        totalEstimatedBytes: 10,
+        totalBudgetBytes: 20,
+        layers: [
+          {
+            layer: 'knowledge',
+            label: 'knowledge index',
+            estimatedBytes: 97,
+            budgetBytes: 100,
+            usageRatio: 0.97,
+            status: 'warning'
+          }
+        ]
+      },
       persistence: { workspaceKey: 'wk', restoreState: 'rebuilt', restoreReason: 'invalid-checkpoint-payload' },
       lastQueryTrace: { label: 'definition', confidence: 'low', hasAmbiguity: true }
     });
@@ -23,6 +38,7 @@ suite('unit/runtimeHealth (B176)', () => {
     assert.ok(report.counts.warning >= 1);
     assert.ok(report.findings.some((finding) => finding.code === 'runtime-degraded'));
     assert.ok(report.findings.some((finding) => finding.code === 'analysis-cache-capacity-near-limit'));
+    assert.ok(report.findings.some((finding) => finding.code === 'memory-knowledge-near-limit'));
     assert.ok(report.findings.some((finding) => finding.code === 'serving-cache-low-hit-ratio'));
     assert.ok(report.findings.some((finding) => finding.code === 'query-ambiguity'));
   });

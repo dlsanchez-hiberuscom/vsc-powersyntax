@@ -3,17 +3,26 @@ import * as assert from 'assert/strict';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
+  clearAnalysisBackends,
   clearDocumentAnalysisCache,
+  evictDocumentAnalysis,
   getDocumentAnalysis,
-  invalidateDocumentAnalysis
+  invalidateDocumentAnalysis,
+  setAnalysisBackends
 } from '../../../src/server/analysis/analysisCache';
+import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
+import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { loadFixture } from '../helpers/fixtureLoader';
 
 const source = loadFixture('basic/sample_forward.sru');
 
 suite('unit/analysisCache', () => {
-  test('analysisCache devuelve misma instancia si no cambia la versión', () => {
+  setup(() => {
     clearDocumentAnalysisCache();
+    clearAnalysisBackends();
+  });
+
+  test('analysisCache devuelve misma instancia si no cambia la versión', () => {
     const document = TextDocument.create('file:///cache.sru', 'powerbuilder', 1, source);
 
     const a1 = getDocumentAnalysis(document);
@@ -23,7 +32,6 @@ suite('unit/analysisCache', () => {
   });
 
   test('analysisCache recalcula tras invalidación explícita', () => {
-    clearDocumentAnalysisCache();
     const document = TextDocument.create('file:///cache-2.sru', 'powerbuilder', 1, source);
 
     const a1 = getDocumentAnalysis(document);
@@ -31,5 +39,37 @@ suite('unit/analysisCache', () => {
     const a2 = getDocumentAnalysis(document);
 
     assert.notEqual(a1, a2);
+  });
+
+  test('evictDocumentAnalysis no borra snapshots publicados ni DocumentCache', () => {
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const document = TextDocument.create('file:///cache-close.sru', 'powerbuilder', 1, source);
+
+    setAnalysisBackends(documentCache, knowledgeBase);
+    const first = getDocumentAnalysis(document);
+
+    assert.ok(documentCache.get(document.uri));
+    assert.ok(knowledgeBase.getDocumentSnapshot(document.uri));
+
+    evictDocumentAnalysis(document.uri);
+
+    assert.ok(documentCache.get(document.uri));
+    assert.ok(knowledgeBase.getDocumentSnapshot(document.uri));
+    assert.notEqual(getDocumentAnalysis(document), first);
+  });
+
+  test('invalidateDocumentAnalysis borra backends para eliminación real de archivo', () => {
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const document = TextDocument.create('file:///cache-delete.sru', 'powerbuilder', 1, source);
+
+    setAnalysisBackends(documentCache, knowledgeBase);
+    getDocumentAnalysis(document);
+
+    invalidateDocumentAnalysis(document.uri);
+
+    assert.equal(documentCache.get(document.uri), undefined);
+    assert.equal(knowledgeBase.getDocumentSnapshot(document.uri), null);
   });
 });

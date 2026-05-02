@@ -92,7 +92,7 @@ B172, B173, B174, B176, B204, B206, B207, B208, B209, B210, B211, B213,
 B067, B223, B224
 ```
 
-El detalle técnico de cierre vive en `done-log.md`.
+El detalle técnico de cierre vive en `done-log.md`, que es la autoridad exhaustiva de trabajo cerrado. Esta lista es una ayuda operativa y no debe usarse para reabrir o cerrar trabajo por sí sola.
 
 ---
 
@@ -118,6 +118,7 @@ Tras cerrar `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213`, L2.
 - **Estado:** Partial
 - **Track:** semantic completeness
 - **Depende de:** B206, B209, B210
+- **Spec activa:** `specs/250-native-ancestors-system-catalog`
 - **Objetivo:** cerrar falsos positivos y huecos de resolución cuando la herencia termina en objetos nativos del runtime PowerBuilder servidos por `system catalog`.
 - **Avance actual:** diagnostics, current object context, impact analysis e inspectHierarchy ya distinguen ancestros nativos conocidos del catálogo del sistema y los proyectan como `system type`.
 - **Pendiente exacto:**
@@ -134,6 +135,7 @@ Tras cerrar `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213`, L2.
 - **Estado:** Partial
 - **Track:** corpus real / performance
 - **Depende de:** B030, B069
+- **Spec activa:** `specs/251-orderentry-enterprise-baseline`
 - **Objetivo:** convertir `fixtures-local/STD_FC_OrderEntry` en corpus local de regresión para discovery, indexación y routing sobre una aplicación PowerBuilder real híbrida.
 - **Avance actual:** ya existe baseline ejecutable de performance para discovery e indexación cold/warm sobre el corpus OrderEntry.
 - **Pendiente exacto:**
@@ -142,20 +144,6 @@ Tras cerrar `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213`, L2.
   - medir sourceOrigin/routing/readiness sobre librerías base `STD_FC_PB_Base*`, `OES_*` y superficies mixtas `.NET DataStore`/deploy.
 - **Cierre:** OrderEntry queda integrado como corpus enterprise estable con performance + smoke/semantics reproducibles y reglas documentadas de qué ruido se ignora y qué superficie sí debe indexarse.
 
-## B070 — Memory budgets de caché e índice
-- **Estado:** Open
-- **Track:** escala
-- **Depende de:** B164
-- **Objetivo:** límites explícitos de memoria y métricas por capa.
-- **Cierre:** budgets definidos, medidos y vigilados.
-
-## B162 — Reconciliación parser / symbol model / salida LSP
-- **Estado:** Open
-- **Track:** consistencia interna
-- **Depende de:** B151, B156
-- **Objetivo:** detectar incoherencias internas antes de publicarlas.
-- **Cierre:** aserciones internas útiles y reportes claros de inconsistencias.
-
 ## B175 — Repro packs automáticos para bugs semánticos
 - **Estado:** Open
 - **Track:** mantenibilidad
@@ -163,18 +151,62 @@ Tras cerrar `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213`, L2.
 - **Objetivo:** generar paquetes de repro para bugs complejos.
 - **Cierre:** un bug semántico complejo puede reproducirse sin reconstruir contexto manualmente.
 
-# L4 — Especialización PowerBuilder y automatización
-
-## B042 — Soporte avanzado de DataWindow
+## B229 — sourceOrigin contextual en análisis documental
 - **Estado:** Open
-- **Track:** PB ecosystem
-- **Depende de:** B041, B117, B139, B212
-- **Objetivo:** ampliar DataWindow por encima del safe mode, el catálogo básico y el bridge `DataObject/Retrieve` ya cerrados.
-- **Pendiente exacto:**
-  - expresiones y property blocks avanzados del `.srd`;
-  - controles, relaciones y superficies adicionales reutilizando el sublenguaje ya visible;
-  - soporte adicional sin mezclar DataWindow con PowerScript normal ni reimplementar el safe mode mínimo.
-- **Cierre:** existe soporte avanzado adicional de DataWindow, explícitamente separado del safe mode y del catálogo básico ya cerrados.
+- **Track:** provenance / semantic correctness
+- **Prioridad:** Media-Alta
+- **Depende de:** B204, B224
+- **Objetivo:** pasar provenance desde `WorkspaceState`/routing al análisis documental, usando `inferSourceOrigin()` solo como fallback.
+- **Cierre:** entidades y snapshots generados desde análisis interactivo y watcher comparten `sourceOrigin` contextual con discovery/routing en mixed mode.
+- **Razón técnica:** inferir solo por URI puede divergir de la autoridad topológica real en workspaces mixtos, staging o layouts parciales.
+- **Documentación afectada:** `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/testing.md`.
+- **Validación esperada:** `sourceOrigin`, watcher intake, workspace model, semantic manifest y golden semántico de conflictos.
+
+## B230 — KnowledgeBase copy-on-write e índices de consulta acotada
+- **Estado:** Open
+- **Track:** performance / escala
+- **Prioridad:** Alta
+- **Depende de:** B070, B162
+- **Objetivo:** reducir el coste de `upsert/remove` evitando clonar todo el estado publicado en cada mutación y ampliar consultas acotadas por índice cuando el caso lo justifique.
+- **Cierre:** mutar un documento clona solo entradas afectadas, conserva atomicidad defensiva y las rutas interactivas no materializan toda la KB para filtrar.
+- **Razón técnica:** el primer corte de `queryEntities/countEntities` limita clones de salida, pero la mutación de KB sigue haciendo clone amplio y requiere rediseño medido.
+- **Documentación afectada:** `docs/performance-budget.md`, `docs/architecture.md`, `docs/testing.md`.
+- **Validación esperada:** unit de atomicidad/mutabilidad defensiva, benchmark con miles de documentos, `npm run test:performance`.
+
+## B231 — Guards LSP para markers y PBL binario
+- **Estado:** Open
+- **Track:** client/server boundary
+- **Prioridad:** Media
+- **Depende de:** B056, B224
+- **Objetivo:** reforzar con tests que `.pbw`, `.pbt`, `.pbproj`, `.pbsln` y `.pbl` alimentan discovery/topología pero no providers semánticos PowerScript.
+- **Cierre:** smoke/integration abre markers y `.pbl` sin diagnostics/documentSymbols semánticos, mientras `.sru/.srw/.srd` siguen servidos.
+- **Razón técnica:** el selector LSP ya se estrechó para `.srj/.srq`, pero falta prueba explícita y guard server-side para evitar regresiones futuras.
+- **Documentación afectada:** `docs/testing.md`, `docs/developer-workflows.md`, `README.md` si cambia contribución visible.
+- **Validación esperada:** smoke VS Code o integration LSP focalizada sobre markers y fuentes SR*.
+
+## B232 — IDs diagnósticos implementados vs catálogo gobernado
+- **Estado:** Open
+- **Track:** diagnostics / docs governance
+- **Prioridad:** Media
+- **Depende de:** B202, B162
+- **Objetivo:** decidir si los IDs reales `SD*`/`dataobject-*` se mantienen como contrato público o se migran gradualmente a IDs `PB-*` con alias compatibles.
+- **Cierre:** código, tests y `docs/rules-catalog.md` comparten una política estable de IDs diagnósticos sin romper consumers existentes.
+- **Razón técnica:** el catálogo gobierna `PB-*`, pero la implementación visible usa IDs históricos `SD*` y `dataobject-*`.
+- **Documentación afectada:** `docs/rules-catalog.md`, `docs/testing.md`, specs de diagnostics si se renombran IDs.
+- **Validación esperada:** unit diagnostics, snapshot diagnostics, smoke Problems si aplica.
+
+## B233 — Higiene histórica de specs tempranas
+- **Estado:** Open
+- **Track:** SDD / docs governance
+- **Prioridad:** Media
+- **Depende de:** B201
+- **Objetivo:** triage de specs tempranas `006`, `007`, `012` y cualquier carpeta histórica que no cumpla plantilla minima ni tenga estado superseded explícito.
+- **Cierre:** cada spec temprana queda como `closed`, `superseded`, `absorbed` o activa con `spec.md/plan.md/tasks.md` mínimos; `quickstart.md` se mantiene solo cuando sea útil.
+- **Razón técnica:** evita confundir deuda histórica de plantilla con specs activas y reduce riesgo de cierre falso.
+- **Documentación afectada:** `docs/spec-driven-development.md`, `docs/done-log.md`, specs afectadas.
+- **Validación esperada:** auditoría documental local de inventario `specs/`.
+
+# L4 — Especialización PowerBuilder y automatización
 
 ## B081 — Inteligencia de DataWindow y acceso a `.Object`
 - **Estado:** Open
@@ -250,14 +282,6 @@ Tras cerrar `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213`, L2.
   - UX/comandos/perfiles;
   - health unificado.
 - **Cierre:** `B181-B187` cerradas y build moderno observable end-to-end sin bloquear Extension Host ni LSP.
-
-## B181 — PBAutoBuild capability detection
-- **Estado:** Open
-- **Track:** build / tooling detection
-- **Depende de:** B043, B141
-- **Desbloquea:** B182, B183, B187
-- **Objetivo:** detectar `PBAutoBuild250.exe`, versión/capabilities y disponibilidad de entorno.
-- **Cierre:** el plugin informa si PBAutoBuild está disponible sin bloquear ni lanzar build.
 
 ## B182 — PBAutoBuild build-file discovery and validation
 - **Estado:** Open
@@ -420,23 +444,20 @@ Tras cerrar `B204`, `B206`, `B207`, `B208`, `B209`, `B210`, `B211` y `B213`, L2.
 
 # 6. Current execution focus
 
-## Fase activa — Soporte avanzado de DataWindow
+## Fase activa — PBAutoBuild build-file discovery and validation
 
 **Orden inmediato:**
 
-1. B042 — Soporte avanzado de DataWindow
-2. B181 — PBAutoBuild capability detection
-3. B070 — Memory budgets de caché e índice
-4. B162 — Reconciliación parser / symbol model / salida LSP
+1. B182 — PBAutoBuild build-file discovery and validation
+2. B183/B187 — runner out-of-process y health unificado de build moderno
+3. B225/B226 — completar ancestros nativos del sistema y baseline enterprise OrderEntry
 
 ## Siguiente bloque técnico recomendado
 
-Ejecutar después de cerrar `B042` o preparar en paralelo sin abrir superficie write-enabled:
+Con `B181`, `B227`, `B228`, `B070` y `B162` ya cerradas, el siguiente bloque técnico recomendado es:
 
-1. B181 — PBAutoBuild capability detection
-2. B216 — Project Health Dashboard
-3. B162 — Reconciliación parser / symbol model / salida LSP
-4. B214 — PowerBuilder Object Explorer
+1. B182/B183/B187 — discovery, runner y health de build moderno
+2. B225/B226 — completar ancestros nativos del sistema y baseline enterprise OrderEntry
 
 ## Persistencia robusta pendiente
 
@@ -444,14 +465,14 @@ Sin línea de persistencia robusta prioritaria abierta tras el cierre de `B155`,
 
 ## Validación temprana permitida
 
-Sin nueva línea de validación temprana prioritaria abierta tras el cierre de `B161`; el siguiente frente de validación útil queda subordinado a `B042`, `B181`, `B070` y `B162`.
+Sin nueva línea de validación temprana prioritaria abierta tras el cierre de `B161`; el siguiente frente de validación útil queda subordinado a `B182/B183/B187`.
 
 ---
 
 # 7. Backlog derivado
 
-- Decidir si `B043` debe mantenerse como épica padre documental o absorberse completamente por `B181-B187`.
+- Decisión tomada: `B043` se mantiene como épica padre documental; `B181` queda cerrada como capability detection read-only y el trabajo ejecutable restante vive en `B182-B187`.
 - Decidir si el bloque ORCA debe agruparse bajo una épica padre explícita o mantenerse como secuencia `B188-B198`.
-- Definir política oficial de `.hiberus-powersyntax/orca-export/` en `.gitignore`.
+- Definir política oficial de `.vsc-powersyntax/orca-export/` en `.gitignore`.
 - Definir si staging ORCA puede editarse directamente o si debe abrirse readonly hasta `B193`.
 - Definir matriz de soporte: PowerBuilder 2025 workspace/solution, target `.pbt`, PBL-only legacy y source plain-text.

@@ -419,6 +419,58 @@ suite('unit/definition', () => {
     }
   });
 
+  test('provideDefinition navega Modify(state_id.dddw.name) al DataWindow hijo verificado', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const parentDataWindow = TextDocument.create(
+      'file:///d_parent.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_parent.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(column=(type=char(10) update=yes name=state_id dbname="emp.state_id" dddw.name="d_states"))'
+      ].join('\r\n')
+    );
+    const childDataWindow = TextDocument.create(
+      'file:///d_states.srd',
+      'powerbuilder',
+      1,
+      '$PBExportHeader$d_states.srd\r\nrelease 39;\r\ndatawindow(units=0)'
+    );
+
+    for (const indexed of [parentDataWindow, childDataWindow]) {
+      const analysis = analyzeDocument(indexed);
+      localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    }
+
+    const document = TextDocument.create(
+      'file:///w_probe.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_probe from window',
+        '  datawindow dw_parent',
+        'end type',
+        '',
+        'event open();',
+        '  dw_parent.DataObject = "d_parent"',
+        '  dw_parent.Modify("state_id.dddw.name=~"d_states~"")',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const lineIndex = document.getText().split(/\r?\n/).findIndex((line) => line.includes('state_id.dddw.name'));
+    const loc = provideDefinition(document, Position.create(lineIndex, 21), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, 'file:///d_states.srd');
+    }
+  });
+
   test('provideDefinition navega una columna SQL del retrieve al column= del mismo .srd', () => {
     const document = TextDocument.create(
       'file:///sample_datawindow.srd',

@@ -68,6 +68,12 @@ export function setAnalysisBackends(
   persistenceBackend = persistence ?? null;
 }
 
+export function clearAnalysisBackends(): void {
+  cacheBackend = null;
+  kbBackend = null;
+  persistenceBackend = null;
+}
+
 export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
   // Spec 085: normalizamos la clave para que `file:///C:/X` y `file:///c:/X`
   // compartan entrada (consistente con DocumentCache/KnowledgeBase).
@@ -180,6 +186,10 @@ export function invalidateDocumentAnalysis(uri: string): void {
       void persistenceBackend.appendRemove(uri, kbBackend.semanticEpoch);
     }
   }
+}
+
+export function evictDocumentAnalysis(uri: string): void {
+  analysisByUri.delete(normalizeUri(uri));
 }
 
 export function clearDocumentAnalysisCache(): void {

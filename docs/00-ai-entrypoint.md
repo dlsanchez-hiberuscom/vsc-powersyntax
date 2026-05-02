@@ -84,6 +84,8 @@ No abrir trabajo fuera de foco salvo:
 
 ## 6. Al cerrar una spec
 
+Regla previa: la carpeta `specs/NNN-*` usa un ID secuencial propio. No asumir que `NNN` corresponde a `Bxxx`; una spec activa debe declarar explícitamente el backlog ID que implementa.
+
 Actualizar, si aplica:
 
 - código;

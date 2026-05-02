@@ -72,6 +72,8 @@ El plugin debe poder:
 - detectar `DataObject = "d_xxx"`;
 - navegar al `.srd`;
 - mostrar columnas/args básicos;
+- navegar `Describe/Modify(...)` cuando la ruta apunta a `DataWindow.Table.Select`, `report(...)` o `dddw.name` resolubles;
+- seguir child DataWindows por `report(name=... dataobject=...)` y dropdowns `dddw.name` sin mezclar `.srd` con PowerScript normal;
 - detectar `Retrieve`/`Update`;
 - degradar si el DataObject es dinámico.
 
@@ -83,12 +85,17 @@ El usuario quiere compilar desde VS Code.
 
 El plugin debe:
 
-- detectar PBAutoBuild;
+- detectar y mostrar disponibilidad de PBAutoBuild por configuración, entorno o candidatos por defecto sin lanzar build;
 - descubrir JSON de build;
 - validar rutas/secrets;
 - lanzar build out-of-process;
 - mostrar logs;
 - publicar errores en Problems Panel si hay source fiable.
+
+Estado actual:
+
+- la capability detection read-only ya es visible en status/health del cliente;
+- discovery de JSON, runner, log parser y health unificado siguen pendientes en `B182-B187`.
 
 ---
 
@@ -133,4 +140,4 @@ El plugin debe:
 - ofrecer un formatter conservador y configurable para documentos PowerScript soportados;
 - respetar strings y comentarios;
 - no tratar DataWindow como PowerScript normal;
-- permitir `formatOnSave` sin introducir un motor semántico paralelo ni peso extra en el hot path.
+- permitir `formatOnSave` delegando el cálculo al servidor LSP o degradando por presupuesto explícito, sin introducir un motor semántico paralelo ni peso extra en el hot path del cliente.

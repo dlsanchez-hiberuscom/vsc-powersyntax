@@ -8,6 +8,8 @@ import {
   provideDataWindowLegacyDefinition,
   provideDataWindowLegacyHover,
 } from '../../../src/server/features/dataWindowLegacySafeMode';
+import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 
 suite('unit/dataWindowLegacySafeMode (B139)', () => {
   function createDocument(): TextDocument {
@@ -61,5 +63,67 @@ suite('unit/dataWindowLegacySafeMode (B139)', () => {
     assert.ok((bandHover?.contents as any).value.includes('Banda DataWindow'));
     assert.ok((retrieveHover?.contents as any).value.includes('SQL segura de DataWindow'));
     assert.ok((retrieveHover?.contents as any).value.includes('SELECT id, name FROM customer ORDER BY name'));
+  });
+
+  test('modela report children y dropdowns avanzados sin mezclar el .srd con PowerScript', () => {
+    const document = TextDocument.create(
+      'file:///d_parent.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_parent.srd',
+        'release 19;',
+        'datawindow(units=0)',
+        'table(column=(type=char(10) update=yes name=state_id dbname="emp.state_id" dddw.name="d_states")',
+        ' retrieve="SELECT state_id FROM employee")',
+        'report(name=rpt_orders dataobject="d_orders")'
+      ].join('\r\n')
+    );
+
+    const model = buildDataWindowLegacyModel(document);
+
+    assert.equal(model?.tableColumns[0]?.dddwName, 'd_states');
+    assert.equal(model?.reports[0]?.name, 'rpt_orders');
+    assert.equal(model?.reports[0]?.dataObject, 'd_orders');
+  });
+
+  test('navega dddw.name y report(dataobject=...) hacia el child DataWindow enlazado', () => {
+    const kb = new KnowledgeBase();
+    const parent = TextDocument.create(
+      'file:///d_parent.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_parent.srd',
+        'release 19;',
+        'datawindow(units=0)',
+        'table(column=(type=char(10) update=yes name=state_id dbname="emp.state_id" dddw.name="d_states")',
+        ' retrieve="SELECT state_id FROM employee")',
+        'report(name=rpt_orders dataobject="d_orders")'
+      ].join('\r\n')
+    );
+    const dropdown = TextDocument.create('file:///d_states.srd', 'powerbuilder', 1, '$PBExportHeader$d_states.srd\r\nrelease 19;\r\ndatawindow(units=0)');
+    const report = TextDocument.create('file:///d_orders.srd', 'powerbuilder', 1, '$PBExportHeader$d_orders.srd\r\nrelease 19;\r\ndatawindow(units=0)');
+
+    for (const document of [parent, dropdown, report]) {
+      const analysis = analyzeDocument(document);
+      kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    }
+
+    const lines = parent.getText().split(/\r?\n/);
+    const dropdownLine = lines.findIndex((line) => line.includes('d_states'));
+    const reportLine = lines.findIndex((line) => line.includes('rpt_orders'));
+    const dropdownPosition = Position.create(dropdownLine, lines[dropdownLine].indexOf('d_states') + 1);
+    const reportPosition = Position.create(reportLine, lines[reportLine].indexOf('rpt_orders') + 1);
+
+    const dropdownDefinition = provideDataWindowLegacyDefinition(parent, dropdownPosition, kb);
+    const reportDefinition = provideDataWindowLegacyDefinition(parent, reportPosition, kb);
+    const dropdownHover = provideDataWindowLegacyHover(parent, dropdownPosition);
+    const reportHover = provideDataWindowLegacyHover(parent, reportPosition);
+
+    assert.equal(dropdownDefinition?.uri, 'file:///d_states.srd');
+    assert.equal(reportDefinition?.uri, 'file:///d_orders.srd');
+    assert.ok((dropdownHover?.contents as any).value.includes('Relacion child DataWindow verificada'));
+    assert.ok((reportHover?.contents as any).value.includes('Control report DataWindow'));
   });
 });

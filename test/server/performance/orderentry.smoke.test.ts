@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -35,32 +34,39 @@ function buildVariantFamilies(rootPath: string): Map<string, Map<string, string>
   return families;
 }
 
-test('OrderEntry smoke: discovery mantiene solution parcial, ignora backups y conserva variantes multiidioma', { skip: !hasOrderEntry() }, async () => {
-  const root = getOrderEntryPath();
-  const fs = new NodeFileSystem();
-  const state = new WorkspaceState();
-  const cancelSource = createCancellationSource();
+suite('performance/orderentry-smoke', () => {
+  test('OrderEntry smoke: discovery mantiene solution parcial, ignora backups y conserva variantes multiidioma', async function () {
+    if (!hasOrderEntry()) {
+      this.skip();
+      return;
+    }
 
-  await discoverWorkspace([toFileUri(root)], fs, state, cancelSource.token);
+    const root = getOrderEntryPath();
+    const fs = new NodeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
 
-  const roots = state.getRoots();
-  const sourceFiles = state.getAllSourceFiles();
+    await discoverWorkspace([toFileUri(root)], fs, state, cancelSource.token);
 
-  assert.ok(roots.projects.length >= 1, 'OrderEntry debería descubrir al menos un .pbproj real.');
-  assert.equal(roots.solutions.length, 0, 'El fixture actual de OrderEntry debería seguir siendo un solution parcial sin .pbsln top-level.');
-  assert.equal(state.getMode(), 'solution', 'OrderEntry debería degradar a solution-mode por su .pbproj aislado.');
-  assert.ok(
-    sourceFiles.every((uri) => !uri.toLowerCase().includes('/_backupfiles/')),
-    'Discovery no debería indexar fuentes dentro de _BackupFiles.'
-  );
+    const roots = state.getRoots();
+    const sourceFiles = state.getAllSourceFiles();
 
-  const family = [...buildVariantFamilies(root).values()].find((entry) => ['e', 'f', 'i', 's'].every((language) => entry.has(language)));
-  assert.ok(family, 'OrderEntry debería aportar al menos una familia multiidioma _e/_f/_i/_s para regresión.');
-
-  for (const filePath of family!.values()) {
+    assert.ok(roots.projects.length >= 1, 'OrderEntry debería descubrir al menos un .pbproj real.');
+    assert.equal(roots.solutions.length, 0, 'El fixture actual de OrderEntry debería seguir siendo un solution parcial sin .pbsln top-level.');
+    assert.equal(state.getMode(), 'solution', 'OrderEntry debería degradar a solution-mode por su .pbproj aislado.');
     assert.ok(
-      state.hasSourceFile(toFileUri(filePath)),
-      `Discovery debería conservar la variante multiidioma real ${path.basename(filePath)} como fuente independiente.`
+      sourceFiles.every((uri) => !uri.toLowerCase().includes('/_backupfiles/')),
+      'Discovery no debería indexar fuentes dentro de _BackupFiles.'
     );
-  }
+
+    const family = [...buildVariantFamilies(root).values()].find((entry) => ['e', 'f', 'i', 's'].every((language) => entry.has(language)));
+    assert.ok(family, 'OrderEntry debería aportar al menos una familia multiidioma _e/_f/_i/_s para regresión.');
+
+    for (const filePath of family!.values()) {
+      assert.ok(
+        state.hasSourceFile(toFileUri(filePath)),
+        `Discovery debería conservar la variante multiidioma real ${path.basename(filePath)} como fuente independiente.`
+      );
+    }
+  });
 });

@@ -225,8 +225,9 @@ Convertir el producto en herramienta robusta para proyectos enterprise y legacy 
 ### Pendientes principales
 
 - `B226`;
-- `B070`;
-- `B162`;
+- `B229`;
+- `B230`;
+- `B231`;
 - `B175`.
 
 Bloque ya cerrado dentro de la fase:
@@ -238,7 +239,10 @@ Bloque ya cerrado dentro de la fase:
 - `B118` integration test matrix del plugin;
 - `B161` golden tests semánticos end-to-end;
 - `B163` runtime journal exportable del motor;
-- `B176` health checker interno estructurado.
+- `B176` health checker interno estructurado;
+- `B070` memory budgets de caché e índice (`specs/255-memory-budgets`);
+- `B228` modelo interno sin DTOs LSP en `knowledge/parsing` (`specs/254-internal-model-no-lsp-dtos`);
+- `B162` reconciliación parser / symbol model / salida LSP (`specs/256-parser-symbol-lsp-reconciliation`).
 
 Slice parcial activa dentro de la fase:
 
@@ -263,7 +267,6 @@ Extender el producto a piezas diferenciales del ecosistema PowerBuilder sin comp
 
 ### Pendientes principales
 
-- `B042`;
 - `B081`;
 - `B181-B187`;
 - `B214-B216`.
@@ -272,7 +275,10 @@ Bloque ya cerrado dentro de la fase:
 
 - `B117` DataWindow safe mode mínimo;
 - `B139` DataWindow safe-mode desde `plugin_old` rediseñado;
-- `B041` catálogo y navegación de DataWindow.
+- `B041` catálogo y navegación de DataWindow;
+- `B042` soporte avanzado de DataWindow (`specs/249-datawindow-advanced`);
+- `B181` capability detection read-only de `PBAutoBuild250.exe` (`specs/252-pbautobuild-capability-detection`);
+- `B227` formatter server-side con budgets explícitos (`specs/253-formatter-server-budget`).
 
 Notas de orden:
 
@@ -357,8 +363,7 @@ Para un equipo pequeño:
 
 Con foco en:
 
-- `B042` — Soporte avanzado de DataWindow;
-- `B081` — Inteligencia de DataWindow y acceso a `.Object`.
+- `B182/B183/B187` — discovery, runner y health de build moderno.
 
 ### Trabajo paralelo permitido
 
@@ -366,8 +371,7 @@ Con foco en:
 
 Solo si no bloquea el foco principal:
 
-- `B070`;
-- `B162`;
+- `B182/B183/B187`;
 - `B175`.
 
 ### Validación temprana permitida

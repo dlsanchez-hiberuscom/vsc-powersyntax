@@ -64,6 +64,16 @@ Una feature está Done solo cuando:
 
 Toda spec debe declarar qué documentación puede verse afectada.
 
+Estructura mínima de una spec activa:
+
+- `spec.md`
+- `plan.md`
+- `tasks.md`
+
+`quickstart.md` es obligatorio solo cuando aporta una validación o ruta de uso reproducible que no cabe claramente en `plan.md`; para slices históricas o documentación retroactiva puede omitirse si `plan.md` declara validación suficiente.
+
+El número de carpeta en `specs/NNN-*` es un identificador secuencial de spec, no el ID del backlog. Cuando una spec implementa `Bxxx`, debe declararlo explícitamente en título o cuerpo para evitar colisiones como `specs/042-*` frente a `B042`.
+
 Checklist de revisión documental:
 
 - `README.md`
@@ -151,6 +161,11 @@ La IA no debe:
 - tocar ORCA hot path;
 - meter IA dentro del core;
 - parsear DataWindow como PowerScript.
+
+Guardrail adicional de arquitectura:
+
+- si una spec retira DTOs de transporte/editor del core, debe dejar tipos internos, mappers de borde y un test arquitectónico que impida la reintroducción del acoplamiento.
+- si una spec publica salida LSP derivada de parser + snapshot semántico, debe dejar un reporte o assertions de reconciliación con reason codes antes de ampliar más UX visible.
 
 ---
 

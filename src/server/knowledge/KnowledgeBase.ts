@@ -26,6 +26,13 @@ interface PublishedKnowledgeState {
   publishedAt: number;
 }
 
+export interface EntityQueryOptions {
+  query?: string;
+  kinds?: readonly EntityKind[];
+  limit?: number;
+  include?: (entity: Entity) => boolean;
+}
+
 function cloneValue<T>(value: T): T {
   return structuredClone(value);
 }
@@ -255,6 +262,46 @@ export class KnowledgeBase {
       result.push(...entities);
     }
     return cloneValue(result);
+  }
+
+  queryEntities(options: EntityQueryOptions = {}): Entity[] {
+    const query = options.query?.toLowerCase() ?? '';
+    const kinds = options.kinds ? new Set(options.kinds) : undefined;
+    const limit = options.limit === undefined
+      ? Number.POSITIVE_INFINITY
+      : Math.max(0, Math.trunc(options.limit));
+
+    if (limit === 0) {
+      return [];
+    }
+
+    const result: Entity[] = [];
+    for (const entities of this.publishedState.globalSymbols.values()) {
+      for (const entity of entities) {
+        if (kinds && !kinds.has(entity.kind)) continue;
+        if (query && !entity.id.includes(query)) continue;
+        if (options.include && !options.include(entity)) continue;
+
+        result.push(entity);
+        if (result.length >= limit) {
+          return cloneValue(result);
+        }
+      }
+    }
+
+    return cloneValue(result);
+  }
+
+  countEntities(include?: (entity: Entity) => boolean): number {
+    let count = 0;
+    for (const entities of this.publishedState.globalSymbols.values()) {
+      for (const entity of entities) {
+        if (!include || include(entity)) {
+          count++;
+        }
+      }
+    }
+    return count;
   }
 
   /**

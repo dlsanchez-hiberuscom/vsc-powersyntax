@@ -778,6 +778,8 @@ Estado actual del repo:
 - definition sigue navegando contra el stub `.srd` publicado por el análisis, sin parsear DataWindow como PowerScript.
 - un refuerzo legacy-safe adicional permite hover/definition locales dentro del propio `.srd` para bandas y columnas SQL simples del `retrieve`, sin reintroducir el subsistema legacy completo.
 - el catálogo básico ya está integrado: `documentSymbols` expone root/bandas/tabla/columnas/`retrieve` y los workspace/API symbols publican el stub `.srd` como tipo navegable del workspace.
+- existe ya un `DataWindowModel` reutilizable por hover/definition/documentSymbols para el slice avanzado inicial;
+- ese slice avanzado cubre `report(name=... dataobject=...)`, `column.dddw.name` y property paths `Describe/Modify(...DataWindow.Table.Select)` cuando el binding `DataObject` literal y la cadena child son deterministas.
 
 Phase 2: bindings
   - DataObject assignments
@@ -793,6 +795,10 @@ Phase 3: advanced properties
   - Modify
   - Evaluate
   - DataWindowChild/DDDW
+
+Estado actual del repo:
+- el primer corte real de Phase 3 ya existe para relaciones `report(...)` y `DDDW`, junto con hover/definition seguros de `Describe/Modify` sobre `Table.Select`;
+- sigue fuera de alcance resolver `dw.Object...` completo o rutas dinámicas/ambiguas sin evidencia suficiente.
 
 Phase 4: diagnostics
   - missing DataObject
@@ -938,6 +944,15 @@ Reglas:
 - soportar dry-run/validate cuando sea posible;
 - no guardar credenciales desencriptadas;
 - no modificar JSON sin backup.
+```
+
+Estado actual del producto:
+
+```text
+- `B181` ya queda cubierta como capability detection read-only.
+- El cliente puede resolver `PBAutoBuild250.exe` por `vscPowerSyntax.build.pbAutoBuildPath`, `PB_AUTOBUILD_PATH` o candidatos instalados por defecto.
+- La detección solo informa disponibilidad/origen/capabilities básicas en status/health y no ejecuta builds.
+- Discovery de JSON, runner out-of-process, parser de logs y health unificado siguen abiertos en `B182-B187`.
 ```
 
 ---

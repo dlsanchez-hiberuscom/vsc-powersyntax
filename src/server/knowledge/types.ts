@@ -1,5 +1,5 @@
-import { DocumentSymbol } from 'vscode-languageserver/node';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
+import type { InternalDocumentSymbol } from '../model/types';
 import type { SourceOrigin } from '../../shared/sourceOrigin';
 
 /**
@@ -146,7 +146,7 @@ export interface DocumentCacheEntry {
   /** Versión del documento en el LSP, o timestamp/hash si viene de disco */
   version: string | number;
   /** Símbolos estructurales para Outline/Breadcrumbs */
-  symbols: DocumentSymbol[];
+  symbols: InternalDocumentSymbol[];
   /** Entidades semánticas que alimenta la KnowledgeBase */
   facts: Fact[];
   /** Árbol de scopes para resolución de variables locales */

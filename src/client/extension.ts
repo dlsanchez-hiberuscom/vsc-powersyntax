@@ -45,6 +45,12 @@ import {
   formatStatusBarSummary,
   type RuntimeStatusStats,
 } from './statusBarPresentation';
+import {
+  createPbAutoBuildDetector,
+  formatPbAutoBuildStatusInline,
+  type PbAutoBuildCapabilitySnapshot,
+  type PbAutoBuildDetector,
+} from './build/pbAutoBuildDetection';
 import { registerFormatting } from './formatting/registerFormatting';
 
 let client: LanguageClient | undefined;
@@ -56,6 +62,7 @@ let statusRefreshHandle: ReturnType<typeof setTimeout> | undefined;
 let statusRefreshVersion = 0;
 let commandsRegistered = false;
 let hostInitialized = false;
+let pbAutoBuildDetector: PbAutoBuildDetector | undefined;
 const publicApiSingleton = createPublicApi();
 
 export async function activate(context: vscode.ExtensionContext): Promise<VscPowerSyntaxApi | undefined> {
@@ -145,7 +152,7 @@ function ensureHostInitialized(context: vscode.ExtensionContext): void {
   }
 
   if (!hostInitialized) {
-    context.subscriptions.push(...registerFormatting());
+    context.subscriptions.push(...registerFormatting((request) => executeServerCommand('powerbuilder.formatDocument', [request])));
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.name = 'VSC PowerSyntax';
@@ -158,6 +165,10 @@ function ensureHostInitialized(context: vscode.ExtensionContext): void {
         if (e.affectsConfiguration('vscPowerSyntax.progress.show') && statusBarItem) {
           applyProgressVisibility(statusBarItem);
           renderProgress(statusBarItem, lastProgressNotification, lastStatusStats);
+        }
+        if (e.affectsConfiguration('vscPowerSyntax.build.pbAutoBuildPath')) {
+          pbAutoBuildDetector?.invalidate();
+          void refreshPbAutoBuildCapability(true);
         }
       })
     );
@@ -179,6 +190,8 @@ function ensureHostInitialized(context: vscode.ExtensionContext): void {
 
     hostInitialized = true;
   }
+
+  void refreshPbAutoBuildCapability();
 
   ensureCommandsRegistered(context);
 }
@@ -276,7 +289,9 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
         },
         {
           label: '$(tools) Ejecutar build de VS Code',
-          description: 'Abre la tarea de build configurada en el workspace',
+          description: stats?.buildTooling
+            ? `${formatPbAutoBuildStatusInline(stats.buildTooling) ?? 'sin detección'} · tarea del workspace`
+            : 'Abre la tarea de build configurada en el workspace',
           command: 'workbench.action.tasks.build'
         },
         {
@@ -352,7 +367,8 @@ function buildClientRuntime(
 
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
-      { scheme: 'file', language: 'powerbuilder' },
+      { scheme: 'file', language: 'powerbuilder', pattern: '**/*.srj' },
+      { scheme: 'file', language: 'powerbuilder', pattern: '**/*.srq' },
       { scheme: 'file', language: 'powerbuilder-window' },
       { scheme: 'file', language: 'powerbuilder-datawindow' },
       { scheme: 'file', language: 'powerbuilder-userobject' },
@@ -589,16 +605,55 @@ function clearStatusRefreshHandle(): void {
 }
 
 async function fetchRuntimeStatusStats(): Promise<RuntimeStatusStats | undefined> {
+  const buildTooling = await refreshPbAutoBuildCapability();
+
   if (!client) {
-    return lastStatusStats;
+    return buildTooling ? { ...(lastStatusStats ?? {}), buildTooling } : lastStatusStats;
   }
 
   try {
-    return clonePlainData(await executeServerCommand<RuntimeStatusStats>('powerbuilder.showStats'));
+    const stats = clonePlainData(await executeServerCommand<RuntimeStatusStats>('powerbuilder.showStats'));
+    return buildTooling ? { ...stats, buildTooling } : stats;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     outputChannel?.appendLine(`[VSC PowerSyntax] No se pudieron actualizar stats de status bar: ${message}`);
     return lastStatusStats;
+  }
+}
+
+function ensurePbAutoBuildDetector(): PbAutoBuildDetector {
+  if (!pbAutoBuildDetector) {
+    pbAutoBuildDetector = createPbAutoBuildDetector({
+      pathExists: async (candidate) => {
+        try {
+          await fs.promises.access(candidate, fs.constants.F_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    });
+  }
+
+  return pbAutoBuildDetector;
+}
+
+async function refreshPbAutoBuildCapability(force = false): Promise<PbAutoBuildCapabilitySnapshot | undefined> {
+  try {
+    const snapshot = await ensurePbAutoBuildDetector().detect({
+      configuredPath: vscode.workspace.getConfiguration('vscPowerSyntax').get<string>('build.pbAutoBuildPath', ''),
+      envPath: process.env.PB_AUTOBUILD_PATH,
+    }, force);
+
+    lastStatusStats = { ...(lastStatusStats ?? {}), buildTooling: snapshot };
+    if (statusBarItem) {
+      renderProgress(statusBarItem, lastProgressNotification, lastStatusStats);
+    }
+    return snapshot;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(`[VSC PowerSyntax] No se pudo detectar PBAutoBuild: ${message}`);
+    return lastStatusStats?.buildTooling;
   }
 }
 

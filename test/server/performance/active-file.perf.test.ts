@@ -1,8 +1,7 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import * as assert from 'assert/strict';
 import * as fs from 'node:fs';
 
-import { performance } from 'node:perf_hooks';
+import { performance } from 'perf_hooks';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { provideHover } from '../../../src/server/features/hover';
@@ -28,35 +27,42 @@ function findFirstIdentifierPosition(source: string): { line: number; character:
   return { line: 0, character: 0 };
 }
 
-test('PFC Workspace perf: primer hover y primeros diagnostics sobre archivo activo', { skip: !hasPfcWorkspace() }, () => {
-  const root = getPfcWorkspacePath();
-  const files = listFilesRecursive(root, ['.sru', '.srw', '.srm'])
-    .sort((a, b) => a.localeCompare(b));
+suite('performance/active-file', () => {
+  test('PFC Workspace perf: primer hover y primeros diagnostics sobre archivo activo', function () {
+    if (!hasPfcWorkspace()) {
+      this.skip();
+      return;
+    }
 
-  assert.ok(files.length > 0, 'No se encontraron archivos PowerBuilder en PFC Workspace');
+    const root = getPfcWorkspacePath();
+    const files = listFilesRecursive(root, ['.sru', '.srw', '.srm'])
+      .sort((a, b) => a.localeCompare(b));
 
-  const targetFile = files[0];
-  const source = fs.readFileSync(targetFile, 'utf8');
-  const document = TextDocument.create(`file://${targetFile}`, 'powerbuilder', 1, source);
-  const hoverPosition = findFirstIdentifierPosition(source);
+    assert.ok(files.length > 0, 'No se encontraron archivos PowerBuilder en PFC Workspace');
 
-  const kb = new KnowledgeBase();
-  const graph = new InheritanceGraph(kb);
-  const systemCatalog = new SystemCatalog();
+    const targetFile = files[0];
+    const source = fs.readFileSync(targetFile, 'utf8');
+    const document = TextDocument.create(`file://${targetFile}`, 'powerbuilder', 1, source);
+    const hoverPosition = findFirstIdentifierPosition(source);
 
-  const hoverStart = performance.now();
-  const hover = provideHover(document, hoverPosition, kb, systemCatalog, graph);
-  const hoverElapsed = performance.now() - hoverStart;
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+    const systemCatalog = new SystemCatalog();
 
-  const diagnosticsStart = performance.now();
-  const diagnostics = validateStructure(document);
-  const diagnosticsElapsed = performance.now() - diagnosticsStart;
+    const hoverStart = performance.now();
+    const hover = provideHover(document, hoverPosition, kb, systemCatalog, graph);
+    const hoverElapsed = performance.now() - hoverStart;
 
-  console.log(`[perf] active file hover: ${hoverElapsed.toFixed(2)} ms`);
-  console.log(`[perf] active file diagnostics: ${diagnosticsElapsed.toFixed(2)} ms`);
+    const diagnosticsStart = performance.now();
+    const diagnostics = validateStructure(document);
+    const diagnosticsElapsed = performance.now() - diagnosticsStart;
 
-  assert.ok(hover === null || typeof hover === 'object');
-  assert.ok(Array.isArray(diagnostics));
-  assert.ok(hoverElapsed < HOVER_BUDGET_MS, `Primer hover demasiado lento: ${hoverElapsed.toFixed(2)}ms`);
-  assert.ok(diagnosticsElapsed < DIAGNOSTICS_BUDGET_MS, `Primer diagnostics demasiado lento: ${diagnosticsElapsed.toFixed(2)}ms`);
+    console.log(`[perf] active file hover: ${hoverElapsed.toFixed(2)} ms`);
+    console.log(`[perf] active file diagnostics: ${diagnosticsElapsed.toFixed(2)} ms`);
+
+    assert.ok(hover === null || typeof hover === 'object');
+    assert.ok(Array.isArray(diagnostics));
+    assert.ok(hoverElapsed < HOVER_BUDGET_MS, `Primer hover demasiado lento: ${hoverElapsed.toFixed(2)}ms`);
+    assert.ok(diagnosticsElapsed < DIAGNOSTICS_BUDGET_MS, `Primer diagnostics demasiado lento: ${diagnosticsElapsed.toFixed(2)}ms`);
+  });
 });

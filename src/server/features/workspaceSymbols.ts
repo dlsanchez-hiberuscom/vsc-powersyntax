@@ -52,16 +52,10 @@ function entityToApiSymbol(entity: Entity): ApiSymbol {
  */
 export function provideWorkspaceSymbols(query: string, kb: KnowledgeBase): SymbolInformation[] {
   const lowerQuery = query.toLowerCase();
-  const allEntities = kb.getAllEntities();
   const results: SymbolInformation[] = [];
 
-  for (const entity of allEntities) {
-    if (results.length >= MAX_RESULTS) break;
-
-    // Substring match case-insensitive
-    if (lowerQuery === '' || entity.id.includes(lowerQuery)) {
-      results.push(entityToSymbolInformation(entity));
-    }
+  for (const entity of kb.queryEntities({ query: lowerQuery, limit: MAX_RESULTS })) {
+    results.push(entityToSymbolInformation(entity));
   }
 
   return results;
@@ -71,14 +65,8 @@ export function queryApiSymbols(query: string, kb: KnowledgeBase, limit = MAX_RE
   const lowerQuery = query.toLowerCase();
   const results: ApiSymbol[] = [];
 
-  for (const entity of kb.getAllEntities()) {
-    if (results.length >= limit) {
-      break;
-    }
-
-    if (lowerQuery === '' || entity.id.includes(lowerQuery)) {
-      results.push(entityToApiSymbol(entity));
-    }
+  for (const entity of kb.queryEntities({ query: lowerQuery, limit })) {
+    results.push(entityToApiSymbol(entity));
   }
 
   return results;

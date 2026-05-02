@@ -25,8 +25,8 @@ Evalúa siempre contra este orden:
 3. `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 4. specs activas en `specs/`
 5. `docs/roadmap.md`
-6. `docs/backlog.md`
-7. `docs/current-focus.md`
+6. `docs/current-focus.md`
+7. `docs/backlog.md`
 8. estado real del código
 
 ## Reglas

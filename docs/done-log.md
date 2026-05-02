@@ -2076,6 +2076,82 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 **Validación registrada:**
 - `npm run test:unit -- --grep "unit/(referenceSourcePool|references|rename|codeLensReferences)"`
 
+## 1.69 B042. Soporte avanzado de DataWindow — **Cerrada (spec 249, modelo puro + relaciones avanzadas 2026-05)**
+
+**Objetivo:** ampliar DataWindow por encima del safe mode, el catálogo básico y el bridge `DataObject/Retrieve` ya cerrados, sin mezclar `.srd` con PowerScript normal.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowModel.ts` introduce un modelo DataWindow reutilizable por hover, definition y document symbols, separado de los mappers LSP visibles y centrado en bandas, columnas, `retrieve`, reports y referencias SQL simples;
+- `src/server/features/dataWindowLegacySafeMode.ts` reutiliza ese modelo para añadir relaciones avanzadas locales del `.srd`: `report(name=... dataobject=...)`, `column.dddw.name` y publicación de controls/report en el outline del DataWindow;
+- `src/server/features/dataWindowPropertyPaths.ts`, junto con `hover` y `definition`, resuelve property paths `Describe/Modify(...DataWindow.Table.Select)` y `Modify(...dddw.name)` sobre bindings `DataObject` literales y child DataWindows deterministas, manteniendo degradación honesta cuando falta binding o la resolución no es única.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/dataWindowLegacySafeMode.test.js out/test/server/unit/documentSymbols.test.js out/test/server/unit/definition.test.js out/test/server/unit/hover.test.js`
+
+## 1.70 B181. PBAutoBuild capability detection — **Cerrada (spec 252, capability detection read-only 2026-05)**
+
+**Objetivo:** detectar `PBAutoBuild250.exe`, su origen y capacidades básicas sin lanzar build ni bloquear Extension Host o LSP.
+
+**Resultado registrado:**
+- `src/client/build/pbAutoBuildDetection.ts` introduce un detector puro/cacheado para configuración explícita, `PB_AUTOBUILD_PATH` y candidatos instalados por defecto, con degradación `available/missing/invalid` y capabilities mínimas observables;
+- `src/client/extension.ts`, `src/client/statusBarPresentation.ts` y `package.json` proyectan ese snapshot en status/health del cliente, reutilizando surfaces read-only ya existentes y sin abrir runner, parser de logs ni ejecución moderna;
+- `test/server/unit/pbAutoBuildDetection.test.ts` y `test/server/unit/statusBarPresentation.test.ts` fijan el contrato visible de detección y la proyección en reports/tooltip.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/pbAutoBuildDetection.test.js out/test/server/unit/statusBarPresentation.test.js`
+
+## 1.71 B227. Formatter server-side y presupuesto de formato — **Cerrada (spec 253, formatter delegado al LSP 2026-05)**
+
+**Objetivo:** sacar el cálculo del formatter del Extension Host y fijar budgets explícitos para documentos grandes sin perder provider manual ni `formatOnSave`.
+
+**Resultado registrado:**
+- `src/server/features/formatDocument.ts` y `src/shared/formatting/formatDocumentProtocol.ts` introducen un contrato server-side para formatear o degradar por presupuesto de caracteres/líneas, reutilizando el motor puro ya existente;
+- `src/client/formatting/registerFormatting.ts`, `src/client/extension.ts` y `src/server/server.ts` mueven el trabajo pesado al comando `powerbuilder.formatDocument`, manteniendo el cliente como wiring/configuración y avisando cuando el documento se omite por budget;
+- `package.json` publica settings explícitas `vscPowerSyntax.formatting.maxDocumentChars` y `vscPowerSyntax.formatting.maxDocumentLines` para hacer observable el límite operativo.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/formatDocument.test.js out/test/server/unit/powerBuilderFormatter.test.js`
+- `npm test -- --grep "smoke/formatting-extension"`
+
+## 1.72 B228. Modelo interno sin DTOs LSP en knowledge/parsing — **Cerrada (spec 254, mappers de borde 2026-05)**
+
+**Objetivo:** retirar `DocumentSymbol` y DTOs LSP equivalentes de `knowledge/parsing/utils`, dejando tipos internos en el core y mappers de borde para la salida visible.
+
+**Resultado registrado:**
+- `src/server/model/types.ts`, `src/server/utils/helpers.ts`, `src/server/parsing/sections.ts`, `src/server/knowledge/types.ts` y `src/server/knowledge/stringInterning.ts` pasan a usar tipos internos para posiciones/rangos/símbolos documentales en lugar de DTOs LSP;
+- `src/server/features/documentSymbols.ts` se convierte en el borde responsable de mapear el árbol interno hacia `DocumentSymbol`, manteniendo verde la salida visible y dejando `.srd` legacy-safe como feature LSP legítima;
+- `test/server/unit/architectureImports.test.ts` fija el guardrail para impedir reintroducciones de `vscode-languageserver` en `knowledge/parsing/utils`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/documentSymbols.test.js out/test/server/unit/architectureImports.test.js`
+
+## 1.73 B070. Memory budgets de caché e índice — **Cerrada (spec 255, budgets visibles por capa 2026-05)**
+
+**Objetivo:** definir, medir y vigilar budgets explícitos de memoria para cachés e índice sin introducir profiling invasivo.
+
+**Resultado registrado:**
+- `src/server/runtime/memoryBudgets.ts` introduce un reporte unificado de estimates y budgets por capa (`analysis`, `serving`, `documents`, `hot-context`, `code-lens`, `knowledge`) con estado agregado y métricas de proceso;
+- `src/server/server.ts`, `src/server/runtime/runtimeHealth.ts`, `src/shared/publicApi.ts` y `src/client/statusBarPresentation.ts` proyectan ese reporte en `showStats`, health checker y status/tooltip visibles del cliente;
+- `test/server/unit/memoryBudgets.test.ts`, junto con `runtimeHealth.test.ts` y `statusBarPresentation.test.ts`, fija el cálculo y la vigilancia visible de esos budgets.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/memoryBudgets.test.js out/test/server/unit/runtimeHealth.test.js out/test/server/unit/statusBarPresentation.test.js`
+
+## 1.74 B162. Reconciliación parser / symbol model / salida LSP — **Cerrada (spec 256, reason codes antes de publicar outline 2026-05)**
+
+**Objetivo:** detectar incoherencias internas entre parser, snapshot semántico y salida LSP antes de publicar el outline del documento.
+
+**Resultado registrado:**
+- `src/server/features/documentSymbols.ts` produce ahora un reporte explícito de reconciliación con reason codes (`type-block-missing-fact`, `callable-fact-missing-scope`, `callable-fact-orphan-container`, etc.) comparando `sections/typeBlocks`, facts/scopes y el árbol LSP a publicar;
+- `src/server/server.ts` registra ese reporte en consola y `runtimeJournal` cuando detecta drift, de modo que la inconsistencia queda observada antes de devolver `DocumentSymbol[]` al editor;
+- `test/server/unit/documentSymbolsReconciliation.test.ts`, junto con `documentSymbols.test.ts`, fija tanto snapshots sanos como snapshots inconsistentes y valida que la salida visible siga estable.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/documentSymbols.test.js out/test/server/unit/documentSymbolsReconciliation.test.js`
+
 ## 1.69 B067. Formateador configurable — **Cerrada (formatter conservador cliente-side 2026-05)**
 
 **Objetivo:** formateo configurable solo sobre base sintáctica/semántica fiable.

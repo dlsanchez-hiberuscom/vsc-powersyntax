@@ -130,7 +130,7 @@ suite('unit/documentSymbols', () => {
     assert.equal(typeSymbol.children?.[0].range.end.line, 5);
   });
 
-  test('extractDocumentSymbols expone DataWindow .srd con bandas, tabla y retrieve', () => {
+  test('extractDocumentSymbols expone DataWindow .srd con bandas, tabla, retrieve y reports avanzados', () => {
     const document = TextDocument.create(
       'file:///sample_datawindow.srd',
       'powerbuilder',
@@ -143,7 +143,8 @@ suite('unit/documentSymbols', () => {
         'detail(height=76 color=67108864)',
         'table(column=(type=long update=yes name=id dbname="customer.id")',
         ' column=(type=char(100) update=yes name=name dbname="customer.name")',
-        ' retrieve="SELECT id, name FROM customer ORDER BY name" )'
+        ' retrieve="SELECT id, name FROM customer ORDER BY name" )',
+        'report(name=rpt_orders dataobject="d_orders")'
       ].join('\r\n')
     );
 
@@ -151,6 +152,7 @@ suite('unit/documentSymbols', () => {
     const root = symbols[0];
     const childNames = root.children?.map((child) => child.name) ?? [];
     const table = root.children?.find((child) => child.name === 'table');
+    const controls = root.children?.find((child) => child.name === 'controls');
 
     assert.equal(root.name, 'sample_datawindow');
     assert.ok(childNames.includes('header'));
@@ -159,5 +161,6 @@ suite('unit/documentSymbols', () => {
     assert.ok(table?.children?.some((child) => child.name === 'id'));
     assert.ok(table?.children?.some((child) => child.name === 'name'));
     assert.ok(table?.children?.some((child) => child.name === 'retrieve'));
+    assert.ok(controls?.children?.some((child) => child.name === 'rpt_orders'));
   });
 });

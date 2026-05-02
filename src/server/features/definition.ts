@@ -4,6 +4,7 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
 import { provideDataWindowLegacyDefinition } from './dataWindowLegacySafeMode';
+import { providePowerScriptDataWindowPropertyDefinition } from './dataWindowPropertyPaths';
 import { resolveDocumentQueryTargets, type DocumentQueryContext } from './queryContext';
 
 export function provideDefinition(
@@ -14,7 +15,8 @@ export function provideDefinition(
   hotContext?: HotContextCache,
   queryContext?: DocumentQueryContext
 ): Location | Location[] | null {
-  const dataWindowDefinition = provideDataWindowLegacyDefinition(document, position);
+  const dataWindowDefinition = provideDataWindowLegacyDefinition(document, position, kb)
+    ?? providePowerScriptDataWindowPropertyDefinition(document, position, kb);
   if (dataWindowDefinition) return dataWindowDefinition;
 
   const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'definition');

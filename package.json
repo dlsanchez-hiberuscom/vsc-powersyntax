@@ -197,6 +197,11 @@
           "default": true,
           "description": "Mostrar el indicador de progreso de indexación en la barra de estado."
         },
+        "vscPowerSyntax.build.pbAutoBuildPath": {
+          "type": "string",
+          "default": "",
+          "description": "Ruta opcional a PBAutoBuild250.exe. Si queda vacía, el cliente probará PB_AUTOBUILD_PATH y candidatos instalados por defecto."
+        },
         "vscPowerSyntax.formatting.enabled": {
           "type": "boolean",
           "default": true,
@@ -242,6 +247,18 @@
           "default": 3,
           "minimum": 1,
           "description": "Tamaño de indentación cuando se usan espacios."
+        },
+        "vscPowerSyntax.formatting.maxDocumentChars": {
+          "type": "number",
+          "default": 120000,
+          "minimum": 0,
+          "description": "Presupuesto máximo de caracteres para ejecutar el formatter. Usa 0 para desactivar este límite."
+        },
+        "vscPowerSyntax.formatting.maxDocumentLines": {
+          "type": "number",
+          "default": 4000,
+          "minimum": 0,
+          "description": "Presupuesto máximo de líneas para ejecutar el formatter. Usa 0 para desactivar este límite."
         },
         "vscPowerSyntax.formatting.trimTrailingWhitespace": {
           "type": "boolean",

@@ -1,4 +1,4 @@
-import { Position } from 'vscode-languageserver/node';
+import type { TextPosition } from '../model/types';
 import { findPowerBuilderIdentifierSpan } from './pbIdentifier';
 
 const EVENT_API_METHOD_PREFIX_RE = /([a-zA-Z_$#%][\w$#%-]*)\s*\.\s*(tabtriggerevent|tabpostevent|triggerevent|postevent)\s*\(\s*$/i;
@@ -44,7 +44,7 @@ function extractStringLiterals(line: string): Array<{ value: string; start: numb
   return literals;
 }
 
-export function getEventApiInvocationContext(lines: string[], position: Position): InvocationContext | null {
+export function getEventApiInvocationContext(lines: string[], position: TextPosition): InvocationContext | null {
   const { line, character } = position;
 
   if (line < 0 || line >= lines.length) {
@@ -80,7 +80,7 @@ export function getEventApiInvocationContext(lines: string[], position: Position
   return null;
 }
 
-export function getInvocationContext(lines: string[], position: Position): InvocationContext | null {
+export function getInvocationContext(lines: string[], position: TextPosition): InvocationContext | null {
   const { line, character } = position;
 
   if (line < 0 || line >= lines.length) return null;

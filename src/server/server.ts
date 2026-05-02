@@ -19,7 +19,7 @@ import {
   PROGRESS_NOTIFICATION,
   type ProgressNotification
 } from '../shared/types';
-import { getDocumentAnalysis, invalidateDocumentAnalysis, clearDocumentAnalysisCache, setAnalysisBackends } from './analysis/analysisCache';
+import { getDocumentAnalysis, invalidateDocumentAnalysis, evictDocumentAnalysis, clearDocumentAnalysisCache, setAnalysisBackends } from './analysis/analysisCache';
 import { getAnalysisCacheStats } from './analysis/analysisCache';
 import {
   cancelScheduledDiagnostics,
@@ -27,7 +27,10 @@ import {
   publishDiagnosticsNow,
   scheduleDiagnostics
 } from './analysis/diagnosticScheduler';
-import { extractDocumentSymbols } from './features/documentSymbols';
+import {
+  extractDocumentSymbolsWithReconciliation,
+  formatDocumentSymbolReconciliationReport,
+} from './features/documentSymbols';
 import { provideHover } from './features/hover';
 import { provideWorkspaceSymbols, queryApiSymbols } from './features/workspaceSymbols';
 import { provideDefinition } from './features/definition';
@@ -52,6 +55,7 @@ import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from 
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
 import { createLatencyGovernor } from './runtime/latencyGovernor';
 import { buildRuntimeHealthReport } from './runtime/runtimeHealth';
+import { buildRuntimeMemoryReport } from './runtime/memoryBudgets';
 import { RuntimeJournal } from './runtime/runtimeJournal';
 import { NodeFileSystem } from './system/fileSystem';
 import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
@@ -78,6 +82,7 @@ import { InheritanceGraph } from './knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from './knowledge/HotContextCache';
 import { Entity, EntityKind } from './knowledge/types';
 import { buildObjectInfo } from './features/objectInfo';
+import { formatDocument } from './features/formatDocument';
 import {
   createSemanticInvalidationPlan,
   createSnapshotAwareInvalidationPlan
@@ -135,7 +140,9 @@ const servingCache = new ServingCache<unknown>(256, 0, (event) => {
     }
   });
 });
+const MAX_CODE_LENS_CACHE_ENTRIES = 128;
 const codeLensCache = new Map<string, { key: string; lenses: ReturnType<typeof provideReferenceCodeLenses> }>();
+const codeLensCacheCounters = { hits: 0, misses: 0, evictions: 0 };
 let lastHealthJournalSignature = '';
 
 type DefinitionCacheEntry = {
@@ -178,6 +185,7 @@ const watcherIntake = createFileWatcherDebouncer({
           );
         }
         if (result.reindexed > 0 || result.removed > 0 || result.skipped > 0) {
+          invalidateCodeLensCache();
           runtimeJournal.record({
             phase: 'invalidation',
             kind: 'watched-files',
@@ -328,6 +336,49 @@ function buildCodeLensCacheKey(document: TextDocument, readinessReason: string, 
     readinessReason,
     workspaceState.getAllSourceFiles().length
   ].join('|');
+}
+
+function getCodeLensCacheEntry(uri: string, key: string): ReturnType<typeof provideReferenceCodeLenses> | undefined {
+  const cached = codeLensCache.get(uri);
+  if (!cached || cached.key !== key) {
+    codeLensCacheCounters.misses++;
+    return undefined;
+  }
+
+  codeLensCache.delete(uri);
+  codeLensCache.set(uri, cached);
+  codeLensCacheCounters.hits++;
+  return cached.lenses;
+}
+
+function setCodeLensCacheEntry(uri: string, key: string, lenses: ReturnType<typeof provideReferenceCodeLenses>): void {
+  if (codeLensCache.has(uri)) {
+    codeLensCache.delete(uri);
+  } else if (codeLensCache.size >= MAX_CODE_LENS_CACHE_ENTRIES) {
+    const oldest = codeLensCache.keys().next().value;
+    if (oldest !== undefined) {
+      codeLensCache.delete(oldest);
+      codeLensCacheCounters.evictions++;
+    }
+  }
+
+  codeLensCache.set(uri, { key, lenses });
+}
+
+function invalidateCodeLensCache(uri?: string): void {
+  if (uri === undefined) {
+    codeLensCache.clear();
+    return;
+  }
+  codeLensCache.delete(uri);
+}
+
+function getCodeLensCacheStats(): { size: number; capacity: number; hits: number; misses: number; evictions: number } {
+  return {
+    size: codeLensCache.size,
+    capacity: MAX_CODE_LENS_CACHE_ENTRIES,
+    ...codeLensCacheCounters
+  };
 }
 
 function getCodeLensHierarchyMeta(entity: Entity): { relation?: 'override'; overrideCount: number } {
@@ -481,7 +532,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       renameProvider: { prepareProvider: true },
       // Spec 106: comandos personalizados expuestos vía workspace/executeCommand.
       executeCommandProvider: {
-        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.semanticWorkspaceManifest']
+        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.semanticWorkspaceManifest', 'powerbuilder.formatDocument']
       }
     }
   };
@@ -705,7 +756,19 @@ connection.onDocumentSymbol((params) => {
       id: `documentSymbols-${document.uri}`,
       priority: TaskPriority.Interactive,
       execute: () => {
-        const { result, elapsedMs } = measureMs(() => extractDocumentSymbols(document));
+        const { result, elapsedMs } = measureMs(() => extractDocumentSymbolsWithReconciliation(document));
+
+        if (result.reconciliation.status !== 'healthy') {
+          connection.console.warn(formatDocumentSymbolReconciliationReport(result.reconciliation));
+          runtimeJournal.record({
+            phase: 'serve',
+            kind: 'documentSymbols',
+            action: 'reconcile',
+            severity: result.reconciliation.status,
+            label: document.uri,
+            detail: result.reconciliation,
+          });
+        }
 
         if (firstInvocation.isFirst('documentSymbols')) {
           const sinceStart = performance.now() - serverStartTime;
@@ -713,7 +776,7 @@ connection.onDocumentSymbol((params) => {
         }
 
         connection.console.log(formatTiming('documentSymbols', elapsedMs));
-        return result;
+        return result.symbols;
       }
     });
   } catch (error) {
@@ -1098,6 +1161,7 @@ documents.onDidChangeContent((event) => {
   );
   for (const uri of invalidationPlan.allUris) {
     hotContextCache.invalidateForUri(uri);
+    invalidateCodeLensCache(uri);
   }
   runtimeJournal.record({
     phase: 'invalidation',
@@ -1122,9 +1186,10 @@ documents.onDidChangeContent((event) => {
 documents.onDidClose((event) => {
   cancelScheduledDiagnostics(event.document.uri);
   const invalidationPlan = createSemanticInvalidationPlan(event.document.uri, knowledgeBase);
-  invalidateDocumentAnalysis(event.document.uri);
+  evictDocumentAnalysis(event.document.uri);
   for (const uri of invalidationPlan.allUris) {
     hotContextCache.invalidateForUri(uri);
+    invalidateCodeLensCache(uri);
   }
   runtimeJournal.record({
     phase: 'invalidation',
@@ -1164,6 +1229,7 @@ connection.onShutdown(async () => {
   disposeTraceSnapshotSubscription();
   watcherIntake.dispose();
   invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
+  invalidateCodeLensCache();
   await servingCacheFlushCoordinator.flushIfDirty();
   scheduler.shutdown();
   clearAllScheduledDiagnostics();
@@ -1199,9 +1265,9 @@ connection.onCodeLens(async (params) => {
       latencyOverloaded: isLatencyPressureHigh()
     });
     const cacheKey = buildCodeLensCacheKey(document, readinessDecision.reason, readinessDecision.action);
-    const cached = codeLensCache.get(document.uri);
-    if (cached?.key === cacheKey) {
-      return cached.lenses;
+    const cached = getCodeLensCacheEntry(document.uri, cacheKey);
+    if (cached) {
+      return cached;
     }
 
     const callableEntities = knowledgeBase.getEntitiesByUri(document.uri).filter((entity) =>
@@ -1229,7 +1295,7 @@ connection.onCodeLens(async (params) => {
       : await buildCodeLensReferenceCounts(lensSymbols);
 
     const lenses = provideReferenceCodeLenses(lensSymbols, counts);
-    codeLensCache.set(document.uri, { key: cacheKey, lenses });
+    setCodeLensCacheEntry(document.uri, cacheKey, lenses);
     return lenses;
   } catch (error) {
     connection.console.error(`[ERROR] codeLens: ${error instanceof Error ? error.message : String(error)}`);
@@ -1347,8 +1413,17 @@ connection.onExecuteCommand(async (params) => {
           serving: servingCache.getStats(),
           documents: documentCache.getStats(),
           hotContext: hotContextCache.getStats(),
+          codeLens: getCodeLensCacheStats(),
           watcher: watcherIntake.getStats()
         },
+        memory: buildRuntimeMemoryReport({
+          analysis: getAnalysisCacheStats(),
+          serving: servingCache.getStats(),
+          documents: documentCache.getStats(),
+          hotContext: hotContextCache.getStats(),
+          codeLens: getCodeLensCacheStats(),
+          kb: stats,
+        }),
         projectModel: projectStats,
         lastQueryTrace: getLastTrace(),
         persistence: cacheStore
@@ -1373,6 +1448,7 @@ connection.onExecuteCommand(async (params) => {
         scheduler: baseStats.scheduler,
         projectModel: baseStats.projectModel,
         caches: baseStats.caches,
+        memory: baseStats.memory,
         lastQueryTrace: baseStats.lastQueryTrace ?? undefined,
         persistence: baseStats.persistence,
         diagnostics: undefined
@@ -1396,6 +1472,13 @@ connection.onExecuteCommand(async (params) => {
         health,
         runtimeJournal: runtimeJournal.snapshot(50)
       };
+    }
+    case 'powerbuilder.formatDocument': {
+      const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
+      if (!request || typeof request !== 'object') {
+        throw new Error('Solicitud de formato inválida.');
+      }
+      return formatDocument(request as Parameters<typeof formatDocument>[0]);
     }
     case 'powerbuilder.inspectHierarchy': {
       const [uriArg, lineArg, characterArg] = params.arguments ?? [];

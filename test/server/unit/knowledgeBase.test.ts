@@ -199,6 +199,24 @@ suite('unit/knowledge', () => {
       assert.equal(kb.findDefinition('stale')?.id, 'stale');
     });
 
+    test('queryEntities limita resultados y no expone referencias vivas', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///query.sru';
+
+      kb.upsertDocument(uri, [
+        { id: 'of_one', name: 'of_one', kind: EntityKind.Function, uri, line: 1, character: 0 },
+        { id: 'of_two', name: 'of_two', kind: EntityKind.Function, uri, line: 2, character: 0 },
+        { id: 'w_query', name: 'w_query', kind: EntityKind.Type, uri, line: 3, character: 0 }
+      ]);
+
+      const limited = kb.queryEntities({ query: 'of_', kinds: [EntityKind.Function], limit: 1 });
+      assert.equal(limited.length, 1);
+      limited[0].name = 'mutated';
+
+      assert.equal(kb.findDefinition('of_one')?.name, 'of_one');
+      assert.equal(kb.countEntities((entity) => entity.kind === EntityKind.Function), 2);
+    });
+
     test('getScopeAt prioriza scopes del snapshot publicado', () => {
       const kb = new KnowledgeBase();
       const uri = 'file:///snapshot-scopes.sru';

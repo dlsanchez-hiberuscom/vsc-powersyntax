@@ -29,6 +29,9 @@ Este repositorio define agentes persistentes por rol. Las tareas cortas deben re
 - Todo agente debe devolver contexto mínimo útil, módulos afectados, riesgos y siguiente paso.
 - Todo write-enabled debe revisar documentación viva afectada.
 - Ningún agente mueve trabajo a Done sin validación y done-log.
+- Todo custom agent debe tener frontmatter válido con `name` y `description` claros.
+- Si detecta foco activo sin spec mínima (`spec.md`, `plan.md`, `tasks.md`), debe devolverlo a `spec-orchestrator` o crear la spec antes de implementación write-enabled.
+- Los agentes deben distinguir slice cerrado de spec/ítem padre cerrado.
 
 ---
 

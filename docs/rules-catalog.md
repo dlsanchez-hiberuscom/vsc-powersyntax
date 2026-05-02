@@ -35,6 +35,24 @@ Cada regla debe tener:
 
 ## 3. Reglas estructurales SR*
 
+## 3.0 IDs implementados actualmente
+
+La implementación actual conserva IDs históricos `SD*` y `dataobject-*` en código/tests. Los IDs `PB-*` de este catálogo gobiernan la taxonomía objetivo, pero no deben presentarse como contrato emitido hasta cerrar `B232`.
+
+IDs visibles actuales:
+
+- `SD2` / `PowerScript:SD2` — estructura PowerScript no balanceada o bloque genérico inválido.
+- `SD3` / `PowerScript:SD3` — referencia o ancestro no resuelto cuando readiness/confidence lo permiten.
+- `SD8` — declaración duplicada.
+- `SD9` — keyword de flujo huérfana.
+- `SD10` — `exit`/`continue` fuera de contexto válido.
+- `SD11` — código inalcanzable.
+- `SD12` — paréntesis no balanceados.
+- `SD13` — retorno faltante en función con return type.
+- `dataobject-not-found`, `dataobject-ambiguous`, `dataobject-dynamic`, `retrieve-arity-mismatch` — familia DataWindow/DataObject actual.
+
+Regla: cualquier renombrado hacia `PB-*` requiere compatibilidad o alias y spec propia; no cambiar IDs diagnósticos como edición documental.
+
 ## PB-STRUCT-001 — Forward type does not match global type
 
 - **Estado:** draft

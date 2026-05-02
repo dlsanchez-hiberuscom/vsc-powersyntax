@@ -1,9 +1,8 @@
 import {
-  DocumentSymbol,
-  SymbolKind
-} from 'vscode-languageserver/node';
-
-import { SectionRange } from '../model/types';
+  InternalDocumentSymbol,
+  InternalDocumentSymbolKind,
+  SectionRange,
+} from '../model/types';
 import {
   matchEventPrototype,
   matchFunctionPrototype,
@@ -79,7 +78,7 @@ export function findSections(lines: string[]): SectionRange[] {
 export function createSectionSymbol(
   lines: string[],
   section: SectionRange
-): DocumentSymbol {
+): InternalDocumentSymbol {
   const title =
     section.kind === 'forward'
       ? 'forward'
@@ -89,7 +88,7 @@ export function createSectionSymbol(
 
   const symbol = createSymbol(
     title,
-    SymbolKind.Namespace,
+    InternalDocumentSymbolKind.Namespace,
     section.startLine,
     firstNonWhitespace(lines[section.startLine]),
     section.endLine,
@@ -104,8 +103,8 @@ export function createSectionSymbol(
 export function extractSectionChildren(
   lines: string[],
   section: SectionRange
-): DocumentSymbol[] {
-  const children: DocumentSymbol[] = [];
+): InternalDocumentSymbol[] {
+  const children: InternalDocumentSymbol[] = [];
 
   for (let i = section.startLine + 1; i < section.endLine; i++) {
     const line = lines[i];
@@ -116,7 +115,7 @@ export function extractSectionChildren(
         children.push(
           createSymbol(
             varDecl.name,
-            SymbolKind.Variable,
+            InternalDocumentSymbolKind.Variable,
             i,
             line.indexOf(varDecl.name),
             i,
@@ -134,7 +133,7 @@ export function extractSectionChildren(
         children.push(
           createSymbol(
             fn.name,
-            SymbolKind.Function,
+            InternalDocumentSymbolKind.Function,
             i,
             line.indexOf(fn.name),
             i,
@@ -153,7 +152,7 @@ export function extractSectionChildren(
         children.push(
           createSymbol(
             ev.name,
-            SymbolKind.Event,
+            InternalDocumentSymbolKind.Event,
             i,
             start,
             i,
@@ -171,7 +170,7 @@ export function extractSectionChildren(
         children.push(
           createSymbol(
             ty.name,
-            SymbolKind.Class,
+            InternalDocumentSymbolKind.Class,
             i,
             line.indexOf(ty.name),
             i,

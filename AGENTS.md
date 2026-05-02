@@ -292,6 +292,7 @@ Los agentes no deben:
 - cerrar tareas con documentación desalineada;
 - cerrar specs en parcial;
 - contar slices como specs completas;
+- reutilizar carpetas de specs históricas por coincidencia numérica con un ítem de backlog activo;
 - reimplementar specs cerradas;
 - mover ítems a `Done` sin `done-log.md`;
 - abrir superficie funcional que la base actual no pueda sostener;
