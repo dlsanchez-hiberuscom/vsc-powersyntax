@@ -2,7 +2,10 @@ import {
     PB_GENERATED_DATAWINDOW_FUNCTIONS,
     PB_GENERATED_EVENTS,
     PB_GENERATED_GLOBAL_FUNCTIONS,
+    PB_GENERATED_KEYWORDS,
     PB_GENERATED_OBJECT_FUNCTIONS,
+    PB_GENERATED_RESERVED_WORDS,
+    PB_GENERATED_SYSTEM_OBJECT_DATATYPES,
     PB_GENERATED_STATEMENTS,
 } from '../generated/generated.generated';
 import {
@@ -102,10 +105,20 @@ export const PB_SYSTEM_SYMBOL_DATASET_SLICES: readonly PbSystemSymbolDatasetSlic
         allowedCategories: PB_MANUAL_CORE_KEYWORD_CATEGORIES,
     },
     {
+        dataset: 'generated',
+        domain: 'keywords',
+        entries: PB_GENERATED_KEYWORDS,
+    },
+    {
         dataset: 'manual-core',
         domain: 'reserved-words',
         entries: PB_MANUAL_CORE_RESERVED_WORDS,
         allowedCategories: PB_MANUAL_CORE_RESERVED_WORD_CATEGORIES,
+    },
+    {
+        dataset: 'generated',
+        domain: 'reserved-words',
+        entries: PB_GENERATED_RESERVED_WORDS,
     },
     {
         dataset: 'manual-core',
@@ -160,6 +173,11 @@ export const PB_SYSTEM_SYMBOL_DATASET_SLICES: readonly PbSystemSymbolDatasetSlic
         domain: 'datawindow-functions',
         entries: PB_GENERATED_DATAWINDOW_FUNCTIONS,
         allowedOwnerTypes: PB_GENERATED_DATAWINDOW_FUNCTION_OWNER_TYPES,
+    },
+    {
+        dataset: 'generated',
+        domain: 'system-object-datatypes',
+        entries: PB_GENERATED_SYSTEM_OBJECT_DATATYPES,
     },
     {
         dataset: 'generated',

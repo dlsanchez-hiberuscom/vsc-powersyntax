@@ -643,6 +643,67 @@ Reglas:
 - completion debe priorizar miembros visibles según contexto.
 ```
 
+Estado cerrado B281:
+
+```text
+- los overloads se conservan por firma normalizada en semanticFacts;
+- prototype e implementation de la misma firma no generan ambigüedad artificial;
+- definition y signatureHelp pasan aridad y tipos literales simples al query engine compartido;
+- impact analysis solo trata como override las firmas compatibles;
+- si una llamada no aporta evidencia suficiente de firma, la ambigüedad sigue visible.
+```
+
+---
+
+## 13.1 PowerBuilder Language Knowledge Catalog v2
+
+El catálogo del lenguaje vive en `src/server/knowledge/system` y es la fuente rica para metadata de sistema. No sustituye los `Set<string>` rápidos de `src/server/parsing/grammar.ts`; esos Sets siguen disponibles para parser/matcher hot-paths.
+
+Dominios ya modelados:
+
+```text
+keywords
+reserved-words
+datatypes
+system-object-datatypes
+operators
+pronouns
+system-globals
+enumerated-values
+global-functions
+object-functions
+datawindow-functions
+system-events
+datawindow-events
+statements
+```
+
+Reglas:
+
+```text
+- no cambiar IDs, kind, domain ni namespace generados existentes sin spec de compatibilidad;
+- DataWindow expression/property catalog sigue separado de PowerScript normal;
+- completion debe filtrar por prefijo, deduplicar y respetar prioridad de símbolos locales/proyecto;
+- hover puede explicar símbolos de lenguaje como fallback, sin romper callable/event hover;
+- diagnostics solo deben consumir hechos de catálogo con confidence suficiente.
+```
+
+Estado auditado 2026-05-03:
+
+```text
+- DataWindowChild está alineado entre system-object-datatypes y PB_BUILTIN_TYPES.
+- `B285` queda ya cerrada: `system-object-datatypes` cubre ahora el runtime base usado en PFC/OrderEntry, incluyendo HTTP/JSON/OAuth, controles visuales comunes (`CommandButton`, `TreeView`, `WebBrowser`, `RibbonBar`, etc.), objetos de servicios (`INet`, `InternetResult`, `RestClient`, `WSConnection`) y reflection/runtime (`EnumerationDefinition`, `Function_Object`, `PBDOM_*`).
+- `PB_BUILTIN_TYPES` queda alineado con ese catálogo curado para evitar drift entre parser rápido y system catalog.
+- `script/generate_official_function_catalog.cjs` apunta al layout actual del servidor.
+- `scripts/generate_official_function_catalog.cjs` existe como wrapper de compatibilidad.
+- `B319` queda ya cerrada: `officialCoverage.generated.ts` publica coverage oficial para `global-functions`, `object-functions`, `datawindow-functions`, `system-events` y `statements`, dejando a B322-B336 la expansión oficial del resto de dominios.
+- `B322` queda ya cerrada: `officialCoverage.generated.ts` cubre `keywords` y `reserved-words` sin gaps, `generated.generated.ts` materializa `PB_GENERATED_KEYWORDS` y `PB_GENERATED_RESERVED_WORDS`, y `generatedKeywordLexemes.generated.ts` mantiene `PB_KEYWORDS` alineado con vocabulario oficial como `PUBLIC`, `COMMIT`, `NAMESPACE`, `WITH`, `SYSTEMREAD` y `XOR` sin convertir `pronouns` ni `system-globals` en la fuente primaria del dominio.
+- `B324` queda ya cerrada: `operators`, `pronouns` y `enumerated-values` se mantienen como dominios curados explícitos, `enumeratedValues.ts` publica aliases sin `!` para tipos como `SaveAsType!` y `Encoding!`, y `catalogV2.test.ts` bloquea overlaps accidentales con `keywords`/`reserved-words` después de la oficialización de B322.
+- `B325` queda ya cerrada: `systemGlobals.ts` publica `valueType`, `risk` y firmas tipadas para `SQLCA`, `SQLSA`, `SQLDA`, `Error` y `Message`; `semanticQueryService.ts` y `signatureHelp.ts` consumen ya esa metadata catalog-driven en lugar de hardcodes por nombre.
+- `B330` queda ya cerrada: `completion.ts` consume `reserved-words`, `pronouns`, `system-globals` y `enumerated-values` sólo en la rama contextual sin qualifier, con deduplicación case-insensitive y prioridad menor que símbolos locales/proyecto, evitando mezclar esos dominios en member contexts irrelevantes.
+- `B323` queda ya cerrada: `officialCoverage.generated.ts` deja `datatypes` y `system-object-datatypes` en cobertura oficial completa, `generated.generated.ts` materializa los system types oficiales faltantes y `generatedBuiltinTypes.generated.ts` mantiene `PB_BUILTIN_TYPES` alineado con aliases críticos como `UnsignedInt` y con tipos oficiales relevantes como `SMTPClient`, `WindowObject`, `PDFAction`, `SyncParm` y `PowerServerResult`.
+```
+
 ---
 
 ## 14. Lifecycle events
@@ -802,6 +863,12 @@ Estado actual del repo:
 - un refuerzo legacy-safe adicional permite hover/definition locales dentro del propio `.srd` para bandas y columnas SQL simples del `retrieve`, sin reintroducir el subsistema legacy completo.
 - el catálogo básico ya está integrado: `documentSymbols` expone root/bandas/tabla/columnas/`retrieve` y los workspace/API symbols publican el stub `.srd` como tipo navegable del workspace.
 - existe ya un `DataWindowModel` reutilizable por hover/definition/documentSymbols para el slice avanzado inicial;
+- `B287` queda ya cerrada: `DataWindowModel` concentra `retrieve`, `retrieveArguments`, bandas, columnas `table`, `report(...)` y referencias SQL simples, incluyendo comillas escapadas `~"` y tipos con paréntesis balanceados;
+- `dataWindowSafeMode`, los bindings `DataObject` y la especialización de `Retrieve(...)` reutilizan ese mismo `DataWindowModel` en vez de reparsear snapshots `.srd` por su cuenta;
+- `B288` queda ya cerrada: `sqlReferences` soporta aliases de `select`, `JOIN ... ON` simples y `WHERE` básico, resolviendo aliases de tabla cuando son defendibles y degradando cláusulas complejas con subquery sin fingir una engine SQL completa;
+- `B290` queda ya cerrada: `Describe`, `Modify`, `Retrieve`, `SetTrans`, `SetTransObject`, `Update` y `GetChild` viven en un catálogo owner-scoped con firmas, docs y `risk` coherentes para `hover`, `signatureHelp`, `completion` y `diagnostics`;
+- `B291` queda ya cerrada: `sqlRegions` publica anchors SQL embebidos con `confidence` y `transactionTarget` defendible hacia current object context, code metrics, debt report y support bundle, sin abrir un parser SQL general ni IDs diagnósticos nuevos;
+- `GetChild()` queda restringido a DataWindow control y DataStore; `DataWindowChild` no debe ofrecerlo ni explicarlo por fallback cuando el owner ya está resuelto;
 - ese slice avanzado cubre `report(name=... dataobject=...)`, `column.dddw.name`, property paths `Describe/Modify(...DataWindow.Table.Select)`, acceso directo `dw.Object.<control|column|property>` y `GetChild()` cuando el binding `DataObject` literal y la cadena child son deterministas.
 
 Phase 2: bindings
@@ -844,7 +911,7 @@ Diagnostics recomendados:
 PB-DW-001 DataObject literal not found
 PB-DW-002 Retrieve argument count mismatch
 PB-DW-003 DataObject assignment cannot be resolved
-PB-DW-004 DataWindow column not found
+PB-DW-004 DataWindow expression dependency unresolved
 PB-DW-005 Dynamic Modify/Describe lowers confidence
 PB-DW-006 Nested report reference not found
 PB-DW-007 DDDW reference not found
@@ -1166,6 +1233,17 @@ Reglas:
 - credenciales/tokens/certificados deben activar diagnostics de seguridad si aparecen hardcoded.
 ```
 
+Estado cerrado B282:
+
+```text
+- invocationRisk público usa safe|inherited|fallback|dynamic|external.
+- strings de eventos, DataWindow, WebView y HTTP request pueden elevar riesgo a dynamic.
+- sourceOrigin no canónico eleva riesgo a fallback o dynamic según autoridad.
+- impactAnalysis, safeEditPlan, dependencyGraph y code actions exponen riskReasons.
+- rename y safe edit bloquean dynamic/fallback/external antes de producir edits.
+- references degrada a declaraciones o vacío cuando solo se piden usos textuales inseguros.
+```
+
 ---
 
 ## 25. Semantic Snapshot
@@ -1259,6 +1337,7 @@ Definition  high/medium; low como probable.
 References  high/medium; low separado como probable/dynamic.
 Rename      solo high.
 PBL import  solo staging-writeable + preflight OK.
+Safe edit   bloqueado si invocationRisk es dynamic/fallback/external.
 ```
 
 ---

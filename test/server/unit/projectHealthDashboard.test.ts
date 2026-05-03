@@ -2,7 +2,10 @@ import * as assert from 'assert/strict';
 
 import type { ApiSemanticWorkspaceManifest } from '../../../src/shared/publicApi';
 import type { ProgressNotification } from '../../../src/shared/types';
-import { buildProjectHealthDashboardMarkdown } from '../../../src/client/projectHealthDashboard';
+import {
+  buildEnterpriseHealthScorecard,
+  buildProjectHealthDashboardMarkdown,
+} from '../../../src/client/projectHealthDashboard';
 import { enrichRuntimeStatusStats, type RuntimeStatusStats } from '../../../src/client/statusBarPresentation';
 
 suite('unit/projectHealthDashboard (B216)', () => {
@@ -19,6 +22,11 @@ suite('unit/projectHealthDashboard (B216)', () => {
     workspace: {
       mode: 'solution',
       files: 120,
+      sourceOrigins: {
+        'solution-source': 2,
+        'manual-export-source': 1,
+        'orca-staging': 1,
+      },
       activeProject: {
         name: 'demo',
         kind: 'solution',
@@ -117,6 +125,7 @@ suite('unit/projectHealthDashboard (B216)', () => {
     objects: [
       { name: 'w_main', uri: 'file:///demo/w_main.srw', baseType: 'window', sourceOrigin: 'solution-source' },
       { name: 'n_cst', uri: 'file:///demo/n_cst.sru', baseType: 'nonvisualobject', sourceOrigin: 'solution-source' },
+      { name: 'd_orders', uri: 'file:///demo/d_orders.srd', objectKind: 'datawindow', sourceOrigin: 'manual-export-source' },
     ],
     inheritanceSummary: {
       totalTypes: 8,
@@ -125,7 +134,7 @@ suite('unit/projectHealthDashboard (B216)', () => {
     },
     exportedSymbols: [],
     diagnosticsSummary: stats.diagnostics,
-    sourceOriginSummary: { 'solution-source': 2 },
+    sourceOriginSummary: { 'solution-source': 2, 'manual-export-source': 1, 'orca-staging': 1 },
     readiness: { state: 'indexing', detail: 'enriched' },
   };
 
@@ -134,9 +143,22 @@ suite('unit/projectHealthDashboard (B216)', () => {
 
     assert.match(dashboard, /^# PowerSyntax Project Health Dashboard/m);
     assert.match(dashboard, /Estado visible: demo — semántico 7\/10/);
+    assert.match(dashboard, /Enterprise health score: 80\/100 · atención · vigilar performance, diagnósticos, readiness/);
+    assert.match(dashboard, /## Enterprise health score/);
+    assert.match(dashboard, /Estado: atención/);
+    assert.match(dashboard, /Score total: 80\/100/);
+    assert.match(dashboard, /\| Readiness \| atención \| 14\/20 \| indexing · enriched \|/);
+    assert.match(dashboard, /\| Diagnósticos \| atención \| 10\/15 \| 1 error · 2 warning · 1 hint \|/);
+    assert.match(dashboard, /\| Performance \| atención \| 6\/10 \| snapshot parcial: sin scheduler\/memory \|/);
     assert.match(dashboard, /Salud runtime: warning · cola background 4 · 1 huérfanos/);
-    assert.match(dashboard, /Workspace semántico: 2 proyectos · 3 librerías · 2 objetos exportados · 8 tipos/);
+    assert.match(dashboard, /Workspace semántico: 2 proyectos · 3 librerías · 3 objetos exportados · 8 tipos/);
     assert.match(dashboard, /ORCA legacy: ORCA disponible · configuración/);
+    assert.match(dashboard, /## Matriz de soporte/);
+    assert.match(dashboard, /Modo actual: solution/);
+    assert.match(dashboard, /\| PowerBuilder 2025 Solution \| soportado \| activo \| modo actual: solution \|/);
+    assert.match(dashboard, /\| Source plain-text \/ exportado \| read-only \| presente \| source origins: manual-export-source \|/);
+    assert.match(dashboard, /\| DataWindow \.srd \| read-only \| presente \| 1 DataWindow\(s\) publicados en el manifest \|/);
+    assert.match(dashboard, /\| PBAutoBuild \| condicional \| disponible \| PBAutoBuild disponible vía configuración\./);
     assert.match(dashboard, /## Diagnósticos/);
     assert.match(dashboard, /PowerScript:SD7: 2/);
     assert.match(dashboard, /## Build/);
@@ -149,10 +171,37 @@ suite('unit/projectHealthDashboard (B216)', () => {
     assert.match(dashboard, /\[PowerSyntax\] Salud del runtime/);
   });
 
+  test('calcula un score enterprise explicable desde las surfaces existentes', () => {
+    const scorecard = buildEnterpriseHealthScorecard(stats, manifest);
+
+    assert.equal(scorecard.schemaVersion, '1.0.0');
+    assert.equal(scorecard.total, 80);
+    assert.equal(scorecard.max, 100);
+    assert.equal(scorecard.status, 'warning');
+    assert.equal(scorecard.summary, 'vigilar performance, diagnósticos, readiness');
+    assert.deepEqual(
+      scorecard.dimensions.map((dimension) => `${dimension.key}:${dimension.score}/${dimension.weight}:${dimension.status}`),
+      [
+        'readiness:14/20:warning',
+        'diagnostics:10/15:warning',
+        'build:12/15:healthy',
+        'orca:10/10:healthy',
+        'cache:10/10:healthy',
+        'source-origin:8/10:healthy',
+        'performance:6/10:warning',
+        'support-matrix:10/10:healthy',
+      ],
+    );
+  });
+
   test('degrada con honestidad cuando no hay datos disponibles', () => {
     const dashboard = buildProjectHealthDashboardMarkdown({ phase: 'idle' }, undefined, undefined, '2026-05-01T10:05:00.000Z');
 
     assert.match(dashboard, /Estado visible: en espera/);
+    assert.match(dashboard, /Enterprise health score: 52\/100 · crítico · vigilar readiness, build, source origin/);
+    assert.match(dashboard, /\| Support matrix \| atención \| 6\/10 \| modo soportado disponible pero no activo \|/);
+    assert.match(dashboard, /## Matriz de soporte/);
+    assert.match(dashboard, /\| PBAutoBuild \| condicional \| no disponible \| tooling no detectado en este entorno \|/);
     assert.match(dashboard, /Diagnósticos/);
     assert.match(dashboard, /Sin snapshot diagnóstico disponible/);
     assert.match(dashboard, /Tooling: sin datos/);

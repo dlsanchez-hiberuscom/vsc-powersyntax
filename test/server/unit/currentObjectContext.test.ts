@@ -162,4 +162,42 @@ suite('unit/currentObjectContext (B217)', () => {
     assert.equal(context.ancestorChain?.[1]?.isSystemType, true);
     assert.equal(context.ancestorChain?.[0]?.uri, undefined);
   });
+
+  test('expone embedded SQL anchors con confidence y transaction target en el context pack', () => {
+    const document = setupAnalyzedDocument('file:///proj/lib_app.pbl/w_sql_context.srw', [
+      'forward',
+      'global type w_sql_context from window',
+      'end type',
+      'end forward',
+      'global type w_sql_context from window',
+      'end type',
+      'event open();',
+      '  long ll_order_id',
+      '  CONNECT USING SQLCA;',
+      '  SELECT order_id',
+      '    INTO :ll_order_id',
+      '    FROM sales_order;',
+      'end event'
+    ].join('\r\n'));
+
+    const context = buildCurrentObjectContext(
+      document,
+      { line: 9, character: 4 },
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.equal(context.embeddedSqlAnchors?.length, 1);
+    assert.deepEqual(context.embeddedSqlAnchors?.[0], {
+      startLine: 9,
+      endLine: 11,
+      keyword: 'SELECT',
+      preview: ' SELECT order_id INTO :ll_order_id FROM sales_order;'.trimStart(),
+      confidence: 'high',
+      transactionTarget: 'SQLCA'
+    });
+  });
 });

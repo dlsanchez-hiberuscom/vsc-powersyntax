@@ -1,5 +1,6 @@
 import { findSqlRegions } from '../parsing/sqlRegions';
 import { collectDataObjectBindings } from './dataWindowBindingModel';
+import { collectEmbeddedSqlAnchors } from './embeddedSqlAnchors';
 import type { DiagnosticsSnapshot } from './diagnosticsSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { EntityKind, type Entity, type Fact } from '../knowledge/types';
@@ -196,6 +197,7 @@ export function buildPowerBuilderCodeMetrics(
 
   const objects = typeEntities.map((entity) => {
     const snapshot = kb.getDocumentSnapshot(entity.uri);
+    const embeddedSqlAnchors = collectEmbeddedSqlAnchors(snapshot, 4);
     const projectContext = workspaceState.getProjectContextForFile(entity.uri);
     const library = workspaceState.resolveLibraryForFile(entity.uri, projectContext?.libraries);
     const objectDiagnostics = diagnosticsByObject.get(entity.name.toLowerCase());
@@ -219,6 +221,7 @@ export function buildPowerBuilderCodeMetrics(
       ...(snapshot?.readiness ? { readiness: snapshot.readiness } : {}),
       ...(entity.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
       metrics,
+      ...(embeddedSqlAnchors.length > 0 ? { embeddedSqlAnchors } : {}),
     } satisfies ApiPowerBuilderCodeMetricsObject;
   });
 

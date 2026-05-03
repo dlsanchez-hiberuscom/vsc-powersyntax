@@ -124,4 +124,46 @@ suite('unit/safeEditPlan (B219)', () => {
     assert.ok(plan.docsToReview.includes('docs/rules-catalog.md'));
     assert.deepEqual(plan.blockedReasons, []);
   });
+
+  test('bloquea el plan cuando el símbolo aparece en una invocación por string dinámico', async () => {
+    const mainUri = 'file:///proj/lib_app.pbl/w_dynamic.srw';
+    const document = setupAnalyzedDocument(mainUri, [
+      'forward',
+      'global type w_dynamic from window',
+      'end type',
+      'end forward',
+      'global type w_dynamic from window',
+      'end type',
+      'public subroutine of_dynamic();',
+      'end subroutine',
+      'public subroutine of_call();',
+      '  PostEvent("of_dynamic")',
+      '  of_dynamic()',
+      'end subroutine'
+    ].join('\r\n'));
+
+    const lines = document.getText().split(/\r?\n/);
+    const callLine = lines.findIndex((line) => line.trim() === 'of_dynamic()');
+    const callCharacter = lines[callLine].indexOf('of_dynamic') + 2;
+
+    const plan = await buildSafeEditPlan(
+      document,
+      {
+        line: callLine,
+        character: callCharacter,
+        maxSafeReferences: 16,
+      },
+      kb,
+      graph,
+      catalog,
+      async (uri) => contentsByUri.get(uri) ?? null,
+      { workspaceState }
+    );
+
+    assert.equal(plan.available, true);
+    assert.equal(plan.blocked, true);
+    assert.equal(plan.invocationRisk, 'dynamic');
+    assert.ok(plan.riskReasons?.includes('dynamic-strings:1'));
+    assert.ok(plan.blockedReasons.some((reason) => reason.includes('DataWindow dinámico') || reason.includes('strings')));
+  });
 });

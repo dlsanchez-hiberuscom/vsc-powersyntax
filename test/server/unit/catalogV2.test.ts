@@ -2,6 +2,7 @@ import * as assert from 'assert/strict';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { PB_SYSTEM_SYMBOL_REGISTRY } from '../../../src/server/knowledge/system/registry/registry';
 import { buildCatalogConsistencyReport } from '../../../src/server/knowledge/system/consistency';
+import { PB_BUILTIN_TYPES, PB_KEYWORDS } from '../../../src/server/parsing/grammar';
 
 suite('unit/catalogV2 (B318)', () => {
   let catalog: SystemCatalog;
@@ -169,6 +170,28 @@ suite('unit/catalogV2 (B318)', () => {
     assert.equal(r2.id, r3.id);
   });
 
+  test('v2: resolveKeyword("public") cubre modifiers oficiales generados', () => {
+    const kw = catalog.resolveKeyword('public');
+    assert.ok(kw, 'debe resolver PUBLIC');
+    assert.equal(kw.name, 'PUBLIC');
+    assert.equal(kw.kind, 'keyword');
+  });
+
+  test('v2: resolveReservedWord("commit") cubre reserved words oficiales generados', () => {
+    const rw = catalog.resolveReservedWord('commit');
+    assert.ok(rw, 'debe resolver COMMIT');
+    assert.equal(rw.name, 'COMMIT');
+    assert.equal(rw.kind, 'reserved-word');
+  });
+
+  test('v2: PB_KEYWORDS queda alineado con keywords oficiales, reserved words oficiales y blockers explícitos', () => {
+    assert.equal(PB_KEYWORDS.has('commit'), true);
+    assert.equal(PB_KEYWORDS.has('namespace'), true);
+    assert.equal(PB_KEYWORDS.has('with'), true);
+    assert.equal(PB_KEYWORDS.has('sqlca'), true);
+    assert.equal(PB_KEYWORDS.has('this'), true);
+  });
+
   test('v2: resolveDatatype("integer") devuelve datatype Integer', () => {
     const dt = catalog.resolveDatatype('integer');
     assert.ok(dt, 'debe resolver Integer');
@@ -183,11 +206,94 @@ suite('unit/catalogV2 (B318)', () => {
     assert.equal(dt.kind, 'system-type');
   });
 
+  test('v2: DataWindowChild queda alineado entre catálogo y Set rápido del parser', () => {
+    const dt = catalog.resolveDatatype('DataWindowChild');
+    assert.ok(dt, 'debe resolver DataWindowChild');
+    assert.equal(dt.name, 'DataWindowChild');
+    assert.equal(dt.kind, 'system-type');
+    assert.equal(PB_BUILTIN_TYPES.has('datawindowchild'), true);
+  });
+
+  test('v2: HTTPClient queda alineado entre catálogo y Set rápido del parser', () => {
+    const dt = catalog.resolveDatatype('HTTPClient');
+    assert.ok(dt, 'debe resolver HTTPClient');
+    assert.equal(dt.name, 'HTTPClient');
+    assert.equal(dt.kind, 'system-type');
+    assert.equal(PB_BUILTIN_TYPES.has('httpclient'), true);
+  });
+
+  test('v2: JSONParser queda alineado entre catálogo y Set rápido del parser', () => {
+    const dt = catalog.resolveDatatype('JSONParser');
+    assert.ok(dt, 'debe resolver JSONParser');
+    assert.equal(dt.name, 'JSONParser');
+    assert.equal(dt.kind, 'system-type');
+    assert.equal(PB_BUILTIN_TYPES.has('jsonparser'), true);
+  });
+
+  test('v2: OAuthClient queda alineado entre catálogo y Set rápido del parser', () => {
+    const dt = catalog.resolveDatatype('OAuthClient');
+    assert.ok(dt, 'debe resolver OAuthClient');
+    assert.equal(dt.name, 'OAuthClient');
+    assert.equal(dt.kind, 'system-type');
+    assert.equal(PB_BUILTIN_TYPES.has('oauthclient'), true);
+  });
+
+  test('v2: JSONGenerator queda alineado entre catálogo y Set rápido del parser', () => {
+    const dt = catalog.resolveDatatype('JSONGenerator');
+    assert.ok(dt, 'debe resolver JSONGenerator');
+    assert.equal(dt.name, 'JSONGenerator');
+    assert.equal(dt.kind, 'system-type');
+    assert.equal(PB_BUILTIN_TYPES.has('jsongenerator'), true);
+  });
+
+  test('v2: JSONPackage queda alineado entre catálogo y Set rápido del parser', () => {
+    const dt = catalog.resolveDatatype('JSONPackage');
+    assert.ok(dt, 'debe resolver JSONPackage');
+    assert.equal(dt.name, 'JSONPackage');
+    assert.equal(dt.kind, 'system-type');
+    assert.equal(PB_BUILTIN_TYPES.has('jsonpackage'), true);
+  });
+
+  test('v2: alias oficial UnsignedInt resuelve hacia UnsignedInteger y vive en PB_BUILTIN_TYPES', () => {
+    const dt = catalog.resolveDatatype('UnsignedInt');
+    assert.ok(dt, 'debe resolver UnsignedInt');
+    assert.equal(dt?.name, 'UnsignedInteger');
+    assert.equal(dt?.kind, 'datatype');
+    assert.equal(PB_BUILTIN_TYPES.has('unsignedint'), true);
+  });
+
+  test('v2: system-object-datatypes oficiales generados quedan alineados entre catálogo y parser', () => {
+    for (const typeName of ['SMTPClient', 'WindowObject', 'PDFAction', 'SyncParm', 'PowerServerResult']) {
+      const dt = catalog.resolveDatatype(typeName);
+      assert.ok(dt, `debe resolver ${typeName}`);
+      assert.equal(dt?.kind, 'system-type');
+      assert.equal(PB_BUILTIN_TYPES.has(typeName.toLowerCase()), true, `${typeName} debe vivir también en PB_BUILTIN_TYPES`);
+    }
+  });
+
+  test('v2: tipos runtime curados del corpus permanecen alineados entre catálogo y parser', () => {
+    for (const typeName of ['CommandButton', 'DropDownListBox', 'ListView', 'INet', 'InternetResult', 'MailRecipient', 'OAuthRequest', 'PDFDocument', 'EnumerationDefinition', 'TreeView', 'WebBrowser', 'RibbonBar', 'StaticText', 'UserObject', 'WSConnection']) {
+      const dt = catalog.resolveDatatype(typeName);
+      assert.ok(dt, `debe resolver ${typeName}`);
+      assert.equal(dt?.kind, 'system-type');
+      assert.equal(PB_BUILTIN_TYPES.has(typeName.toLowerCase()), true, `${typeName} debe vivir también en PB_BUILTIN_TYPES`);
+    }
+  });
+
   test('v2: resolveSystemGlobal("SQLCA") devuelve system-global SQLCA', () => {
     const sg = catalog.resolveSystemGlobal('SQLCA');
     assert.ok(sg, 'debe resolver SQLCA');
     assert.equal(sg.name, 'SQLCA');
     assert.equal(sg.kind, 'system-global');
+    assert.equal(sg.valueType, 'Transaction');
+    assert.equal(sg.risk, 'legacy');
+  });
+
+  test('v2: resolveSystemGlobal("SQLDA") expone tipo runtime para SQL dinámico', () => {
+    const sg = catalog.resolveSystemGlobal('SQLDA');
+    assert.ok(sg, 'debe resolver SQLDA');
+    assert.equal(sg.valueType, 'DynamicDescriptionArea');
+    assert.equal(sg.risk, 'legacy');
   });
 
   test('v2: resolvePronoun("this") devuelve pronoun This', () => {
@@ -219,6 +325,36 @@ suite('unit/catalogV2 (B318)', () => {
     const sym = catalog.resolveLanguageSymbol('this');
     assert.ok(sym, 'debe resolver This como language symbol');
     assert.equal(sym.kind, 'pronoun');
+  });
+
+  test('v2: resolveLanguageSymbol("SaveAsType") encuentra enumerated-value sin depender del sufijo !', () => {
+    const sym = catalog.resolveLanguageSymbol('SaveAsType');
+    assert.ok(sym, 'debe resolver SaveAsType como language symbol');
+    assert.equal(sym.kind, 'enumerated-value');
+    assert.equal(sym.name, 'SaveAsType!');
+  });
+
+  test('v2: operators/pronouns/enumerated-values no solapan lookup keys con keywords/reserved-words', () => {
+    const collectLookupKeys = (entries: readonly { lookupKeys?: readonly string[] }[]) => {
+      const values = new Set<string>();
+      for (const entry of entries) {
+        for (const lookupKey of entry.lookupKeys ?? []) {
+          values.add(lookupKey);
+        }
+      }
+      return values;
+    };
+    const overlap = (left: Set<string>, right: Set<string>) => [...left].filter(value => right.has(value)).sort();
+
+    const keywordLookupKeys = collectLookupKeys(catalog.listKeywords());
+    const reservedLookupKeys = collectLookupKeys(catalog.listReservedWords());
+
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listOperators()), keywordLookupKeys), []);
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listOperators()), reservedLookupKeys), []);
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listPronouns()), keywordLookupKeys), []);
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listPronouns()), reservedLookupKeys), []);
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listEnumeratedValues()), keywordLookupKeys), []);
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listEnumeratedValues()), reservedLookupKeys), []);
   });
 
   test('v2: resolveLanguageSymbol no interfiere con callables (MessageBox)', () => {

@@ -27,3 +27,12 @@ Evolve the `knowledge/system` architecture into a complete PowerBuilder Language
 - **B319**: Restore official catalog generator (deferred).
 - **B320**: DataWindow expression/property official catalog (deferred).
 - **B321**: Generated catalog domain enrichment v2 (deferred).
+
+## Audit addendum 2026-05-03
+
+The follow-up audit confirmed B318 itself remains closed and compatible:
+
+- v2 language slices are registered in the system catalog registry and exposed by indexed query APIs.
+- `grammar.ts` keeps parser hot-path `Set<string>` exports; `DataWindowChild` is now covered by both the catalog and the fast builtin-type set while preserving the previous misspelled entry for compatibility.
+- the official generator rail exists under `script/generate_official_function_catalog.cjs`, with a compatibility wrapper under `scripts/`, but B319 remains open because full coverage v2 is not closed yet.
+- `officialCoverage.generated.ts` currently reports coverage for `system-events` and `statements`; broader generated coverage remains deferred to B319/B321.

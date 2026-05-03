@@ -11,6 +11,7 @@ import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from '../knowledge/HotContextCache';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { Entity, EntityKind } from '../knowledge/types';
+import { buildCallableSignatureFamilyKey, isCallableEntity } from '../knowledge/callSignature';
 import {
   type ApiCurrentObjectAncestor,
   type ApiCurrentObjectContextSymbol,
@@ -21,6 +22,8 @@ import {
   type ApiImpactLocation,
 } from '../../shared/publicApi';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
+import { detectDynamicStringReferences } from './dynamicStringReferences';
+import { buildInvocationRiskSummary } from './invocationRiskModel';
 
 const DEFAULT_SAFE_REFERENCES = getQueryConsumerPolicy('impact-analysis').resultCap;
 const MAX_SAFE_REFERENCES = 256;
@@ -94,6 +97,10 @@ function collectOverrides(rootEntity: Entity, ownerType: string, descendants: st
     return [];
   }
 
+  const rootSignatureKey = isCallableEntity(rootEntity)
+    ? buildCallableSignatureFamilyKey(rootEntity)
+    : undefined;
+
   const overrides: ApiCurrentObjectContextSymbol[] = [];
   const seen = new Set<string>();
   for (const descendant of descendants) {
@@ -102,6 +109,7 @@ function collectOverrides(rootEntity: Entity, ownerType: string, descendants: st
         entry.relation !== 'override'
         || entry.entity.kind !== rootEntity.kind
         || entry.entity.name.toLowerCase() !== rootEntity.name.toLowerCase()
+        || (rootSignatureKey && buildCallableSignatureFamilyKey(entry.entity) !== rootSignatureKey)
       ) {
         continue;
       }
@@ -277,12 +285,25 @@ export async function buildImpactAnalysis(
     addAffectedSymbol(affectedSymbols, affectedSeen, event);
   }
 
+  const invocationRisk = buildInvocationRiskSummary({
+    baseRisk: queryContext?.invocationRisk,
+    sourceOrigin: rootEntity.lineage?.sourceOrigin,
+    dynamicStringHits: detectDynamicStringReferences(rootEntity.name, sources),
+    evidenceKinds: queryContext?.resolutionEvidenceKinds,
+    hasExternalTarget: rootEntity.isExternal === true,
+    dataWindowBindingStates: relatedDataWindows.map((binding) => binding.state),
+  });
+
   return {
     available: true,
     rootSymbol: toImpactSymbol(rootEntity),
     ...(queryContext?.resolutionConfidence ? { confidence: queryContext.resolutionConfidence } : { confidence: 'high' }),
     ...(queryContext?.primaryResolutionReasonCode ? { primaryReasonCode: queryContext.primaryResolutionReasonCode } : {}),
     ...(queryContext ? { evidenceKinds: queryContext.resolutionEvidenceKinds } : {}),
+    ...(queryContext?.invocationKind ? { invocationKind: queryContext.invocationKind } : {}),
+    invocationRisk: invocationRisk.risk,
+    riskReasons: invocationRisk.reasons,
+    ...(invocationRisk.dynamicStringReferenceCount ? { dynamicStringReferenceCount: invocationRisk.dynamicStringReferenceCount } : {}),
     safeReferences,
     probableImpactFiles,
     descendants: descendantAncestors,

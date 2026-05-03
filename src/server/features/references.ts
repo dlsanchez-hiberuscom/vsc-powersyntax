@@ -126,6 +126,9 @@ export function provideReferences(
   const allowEventLiteralReferences = defs.some((def) => def.kind === EntityKind.Event);
   const hasExternalDependencyTargets = defs.some((def) => def.isExternal);
   const blockingDynamicHit = allowEventLiteralReferences ? false : hasBlockingDynamicStringReference(word, sources);
+  if (blockingDynamicHit && options.includeDeclaration === false) {
+    return [];
+  }
 
   // 1. Definiciones desde la KB
   if (options.includeDeclaration !== false) {

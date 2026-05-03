@@ -141,3 +141,16 @@ Cuando una spec mencione `plugin_old`:
 5. adaptar a arquitectura actual;
 6. añadir tests;
 7. actualizar docs afectadas.
+
+---
+
+## 6. Auditoría 2026-05-03
+
+Clasificación vigente tras revisar `plugin_old` frente a la arquitectura actual:
+
+- **Ya implementado mejor:** core semántico, snapshots, KnowledgeBase, sourceOrigin, scoring base de completion, DataWindow safe mode inicial, ORCA staging moderno y guards de rename/references.
+- **Implementación parcial aprovechable:** folding, linked editing, inlay hints, callable/code lens counts, advanced semantic tokens y algunos casos DataWindow child/report/column occurrences.
+- **Valuable gaps registrados:** B342 para heurísticas probadas y B344 para edge cases DataWindow; cualquier migración debe entrar como fixture/regla sobre el backbone actual.
+- **No portar:** provider host cliente, singleton indexes sin versionado, symbol keys sin sourceOrigin, ORCA directo y cualquier lógica que reconstruya semántica fuera de `KnowledgeBase`/snapshots/query service.
+
+La sesión actual no porta código legacy; solo registra gaps y aplica un refactor server-side propio (`CodeLensResultCache`) sin tomar implementación antigua.

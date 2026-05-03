@@ -4,6 +4,9 @@
  * para ser reutilizados por matchers, diagnostics y análisis de secciones.
  */
 
+import { PB_GENERATED_BUILTIN_TYPES } from './generatedBuiltinTypes.generated';
+import { PB_GENERATED_KEYWORD_LEXEMES } from './generatedKeywordLexemes.generated';
+
 // -----------------------------------------------------------------------------
 // 1. CONSTANTES LÉXICAS ATÓMICAS
 // -----------------------------------------------------------------------------
@@ -32,23 +35,21 @@ export const ANY_MODIFIER_SOURCE = `(?:(?:${VARIABLE_ACCESS_MODIFIER_SOURCE}|${V
 // 2. PALABRAS CLAVE (KEYWORDS)
 // -----------------------------------------------------------------------------
 
-export const PB_KEYWORDS = new Set<string>([
-  'if', 'then', 'else', 'elseif', 'end', 'choose', 'case', 'for', 'to', 'step',
-  'next', 'do', 'while', 'until', 'loop', 'return', 'exit', 'continue', 'goto',
-  'destroy', 'create', 'true', 'false', 'not', 'and', 'or',
+const PB_FAST_BLOCK_KEYWORD_PHRASES = [
+  'end if', 'end choose', 'end try', 'end function', 'end subroutine', 'end event', 'end on',
+  'end type', 'type variables', 'end variables', 'type prototypes', 'end prototypes',
+  'forward prototypes', 'end forward'
+] as const;
+
+const PB_FAST_NON_IDENTIFIER_TOKENS = [
   'this', 'super', 'parent', 'parentwindow',
-  'sqlca', 'sqlsa', 'sqlda', 'error', 'message',
-  'halt', 'throw', 'catch', 'finally', 'try', 'subroutine', 'function', 'event',
-  'on', 'call', 'dynamic', 'post', 'trigger', 'open', 'close',
-  'type', 'from', 'within', 'autoinstantiate', 'prototypes', 'forward', 'variables',
-  'global', 'shared', 'public', 'private', 'protected', 'readonly', 'constant',
-  'ref', 'indirect', 'static', 'rpcfunc', 'external', 'native', 'system', 'library',
-  'using', 'set', 'get', 'of', 'is',
-  'it', 'any', 'null',
-  'privateread', 'privatewrite', 'protectedread', 'protectedwrite',
-  'end if', 'choose case', 'end choose', 'end try', 'end function', 'end subroutine',
-  'end event', 'end on', 'end type', 'type variables', 'end variables',
-  'type prototypes', 'end prototypes', 'forward prototypes', 'end forward', 'throws'
+  'sqlca', 'sqlsa', 'sqlda', 'error', 'message'
+] as const;
+
+export const PB_KEYWORDS = new Set<string>([
+  ...PB_GENERATED_KEYWORD_LEXEMES,
+  ...PB_FAST_BLOCK_KEYWORD_PHRASES,
+  ...PB_FAST_NON_IDENTIFIER_TOKENS,
 ]);
 
 export const PB_BUILTIN_TYPES = new Set<string>([
@@ -57,13 +58,28 @@ export const PB_BUILTIN_TYPES = new Set<string>([
   'date', 'time', 'datetime', 'timestamp',
   'decimal', 'dec', 'double', 'real', 'number',
   'any', 'longlong', 'longptr',
-  'window', 'application', 'datawindow', 'datastore', 'datawwindowchild',
-  'transaction', 'oleobject', 'olecontrol', 'olecustomcontrol', 'olestorage', 'olestream',
+  'window', 'application', 'datawindow', 'datastore', 'datawindowchild', 'datawwindowchild',
+  'animation', 'checkbox', 'commandbutton', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask',
+  'graph', 'groupbox', 'hprogressbar', 'hscrollbar', 'htrackbar', 'inkedit', 'inkpicture', 'line', 'listbox',
+  'listview', 'listviewitem', 'multilineedit', 'monthcalendar', 'oval', 'picture', 'picturebutton', 'picturehyperlink',
+  'picturelistbox', 'powerserverlabel', 'radiobutton', 'rectangle', 'ribbonbar', 'richtextedit', 'roundrectangle',
+  'singlelineedit', 'statichyperlink', 'statictext', 'tab', 'treeview', 'treeviewitem', 'userobject', 'vprogressbar',
+  'vscrollbar', 'vtrackbar', 'webbrowser',
+  'transaction', 'adoresultset', 'coderobject', 'compressorobject', 'connection', 'contextinformation',
+  'contextkeyword', 'crypterobject', 'dotnetassembly', 'dotnetobject', 'errorlogging', 'exception', 'extractorobject',
+  'httpclient', 'inet', 'internetresult', 'mailrecipient', 'mlsync', 'oauthclient', 'oauthrequest', 'jsonparser',
+  'pipeline', 'profilecall', 'profileclass', 'profileline', 'profileroutine', 'profiling', 'jsongenerator', 'jsonpackage',
+  'oletxnobject', 'pdfdocument', 'pdfmodel', 'pdfobject', 'pdfsecurity', 'restclient', 'service', 'sslcallback',
+  'sslserviceprovider', 'timing', 'tokenrequest', 'tokenresponse', 'tracefile', 'tracetree', 'transactionserver',
+  'ulsync', 'wsconnection',
+  'oleobject', 'olecontrol', 'olecustomcontrol', 'olestorage', 'olestream',
   'powerobject', 'nonvisualobject', 'graphicobject', 'drawobject', 'structure',
   'dynamicdescriptionarea', 'dynamicstagingarea',
   'mailsession', 'message', 'environment', 'error', 'throwable', 'runtimeerror',
-  'classdefinition', 'scriptdefinition', 'variabledefinition', 'typedefinition',
-  'typeobject'
+  'classdefinition', 'enumerationdefinition', 'enumerationitemdefinition', 'function_object', 'pbdom_characterdata',
+  'pbdom_object', 'pbdom_text', 'scriptdefinition', 'variabledefinition', 'typedefinition',
+  'typeobject',
+  ...PB_GENERATED_BUILTIN_TYPES,
 ]);
 
 // -----------------------------------------------------------------------------

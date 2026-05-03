@@ -386,6 +386,41 @@ end subroutine
     );
   });
 
+  test('no devuelve ocurrencias textuales sin declaraciones cuando existe riesgo dinámico', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+
+    const document = TextDocument.create('file:///w_dynamic_refs.srw', 'powerbuilder', 1, `
+global type w_dynamic_refs from window
+end type
+forward prototypes
+public subroutine of_run()
+end prototypes
+public subroutine of_run();
+end subroutine
+public subroutine of_test();
+  PostEvent("of_run")
+  of_run()
+end subroutine
+    `);
+
+    const analysis = analyzeDocument(document);
+    kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
+
+    const lines = document.getText().split(/\r?\n/);
+    const callLine = lines.findIndex((line) => line.trim() === 'of_run()');
+    const refs = provideReferences(
+      document,
+      Position.create(callLine, lines[callLine].indexOf('of_run') + 1),
+      kb,
+      graph,
+      [{ uri: document.uri, content: document.getText() }],
+      { includeDeclaration: false }
+    );
+
+    assert.deepEqual(refs, []);
+  });
+
   test('no mezcla referencias de source real con orca-staging cuando la familia canónica resuelta es la real', () => {
     const kb = new KnowledgeBase();
     const graph = new InheritanceGraph(kb);

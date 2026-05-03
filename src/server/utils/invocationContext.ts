@@ -13,6 +13,150 @@ export interface InvocationContext {
   qualifier?: string;
   /** Separador sintáctico entre qualifier e identifier (`.` o `::`). */
   separator?: InvocationSeparator;
+  /** Número de argumentos observables en la llamada, si el contexto lo permite inferir. */
+  argumentCount?: number;
+  /** Tipos literales inferibles de argumentos simples; posiciones no inferibles usan `unknown`. */
+  argumentTypes?: string[];
+}
+
+function splitTopLevelArguments(argumentText: string): string[] {
+  const args: string[] = [];
+  let depth = 0;
+  let quote: '"' | "'" | null = null;
+  let start = 0;
+
+  for (let index = 0; index < argumentText.length; index++) {
+    const char = argumentText[index]!;
+    if (!quote && (char === '"' || char === "'")) {
+      quote = char;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '(') {
+      depth++;
+      continue;
+    }
+    if (char === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (char === ',' && depth === 0) {
+      args.push(argumentText.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+
+  args.push(argumentText.slice(start).trim());
+  return args;
+}
+
+function inferArgumentType(argumentText: string): string {
+  const trimmed = argumentText.trim();
+  if (!trimmed) {
+    return 'unknown';
+  }
+  if (/^(['"]).*\1$/s.test(trimmed)) {
+    return 'string';
+  }
+  if (/^[+-]?\d+$/.test(trimmed)) {
+    return 'integer';
+  }
+  if (/^[+-]?\d+\.\d+$/.test(trimmed)) {
+    return 'decimal';
+  }
+  if (/^(true|false)$/i.test(trimmed)) {
+    return 'boolean';
+  }
+  if (/^sqlca$/i.test(trimmed)) {
+    return 'transaction';
+  }
+  return 'unknown';
+}
+
+function inferArgumentDetails(lineText: string, identifierEnd: number): { argumentCount: number; argumentTypes: string[] } | undefined {
+  let cursor = identifierEnd;
+  while (cursor < lineText.length && /\s/.test(lineText[cursor]!)) {
+    cursor++;
+  }
+
+  if (lineText[cursor] !== '(') {
+    return undefined;
+  }
+
+  const argumentStart = cursor + 1;
+  cursor++;
+  let depth = 0;
+  let commaCount = 0;
+  let sawArgumentToken = false;
+  let quote: '"' | "'" | null = null;
+
+  for (; cursor < lineText.length; cursor++) {
+    const char = lineText[cursor]!;
+    const next = lineText[cursor + 1];
+
+    if (!quote && char === '/' && next === '/') {
+      break;
+    }
+
+    if (!quote && (char === '"' || char === "'")) {
+      quote = char;
+      sawArgumentToken = true;
+      continue;
+    }
+
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '(') {
+      depth++;
+      sawArgumentToken = true;
+      continue;
+    }
+
+    if (char === ')') {
+      if (depth === 0) {
+        if (!sawArgumentToken && commaCount === 0) {
+          return undefined;
+        }
+        const argumentText = lineText.slice(argumentStart, cursor);
+        const argumentCount = sawArgumentToken ? commaCount + 1 : 0;
+        const argumentTypes = argumentCount > 0
+          ? splitTopLevelArguments(argumentText).map(inferArgumentType)
+          : [];
+        return { argumentCount, argumentTypes };
+      }
+      depth--;
+      continue;
+    }
+
+    if (char === ',' && depth === 0) {
+      commaCount++;
+      continue;
+    }
+
+    if (!/\s/.test(char)) {
+      sawArgumentToken = true;
+    }
+  }
+
+  if (sawArgumentToken || commaCount > 0) {
+    const argumentText = lineText.slice(argumentStart);
+    return {
+      argumentCount: commaCount + 1,
+      argumentTypes: splitTopLevelArguments(argumentText).map(inferArgumentType)
+    };
+  }
+
+  return undefined;
 }
 
 function extractStringLiterals(line: string): Array<{ value: string; start: number; end: number }> {
@@ -91,6 +235,7 @@ export function getInvocationContext(lines: string[], position: TextPosition): I
 
   const identifier = identifierSpan.word;
   const start = identifierSpan.start;
+  const argumentDetails = inferArgumentDetails(lineText, identifierSpan.end);
 
   // 2. Buscar cualificador hacia atrás
   let qStart = start - 1;
@@ -101,7 +246,7 @@ export function getInvocationContext(lines: string[], position: TextPosition): I
   }
 
   if (qStart < 0) {
-    return { identifier };
+    return { identifier, ...(argumentDetails ?? {}) };
   }
 
   // Comprobar si hay un separador '.' o '::'
@@ -118,7 +263,7 @@ export function getInvocationContext(lines: string[], position: TextPosition): I
   }
 
   if (!hasSeparator) {
-    return { identifier };
+    return { identifier, ...(argumentDetails ?? {}) };
   }
 
   // Ignorar espacios antes del separador
@@ -127,15 +272,15 @@ export function getInvocationContext(lines: string[], position: TextPosition): I
   }
 
   if (qStart < 0) {
-    return { identifier };
+    return { identifier, ...(argumentDetails ?? {}) };
   }
 
   const qualifierSpan = findPowerBuilderIdentifierSpan(lineText, qStart);
   if (!qualifierSpan) {
-    return { identifier };
+    return { identifier, ...(argumentDetails ?? {}) };
   }
 
   const qualifier = qualifierSpan.word;
 
-  return { identifier, qualifier, separator };
+  return { identifier, qualifier, separator, ...(argumentDetails ?? {}) };
 }

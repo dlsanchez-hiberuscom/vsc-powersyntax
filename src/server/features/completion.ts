@@ -9,6 +9,7 @@ import type { HotContextCache } from '../knowledge/HotContextCache';
 import { Entity, EntityKind } from '../knowledge/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
+import { buildDataWindowModel, rangeContains } from './dataWindowModel';
 import { providePowerScriptDataWindowPropertyCompletion } from './dataWindowPropertyPaths';
 import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
@@ -49,6 +50,11 @@ export function provideCompletion(
 ): CompletionItem[] | null {
   const snapshot = getDocumentAnalysis(document).snapshot;
   const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
+
+  const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(document, position);
+  if (dataWindowExpressionCompletion) {
+    return dataWindowExpressionCompletion;
+  }
   
   const dataWindowCompletion = providePowerScriptDataWindowPropertyCompletion(document, position, kb);
   if (dataWindowCompletion) {
@@ -206,12 +212,14 @@ export function provideCompletion(
 
     // 4. Keywords and datatypes from catalog v2 (only if prefix matches)
     if (identifierPrefix.length >= 2) {
+      appendCatalogCompletionItems(items, seen, systemCatalog.listReservedWords(), identifierPrefix, '3_reserved_');
       for (const kw of systemCatalog.listKeywords()) {
         if (!kw.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(kw.name.toLowerCase())) continue;
         seen.add(kw.name.toLowerCase());
         items.push({ label: kw.name, kind: CompletionItemKind.Keyword, detail: kw.summary, sortText: '3_keyword_' + kw.name.toLowerCase() });
       }
+      appendCatalogCompletionItems(items, seen, systemCatalog.listPronouns(), identifierPrefix, '3_pronoun_');
       for (const dt of systemCatalog.listDatatypes()) {
         if (!dt.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(dt.name.toLowerCase())) continue;
@@ -224,10 +232,92 @@ export function provideCompletion(
         seen.add(st.name.toLowerCase());
         items.push({ label: st.name, kind: CompletionItemKind.Class, detail: st.summary, sortText: '3_keyword_' + st.name.toLowerCase() });
       }
+      appendCatalogCompletionItems(items, seen, systemCatalog.listSystemGlobals(), identifierPrefix, '3_system_global_');
+      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, '3_enumerated_');
     }
   }
 
   return items.length > 0 ? items : null;
+}
+
+function provideDataWindowExpressionCompletion(
+  document: TextDocument,
+  position: Position,
+): CompletionItem[] | null {
+  const model = buildDataWindowModel(document);
+  if (!model) {
+    return null;
+  }
+
+  const expression = model.expressions.find((entry) => rangeContains(entry.selectionRange, position));
+  if (!expression) {
+    return null;
+  }
+
+  const expressionStartOffset = document.offsetAt(expression.selectionRange.start);
+  const cursorOffset = document.offsetAt(position);
+  if (cursorOffset < expressionStartOffset) {
+    return null;
+  }
+
+  const prefixSource = document.getText().slice(expressionStartOffset, cursorOffset);
+  const lastNonWhitespace = findLastNonWhitespaceCharacter(prefixSource);
+  if (lastNonWhitespace === '.') {
+    return null;
+  }
+
+  const prefixMatch = prefixSource.match(/([A-Za-z_][\w$#%]*)$/);
+  const prefix = (prefixMatch?.[1] ?? '').toLowerCase();
+  const seen = new Set<string>();
+  const items: CompletionItem[] = [];
+
+  for (const column of model.tableColumns) {
+    const normalized = column.name.toLowerCase();
+    if (prefix && !normalized.startsWith(prefix)) {
+      continue;
+    }
+    if (seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    items.push({
+      label: column.name,
+      kind: CompletionItemKind.Variable,
+      detail: column.type ? `DataWindow column · ${column.type}` : 'DataWindow column',
+      sortText: `0_dw_column_${normalized}`,
+    });
+  }
+
+  for (const control of model.controls) {
+    const normalized = control.name.toLowerCase();
+    if (prefix && !normalized.startsWith(prefix)) {
+      continue;
+    }
+    if (seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    items.push({
+      label: control.name,
+      kind: CompletionItemKind.Field,
+      detail: `DataWindow control · ${control.controlType}`,
+      sortText: `1_dw_control_${normalized}`,
+    });
+  }
+
+  return items.length > 0 ? items : null;
+}
+
+function findLastNonWhitespaceCharacter(text: string): string | undefined {
+  for (let index = text.length - 1; index >= 0; index--) {
+    if (!/\s/.test(text[index])) {
+      return text[index];
+    }
+  }
+
+  return undefined;
 }
 
 function createCompletionItem(entity: Entity, sortPrefix: string): CompletionItem {
@@ -259,14 +349,57 @@ function createCompletionItem(entity: Entity, sortPrefix: string): CompletionIte
   };
 }
 
+function appendCatalogCompletionItems(
+  items: CompletionItem[],
+  seen: Set<string>,
+  entries: readonly PbSystemSymbolEntry[],
+  identifierPrefix: string,
+  sortPrefix: string
+): void {
+  for (const entry of entries) {
+    const normalizedName = entry.name.toLowerCase();
+    if (!normalizedName.startsWith(identifierPrefix)) continue;
+    if (seen.has(normalizedName)) continue;
+    seen.add(normalizedName);
+    items.push(createSystemCompletionItem(entry, sortPrefix));
+  }
+}
+
 function createSystemCompletionItem(entry: PbSystemSymbolEntry, sortPrefix: string): CompletionItem {
+  let kind: CompletionItemKind;
+  switch (entry.kind) {
+    case 'event':
+      kind = CompletionItemKind.Event;
+      break;
+    case 'callable':
+      kind = entry.invocation === 'global' ? CompletionItemKind.Function : CompletionItemKind.Method;
+      break;
+    case 'datatype':
+      kind = CompletionItemKind.TypeParameter;
+      break;
+    case 'system-type':
+      kind = CompletionItemKind.Class;
+      break;
+    case 'system-global':
+    case 'pronoun':
+      kind = CompletionItemKind.Variable;
+      break;
+    case 'enumerated-value':
+      kind = CompletionItemKind.EnumMember;
+      break;
+    case 'property':
+      kind = CompletionItemKind.Property;
+      break;
+    case 'constant':
+      kind = CompletionItemKind.Constant;
+      break;
+    default:
+      kind = CompletionItemKind.Keyword;
+  }
+
   return {
     label: entry.name,
-    kind: entry.kind === 'event'
-      ? CompletionItemKind.Event
-      : entry.kind === 'callable'
-        ? CompletionItemKind.Method
-        : CompletionItemKind.Keyword,
+    kind,
     detail: entry.summary,
     documentation: entry.summary,
     insertTextFormat: InsertTextFormat.PlainText,

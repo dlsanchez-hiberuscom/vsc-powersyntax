@@ -338,8 +338,57 @@ suite('smoke/extension', () => {
     assert.ok(elapsed < 2000, `Activación demasiado lenta: ${elapsed.toFixed(2)}ms`);
   });
 
-  test('el comando restartServer puede ejecutarse repetidamente sin re-registrar comandos', async function () {
+  test('el runtime self-test se ejecuta como comando read-only', async function () {
     this.timeout(15000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    await ext!.activate();
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+    const contextDocument = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
+    );
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+
+    const runtimeSelfTestReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.runRuntimeSelfTest');
+    assert.match(runtimeSelfTestReport ?? '', /# PowerSyntax Runtime Self-Test/);
+    assert.match(runtimeSelfTestReport ?? '', /API pública/);
+    assert.match(runtimeSelfTestReport ?? '', /ORCA snapshot/);
+  });
+
+  test('settings governance publica perfiles corporativos y tolera la inspección read-only', async function () {
+    this.timeout(15000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    await ext!.activate();
+
+    const enumValues = ((ext!.packageJSON as {
+      contributes?: {
+        configuration?: {
+          properties?: Record<string, { enum?: string[] }>;
+        };
+      };
+    }).contributes?.configuration?.properties?.['vscPowerSyntax.profile']?.enum) ?? [];
+    assert.deepEqual(enumValues, ['fast', 'balanced', 'deep-analysis', 'legacy-orca', 'ci-support', 'support-safe']);
+
+    const configuration = vscode.workspace.getConfiguration();
+    await configuration.update('vscPowerSyntax.profile', 'legacy-orca', vscode.ConfigurationTarget.Workspace);
+    await configuration.update('vscPowerSyntax.formatting.enabled', true, vscode.ConfigurationTarget.Workspace);
+    await configuration.update('vscPowerSyntax.formatting.formatOnSave', false, vscode.ConfigurationTarget.Workspace);
+
+    await vscode.commands.executeCommand('vscPowerSyntax.showSettingsGovernance');
+
+    assert.equal(vscode.workspace.getConfiguration('vscPowerSyntax').get('profile'), 'legacy-orca');
+  });
+
+  test('el comando restartServer puede ejecutarse repetidamente sin re-registrar comandos', async function () {
+    this.timeout(30000);
 
     const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(ext, 'La extensión debería estar presente');

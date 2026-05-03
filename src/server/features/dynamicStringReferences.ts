@@ -10,7 +10,7 @@ export interface DynamicStringReferenceHit {
   literal: string;
 }
 
-const DYNAMIC_API_RE = /\b(postevent|triggerevent|tabpostevent|tabtriggerevent|describe|modify|evaluate|evaluatejavascriptasync|evaluatejavascriptsync|open)\s*\(/i;
+const DYNAMIC_API_RE = /\b(postevent|triggerevent|tabpostevent|tabtriggerevent|describe|modify|evaluate|evaluatejavascriptasync|evaluatejavascriptsync|open|sendrequest|setrequestheader)\s*\(/i;
 const DYNAMIC_SQL_RE = /\b(execute\s+immediate|prepare|declare)\b/i;
 const DATAOBJECT_ASSIGN_RE = /\bdataobject\s*=/i;
 

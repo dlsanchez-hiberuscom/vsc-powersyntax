@@ -159,7 +159,9 @@ export function provideHover(
     ? catalog.resolveMemberFunctionForOwner(identifier, [ownerType])
       ?? catalog.resolveEventForOwner(identifier, [ownerType])
     : undefined;
-  const systemSymbols = ownerScopedSymbol ? [ownerScopedSymbol] : catalog.findSystemSymbol(identifier);
+  const systemSymbols = resolved.context.qualifier
+    ? (ownerScopedSymbol ? [ownerScopedSymbol] : [])
+    : catalog.findSystemSymbol(identifier);
   if (systemSymbols.length > 0) {
     // Tomamos la primera coincidencia
     const symbol = systemSymbols[0];
@@ -213,6 +215,11 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
     lines.push(symbol.summary);
   }
 
+  if (symbol.risk) {
+    lines.push('');
+    lines.push(`**Riesgo de uso:** ${formatSystemSymbolRisk(symbol.risk)}`);
+  }
+
   if (symbol.signatures && symbol.signatures.length > 0) {
     const mainSig = symbol.signatures[0];
     if (mainSig.parameters && mainSig.parameters.length > 0) {
@@ -241,6 +248,21 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
   }
 
   return lines.join('\n');
+}
+
+function formatSystemSymbolRisk(risk: NonNullable<PbSystemSymbolEntry['risk']>): string {
+  switch (risk) {
+    case 'safe':
+      return 'seguro';
+    case 'dynamic':
+      return 'dinamico';
+    case 'deprecated':
+      return 'deprecated';
+    case 'legacy':
+      return 'legacy';
+    case 'external':
+      return 'externo';
+  }
 }
 
 /**

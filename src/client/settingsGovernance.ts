@@ -1,4 +1,4 @@
-export type PowerSyntaxProfileId = 'balanced' | 'interactive' | 'legacy-safe';
+export type PowerSyntaxProfileId = 'fast' | 'balanced' | 'deep-analysis' | 'legacy-orca' | 'ci-support' | 'support-safe';
 
 export interface PowerSyntaxSettingsProfileDescriptor {
   id: PowerSyntaxProfileId;
@@ -27,7 +27,28 @@ export interface PowerSyntaxSettingsGovernanceReport {
   conflicts: PowerSyntaxSettingsGovernanceConflict[];
 }
 
+const LEGACY_PROFILE_ALIASES: Readonly<Record<string, PowerSyntaxProfileId>> = {
+  interactive: 'fast',
+  'legacy-safe': 'support-safe',
+};
+
 const SETTINGS_PROFILE_DESCRIPTORS: readonly PowerSyntaxSettingsProfileDescriptor[] = [
+  {
+    id: 'fast',
+    label: 'Fast',
+    description: 'Prioriza feedback interactivo y budgets bajos para edición diaria sobre archivos grandes.',
+    managedSettings: {
+      'vscPowerSyntax.progress.show': true,
+      'vscPowerSyntax.formatting.enabled': true,
+      'vscPowerSyntax.formatting.formatOnSave': false,
+      'vscPowerSyntax.formatting.maxDocumentChars': 60000,
+      'vscPowerSyntax.formatting.maxDocumentLines': 2000,
+      'vscPowerSyntax.formatting.trimTrailingWhitespace': true,
+      'vscPowerSyntax.formatting.spaceAfterComma': true,
+      'vscPowerSyntax.formatting.spaceAroundOperators': true,
+      'vscPowerSyntax.formatting.normalizeBlankLines': true,
+    },
+  },
   {
     id: 'balanced',
     label: 'Balanced',
@@ -38,33 +59,104 @@ const SETTINGS_PROFILE_DESCRIPTORS: readonly PowerSyntaxSettingsProfileDescripto
       'vscPowerSyntax.formatting.formatOnSave': false,
       'vscPowerSyntax.formatting.maxDocumentChars': 120000,
       'vscPowerSyntax.formatting.maxDocumentLines': 4000,
+      'vscPowerSyntax.formatting.trimTrailingWhitespace': true,
+      'vscPowerSyntax.formatting.spaceAfterComma': true,
+      'vscPowerSyntax.formatting.spaceAroundOperators': true,
+      'vscPowerSyntax.formatting.normalizeBlankLines': true,
     },
   },
   {
-    id: 'interactive',
-    label: 'Interactive',
-    description: 'Prioriza edición interactiva y budgets más bajos en formateo sobre archivos grandes.',
+    id: 'deep-analysis',
+    label: 'Deep Analysis',
+    description: 'Amplía budgets de formateo y observabilidad para workspaces grandes y sesiones de análisis exhaustivo.',
     managedSettings: {
       'vscPowerSyntax.progress.show': true,
       'vscPowerSyntax.formatting.enabled': true,
       'vscPowerSyntax.formatting.formatOnSave': false,
-      'vscPowerSyntax.formatting.maxDocumentChars': 80000,
-      'vscPowerSyntax.formatting.maxDocumentLines': 2500,
+      'vscPowerSyntax.formatting.maxDocumentChars': 250000,
+      'vscPowerSyntax.formatting.maxDocumentLines': 10000,
+      'vscPowerSyntax.formatting.trimTrailingWhitespace': true,
+      'vscPowerSyntax.formatting.spaceAfterComma': true,
+      'vscPowerSyntax.formatting.spaceAroundOperators': true,
+      'vscPowerSyntax.formatting.normalizeBlankLines': true,
     },
   },
   {
-    id: 'legacy-safe',
-    label: 'Legacy Safe',
-    description: 'Reduce transformaciones automáticas para corpus legacy y sesiones de revisión conservadora.',
+    id: 'legacy-orca',
+    label: 'Legacy ORCA',
+    description: 'Minimiza transformaciones automáticas durante export/import ORCA y revisión de staging legacy.',
     managedSettings: {
       'vscPowerSyntax.progress.show': true,
       'vscPowerSyntax.formatting.enabled': true,
       'vscPowerSyntax.formatting.formatOnSave': false,
+      'vscPowerSyntax.formatting.maxDocumentChars': 90000,
+      'vscPowerSyntax.formatting.maxDocumentLines': 3000,
       'vscPowerSyntax.formatting.trimTrailingWhitespace': false,
+      'vscPowerSyntax.formatting.spaceAfterComma': false,
       'vscPowerSyntax.formatting.spaceAroundOperators': false,
+      'vscPowerSyntax.formatting.normalizeBlankLines': false,
+    },
+  },
+  {
+    id: 'ci-support',
+    label: 'CI Support',
+    description: 'Congela formateo automático y ruido visual para reproducibilidad y troubleshooting orientado a CI/soporte.',
+    managedSettings: {
+      'vscPowerSyntax.progress.show': false,
+      'vscPowerSyntax.formatting.enabled': false,
+      'vscPowerSyntax.formatting.formatOnSave': false,
+      'vscPowerSyntax.formatting.maxDocumentChars': 300000,
+      'vscPowerSyntax.formatting.maxDocumentLines': 12000,
+      'vscPowerSyntax.formatting.trimTrailingWhitespace': false,
+      'vscPowerSyntax.formatting.spaceAfterComma': false,
+      'vscPowerSyntax.formatting.spaceAroundOperators': false,
+      'vscPowerSyntax.formatting.normalizeBlankLines': false,
+    },
+  },
+  {
+    id: 'support-safe',
+    label: 'Support Safe',
+    description: 'Mantiene observabilidad y desactiva ajustes de formateo agresivos para sesiones de soporte o auditoría.',
+    managedSettings: {
+      'vscPowerSyntax.progress.show': true,
+      'vscPowerSyntax.formatting.enabled': true,
+      'vscPowerSyntax.formatting.formatOnSave': false,
+      'vscPowerSyntax.formatting.maxDocumentChars': 160000,
+      'vscPowerSyntax.formatting.maxDocumentLines': 8000,
+      'vscPowerSyntax.formatting.trimTrailingWhitespace': false,
+      'vscPowerSyntax.formatting.spaceAfterComma': true,
+      'vscPowerSyntax.formatting.spaceAroundOperators': false,
+      'vscPowerSyntax.formatting.normalizeBlankLines': false,
     },
   },
 ];
+
+function resolveSettingsProfile(
+  availableProfiles: PowerSyntaxSettingsProfileDescriptor[],
+  selectedProfile: string | undefined,
+): { profile: PowerSyntaxSettingsProfileDescriptor; aliasSource?: string; unknownProfile?: string } {
+  if (selectedProfile) {
+    const direct = availableProfiles.find((profile) => profile.id === selectedProfile);
+    if (direct) {
+      return { profile: direct };
+    }
+
+    const aliasedProfileId = LEGACY_PROFILE_ALIASES[selectedProfile];
+    if (aliasedProfileId) {
+      return {
+        profile: availableProfiles.find((profile) => profile.id === aliasedProfileId) ?? availableProfiles[0]!,
+        aliasSource: selectedProfile,
+      };
+    }
+
+    return {
+      profile: availableProfiles[0]!,
+      unknownProfile: selectedProfile,
+    };
+  }
+
+  return { profile: availableProfiles[0]! };
+}
 
 export function getSettingsProfileDescriptors(): PowerSyntaxSettingsProfileDescriptor[] {
   return SETTINGS_PROFILE_DESCRIPTORS.map((profile) => ({
@@ -82,7 +174,7 @@ export function buildSettingsGovernanceReport(
   selectedProfile: string | undefined,
 ): PowerSyntaxSettingsGovernanceReport {
   const availableProfiles = getSettingsProfileDescriptors();
-  const resolvedProfile = availableProfiles.find((profile) => profile.id === selectedProfile) ?? availableProfiles[0]!;
+  const { profile: resolvedProfile, aliasSource, unknownProfile } = resolveSettingsProfile(availableProfiles, selectedProfile);
   const managedSettings = getGovernedSettingKeys().map((key) => ({
     key,
     expectedValue: resolvedProfile.managedSettings[key] as boolean | number | string,
@@ -98,11 +190,17 @@ export function buildSettingsGovernanceReport(
       message: `El valor actual no coincide con el perfil ${resolvedProfile.id}.`,
     }));
 
-  if (selectedProfile && selectedProfile !== resolvedProfile.id) {
+  if (aliasSource) {
+    conflicts.unshift({
+      key: 'vscPowerSyntax.profile',
+      severity: 'info',
+      message: `Perfil legacy '${aliasSource}' normalizado a '${resolvedProfile.id}'.`,
+    });
+  } else if (unknownProfile) {
     conflicts.unshift({
       key: 'vscPowerSyntax.profile',
       severity: 'warning',
-      message: `Perfil desconocido '${selectedProfile}'. Se degradó al perfil ${resolvedProfile.id}.`,
+      message: `Perfil desconocido '${unknownProfile}'. Se degradó al perfil ${resolvedProfile.id}.`,
     });
   }
 

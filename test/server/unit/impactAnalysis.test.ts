@@ -160,4 +160,45 @@ suite('unit/impactAnalysis (B218)', () => {
     assert.deepEqual(loads, [mainUri]);
     assert.ok(impact.safeReferences.every((entry) => entry.uri === mainUri));
   });
+
+  test('B281 impactAnalysis no marca como override una firma distinta', async () => {
+    const baseUri = 'file:///proj/w_base_overload.sru';
+    const childUri = 'file:///proj/w_child_overload.sru';
+
+    setupAnalyzedDocument(baseUri, [
+      'global type w_base_overload from window',
+      'end type',
+      '',
+      'public function integer of_pick(integer ai_value);',
+      'return ai_value',
+      'end function'
+    ].join('\r\n'));
+
+    const document = setupAnalyzedDocument(childUri, [
+      'global type w_child_overload from w_base_overload',
+      'end type',
+      '',
+      'public function integer of_pick(string as_value);',
+      'return 1',
+      'end function',
+      '',
+      'public subroutine of_test();',
+      'of_pick("x")',
+      'end subroutine'
+    ].join('\r\n'));
+
+    const impact = await buildImpactAnalysis(
+      document,
+      { line: 3, character: 28, maxSafeReferences: 8 },
+      kb,
+      graph,
+      catalog,
+      async (uri) => contentsByUri.get(uri) ?? null,
+      { workspaceState }
+    );
+
+    assert.equal(impact.available, true);
+    assert.equal(impact.rootSymbol?.name, 'of_pick');
+    assert.deepEqual(impact.overrides, []);
+  });
 });

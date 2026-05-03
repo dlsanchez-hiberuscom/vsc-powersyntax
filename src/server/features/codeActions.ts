@@ -16,9 +16,11 @@ import {
 } from 'vscode-languageserver/node';
 
 import { DIAGNOSTIC_CODES, getDiagnosticCode } from '../../shared/diagnosticCodes';
+import type { ApiInvocationRisk } from '../../shared/publicApi';
 import type { SourceOrigin } from '../../shared/sourceOrigin';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 import { hasBlockingDynamicStringReference } from './dynamicStringReferences';
+import { buildInvocationRiskSummary } from './invocationRiskModel';
 import { validateRenameTarget } from './renamePreflight';
 
 const SUGGESTION_RE = /Sugerencia:\s*([^.]+?)\./i;
@@ -47,6 +49,8 @@ interface VersionedCodeActionData {
     replacement: string;
   };
   blockedReason?: string;
+  invocationRisk: ApiInvocationRisk;
+  riskReasons: string[];
 }
 
 function isCanonicalSourceOrigin(sourceOrigin: SourceOrigin | undefined): boolean {
@@ -82,6 +86,8 @@ function buildObsoleteReplacementAction(
       original,
       replacement,
     },
+    invocationRisk: 'safe',
+    riskReasons: [],
   };
 
   const title = `Reemplazar '${original}' por '${replacement}'`;
@@ -102,6 +108,7 @@ function buildObsoleteReplacementAction(
   }
 
   if (!isCanonicalSourceOrigin(context.sourceOrigin)) {
+    const risk = buildInvocationRiskSummary({ sourceOrigin: context.sourceOrigin });
     return {
       title,
       kind: CodeActionKind.QuickFix,
@@ -111,13 +118,16 @@ function buildObsoleteReplacementAction(
       },
       data: {
         ...data,
-        blockedReason: 'source-origin-non-canonical'
+        blockedReason: 'source-origin-non-canonical',
+        invocationRisk: risk.risk,
+        riskReasons: risk.reasons,
       },
     };
   }
 
   const blockingDynamicHit = hasBlockingDynamicStringReference(original, [{ uri, content }]);
   if (blockingDynamicHit) {
+    const risk = buildInvocationRiskSummary({ dynamicStringHits: [blockingDynamicHit] });
     return {
       title,
       kind: CodeActionKind.QuickFix,
@@ -127,7 +137,9 @@ function buildObsoleteReplacementAction(
       },
       data: {
         ...data,
-        blockedReason: 'dynamic-string-reference'
+        blockedReason: 'dynamic-string-reference',
+        invocationRisk: risk.risk,
+        riskReasons: risk.reasons,
       },
     };
   }

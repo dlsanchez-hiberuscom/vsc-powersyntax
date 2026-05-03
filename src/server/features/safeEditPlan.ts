@@ -61,6 +61,9 @@ function describeFileReason(role: ApiImpactAnalysis['probableImpactFiles'][numbe
 
 function collectRisks(impact: ApiImpactAnalysis): string[] {
   const risks: string[] = [];
+  for (const reason of impact.riskReasons ?? []) {
+    risks.push(`Invocation risk: ${reason}.`);
+  }
   if (impact.descendants.length > 0) {
     risks.push('Hay descendientes del tipo impactado; un cambio puede propagarse por herencia.');
   }
@@ -122,6 +125,15 @@ function collectBlockedReasons(impact: ApiImpactAnalysis): string[] {
   if ((impact.evidenceKinds ?? []).includes('distance-ambiguity')) {
     blockedReasons.push('La resolución base es ambigua por distancia; no hay plan seguro todavía.');
   }
+  if (impact.invocationRisk === 'dynamic') {
+    blockedReasons.push('La invocación depende de strings, DataWindow dinámico o contexto no resoluble; no hay edición segura automática.');
+  }
+  if (impact.invocationRisk === 'external') {
+    blockedReasons.push('La invocación apunta a una dependencia externa sin implementación interna segura.');
+  }
+  if (impact.invocationRisk === 'fallback') {
+    blockedReasons.push('La invocación usa fallback semántico; requiere revisión antes de editar.');
+  }
   if (!impact.rootSymbol) {
     blockedReasons.push('No se pudo determinar un símbolo raíz defendible para el plan.');
   }
@@ -155,6 +167,8 @@ export function buildSafeEditPlanFromImpact(impact: ApiImpactAnalysis): ApiSafeE
     blocked: blockedReasons.length > 0,
     ...(impact.reason ? { reason: impact.reason } : {}),
     ...(impact.confidence ? { confidence: impact.confidence } : {}),
+    ...(impact.invocationRisk ? { invocationRisk: impact.invocationRisk } : {}),
+    ...(impact.riskReasons ? { riskReasons: impact.riskReasons } : {}),
     ...(impact.rootSymbol ? { targetSymbol: impact.rootSymbol } : {}),
     objects: [...impact.affectedSymbols],
     files,

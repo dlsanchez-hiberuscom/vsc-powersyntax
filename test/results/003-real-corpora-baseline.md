@@ -1,6 +1,6 @@
 # Baseline de Rendimiento Real — PFC, legacy y OrderEntry
 
-**Fecha de medición:** 2026-05-02  
+**Fecha de medición:** 2026-05-03  
 **Corpus:** PFC 2025 Workspace, PFC 2025 Solution, legacy PBL dump, STD_FC_OrderEntry local  
 **Comando principal:** `npm run test:performance`
 
@@ -33,6 +33,15 @@
 - **PFC Solution extension smoke:** OK
 - **PFC Workspace extension smoke:** OK
 
-## 5. Conclusión
+## 5. Baseline catalog-driven por dominio
 
-El baseline deja de apoyarse solo en fixtures pequeños. El presupuesto operativo del plugin ya está calibrado sobre corpus reales y la suite de regresión cubre activación, archivo activo, discovery, cold/warm index, corpus legacy exportado y un slot enterprise local sobre OrderEntry con smoke semántica reproducible.
+- **Corpus cubiertos:** PFC Solution, legacy PBL dump, STD_FC_OrderEntry
+- **Surfaces cubiertas:** `hover`, `completion`, `diagnostics`
+- **Dominios revisados en probes reales:** `system-globals`, `global-functions`, `datawindow-functions`
+- **Misses:** `0`
+- **Ambigüedades:** `0`
+- **Budget violations:** `0`
+
+## 6. Conclusión
+
+El baseline deja de apoyarse solo en fixtures pequeños. El presupuesto operativo del plugin ya está calibrado sobre corpus reales y la suite de regresión cubre activación, archivo activo, discovery, cold/warm index, corpus legacy exportado, un slot enterprise local sobre OrderEntry con smoke semántica reproducible y una baseline catalog-driven separada por dominio/surface para PFC, OrderEntry y legacy.

@@ -25,6 +25,19 @@ suite('unit/semanticQueryService', () => {
         line: 10,
         character: 4,
         lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      },
+      {
+        id: 'of_convert_integer',
+        name: 'of_Convert',
+        kind: EntityKind.Function,
+        containerName: 'w_base',
+        uri: 'file:///w_base.sru',
+        line: 30,
+        character: 4,
+        parameters: [{ label: 'integer ai_value' }],
+        parameterCount: 1,
+        signature: 'public function integer of_Convert(integer ai_value)',
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
       }
     ]);
     
@@ -38,6 +51,45 @@ suite('unit/semanticQueryService', () => {
         uri: 'file:///w_main.sru',
         line: 20,
         character: 4,
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      },
+      {
+        id: 'of_pick_one',
+        name: 'of_Pick',
+        kind: EntityKind.Function,
+        containerName: 'w_main',
+        uri: 'file:///w_main.sru',
+        line: 30,
+        character: 4,
+        parameters: [{ label: 'integer ai_value' }],
+        parameterCount: 1,
+        signature: 'public function integer of_Pick(integer ai_value)',
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      },
+      {
+        id: 'of_pick_two',
+        name: 'of_Pick',
+        kind: EntityKind.Function,
+        containerName: 'w_main',
+        uri: 'file:///w_main.sru',
+        line: 40,
+        character: 4,
+        parameters: [{ label: 'integer ai_value' }, { label: 'string as_value' }],
+        parameterCount: 2,
+        signature: 'public function integer of_Pick(integer ai_value, string as_value)',
+        lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      },
+      {
+        id: 'of_convert_string',
+        name: 'of_Convert',
+        kind: EntityKind.Function,
+        containerName: 'w_main',
+        uri: 'file:///w_main.sru',
+        line: 50,
+        character: 4,
+        parameters: [{ label: 'string as_value' }],
+        parameterCount: 1,
+        signature: 'public function integer of_Convert(string as_value)',
         lineage: { sourceKind: 'document', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
       },
       { id: 'lw_window', name: 'lw_window', kind: EntityKind.Variable, datatype: 'w_base', containerName: 'w_main', uri: 'file:///w_main.sru', line: 5, character: 0 }
@@ -176,6 +228,45 @@ suite('unit/semanticQueryService', () => {
     assert.equal(targets.length, 0);
   });
 
+  test('B281 filtra overloads por aridad antes de rankear por distancia', () => {
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_Pick', argumentCount: 2, argumentTypes: ['integer', 'string'] },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 1);
+    assert.equal(resolved.targets[0]?.line, 40);
+    assert.equal(resolved.confidence, 'high');
+    assert.ok(resolved.evidence.some((entry) =>
+      entry.kind === 'discarded-signature'
+      && entry.reason === 'arity-mismatch'
+      && entry.candidateParameterCount === 1
+      && entry.invocationArgumentCount === 2
+    ));
+  });
+
+  test('B281 no trata un override con firma distinta como ganador si los tipos literales apuntan al ancestro', () => {
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_Convert', argumentCount: 1, argumentTypes: ['integer'] },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 1);
+    assert.equal(resolved.targets[0]?.uri, 'file:///w_base.sru');
+    assert.equal(resolved.targets[0]?.line, 30);
+    assert.ok(resolved.evidence.some((entry) =>
+      entry.kind === 'discarded-signature'
+      && entry.reason === 'type-mismatch'
+      && entry.targetUri === 'file:///w_main.sru'
+    ));
+  });
+
   test('resolveTargetEntityDetailed expone descarte contextual si el qualifier no resuelve a tipo', () => {
     const resolved = resolveTargetEntityDetailed(
       { identifier: 'of_SetData', qualifier: 'lw_missing' },
@@ -219,7 +310,7 @@ suite('unit/semanticQueryService', () => {
     }]);
   });
 
-  test('resolveTargetEntityDetailed expone ambiguedad si varios candidatos comparten la distancia minima', () => {
+  test('B281 prefiere implementation frente a prototype de la misma firma', () => {
     kb.beginBatchUpdate();
     kb.upsertDocument('file:///w_main_ambiguous.sru', [
       { id: 'w_main_ambiguous', name: 'w_main_ambiguous', kind: EntityKind.Type, baseTypeName: 'w_base', uri: 'file:///w_main_ambiguous.sru', line: 0, character: 0 },
@@ -254,15 +345,29 @@ suite('unit/semanticQueryService', () => {
       { line: 20, traceLabel: 'definition' }
     );
 
+    assert.equal(resolved.targets.length, 1);
+    assert.equal(resolved.targets[0]?.line, 20);
+    assert.equal(resolved.ambiguityKind, undefined);
+    assert.equal(resolved.confidence, 'high');
+    assert.ok(resolved.evidence.some((entry) =>
+      entry.kind === 'discarded-signature' &&
+      entry.reasonCode === 'member-hierarchy' &&
+      entry.reason === 'prototype-shadowed'
+    ));
+  });
+
+  test('resolveTargetEntityDetailed conserva ambigüedad entre overloads si la llamada no aporta aridad', () => {
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_Pick' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
     assert.equal(resolved.targets.length, 2);
     assert.equal(resolved.ambiguityKind, 'distance-minimum');
     assert.equal(resolved.confidence, 'medium');
-    assert.ok(resolved.evidence.some((entry) =>
-      entry.kind === 'distance-ambiguity' &&
-      entry.reasonCode === 'member-hierarchy' &&
-      entry.winnerDistance === 0 &&
-      entry.candidateCount === 2
-    ));
   });
 
   test('resolveTargetEntityDetailed clasifica super::method como inherited call', () => {

@@ -2,6 +2,7 @@ import type {
   ApiCurrentObjectContext,
   ApiCurrentObjectDiagnostic,
   ApiCurrentObjectContextSymbol,
+  ApiEmbeddedSqlAnchor,
   ApiCurrentObjectReference,
   ApiCurrentObjectRelatedFile,
   ApiCurrentObjectVisibleVariable,
@@ -199,6 +200,32 @@ function mapRelatedFile(file: ApiCurrentObjectRelatedFile, index: number): Curre
   );
 }
 
+function mapEmbeddedSqlAnchor(
+  anchor: ApiEmbeddedSqlAnchor,
+  index: number,
+  uri: string | undefined,
+): CurrentObjectContextPanelItemNode {
+  return createItem(
+    `embedded-sql:${index}:${anchor.keyword}:${anchor.startLine}`,
+    `${anchor.keyword} ${anchor.startLine + 1}-${anchor.endLine + 1}`,
+    [anchor.confidence, anchor.transactionTarget].filter((part): part is string => Boolean(part)).join(' · '),
+    [
+      `SQL embebido: ${anchor.keyword}`,
+      `Líneas: ${anchor.startLine + 1}-${anchor.endLine + 1}`,
+      `Confidence: ${anchor.confidence}`,
+      ...(anchor.transactionTarget ? [`Transacción: ${anchor.transactionTarget}`] : []),
+      `Preview: ${anchor.preview}`,
+    ].join('\n'),
+    uri
+      ? {
+        uri,
+        line: anchor.startLine,
+        character: 0,
+      }
+      : undefined,
+  );
+}
+
 export function buildCurrentObjectContextPanelModel(context: ApiCurrentObjectContext): CurrentObjectContextPanelModel {
   if (!context.available || !context.objectInfo) {
     return {
@@ -299,6 +326,15 @@ export function buildCurrentObjectContextPanelModel(context: ApiCurrentObjectCon
         binding.targetUri ? { uri: binding.targetUri } : undefined,
       )),
       `${context.dataWindowBindings!.length}`,
+    ));
+  }
+
+  if ((context.embeddedSqlAnchors?.length ?? 0) > 0) {
+    roots.push(createSection(
+      'section:embedded-sql',
+      'Embedded SQL',
+      context.embeddedSqlAnchors!.map((anchor, index) => mapEmbeddedSqlAnchor(anchor, index, context.uri)),
+      `${context.embeddedSqlAnchors!.length}`,
     ));
   }
 

@@ -57,7 +57,7 @@ IDs emitidos hoy:
 - `SD11` — código inalcanzable tras `return`.
 - `SD12` — paréntesis desbalanceados.
 - `SD13` — función con return type sin `return`.
-- `dataobject-not-found`, `dataobject-ambiguous`, `dataobject-dynamic`, `retrieve-arity-mismatch` — familia actual de DataWindow/DataObject.
+- `dataobject-not-found`, `dataobject-ambiguous`, `dataobject-dynamic`, `retrieve-arity-mismatch`, `datawindow-expression-dependency-unresolved` — familia actual de DataWindow/DataObject.
 - `transaction-binding-missing`, `transaction-binding-unknown`, `transaction-binding-dynamic` — binding transaccional insuficiente para `Retrieve/Update`.
 - `native-dependency` — external function/subroutine sin implementación interna navegable.
 - `missing-super-*`, `missing-trigger-*`, `unresolved-*` — familia actual de warnings lifecycle emitidos en `diagnostic.code`.
@@ -66,7 +66,14 @@ Consumidores cerrados sobre este contrato:
 
 - `technical-debt-report` reutiliza `diagnostic.code` como evidencia (`SD7`, familia DataWindow, `native-dependency`, lifecycle/sourceOrigin ya publicados) y no define IDs nuevos;
 - el framework v2 de code actions consume también `diagnostic.code` estable y solo habilita quick fixes cuando el catálogo versionado, el preflight, el `sourceOrigin` y los guards de dynamic strings permiten un cambio defendible;
+- `B291` añade `embeddedSqlAnchors` explicables en context packs, code metrics, debt report y support bundle, pero no introduce `diagnostic.code` nuevos: reutiliza el binding transaccional existente y evidencia read-only fuera del carril de diagnostics;
 - cualquier ampliación futura del reporte que necesite una señal diagnóstica nueva debe abrir una spec/rule propia antes de mezclarse con este catálogo.
+
+Nota de catálogo 2026-05-03:
+
+- las entradas de catálogo v2 pueden alimentar diagnostics solo cuando el contexto y la confidence sean suficientes;
+- no se habilitan diagnósticos agresivos de unknown keyword/operator por el hecho de existir dominios `keywords`, `operators` o `enumerated-values`;
+- DataWindow expression/property catalog queda separado en B320/B327 y no debe producir warnings fuera de contexto DataWindow defendible.
 
 Regla: cualquier renombrado futuro hacia `PB-*` requiere compatibilidad explícita o alias y una spec propia; no cambiar IDs diagnósticos emitidos como edición documental aislada.
 
@@ -109,6 +116,18 @@ Estado operativo tras `B280`:
 - `global-fallback` ambiguo identifica varios winners tras caer al fallback global y se publica con `fallback-ambiguity`;
 - `source-origin-conflict` se emite cuando el winner queda resuelto por prioridad de `sourceOrigin` descartando origins más débiles como `orca-staging`;
 - `queryContext`, hover, definition, references y rename deben consumir esta señal compartida desde el query engine y no volver a inferir ambigüedad local por nombre visible o por conteo plano de candidatos.
+
+## 4.1 Contrato vigente de riesgo de invocación
+
+Estado operativo tras `B282`:
+
+- el contrato público usa `invocationRisk = safe | inherited | fallback | dynamic | external`;
+- `fallback` cubre resolución por fallback semántico, evidencia descartada o `sourceOrigin` no canónico de baja autoridad;
+- `dynamic` cubre strings dinámicos, bindings DataWindow dinámicos/ambiguos/missing, `orca-staging`/generated y patrones WebView/HTTP/DataWindow/eventos defendiblemente dinámicos;
+- `external` cubre dependencias nativas externas sin implementación interna segura;
+- `rename`, `safeEditPlan` y code actions deben bloquear antes de editar cuando el riesgo sea `dynamic`, `fallback` o `external`;
+- `references` puede degradar a declaraciones o devolver vacío si se piden solo usos textuales con riesgo dinámico;
+- ninguna regla diagnóstica nueva debe inventarse solo para materializar este riesgo: la señal vive como metadata de query/impact/edit, no como warning agresivo por defecto.
 
 ## PB-SYM-001 — Unresolved symbol
 
@@ -167,6 +186,15 @@ Estado operativo tras `B280`:
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** low
 - **Aplica a:** `DataObject` dinámico o literal ambiguo, cuando el binding no permite navegación ni serving fiable hacia un `.srd`
+
+## PB-DW-004 — DataWindow expression dependency unresolved
+
+- **Estado:** active
+- **ID emitido actual:** `datawindow-expression-dependency-unresolved`
+- **Severidad default:** warning
+- **Readiness mínima:** nearby-semantic-ready
+- **Confidence mínima:** medium
+- **Aplica a:** `expression=` y atributos dinámicos `~t...` dentro de `.srd` cuando una dependencia no resuelve como columna `table` o control nombrado del mismo DataWindow
 
 ---
 

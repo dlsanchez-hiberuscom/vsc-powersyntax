@@ -5,6 +5,7 @@ export interface CoreMaintenanceCommandModel {
     | 'clear semantic cache'
     | 'export health report'
     | 'export support bundle'
+    | 'run runtime self-test'
     | 'show memory budgets'
     | 'show indexing state'
     | 'show project routing'
@@ -38,6 +39,13 @@ const CORE_MAINTENANCE_COMMAND_MODELS: readonly CoreMaintenanceCommandModel[] = 
     title: 'PowerSyntax: Exportar Support Bundle Offline',
     kind: 'read-only',
     summary: 'Empaqueta observabilidad saneada para soporte y troubleshooting offline.'
+  },
+  {
+    backlogLabel: 'run runtime self-test',
+    command: 'vscPowerSyntax.runRuntimeSelfTest',
+    title: 'PowerSyntax: Ejecutar Runtime Self-Test',
+    kind: 'read-only',
+    summary: 'Ejecuta un chequeo rápido sobre API, LSP, cache, project model, diagnósticos, build y ORCA.'
   },
   {
     backlogLabel: 'show memory budgets',

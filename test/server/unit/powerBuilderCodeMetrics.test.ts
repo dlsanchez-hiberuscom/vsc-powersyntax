@@ -78,6 +78,7 @@ suite('unit/powerBuilderCodeMetrics (B260)', () => {
       'end type',
       '',
       'event open();',
+      '  CONNECT USING SQLCA;',
       '  dw_orders.DataObject = "d_orders"',
       '  if IsValid(dw_orders) then',
       '    SELECT order_id',
@@ -111,6 +112,14 @@ suite('unit/powerBuilderCodeMetrics (B260)', () => {
     assert.equal(focusObject?.metrics.embeddedSqlStatements, 1);
     assert.equal(focusObject?.metrics.linkedDataWindows, 1);
     assert.equal(focusObject?.metrics.externalDependencies, 1);
+    assert.deepEqual(focusObject?.embeddedSqlAnchors, [{
+      startLine: 14,
+      endLine: 16,
+      keyword: 'SELECT',
+      preview: 'SELECT order_id INTO :ll_order_id FROM sales_order;',
+      confidence: 'high',
+      transactionTarget: 'SQLCA'
+    }]);
     assert.ok((focusObject?.metrics.approximateComplexity ?? 0) >= 2);
   });
 

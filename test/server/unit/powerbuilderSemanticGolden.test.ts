@@ -225,6 +225,42 @@ suite('unit/powerbuilderSemanticGolden (B222)', () => {
     assert.match(externalValue, /Dependencia nativa|external/i);
   });
 
+  test('golden: system types modernos HTTP/JSON aparecen en completion y hover sin hardcode por feature', () => {
+    const { document } = setupAnalyzedDocument('file:///n_http_json_golden.sru', [
+      'forward',
+      'global type n_http_json_golden from httpclient',
+      'end type',
+      'end forward',
+      'global type n_http_json_golden from httpclient',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_probe()',
+      'end prototypes',
+      'public subroutine of_probe();',
+      '  ht',
+      '  js',
+      'end subroutine'
+    ].join('\r\n'));
+
+    const lines = document.getText().split(/\r?\n/);
+    const baseLine = lines.findIndex((line) => line.includes('from httpclient'));
+    const httpLine = lines.findIndex((line) => line.trim() === 'ht');
+    const jsonLine = lines.findIndex((line) => line.trim() === 'js');
+
+    const hover = provideHover(document, Position.create(baseLine, lines[baseLine].indexOf('httpclient') + 2), kb, catalog, graph);
+    assert.ok(hover);
+    const hoverValue = (hover?.contents as { value: string }).value;
+    assert.match(hoverValue, /HTTPClient/i);
+
+    const httpItems = provideCompletion(document, Position.create(httpLine, 4), kb, catalog, graph);
+    assert.ok(httpItems?.some((item) => item.label === 'HTTPClient'));
+
+    const jsonItems = provideCompletion(document, Position.create(jsonLine, 4), kb, catalog, graph);
+    assert.ok(jsonItems?.some((item) => item.label === 'JSONParser'));
+    assert.ok(jsonItems?.some((item) => item.label === 'JSONGenerator'));
+    assert.ok(jsonItems?.some((item) => item.label === 'JSONPackage'));
+  });
+
   test('golden: DataObject literal fija definition, hover, signatureHelp y diagnostics sobre el mismo backbone', () => {
     setupAnalyzedDocument('file:///d_sales_orders.srd', [
       '$PBExportHeader$d_sales_orders.srd',

@@ -6,6 +6,10 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { EntityKind, ScopeKind, type Fact, type Scope } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 import type { LogicalStatement } from '../parsing/statementSplitter';
+import {
+  buildDataWindowModelFromSnapshot,
+  type DataWindowRetrieveArgument,
+} from './dataWindowModel';
 
 const DATAOBJECT_ASSIGN_REGEX = new RegExp(
   `\\b(${PB_IDENTIFIER_SOURCE})\\s*\\.\\s*DataObject\\s*=\\s*([^;]+)`,
@@ -15,11 +19,7 @@ const DATAOBJECT_LITERAL_REGEX = /^("|')(.*?)\1$/;
 
 export const DATAWINDOW_BIND_OWNER_TYPES = new Set(['datawindow', 'datawindowchild', 'datastore']);
 
-export interface DataWindowRetrieveArgument {
-  name: string;
-  type: string;
-  label: string;
-}
+export type { DataWindowRetrieveArgument } from './dataWindowModel';
 
 export interface DataWindowBindingSummary {
   targetName: string;
@@ -97,17 +97,7 @@ export function resolveDataWindowRetrieveArguments(
 export function extractDataWindowRetrieveArguments(
   snapshot: SemanticDocumentSnapshot | null
 ): DataWindowRetrieveArgument[] {
-  if (!snapshot) {
-    return [];
-  }
-
-  const normalizedText = snapshot.maskedText.lines.join('\n').replace(/~"/g, '"');
-  const byArgumentsClause = extractArgumentsClause(normalizedText);
-  if (byArgumentsClause.length > 0) {
-    return byArgumentsClause;
-  }
-
-  return extractArgEntries(normalizedText);
+  return buildDataWindowModelFromSnapshot(snapshot)?.retrieveArguments ?? [];
 }
 
 export function collectDataObjectBindings(
@@ -214,91 +204,3 @@ function findCallableScopeAtLine(scopes: readonly Scope[], line: number): Scope 
   return visit(scopes, null);
 }
 
-function extractArgumentsClause(text: string): DataWindowRetrieveArgument[] {
-  const match = /\barguments\s*=\s*\(/i.exec(text);
-  if (!match) {
-    return [];
-  }
-
-  const openParen = text.indexOf('(', match.index);
-  if (openParen < 0) {
-    return [];
-  }
-
-  const clause = extractBalancedParenthesesContent(text, openParen);
-  return clause ? parseArgumentsClause(clause) : [];
-}
-
-function extractBalancedParenthesesContent(text: string, openParen: number): string | null {
-  let depth = 0;
-  for (let i = openParen; i < text.length; i++) {
-    const char = text[i];
-    if (char === '(') {
-      depth++;
-      continue;
-    }
-
-    if (char === ')') {
-      depth--;
-      if (depth === 0) {
-        return text.slice(openParen + 1, i);
-      }
-    }
-  }
-
-  return null;
-}
-
-function parseArgumentsClause(clause: string): DataWindowRetrieveArgument[] {
-  const args: DataWindowRetrieveArgument[] = [];
-  const pattern = /\(\s*"([^"]+)"\s*,\s*([A-Za-z_][\w$#%]*)\s*\)/gi;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(clause)) !== null) {
-    const name = match[1].trim();
-    const type = match[2].trim();
-    if (!name || !type) {
-      continue;
-    }
-
-    args.push({
-      name,
-      type,
-      label: `${type} ${name}`
-    });
-  }
-
-  return args;
-}
-
-function extractArgEntries(text: string): DataWindowRetrieveArgument[] {
-  const args: DataWindowRetrieveArgument[] = [];
-  const seen = new Set<string>();
-  const pattern = /ARG\s*\(([^)]*)\)/gi;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(text)) !== null) {
-    const body = match[1];
-    const nameMatch = /NAME\s*=\s*"([^"]+)"/i.exec(body);
-    const typeMatch = /TYPE\s*=\s*([A-Za-z_][\w$#%]*)/i.exec(body);
-    const name = nameMatch?.[1]?.trim();
-    const type = typeMatch?.[1]?.trim();
-    if (!name || !type) {
-      continue;
-    }
-
-    const key = `${name.toLowerCase()}:${type.toLowerCase()}`;
-    if (seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    args.push({
-      name,
-      type,
-      label: `${type} ${name}`
-    });
-  }
-
-  return args;
-}

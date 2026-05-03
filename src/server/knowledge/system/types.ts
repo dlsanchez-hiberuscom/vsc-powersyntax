@@ -112,6 +112,7 @@ export interface PbSystemSymbolEntryDraft {
     tokenModifiers?: readonly string[];
     languageRole?: string;
     introducedIn?: string;
+    valueType?: string;
     risk?: 'safe' | 'dynamic' | 'deprecated' | 'legacy' | 'external';
 }
 

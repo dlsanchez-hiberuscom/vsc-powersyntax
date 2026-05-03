@@ -9,6 +9,7 @@ import { resolveTargetEntityDetailed } from '../knowledge/resolution/semanticQue
 import { InvocationContext } from '../utils/invocationContext';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
+import { resolveSystemGlobal } from '../knowledge/system/services/queryService';
 import { CharType } from '../utils/comments';
 import { resolveDocumentQualifierType } from './queryContext';
 import {
@@ -30,9 +31,14 @@ export function provideSignatureHelp(
     return null;
   }
 
-  const { identifier, qualifier, activeParameter } = result;
+  const { identifier, qualifier, activeParameter, argumentCount, argumentTypes } = result;
 
-  const context: InvocationContext = { identifier, qualifier };
+  const context: InvocationContext = {
+    identifier,
+    qualifier,
+    ...(argumentCount !== undefined ? { argumentCount } : {}),
+    ...(argumentTypes ? { argumentTypes } : {})
+  };
   const currentUri = normalizeUri(document.uri);
   const ownerType = qualifier
     ? resolveDocumentQualifierType(document, qualifier, position, kb)
@@ -56,7 +62,9 @@ export function provideSignatureHelp(
   const ownerScopedTarget = ownerType
     ? systemCatalog.resolveMemberFunctionForOwner(identifier, [ownerType])
     : undefined;
-  const sysTargets = ownerScopedTarget ? [ownerScopedTarget] : systemCatalog.findSystemSymbol(identifier);
+  const sysTargets = qualifier
+    ? (ownerScopedTarget ? [ownerScopedTarget] : [])
+    : systemCatalog.findSystemSymbol(identifier);
   if (sysTargets.length > 0) {
     // Si hay qualifier, validar que aplique, pero para signature help
     // seremos un poco más permisivos si es una función de sistema
@@ -171,7 +179,19 @@ function buildLinkedDataWindowRetrieveSignature(
   );
 }
 
-function extractSignatureContext(document: TextDocument, position: Position): { identifier: string; qualifier?: string; activeParameter: number } | null {
+function inferArgumentType(argumentText: string): string {
+  const trimmed = argumentText.trim();
+  if (!trimmed) return 'unknown';
+  if (/^(['"]).*\1$/s.test(trimmed)) return 'string';
+  if (/^[+-]?\d+$/.test(trimmed)) return 'integer';
+  if (/^[+-]?\d+\.\d+$/.test(trimmed)) return 'decimal';
+  if (/^(true|false)$/i.test(trimmed)) return 'boolean';
+  const systemGlobal = resolveSystemGlobal(trimmed);
+  if (systemGlobal?.valueType) return systemGlobal.valueType.toLowerCase();
+  return 'unknown';
+}
+
+function extractSignatureContext(document: TextDocument, position: Position): { identifier: string; qualifier?: string; activeParameter: number; argumentCount?: number; argumentTypes?: string[] } | null {
   // Vamos a buscar hacia atrás el paréntesis de apertura '(' 
   // y contar las comas en el nivel de profundidad 0.
   let activeParameter = 0;
@@ -260,5 +280,15 @@ function extractSignatureContext(document: TextDocument, position: Position): { 
     identifier = match[1];
   }
   
-  return { identifier, qualifier, activeParameter };
+  const callText = document.getText({
+    start: { line: currentLine, character: currentCharacter + 1 },
+    end: position
+  });
+  const hasArgumentToken = /[^\s,]/.test(callText);
+  const argumentCount = activeParameter > 0 || hasArgumentToken ? activeParameter + 1 : undefined;
+  const argumentTypes = argumentCount !== undefined
+    ? callText.split(',').slice(0, argumentCount).map(inferArgumentType)
+    : undefined;
+
+  return { identifier, qualifier, activeParameter, ...(argumentCount !== undefined ? { argumentCount } : {}), ...(argumentTypes ? { argumentTypes } : {}) };
 }

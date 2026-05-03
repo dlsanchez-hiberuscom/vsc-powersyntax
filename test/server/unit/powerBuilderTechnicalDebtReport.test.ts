@@ -65,9 +65,13 @@ suite('unit/powerBuilderTechnicalDebtReport (B261)', () => {
       'end type',
       '',
       'event open();',
+      '  CONNECT USING SQLCA;',
       '  string ls_sql',
       '  dw_orders.DataObject = "d_orders"',
       '  if IsValid(dw_orders) then',
+      '    SELECT order_id',
+      '      INTO :ll_order_id',
+      '      FROM sales_order;',
       '    ls_sql = "SELECT order_id FROM sales_order WHERE order_id = " + string(1)',
       '    prepare sqlsa from :ls_sql;',
       '  end if',
@@ -142,6 +146,15 @@ suite('unit/powerBuilderTechnicalDebtReport (B261)', () => {
     assert.ok(hotspot?.categories.includes('complexity'));
     assert.ok(hotspot?.evidence.some((entry) => entry.includes('diagnostic:SD7')));
     assert.ok(hotspot?.evidence.some((entry) => entry.includes('dynamic-sql:prepare')));
+    assert.ok(hotspot?.evidence.some((entry) => entry.includes('sql-anchor:select:16-18')));
+    assert.deepEqual(hotspot?.embeddedSqlAnchors, [{
+      startLine: 15,
+      endLine: 17,
+      keyword: 'SELECT',
+      preview: 'SELECT order_id INTO :ll_order_id FROM sales_order;',
+      confidence: 'high',
+      transactionTarget: 'SQLCA'
+    }]);
     assert.ok(hotspot?.recommendations.some((entry) => /obsolete|sql dinámico|datawindow/i.test(entry)));
   });
 

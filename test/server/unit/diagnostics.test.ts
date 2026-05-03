@@ -407,6 +407,48 @@ suite('unit/diagnostics', () => {
     );
   });
 
+  test('validateSemantics acepta base types oficiales generados como windowobject', () => {
+    const source = [
+      'forward',
+      'global type n_generated_base from windowobject',
+      'end type',
+      'end forward',
+      '',
+      'global type n_generated_base from windowobject',
+      'end type',
+      'global n_generated_base n_generated_base'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///generated_windowobject_base.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+
+    assert.equal(
+      diagnostics.some((diag) => diag.message.includes("El tipo base 'windowobject' no se encuentra")),
+      false,
+      'Los base types oficiales generados no deben marcarse como ausentes.'
+    );
+  });
+
+  test('validateSemantics mantiene SD3 para typos cercanos de base types oficiales', () => {
+    const source = [
+      'forward',
+      'global type n_generated_typo from windowobject_typo',
+      'end type',
+      'end forward',
+      '',
+      'global type n_generated_typo from windowobject_typo',
+      'end type',
+      'global n_generated_typo n_generated_typo'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///generated_windowobject_typo.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missingBase = diagnostics.find((diag) => diag.message.includes("El tipo base 'windowobject_typo' no se encuentra"));
+
+    assert.ok(missingBase, 'Esperaba SD3 para un typo cercano de windowobject.');
+    assert.equal(missingBase?.code, DIAGNOSTIC_CODES.sd3MissingBaseType);
+  });
+
   test('validateSemantics relaciona SetTransObject con variables transaction conocidas', () => {
     const source = [
       'global type n_tx from nonvisualobject',
@@ -449,6 +491,39 @@ suite('unit/diagnostics', () => {
     const transactionDiagnostics = diagnostics.filter((diag) => String(diag.data && (diag.data as { kind?: string }).kind) === 'transaction-binding');
 
     assert.equal(transactionDiagnostics.length, 0);
+  });
+
+  test('validateSemantics detecta GetChild como member invalido sobre DataWindowChild', () => {
+    const source = [
+      'global type n_dw_child_diag from nonvisualobject',
+      '  datawindowchild idwc_orders',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      'public subroutine of_test()',
+      '  idwc_orders.GetChild("orders", idwc_orders)',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_datawindowchild_getchild.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const invalidGetChild = diagnostics.find((diag) => diag.message.includes("La función 'GetChild' no aplica al tipo 'datawindowchild'"));
+
+    assert.ok(invalidGetChild, 'Esperaba un diagnóstico para GetChild sobre DataWindowChild.');
+    assert.equal(invalidGetChild?.severity, DiagnosticSeverity.Warning);
+    assert.equal(invalidGetChild?.code, DIAGNOSTIC_CODES.sd2UnresolvedCallable);
+    assert.deepEqual(invalidGetChild?.data, {
+      kind: 'semantic-evidence',
+      confidence: 'high',
+      reasonCodes: ['owner-mismatch'],
+      evidenceKinds: ['owner-mismatch'],
+      targetCount: 0,
+      candidateCount: 0,
+      hasAmbiguity: false,
+      qualifier: 'idwc_orders',
+      ownerType: 'datawindowchild'
+    });
   });
 
   test('validateSemantics avisa cuando Retrieve no tiene transaction conocida', () => {
@@ -710,6 +785,39 @@ suite('unit/diagnostics', () => {
 
     assert.ok(diagnostics.some((diag) => diag.code === DIAGNOSTIC_CODES.dataObjectDynamic), 'Esperaba mantener el diagnóstico informativo por DataObject dinámico.');
     assert.ok(!diagnostics.some((diag) => diag.code === DIAGNOSTIC_CODES.dataWindowPropertyPathUnresolved), 'No debe inventar un diagnóstico de path cuando el root no es defendible.');
+  });
+
+  test('validateSemantics avisa cuando una expresión DataWindow referencia una dependencia no resoluble en el .srd', () => {
+    const document = TextDocument.create(
+      'file:///d_expression_diag.srd',
+      'powerbuilder-datawindow',
+      1,
+      [
+        '$PBExportHeader$d_expression_diag.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(column=(type=decimal(18,2) update=yes name=adjusted_hours dbname="emp.adjusted_hours")',
+        ' column=(type=decimal(18,2) update=yes name=rate dbname="emp.rate") retrieve="SELECT adjusted_hours, rate FROM emp")',
+        'compute(band=detail name=cc_total expression="adjusted_hours * missing_rate")',
+        'text(band=detail name=t_status visible="1~tif(cc_total > 0, 1, 0)")',
+      ].join('\r\n')
+    );
+
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missingDependency = diagnostics.find((diag) => diag.message.includes('missing_rate') && diag.message.includes('cc_total.expression'));
+
+    assert.ok(missingDependency, 'Esperaba un warning por dependencia de expresión DataWindow no resoluble.');
+    assert.equal(missingDependency?.severity, DiagnosticSeverity.Warning);
+    assert.equal(missingDependency?.code, DIAGNOSTIC_CODES.dataWindowExpressionDependencyUnresolved);
+    assert.deepEqual(missingDependency?.data, {
+      kind: 'datawindow-expression-dependency',
+      confidence: 'medium',
+      expression: 'cc_total.expression',
+      owner: 'cc_total',
+      property: 'expression',
+      dependency: 'missing_rate'
+    });
+    assert.ok(!diagnostics.some((diag) => diag.message.includes('cc_total') && diag.code === DIAGNOSTIC_CODES.dataWindowExpressionDependencyUnresolved && diag !== missingDependency), 'No debe marcar como no resoluble una dependencia ya conocida hacia otro control.');
   });
 
   test('validateSemantics avisa cuando Retrieve no respeta la aridad de argumentos del .srd enlazado', () => {

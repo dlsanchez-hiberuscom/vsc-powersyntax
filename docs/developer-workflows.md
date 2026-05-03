@@ -17,7 +17,7 @@ El plugin debe:
 1. detectar modo: Workspace, Solution, mixed o PBL-only;
 2. mostrar en la status bar el proyecto activo y el estado real de discovery/indexing;
 3. priorizar archivo activo;
-4. permitir abrir desde esa status bar un dashboard read-only de salud del proyecto reutilizando stats, manifest y build health ya publicados;
+4. permitir abrir desde esa status bar un dashboard read-only de salud del proyecto reutilizando stats, manifest y build health ya publicados, incluyendo la matriz oficial de soporte por modo/surface y un enterprise health score explicable;
 5. exponer un Object Explorer read-only por proyecto/librería/kind con foco opcional en proyecto o archivo activo;
 6. servir Document Symbols y Hover cuanto antes;
 7. exponer desde esa status bar accesos rápidos a stats, salud del runtime y build;
@@ -34,6 +34,13 @@ Estado actual:
 - el project model y el Object Explorer proyectan esas librerías como nodos read-only sin requerir `.pbt/.pbproj` ni staging.
 - en multi-root, `project routing`, `semanticWorkspaceManifest` y Object Explorer aíslan proyectos/librerías homónimos por URI real, sin colapsarlos por label visible.
 
+Contrato visible actual publicado por el health report:
+
+- el dashboard y el health report proyectan un enterprise health score explicable por readiness, diagnostics, build, ORCA, cache, sourceOrigin, performance y support matrix, sin abrir otro motor de health;
+- `Workspace`, `Solution` y target `.pbt` se proyectan como superficies soportadas del producto.
+- `pbl-only`, source plain-text/exportado, staging ORCA y `DataWindow .srd` se proyectan como superficies read-only con límites explícitos y degradación honesta.
+- `PBAutoBuild` queda condicionado al tooling detectado, mientras PowerServer/PowerClient se reflejan como build files validados por el mismo carril JSON compartido.
+
 ---
 
 ## 3. Workflow 2 — Entender el objeto actual
@@ -47,6 +54,7 @@ El plugin debe mostrar, mediante el Current Object Context Panel read-only:
 - ancestor;
 - variables visibles;
 - funciones/eventos;
+- anchors de SQL embebido con keyword, rango, `confidence` y transaction target cuando el binding es defendible;
 - readiness;
 - sourceOrigin;
 - diagnostics relevantes.
@@ -76,6 +84,7 @@ El plugin debe poder:
 - detectar `DataObject = "d_xxx"`;
 - navegar al `.srd`;
 - mostrar columnas/args básicos;
+- derivar ese resumen, los `retrieveArguments` y la especialización de `Retrieve(...)` desde el mismo `DataWindowModel` canónico, sin un parser local por workflow;
 - navegar `Describe/Modify(...)` cuando la ruta apunta a `DataWindow.Table.Select`, `report(...)` o `dddw.name` resolubles;
 - seguir child DataWindows por `report(name=... dataobject=...)` y dropdowns `dddw.name` sin mezclar `.srd` con PowerScript normal;
 - proyectar un lineage SQL read-only que encadene `retrieve` raíz, report children y dropdown children resolubles desde bindings reales o desde el `.srd` activo;
@@ -128,14 +137,16 @@ El plugin debe poder generar contexto read-only:
 - ancestor chain;
 - DataWindow bindings;
 - sourceOrigin;
-- evidence/confidence.
+- evidence/confidence;
+- invocationRisk y riskReasons para bloquear automatización insegura.
 
 Estado actual:
 
 - el plugin ya puede exportar un repro pack semántico reproducible desde el editor activo, capturando `currentObjectContext`, `impactAnalysis`, `safeEditPlan`, `semanticWorkspaceManifest`, `serverStats`, diagnostics visibles y copias de archivos relacionados bajo `tools/semantic-repros`.
 - los diagnostics incluidos en ese contexto y en snapshots ya exponen `diagnostic.code` estable; tooling nuevo debe consumir ese campo y no parsear `source` como contrato primario.
-- la API pública v2 ya expone descriptor contractual, bridge read-only por tools, snapshot semántico exportable/importable, settings governance observable, knowledge packs curados y safe batch refactor planning sin abrir un segundo motor en cliente.
+- la API pública v2 ya expone descriptor contractual, bridge read-only por tools, snapshot semántico exportable/importable, settings governance observable con perfiles `fast|balanced|deep-analysis|legacy-orca|ci-support|support-safe`, knowledge packs curados y safe batch refactor planning sin abrir un segundo motor en cliente.
 - el cliente ya expone además un Diagnostics Explainability Panel read-only sobre los diagnostics emitidos, reutilizando el mismo contrato estable de `diagnostic.code`.
+- `impactAnalysis`, `safeEditPlan`, `dependencyGraph` y code actions ya exponen `invocationRisk` uniforme para que la automatización diferencie llamadas seguras, heredadas, fallback, dinámicas o externas antes de proponer cambios.
 
 Automatización write-enabled solo debe llegar después de API estable, confidence gates y validación suficiente.
 
@@ -207,7 +218,7 @@ Matriz de decisión operativa:
 Superficies visibles que deben bastar para el troubleshooting:
 
 - status bar y menú de estado con `Build`, `Último build`, `Elegir build`, `Cancelar build`, `ORCA` y `Cancelar ORCA`;
-- dashboard read-only de salud del proyecto;
+- dashboard read-only de salud del proyecto con enterprise health score explicable;
 - `PowerSyntax: Mostrar Stats del Runtime` para inspeccionar `buildFiles`, `buildRunner`, `orcaTooling`, `orcaRunner`, `buildProblems`, `buildHealth` y `showStats.persistence.buildOrcaJournalUri`.
 
 Artefactos de diagnóstico que el usuario debe poder localizar sin ambigüedad:
@@ -281,6 +292,7 @@ Flujo:
 Reglas:
 
 - el lineage reutiliza solo `DataWindowModel`, bindings `DataObject` y child routes ya indexadas por el pipeline semántico;
+- el subset SQL actual cubre aliases de `select`, `JOIN ... ON` simples y `WHERE` básico; si aparece subquery o SQL complejo, el lineage debe degradar sin inventar referencias;
 - la resolución debe permanecer explícita como `resolved|missing|ambiguous|dynamic` y no fingir rutas únicas cuando no existan;
 - el slice actual es read-only y no introduce parsing paralelo ni recomputación global del workspace.
 
@@ -352,16 +364,16 @@ El maintainer o agente quiere inspeccionar o sanear el runtime sin abrir debuggi
 Flujo:
 
 1. abrir `PowerSyntax: Abrir Menú de Estado` o ejecutar directamente el comando del síntoma principal;
-2. usar `PowerSyntax: Exportar Health Report`, `Mostrar Memory Budgets`, `Mostrar Estado de Indexación`, `Mostrar Project Routing` o `Mostrar Conflictos de sourceOrigin` para inspección read-only del runtime;
+2. usar `PowerSyntax: Exportar Health Report`, `Ejecutar Runtime Self-Test`, `Mostrar Memory Budgets`, `Mostrar Estado de Indexación`, `Mostrar Project Routing` o `Mostrar Conflictos de sourceOrigin` para inspección read-only del runtime;
 3. ejecutar `PowerSyntax: Validar Cache Persistente` antes de tocar persistencia y usar `PowerSyntax: Ejecutar Mantenimiento de Cache Semántica` solo cuando la retención/journal lo recomienden;
 4. reservar `PowerSyntax: Limpiar Cache Semántica` y `PowerSyntax: Rebuild Workspace Index` para limpieza explícita del estado persistido o relanzado del runtime, siempre tras confirmación modal.
 
 Reglas:
 
-- `export health report`, `show memory budgets`, `show indexing state`, `show project routing`, `show sourceOrigin conflicts`, `validate persistent cache` y `export support bundle` son read-only;
+- `export health report`, `run runtime self-test`, `show memory budgets`, `show indexing state`, `show project routing`, `show sourceOrigin conflicts`, `validate persistent cache` y `export support bundle` son read-only;
 - `clear semantic cache` y `rebuild workspace index` son comandos confirmables y no deben dispararse en background ni sin acción explícita del usuario;
 - el pack reutiliza `showStats`, dashboard, manifest, `currentObjectContext`, conflictos cross-project y `cacheStore`, sin abrir un segundo motor de observabilidad;
-- `health report` y `support bundle` son complementarios: el primero congela dashboard/stats/manifest para inspección rápida y el segundo añade snapshot saneada para soporte offline.
+- `runtime self-test`, `health report` y `support bundle` son complementarios: el primero ofrece un chequeo rápido del runtime, el segundo congela dashboard/score enterprise/stats/manifest para inspección rápida y el tercero añade snapshot offline con redacción explícita por perfil.
 
 ---
 
@@ -371,15 +383,17 @@ El maintainer o soporte quiere congelar una evidencia técnica del runtime para 
 
 Flujo:
 
-1. ejecutar `PowerSyntax: Exportar Support Bundle Offline` desde el workspace activo;
-2. localizar el bundle bajo `tools/support-bundles/<workspace>-<timestamp>` o en el destino explícito elegido por el comando;
-3. revisar `runtime-health.json`, `server-stats.sanitized.json`, `diagnostics-snapshot.sanitized.json`, `semantic-workspace-manifest.reduced.json`, `runtime-journal-tail.json`, `performance-summary.json`, `settings-sanitized.json`, `build-orca-snapshot.json`, `public-contract.json`, `read-only-tool-bridge.json` y `api-inventory.json`;
-4. adjuntar el bundle como evidencia de troubleshooting o soporte sin mezclarlo con el repro pack semántico si no hace falta copiar archivos fuente relacionados.
+1. si hace falta una redacción más estricta, aplicar antes `ci-support` o `support-safe` desde `PowerSyntax: Aplicar Perfil de Settings`;
+2. ejecutar `PowerSyntax: Exportar Support Bundle Offline` desde el workspace activo;
+3. localizar el bundle bajo `tools/support-bundles/<workspace>-<timestamp>` o en el destino explícito elegido por el comando y confirmar en `manifest.json` / `README.md` el `redactionProfile` y la `redactionPolicy` aplicada;
+4. revisar `runtime-health.json`, `server-stats.sanitized.json`, `diagnostics-snapshot.sanitized.json`, `semantic-workspace-manifest.reduced.json`, `runtime-journal-tail.json`, `performance-summary.json`, `current-object-context.sanitized.json`, `powerbuilder-code-metrics.sanitized.json`, `powerbuilder-technical-debt-report.sanitized.json`, `settings-sanitized.json`, `build-orca-snapshot.json`, `public-contract.json`, `read-only-tool-bridge.json` y `api-inventory.json`;
+5. adjuntar el bundle como evidencia de troubleshooting o soporte sin mezclarlo con el repro pack semántico si no hace falta copiar archivos fuente relacionados.
 
 Reglas:
 
-- el support bundle se construye cliente-side sobre `showStats`, health, manifest semántico, gobernanza de settings y contrato API ya publicados;
+- el support bundle se construye cliente-side sobre `showStats`, health, manifest semántico, current object context, code metrics, debt report, gobernanza de settings y contrato API ya publicados;
 - el contrato público ya declara este carril como observabilidad local `externalTelemetry = false`; la exportación offline requiere una acción explícita del usuario y no existe envío automático de métricas fuera de la máquina local;
+- `fast`, `balanced`, `deep-analysis` y `legacy-orca` mantienen `sanitized`, mientras `ci-support` y `support-safe` pueden endurecer paths/snippets/settings/manifest a `summary-only` según la policy publicada en el bundle;
 - rutas, URIs, ejecutables y artefactos locales deben salir redaccionados y el bundle no copia código bruto por defecto;
 - el repro pack semántico sigue siendo el carril para bugs donde haga falta copiar contexto fuente relacionado, mientras que el support bundle prioriza observabilidad offline y privacidad local.
 
@@ -439,3 +453,22 @@ Reglas:
 - el framework consume `diagnostic.code` ya publicado y no parsea `source` como contrato primario ni inventa diagnósticos locales;
 - cada acción declara `catalogVersion`, `requiredConfidence`, `evidence` y `preview` antes de tocar el documento;
 - `sourceOrigin` dudoso, preflight fallido y dynamic strings bloquean la acción antes del edit.
+
+---
+
+## 22. Workflow 21 — Gobernar perfiles y settings del producto
+
+El maintainer o agente quiere aplicar un baseline corporativo defendible sobre el workspace sin tocar settings uno a uno ni abrir overrides invisibles fuera del carril explícito del producto.
+
+Flujo:
+
+1. ejecutar `PowerSyntax: Mostrar Gobernanza de Settings` para inspeccionar el perfil activo, las claves gobernadas y los conflictos actuales;
+2. ejecutar `PowerSyntax: Aplicar Perfil de Settings` para aplicar uno de los perfiles `fast`, `balanced`, `deep-analysis`, `legacy-orca`, `ci-support` o `support-safe` sobre el workspace actual;
+3. revisar conflictos residuales, especialmente combinaciones inválidas como `formatOnSave=true` con `formatting.enabled=false`;
+4. si el workspace arrastra perfiles legacy (`interactive`, `legacy-safe`), normalizarlos a `fast` o `support-safe` antes de seguir con soporte, ORCA o troubleshooting.
+
+Reglas:
+
+- la política sólo gobierna claves explícitas del producto; no debe sobreescribir paths locales de PBAutoBuild u ORCA ni settings ajenos al contrato;
+- `legacy-orca`, `ci-support` y `support-safe` priorizan reproducibilidad y baja mutación sobre corpus legacy o sesiones de soporte;
+- la aplicación del perfil escribe en settings de workspace, no en settings globales del usuario.

@@ -169,6 +169,14 @@ export interface ApiPowerBuilderDependencyGraphRequest {
   maxDependents?: number;
 }
 
+export type ApiInvocationRisk = 'safe' | 'inherited' | 'fallback' | 'dynamic' | 'external';
+
+export interface ApiInvocationRiskSummary {
+  risk: ApiInvocationRisk;
+  reasons: string[];
+  dynamicStringReferenceCount?: number;
+}
+
 export type ApiPowerBuilderDependencyGraphNodeKind =
   | 'focus-object'
   | 'workspace-object'
@@ -224,6 +232,8 @@ export interface ApiPowerBuilderDependencyGraph {
     dependentCount: number;
     unresolvedDependencyCount: number;
     ambiguousDependencyCount: number;
+    invocationRisk?: ApiInvocationRisk;
+    riskReasons?: string[];
   };
   nodes: ApiPowerBuilderDependencyGraphNode[];
   edges: ApiPowerBuilderDependencyGraphEdge[];
@@ -1118,7 +1128,7 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
 ];
 
 const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
-  { name: 'ApiPublicContractDescriptor', version: '2.12.0', kind: 'descriptor' },
+  { name: 'ApiPublicContractDescriptor', version: PUBLIC_API_VERSION, kind: 'descriptor' },
   { name: 'ApiTaskExecutionContractCatalog', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiObservabilityContractDescriptor', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiReadOnlyToolBridgeDescriptor', version: '1.0.0', kind: 'descriptor' },
@@ -1258,6 +1268,15 @@ export interface ApiCurrentObjectContextRequest {
   maxReferencedSymbols?: number;
 }
 
+export interface ApiEmbeddedSqlAnchor {
+  startLine: number;
+  endLine: number;
+  keyword: 'SELECT' | 'UPDATE' | 'INSERT' | 'DELETE' | 'EXECUTE';
+  preview: string;
+  confidence: 'high' | 'medium' | 'low';
+  transactionTarget?: string;
+}
+
 export interface ApiCurrentObjectInfo {
   uri: string;
   globalType?: string;
@@ -1371,6 +1390,7 @@ export interface ApiCurrentObjectContext {
     items: ApiCurrentObjectDiagnostic[];
   };
   dataWindowBindings?: ApiCurrentObjectDataWindowBinding[];
+  embeddedSqlAnchors?: ApiEmbeddedSqlAnchor[];
   evidence?: {
     readiness?: string;
     identifier?: string;
@@ -1411,6 +1431,10 @@ export interface ApiImpactAnalysis {
   confidence?: 'high' | 'medium' | 'low';
   primaryReasonCode?: string;
   evidenceKinds?: string[];
+  invocationKind?: string;
+  invocationRisk?: ApiInvocationRisk;
+  riskReasons?: string[];
+  dynamicStringReferenceCount?: number;
   safeReferences: ApiImpactLocation[];
   probableImpactFiles: ApiCurrentObjectRelatedFile[];
   descendants: ApiCurrentObjectAncestor[];
@@ -1435,6 +1459,8 @@ export interface ApiSafeEditPlan {
   blocked: boolean;
   reason?: string;
   confidence?: 'high' | 'medium' | 'low';
+  invocationRisk?: ApiInvocationRisk;
+  riskReasons?: string[];
   targetSymbol?: ApiCurrentObjectContextSymbol;
   objects: ApiCurrentObjectContextSymbol[];
   files: ApiSafeEditPlanFile[];
@@ -1639,6 +1665,7 @@ export interface ApiPowerBuilderCodeMetricsObject {
   readiness?: string;
   sourceOrigin?: import('./sourceOrigin').SourceOrigin;
   metrics: ApiPowerBuilderCodeMetricsObjectMetrics;
+  embeddedSqlAnchors?: ApiEmbeddedSqlAnchor[];
 }
 
 export interface ApiPowerBuilderCodeMetricsSummary {
@@ -1725,6 +1752,7 @@ export interface ApiPowerBuilderTechnicalDebtHotspot {
   evidence: string[];
   recommendations: string[];
   metrics: ApiPowerBuilderTechnicalDebtHotspotMetrics;
+  embeddedSqlAnchors?: ApiEmbeddedSqlAnchor[];
 }
 
 export type ApiPowerBuilderTechnicalDebtRecommendationCategory =

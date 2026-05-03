@@ -31,3 +31,10 @@
 - [x] Create `catalogV2.test.ts`.
 - [x] Verify backward compatibility.
 - [x] Verify new catalog coverage.
+
+### Phase 6: Follow-up audit hardening
+- [x] Align `DataWindowChild` between catalog v2 and parser fast-path Set.
+- [x] Align the official catalog generator path with the current `src/server/knowledge/system` layout.
+- [x] Add a compatibility wrapper for the documented `scripts/generate_official_function_catalog.cjs` path.
+- [x] Add focused regression tests for generator paths and parser/catalog datatype alignment.
+- [ ] Close B319/B320/B321 only when their own acceptance criteria are fully validated.

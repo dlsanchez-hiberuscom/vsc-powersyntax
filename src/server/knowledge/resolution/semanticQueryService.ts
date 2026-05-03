@@ -1,8 +1,10 @@
 import { KnowledgeBase } from '../KnowledgeBase';
+import { buildCallableImplementationKey, getCallableParameterCount, getCallableParameterTypes, isCallableEntity } from '../callSignature';
 import { InheritanceGraph } from './InheritanceGraph';
 import type { HotContextCache } from '../HotContextCache';
 import type { InvocationContext } from '../../utils/invocationContext';
 import { Entity, EntityKind, ScopeKind, type EntityLineageConfidence, type Scope } from '../types';
+import { resolveSystemGlobal } from '../system/services/queryService';
 import { compareSourceOriginPriority, type SourceOrigin } from '../../../shared/sourceOrigin';
 import { normalizeUri } from '../../system/uriUtils';
 import { annotateLastTraceResolution, recordTraceStep, type TraceStep, withTrace } from '../queryTrace';
@@ -103,7 +105,22 @@ export interface FallbackAmbiguityEvidence {
   candidateCount: number;
 }
 
-export type QueryEvidenceEntry = QueryEvidence | DistanceDiscardEvidence | ContextDiscardEvidence | DistanceAmbiguityEvidence | SourceOriginConflictEvidence | FallbackAmbiguityEvidence;
+export interface SignatureDiscardEvidence {
+  kind: 'discarded-signature';
+  reasonCode: QueryReasonCode;
+  reason: 'arity-mismatch' | 'type-mismatch' | 'prototype-shadowed';
+  targetName: string;
+  targetKind: EntityKind;
+  targetUri: string;
+  targetContainer?: string;
+  invocationArgumentCount?: number;
+  candidateParameterCount?: number;
+  expectedParameterTypes?: string[];
+  invocationArgumentTypes?: string[];
+  signature?: string;
+}
+
+export type QueryEvidenceEntry = QueryEvidence | DistanceDiscardEvidence | ContextDiscardEvidence | DistanceAmbiguityEvidence | SourceOriginConflictEvidence | FallbackAmbiguityEvidence | SignatureDiscardEvidence;
 
 export interface QueryCandidate {
   kind: 'candidate';
@@ -139,6 +156,20 @@ interface RankedTargetsResult {
   winners: Entity[];
   discarded: DistanceDiscard[];
   ambiguity: { winnerDistance: number; candidateCount: number } | null;
+}
+
+interface SignatureDiscard {
+  entity: Entity;
+  reason: SignatureDiscardEvidence['reason'];
+  invocationArgumentCount?: number;
+  candidateParameterCount?: number;
+  expectedParameterTypes?: string[];
+  invocationArgumentTypes?: string[];
+}
+
+interface SignatureHardenResult {
+  candidates: Entity[];
+  discarded: SignatureDiscard[];
 }
 
 export interface ResolveTargetOptions {
@@ -466,6 +497,73 @@ function buildFallbackAmbiguityEvidence(
   }];
 }
 
+function buildSignatureDiscardEvidence(
+  discarded: SignatureDiscard[],
+  reasonCode: QueryReasonCode | undefined
+): QueryEvidenceEntry[] {
+  if (!reasonCode || discarded.length === 0) {
+    return [];
+  }
+
+  return discarded.map(({ entity, reason, invocationArgumentCount, candidateParameterCount, expectedParameterTypes, invocationArgumentTypes }) => ({
+    kind: 'discarded-signature',
+    reasonCode,
+    reason,
+    targetName: entity.name,
+    targetKind: entity.kind,
+    targetUri: entity.uri,
+    ...(entity.containerName ? { targetContainer: entity.containerName } : {}),
+    ...(invocationArgumentCount !== undefined ? { invocationArgumentCount } : {}),
+    ...(candidateParameterCount !== undefined ? { candidateParameterCount } : {}),
+    ...(expectedParameterTypes && expectedParameterTypes.length > 0 ? { expectedParameterTypes } : {}),
+    ...(invocationArgumentTypes && invocationArgumentTypes.length > 0 ? { invocationArgumentTypes } : {}),
+    ...(entity.signatureLabel ?? entity.signature ? { signature: entity.signatureLabel ?? entity.signature } : {})
+  }));
+}
+
+function normalizeComparableType(typeName: string | undefined): string {
+  const normalized = (typeName ?? '').trim().toLowerCase();
+  switch (normalized) {
+    case 'int': return 'integer';
+    case 'dec': return 'decimal';
+    case 'bool': return 'boolean';
+    default: return normalized;
+  }
+}
+
+function isNumericType(typeName: string): boolean {
+  return new Set(['integer', 'long', 'longlong', 'decimal', 'double', 'real', 'number']).has(typeName);
+}
+
+function areArgumentTypesCompatible(expectedType: string, actualType: string): boolean {
+  const expected = normalizeComparableType(expectedType);
+  const actual = normalizeComparableType(actualType);
+  if (!expected || !actual || actual === 'unknown') {
+    return true;
+  }
+  if (expected === actual) {
+    return true;
+  }
+  return isNumericType(expected) && isNumericType(actual);
+}
+
+function matchesInvocationArgumentTypes(candidate: Entity, argumentTypes: readonly string[] | undefined): boolean {
+  if (!argumentTypes || argumentTypes.length === 0 || argumentTypes.every((typeName) => typeName === 'unknown')) {
+    return true;
+  }
+  const parameterTypes = getCallableParameterTypes(candidate);
+  if (parameterTypes.length !== argumentTypes.length) {
+    return false;
+  }
+  return parameterTypes.every((parameterType, index) => areArgumentTypesCompatible(parameterType, argumentTypes[index]));
+}
+
+function isPrototypeEntity(entity: Entity): boolean {
+  return entity.isPrototype === true
+    || entity.lineage?.phase === 'prototype'
+    || entity.lineage?.role === 'prototype';
+}
+
 function deriveAmbiguityKind(
   targets: Entity[],
   reasonCodes: QueryReasonCode[],
@@ -576,6 +674,79 @@ function rankTargetsByDistance(targets: Entity[], fromType: string, graph: Inher
   };
 }
 
+function hardenCallableCandidates(candidates: Entity[], context: InvocationContext): SignatureHardenResult {
+  if (candidates.length <= 1 && context.argumentCount === undefined) {
+    return { candidates, discarded: [] };
+  }
+
+  let current = candidates;
+  const discarded: SignatureDiscard[] = [];
+  const callableCandidates = current.filter(isCallableEntity);
+
+  if (context.argumentCount !== undefined && callableCandidates.length > 0) {
+    const arityMatches = callableCandidates.filter((candidate) => getCallableParameterCount(candidate) === context.argumentCount);
+    if (arityMatches.length > 0) {
+      const arityMatchSet = new Set(arityMatches);
+      for (const candidate of callableCandidates) {
+        if (!arityMatchSet.has(candidate)) {
+          discarded.push({
+            entity: candidate,
+            reason: 'arity-mismatch',
+            invocationArgumentCount: context.argumentCount,
+            candidateParameterCount: getCallableParameterCount(candidate)
+          });
+        }
+      }
+      current = current.filter((candidate) => !isCallableEntity(candidate) || arityMatchSet.has(candidate));
+    }
+  }
+
+  const callableArityMatches = current.filter(isCallableEntity);
+  if (context.argumentTypes && callableArityMatches.length > 1) {
+    const typeMatches = callableArityMatches.filter((candidate) => matchesInvocationArgumentTypes(candidate, context.argumentTypes));
+    if (typeMatches.length > 0 && typeMatches.length < callableArityMatches.length) {
+      const typeMatchSet = new Set(typeMatches);
+      for (const candidate of callableArityMatches) {
+        if (!typeMatchSet.has(candidate)) {
+          discarded.push({
+            entity: candidate,
+            reason: 'type-mismatch',
+            invocationArgumentCount: context.argumentCount,
+            candidateParameterCount: getCallableParameterCount(candidate),
+            expectedParameterTypes: getCallableParameterTypes(candidate),
+            invocationArgumentTypes: [...context.argumentTypes]
+          });
+        }
+      }
+      current = current.filter((candidate) => !isCallableEntity(candidate) || typeMatchSet.has(candidate));
+    }
+  }
+
+  const implementationKeys = new Set(
+    current
+      .filter((candidate) => isCallableEntity(candidate) && !isPrototypeEntity(candidate))
+      .map(buildCallableImplementationKey)
+  );
+
+  if (implementationKeys.size > 0) {
+    const next: Entity[] = [];
+    for (const candidate of current) {
+      if (isPrototypeEntity(candidate) && implementationKeys.has(buildCallableImplementationKey(candidate))) {
+        discarded.push({
+          entity: candidate,
+          reason: 'prototype-shadowed',
+          candidateParameterCount: getCallableParameterCount(candidate)
+        });
+        continue;
+      }
+      next.push(candidate);
+    }
+    current = next;
+  }
+
+  return { candidates: current, discarded };
+}
+
 export function resolveTargetEntityDetailed(
   context: InvocationContext,
   currentDocumentUri: string,
@@ -596,6 +767,7 @@ export function resolveTargetEntityDetailed(
     let reasonCodes: QueryReasonCode[] = [];
     let candidatePool: Entity[] = [];
     let distanceDiscards: DistanceDiscard[] = [];
+    let signatureDiscards: SignatureDiscard[] = [];
     let contextDiscards: ContextDiscardEvidence[] = [];
     let distanceAmbiguity: RankedTargetsResult['ambiguity'] = null;
     let resolvedQualifierType: string | undefined;
@@ -613,6 +785,9 @@ export function resolveTargetEntityDetailed(
         if (qualifierLower === 'super' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
           const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
@@ -621,6 +796,9 @@ export function resolveTargetEntityDetailed(
         } else if (qualifierLower === 'ancestor' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
           const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
@@ -629,6 +807,9 @@ export function resolveTargetEntityDetailed(
         } else if (qualifierLower === 'parent' && currentMainObject?.containerName) {
           const members = getMembersForType(currentMainObject.containerName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
           const ranked = rankTargetsByDistance(candidatePool, currentMainObject.containerName, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
@@ -637,6 +818,9 @@ export function resolveTargetEntityDetailed(
         } else if (qualifierLower === 'this' && currentMainObject) {
           const members = getMembersForType(currentMainObject.name, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
           const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
@@ -645,6 +829,9 @@ export function resolveTargetEntityDetailed(
         } else {
           const members = getMembersForType(resolvedQualifierType, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
           const ranked = rankTargetsByDistance(candidatePool, resolvedQualifierType, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
@@ -683,6 +870,7 @@ export function resolveTargetEntityDetailed(
               invocationRisk: 'safe' as QueryInvocationRisk,
               candidatePool: [localMatch],
               distanceDiscards: [],
+              signatureDiscards: [],
               contextDiscards: [],
               distanceAmbiguity: null,
               resolvedQualifierType: undefined
@@ -695,6 +883,9 @@ export function resolveTargetEntityDetailed(
         const members = getMembersForType(currentMainObject.name, currentUri, kb, graph, options.hotContext);
         candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
         if (candidatePool.length > 0) {
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
           const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
@@ -706,6 +897,9 @@ export function resolveTargetEntityDetailed(
 
       if (possibleTargets.length === 0) {
         candidatePool = kb.findAllDefinitions(identifier);
+        const hardened = hardenCallableCandidates(candidatePool, context);
+        candidatePool = hardened.candidates;
+        signatureDiscards.push(...hardened.discarded);
         possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
         if (possibleTargets.length > 0) {
           reasonCodes.push('global-fallback');
@@ -733,6 +927,7 @@ export function resolveTargetEntityDetailed(
       resolvedQualifierType,
       candidatePool,
       distanceDiscards,
+      signatureDiscards,
       contextDiscards,
       distanceAmbiguity
     };
@@ -750,6 +945,7 @@ export function resolveTargetEntityDetailed(
   const evidence = [
     ...buildWinnerEvidence(result.targets[0], winnerLineage),
     ...buildDistanceDiscardEvidence(result.distanceDiscards, result.reasonCodes[0]),
+    ...buildSignatureDiscardEvidence(result.signatureDiscards, result.reasonCodes[0]),
     ...buildDistanceAmbiguityEvidence(result.distanceAmbiguity, result.reasonCodes[0]),
     ...buildFallbackAmbiguityEvidence(result.targets, result.reasonCodes[0]),
     ...buildSourceOriginConflictEvidence(result.candidatePool, result.targets, result.reasonCodes[0]),
@@ -828,9 +1024,6 @@ export function resolveQualifierType(
   currentObject?: Entity
 ): string | undefined {
   const qLower = qualifier.toLowerCase();
-  if (qLower === 'sqlca') {
-    return 'transaction';
-  }
 
   if (qLower === 'super' || qLower === 'this' || qLower === 'ancestor') {
     return qLower;
@@ -861,6 +1054,11 @@ export function resolveQualifierType(
 
   if (varType) {
     return varType;
+  }
+
+  const systemGlobal = resolveSystemGlobal(qualifier);
+  if (systemGlobal?.valueType) {
+    return systemGlobal.valueType.toLowerCase();
   }
 
   const typeTarget = kb.findDefinition(qLower);

@@ -43,6 +43,7 @@ import {
   resolveDataWindowRetrieveArguments,
   type DataWindowRetrieveArgument,
 } from './dataWindowBindingModel';
+import { buildDataWindowModel } from './dataWindowModel';
 import { inspectPowerScriptDataWindowProperty } from './dataWindowPropertyPaths';
 import {
   buildDiagnosticsSnapshot,
@@ -507,7 +508,7 @@ export function validateSemantics(
 
   // --- SD2: Validación dentro de scopes Function/Event ---
   for (const rootScope of scopes) {
-    visitScopes(rootScope, document.uri, lines, sections, diagnostics, kb, systemCatalog, inheritanceGraph);
+    visitScopes(rootScope, document.uri, lines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
   }
 
   // --- SD4: Variables locales no usadas ---
@@ -520,6 +521,9 @@ export function validateSemantics(
 
   // --- Dependencias nativas externas sin implementación interna ---
   checkExternalDependencies(semanticFacts, diagnostics);
+
+  // --- B289: dependencias de expresiones DataWindow dentro del .srd ---
+  checkDataWindowExpressionDiagnostics(document, diagnostics);
 
   // --- Binding transaccional/DataObject para DataStore y DataWindow ---
   if (mainType) {
@@ -576,6 +580,46 @@ function checkExternalDependencies(
         alias: fact.externalAlias
       }
     }, DIAGNOSTIC_CODES.nativeDependency));
+  }
+}
+
+function checkDataWindowExpressionDiagnostics(
+  document: TextDocument,
+  diagnostics: Diagnostic[],
+): void {
+  const model = buildDataWindowModel(document);
+  if (!model) {
+    return;
+  }
+
+  if (model.tableColumns.length === 0 && model.controls.length === 0) {
+    return;
+  }
+
+  for (const expression of model.expressions) {
+    for (const dependency of expression.dependencies) {
+      if (dependency.kind !== 'unresolved') {
+        continue;
+      }
+
+      diagnostics.push(withDiagnosticCode({
+        severity: DiagnosticSeverity.Warning,
+        range: Range.create(
+          Position.create(expression.selectionRange.start.line, expression.selectionRange.start.character),
+          Position.create(expression.selectionRange.end.line, expression.selectionRange.end.character),
+        ),
+        message: `La expresión DataWindow '${expression.name}' referencia '${dependency.name}' y no es resoluble de forma segura como columna o control del .srd.`,
+        source: DIAGNOSTIC_SOURCE,
+        data: {
+          kind: 'datawindow-expression-dependency',
+          confidence: 'medium',
+          expression: expression.name,
+          owner: expression.ownerName ?? expression.controlType,
+          property: expression.propertyName,
+          dependency: dependency.name,
+        }
+      }, DIAGNOSTIC_CODES.dataWindowExpressionDependencyUnresolved));
+    }
   }
 }
 
@@ -1232,7 +1276,8 @@ function visitScopes(
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
-  inheritanceGraph: InheritanceGraph
+  inheritanceGraph: InheritanceGraph,
+  mainType?: import('../knowledge/types').Fact,
 ): void {
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
     for (let i = scope.startLine + 1; i <= scope.endLine; i++) {
@@ -1271,13 +1316,41 @@ function visitScopes(
 
         if (PB_KEYWORDS.has(funcLower)) continue;
         if (PB_BUILTIN_TYPES.has(funcLower)) continue; // create type()
-        if (systemCatalog.findSystemSymbol(funcName).length > 0) continue;
 
         // Si la llamada tiene un qualifier distinto de this/super, no validar aquí
         // Por ejemplo: dw_1.Retrieve() o obj.func()
         const matchStart = callMatch.index;
         const stringBefore = trimmed.substring(0, matchStart);
-        if (stringBefore.endsWith('.') && !qualifier) continue;
+        if (stringBefore.endsWith('.') && !qualifier) {
+          const qualifiedTarget = extractQualifiedCallTargetName(stringBefore);
+          const qualifiedTargetType = qualifiedTarget && mainType
+            ? resolveQualifierType(qualifiedTarget, currentUri, kb, i, mainType)
+            : undefined;
+
+          if (
+            qualifiedTarget
+            && qualifiedTargetType
+            && DATAWINDOW_BIND_OWNER_TYPES.has(qualifiedTargetType.toLowerCase())
+            && isDataWindowBehavioralCatalogSymbol(systemCatalog, funcName)
+            && !systemCatalog.resolveDataWindowFunctionForOwner(funcName, [qualifiedTargetType])
+          ) {
+            const col = raw.indexOf(funcName, raw.length - raw.trimStart().length);
+            diagnostics.push(withDiagnosticCode({
+              severity: DiagnosticSeverity.Warning,
+              range: Range.create(
+                Position.create(i, col >= 0 ? col : 0),
+                Position.create(i, (col >= 0 ? col : 0) + funcName.length)
+              ),
+              message: `La función '${funcName}' no aplica al tipo '${qualifiedTargetType}' resuelto para '${qualifiedTarget}'.`,
+              source: DIAGNOSTIC_SOURCE,
+              data: buildOwnerMismatchDiagnosticData(qualifiedTarget, qualifiedTargetType)
+            }, DIAGNOSTIC_CODES.sd2UnresolvedCallable));
+          }
+
+          continue;
+        }
+
+        if (systemCatalog.findSystemSymbol(funcName).length > 0) continue;
 
         const resolution = resolveTargetEntityDetailed(
           qualifier ? { identifier: funcName, qualifier } : { identifier: funcName },
@@ -1308,7 +1381,7 @@ function visitScopes(
 
   // Recorrer scopes hijos
   for (const child of scope.children) {
-    visitScopes(child, currentUri, strippedLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph);
+    visitScopes(child, currentUri, strippedLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
   }
 }
 
@@ -1322,6 +1395,29 @@ function buildResolutionDiagnosticData(resolution: ResolvedTargetInfo): Record<s
     candidateCount: resolution.candidatePool.length,
     hasAmbiguity: resolution.evidence.some((entry) => entry.kind === 'distance-ambiguity')
   };
+}
+
+function buildOwnerMismatchDiagnosticData(qualifier: string, ownerType: string): Record<string, unknown> {
+  return {
+    kind: 'semantic-evidence',
+    confidence: 'high',
+    reasonCodes: ['owner-mismatch'],
+    evidenceKinds: ['owner-mismatch'],
+    targetCount: 0,
+    candidateCount: 0,
+    hasAmbiguity: false,
+    qualifier,
+    ownerType,
+  };
+}
+
+function extractQualifiedCallTargetName(stringBefore: string): string | undefined {
+  const match = /([A-Za-z_][\w$#%]*)\s*\.\s*$/.exec(stringBefore);
+  return match?.[1];
+}
+
+function isDataWindowBehavioralCatalogSymbol(systemCatalog: SystemCatalog, funcName: string): boolean {
+  return systemCatalog.findSystemSymbol(funcName).some((symbol) => symbol.domain === 'datawindow-functions');
 }
 
 /**

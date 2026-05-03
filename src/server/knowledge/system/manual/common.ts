@@ -185,6 +185,7 @@ type ManualSymbolArgs = {
     replacement?: string;
     lookupAliases?: readonly string[];
     sourceUrl?: string;
+    risk?: 'safe' | 'dynamic' | 'deprecated' | 'legacy' | 'external';
 };
 
 function defineManualEntry(
@@ -279,6 +280,8 @@ type LanguageSymbolArgs = {
     syntax?: string;
     languageRole?: string;
     signatures?: readonly PbSystemSymbolSignature[];
+    valueType?: string;
+    risk?: PbSystemSymbolEntry['risk'];
 };
 
 export function languageKeyword(args: LanguageSymbolArgs): PbSystemSymbolEntry {

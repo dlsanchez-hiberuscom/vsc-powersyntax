@@ -103,6 +103,16 @@ suite('unit/currentObjectContextPanelModel (B215)', () => {
           retrieveArguments: [{ name: 'custarg', type: 'number', label: 'custarg:number' }],
         }
       ],
+      embeddedSqlAnchors: [
+        {
+          startLine: 24,
+          endLine: 26,
+          keyword: 'SELECT',
+          preview: 'SELECT order_id INTO :ll_order_id FROM sales_order;',
+          confidence: 'high',
+          transactionTarget: 'SQLCA',
+        }
+      ],
       referencedSymbols: [
         {
           identifier: 'of_inherited',
@@ -142,6 +152,7 @@ suite('unit/currentObjectContextPanelModel (B215)', () => {
     assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Variables visibles'));
     assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Members'));
     assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Diagnostics'));
+    assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Embedded SQL'));
   });
 
   test('degrada con mensaje honesto cuando no hay contexto disponible', () => {

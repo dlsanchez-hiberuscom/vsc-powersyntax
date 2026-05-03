@@ -109,6 +109,37 @@ suite('unit/hover', () => {
     assert.ok(value.includes('*Confianza:* direct'), 'Debe incluir confianza derivada');
   });
 
+  test('provideHover resuelve system types modernos del catálogo runtime', () => {
+    const doc = setupAnalyzedDocument('file:///n_http_hover.sru', [
+      'forward',
+      'global type n_http_hover from httpclient',
+      'end type',
+      'end forward',
+      'global type n_http_hover from httpclient',
+      'end type'
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('from httpclient'));
+    const hover = provideHover(doc, Position.create(lineIndex, lines[lineIndex].indexOf('httpclient') + 2), kb, catalog, graph);
+
+    assert.ok(hover, 'Hover no debería ser null para HTTPClient');
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('HTTPClient'), 'Debe contener el nombre del tipo del sistema');
+    assert.match(value, /Cliente HTTP/i, 'Debe incluir el resumen del system type moderno.');
+  });
+
+  test('provideHover expone tipo y riesgo de SQLCA desde system-globals', () => {
+    const doc = TextDocument.create('file:///test_sqlca_hover.sru', 'powerbuilder', 1, 'SQLCA.DBHandle');
+    const hover = provideHover(doc, Position.create(0, 2), kb, catalog, graph);
+
+    assert.ok(hover, 'Hover no debería ser null para SQLCA');
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('SQLCA : Transaction'));
+    assert.ok(value.includes('Riesgo de uso'));
+    assert.ok(value.includes('legacy'));
+  });
+
   test('provideHover devuelve Markdown de KnowledgeBase para función de usuario', () => {
     const doc = TextDocument.create('file:///test.sru', 'powerbuilder', 1, '  of_SetData()  ');
     
@@ -170,6 +201,66 @@ end subroutine
     const value = (hover?.contents as any).value as string;
     assert.ok(value.includes('Recupera filas desde la fuente de datos'), 'Debe usar la entrada DataWindow de Retrieve.');
     assert.ok(value.includes('datawindow_reference/dwmeth_Retrieve.html'), 'Debe apuntar a la referencia de DataWindow.');
+  });
+
+  test('provideHover expone riesgo y documentación ampliada para Update de datastore tipado', () => {
+    const doc = setupAnalyzedDocument('file:///w_tx_hover_update.sru', `
+global type w_tx_hover_update from window
+  datastore ids_orders
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  ids_orders.Update()
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('ids_orders.Update()'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('Update') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.ok(hover, 'Hover no debería ser null para ids_orders.Update().');
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('Envia a la base de datos los cambios acumulados'), 'Debe usar el summary ampliado de Update.');
+    assert.ok(value.includes('**Riesgo de uso:** dinamico'), 'Debe proyectar el riesgo catalogado de Update.');
+    assert.ok(value.includes('accept?'), 'Debe exponer la firma enriquecida de Update.');
+  });
+
+  test('provideHover no hace fallback plano para GetChild sobre DataWindowChild tipado', () => {
+    const doc = setupAnalyzedDocument('file:///w_tx_hover_child.sru', `
+global type w_tx_hover_child from window
+  datawindowchild idwc_orders
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  idwc_orders.GetChild("orders", idwc_orders)
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('idwc_orders.GetChild('));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('GetChild') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.equal(hover, null, 'GetChild no debe exponer hover plano cuando el owner resuelto es DataWindowChild.');
   });
 
   test('provideHover explica un DataObject literal resoluble hacia un .srd indexado', () => {

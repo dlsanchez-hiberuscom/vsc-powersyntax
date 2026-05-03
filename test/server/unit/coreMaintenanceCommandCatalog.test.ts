@@ -6,16 +6,17 @@ import {
 } from '../../../src/client/coreMaintenanceCommandCatalog';
 
 suite('unit/coreMaintenanceCommandCatalog (B278)', () => {
-  test('cubre exactamente los nueve comandos del backlog con ids únicos', () => {
+  test('cubre exactamente los diez comandos del backlog con ids únicos', () => {
     const models = getCoreMaintenanceCommandModels();
 
-    assert.equal(models.length, 9);
+    assert.equal(models.length, 10);
     assert.deepEqual(
       models.map((model) => model.backlogLabel),
       [
         'clear semantic cache',
         'export health report',
         'export support bundle',
+        'run runtime self-test',
         'show memory budgets',
         'show indexing state',
         'show project routing',
@@ -38,16 +39,20 @@ suite('unit/coreMaintenanceCommandCatalog (B278)', () => {
     ]);
     assert.ok(readOnly.includes('vscPowerSyntax.exportSupportBundle'));
     assert.ok(readOnly.includes('vscPowerSyntax.exportHealthReport'));
+    assert.ok(readOnly.includes('vscPowerSyntax.runRuntimeSelfTest'));
     assert.ok(readOnly.includes('vscPowerSyntax.validatePersistentCache'));
   });
 
   test('permite localizar cada command model por id estable', () => {
     const clear = findCoreMaintenanceCommandModel('vscPowerSyntax.clearSemanticCache');
     const routing = findCoreMaintenanceCommandModel('vscPowerSyntax.showProjectRouting');
+    const selfTest = findCoreMaintenanceCommandModel('vscPowerSyntax.runRuntimeSelfTest');
 
     assert.equal(clear?.backlogLabel, 'clear semantic cache');
     assert.equal(clear?.kind, 'confirmable');
     assert.equal(routing?.backlogLabel, 'show project routing');
     assert.equal(routing?.kind, 'read-only');
+    assert.equal(selfTest?.backlogLabel, 'run runtime self-test');
+    assert.equal(selfTest?.kind, 'read-only');
   });
 });

@@ -118,6 +118,8 @@ suite('unit/dependencyGraph (B252)', () => {
     assert.ok(graph.edges.some((edge) => edge.relation === 'used-by'));
     assert.equal(graph.summary.dependentCount, 1);
     assert.equal(graph.summary.unresolvedDependencyCount, 1);
+    assert.equal(graph.summary.invocationRisk, 'fallback');
+    assert.deepEqual(graph.summary.riskReasons, ['evidence:fallback-ambiguity']);
     assert.match(graph.mermaidFlowchart, /flowchart LR/);
     assert.match(graph.mermaidFlowchart, /used-by/);
   });

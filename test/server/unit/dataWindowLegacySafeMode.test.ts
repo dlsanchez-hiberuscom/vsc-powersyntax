@@ -126,4 +126,30 @@ suite('unit/dataWindowLegacySafeMode (B139)', () => {
     assert.ok((dropdownHover?.contents as any).value.includes('Relacion child DataWindow verificada'));
     assert.ok((reportHover?.contents as any).value.includes('Control report DataWindow'));
   });
+
+  test('B288 navega una referencia SQL con alias dentro de where hacia el column= correspondiente', () => {
+    const document = TextDocument.create(
+      'file:///d_customer_orders.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_customer_orders.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(column=(type=long update=yes name=customer_id dbname="customer.customer_id")',
+        ' column=(type=char(10) update=yes name=status dbname="orders.status")',
+        ' column=(type=integer update=yes name=deleted dbname="customer.deleted")',
+        ' retrieve="SELECT c.customer_id AS customer_id, o.status FROM customer c JOIN orders o ON o.customer_id = c.customer_id WHERE o.status = :status AND c.deleted = 0")'
+      ].join('\r\n')
+    );
+
+    const lines = document.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('c.deleted'));
+    const character = lines[lineIndex].indexOf('c.deleted') + 2;
+    const definition = provideDataWindowLegacyDefinition(document, Position.create(lineIndex, character));
+
+    assert.ok(definition);
+    assert.equal(definition?.uri, document.uri);
+    assert.equal(definition?.range.start.line, 5);
+  });
 });

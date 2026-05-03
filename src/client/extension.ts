@@ -39,6 +39,7 @@ import {
   type ApiPowerBuilderDependencyGraphRequest,
   type ApiPowerBuilderCodeMetrics,
   type ApiPowerBuilderCodeMetricsRequest,
+  type ApiEmbeddedSqlAnchor,
   type ApiPowerBuilderTechnicalDebtReport,
   type ApiPowerBuilderTechnicalDebtReportRequest,
   type ApiSemanticWorkspaceSnapshotExportRequest,
@@ -86,6 +87,7 @@ import { findCoreMaintenanceCommandModel } from './coreMaintenanceCommandCatalog
 import { buildProjectHealthDashboardMarkdown } from './projectHealthDashboard';
 import { PowerBuilderObjectExplorerController } from './objectExplorer';
 import { CurrentObjectContextPanelController } from './currentObjectContextPanel';
+import { buildRuntimeSelfTestMarkdown, buildRuntimeSelfTestReport } from './runtimeSelfTest';
 import {
   collectExplainableDiagnosticsFromActiveEditor,
   DiagnosticsExplainabilityPanelController,
@@ -167,6 +169,7 @@ let extensionContextRef: vscode.ExtensionContext | undefined;
 const publicApiSingleton = createPublicApi();
 const LAST_PBAUTOBUILD_PROFILE_KEY = 'pbAutoBuild.lastProfile';
 const MAX_SEMANTIC_REPRO_FILES = 20;
+const CLIENT_STOP_TIMEOUT_MS = 5000;
 
 interface SemanticReproPackCommandOptions {
   destinationUri?: string;
@@ -292,7 +295,7 @@ async function stopClient(): Promise<void> {
   clearStatusRefreshHandle();
   if (client) {
     try {
-      await client.stop();
+      await client.dispose(CLIENT_STOP_TIMEOUT_MS);
       outputChannel?.appendLine(
         '[VSC PowerSyntax] Cliente LSP detenido correctamente.'
       );
@@ -695,6 +698,12 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.runRuntimeSelfTest', async () => {
+      return runRuntimeSelfTest();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('vscPowerSyntax.showMemoryBudgets', async () => {
       return showMemoryBudgets();
     })
@@ -798,6 +807,11 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
           label: '$(note) Exportar health report',
           description: stats?.health?.summary ?? 'Exporta dashboard, stats y manifest del workspace activo',
           command: 'vscPowerSyntax.exportHealthReport'
+        },
+        {
+          label: '$(checklist) Ejecutar runtime self-test',
+          description: 'Chequeo rápido de API, LSP, cache, project model, diagnósticos, build y ORCA',
+          command: 'vscPowerSyntax.runRuntimeSelfTest'
         },
         {
           label: '$(flame) Ver memory budgets',
@@ -2403,14 +2417,36 @@ async function exportSupportBundle(options?: SupportBundleCommandOptions): Promi
   }
 
   const activeEditor = vscode.window.activeTextEditor;
-  const activeWorkspaceRelativePath = activeEditor && vscode.workspace.getWorkspaceFolder(activeEditor.document.uri)?.uri.toString() === workspaceFolder.uri.toString()
-    ? resolveWorkspaceRelativePath(workspaceFolder, activeEditor.document.uri)
+  const activeEditorInWorkspace = activeEditor && vscode.workspace.getWorkspaceFolder(activeEditor.document.uri)?.uri.toString() === workspaceFolder.uri.toString()
+    ? activeEditor
     : undefined;
-  const workspaceManifest = await publicApiSingleton.getSemanticWorkspaceManifest({
-    maxObjects: 120,
-    maxSymbols: 240,
-  });
+  const activeWorkspaceRelativePath = activeEditorInWorkspace
+    ? resolveWorkspaceRelativePath(workspaceFolder, activeEditorInWorkspace.document.uri)
+    : undefined;
+  const activePowerBuilderEditor = activeEditorInWorkspace?.document.languageId === LANGUAGE_ID
+    ? activeEditorInWorkspace
+    : undefined;
+  const workspaceManifest = await fetchSupportBundleWorkspaceManifest();
   const serverStats = await publicApiSingleton.getServerStats();
+  const [codeMetrics, technicalDebtReport, currentObjectContext] = await Promise.all([
+    publicApiSingleton.getPowerBuilderCodeMetrics({
+      maxObjects: 80,
+    }),
+    publicApiSingleton.getPowerBuilderTechnicalDebtReport({
+      maxObjects: 80,
+      maxHotspots: 25,
+      maxRecommendations: 20,
+    }),
+    activePowerBuilderEditor
+      ? publicApiSingleton.getCurrentObjectContext({
+        uri: activePowerBuilderEditor.document.uri.toString(),
+        line: activePowerBuilderEditor.selection.active.line,
+        character: activePowerBuilderEditor.selection.active.character,
+        maxExcerptLines: 32,
+        maxReferencedSymbols: 40,
+      })
+      : Promise.resolve(undefined),
+  ]);
   const configuration = vscode.workspace.getConfiguration();
   const selectedProfile = vscode.workspace.getConfiguration('vscPowerSyntax').get<string>('profile');
   const settingsValues = buildSupportBundleSettingsSnapshot(configuration, selectedProfile);
@@ -2427,6 +2463,9 @@ async function exportSupportBundle(options?: SupportBundleCommandOptions): Promi
     ...(activeWorkspaceRelativePath ? { activeWorkspaceRelativePath } : {}),
     workspaceManifest,
     serverStats,
+    ...(currentObjectContext ? { currentObjectContext } : {}),
+    codeMetrics,
+    technicalDebtReport,
     publicContract: publicApiSingleton.getPublicContract(),
     readOnlyToolBridge: publicApiSingleton.getReadOnlyToolBridge(),
     settingsGovernance,
@@ -2451,6 +2490,27 @@ async function exportSupportBundle(options?: SupportBundleCommandOptions): Promi
     manifestUri: joinUriPath(destinationUri, 'manifest.json').toString(),
     fileCount: bundle.files.length,
   };
+}
+
+async function fetchSupportBundleWorkspaceManifest(): Promise<ApiSemanticWorkspaceManifest> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      return await publicApiSingleton.getSemanticWorkspaceManifest({
+        maxObjects: 120,
+        maxSymbols: 240,
+      });
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      outputChannel?.appendLine(`[SupportBundle] No se pudo obtener el manifest semántico (intento ${attempt}/2): ${message}`);
+      if (attempt >= 2) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('No se pudo obtener el manifest semántico para el support bundle.');
 }
 
 async function exportHealthReport(options?: HealthReportCommandOptions): Promise<HealthReportExportResult | undefined> {
@@ -2509,6 +2569,44 @@ async function exportHealthReport(options?: HealthReportCommandOptions): Promise
     statsUri: joinUriPath(destinationUri, 'server-stats.json').toString(),
     ...(manifest ? { manifestUri: joinUriPath(destinationUri, 'semantic-workspace-manifest.json').toString() } : {}),
   };
+}
+
+async function runRuntimeSelfTest(): Promise<string | undefined> {
+  const stats = await refreshRuntimeStatusSnapshot();
+
+  let manifest: ApiSemanticWorkspaceManifest | undefined;
+  try {
+    manifest = clonePlainData(await publicApiSingleton.getSemanticWorkspaceManifest({
+      maxObjects: 80,
+      maxSymbols: 120,
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(`[RuntimeSelfTest] No se pudo obtener el manifest semántico: ${message}`);
+  }
+
+  const report = buildRuntimeSelfTestReport({
+    contract: publicApiSingleton.getPublicContract(),
+    stats,
+    manifest,
+  });
+  const content = buildRuntimeSelfTestMarkdown(report);
+
+  outputChannel?.show(true);
+  outputChannel?.appendLine(`[RuntimeSelfTest] ${report.overallStatus} · ${report.summary}`);
+  for (const check of report.checks) {
+    outputChannel?.appendLine(`[RuntimeSelfTest] ${check.label}: ${check.status} · ${check.detail}`);
+  }
+
+  if (report.overallStatus === 'fail') {
+    void vscode.window.showErrorMessage(`PowerSyntax: runtime self-test con fallos. ${report.summary}`);
+  } else if (report.overallStatus === 'warning') {
+    void vscode.window.showWarningMessage(`PowerSyntax: runtime self-test con warnings. ${report.summary}`);
+  } else {
+    void vscode.window.showInformationMessage(`PowerSyntax: runtime self-test completado. ${report.summary}`);
+  }
+
+  return openMarkdownReportDocument(content);
 }
 
 async function runSemanticCacheMaintenance(): Promise<SemanticCacheMaintenanceCommandResult | undefined> {
@@ -3218,6 +3316,17 @@ function buildPowerBuilderDependencyGraphMarkdown(graph: ApiPowerBuilderDependen
   return `${lines.join('\n')}\n`;
 }
 
+function formatEmbeddedSqlAnchors(anchors: readonly ApiEmbeddedSqlAnchor[] | undefined, maxAnchors = 3): string | undefined {
+  if (!anchors || anchors.length === 0) {
+    return undefined;
+  }
+
+  return anchors
+    .slice(0, maxAnchors)
+    .map((anchor) => `${anchor.keyword}@${anchor.startLine + 1}-${anchor.endLine + 1}[${anchor.confidence}]${anchor.transactionTarget ? ` ${anchor.transactionTarget}` : ''}: ${anchor.preview}`)
+    .join(' | ');
+}
+
 function buildPowerBuilderCodeMetricsMarkdown(metrics: ApiPowerBuilderCodeMetrics): string {
   const hotspots = [...metrics.objects]
     .sort((left, right) =>
@@ -3251,6 +3360,7 @@ function buildPowerBuilderCodeMetricsMarkdown(metrics: ApiPowerBuilderCodeMetric
         objectEntry.projectUri ? `  proyecto=${objectEntry.projectUri}` : undefined,
         objectEntry.library ? `  librería=${objectEntry.library}` : undefined,
         objectEntry.sourceOrigin ? `  sourceOrigin=${objectEntry.sourceOrigin}` : undefined,
+        formatEmbeddedSqlAnchors(objectEntry.embeddedSqlAnchors) ? `  anchors SQL=${formatEmbeddedSqlAnchors(objectEntry.embeddedSqlAnchors)}` : undefined,
       ].filter((line): line is string => typeof line === 'string').join('\n'))
       : ['- Estado: sin objetos indexados.']),
   ];
@@ -3275,6 +3385,7 @@ function buildPowerBuilderTechnicalDebtReportMarkdown(report: ApiPowerBuilderTec
         entry.projectUri ? `  proyecto=${entry.projectUri}` : undefined,
         entry.library ? `  librería=${entry.library}` : undefined,
         entry.sourceOrigin ? `  sourceOrigin=${entry.sourceOrigin}` : undefined,
+        formatEmbeddedSqlAnchors(entry.embeddedSqlAnchors) ? `  anchors SQL=${formatEmbeddedSqlAnchors(entry.embeddedSqlAnchors)}` : undefined,
         entry.evidence.length > 0 ? `  evidencia=${entry.evidence.join(', ')}` : undefined,
         entry.recommendations.length > 0 ? `  recomendaciones=${entry.recommendations.join(' | ')}` : undefined,
       ].filter((line): line is string => typeof line === 'string').join('\n'))

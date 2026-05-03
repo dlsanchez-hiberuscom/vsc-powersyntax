@@ -1,8 +1,15 @@
 import * as assert from 'assert/strict';
 import * as path from 'path';
 
-import { buildSupportBundle, suggestSupportBundleDirectoryName } from '../../../src/client/support/supportBundle';
 import {
+  buildSupportBundle,
+  buildSupportBundleRedactionPolicy,
+  suggestSupportBundleDirectoryName,
+} from '../../../src/client/support/supportBundle';
+import {
+  type ApiCurrentObjectContext,
+  type ApiPowerBuilderCodeMetrics,
+  type ApiPowerBuilderTechnicalDebtReport,
   getPublicApiContractDescriptor,
   getReadOnlyToolBridgeDescriptor,
   type ApiSemanticWorkspaceManifest,
@@ -141,6 +148,118 @@ suite('unit/supportBundle (B258)', () => {
           ],
         },
       },
+      currentObjectContext: {
+        available: true,
+        uri: 'file:///repo/lib_app.pbl/w_main.srw',
+        objectInfo: {
+          uri: 'file:///repo/lib_app.pbl/w_main.srw',
+          globalType: 'w_main',
+        },
+        embeddedSqlAnchors: [
+          {
+            startLine: 10,
+            endLine: 12,
+            keyword: 'SELECT',
+            preview: 'SELECT order_id INTO :ll_order_id FROM sales_order;',
+            confidence: 'high',
+            transactionTarget: 'SQLCA',
+          }
+        ],
+      } as unknown as ApiCurrentObjectContext,
+      codeMetrics: {
+        schemaVersion: '1.0.0',
+        generatedAt: 1,
+        summary: {
+          totalProjects: 1,
+          totalLibraries: 1,
+          totalObjects: 1,
+          totalFunctions: 0,
+          totalEvents: 1,
+          totalEmbeddedSqlStatements: 1,
+          totalLinkedDataWindows: 0,
+          totalExternalDependencies: 0,
+          totalLifecycleWarnings: 0,
+          totalDiagnostics: 0,
+        },
+        footprint: {
+          build: { total: 0, usable: 0, invalid: 0, ambiguous: 0 },
+          orca: { stagedFiles: 0, libraryAliases: 0 },
+        },
+        diagnostics: { byArea: [] },
+        objects: [
+          {
+            name: 'w_main',
+            uri: 'file:///repo/lib_app.pbl/w_main.srw',
+            projectUri: 'file:///repo/app.pbt',
+            metrics: {
+              functions: 0,
+              events: 1,
+              approximateComplexity: 1,
+              embeddedSqlStatements: 1,
+              linkedDataWindows: 0,
+              externalDependencies: 0,
+              lifecycleWarnings: 0,
+              diagnostics: 0,
+            },
+            embeddedSqlAnchors: [
+              {
+                startLine: 10,
+                endLine: 12,
+                keyword: 'SELECT',
+                preview: 'SELECT order_id INTO :ll_order_id FROM sales_order;',
+                confidence: 'high',
+                transactionTarget: 'SQLCA',
+              }
+            ],
+          }
+        ],
+      } as unknown as ApiPowerBuilderCodeMetrics,
+      technicalDebtReport: {
+        schemaVersion: '1.0.0',
+        generatedAt: 1,
+        summary: {
+          totalHotspots: 1,
+          totalRecommendations: 0,
+          obsoleteFindings: 0,
+          dynamicSqlFindings: 0,
+          externalDependencyFindings: 0,
+          dataWindowRiskFindings: 0,
+          complexObjectFindings: 0,
+          sourceOriginRiskFindings: 0,
+          legacyWorkspaceRiskFindings: 0,
+        },
+        hotspots: [
+          {
+            name: 'w_main',
+            uri: 'file:///repo/lib_app.pbl/w_main.srw',
+            projectUri: 'file:///repo/app.pbt',
+            priority: 'medium',
+            confidence: 'high',
+            categories: ['dynamic-sql'],
+            evidence: ['sql-anchor:select:11-13'],
+            recommendations: ['Externalizar SQL'],
+            metrics: {
+              approximateComplexity: 1,
+              diagnostics: 0,
+              externalDependencies: 0,
+              linkedDataWindows: 0,
+              dynamicSqlStatements: 0,
+              obsoleteDiagnostics: 0,
+            },
+            embeddedSqlAnchors: [
+              {
+                startLine: 10,
+                endLine: 12,
+                keyword: 'SELECT',
+                preview: 'SELECT order_id INTO :ll_order_id FROM sales_order;',
+                confidence: 'high',
+                transactionTarget: 'SQLCA',
+              }
+            ],
+          }
+        ],
+        recommendations: [],
+      } as unknown as ApiPowerBuilderTechnicalDebtReport,
       publicContract: {
         apiVersion: '2.9.0',
         apiVersionMajor: 2,
@@ -184,6 +303,9 @@ suite('unit/supportBundle (B258)', () => {
     assert.ok(bundle.files.some((file) => file.relativePath === 'manifest.json'));
     assert.ok(bundle.files.some((file) => file.relativePath === 'settings-sanitized.json'));
     assert.ok(bundle.files.some((file) => file.relativePath === 'build-orca-snapshot.json'));
+    assert.ok(bundle.files.some((file) => file.relativePath === 'current-object-context.sanitized.json'));
+    assert.ok(bundle.files.some((file) => file.relativePath === 'powerbuilder-code-metrics.sanitized.json'));
+    assert.ok(bundle.files.some((file) => file.relativePath === 'powerbuilder-technical-debt-report.sanitized.json'));
 
     const stats = bundle.files.find((file) => file.relativePath === 'server-stats.sanitized.json')?.content ?? '';
     assert.match(stats, /redacted:pbautobuild250\.exe/);
@@ -196,13 +318,124 @@ suite('unit/supportBundle (B258)', () => {
     const diagnostics = bundle.files.find((file) => file.relativePath === 'diagnostics-snapshot.sanitized.json')?.content ?? '';
     assert.match(diagnostics, /redacted:w_main\.srw/);
 
+    const currentObjectContext = bundle.files.find((file) => file.relativePath === 'current-object-context.sanitized.json')?.content ?? '';
+    assert.match(currentObjectContext, /redacted:w_main\.srw/);
+    assert.match(currentObjectContext, /"transactionTarget": "SQLCA"/);
+
+    const codeMetrics = bundle.files.find((file) => file.relativePath === 'powerbuilder-code-metrics.sanitized.json')?.content ?? '';
+    assert.match(codeMetrics, /redacted:app\.pbt/);
+    assert.match(codeMetrics, /"embeddedSqlAnchors"/);
+
+    const technicalDebtReport = bundle.files.find((file) => file.relativePath === 'powerbuilder-technical-debt-report.sanitized.json')?.content ?? '';
+    assert.match(technicalDebtReport, /redacted:w_main\.srw/);
+    assert.match(technicalDebtReport, /sql-anchor:select:11-13/);
+
     const manifest = JSON.parse(bundle.files.find((file) => file.relativePath === 'manifest.json')?.content ?? '{}');
     assert.equal(manifest.summary.rawSourceIncluded, false);
+    assert.equal(manifest.summary.redactionProfile, 'balanced');
+    assert.equal(manifest.summary.redactionPolicy.settings, 'sanitized');
     assert.equal(manifest.summary.runtimeJournalEvents, 3);
+    assert.ok(manifest.files.some((file: { relativePath: string }) => file.relativePath === 'current-object-context.sanitized.json'));
+    assert.ok(manifest.files.some((file: { relativePath: string }) => file.relativePath === 'powerbuilder-code-metrics.sanitized.json'));
+    assert.ok(manifest.files.some((file: { relativePath: string }) => file.relativePath === 'powerbuilder-technical-debt-report.sanitized.json'));
+    assert.ok(manifest.files.some((file: { relativePath: string; redaction?: string }) => file.relativePath === 'settings-sanitized.json' && file.redaction === 'sanitized'));
 
     const readme = bundle.files.find((file) => file.relativePath === 'README.md')?.content ?? '';
     assert.match(readme, /sin incluir codigo bruto/i);
     assert.match(readme, /runtime-health\.json/);
+  });
+
+  test('endurece la redaccion por perfil para ci-support', () => {
+    const bundle = buildSupportBundle({
+      workspaceRootPath: path.join('C:', 'repo'),
+      bundleRootPath: path.join('C:', 'repo', 'tools', 'support-bundles', 'ci-support'),
+      workspaceLabel: 'repo',
+      activeUri: 'file:///repo/test/fixtures/basic/sample.sru',
+      activeWorkspaceRelativePath: 'test/fixtures/basic/sample.sru',
+      workspaceManifest: {
+        schemaVersion: '1.0.0',
+        generatedAt: 1,
+        limits: { maxObjects: 50, maxSymbols: 100, objectsTruncated: false, symbolsTruncated: false },
+        projects: [{ projectUri: 'file:///repo/app.pbt', kind: 'target', name: 'app', libraries: ['file:///repo/lib_app.pbl'], fileCount: 4 }],
+        libraries: ['file:///repo/lib_app.pbl'],
+        objects: [{ name: 'w_main', uri: 'file:///repo/lib_app.pbl/w_main.srw', objectKind: 'window', sourceOrigin: 'workspace-ws_objects' }],
+        inheritanceSummary: { totalTypes: 1, roots: 1, items: [] },
+        exportedSymbols: [],
+        diagnosticsSummary: {
+          totals: { error: 1, warning: 2, info: 0, hint: 0 },
+          byFile: { 'file:///repo/lib_app.pbl/w_main.srw': 3 },
+          byCode: { 'PowerScript:SD7': 2 },
+          bySeverity: { error: 1, warning: 2 },
+          documents: [{ uri: 'file:///repo/lib_app.pbl/w_main.srw', total: 3, byCode: { 'PowerScript:SD7': 2 }, bySeverity: { warning: 2 }, projectLabel: 'app', objectLabel: 'w_main', snapshotIdentity: 'file:///repo/lib_app.pbl/w_main.srw@123' }],
+          projects: [{ key: 'file:///repo/app.pbt', label: 'app', total: 3, byCode: { 'PowerScript:SD7': 2 }, bySeverity: { warning: 2 }, objects: [] }],
+        },
+        sourceOriginSummary: { 'workspace-ws_objects': 1 },
+        readiness: { state: 'ready' },
+      },
+      serverStats: {
+        readiness: { state: 'ready', detail: 'ok' },
+        workspace: { mode: 'workspace', files: 4 },
+        health: { status: 'warning', summary: 'runtime attention', findings: [], counts: { info: 0, warning: 1, error: 0 }, checkedLayers: [] },
+        diagnostics: {
+          totals: { error: 1, warning: 2, info: 0, hint: 0 },
+          byFile: { 'file:///repo/lib_app.pbl/w_main.srw': 3 },
+          byCode: { 'PowerScript:SD7': 2 },
+          bySeverity: { error: 1, warning: 2 },
+          documents: [{ uri: 'file:///repo/lib_app.pbl/w_main.srw', total: 3, byCode: { 'PowerScript:SD7': 2 }, bySeverity: { warning: 2 }, projectLabel: 'app', objectLabel: 'w_main', snapshotIdentity: 'file:///repo/lib_app.pbl/w_main.srw@123' }],
+          projects: [{ key: 'file:///repo/app.pbt', label: 'app', total: 3, byCode: { 'PowerScript:SD7': 2 }, bySeverity: { warning: 2 }, objects: [] }],
+        },
+        runtimeJournal: {
+          total: 1,
+          dropped: 0,
+          events: [{ ts: 1, phase: 'serve', kind: 'hover', action: 'query', detail: { sourcePath: 'C:/repo/lib_app.pbl/w_main.srw' } }],
+        },
+      },
+      currentObjectContext: {
+        available: true,
+        uri: 'file:///repo/lib_app.pbl/w_main.srw',
+        embeddedSqlAnchors: [{ startLine: 1, endLine: 1, keyword: 'SELECT', preview: 'SELECT * FROM sales_order', confidence: 'high', transactionTarget: 'SQLCA' }],
+      } as unknown as ApiCurrentObjectContext,
+      publicContract: getPublicApiContractDescriptor(),
+      readOnlyToolBridge: getReadOnlyToolBridgeDescriptor(),
+      settingsGovernance: {
+        selectedProfile: 'ci-support',
+        availableProfiles: [{ id: 'ci-support', label: 'CI Support', description: 'CI', managedSettings: { 'vscPowerSyntax.progress.show': false } }],
+        managedSettings: [{ key: 'vscPowerSyntax.progress.show', expectedValue: false, currentValue: false, matchesProfile: true }],
+        conflicts: [],
+      },
+      settingsValues: {
+        'vscPowerSyntax.profile': 'ci-support',
+        'vscPowerSyntax.build.pbAutoBuildPath': 'C:/Tools/pbautobuild250.exe',
+        'vscPowerSyntax.legacy.orcaPath': 'C:/Tools/orca.exe',
+      },
+      generatedAt: '2026-05-03T12:45:00.000Z',
+    });
+
+    const manifest = JSON.parse(bundle.files.find((file) => file.relativePath === 'manifest.json')?.content ?? '{}');
+    assert.equal(manifest.summary.redactionProfile, 'ci-support');
+    assert.equal(manifest.summary.redactionPolicy.paths, 'summary-only');
+    assert.equal(manifest.summary.redactionPolicy.diagnostics, 'summary-only');
+    assert.equal(manifest.summary.redactionPolicy.settings, 'summary-only');
+
+    const diagnostics = JSON.parse(bundle.files.find((file) => file.relativePath === 'diagnostics-snapshot.sanitized.json')?.content ?? '{}');
+    assert.equal(diagnostics.redaction, 'summary-only');
+    assert.equal('topDocuments' in diagnostics, false);
+
+    const settings = JSON.parse(bundle.files.find((file) => file.relativePath === 'settings-sanitized.json')?.content ?? '{}');
+    assert.equal(settings.redaction, 'summary-only');
+    assert.ok(Array.isArray(settings.managedSettings));
+    assert.ok(settings.managedSettings.every((entry: { valueType?: string; value?: unknown }) => typeof entry.valueType === 'string' && entry.value === undefined));
+
+    const currentObjectContext = bundle.files.find((file) => file.relativePath === 'current-object-context.sanitized.json')?.content ?? '';
+    assert.match(currentObjectContext, /redacted-snippet/);
+
+    const reducedManifest = JSON.parse(bundle.files.find((file) => file.relativePath === 'semantic-workspace-manifest.reduced.json')?.content ?? '{}');
+    assert.equal(reducedManifest.redaction, 'summary-only');
+    assert.equal('projects' in reducedManifest, false);
+
+    const stats = bundle.files.find((file) => file.relativePath === 'server-stats.sanitized.json')?.content ?? '';
+    assert.doesNotMatch(stats, /redacted:pbautobuild250\.exe/);
+    assert.match(stats, /"sourcePath": "redacted"/);
   });
 
   test('mantiene roundtrip del manifest y compatibilidad con el fixture v1', () => {
@@ -276,5 +509,24 @@ suite('unit/supportBundle (B258)', () => {
     assert.ok(
       legacyManifest.files.every((entry) => bundle.manifest.files.some((current) => current.relativePath === entry.relativePath))
     );
+  });
+
+  test('publica una policy de redaccion explicita por perfil', () => {
+    assert.deepEqual(buildSupportBundleRedactionPolicy('balanced'), {
+      profile: 'balanced',
+      paths: 'sanitized',
+      snippets: 'sanitized',
+      diagnostics: 'sanitized',
+      settings: 'sanitized',
+      manifest: 'sanitized',
+    });
+    assert.deepEqual(buildSupportBundleRedactionPolicy('ci-support'), {
+      profile: 'ci-support',
+      paths: 'summary-only',
+      snippets: 'summary-only',
+      diagnostics: 'summary-only',
+      settings: 'summary-only',
+      manifest: 'summary-only',
+    });
   });
 });

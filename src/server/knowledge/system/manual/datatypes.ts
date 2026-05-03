@@ -14,7 +14,7 @@ export const PB_MANUAL_CORE_DATATYPES: readonly PbSystemSymbolEntry[] = [
     datatype({ name: 'Long', category: 'Numérico', summary: 'Entero con signo de 32 bits.' }),
     datatype({ name: 'LongLong', category: 'Numérico', summary: 'Entero con signo de 64 bits.' }),
     datatype({ name: 'LongPtr', category: 'Numérico', summary: 'Entero de puntero (32 o 64 bits según plataforma).' }),
-    datatype({ name: 'UnsignedInteger', category: 'Numérico', summary: 'Entero sin signo de 16 bits.', lookupAliases: ['uint'] }),
+    datatype({ name: 'UnsignedInteger', category: 'Numérico', summary: 'Entero sin signo de 16 bits.', lookupAliases: ['uint', 'unsignedint'] }),
     datatype({ name: 'UnsignedLong', category: 'Numérico', summary: 'Entero sin signo de 32 bits.', lookupAliases: ['ulong'] }),
     datatype({ name: 'Decimal', category: 'Numérico', summary: 'Número decimal de precisión fija (hasta 28 dígitos).', lookupAliases: ['dec'] }),
     datatype({ name: 'Double', category: 'Numérico', summary: 'Número de punto flotante de doble precisión.' }),

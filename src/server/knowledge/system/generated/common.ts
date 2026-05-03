@@ -13,6 +13,8 @@ import {
 
 const POWERSCRIPT_REFERENCE = 'Appeon PowerScript Reference 2025';
 const POWERSCRIPT_REFERENCE_URL = 'https://docs.appeon.com/pb2025/powerscript_reference/index.html';
+const OBJECTS_AND_CONTROLS_REFERENCE = 'Appeon Objects and Controls 2025';
+const OBJECTS_AND_CONTROLS_REFERENCE_URL = 'https://docs.appeon.com/pb2025/objects_and_controls/index.html';
 const DATAWINDOW_REFERENCE = 'Appeon DataWindow Reference 2025';
 const DATAWINDOW_REFERENCE_URL = 'https://docs.appeon.com/pb2025/datawindow_reference/index.html';
 const OFFICIAL_REFERENCE_VERSION = 'PowerBuilder 2025';
@@ -49,6 +51,15 @@ type GeneratedSymbolArgs = {
     obsoleteMessage?: string;
     replacement?: string;
     lookupAliases?: readonly string[];
+    sourceUrl?: string;
+};
+
+type GeneratedLanguageSymbolArgs = {
+    name: string;
+    category: string;
+    summary: string;
+    lookupAliases?: readonly string[];
+    signatures?: readonly PbSystemSymbolSignature[];
     sourceUrl?: string;
 };
 
@@ -123,4 +134,37 @@ export function generatedStatement(args: GeneratedSymbolArgs): PbSystemSymbolEnt
         invocation: 'global',
         domain: 'statements',
     }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function generatedKeyword(args: GeneratedLanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineGeneratedEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'keyword',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'keywords',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function generatedReservedWord(args: GeneratedLanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineGeneratedEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'reserved-word',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'reserved-words',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function generatedSystemObjectDatatype(args: GeneratedLanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineGeneratedEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'system-type',
+        namespace: 'powerbuilder-runtime',
+        invocation: 'global',
+        domain: 'system-object-datatypes',
+    }, OBJECTS_AND_CONTROLS_REFERENCE, OBJECTS_AND_CONTROLS_REFERENCE_URL);
 }

@@ -73,4 +73,42 @@ suite('unit/dataWindowSqlLineage (B253)', () => {
     assert.equal(lineage.summary.totalStatements, 3);
     assert.equal(lineage.summary.maxDepthReached, false);
   });
+
+  test('B288 expone aliases, joins simples y where básico en el lineage SQL read-only', () => {
+    setupAnalyzedDocument('file:///d_customer_orders.srd', [
+      '$PBExportHeader$d_customer_orders.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT c.customer_id AS customer_id, o.status FROM customer c JOIN orders o ON o.customer_id = c.customer_id WHERE o.status = :status AND c.deleted = 0")',
+    ].join('\r\n'));
+    const script = setupAnalyzedDocument('file:///w_customer_orders.srw', [
+      'global type w_customer_orders from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_orders.DataObject = "d_customer_orders"',
+      '  dw_orders.Retrieve() ',
+      'end event',
+    ].join('\r\n'));
+
+    const line = script.getText().split(/\r?\n/).findIndex((entry) => entry.includes('Retrieve()'));
+    const lineage = buildDataWindowSqlLineage({
+      uri: script.uri,
+      line,
+      maxDepth: 2,
+    }, kb);
+
+    assert.equal(lineage.available, true);
+    assert.deepEqual(
+      lineage.lineage?.sqlReferences.map((entry) => ({ rawText: entry.rawText, qualifiedTableName: entry.qualifiedTableName, columnName: entry.columnName })),
+      [
+        { rawText: 'c.customer_id', qualifiedTableName: 'customer', columnName: 'customer_id' },
+        { rawText: 'o.status', qualifiedTableName: 'orders', columnName: 'status' },
+        { rawText: 'o.customer_id', qualifiedTableName: 'orders', columnName: 'customer_id' },
+        { rawText: 'c.customer_id', qualifiedTableName: 'customer', columnName: 'customer_id' },
+        { rawText: 'o.status', qualifiedTableName: 'orders', columnName: 'status' },
+        { rawText: 'c.deleted', qualifiedTableName: 'customer', columnName: 'deleted' },
+      ]
+    );
+  });
 });

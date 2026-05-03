@@ -31,6 +31,7 @@ import { inferSourceOrigin, type SourceOrigin } from '../../shared/sourceOrigin'
 import { getBasename } from '../system/uriUtils';
 
 import { Fact, EntityKind, Scope, ScopeKind } from '../knowledge/types';
+import { normalizeParameterLabel } from '../knowledge/callSignature';
 
 
 export interface DocumentAnalysis {
@@ -377,11 +378,16 @@ function mapToSemanticFacts(facts: SymbolFact[], uri: string, sourceOrigin: Retu
       default: continue;
     }
 
-    // Spec 072: clave compuesta por kind+container+name para no colisionar
-    // entre tipos distintos en el mismo archivo, y para que la regla
-    // "implementación gana sobre prototipo" se aplique a function/subroutine/event.
+    // Spec B281: los overloads no pueden colapsar antes de llegar al query engine;
+    // para callables la clave incluye firma normalizada y solo el prototipo de la
+    // misma firma queda sustituido por la implementación.
     const id = f.name.toLowerCase();
-    const dedupKey = `${entityKind}|${(f.containerName ?? '').toLowerCase()}|${id}`;
+    const signatureKey = f.parameters?.map((parameter) => normalizeParameterLabel(parameter.label)).join(',')
+      ?? `arity:${f.parameters?.length ?? 0}`;
+    const callableKeySuffix = entityKind === EntityKind.Function || entityKind === EntityKind.Subroutine || entityKind === EntityKind.Event
+      ? `|${signatureKey}|${(f.returnType ?? '').toLowerCase()}`
+      : '';
+    const dedupKey = `${entityKind}|${(f.containerName ?? '').toLowerCase()}|${id}${callableKeySuffix}`;
     const existing = factMap.get(dedupKey);
 
     // Si ya tenemos una implementación para este (kind, container, name), no

@@ -163,6 +163,23 @@ Además, la spec debe dejar:
 - preflight obligatorio y motivos de bloqueo trazables;
 - al menos una smoke Problems/CodeAction sobre un diagnóstico realmente publicado.
 
+### Si cambia catálogo del lenguaje o generator oficial
+
+Actualizar:
+
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- spec afectada en `specs/`
+
+Además, la spec debe dejar:
+
+- confirmación de compatibilidad de IDs, `kind`, `domain` y `namespace` existentes;
+- pruebas de consistency/kindCounts/domainCounts;
+- nota explícita si `grammar.ts` mantiene Sets rápidos fuera del catálogo rico;
+- ruta de validación para PFC/OrderEntry cuando el cambio afecte consumers visibles.
+
 ### Si cambia contratos de ejecución para agentes
 
 Actualizar:

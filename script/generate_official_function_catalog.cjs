@@ -10,33 +10,47 @@ const {
     listSystemGlobalFunctions,
     listSystemObjectFunctions,
     listSystemSymbolsByDataset,
-} = require(path.join(repoRoot, 'out/powerbuilder/knowledge/services/queryService'));
+} = require(path.join(repoRoot, 'out/server/knowledge/system/services/queryService'));
 const {
     normalizeSystemSymbolName,
-} = require(path.join(repoRoot, 'out/powerbuilder/knowledge/normalization'));
+} = require(path.join(repoRoot, 'out/server/knowledge/system/normalization'));
 
 const OUTPUT_CATALOG_FILE = path.join(
     repoRoot,
-    'src/powerbuilder/knowledge/generated/generated.generated.ts',
+    'src/server/knowledge/system/generated/generated.generated.ts',
 );
 const OUTPUT_OWNER_TYPES_FILE = path.join(
     repoRoot,
-    'src/powerbuilder/knowledge/generated/ownerTypes.generated.ts',
+    'src/server/knowledge/system/generated/ownerTypes.generated.ts',
 );
 const OUTPUT_PROVENANCE_FILE = path.join(
     repoRoot,
-    'src/powerbuilder/knowledge/generated/provenance.generated.ts',
+    'src/server/knowledge/system/generated/provenance.generated.ts',
 );
 const OUTPUT_OFFICIAL_COVERAGE_FILE = path.join(
     repoRoot,
-    'src/powerbuilder/knowledge/generated/officialCoverage.generated.ts',
+    'src/server/knowledge/system/generated/officialCoverage.generated.ts',
+);
+const OUTPUT_PARSING_BUILTIN_TYPES_FILE = path.join(
+    repoRoot,
+    'src/server/parsing/generatedBuiltinTypes.generated.ts',
+);
+const OUTPUT_PARSING_KEYWORD_LEXEMES_FILE = path.join(
+    repoRoot,
+    'src/server/parsing/generatedKeywordLexemes.generated.ts',
 );
 
 const POWERSCRIPT_BASE_URL = 'https://docs.appeon.com/pb2025/powerscript_reference/';
+const OBJECTS_AND_CONTROLS_BASE_URL = 'https://docs.appeon.com/pb2025/objects_and_controls/';
 const DATAWINDOW_BASE_URL = 'https://docs.appeon.com/pb2025/datawindow_reference/';
 const POWERSCRIPT_EVENTS_URL = new URL('ch02s03.html', POWERSCRIPT_BASE_URL).toString();
 const POWERSCRIPT_FUNCTIONS_URL = new URL('PowerScript_Functions.html', POWERSCRIPT_BASE_URL).toString();
 const POWERSCRIPT_STATEMENTS_URL = new URL('PowerScript_Statements.html', POWERSCRIPT_BASE_URL).toString();
+const POWERSCRIPT_RESERVED_WORDS_URL = new URL('xREF_80481_Reserved_words.html', POWERSCRIPT_BASE_URL).toString();
+const POWERSCRIPT_STANDARD_DATATYPES_URL = new URL('xREF_87805_Standard_datatypes.html', POWERSCRIPT_BASE_URL).toString();
+const POWERSCRIPT_ANY_DATATYPE_URL = new URL('xREF_99128_The_Any_datatype.html', POWERSCRIPT_BASE_URL).toString();
+const OBJECTS_AND_CONTROLS_INDEX_URL = new URL('index.html', OBJECTS_AND_CONTROLS_BASE_URL).toString();
+const OBJECTS_AND_CONTROLS_UNDOCUMENTED_BASE_CLASSES_URL = new URL('ch01s03s01.html', OBJECTS_AND_CONTROLS_BASE_URL).toString();
 const DATAWINDOW_INDEX_URL = new URL('index.html', DATAWINDOW_BASE_URL).toString();
 
 const DATAWINDOW_OWNER_TYPES = new Set(['datawindow', 'datawindowchild', 'datastore']);
@@ -50,6 +64,29 @@ const SPECIAL_OWNER_SCOPE_ANY_OBJECT_EXCEPT_DATAWINDOWCHILD = '__any_object_exce
 const SPECIAL_OWNER_SCOPE_ALL_CONTROLS_EXCEPT_DRAWING = '__all_controls_except_drawing__';
 
 const DRAWING_CONTROL_OWNER_TYPES = new Set(['line', 'oval', 'rectangle', 'roundrectangle']);
+
+const OFFICIAL_GENERATED_KEYWORD_CATEGORY_OVERRIDES = new Map([
+    ['constant', 'Modificadores de declaración'],
+    ['external', 'Modificadores de declaración'],
+    ['global', 'Visibilidad y alcance'],
+    ['indirect', 'Modificadores de declaración'],
+    ['native', 'Modificadores de declaración'],
+    ['private', 'Visibilidad y alcance'],
+    ['privateread', 'Visibilidad y alcance'],
+    ['privatewrite', 'Visibilidad y alcance'],
+    ['protected', 'Visibilidad y alcance'],
+    ['protectedread', 'Visibilidad y alcance'],
+    ['protectedwrite', 'Visibilidad y alcance'],
+    ['public', 'Visibilidad y alcance'],
+    ['readonly', 'Modificadores de declaración'],
+    ['ref', 'Modificadores de declaración'],
+    ['rpcfunc', 'Modificadores de declaración'],
+    ['shared', 'Visibilidad y alcance'],
+    ['static', 'Modificadores de declaración'],
+]);
+
+const OFFICIAL_LITERAL_RESERVED_WORDS = new Set(['true', 'false', 'null']);
+const OFFICIAL_LOGICAL_RESERVED_WORDS = new Set(['and', 'not', 'or', 'xor']);
 
 const fetchCache = new Map();
 
@@ -129,6 +166,28 @@ const KNOWN_NON_FUNCTION_TITLES = [
     /^alphabetical list /i,
     /^appendix/i,
 ];
+
+const OFFICIAL_STANDARD_DATATYPE_CELL_TO_NAME = new Map([
+    ['blob', 'Blob'],
+    ['boolean', 'Boolean'],
+    ['byte', 'Byte'],
+    ['char or character', 'Char'],
+    ['date', 'Date'],
+    ['datetime', 'DateTime'],
+    ['decimal or dec', 'Decimal'],
+    ['double', 'Double'],
+    ['integer or int', 'Integer'],
+    ['long', 'Long'],
+    ['longlong', 'LongLong'],
+    ['longptr', 'LongPtr'],
+    ['real', 'Real'],
+    ['string', 'String'],
+    ['time', 'Time'],
+    ['unsignedinteger, unsignedint, or uint', 'UnsignedInteger'],
+    ['unsignedlong or ulong', 'UnsignedLong'],
+]);
+
+const OFFICIAL_SYSTEM_OBJECT_LABEL_BLACKLIST = new Set(['Home', 'Next', 'Prev', 'Sidebar', 'Up']);
 
 function unique(values) {
     return Array.from(new Set(values));
@@ -951,6 +1010,80 @@ function parsePowerScriptStatementPage(html, pageUrl) {
     };
 }
 
+function parseOfficialStandardDatatypeNames(html) {
+    const names = unique(
+        [...html.matchAll(/<a class="link" href="xREF_87805_Standard_datatypes\.html#[^"]+">([\s\S]*?)<\/a>/gi)]
+            .map(match => normalizeWhitespace(stripTags(match[1])).toLowerCase())
+            .map(value => OFFICIAL_STANDARD_DATATYPE_CELL_TO_NAME.get(value))
+            .filter(Boolean),
+    );
+
+    if (names.length < 10) {
+        throw new Error('No se pudo extraer la lista oficial de standard datatypes.');
+    }
+
+    return names;
+}
+
+function parseOfficialSystemObjectDatatypeEntries(html) {
+    const seen = new Set();
+    const entries = [];
+
+    for (const match of html.matchAll(/<a href="([^"]+\.html)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+        const label = normalizeWhitespace(stripTags(match[2]));
+
+        if (!label || /^for\b/i.test(label) || !/\b(object|control)$/i.test(label)) {
+            continue;
+        }
+
+        const name = label.replace(/\s+(object|control)$/i, '').trim();
+        const normalizedName = normalizeSystemSymbolName(name);
+
+        if (!normalizedName || OFFICIAL_SYSTEM_OBJECT_LABEL_BLACKLIST.has(name) || seen.has(normalizedName)) {
+            continue;
+        }
+
+        seen.add(normalizedName);
+        entries.push({
+            category: 'Referencia oficial',
+            name,
+            sourceUrl: new URL(match[1], OBJECTS_AND_CONTROLS_BASE_URL).toString(),
+            summary: `Official documented PowerBuilder system object/control datatype ${name}.`,
+        });
+    }
+
+    return entries;
+}
+
+function parseUndocumentedBaseClassEntries(html) {
+    const seen = new Set();
+    const entries = [];
+
+    for (const match of html.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)) {
+        const name = normalizeWhitespace(stripTags(match[1]));
+        const normalizedName = normalizeSystemSymbolName(name);
+
+        if (
+            !normalizedName
+            || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)
+            || OFFICIAL_SYSTEM_OBJECT_LABEL_BLACKLIST.has(name)
+            || seen.has(normalizedName)
+        ) {
+            continue;
+        }
+
+        seen.add(normalizedName);
+        entries.push({
+            category: 'Base class oficial',
+            name,
+            sourceUrl: OBJECTS_AND_CONTROLS_UNDOCUMENTED_BASE_CLASSES_URL,
+            summary: `Official undocumented base class system object ${name} listed in the inheritance hierarchy reference.`,
+        });
+    }
+
+    return entries;
+}
+
 function buildCoverageMap(entries, domain) {
     const coverage = new Map();
 
@@ -967,6 +1100,18 @@ function buildCoverageMap(entries, domain) {
         }
 
         coverage.set(key, state);
+    }
+
+    return coverage;
+}
+
+function buildLookupCoverageSet(entries) {
+    const coverage = new Set();
+
+    for (const entry of entries) {
+        for (const lookupKey of entry.lookupKeys ?? []) {
+            coverage.add(lookupKey);
+        }
     }
 
     return coverage;
@@ -1130,6 +1275,183 @@ function collectOfficialCoverageUnitKeys(domain, entries, coverage, measurement,
     };
 }
 
+function collectOfficialNameCoverage(unitNames, coverage, domain) {
+    const seen = new Set();
+    let coveredCount = 0;
+    let missingCount = 0;
+    const missingUnits = [];
+
+    for (const unitName of unitNames) {
+        const normalizedName = normalizeSystemSymbolName(unitName);
+
+        if (!normalizedName || seen.has(normalizedName)) {
+            continue;
+        }
+
+        seen.add(normalizedName);
+
+        if (isCoverageUnitCovered(coverage, domain, unitName)) {
+            coveredCount += 1;
+        } else {
+            missingCount += 1;
+            missingUnits.push(unitName);
+        }
+    }
+
+    return {
+        measurement: 'name',
+        officialCount: seen.size,
+        coveredCount,
+        missingCount,
+        missingUnits: missingUnits.sort(),
+    };
+}
+
+function collectOfficialLookupKeyCoverage(unitNames, coverage) {
+    const seen = new Set();
+    let coveredCount = 0;
+    let missingCount = 0;
+    const missingUnits = [];
+
+    for (const unitName of unitNames) {
+        const normalizedName = normalizeSystemSymbolName(unitName);
+
+        if (!normalizedName || seen.has(normalizedName)) {
+            continue;
+        }
+
+        seen.add(normalizedName);
+
+        if (coverage.has(normalizedName)) {
+            coveredCount += 1;
+        } else {
+            missingCount += 1;
+            missingUnits.push(unitName);
+        }
+    }
+
+    return {
+        measurement: 'lookup-key',
+        officialCount: seen.size,
+        coveredCount,
+        missingCount,
+        missingUnits: missingUnits.sort(),
+    };
+}
+
+function parsePowerScriptReservedWordPage(html, sourceUrl) {
+    const tableMatch = html.match(/<table[\s\S]*?<p>\s*alias\s*<\/p>[\s\S]*?<p>\s*autoinstantiate\s*<\/p>[\s\S]*?<\/table>/i);
+
+    if (!tableMatch) {
+        throw new Error('No se pudo extraer la tabla oficial de reserved words.');
+    }
+
+    const reservedWords = [];
+    const seen = new Set();
+
+    for (const match of tableMatch[0].matchAll(/<p[^>]*>\s*([a-z_][a-z0-9_]*\*?)\s*<\/p>/gi)) {
+        const token = match[1];
+        const canBeFunctionName = token.endsWith('*');
+        const name = token.replace(/\*$/u, '');
+        const normalizedName = normalizeSystemSymbolName(name);
+
+        if (!normalizedName || seen.has(normalizedName)) {
+            continue;
+        }
+
+        seen.add(normalizedName);
+        reservedWords.push({
+            name,
+            canBeFunctionName,
+            sourceUrl,
+        });
+    }
+
+    if (reservedWords.length === 0) {
+        throw new Error('La tabla oficial de reserved words no produjo unidades válidas.');
+    }
+
+    return reservedWords;
+}
+
+function buildOfficialKeywordCategoryMap(manualKeywordEntries) {
+    const categoryByName = new Map();
+
+    for (const entry of manualKeywordEntries) {
+        if (entry.normalizedName) {
+            categoryByName.set(entry.normalizedName, entry.category);
+        }
+    }
+
+    for (const [name, category] of OFFICIAL_GENERATED_KEYWORD_CATEGORY_OVERRIDES.entries()) {
+        categoryByName.set(name, category);
+    }
+
+    return categoryByName;
+}
+
+function buildGeneratedKeywordSummary(category, canBeFunctionName) {
+    const summaryByCategory = {
+        'Bloque': 'Keyword oficial de delimitación de bloques en PowerScript.',
+        'Control de flujo': 'Keyword oficial de control de flujo en PowerScript.',
+        'Declaración': 'Keyword oficial de declaración en PowerScript.',
+        'Invocación': 'Keyword oficial de invocación en PowerScript.',
+        'Manejo de errores': 'Keyword oficial de manejo de errores en PowerScript.',
+        'Modificadores de declaración': 'Keyword oficial de modificación de declaraciones en PowerScript.',
+        'Visibilidad y alcance': 'Keyword oficial de visibilidad o alcance en PowerScript.',
+    };
+
+    const summary = summaryByCategory[category] ?? 'Keyword oficial de PowerScript.';
+    return canBeFunctionName ? `${summary} Puede usarse también como nombre de función.` : summary;
+}
+
+function buildGeneratedReservedWordCategory(normalizedName) {
+    if (OFFICIAL_LITERAL_RESERVED_WORDS.has(normalizedName)) {
+        return 'Literales';
+    }
+
+    if (OFFICIAL_LOGICAL_RESERVED_WORDS.has(normalizedName)) {
+        return 'Operadores lógicos';
+    }
+
+    return 'Palabras reservadas';
+}
+
+function buildGeneratedReservedWordSummary(normalizedName, canBeFunctionName) {
+    const summary = OFFICIAL_LITERAL_RESERVED_WORDS.has(normalizedName)
+        ? 'Literal reservado oficial de PowerScript.'
+        : OFFICIAL_LOGICAL_RESERVED_WORDS.has(normalizedName)
+            ? 'Operador lógico reservado oficial de PowerScript.'
+            : 'Palabra reservada oficial de PowerScript.';
+
+    return canBeFunctionName ? `${summary} Puede usarse también como nombre de función.` : summary;
+}
+
+function buildGeneratedKeywordEntry(entry, category) {
+    const label = entry.name.toUpperCase();
+
+    return {
+        category,
+        name: label,
+        signatures: [{ label }],
+        sourceUrl: entry.sourceUrl,
+        summary: buildGeneratedKeywordSummary(category, entry.canBeFunctionName),
+    };
+}
+
+function buildGeneratedReservedWordEntry(entry) {
+    const normalizedName = normalizeSystemSymbolName(entry.name);
+    const label = entry.name.toUpperCase();
+
+    return {
+        category: buildGeneratedReservedWordCategory(normalizedName),
+        name: label,
+        signatures: [{ label }],
+        sourceUrl: entry.sourceUrl,
+        summary: buildGeneratedReservedWordSummary(normalizedName, entry.canBeFunctionName),
+    };
+}
+
 function filterAppliesToLabels(ownerInfo, selectedOwnerTypes) {
     if (ownerInfo.ownerScope === 'any-object' || ownerInfo.ownerScope === 'all-controls') {
         return ownerInfo.appliesTo;
@@ -1185,22 +1507,34 @@ function renderBuilderCall(builderName, entry) {
     return `    ${builderName}({ ${properties.join(', ')} }),`;
 }
 
-function renderCatalogFile(globalEntries, objectEntries, dataWindowEntries, eventEntries, statementEntries) {
+function renderCatalogFile(globalEntries, objectEntries, dataWindowEntries, systemTypeEntries, eventEntries, statementEntries) {
     const lines = [
         '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
         "import { PbSystemSymbolEntry } from '../types';",
-        "import { generatedDataWindowFunction, generatedEvent, generatedGlobalFunction, generatedObjectFunction, generatedStatement } from './common';",
+        "import { generatedDataWindowFunction, generatedEvent, generatedGlobalFunction, generatedKeyword, generatedObjectFunction, generatedReservedWord, generatedStatement, generatedSystemObjectDatatype } from './common';",
         '',
         'export const PB_GENERATED_GLOBAL_FUNCTIONS: readonly PbSystemSymbolEntry[] = [',
         ...globalEntries.map(entry => renderBuilderCall('generatedGlobalFunction', entry)),
         '];',
         '',
+        'export const PB_GENERATED_KEYWORDS: readonly PbSystemSymbolEntry[] = [',
+        ...objectEntries.__keywords__.map(entry => renderBuilderCall('generatedKeyword', entry)),
+        '];',
+        '',
+        'export const PB_GENERATED_RESERVED_WORDS: readonly PbSystemSymbolEntry[] = [',
+        ...objectEntries.__reservedWords__.map(entry => renderBuilderCall('generatedReservedWord', entry)),
+        '];',
+        '',
         'export const PB_GENERATED_OBJECT_FUNCTIONS: readonly PbSystemSymbolEntry[] = [',
-        ...objectEntries.map(entry => renderBuilderCall('generatedObjectFunction', entry)),
+        ...objectEntries.entries.map(entry => renderBuilderCall('generatedObjectFunction', entry)),
         '];',
         '',
         'export const PB_GENERATED_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[] = [',
         ...dataWindowEntries.map(entry => renderBuilderCall('generatedDataWindowFunction', entry)),
+        '];',
+        '',
+        'export const PB_GENERATED_SYSTEM_OBJECT_DATATYPES: readonly PbSystemSymbolEntry[] = [',
+        ...systemTypeEntries.map(entry => renderBuilderCall('generatedSystemObjectDatatype', entry)),
         '];',
         '',
         'export const PB_GENERATED_EVENTS: readonly PbSystemSymbolEntry[] = [',
@@ -1209,6 +1543,30 @@ function renderCatalogFile(globalEntries, objectEntries, dataWindowEntries, even
         '',
         'export const PB_GENERATED_STATEMENTS: readonly PbSystemSymbolEntry[] = [',
         ...statementEntries.map(entry => renderBuilderCall('generatedStatement', entry)),
+        '];',
+        '',
+    ];
+
+    return `${lines.join('\n')}\n`;
+}
+
+function renderBuiltInTypesFile(typeNames) {
+    const lines = [
+        '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
+        'export const PB_GENERATED_BUILTIN_TYPES: readonly string[] = [',
+        ...typeNames.map(typeName => `    ${renderString(typeName)},`),
+        '];',
+        '',
+    ];
+
+    return `${lines.join('\n')}\n`;
+}
+
+function renderKeywordLexemesFile(lexemes) {
+    const lines = [
+        '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
+        'export const PB_GENERATED_KEYWORD_LEXEMES: readonly string[] = [',
+        ...lexemes.map(lexeme => `    ${renderString(lexeme)},`),
         '];',
         '',
     ];
@@ -1427,8 +1785,14 @@ async function main() {
     const manualGlobalEntries = manualEntries.filter(entry => entry.domain === 'global-functions');
     const manualObjectEntries = manualEntries.filter(entry => entry.domain === 'object-functions');
     const manualDataWindowEntries = manualEntries.filter(entry => entry.domain === 'datawindow-functions');
+    const manualKeywordEntries = manualEntries.filter(entry => entry.domain === 'keywords');
+    const manualReservedWordEntries = manualEntries.filter(entry => entry.domain === 'reserved-words');
+    const manualDatatypeEntries = manualEntries.filter(entry => entry.domain === 'datatypes');
+    const manualSystemTypeEntries = manualEntries.filter(entry => entry.domain === 'system-object-datatypes');
+    const manualPronounEntries = manualEntries.filter(entry => entry.domain === 'pronouns');
     const manualSystemEventEntries = manualEntries.filter(entry => entry.domain === 'system-events');
     const manualStatementEntries = manualEntries.filter(entry => entry.domain === 'statements');
+    const manualSystemGlobalEntries = manualEntries.filter(entry => entry.domain === 'system-globals');
     const currentObjectOwnerUniverse = collectManualObjectOwnerUniverse();
     const specificParsedObjectOwnerTypes = unique(
         parsedPowerScriptPages
@@ -1455,6 +1819,12 @@ async function main() {
         return parsePowerScriptStatementPage(html, url);
     })).filter(Boolean);
 
+    console.log('Descargando página oficial de Reserved words...');
+    const officialReservedWordEntries = parsePowerScriptReservedWordPage(
+        await fetchText(POWERSCRIPT_RESERVED_WORDS_URL),
+        POWERSCRIPT_RESERVED_WORDS_URL,
+    );
+
     const objectOwnerUniverse = unique([
         ...currentObjectOwnerUniverse,
         ...specificParsedObjectOwnerTypes,
@@ -1467,15 +1837,54 @@ async function main() {
     const globalCoverage = buildCoverageMap(manualGlobalEntries, 'global-functions');
     const objectCoverage = buildCoverageMap(manualObjectEntries, 'object-functions');
     const dataWindowCoverage = buildCoverageMap(manualDataWindowEntries, 'datawindow-functions');
+    const keywordCoverage = buildLookupCoverageSet(manualKeywordEntries);
+    const reservedWordCoverage = buildLookupCoverageSet(manualReservedWordEntries);
+    const datatypeCoverage = buildLookupCoverageSet(manualDatatypeEntries);
+    const pronounCoverage = buildLookupCoverageSet(manualPronounEntries);
+    const systemTypeCoverage = buildCoverageMap(manualSystemTypeEntries, 'system-object-datatypes');
     const systemEventCoverage = buildCoverageMap(manualSystemEventEntries, 'system-events');
+    const systemGlobalCoverage = buildLookupCoverageSet(manualSystemGlobalEntries);
     const statementCoverage = buildCoverageMap(manualStatementEntries, 'statements');
+    const officialKeywordCategoryMap = buildOfficialKeywordCategoryMap(manualKeywordEntries);
 
     const generatedGlobalEntries = [];
+    const generatedKeywordEntries = [];
     const generatedObjectEntries = [];
+    const generatedReservedWordEntries = [];
     const generatedEventEntries = [];
     const generatedStatementEntries = [];
+    const officialKeywordUnits = [];
+    const officialReservedWordUnits = [];
     const unknownPowerScriptAppliesToLabels = new Map();
     const unknownPowerScriptEventOwnerLabels = new Map();
+
+    for (const entry of officialReservedWordEntries) {
+        const normalizedName = normalizeSystemSymbolName(entry.name);
+
+        if (!normalizedName || pronounCoverage.has(normalizedName) || systemGlobalCoverage.has(normalizedName)) {
+            continue;
+        }
+
+        const keywordCategory = officialKeywordCategoryMap.get(normalizedName);
+
+        if (keywordCategory) {
+            officialKeywordUnits.push(entry.name);
+
+            if (!keywordCoverage.has(normalizedName)) {
+                generatedKeywordEntries.push(buildGeneratedKeywordEntry(entry, keywordCategory));
+                keywordCoverage.add(normalizedName);
+            }
+
+            continue;
+        }
+
+        officialReservedWordUnits.push(entry.name);
+
+        if (!reservedWordCoverage.has(normalizedName)) {
+            generatedReservedWordEntries.push(buildGeneratedReservedWordEntry(entry));
+            reservedWordCoverage.add(normalizedName);
+        }
+    }
 
     for (const entry of sortGeneratedEntries(parsedPowerScriptPages.filter(candidate => candidate.isGlobal))) {
         const normalizedName = normalizeSystemSymbolName(entry.name);
@@ -1577,13 +1986,55 @@ async function main() {
     const dataWindowPageReferences = await loadDataWindowMethodPageUrls();
     console.log(`DataWindow Methods: ${dataWindowPageReferences.length} páginas candidatas.`);
 
+    console.log('Descargando referencias oficiales de datatypes y system objects...');
+    const [standardDatatypesHtml, anyDatatypeHtml, systemObjectsIndexHtml, undocumentedBaseClassesHtml] = await Promise.all([
+        fetchText(POWERSCRIPT_STANDARD_DATATYPES_URL),
+        fetchText(POWERSCRIPT_ANY_DATATYPE_URL),
+        fetchText(OBJECTS_AND_CONTROLS_INDEX_URL),
+        fetchText(OBJECTS_AND_CONTROLS_UNDOCUMENTED_BASE_CLASSES_URL),
+    ]);
+    const officialDatatypeUnits = unique([
+        ...parseOfficialStandardDatatypeNames(standardDatatypesHtml),
+        sanitizeOfficialTitle(extractTitle(anyDatatypeHtml)).includes('Any') ? 'Any' : 'Any',
+        'Int',
+        'Dec',
+        'Character',
+        'UnsignedInt',
+        'UInt',
+        'ULong',
+    ]);
+    const officialSystemObjectDatatypeEntries = unique([
+        ...parseOfficialSystemObjectDatatypeEntries(systemObjectsIndexHtml),
+        ...parseUndocumentedBaseClassEntries(undocumentedBaseClassesHtml),
+    ].map(entry => `${entry.name}|${entry.sourceUrl}|${entry.category}|${entry.summary}`)).map(serialized => {
+        const [name, sourceUrl, category, summary] = serialized.split('|');
+        return { name, sourceUrl, category, summary };
+    });
+    const officialSystemObjectDatatypeUnits = officialSystemObjectDatatypeEntries.map(entry => entry.name);
+
     const parsedDataWindowPages = (await mapConcurrent(dataWindowPageReferences, 12, async reference => {
         const html = await fetchText(reference.url);
         return parseDataWindowPage(html, reference.url, reference.chapterTitle);
     })).flat();
 
     const generatedDataWindowEntries = [];
+    const generatedSystemTypeEntries = [];
     const unknownDataWindowAppliesToLabels = new Map();
+
+    for (const entry of officialSystemObjectDatatypeEntries) {
+        if (isCoverageUnitCovered(systemTypeCoverage, 'system-object-datatypes', entry.name)) {
+            continue;
+        }
+
+        generatedSystemTypeEntries.push({
+            category: entry.category,
+            name: entry.name,
+            signatures: [{ label: entry.name }],
+            sourceUrl: entry.sourceUrl,
+            summary: entry.summary,
+        });
+        registerCoverage(systemTypeCoverage, 'system-object-datatypes', entry.name, []);
+    }
 
     for (const entry of sortGeneratedEntries(parsedDataWindowPages)) {
         if (entry.ownerInfo.unknownLabels.length > 0) {
@@ -1707,6 +2158,47 @@ async function main() {
     }
 
     const generatedOfficialCoverageFile = renderOfficialCoverageFile({
+        'global-functions': collectOfficialCoverageUnitKeys(
+            'global-functions',
+            parsedPowerScriptPages.filter(entry => entry.isGlobal),
+            globalCoverage,
+            'name',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+        'object-functions': collectOfficialCoverageUnitKeys(
+            'object-functions',
+            parsedPowerScriptPages.filter(entry => !entry.isGlobal),
+            objectCoverage,
+            'name-owner',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+        'datawindow-functions': collectOfficialCoverageUnitKeys(
+            'datawindow-functions',
+            parsedDataWindowPages,
+            dataWindowCoverage,
+            'name-owner',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+        keywords: collectOfficialLookupKeyCoverage(
+            officialKeywordUnits,
+            keywordCoverage,
+        ),
+        'reserved-words': collectOfficialLookupKeyCoverage(
+            officialReservedWordUnits,
+            reservedWordCoverage,
+        ),
+        datatypes: collectOfficialLookupKeyCoverage(
+            officialDatatypeUnits,
+            datatypeCoverage,
+        ),
+        'system-object-datatypes': collectOfficialNameCoverage(
+            officialSystemObjectDatatypeUnits,
+            systemTypeCoverage,
+            'system-object-datatypes',
+        ),
         'system-events': collectOfficialCoverageUnitKeys(
             'system-events',
             parsedPowerScriptEventPages,
@@ -1725,10 +2217,32 @@ async function main() {
         ),
     });
 
+    const generatedBuiltinTypesFile = renderBuiltInTypesFile(
+        unique([
+            ...officialDatatypeUnits,
+            ...officialSystemObjectDatatypeUnits,
+        ]
+            .map(typeName => normalizeSystemSymbolName(typeName))
+            .filter(Boolean))
+            .sort(),
+    );
+
+    const generatedKeywordLexemesFile = renderKeywordLexemesFile(
+        unique([
+            ...keywordCoverage,
+            ...reservedWordCoverage,
+        ]).sort(),
+    );
+
     const generatedCatalog = renderCatalogFile(
         sortGeneratedEntries(generatedGlobalEntries),
-        sortGeneratedEntries(generatedObjectEntries),
+        {
+            __keywords__: sortGeneratedEntries(generatedKeywordEntries),
+            __reservedWords__: sortGeneratedEntries(generatedReservedWordEntries),
+            entries: sortGeneratedEntries(generatedObjectEntries),
+        },
         sortGeneratedEntries(generatedDataWindowEntries),
+        sortGeneratedEntries(generatedSystemTypeEntries),
         sortGeneratedEntries(generatedEventEntries),
         sortGeneratedEntries(generatedStatementEntries),
     );
@@ -1741,10 +2255,14 @@ async function main() {
     await fs.writeFile(OUTPUT_OWNER_TYPES_FILE, generatedOwnerTypesFile, 'utf8');
     await fs.writeFile(OUTPUT_PROVENANCE_FILE, generatedProvenanceFile, 'utf8');
     await fs.writeFile(OUTPUT_OFFICIAL_COVERAGE_FILE, generatedOfficialCoverageFile, 'utf8');
+    await fs.writeFile(OUTPUT_PARSING_BUILTIN_TYPES_FILE, generatedBuiltinTypesFile, 'utf8');
+    await fs.writeFile(OUTPUT_PARSING_KEYWORD_LEXEMES_FILE, generatedKeywordLexemesFile, 'utf8');
 
     console.log('Catálogo generated actualizado.');
     console.log(`  Global functions generadas: ${generatedGlobalEntries.length}`);
+    console.log(`  Keywords generadas: ${generatedKeywordEntries.length}`);
     console.log(`  Object functions generadas: ${generatedObjectEntries.length}`);
+    console.log(`  Reserved words generadas: ${generatedReservedWordEntries.length}`);
     console.log(`  DataWindow functions generadas: ${generatedDataWindowEntries.length}`);
     console.log(`  System events generados: ${generatedEventEntries.length}`);
     console.log(`  Statements generados: ${generatedStatementEntries.length}`);

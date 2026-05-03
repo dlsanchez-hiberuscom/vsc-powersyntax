@@ -48,36 +48,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # L2.6 — Semantic Precision v2
 
-## B281 — Override and overload resolution hardening
-- **Estado:** Open
-- **Track:** PowerBuilder semantics
-- **Prioridad:** Alta
-- **Depende de:** B173, B209, B210, B279, B280
-- **Objetivo:** reforzar resolución entre overloads, overrides, prototypes e implementations.
-- **Cierre:** definition/references/hover/signatureHelp distinguen overload/override con evidence y tests negativos.
-- **Validación esperada:** PFC/OrderEntry + fixtures sintéticos.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-
-## B282 — Dynamic invocation risk model v2
-- **Estado:** Open
-- **Track:** semantic risk
-- **Prioridad:** Media-Alta
-- **Depende de:** B208, B209, B249, B262
-- **Objetivo:** unificar riesgo de llamadas dinámicas, strings, external calls, DataWindow expressions, WebView/HTTP patterns y ORCA staging.
-- **Cierre:** `invocationRisk` se propaga de forma uniforme a rename, references, impact, safe edit plan, dependency graph y code actions.
-- **Validación esperada:** dynamicStringReferences, DataWindow, SQL y safe edit plan.
-- **Docs afectadas:** `docs/rules-catalog.md`, `docs/developer-workflows.md`.
-
-## B283 — Semantic confidence calibration over real corpora
-- **Estado:** Open
-- **Track:** evidence / validation
-- **Prioridad:** Alta
-- **Depende de:** B157, B161, B222, B226, B273
-- **Objetivo:** calibrar confidence usando PFC, OrderEntry y corpus legacy.
-- **Cierre:** baseline de falsos positivos/negativos y thresholds revisados por feature.
-- **Validación esperada:** corpus reports + comparison against golden matrix.
-- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
-
 ## B284 — Semantic query explain plan
 - **Estado:** Open
 - **Track:** query diagnostics
@@ -87,16 +57,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Cierre:** plan con fases, candidatos, descartes, winner, confidence, sourceOrigin y coste aproximado.
 - **Validación esperada:** unit de plan + command/API/tool.
 - **Docs afectadas:** `docs/developer-workflows.md`, `docs/architecture.md`.
-
-## B285 — System catalog coverage v2
-- **Estado:** Open
-- **Track:** PowerBuilder runtime catalog
-- **Prioridad:** Media-Alta
-- **Depende de:** B112, B205, B225, B248
-- **Objetivo:** ampliar catálogo runtime con tipos, eventos, funciones y members frecuentes no cubiertos.
-- **Cierre:** catálogo versionado, tests con PFC/OrderEntry y sin hardcode disperso.
-- **Validación esperada:** catalog consistency + semantic golden.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
 
 ## B286 — Framework knowledge pack conflict policy
 - **Estado:** Open
@@ -112,56 +72,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # L4.6 — PowerBuilder / DataWindow Advanced Reliability
 
-## B287 — DataWindow model canonicalization v2
-- **Estado:** Open
-- **Track:** DataWindow core
-- **Prioridad:** Alta
-- **Depende de:** B041, B042, B081, B253, B254
-- **Objetivo:** consolidar un modelo canónico único de DataWindow consumido por hover, definition, completion, diagnostics, lineage, metrics y reports.
-- **Cierre:** ninguna feature DataWindow parsea por su cuenta estructuras ya disponibles.
-- **Validación esperada:** architectureImports + DataWindow golden tests.
-- **Docs afectadas:** `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-
-## B288 — DataWindow SQL parser safe subset v2
-- **Estado:** Open
-- **Track:** DataWindow SQL
-- **Prioridad:** Alta
-- **Depende de:** B253, B287
-- **Objetivo:** mejorar parsing seguro de SQL DataWindow sin abrir motor SQL completo.
-- **Cierre:** soporta select aliases, joins simples, where básico, args y degradación para SQL complejo.
-- **Validación esperada:** `.srd` reales + synthetic fixtures.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-
-## B289 — DataWindow expression safe evaluator metadata
-- **Estado:** Open
-- **Track:** DataWindow expressions
-- **Prioridad:** Media-Alta
-- **Depende de:** B254, B287
-- **Objetivo:** modelar metadatos de expresiones sin evaluarlas.
-- **Cierre:** diagnostics/completion entienden dependencias de columnas/controles sin ejecutar ni fingir valores.
-- **Validación esperada:** DataWindow expression fixtures y negative tests.
-- **Docs afectadas:** `docs/rules-catalog.md`.
-
-## B290 — DataStore/DataWindow behavioral catalog v2
-- **Estado:** Open
-- **Track:** PB catalog
-- **Prioridad:** Media
-- **Depende de:** B211, B212, B253, B254
-- **Objetivo:** ampliar catálogo contextual de DataStore/DataWindow.
-- **Cierre:** Retrieve/Update/SetTrans/GetChild/Describe/Modify tienen firmas, riesgos y docs coherentes.
-- **Validación esperada:** hover/signatureHelp/completion/diagnostics.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-
-## B291 — Embedded SQL semantic anchors
-- **Estado:** Open
-- **Track:** embedded SQL
-- **Prioridad:** Media-Alta
-- **Depende de:** B090, B211, B260, B261
-- **Objetivo:** anclar SQL embebido a transactions, diagnostics, metrics y reports de forma explicable.
-- **Cierre:** SQL regions aparecen en context packs, metrics, debt report y support bundle con confidence.
-- **Validación esperada:** sqlRegions, diagnostics, metrics y support bundle.
-- **Docs afectadas:** `docs/rules-catalog.md`, `docs/developer-workflows.md`.
-
 ## B292 — PowerBuilder preprocessor / conditional patterns investigation
 - **Estado:** Open
 - **Track:** parser research
@@ -175,57 +85,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 ---
 
 # L4.7 — Enterprise Supportability / Operability
-
-## B293 — Workspace support matrix finalization
-- **Estado:** Open
-- **Track:** product support matrix
-- **Prioridad:** Alta
-- **Depende de:** B256, B257, B258
-- **Objetivo:** cerrar matriz oficial de soporte.
-- **Debe cubrir:** PowerBuilder 2025 Workspace, Solution, target `.pbt`, PBL-only legacy, source plain-text, staging ORCA, DataWindow `.srd`, PBAutoBuild y PowerServer/PowerClient build files.
-- **Cierre:** docs y health report reflejan soporte/limitaciones por modo.
-- **Validación esperada:** docs audit + health matrix tests.
-- **Docs afectadas:** `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`.
-
-## B294 — Enterprise configuration policy
-- **Estado:** Open
-- **Track:** configuration governance
-- **Prioridad:** Media
-- **Depende de:** B244, B293
-- **Objetivo:** perfiles corporativos y settings gobernables.
-- **Cierre:** perfiles `fast`, `balanced`, `deep-analysis`, `legacy-orca`, `ci-support` y `support-safe`.
-- **Validación esperada:** settings governance + smoke config.
-- **Docs afectadas:** `README.md`, `docs/developer-workflows.md`.
-
-## B295 — Support bundle redaction policy
-- **Estado:** Open
-- **Track:** privacy / supportability
-- **Prioridad:** Alta
-- **Depende de:** B258, B271
-- **Objetivo:** política explícita de redacción para bundles.
-- **Cierre:** paths, snippets, diagnostics, settings y manifests se sanitizan según perfil.
-- **Validación esperada:** redaction tests y snapshot sanitized.
-- **Docs afectadas:** `docs/developer-workflows.md`, `docs/testing.md`.
-
-## B296 — Enterprise health score
-- **Estado:** Open
-- **Track:** health / reporting
-- **Prioridad:** Media
-- **Depende de:** B176, B216, B257, B258, B293
-- **Objetivo:** score agregado de salud del workspace.
-- **Cierre:** score explicable por readiness, diagnostics, build, ORCA, cache, sourceOrigin, performance y support matrix.
-- **Validación esperada:** health model tests + dashboard projection.
-- **Docs afectadas:** `docs/developer-workflows.md`.
-
-## B297 — Runtime self-test command
-- **Estado:** Open
-- **Track:** support / validation
-- **Prioridad:** Media-Alta
-- **Depende de:** B258, B271, B278
-- **Objetivo:** comando para ejecutar self-test rápido del runtime.
-- **Cierre:** valida API, LSP, cache, project model, diagnostics, build snapshot, ORCA snapshot y devuelve reporte.
-- **Validación esperada:** smoke command + unit self-test model.
-- **Docs afectadas:** `README.md`, `docs/testing.md`.
 
 ## B298 — Extension upgrade compatibility checker
 - **Estado:** Open
@@ -294,26 +153,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 ---
 
 # L7 — Modern PowerBuilder ecosystem intelligence
-
-## B304 — PowerServer project awareness read-only
-- **Estado:** Open
-- **Track:** PowerServer / project model
-- **Prioridad:** Media-Alta
-- **Depende de:** B182, B257, B293
-- **Objetivo:** reconocer de forma read-only proyectos PowerServer, build JSON y ServerAPIs relacionados sin intentar compilar ni desplegar.
-- **Cierre:** manifest/build matrix reflejan PowerServer project hints, paths y readiness sin abrir execution rail nuevo.
-- **Validación esperada:** fixtures de build JSON PowerServer y docs.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/developer-workflows.md`.
-
-## B305 — PowerClient project awareness read-only
-- **Estado:** Open
-- **Track:** PowerClient / project model
-- **Prioridad:** Media
-- **Depende de:** B182, B257, B293
-- **Objetivo:** reconocer proyectos PowerClient y sus build files sin mezclar con C/S o PowerServer.
-- **Cierre:** build matrix y health distinguen C/S, PowerClient y PowerServer.
-- **Validación esperada:** PBAutoBuild JSON fixtures.
-- **Docs afectadas:** `docs/developer-workflows.md`.
 
 ## B306 — HTTPClient/REST/JSON usage analyzer
 - **Estado:** Open
@@ -435,34 +274,16 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Validación esperada:** docs lifecycle tests.
 - **Docs afectadas:** `docs/spec-driven-development.md`, `docs/backlog.md`, `docs/done-log.md`.
 
-## B318 — PowerBuilder Language Knowledge Catalog v2
-- **Estado:** Done
-- **Track:** knowledge / catalog
-- **Prioridad:** Alta
-- **Objetivo:** evolucionar el catálogo de callable/event/statement a un modelo de lenguaje completo.
-- **Cierre:** soporte para keywords, datatypes, pronouns, operators, system globals y enumerated values con metadata rica e integración en hover/completion.
-- **Validación:** suite `catalogV2.test.ts` + green en 742 tests.
-- **Docs afectadas:** `docs/architecture.md`, `docs/testing.md`, `specs/318-powerbuilder-language-knowledge-catalog-v2/`.
-
-## B319 — Restore official catalog generator and coverage v2
-- **Estado:** Open
-- **Track:** knowledge / generator
-- **Prioridad:** Media
-- **Depende de:** B318
-- **Objetivo:** recrear el script de generación de catálogo, hoy fuera del repo, para automatizar la extracción de símbolos oficiales.
-- **Cierre:** script `generate_official_function_catalog.cjs` restaurado y alineado con el modelo v2; reporte de cobertura real generado.
-- **Validación:** el script genera `generated.generated.ts` válido y consistente.
-- **Docs afectadas:** `docs/architecture.md`.
-
 ## B320 — DataWindow expression/property official catalog
 - **Estado:** Open
 - **Track:** knowledge / datawindow
 - **Prioridad:** Media
 - **Depende de:** B318, B289
 - **Objetivo:** integrar funciones de expresiones de DataWindow y propiedades de objetos DW en el catálogo v2.
-- **Cierre:** dominios `datawindow-expression-functions` y `datawindow-properties` poblados con metadata oficial.
-- **Validación:** hover/completion funcional sobre expresiones DW complejas.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
+- **Razón técnica:** DataWindow sigue siendo sublenguaje propio; sus expresiones, propiedades y paths no deben mezclarse con PowerScript normal ni servirse desde scans globales.
+- **Criterios de cierre verificables:** dominios `datawindow-expression-functions` y `datawindow-properties` poblados con provenance oficial/curada, namespace `datawindow-expression` o `datawindow`, lookups indexados y consumers limitados a contexto DataWindow defendible.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/rules-catalog.md`, `docs/testing.md`.
+- **Validación esperada:** tests DataWindow de hover/completion/diagnostics/property paths, negativos fuera de DataWindow y smoke real sobre `.srd`.
 
 ## B321 — Generated catalog domain enrichment v2
 - **Estado:** Open
@@ -470,9 +291,1384 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Prioridad:** Media
 - **Depende de:** B319
 - **Objetivo:** enriquecer las entradas generadas automáticamente con metadata adicional de lenguaje (introducedIn, risk, etc.).
-- **Cierre:** el catálogo generado aprovecha los nuevos campos de `PbSystemSymbolEntryDraft`.
-- **Validación:** sanity tests de metadata enriquecida.
+- **Razón técnica:** los nuevos campos existen, pero el dataset generated todavía no publica metadata uniforme para completado, hover, diagnostics y documentación versionada.
+- **Criterios de cierre verificables:** entradas generated con `introducedIn`, `risk`, owners, appliesTo normalizado y provenance auditada; tests de compatibilidad prueban que IDs/kind/domain/namespace existentes se preservan.
+- **Docs afectadas:** `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/testing.md`.
+- **Validación esperada:** `catalogV2.test.ts`, `catalogConsistency.test.ts`, tests de compatibilidad de IDs generados y diff del catálogo.
 
+## B327 — DataWindow constants and property path catalog
+- **Estado:** Open
+- **Track:** knowledge / datawindow
+- **Prioridad:** Media-Alta
+- **Depende de:** B287, B320
+- **Objetivo:** catalogar constantes, property paths y nombres de propiedades DataWindow reutilizables por Describe/Modify/Object.
+- **Razón técnica:** hoy existen resolvers seguros de property paths, pero la lista oficial/curada no vive aún como catálogo versionado reusable.
+- **Criterios de cierre verificables:** dominios `datawindow-constants` y `datawindow-properties` poblados, separados del parser PowerScript y consumidos solo con contexto DataWindow.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/rules-catalog.md`.
+- **Validación esperada:** property path tests, negativos dinámicos y smoke `.srd` real.
+
+## B329 — Catalog-driven semantic tokens integration
+- **Estado:** Open
+- **Track:** semantic tokens / catalog
+- **Prioridad:** Media
+- **Depende de:** B318, B324
+- **Objetivo:** consumir metadata del catálogo para tokens seguros sin lookup caro por token.
+- **Razón técnica:** semantic tokens existe, pero la auditoría no confirmó integración catalog-driven completa; cualquier ampliación debe usar caché/bounds y preservar tokens actuales.
+- **Criterios de cierre verificables:** categorías nuevas testeadas, modifiers compatibles y ausencia de full catalog scans por token.
+- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
+- **Validación esperada:** `semanticTokens.test.ts`, `hotPathAllocationBudget.test.ts`, performance focal si aumenta clasificación.
+
+## B335 — Catalog coverage dashboard and consistency gate
+- **Estado:** Open
+- **Track:** catalog governance
+- **Prioridad:** Media
+- **Depende de:** B319, B321
+- **Objetivo:** publicar una vista/gate de cobertura por dominio, kind, dataset y provenance.
+- **Razón técnica:** `buildCatalogConsistencyReport()` ya expone counts, pero `officialCoverage.generated.ts` aún no cubre todos los dominios generados/curados.
+- **Criterios de cierre verificables:** reporte reproducible con kindCounts/domainCounts/datasetCounts/provenance, umbrales documentados y fallo claro ante drift.
+- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
+- **Validación esperada:** tests de consistency/gate y artifact de cobertura local.
+
+## B339 — Catalog provenance audit against official Appeon sources
+- **Estado:** Open
+- **Track:** catalog governance
+- **Prioridad:** Media
+- **Depende de:** B319, B322, B323, B324, B325
+- **Objetivo:** auditar provenance y authority de entradas oficiales, generadas y curadas.
+- **Razón técnica:** las slices manuales son útiles, pero la herramienta no debe inventar cobertura oficial ni copiar documentación extensa.
+- **Criterios de cierre verificables:** cada dominio declara fuente, authority, versión y límites; entries no oficiales quedan marcadas `curated`.
+- **Docs afectadas:** `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
+- **Validación esperada:** consistency/provenance tests y revisión documental.
+
+## B340 — ORCA/PBAutoBuild tooling vocabulary catalog
+- **Estado:** Open
+- **Track:** tooling catalog
+- **Prioridad:** Baja-Media
+- **Depende de:** B293, B319
+- **Objetivo:** modelar vocabulario de tooling PowerBuilder fuera del hot path semántico.
+- **Razón técnica:** `powerbuilder-tooling` existe como namespace, pero ORCA/PBAutoBuild no deben contaminar resolución PowerScript ni DataWindow.
+- **Criterios de cierre verificables:** dominio `tooling-symbols` poblado solo para docs/health/build surfaces, sin consumo por query semántica interactiva.
+- **Docs afectadas:** `docs/developer-workflows.md`, `docs/architecture.md`.
+- **Validación esperada:** tests de build/ORCA surfaces y architectureImports.
+
+## B342 — Extract proven symbol heuristics from plugin_old
+- **Estado:** Open
+- **Track:** plugin_old migration / semantics
+- **Prioridad:** Media
+- **Depende de:** B281, B283
+- **Objetivo:** revisar heurísticas probadas de `plugin_old` sin crear un motor paralelo.
+- **Razón técnica:** la auditoría confirmó valor potencial en linked editing, inlay hints, folding, callable counts y edge cases DataWindow; completion scoring y core semántico base ya están absorbidos o superados.
+- **Criterios de cierre verificables:** matriz `already implemented / partial / valuable gap / obsolete / unsafe` actualizada, mejoras adaptadas a `KnowledgeBase`/snapshots/query service y tests proporcionales.
+- **Docs afectadas:** `docs/plugin-old-migration-opportunities.md`, `docs/testing.md`.
+- **Validación esperada:** tests focales de la heurística migrada y architectureImports.
+
+## B344 — DataWindow binding edge cases from plugin_old
+- **Estado:** Open
+- **Track:** DataWindow / plugin_old migration
+- **Prioridad:** Media-Alta
+- **Depende de:** B287, B342
+- **Objetivo:** extraer casos probados de bindings DataWindow/child/report/dddw desde `plugin_old` como fixtures o reglas nuevas.
+- **Razón técnica:** `plugin_old` contiene lógica rica de child links y column occurrences; debe migrarse como conocimiento/test, no como provider cliente acoplado.
+- **Criterios de cierre verificables:** fixtures representativos, resolvers actuales extendidos sin parsear DataWindow como PowerScript y degradación honesta para bindings dinámicos.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/plugin-old-migration-opportunities.md`.
+- **Validación esperada:** DataWindow unit/golden tests y smoke real `.srd`.
+
+## B346 — Refactor client extension activation and command registration
+- **Estado:** Open
+- **Track:** architecture / client
+- **Prioridad:** Media-Alta
+- **Depende de:** B277, B293
+- **Objetivo:** reducir `src/client/extension.ts` separando bootstrap, comandos, vistas, build/ORCA, support/export y API construction.
+- **Razón técnica:** el archivo sigue siendo grande y mezcla wiring de muchas superficies; el cliente sigue fino, pero la mantenibilidad requiere boundaries explícitos.
+- **Criterios de cierre verificables:** command IDs y API pública intactos, activación sin regresión, módulos cliente sin imports de server y smokes de comandos principales verdes.
+- **Docs afectadas:** `docs/architecture.md`, `docs/testing.md`, `docs/performance-budget.md`.
+- **Validación esperada:** `architectureImports.test.ts`, smoke extension/comandos/status/build/ORCA y budget de activación.
+
+## B353 — Large-file regression guard and architecture metrics
+- **Estado:** Open
+- **Track:** architecture metrics
+- **Prioridad:** Media
+- **Depende de:** B346, B347
+- **Objetivo:** añadir un guard reproducible de tamaño/responsabilidad/imports para hotspots.
+- **Razón técnica:** hoy existe firewall de imports, pero no un inventario ejecutable de line count/responsibility drift para `extension.ts`, `server.ts` y generated/manual catalog slices.
+- **Criterios de cierre verificables:** reporte local/CI con thresholds razonables, allowlist para generated/manual catalogs y señal clara ante crecimiento no justificado.
+- **Docs afectadas:** `docs/architecture.md`, `docs/testing.md`.
+- **Validación esperada:** test/tool de arquitectura y documentación de excepciones.
+
+## B354 — Server runtime orchestration decomposition
+- **Estado:** Open
+- **Track:** runtime architecture
+- **Prioridad:** Alta
+- **Depende de:** B347, B267, B274
+- **Objetivo:** separar orquestación runtime de LSP wiring sin cambiar scheduling/backpressure/memory policies.
+- **Razón técnica:** `server.ts` aún administra scheduler, readiness, memory pressure, serving cache, persistence y journals en el mismo archivo de handlers.
+- **Criterios de cierre verificables:** policies siguen centralizadas, stats/health/status conservan payloads, build/legacy no entran al hot path y PFC/OrderEntry no muestran loops ni crashes.
+- **Docs afectadas:** `docs/architecture.md`, `docs/performance-budget.md`, `docs/testing.md`.
+- **Validación esperada:** scheduler/backpressure/memory/runtimeHealth/statusBar tests, performance gate y real-corpus smoke.
+
+## B356 — PFC/STD rapid validation gate for architecture refactors
+- **Estado:** Open
+- **Track:** validation / real corpora
+- **Prioridad:** Alta
+- **Depende de:** B346, B347, B336
+- **Objetivo:** convertir la validación rápida PFC/STD en gate documentado para refactors arquitectónicos.
+- **Razón técnica:** las suites reales existen y se ejecutan manualmente, pero el cierre de refactors grandes debe exigir explícitamente PFC Workspace/Solution y STD/OrderEntry.
+- **Criterios de cierre verificables:** comando/gate rápido con discovery, indexing, serving básico, readiness y evidencia de no crash; skip honesto si faltan corpus.
+- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`, `test/corpora/README.md`.
+- **Validación esperada:** `npm run test:performance -- --grep "PFC|OrderEntry|STD"` o comando específico equivalente.
+
+## B357 — Manual catalog modularization and slice ownership
+- **Estado:** Open
+- **Track:** knowledge / catalog architecture
+- **Prioridad:** Alta
+- **Depende de:** B318, B319
+- **Objetivo:** reorganizar `src/server/knowledge/system/manual/` en slices pequeñas, mantenibles y con ownership claro, evitando archivos gigantes y evitando que `registry/datasets.ts` tenga que importar docenas de sub-slices internas.
+- **Razón técnica:** el catálogo manual ya mezcla lenguaje, DataWindow, visuales, runtime, generated overrides, owner groups y helpers. Para poder integrar todos los símbolos PowerBuilder de forma profesional, el catálogo debe crecer por slices con agregadores estables.
+
+### Alcance incluido
+
+- Crear estructura modular bajo `manual/`.
+- Mantener `manual/common.ts` solo para factories/helpers.
+- Crear `manual/sources.ts` para fuentes oficiales/provenance base.
+- Mover owner groups fuera de `manual/common.ts`.
+- Mantener `manual/index.ts` como agregador estable.
+- Mover slices existentes sin cambiar entradas, IDs, `kind`, `domain`, `namespace`, `invocation` ni `ownerTypes`.
+- Crear índices por carpeta.
+- Asegurar que `registry/datasets.ts` consume agregadores estables, no sub-slices internas.
+- Añadir tests de no duplicados y cobertura de slices manuales.
+
+### Estructura objetivo
+
+```txt
+src/server/knowledge/system/manual/
+  common.ts
+  sources.ts
+  index.ts
+
+  ownerTypes/
+    index.ts
+    objectOwnerTypes.ts
+    visualOwnerTypes.ts
+    dataWindowOwnerTypes.ts
+
+  language/
+    index.ts
+    datatypes.ts
+    languageKeywords.ts
+    reservedWords.ts
+    statements.ts
+    operators.ts
+    pronouns.ts
+    enumerations/
+      index.ts
+      common.ts
+      datawindow.ts
+      ui.ts
+      windows.ts
+      file.ts
+      drawing.ts
+      print.ts
+      dragDrop.ts
+      database.ts
+      runtime.ts
+      pdf.ts
+      corpusCandidates.ts
+
+  visual/
+    index.ts
+    visualObjects.ts
+    textControls.ts
+    listControls.ts
+    drawingControls.ts
+    dataControls.ts
+    ribbonControls.ts
+    oleVisualControls.ts
+
+  runtime/
+    index.ts
+    systemTypes.ts
+    systemGlobals.ts
+    errors.ts
+    reflection.ts
+    ole.ts
+    mail.ts
+    profiling.ts
+
+  integration/
+    index.ts
+    json.ts
+    http.ts
+    rest.ts
+    oauth.ts
+    pdf.ts
+    filesystem.ts
+    compression.ts
+    crypto.ts
+    dotnet.ts
+
+  datawindow/
+    index.ts
+    dataWindowEvents.ts
+    dataWindowFunctions.ts
+    dataWindowExpressions.ts
+    dataWindowProperties.ts
+    dataWindowConstants.ts
+
+  legacy/
+    index.ts
+    globalFunctions.ts
+    objectFunctions.ts
+    systemEvents.ts
+```
+
+### Required aggregator pattern
+
+`registry/datasets.ts` must consume stable aggregators such as:
+
+```ts
+import {
+  PB_MANUAL_CORE_DATASET_SLICES,
+  PB_MANUAL_CORE_OWNER_TYPE_GROUPS,
+} from '../manual';
+```
+
+or domain aggregators such as:
+
+```ts
+import {
+  PB_MANUAL_CORE_LANGUAGE_DATASET_SLICES,
+  PB_MANUAL_CORE_VISUAL_DATASET_SLICES,
+  PB_MANUAL_CORE_RUNTIME_DATASET_SLICES,
+  PB_MANUAL_CORE_INTEGRATION_DATASET_SLICES,
+  PB_MANUAL_CORE_DATAWINDOW_DATASET_SLICES,
+  PB_MANUAL_CORE_LEGACY_DATASET_SLICES,
+} from '../manual';
+```
+
+Avoid direct imports such as:
+
+```ts
+import { PB_MANUAL_CORE_TEXT_CONTROL_DATATYPES } from '../manual/visual/textControls';
+```
+
+### Criterios de cierre verificables
+
+- `manual/` queda organizado por carpetas funcionales.
+- `manual/common.ts` no contiene arrays grandes ni owner groups.
+- `manual/sources.ts` contiene fuentes/provenance base.
+- `manual/ownerTypes/` contiene owner groups.
+- `manual/index.ts` exporta agregadores estables.
+- `registry/datasets.ts` no importa sub-slices internas una a una.
+- No cambia ningún ID existente.
+- No cambia ningún `kind`, `domain`, `namespace`, `invocation` u `ownerTypes` existente.
+- `catalogConsistency` no detecta duplicados.
+- Consumers no dependen de rutas internas frágiles.
+- Documentación explica ownership de slices.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|ownerTypes|architectureImports"
+npm run test:unit -- --grep "completion|hover|signatureHelp"
+```
+
+---
+
+## B358 — Visual PowerBuilder system object datatypes catalog completion
+- **Estado:** Open
+- **Track:** knowledge / visual object catalog
+- **Prioridad:** Alta
+- **Depende de:** B357, B323, B339, B365
+- **Objetivo:** completar e integrar todos los tipos visuales PowerBuilder bajo `manual/visual/`, incluyendo ventanas, controles estándar, controles de texto, listas, dibujo, DataWindow visual, MDI, ActiveX visual y Ribbon.
+- **Razón técnica:** los controles y objetos visuales son esenciales para owner resolution, hover, completion, Object Explorer, UI hierarchy y reglas visuales. Deben vivir en slices pequeñas, no en un único `systemObjectDatatypes.ts` gigante.
+
+### Alcance incluido
+
+- Completar:
+  - `manual/visual/visualObjects.ts`
+  - `manual/visual/textControls.ts`
+  - `manual/visual/listControls.ts`
+  - `manual/visual/drawingControls.ts`
+  - `manual/visual/dataControls.ts`
+  - `manual/visual/ribbonControls.ts`
+  - `manual/visual/oleVisualControls.ts`
+- Integrar en `manual/visual/index.ts`.
+- Integrar en el agregador manual estable.
+- Añadir tests de resolución para controles clave.
+- Completar owner groups visuales si falta cobertura.
+
+### Categorías objetivo
+
+```txt
+Objetos visuales
+Controles de texto
+Controles de lista
+Controles de dibujo
+Controles de datos/UI
+Controles Ribbon
+OLE visual
+```
+
+### Tipos a incluir o revisar
+
+```txt
+Window
+MDIClient
+UserObject
+Menu
+MenuCascade
+DataWindow
+SingleLineEdit
+MultiLineEdit
+EditMask
+RichTextEdit
+StaticText
+StaticHyperLink
+CommandButton
+PictureButton
+CheckBox
+RadioButton
+ListBox
+PictureListBox
+DropDownListBox
+DropDownPictureListBox
+ListView
+ListViewItem
+TreeView
+TreeViewItem
+Tab
+TabbedBar
+GroupBox
+Graph
+grAxis
+grDispAttr
+Picture
+PictureHyperLink
+Line
+Oval
+Rectangle
+RoundRectangle
+HScrollBar
+VScrollBar
+HProgressBar
+VProgressBar
+HTrackBar
+VTrackBar
+DatePicker
+MonthCalendar
+Animation
+InkEdit
+InkPicture
+WebBrowser
+OLEControl
+OLECustomControl
+RibbonBar
+RibbonApplicationButtonItem
+RibbonApplicationMenu
+RibbonCategoryItem
+RibbonCheckBoxItem
+RibbonComboBoxItem
+RibbonGroupItem
+RibbonLargeButtonItem
+RibbonMenu
+RibbonMenuItem
+RibbonPanelItem
+RibbonSmallButtonItem
+RibbonTabButtonItem
+PowerServerLabel
+```
+
+### Explicit classification rules
+
+- `Application` is not a visual control. It belongs to runtime/system types.
+- `DataWindow` is visual when used as a control, but DataWindow expression functions/properties/constants remain separate specs/domains.
+- `DataStore` is nonvisual and belongs to runtime/system types.
+- `OLEObject`, `OLEStorage`, `OLEStream`, `OLETxnObject` are nonvisual OLE runtime types, not visual controls.
+
+### Fuera de alcance
+
+- PDF object model.
+- JSON/HTTP/OAuth.
+- Mail/SMTP/MIME.
+- Profiling/traces.
+- Reflection.
+- Error hierarchy.
+- DataWindow expressions/properties/constants.
+
+### Criterios de cierre verificables
+
+- All relevant visual types are present or explicitly rejected with reason.
+- No duplicate IDs.
+- Existing IDs remain unchanged unless a prior breaking spec explicitly authorizes the change.
+- Every entry uses `systemObjectDatatype()` or the approved factory for system object datatypes.
+- `resolveDatatype()` resolves representative types:
+  - `SingleLineEdit`
+  - `DataWindow`
+  - `MDIClient`
+  - `RibbonBar`
+  - `RibbonApplicationMenu`
+  - `WebBrowser`
+  - `OLEControl`
+- Completion/hover/signatureHelp do not regress.
+- Visual owner groups are complete enough for completion/hover/Object Explorer.
+
+### Docs afectadas
+
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/architecture.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|nativeAncestors|ownerTypes"
+npm run test:unit -- --grep "completion|hover|signatureHelp|objectExplorer"
+```
+
+---
+
+## B359 — Runtime, integration and nonvisual system object datatypes catalog completion
+- **Estado:** Open
+- **Track:** knowledge / runtime object catalog
+- **Prioridad:** Alta
+- **Depende de:** B357, B323, B339, B365
+- **Objetivo:** completar e integrar tipos no visuales, runtime, integración moderna, PDF, correo, profiling/trazas, reflexión, OLE no visual, objetos de sistema y errores bajo `manual/runtime/` e `manual/integration/`.
+- **Razón técnica:** el runtime moderno de PowerBuilder contiene muchos subsistemas no visuales. Mezclarlos con controles visuales dificulta owner resolution, hover, completion, diagnostics conservadores, modernization reports y future catalog-driven rules.
+
+### Alcance incluido
+
+- Completar:
+  - `manual/runtime/systemTypes.ts`
+  - `manual/runtime/errors.ts`
+  - `manual/runtime/reflection.ts`
+  - `manual/runtime/ole.ts`
+  - `manual/runtime/mail.ts`
+  - `manual/runtime/profiling.ts`
+  - `manual/integration/json.ts`
+  - `manual/integration/http.ts`
+  - `manual/integration/rest.ts`
+  - `manual/integration/oauth.ts`
+  - `manual/integration/pdf.ts`
+  - `manual/integration/filesystem.ts`
+  - `manual/integration/compression.ts`
+  - `manual/integration/crypto.ts`
+  - `manual/integration/dotnet.ts`
+- Reclassify `Application` as runtime/system if currently visual.
+- Add representative resolution tests.
+
+### Categorías objetivo
+
+```txt
+Objetos no visuales
+JSON / HTTP / OAuth / REST
+PDF
+Correo
+Profiling y trazas
+Objetos de sistema
+Reflexión
+OLE
+Errores
+Filesystem
+Crypto / compression
+.NET interop
+```
+
+### Tipos a incluir o revisar
+
+```txt
+ADOResultSet
+ArrayBounds
+Application
+BatchDataObjects
+ClassDefinition
+CoderObject
+CompressorObject
+ContextInformation
+ContextKeyword
+CrypterObject
+DataStore
+DataWindowChild
+DotNetAssembly
+DotNetObject
+DynamicDescriptionArea
+DynamicStagingArea
+Environment
+Error
+ErrorLogging
+Exception
+ExtractorObject
+HTTPClient
+Inet
+InternetResult
+JSONGenerator
+JSONPackage
+JSONParser
+MailFileDescription
+MailMessage
+MailRecipient
+MailSession
+Message
+MimeMessage
+MLSync
+MLSynchronization
+OAuthClient
+OAuthRequest
+OLEObject
+OLEStorage
+OLEStream
+OLETxnObject
+PDFAction
+PDFActionJavaScript
+PDFActionNamed
+PDFActionResetForm
+PDFAttachment
+PDFColor
+PDFContent
+PDFContext
+PDFDocExtractor
+PDFDocument
+PDFDocumentProperties
+PDFFont
+PDFFormField
+PDFFormFieldCheckBox
+PDFFormFieldComboBox
+PDFFormFieldGroup
+PDFFormFieldListBox
+PDFFormFieldPushButton
+PDFFormFieldRadioButton
+PDFFormFieldRadioButtonGroup
+PDFFormFieldText
+PDFImage
+PDFImportContent
+PDFInvisibleContent
+PDFModel
+PDFMultilineText
+PDFPage
+PDFRichText
+PDFSecurity
+PDFSharedText
+PDFTableOfContents
+PDFTableOfContentsItem
+PDFText
+PDFTextBlock
+PDFTextLayout
+PDFVisibleContent
+PDFWatermark
+Pipeline
+PowerObject
+PowerServerResult
+ProfileCall
+ProfileClass
+ProfileLine
+ProfileRoutine
+Profiling
+ResourceResponse
+RESTClient
+ResultSet
+RuntimeError
+ScriptDefinition
+SimpleTypeDefinition
+SMTPClient
+SyncParm
+Throwable
+Timing
+TokenRequest
+TokenResponse
+TraceActivityNode
+TraceBeginEnd
+TraceError
+TraceESQL
+TraceFile
+TraceGarbageCollect
+TraceLine
+TraceObject
+TraceRoutine
+TraceTree
+TraceTreeError
+TraceTreeESQL
+TraceTreeGarbageCollect
+TraceTreeLine
+TraceTreeNode
+TraceTreeObject
+TraceTreeRoutine
+TraceTreeUser
+TraceUser
+Transaction
+TransactionServer
+TypeDefinition
+ULSync
+VariableCardinalityDefinition
+VariableDefinition
+WSConnection
+```
+
+### OwnerTypes que NO deben añadirse como tipos
+
+```txt
+longhandleofbuttonmenuisassociatedwith
+longhandleofitem
+longindexofmenuitemclicked
+longindexofmenuitemmouseison
+longindexofsubmenuitemclicked0indicateseventistriggeredbymainmenu
+longindexofsubmenuitemmouseison0indicateseventistriggeredbymainmenu
+```
+
+These are extractor noise, not PowerBuilder system object datatypes.
+
+### Fuera de alcance
+
+- Visual controls.
+- Ribbon visual controls.
+- DataWindow expression functions/properties/constants.
+- Official generated extraction rail.
+
+### Criterios de cierre verificables
+
+- All relevant runtime/nonvisual/integration types are present or explicitly rejected with reason.
+- `Application` is classified as runtime/system.
+- No duplicate IDs.
+- Existing IDs remain unchanged unless a prior breaking spec explicitly authorizes the change.
+- Representative types resolve:
+  - `HTTPClient`
+  - `JSONParser`
+  - `PDFDocument`
+  - `PDFPage`
+  - `SMTPClient`
+  - `MimeMessage`
+  - `TraceTreeRoutine`
+  - `BatchDataObjects`
+  - `ResourceResponse`
+  - `DataStore`
+  - `Transaction`
+- Completion/hover/signatureHelp do not regress.
+
+### Docs afectadas
+
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/architecture.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|nativeAncestors|ownerTypes"
+npm run test:unit -- --grep "completion|hover|signatureHelp"
+```
+
+---
+
+## B360 — Enumerated catalog model breaking normalization
+- **Estado:** Open
+- **Track:** knowledge / language catalog / breaking normalization
+- **Prioridad:** Alta
+- **Depende de:** B357, B365, B324, B339
+- **Objetivo:** normalizar de forma estricta el modelo de enumerados PowerBuilder separando `enumerated-type` y `enumerated-value`, eliminando completamente la representación legacy donde tipos como `SaveAsType!`, `DWBuffer!`, `DWItemStatus!` o `Encoding!` se modelan como entradas canónicas.
+- **Razón técnica:** en PowerBuilder, el tipo enumerado y el valor enumerado son conceptos distintos. El tipo se usa como datatype de argumentos/propiedades (`SaveAsType`, `DWBuffer`, `Alignment`, `Encoding`) y los valores terminan con `!` (`Text!`, `Primary!`, `Left!`, `EncodingUTF8!`). Mantener tipos con `!` confunde hover, completion, signatureHelp y diagnostics.
+- **Decisión arquitectónica:** breaking change intencionado. No mantener aliases legacy para tipos con `!`.
+
+### Alcance incluido
+
+- Añadir `PbSystemSymbolKind = 'enumerated-type'`.
+- Mantener `PbSystemSymbolKind = 'enumerated-value'`.
+- Añadir `PbSystemSymbolDomain = 'enumerated-types'`.
+- Mantener `PbSystemSymbolDomain = 'enumerated-values'`.
+- Eliminar/migrar entradas legacy mal modeladas:
+  - `SaveAsType!`
+  - `DWBuffer!`
+  - `DWItemStatus!`
+  - `Encoding!`
+  - `WindowType!`
+  - `WindowState!`
+  - any other enum type ending in `!`.
+- Canonical type name must never end in `!`.
+- Canonical value name must end in `!`.
+- Add enum metadata fields.
+- Add explicit query APIs.
+
+### Required metadata fields
+
+```ts
+export interface PbSystemSymbolEntryDraft {
+    documentation?: string;
+    enumValues?: readonly string[];
+    enumValueOf?: string;
+    enumNumericValue?: number;
+    enumValueMeaning?: string;
+    allowedOnOwners?: readonly string[];
+    allowedOnProperties?: readonly string[];
+    allowedInParameters?: readonly string[];
+    obsolete?: boolean;
+    obsoleteMessage?: string;
+    replacement?: string;
+}
+```
+
+### Required query APIs
+
+```ts
+listEnumeratedTypes(): readonly PbSystemSymbolEntry[];
+listEnumeratedValues(): readonly PbSystemSymbolEntry[];
+resolveEnumeratedType(name: string): PbSystemSymbolEntry | undefined;
+resolveEnumeratedValue(name: string): PbSystemSymbolEntry | undefined;
+listValuesForEnumeratedType(typeName: string): readonly PbSystemSymbolEntry[];
+resolveEnumValueForExpectedType(valueName: string, typeName: string): PbSystemSymbolEntry | undefined;
+```
+
+### Strict rules
+
+- `SaveAsType` is type.
+- `SaveAsType!` must not exist as type or type alias.
+- `Text!`, `CSV!`, `PDF!`, `XLSX!` are values.
+- `DWBuffer` is type.
+- `Primary!`, `Delete!`, `Filter!` are values.
+- `Encoding` is type.
+- `EncodingUTF8!` is value.
+- PFC/STD cannot define official enum membership.
+
+### Criterios de cierre verificables
+
+- `resolveEnumeratedType('SaveAsType')` resolves.
+- `resolveEnumeratedType('SaveAsType!')` does not resolve.
+- `resolveEnumeratedValue('Text!')` resolves.
+- `resolveEnumeratedType('DWBuffer')` resolves.
+- `resolveEnumeratedValue('Primary!')` resolves.
+- No `enumerated-type` entry ends with `!`.
+- `buildCatalogConsistencyReport()` reports invalid enum type names ending in `!`.
+- Old incompatible tests are updated or removed.
+- Docs explain the breaking change.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|enumerated|enum"
+npm run test:unit -- --grep "completion|hover|semanticTokens|signatureHelp"
+```
+
+---
+
+## B361 — Official enumerated datatype extractor and coverage rail
+- **Estado:** Open
+- **Track:** knowledge / generator / official catalog
+- **Prioridad:** Alta
+- **Depende de:** B319, B360
+- **Objetivo:** crear o extender el rail de generación/auditoría oficial para extraer tipos enumerados, valores enumerados, numeric values, significado breve, obsolescencia y provenance desde documentación oficial Appeon.
+- **Razón técnica:** el catálogo manual puede arrancar con curación, pero la herramienta profesional necesita una fuente reproducible y auditada para enum types/values.
+
+### Alcance incluido
+
+- Auditar generadores existentes:
+  - `scripts/generate_official_function_catalog.cjs`
+  - `script/generate_official_function_catalog.cjs`
+  - equivalent scripts.
+- Crear extractor específico si no existe rail adecuado.
+- Extraer/auditar desde:
+  - PowerScript Reference / Enumerated datatypes.
+  - DataWindow Reference / DataWindow Constants.
+  - Objects and Controls / Property Descriptions and Usage.
+- Capturar:
+  - enum type;
+  - enum values;
+  - numeric value when available;
+  - compact value meaning;
+  - obsolete/deprecated flag;
+  - replacement when documented;
+  - sourceUrl;
+  - provenance;
+  - documentation version.
+
+### Minimum official targets
+
+```txt
+DataWindow constants:
+  AccessibleRole
+  Alignment
+  Band
+  Border
+  BorderStyle
+  CharSet
+  DWBuffer
+  DWConflictResolution
+  DWItemStatus
+  FillPattern
+  LineStyle
+  RichTextToolbarActivation
+  RowFocusInd
+  SaveAsType
+  SaveMetaData
+  SQLPreviewFunction
+  SQLPreviewType
+  WebPagingMethod
+
+Objects and Controls property datatypes:
+  AccessibleRole
+  Alignment
+  BorderStyle
+  FillPattern
+  FontCharSet
+  FontFamily
+  FontPitch
+  GraphType
+  HighDPIMode
+  SecureProtocol
+  TextCase
+  ToolbarAlignment
+  ToolbarStyle
+  WindowState
+  WindowType
+
+PowerScript Reference:
+  Enumerated datatype concept and official constraints.
+```
+
+### Anti-invention rule
+
+- Do not generate enums from intuition.
+- Do not add `HTTPMethod`, `OAuthGrantType`, `CPUArchitecture`, `TransactionScope`, etc. unless official docs or generated official extraction confirms them.
+- If a value appears only in PFC/STD, store as corpus candidate, not official.
+
+### Expected generated outputs
+
+```txt
+src/server/knowledge/system/generated/enumeratedTypes.generated.ts
+src/server/knowledge/system/generated/enumeratedValues.generated.ts
+src/server/knowledge/system/generated/enumeratedCoverage.generated.ts
+src/server/knowledge/system/generated/enumeratedProvenance.generated.ts
+```
+
+### Criterios de cierre verificables
+
+- Extractor output is deterministic.
+- `SaveAsType` includes official known values such as `Excel!`, `Text!`, `CSV!`, `SQLInsert!`, `PSReport!`, `PDF!`, `Excel8!`, `XLSX!`, `XLSB!` where officially documented.
+- `DWBuffer` includes `Primary!`, `Delete!`, `Filter!` with numeric values when officially available.
+- Obsolete values are flagged when official docs mark them obsolete.
+- Coverage report includes `enumerated-types` and `enumerated-values` counts.
+- No large official documentation text is copied.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "generator|enumerated|catalogCoverage|catalogConsistency"
+```
+
+---
+
+## B362 — PowerBuilder enumerated datatypes and values catalog completion
+- **Estado:** Open
+- **Track:** knowledge / language catalog / enumerations
+- **Prioridad:** Alta
+- **Depende de:** B360, B361, B339
+- **Objetivo:** completar el catálogo de tipos enumerados y valores enumerados con entradas oficiales cuando estén disponibles y entradas manual-curated solo con evidencia suficiente.
+- **Razón técnica:** el programador debe entender qué está escribiendo. El catálogo debe explicar tanto el tipo (`DWBuffer`) como cada valor (`Primary!`) con significado concreto, numeric value y obsolescencia cuando aplique.
+
+### Structure target
+
+```txt
+manual/language/enumerations/
+  common.ts
+  index.ts
+  datawindow.ts
+  ui.ts
+  windows.ts
+  file.ts
+  drawing.ts
+  print.ts
+  dragDrop.ts
+  database.ts
+  runtime.ts
+  pdf.ts
+  corpusCandidates.ts
+```
+
+### Factory target
+
+```ts
+enumeratedType({
+    name: 'DWBuffer',
+    category: 'DataWindow',
+    summary: 'Tipo enumerado para seleccionar el buffer de filas de un DataWindow.',
+    documentation: 'Se usa en métodos DataWindow que acceden, mueven o consultan filas en un buffer concreto.',
+    enumValues: ['Primary!', 'Delete!', 'Filter!'],
+});
+
+enumeratedValue({
+    name: 'Primary!',
+    category: 'DataWindow',
+    summary: 'Buffer principal del DataWindow.',
+    documentation: 'Representa las filas activas del DataWindow, es decir, filas que no han sido eliminadas ni filtradas.',
+    enumValueOf: 'DWBuffer',
+    enumNumericValue: 0,
+});
+```
+
+### Minimum required enum types
+
+```txt
+DataWindow:
+  SaveAsType
+  DWBuffer
+  DWItemStatus
+  DWConflictResolution
+  SQLPreviewFunction
+  SQLPreviewType
+  SaveMetaData
+  WebPagingMethod
+
+File / encoding:
+  Encoding
+  FileAccess
+  FileMode
+  SeekType
+
+UI / controls:
+  AccessibleRole
+  Alignment
+  Border
+  BorderStyle
+  Pointer
+  TextCase
+  ToolbarAlignment
+  ToolbarStyle
+
+Windows / MDI:
+  WindowType
+  WindowState
+  ArrangeType
+
+Drawing / graphics:
+  FillPattern
+  LineStyle
+  GraphType
+  UnitType
+  FontCharSet
+  FontFamily
+  FontPitch
+
+PDF:
+  PDFStandard
+  PDFPageSize
+  PDFOrientation
+  PDFFormFieldEvent
+```
+
+### Minimum required enum values
+
+```txt
+SaveAsType:
+  Excel!
+  Text!
+  CSV!
+  SYLK!
+  WKS!
+  WK1!
+  DIF!
+  dBASE2!
+  dBASE3!
+  SQLInsert!
+  Clipboard!
+  PSReport!
+  WMF!
+  HTMLTable!
+  Excel5!
+  XML!
+  XSLFO!
+  PDF!
+  Excel8!
+  EMF!
+  XLSX!
+  XLSB!
+
+DWBuffer:
+  Primary!
+  Delete!
+  Filter!
+
+Encoding:
+  EncodingANSI!
+  EncodingUTF8!
+  EncodingUTF16LE!
+  EncodingUTF16BE!
+
+Alignment:
+  Center!
+  Left!
+  Right!
+
+WindowState:
+  Normal!
+  Maximized!
+  Minimized!
+
+FileAccess:
+  FileRead!
+  FileWrite!
+  FileReadWrite!
+
+FileMode:
+  LineMode!
+  StreamMode!
+```
+
+### Hover usefulness rules
+
+Each `enumerated-type` must include:
+
+```txt
+summary
+longer documentation
+enumValues
+source/provenance
+```
+
+Each `enumerated-value` must include:
+
+```txt
+summary
+longer documentation
+enumValueOf
+enumNumericValue when available
+obsolete/obsoleteMessage/replacement when applicable
+source/provenance
+```
+
+### PFC/STD rule
+
+- PFC, STD/OrderEntry and public PB repositories provide real-world usage and fixtures.
+- They do not define official enum membership.
+- Unknown values found in corpus become `corpusCandidates` or backlog items unless official source confirms them.
+
+### Criterios de cierre verificables
+
+- Each `enumerated-value` has `enumValueOf`.
+- Each `enumerated-type` has `enumValues`.
+- No orphan values.
+- No empty enum types unless explicitly justified.
+- Obsolete values are marked when official source says so.
+- `listValuesForEnumeratedType('SaveAsType')` returns official values.
+- `listValuesForEnumeratedType('DWBuffer')` returns `Primary!`, `Delete!`, `Filter!`.
+- `resolveEnumeratedValue('Primary!')` indicates `enumValueOf: 'DWBuffer'`.
+- Hover can be built from catalog metadata without extra hardcoding.
+
+### Docs afectadas
+
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "enumerated|enum|catalog|systemCatalog"
+```
+
+---
+
+## B363 — Catalog-driven enum hover, completion, signatureHelp and diagnostics
+- **Estado:** Open
+- **Track:** language services / catalog consumers
+- **Prioridad:** Alta
+- **Depende de:** B360, B362, B365
+- **Objetivo:** integrar el modelo correcto de enumerated types/values en hover, completion, signatureHelp, semanticTokens y diagnostics conservadores, priorizando utilidad real para programadores PowerBuilder.
+- **Razón técnica:** el usuario debe entender exactamente qué significa `CSV!`, `Primary!`, `EncodingUTF8!` o `Right!`, y completion/signatureHelp deben sugerir valores válidos cuando el tipo esperado sea inequívoco.
+
+### Alcance incluido
+
+- Hover para `enumerated-type`.
+- Hover para `enumerated-value`.
+- Completion de valores cuando el tipo esperado es inequívoco.
+- SignatureHelp enriquecido con valores enumerados.
+- Semantic tokens para valores terminados en `!`.
+- Diagnostics conservadores para valor incorrecto con confidence alta.
+
+### Example code targets
+
+```powerscript
+dw_1.SaveAs("x.csv", CSV!, true, EncodingUTF8!)
+dw_1.RowsMove(1, 1, Primary!, dw_2, 1, Primary!)
+dw_1.SetItemStatus(1, "name", Primary!, DataModified!)
+mle_1.Alignment = Right!
+```
+
+### Expected hover over type
+
+```md
+### DWBuffer
+
+Tipo enumerado PowerBuilder.
+
+Selecciona el buffer de filas de un DataWindow sobre el que opera un método.
+
+**Valores conocidos:**
+- `Primary!` — buffer principal.
+- `Delete!` — buffer de filas eliminadas.
+- `Filter!` — buffer de filas filtradas.
+```
+
+### Expected hover over value
+
+```md
+### Primary!
+
+Valor enumerado de `DWBuffer`.
+
+Buffer principal del DataWindow.
+
+Representa las filas activas que no han sido eliminadas ni filtradas.
+
+**Valor numérico:** `0`
+```
+
+### Safety rules
+
+- Do not diagnose if expected type is ambiguous.
+- Do not diagnose dynamic calls.
+- Do not diagnose values coming from variables, strings or expressions.
+- Do not diagnose outside typed contexts.
+- Do not perform full catalog lookup per token.
+- Use indexes/caches by lookupKey and `enumValueOf`.
+
+### Criterios de cierre verificables
+
+- Hover over `SaveAsType` shows enum type documentation.
+- Hover over `CSV!` shows value of `SaveAsType` and meaning.
+- Hover over `Primary!` shows value of `DWBuffer` and meaning.
+- Completion in `DWBuffer` parameter suggests `Primary!`, `Delete!`, `Filter!`.
+- Completion in `Encoding` parameter suggests `EncodingANSI!`, `EncodingUTF8!`, `EncodingUTF16LE!`, `EncodingUTF16BE!`.
+- SignatureHelp shows known values for enum parameters.
+- Semantic tokens classify enum values without degrading performance.
+- Diagnostics only report incompatible enum values when the expected type is unequivocal.
+
+### Docs afectadas
+
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "completion|hover|signatureHelp|semanticTokens|diagnostics|enumerated|enum"
+npm run test:unit -- --grep "catalog|systemCatalog|catalogV2"
+```
+
+---
+
+## B364 — Enum catalog real-corpus validation against PFC, STD and public PB repositories
+- **Estado:** Open
+- **Track:** validation / real corpora / catalog
+- **Prioridad:** Alta
+- **Depende de:** B362, B363, B336
+- **Objetivo:** validar el catálogo de enumerated types/values contra corpus reales PowerBuilder, incluyendo PFC 2025, STD/OrderEntry y otros repositorios públicos PowerBuilder, para detectar gaps, falsos positivos y patrones reales de uso.
+- **Razón técnica:** el catálogo debe ser útil en código real. PFC y STD/OrderEntry son corpus grandes y actuales para comprobar indexación, hover, completion, diagnostics y ausencia de ruido masivo.
+
+### Alcance incluido
+
+- Localizar corpus disponibles:
+  - `fixtures-local/pfc/2025-Workspace`
+  - `fixtures-local/pfc/2025-Solution`
+  - `fixtures-local/STD_FC_OrderEntry`
+  - equivalent repository helper paths.
+- Ejecutar smoke/indexing/performance tests.
+- Extraer uso real de valores terminados en `!`.
+- Comparar valores usados contra catálogo.
+- Clasificar:
+  - official known value;
+  - curated known value;
+  - unconfirmed candidate;
+  - textual false positive;
+  - out-of-context value.
+- Crear fixtures sintéticos solo para gaps confirmados.
+
+### Validation rules
+
+- PFC and STD/OrderEntry are validation corpora, not official sources.
+- Do not add unknown values to official catalog without source.
+- If corpora are unavailable, perform honest skip and document expected paths.
+
+### Criterios de cierre verificables
+
+- PFC indexes without crash if available.
+- STD/OrderEntry indexes without crash if available.
+- Enum usage report includes:
+  - total detected `!` values;
+  - cataloged values;
+  - unknown values;
+  - candidates;
+  - false positives.
+- No unknown values are added without source.
+- Real gaps become backlog or fixtures.
+- Completion/hover/diagnostics do not create massive noise in PFC/STD.
+- Performance budget does not regress.
+
+### Comandos esperados
+
+```bash
+npm run build:test
+npm run test:performance -- --grep "PFC|OrderEntry|STD"
+npm run test:unit -- --grep "enumerated|enum|catalog"
+```
+
+### Docs afectadas
+
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `test/corpora/README.md`
+- `test/results/003-real-corpora-baseline.md` if baseline is updated
+
+### Validación esperada
+
+```bash
+npm run test:performance -- --grep "PFC|OrderEntry|STD"
+npm run test:unit -- --grep "enumerated|enum|catalog"
+```
+
+---
+
+## B365 — System catalog query/index hardening v2
+- **Estado:** Open
+- **Track:** knowledge / catalog performance / query architecture
+- **Prioridad:** Alta
+- **Depende de:** B357
+- **Objetivo:** reforzar `buildIndexes.ts`, `queryService.ts` y `SystemCatalog.ts` para evitar filtros y combinaciones costosas conforme crecen manual/generated/enumerated/visual/runtime catalog slices.
+- **Razón técnica:** el query service ya usa `byLookupKey` y `byDomain`, pero owner-context queries todavía pueden combinar listas grandes, `resolveLanguageSymbol()` depende del orden de slices y futuras enum queries necesitan índices específicos.
+
+### Alcance incluido
+
+- Añadir índices compuestos cuando aporten valor:
+  - `byDomainAndLookupKey`
+  - `byKindAndLookupKey`
+  - `byEnumValueOf`
+  - `byOwnerTypeAndDomain` or equivalent if needed
+- Refactorizar `findEntriesInDomain()` para usar índice compuesto.
+- Refactorizar enum queries para no hacer scans de dominio.
+- Refactorizar owner-context queries para aprovechar `byOwnerType`/composite index.
+- Mover accesos directos a `PB_SYSTEM_SYMBOL_REGISTRY.indexes` desde `SystemCatalog.ts` hacia `queryService.ts`.
+- Definir prioridad explícita para `resolveLanguageSymbol()`.
+- Congelar o tratar como readonly buckets de índices si es viable.
+- Mantener registry creation cheap and deterministic.
+
+### Suggested query priority for `resolveLanguageSymbol()`
+
+```txt
+reserved-word
+keyword
+pronoun
+datatype
+system-type
+system-global
+enumerated-type
+enumerated-value
+operator
+property
+constant
+```
+
+The final order can differ if tests prove a better PowerBuilder user experience, but it must be explicit and documented.
+
+### Required query APIs
+
+```ts
+listSystemSymbolsByDomain(domain): readonly PbSystemSymbolEntry[];
+isKnownSystemOwnerType(name): boolean;
+findEntriesByDomainAndLookupKey(domain, name): readonly PbSystemSymbolEntry[];
+findEntriesByKindAndLookupKey(kind, name): readonly PbSystemSymbolEntry[];
+listValuesForEnumeratedType(typeName): readonly PbSystemSymbolEntry[];
+resolveEnumValueForExpectedType(valueName, typeName): PbSystemSymbolEntry | undefined;
+resolveLanguageSymbol(name, options?): PbSystemSymbolEntry | undefined;
+```
+
+### Performance rules
+
+- No full catalog scan in hover/completion/signatureHelp/semanticTokens/diagnostics.
+- Owner-specific member completion must not concatenate all object/datawindow functions when specific owner types are available.
+- Enum value resolution by expected type must use index lookup.
+- `SystemCatalog` remains facade; heavy logic stays in `queryService`/indexes.
+
+### Criterios de cierre verificables
+
+- `findEntriesInDomain()` uses `byDomainAndLookupKey` or equivalent.
+- Enum queries use `byEnumValueOf` or equivalent.
+- Owner-context member queries use owner indexes where possible.
+- `resolveLanguageSymbol()` has explicit documented priority.
+- `SystemCatalog.ts` no longer directly accesses registry indexes except justified exceptional cases.
+- Index buckets are treated as readonly and not mutated by consumers.
+- Tests cover index/query behavior.
+- Performance/hot-path tests remain green.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/performance-budget.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "catalog|systemCatalog|queryService|indexes|catalogConsistency"
+npm run test:unit -- --grep "completion|hover|signatureHelp|semanticTokens|diagnostics"
+npm run test:unit -- --grep "hotPath|performance|allocation"
+```
+
+---
+
+# Final checklist for Copilot agents
+
+Before closing any spec from this document, perform this checklist:
+
+```txt
+1. Re-read changed code.
+2. Verify no generated/manual ID changed unless the spec explicitly authorizes a breaking change.
+3. Verify no full-catalog scans were introduced in hot paths.
+4. Verify registry/datasets imports remain stable and not slice-exploded.
+5. Verify manual/common.ts contains factories/helpers only.
+6. Verify consistency report catches new structural errors.
+7. Verify docs/backlog/current-focus/roadmap are aligned.
+8. Verify tests are green.
+9. Verify done-log is updated only for fully closed specs.
+10. If real corpora are required but absent, document honest skip paths and do not fake results.
+```
 ---
 
 # 6. Current execution focus recomendado

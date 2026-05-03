@@ -97,6 +97,122 @@ end function
     assert.strictEqual(memberAdd.sortText?.startsWith('1_member_'), true);
   });
 
+
+  test('debe sugerir system types modernos HTTP/JSON desde el catálogo runtime', () => {
+    const doc = setupDocument('file:///test_system_type_completion.sru', `
+global type test_system_type_completion from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  ht
+  js
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const httpLine = lines.findIndex((line) => line.trim() === 'ht');
+    const jsonLine = lines.findIndex((line) => line.trim() === 'js');
+
+    const httpItems = provideCompletion(doc, Position.create(httpLine, 4), kb, systemCatalog, graph);
+    assert.ok(httpItems);
+    const httpClient = httpItems.find((item) => item.label === 'HTTPClient');
+    assert.ok(httpClient);
+    assert.strictEqual(httpClient.kind, CompletionItemKind.Class);
+
+    const jsonItems = provideCompletion(doc, Position.create(jsonLine, 4), kb, systemCatalog, graph);
+    assert.ok(jsonItems);
+    assert.ok(jsonItems.some((item) => item.label === 'JSONParser'));
+    assert.ok(jsonItems.some((item) => item.label === 'JSONGenerator'));
+    assert.ok(jsonItems.some((item) => item.label === 'JSONPackage'));
+  });
+
+  test('debe sugerir reserved words, pronouns, system globals y enumerated values desde el catálogo contextual', () => {
+    const doc = setupDocument('file:///test_catalog_contextual_completion.sru', `
+global type test_catalog_contextual_completion from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  co
+  th
+  sq
+  savea
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const reservedLine = lines.findIndex((line) => line.trim() === 'co');
+    const pronounLine = lines.findIndex((line) => line.trim() === 'th');
+    const globalLine = lines.findIndex((line) => line.trim() === 'sq');
+    const enumLine = lines.findIndex((line) => line.trim() === 'savea');
+
+    const reservedItems = provideCompletion(doc, Position.create(reservedLine, 4), kb, systemCatalog, graph);
+    assert.ok(reservedItems?.some((item) => String(item.label).toLowerCase() === 'commit'));
+
+    const pronounItems = provideCompletion(doc, Position.create(pronounLine, 4), kb, systemCatalog, graph);
+    const thisItem = pronounItems?.find((item) => String(item.label).toLowerCase() === 'this');
+    assert.ok(thisItem);
+    assert.strictEqual(thisItem?.kind, CompletionItemKind.Variable);
+
+    const globalItems = provideCompletion(doc, Position.create(globalLine, 4), kb, systemCatalog, graph);
+    const sqlcaItem = globalItems?.find((item) => item.label === 'SQLCA');
+    assert.ok(sqlcaItem);
+    assert.strictEqual(sqlcaItem?.kind, CompletionItemKind.Variable);
+
+    const enumItems = provideCompletion(doc, Position.create(enumLine, 7), kb, systemCatalog, graph);
+    const saveAsTypeItem = enumItems?.find((item) => item.label === 'SaveAsType!');
+    assert.ok(saveAsTypeItem);
+    assert.strictEqual(saveAsTypeItem?.kind, CompletionItemKind.EnumMember);
+  });
+
+  test('prioriza símbolos locales frente a system globals homónimos y deduplica resultados', () => {
+    const doc = setupDocument('file:///test_system_global_dedup.sru', `
+global type test_system_global_dedup from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  string message
+  mess
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'mess');
+    const items = provideCompletion(doc, Position.create(lineIndex, 6), kb, systemCatalog, graph);
+
+    assert.ok(items);
+    const messageItems = items.filter((item) => String(item.label).toLowerCase() === 'message');
+    assert.strictEqual(messageItems.length, 1);
+    assert.strictEqual(messageItems[0].sortText?.startsWith('0_local_'), true);
+  });
+
+  test('no mezcla reserved words, pronouns ni enumerated values en member context', () => {
+    const doc = setupDocument('file:///test_member_context_catalog_completion.sru', `
+global type test_member_context_catalog_completion from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  SQLCA.sa
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'SQLCA.sa');
+    const pos = Position.create(lineIndex, 10);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(!items?.some((item) => item.label === 'SaveAsType!'));
+    assert.ok(!items?.some((item) => String(item.label).toLowerCase() === 'this'));
+    assert.ok(!items?.some((item) => String(item.label).toLowerCase() === 'commit'));
+  });
+
   test('debe sugerir miembros de una variable tipada', () => {
     // Simulamos dos archivos. 
     setupDocument('file:///n_cst_math.sru', `
@@ -188,7 +304,7 @@ end subroutine
     assert.ok(items?.some((item) => item.label === 'DBHandle'));
   });
 
-  test('debe sugerir SetTransObject y Retrieve para datastore tipado', () => {
+  test('debe sugerir el catálogo comportamental DataWindow para datastore tipado', () => {
     const doc = setupDocument('file:///test_datastore.sru', `
 global type test_datastore from nonvisualobject
 end type
@@ -207,7 +323,35 @@ end subroutine
 
     const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
     assert.ok(items?.some((item) => item.label === 'SetTransObject'));
+    assert.ok(items?.some((item) => item.label === 'SetTrans'));
     assert.ok(items?.some((item) => item.label === 'Retrieve'));
+    assert.ok(items?.some((item) => item.label === 'Update'));
+    assert.ok(items?.some((item) => item.label === 'Describe'));
+    assert.ok(items?.some((item) => item.label === 'Modify'));
+    assert.ok(items?.some((item) => item.label === 'GetChild'));
+  });
+
+  test('no sugiere GetChild para datawindowchild tipado', () => {
+    const doc = setupDocument('file:///test_datawindowchild_completion.sru', `
+global type test_datawindowchild_completion from nonvisualobject
+  datawindowchild idwc_orders
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  idwc_orders.
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'idwc_orders.');
+    const pos = Position.create(lineIndex, 14);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items?.some((item) => item.label === 'Describe'));
+    assert.ok(items?.some((item) => item.label === 'Update'));
+    assert.ok(!items?.some((item) => item.label === 'GetChild'));
   });
 
   test('limita candidatos globales para completion con prefijo', () => {
@@ -287,5 +431,31 @@ end subroutine
     const nestedItems = provideCompletion(docNested, Position.create(nestedLineIndex, nestedCharacter), kb, systemCatalog, graph);
 
     assert.ok(nestedItems?.some((item) => item.label === 'name'), 'Debe sugerir la propiedad dddw.name del column child cuando el prefijo ya entra en dddw.');
+  });
+
+  test('debe ofrecer completion segura dentro de expresiones DataWindow en .srd', () => {
+    const doc = setupDocument('file:///d_expression_completion.srd', [
+      '$PBExportHeader$d_expression_completion.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=char(1) update=yes name=show_ribbon dbname="emp.show_ribbon")',
+      ' column=(type=decimal(18,2) update=yes name=adjusted_hours dbname="emp.adjusted_hours")',
+      ' column=(type=decimal(18,2) update=yes name=rate dbname="emp.rate") retrieve="SELECT show_ribbon, adjusted_hours, rate FROM emp")',
+      'compute(band=detail name=cc_total expression="adjusted_")',
+      'text(band=detail name=t_status visible="1~tif(cc_, 1, 0)")',
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const computeLine = lines.findIndex((line) => line.includes('expression="adjusted_"'));
+    const computeCharacter = lines[computeLine].indexOf('adjusted_') + 'adjusted_'.length;
+    const computeItems = provideCompletion(doc, Position.create(computeLine, computeCharacter), kb, systemCatalog, graph);
+
+    assert.ok(computeItems?.some((item) => item.label === 'adjusted_hours'), 'Debe sugerir columnas del DataWindow dentro de expression=');
+
+    const visibleLine = lines.findIndex((line) => line.includes('if(cc_'));
+    const visibleCharacter = lines[visibleLine].indexOf('cc_') + 'cc_'.length;
+    const visibleItems = provideCompletion(doc, Position.create(visibleLine, visibleCharacter), kb, systemCatalog, graph);
+
+    assert.ok(visibleItems?.some((item) => item.label === 'cc_total'), 'Debe sugerir controles nombrados dentro de valores dinámicos con ~t.');
   });
 });

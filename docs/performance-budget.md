@@ -136,6 +136,7 @@ Hoy el runtime ya dispone de:
 - mutaciones `upsert/remove` de `KnowledgeBase` con copy-on-write por bucket y consultas/conteos acotados por `kind` para serving y manifest, evitando clonar o recorrer toda la base cuando el hot path ya conoce el subconjunto necesario,
 - guard estructural local/CI sobre hot path para impedir `document.getText().split(...)`, `JSON.stringify`, `getAllEntities`/`exportDocumentRecords`, clonación global del catálogo de sistema y renormalización redundante del workspace en `queryContext`, `completion`, `diagnostics` y `referenceSourcePool`,
 - caché CodeLens LRU acotada y visible en stats/health,
+- el LRU de CodeLens vive ahora en un módulo server-side puro (`features/codeLensResultCache`) con tests propios de límite, hits/misses, evictions e invalidación; `server.ts` ya dejó de registrar directamente lifecycle/document/features/commands y conserva bootstrap + runtime orchestration, mientras el wiring movedizo vive en `handlers/lifecycleHandlers`, `handlers/documentHandlers`, `handlers/featureHandlers`, `handlers/buildCommandHandlers`, `handlers/reportCommandHandlers` y `handlers/runtimeCommandHandlers`,
 - reporte unificado de memory budgets por capa con estimates soft y estado agregado visible en stats/health/status,
 - degradación adaptativa por presión de memoria que purga serving cache, pausa nuevas escrituras en esa caché, aplaza `background-indexing/maintenance/ai-tooling` y acota payloads de reports read-only pesados sin apagar `hover`/`completion`/`near-context`,
 - persistencia dañada o malformada que cae a `rebuild` limpio sin exponer estado semántico medio ni bloquear el carril interactivo,
@@ -143,6 +144,8 @@ Hoy el runtime ya dispone de:
 - y progreso/readiness/modo degradado observables.
 
 Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm test` y, cuando toque latencia o presión sostenida, también `npm run test:performance`.
+
+La auditoría 2026-05-03 no cambia budgets numéricos; para descomposiciones mayores de `extension.ts` o `server.ts`, el cierre debe revalidar activación, smoke real y PFC/STD mediante B356.
 
 ---
 
@@ -169,6 +172,20 @@ Objetivo general:
 - indexación cold sobre PFC: `< 15000ms`;
 - indexación warm sobre PFC: `< 1000ms` y claramente mejor que cold;
 - memoria: **controlada y estable**
+
+### 6.4 Calibración corpus-driven de confidence
+
+La revisión actual de thresholds por feature queda cerrada por `B283` con baseline ejecutable sobre **PFC Solution**, **STD_FC_OrderEntry** y el **legacy PBL dump**:
+- `test/server/performance/confidenceCalibration.smoke.test.ts` congela escenarios reales `low`, `medium` y `high` y exige `0 false positives / 0 false negatives` al comparar la policy declarativa con el comportamiento observado de `hover`, `completion`, `definition`, `references`, `rename` y `signature-help`;
+- mientras ese baseline siga verde, los thresholds actuales se consideran calibrados y no deben ajustarse por intuición local o incidentes aislados;
+- cualquier cambio futuro de thresholds o de inferencia de confidence debe revalidar esta smoke corpus-driven además de la golden matrix semántica.
+
+### 6.5 Validación corpus-driven de catálogo por dominio
+
+La revisión actual del consumo/cobertura catalog-driven sobre corpora reales queda cerrada por `B336` con baseline ejecutable sobre **PFC Solution**, **STD_FC_OrderEntry** y el **legacy PBL dump**:
+- `test/server/performance/catalogCorpusValidation.smoke.test.ts` congela cinco probes reales sobre `system-globals`, `global-functions` y `datawindow-functions`, y exige `0 misses / 0 ambigüedades / 0 budget violations` al revisar la ruta warm de `hover`, `completion` y `diagnostics`;
+- la smoke calienta una pasada no medida por probe para aislar la latencia servida del cold parse inicial, que ya sigue cubierto por `active-file.perf.test.ts` y el baseline general de archivo activo;
+- cualquier cambio futuro de catálogo o de sus consumers reales debe revalidar esta smoke corpus-driven junto con `catalogV2.test.ts`, `completion.test.ts`, `hover.test.ts` y `diagnostics.test.ts` antes de tocar claims de cobertura.
 
 ---
 

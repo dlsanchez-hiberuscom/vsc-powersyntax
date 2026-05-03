@@ -22,6 +22,8 @@ suite('smoke/support-bundle-extension', () => {
     try {
       const document = await vscode.workspace.openTextDocument(sourceUri);
       await vscode.window.showTextDocument(document, { preview: false });
+      const configuration = vscode.workspace.getConfiguration();
+      await configuration.update('vscPowerSyntax.profile', 'ci-support', vscode.ConfigurationTarget.Workspace);
 
       const result = await vscode.commands.executeCommand<{
         bundleUri: string;
@@ -39,12 +41,22 @@ suite('smoke/support-bundle-extension', () => {
         await vscode.workspace.fs.readFile(vscode.Uri.parse(result!.manifestUri))
       ).toString('utf8'));
       assert.equal(manifest.summary.rawSourceIncluded, false);
+      assert.equal(manifest.summary.redactionProfile, 'ci-support');
+      assert.equal(manifest.summary.redactionPolicy.settings, 'summary-only');
       assert.ok(manifest.files.some((file: { relativePath?: string }) => file.relativePath === 'build-orca-snapshot.json'));
 
-      const settings = Buffer.from(
+      const settings = JSON.parse(Buffer.from(
         await vscode.workspace.fs.readFile(vscode.Uri.joinPath(destinationUri, 'settings-sanitized.json'))
-      ).toString('utf8');
-      assert.ok(settings.includes('redacted:'), 'Los settings exportados deberían venir saneados');
+      ).toString('utf8'));
+      assert.equal(settings.redaction, 'summary-only');
+      assert.ok(Array.isArray(settings.managedSettings));
+      assert.ok(settings.managedSettings.every((entry: { valueType?: string; value?: unknown }) => typeof entry.valueType === 'string' && entry.value === undefined));
+
+      const diagnostics = JSON.parse(Buffer.from(
+        await vscode.workspace.fs.readFile(vscode.Uri.joinPath(destinationUri, 'diagnostics-snapshot.sanitized.json'))
+      ).toString('utf8'));
+      assert.equal(diagnostics.redaction, 'summary-only');
+      assert.equal('topDocuments' in diagnostics, false);
 
       const readme = Buffer.from(
         await vscode.workspace.fs.readFile(vscode.Uri.joinPath(destinationUri, 'README.md'))

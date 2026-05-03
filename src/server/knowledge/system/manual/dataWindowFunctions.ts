@@ -814,11 +814,19 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     dataWindowFunction({
         name: 'Describe',
         category: 'Metadatos',
-        summary: 'Devuelve propiedades o evaluaciones del objeto DataWindow y sus controles internos.',
-        signatures: [{ label: 'Describe(propertylist)' }],
+        summary: 'Lee propiedades del DataWindow y puede evaluar expresiones painter cuando la property list es literal y defendible.',
+        signatures: [{
+            label: 'Describe(propertylist)',
+            documentation: 'Reporta propiedades del DataWindow y de sus controles internos; tambien admite Evaluate(...) dentro de una property list literal.',
+            parameters: [{
+                label: 'propertylist',
+                documentation: 'Lista separada por espacios de propiedades o expresiones Evaluate(...) a consultar.'
+            }]
+        }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
         sourceUrl: 'https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_Describe.html',
+        risk: 'dynamic',
     }),
     dataWindowFunction({
         name: 'GetItemString',
@@ -868,11 +876,19 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     dataWindowFunction({
         name: 'Modify',
         category: 'Metadatos',
-        summary: 'Modifica dinámicamente la definición del objeto DataWindow mediante un modstring.',
-        signatures: [{ label: 'Modify(modstring)' }],
+        summary: 'Aplica un modstring para cambiar propiedades, controles o metadata SQL del objeto DataWindow en runtime.',
+        signatures: [{
+            label: 'Modify(modstring)',
+            documentation: 'Modifica apariencia, comportamiento, controles o SQL del DataWindow con instrucciones string; los modstring dinamicos reducen la confianza semantica.',
+            parameters: [{
+                label: 'modstring',
+                documentation: 'Cadena de instrucciones Modify, por ejemplo control.prop=value, create ... o destroy ....'
+            }]
+        }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
         sourceUrl: 'https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_Modify.html',
+        risk: 'dynamic',
     }),
     dataWindowFunction({
         name: 'DeleteRow',
@@ -985,11 +1001,19 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     dataWindowFunction({
         name: 'Retrieve',
         category: 'Datos',
-        summary: 'Recupera filas desde la fuente de datos usando los argumentos de retrieval definidos.',
-        signatures: [{ label: 'Retrieve(argument...)' }],
+        summary: 'Recupera filas desde la fuente de datos usando los retrieve arguments definidos y un transaction binding valido.',
+        signatures: [{
+            label: 'Retrieve(argument...)',
+            documentation: 'Recupera filas del DataWindow, DataStore o DataWindowChild; si faltan argumentos, PowerBuilder puede solicitarlos en runtime.',
+            parameters: [{
+                label: 'argument...',
+                documentation: 'Uno o mas valores para los retrieve arguments declarados por el DataWindow.'
+            }]
+        }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
         sourceUrl: 'https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_Retrieve.html',
+        risk: 'dynamic',
     }),
     dataWindowFunction({
         name: 'RowCount',
@@ -1021,20 +1045,39 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     dataWindowFunction({
         name: 'SetTransObject',
         category: 'Transacciones',
-        summary: 'Asocia un transaction object explícito al DataWindow o DataStore.',
-        signatures: [{ label: 'SetTransObject(transaction)' }],
+        summary: 'Asocia un transaction object explicito para que el caller controle CONNECT, COMMIT y ROLLBACK.',
+        signatures: [{
+            label: 'SetTransObject(transaction)',
+            documentation: 'Vincula un transaction object programado al DataWindow, DataStore o DataWindowChild y requiere gestion transaccional explicita.',
+            parameters: [{
+                label: 'transaction',
+                documentation: 'Transaction object que se reutilizara para Retrieve y Update.'
+            }]
+        }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
         sourceUrl: 'https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_SetTransObject.html',
+        risk: 'safe',
     }),
     dataWindowFunction({
         name: 'Update',
         category: 'Transacciones',
-        summary: 'Envía a la base de datos los cambios acumulados en el DataWindow.',
-        signatures: [{ label: 'Update(accept?, resetflag?)' }],
+        summary: 'Envia a la base de datos los cambios acumulados en el DataWindow y depende del transaction binding activo.',
+        signatures: [{
+            label: 'Update(accept?, resetflag?)',
+            documentation: 'Actualiza la base de datos; accept controla AcceptText y resetflag decide si las marcas de update se conservan o limpian.',
+            parameters: [{
+                label: 'accept?',
+                documentation: 'True (por defecto) ejecuta AcceptText antes del update; False evita ese paso.'
+            }, {
+                label: 'resetflag?',
+                documentation: 'True (por defecto) limpia las marcas de update; False las conserva para commit/rollback manual o updates encadenados.'
+            }]
+        }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
         sourceUrl: 'https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_Update.html',
+        risk: 'dynamic',
     }),
     dataWindowFunction({
         name: 'Show',
@@ -1183,11 +1226,22 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     dataWindowFunction({
         name: 'GetChild',
         category: 'Metadatos',
-        summary: 'Obtiene una referencia al child DataWindow o reporte asociado a una columna.',
-        signatures: [{ label: 'GetChild(column, child)' }],
-        appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
-        ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
+        summary: 'Obtiene una referencia al child DataWindow o a un reporte de un composite DataWindow.',
+        signatures: [{
+            label: 'GetChild(name, REF DataWindowChild dwchildvariable)',
+            documentation: 'Devuelve una referencia utilizable para Retrieve, SetTransObject y otras operaciones sobre el child o reporte indicado.',
+            parameters: [{
+                label: 'name',
+                documentation: 'Nombre de la columna DropDownDataWindow o del reporte dentro de un composite DataWindow.'
+            }, {
+                label: 'REF DataWindowChild dwchildvariable',
+                documentation: 'Variable de salida donde se almacena la referencia al child DataWindow.'
+            }]
+        }],
+        appliesTo: PB_MANUAL_CORE_DATAWINDOW_CONTROL_AND_STORE_APPLIES_TO,
+        ownerTypes: PB_MANUAL_CORE_DATAWINDOW_CONTROL_AND_STORE_OWNER_TYPES,
         sourceUrl: 'https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_GetChild.html',
+        risk: 'dynamic',
     }),
     dataWindowFunction({
         name: 'GetClickedColumn',
@@ -1399,11 +1453,19 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     dataWindowFunction({
         name: 'SetTrans',
         category: 'Transacciones',
-        summary: 'Carga valores en el Transaction object interno del DataWindow.',
-        signatures: [{ label: 'SetTrans(transaction)' }],
+        summary: 'Copia valores al transaction object interno y deja que PowerBuilder conecte y desconecte automaticamente.',
+        signatures: [{
+            label: 'SetTrans(transaction)',
+            documentation: 'Copia los parametros del transaction object especificado al transaction interno del DataWindow, DataStore o DataWindowChild.',
+            parameters: [{
+                label: 'transaction',
+                documentation: 'Transaction object origen cuyos valores se copian al transaction interno.'
+            }]
+        }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
         sourceUrl: 'https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_SetTrans.html',
+        risk: 'safe',
     }),
     dataWindowFunction({
         name: 'ShareData',

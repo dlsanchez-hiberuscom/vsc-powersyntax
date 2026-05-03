@@ -28,5 +28,5 @@ export const PB_MANUAL_CORE_RESERVED_WORDS: readonly PbSystemSymbolEntry[] = [
     reservedWord({ name: 'GET', category: 'Palabras reservadas', summary: 'Obtiene el valor de una propiedad.' }),
     reservedWord({ name: 'SYSTEM', category: 'Palabras reservadas', summary: 'Referencia al objeto sistema.' }),
     reservedWord({ name: 'LIBRARY', category: 'Palabras reservadas', summary: 'Referencia a una librería PBL.' }),
-    reservedWord({ name: 'HALT', category: 'Palabras reservadas', summary: 'Detiene la ejecución de la aplicación.', lookupAliases: ['halt close'] }),
+    reservedWord({ name: 'HALT', category: 'Palabras reservadas', summary: 'Detiene la ejecución de la aplicación.' }),
 ];

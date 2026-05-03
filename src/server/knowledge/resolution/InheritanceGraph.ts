@@ -1,4 +1,5 @@
 import { KnowledgeBase } from '../KnowledgeBase';
+import { buildCallableSignatureFamilyKey, isCallableEntity } from '../callSignature';
 import { getNativeAncestorChain } from '../system/nativeAncestors';
 import { Entity, EntityKind } from '../types';
 import { isAccessibleFrom } from '../visibility';
@@ -34,6 +35,13 @@ function compareMemberPriority(left: MemberClosureEntry, right: MemberClosureEnt
   }
 
   return left.entity.line - right.entity.line;
+}
+
+function buildMemberClosureKey(entity: Entity): string {
+  if (isCallableEntity(entity)) {
+    return buildCallableSignatureFamilyKey(entity);
+  }
+  return `${entity.kind}:${entity.name.toLowerCase()}`;
 }
 
 export class InheritanceGraph {
@@ -196,7 +204,7 @@ export class InheritanceGraph {
       }
 
       collected.push(entity);
-      const key = `${entity.kind}:${entity.name.toLowerCase()}`;
+      const key = buildMemberClosureKey(entity);
       if (owner === normalizedName) {
         currentTypeMembers.add(key);
       } else {
@@ -207,7 +215,7 @@ export class InheritanceGraph {
     const closure = collected.map((entity) => {
       const declaredIn = entity.containerName ?? entity.ownerName ?? null;
       const declaredInNormalized = declaredIn?.trim().toLowerCase() ?? '';
-      const key = `${entity.kind}:${entity.name.toLowerCase()}`;
+      const key = buildMemberClosureKey(entity);
       const relation = declaredInNormalized === normalizedName
         ? (ancestorMembers.has(key) ? 'override' : 'own')
         : 'inherited';

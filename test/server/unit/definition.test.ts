@@ -101,6 +101,45 @@ suite('unit/definition', () => {
     }
   });
 
+  test('B281 provideDefinition resuelve overload por aridad y tipos literales de la llamada', () => {
+    kb.upsertDocument('file:///w_main.sru', [
+      { id: 'w_main', name: 'w_main', kind: EntityKind.Type, baseTypeName: 'w_base', uri: 'file:///w_main.sru', line: 0, character: 0 },
+      {
+        id: 'of_pick_one',
+        name: 'of_Pick',
+        kind: EntityKind.Function,
+        containerName: 'w_main',
+        uri: 'file:///w_main.sru',
+        line: 30,
+        character: 4,
+        parameters: [{ label: 'integer ai_value' }],
+        parameterCount: 1,
+        signature: 'public function integer of_Pick(integer ai_value)'
+      },
+      {
+        id: 'of_pick_two',
+        name: 'of_Pick',
+        kind: EntityKind.Function,
+        containerName: 'w_main',
+        uri: 'file:///w_main.sru',
+        line: 40,
+        character: 4,
+        parameters: [{ label: 'integer ai_value' }, { label: 'string as_value' }],
+        parameterCount: 2,
+        signature: 'public function integer of_Pick(integer ai_value, string as_value)'
+      }
+    ]);
+
+    const doc = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, '  this.of_Pick(1, "abc")  ');
+    const loc = provideDefinition(doc, Position.create(0, 10), kb, graph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, 'file:///w_main.sru');
+      assert.equal(loc.range.start.line, 40);
+    }
+  });
+
   test('provideDefinition prefiere source real frente a orca-staging en global fallback', () => {
     const stagedUri = 'file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_shared.sru';
     const realUri = 'file:///proj/src/n_shared.sru';

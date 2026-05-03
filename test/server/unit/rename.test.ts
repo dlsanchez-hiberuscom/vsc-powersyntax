@@ -136,7 +136,7 @@ end subroutine
     );
 
     assert.equal(rename.edit, null);
-    assert.match(rename.reason ?? '', /solo admite/i);
+    assert.match(rename.reason ?? '', /fallback|solo admite/i);
   });
 
   test('bloquea rename sobre external function sin implementación interna', () => {

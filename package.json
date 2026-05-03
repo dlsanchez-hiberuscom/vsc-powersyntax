@@ -400,6 +400,11 @@
         "category": "VSC PowerSyntax"
       },
       {
+        "command": "vscPowerSyntax.runRuntimeSelfTest",
+        "title": "PowerSyntax: Ejecutar Runtime Self-Test",
+        "category": "VSC PowerSyntax"
+      },
+      {
         "command": "vscPowerSyntax.showMemoryBudgets",
         "title": "PowerSyntax: Mostrar Memory Budgets",
         "category": "VSC PowerSyntax"
@@ -543,12 +548,15 @@
         "vscPowerSyntax.profile": {
           "type": "string",
           "enum": [
+            "fast",
             "balanced",
-            "interactive",
-            "legacy-safe"
+            "deep-analysis",
+            "legacy-orca",
+            "ci-support",
+            "support-safe"
           ],
           "default": "balanced",
-          "description": "Perfil gobernado del producto. Sirve como baseline defendible para settings críticos del cliente."
+          "description": "Perfil gobernado del producto. Expone los presets corporativos fast, balanced, deep-analysis, legacy-orca, ci-support y support-safe como baseline defendible para settings críticos del cliente."
         },
         "vscPowerSyntax.progress.show": {
           "type": "boolean",

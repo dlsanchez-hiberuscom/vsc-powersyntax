@@ -30,7 +30,9 @@ suite('unit/codeActions (B036)', () => {
         kind: 'single-range-replacement',
         original: 'Yield',
         replacement: 'DoEvents'
-      }
+      },
+      invocationRisk: 'safe',
+      riskReasons: []
     });
   });
 
@@ -101,6 +103,8 @@ suite('unit/codeActions (B036)', () => {
 
     assert.equal(actions.length, 1);
     assert.equal(actions[0].disabled?.reason, 'El sourceOrigin del documento no es canónico para aplicar quick fixes.');
+    assert.equal((actions[0].data as { invocationRisk?: string }).invocationRisk, 'dynamic');
+    assert.deepEqual((actions[0].data as { riskReasons?: string[] }).riskReasons, ['source-origin:orca-staging']);
     assert.equal(actions[0].edit, undefined);
   });
 
@@ -119,6 +123,8 @@ suite('unit/codeActions (B036)', () => {
 
     assert.equal(actions.length, 1);
     assert.match(actions[0].disabled?.reason ?? '', /string dinámic/i);
+    assert.equal((actions[0].data as { invocationRisk?: string }).invocationRisk, 'dynamic');
+    assert.deepEqual((actions[0].data as { riskReasons?: string[] }).riskReasons, ['dynamic-strings:1']);
     assert.equal(actions[0].edit, undefined);
   });
 });

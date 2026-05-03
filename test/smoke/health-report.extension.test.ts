@@ -41,6 +41,10 @@ suite('smoke/health-report-extension', () => {
       ).toString('utf8');
       assert.match(readme, /PowerSyntax Project Health Dashboard/i);
       assert.match(readme, /Dashboard/i);
+      assert.match(readme, /## Enterprise health score/i);
+      assert.match(readme, /Score total:/i);
+      assert.match(readme, /## Matriz de soporte/i);
+      assert.match(readme, /PowerBuilder 2025 Workspace/i);
 
       const stats = JSON.parse(Buffer.from(
         await vscode.workspace.fs.readFile(vscode.Uri.parse(result!.statsUri))

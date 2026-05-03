@@ -1,6 +1,7 @@
 import type { ApiServerStats } from '../shared/publicApi';
 import type { OrcaRunSnapshot } from '../shared/orcaProtocol';
 import type { PbAutoBuildRunSnapshot } from '../shared/pbAutoBuildProtocol';
+import type { SourceOrigin } from '../shared/sourceOrigin';
 import type { ProgressNotification, ProgressPass } from '../shared/types';
 import { buildPbAutoBuildHealthSnapshot } from './build/pbAutoBuildHealth';
 import { formatOrcaPackagingPolicyInline, formatOrcaStatusInline } from './build/orcaDetection';
@@ -29,6 +30,7 @@ export interface RuntimeStatusStats extends ApiServerStats {
   workspace?: {
     mode?: string;
     files?: number;
+    sourceOrigins?: Partial<Record<SourceOrigin, number>>;
     activeProject?: RuntimeStatusActiveProject;
   };
   projectStatus?: {
@@ -391,7 +393,7 @@ export function buildStatusTooltipMarkdown(
   }
 
   lines.push('');
-  lines.push('[Dashboard](command:vscPowerSyntax.openProjectHealthDashboard) | [Stats](command:vscPowerSyntax.showStatusStats) | [Salud](command:vscPowerSyntax.showStatusHealth) | [Build](command:vscPowerSyntax.runPbAutoBuild) | [Último build](command:vscPowerSyntax.runLastPbAutoBuild) | [Elegir build](command:vscPowerSyntax.runPbAutoBuildWithPicker) | [Matriz build](command:vscPowerSyntax.openBuildProfileMatrix) | [Cancelar build](command:vscPowerSyntax.cancelPbAutoBuild) | [ORCA](command:vscPowerSyntax.runActiveOrcaScript) | [Cancelar ORCA](command:vscPowerSyntax.cancelOrcaScript) | [Jerarquía](command:vscPowerSyntax.inspectHierarchy) | [Reiniciar](command:vscPowerSyntax.restartServer)');
+  lines.push('[Dashboard](command:vscPowerSyntax.openProjectHealthDashboard) | [Self-test](command:vscPowerSyntax.runRuntimeSelfTest) | [Stats](command:vscPowerSyntax.showStatusStats) | [Salud](command:vscPowerSyntax.showStatusHealth) | [Build](command:vscPowerSyntax.runPbAutoBuild) | [Último build](command:vscPowerSyntax.runLastPbAutoBuild) | [Elegir build](command:vscPowerSyntax.runPbAutoBuildWithPicker) | [Matriz build](command:vscPowerSyntax.openBuildProfileMatrix) | [Cancelar build](command:vscPowerSyntax.cancelPbAutoBuild) | [ORCA](command:vscPowerSyntax.runActiveOrcaScript) | [Cancelar ORCA](command:vscPowerSyntax.cancelOrcaScript) | [Jerarquía](command:vscPowerSyntax.inspectHierarchy) | [Reiniciar](command:vscPowerSyntax.restartServer)');
 
   return lines.join('\n');
 }

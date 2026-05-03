@@ -1,6 +1,7 @@
 import { buildPowerBuilderCodeMetrics } from './powerBuilderCodeMetrics';
 import { buildWorkspaceMigrationAssistant } from './workspaceMigrationAssistant';
 import type { DiagnosticsSnapshot } from './diagnosticsSnapshot';
+import type { ApiEmbeddedSqlAnchor } from '../../shared/publicApi';
 import { type ApiPowerBuilderCodeMetricsObject } from '../../shared/publicApi';
 import type { SourceOrigin } from '../../shared/sourceOrigin';
 import type { KnowledgeBase } from '../knowledge/KnowledgeBase';
@@ -43,6 +44,7 @@ export interface PowerBuilderTechnicalDebtHotspot {
     dynamicSqlStatements: number;
     obsoleteDiagnostics: number;
   };
+  embeddedSqlAnchors?: ApiEmbeddedSqlAnchor[];
 }
 
 export type PowerBuilderTechnicalDebtRecommendationCategory =
@@ -336,6 +338,9 @@ export function buildPowerBuilderTechnicalDebtReport(
       dynamicSql.evidence.forEach((entry) => evidence.add(entry));
       dynamicSqlFindings += dynamicSql.total;
     }
+    for (const anchor of objectEntry.embeddedSqlAnchors ?? []) {
+      evidence.add(`sql-anchor:${anchor.keyword.toLowerCase()}:${anchor.startLine + 1}-${anchor.endLine + 1}`);
+    }
     if (objectEntry.metrics.externalDependencies > 0 || (objectDiagnostics?.byCode['NATIVE-DEPENDENCY'] ?? 0) > 0) {
       categories.push('external-dependency');
       evidence.add(`metric:externalDependencies=${objectEntry.metrics.externalDependencies}`);
@@ -381,6 +386,7 @@ export function buildPowerBuilderTechnicalDebtReport(
         dynamicSqlStatements: dynamicSql.total,
         obsoleteDiagnostics,
       },
+      ...(objectEntry.embeddedSqlAnchors?.length ? { embeddedSqlAnchors: objectEntry.embeddedSqlAnchors } : {}),
     };
 
     return [hotspot];

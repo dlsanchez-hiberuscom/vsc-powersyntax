@@ -48,4 +48,14 @@ suite('unit/dynamicStringReferences (B208)', () => {
 
     assert.deepEqual(hits.map((hit) => hit.classification), ['dynamic', 'dynamic', 'dynamic']);
   });
+
+  test('clasifica SendRequest HTTP como dynamic', () => {
+    const hits = detectDynamicStringReferences('customer_id', [
+      { uri: 'file:///x.sru', content: 'lo_client.SendRequest("/orders/customer_id")' }
+    ]);
+
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].classification, 'dynamic');
+    assert.equal(hits[0].api, 'sendrequest');
+  });
 });

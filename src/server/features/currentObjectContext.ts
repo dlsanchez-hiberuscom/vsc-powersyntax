@@ -9,6 +9,7 @@ import { buildHierarchyInspection } from './hierarchyInspection';
 import { buildObjectInfo } from './objectInfo';
 import { inferPowerBuilderObjectKindFromUri } from './powerBuilderObjectKind';
 import { createDocumentQueryContext } from './queryContext';
+import { collectEmbeddedSqlAnchors } from './embeddedSqlAnchors';
 import {
   collectDataObjectBindings,
   type DataWindowBindingSummary,
@@ -492,6 +493,7 @@ export function buildCurrentObjectContext(
   const bindingStartLine = 0;
   const bindingEndLine = Math.max(snapshot.maskedText.lines.length - 1, 0);
   const dataWindowBindings = collectDataObjectBindings(snapshot, kb, bindingStartLine, bindingEndLine).map(mapDataWindowBinding);
+  const embeddedSqlAnchors = collectEmbeddedSqlAnchors(snapshot);
   const referencedSymbols = collectReferencedSymbols(
     document,
     rawLines,
@@ -554,6 +556,7 @@ export function buildCurrentObjectContext(
     referencedSymbols,
     diagnostics: summarizeDiagnostics(diagnostics),
     dataWindowBindings,
+    ...(embeddedSqlAnchors.length > 0 ? { embeddedSqlAnchors } : {}),
     evidence: {
       readiness: snapshot.readiness,
       ...(queryContext?.context?.identifier ? { identifier: queryContext.context.identifier } : {}),

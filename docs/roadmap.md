@@ -92,7 +92,7 @@ El producto ya dispone de:
 - API pública mínima;
 - diagnostics snapshot agrupado;
 - hierarchy inspection y CodeLens robustecidos;
-- PowerBuilder Language Knowledge Catalog v2 (keywords, datatypes, pronouns, operators, system globals).
+- PowerBuilder Language Knowledge Catalog v2 (keywords, reserved words, primitive datatypes, system object datatypes, pronouns, operators, system globals y enumerated values), con generator oficial/cobertura completa aún abiertos en B319-B321 y backlog derivado B322-B336.
 
 ### Lectura estratégica
 
@@ -102,6 +102,7 @@ La siguiente etapa no es abrir más superficie, sino reforzar:
 - confidence gates;
 - cache semántica estable;
 - validación real;
+- integración completa y gobernada del catálogo oficial;
 - workflows útiles para desarrolladores.
 
 ---

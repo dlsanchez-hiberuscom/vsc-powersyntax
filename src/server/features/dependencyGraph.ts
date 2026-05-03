@@ -10,6 +10,7 @@ import { buildSymbolKey } from '../knowledge/symbolKey';
 import { EntityKind, type Entity } from '../knowledge/types';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import type { WorkspaceState } from '../workspace/workspaceState';
+import { buildInvocationRiskSummary } from './invocationRiskModel';
 
 const GRAPH_SCHEMA_VERSION = '1.0.0';
 const DEFAULT_MAX_DEPENDENCIES = 12;
@@ -357,6 +358,10 @@ export function buildPowerBuilderDependencyGraph(
 
   const nodes = [...nodeIndex.values()];
   const mermaidFlowchart = buildMermaidFlowchart(nodes, edges);
+  const riskSummary = buildInvocationRiskSummary({
+    sourceOrigin: focusEntity.lineage?.sourceOrigin,
+    evidenceKinds: unresolvedDependencyCount > 0 || ambiguousDependencyCount > 0 ? ['fallback-ambiguity'] : [],
+  });
 
   return {
     schemaVersion: GRAPH_SCHEMA_VERSION,
@@ -371,6 +376,8 @@ export function buildPowerBuilderDependencyGraph(
       dependentCount: dependentUris.length,
       unresolvedDependencyCount,
       ambiguousDependencyCount,
+      invocationRisk: riskSummary.risk,
+      riskReasons: riskSummary.reasons,
     },
     nodes,
     edges,

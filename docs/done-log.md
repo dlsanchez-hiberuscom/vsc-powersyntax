@@ -2494,6 +2494,331 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run build:test`
 - `npx mocha --ui tdd out/test/server/unit/knowledgeBase.test.js out/test/server/unit/semanticQueryService.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/definition.test.js --grep "prioriza source real|prefiere source real frente a orca-staging"`
 
+## 1.135 B281. Override and overload resolution hardening — **Cerrada (spec 347, override/overload hardening 2026-05)**
+
+**Objetivo:** reforzar la resolución entre overloads, overrides, prototypes e implementations reutilizando identidad canónica B279 y ambigüedad v2 B280.
+
+**Resultado registrado:**
+- `src/server/knowledge/callSignature.ts` centraliza claves de firma callable, normalización de parámetros y conteo de aridad;
+- `src/server/analysis/documentAnalysis.ts` conserva overloads por firma normalizada y sustituye solo el prototype por la implementation de la misma firma;
+- `src/server/utils/invocationContext.ts` y `src/server/features/signatureHelp.ts` propagan aridad y tipos literales simples al query engine compartido;
+- `src/server/knowledge/resolution/semanticQueryService.ts` filtra candidatos por firma antes de rankear por distancia de herencia y emite evidence `discarded-signature` para `arity-mismatch`, `type-mismatch` y `prototype-shadowed`;
+- `src/server/knowledge/resolution/InheritanceGraph.ts` y `src/server/features/impactAnalysis.ts` dejan de tratar firmas distintas como overrides equivalentes.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/documentAnalysis.test.js out/test/server/unit/semanticQueryService.test.js out/test/server/unit/definition.test.js out/test/server/unit/signatureHelp.test.js out/test/server/unit/impactAnalysis.test.js` → `65 passing`
+
+## 1.136 B282. Dynamic invocation risk model v2 — **Cerrada (spec 348, invocation risk 2026-05)**
+
+**Objetivo:** unificar el riesgo de llamadas dinámicas, strings, external calls, DataWindow expressions, WebView/HTTP patterns y `sourceOrigin` no canónico sin abrir un segundo motor semántico.
+
+**Resultado registrado:**
+- `src/server/features/invocationRiskModel.ts` centraliza la composición de `safe|inherited|fallback|dynamic|external` usando query risk, `sourceOrigin`, strings dinámicos, bindings DataWindow y targets externos;
+- `src/shared/publicApi.ts` expone `ApiInvocationRisk` y metadata de riesgo en `impactAnalysis`, `safeEditPlan` y `dependencyGraph`;
+- `impactAnalysis` y `safeEditPlan` publican `invocationRisk`, `riskReasons` y bloqueos explícitos para riesgo `dynamic`, `fallback` o `external`;
+- `references`, `rename` y `codeActions` degradan o bloquean resultados cuando aparece riesgo dinámico o fallback antes de producir edits;
+- `dynamicStringReferences` cubre patrones de eventos, DataWindow, WebView y HTTP request strings.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/dynamicStringReferences.test.js out/test/server/unit/references.test.js out/test/server/unit/rename.test.js out/test/server/unit/codeActions.test.js out/test/server/unit/impactAnalysis.test.js out/test/server/unit/safeEditPlan.test.js out/test/server/unit/dependencyGraph.test.js`
+
+## 1.137 B287. DataWindow model canonicalization v2 — **Cerrada (spec 349, canonical backbone 2026-05)**
+
+**Objetivo:** consolidar un modelo canónico único de DataWindow consumido por las surfaces existentes sin reparsear snapshots `.srd` por feature.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowModel.ts` pasa a ser el backbone único para `.srd`, concentrando `retrieve`, `retrieveArguments`, bandas, columnas `table`, `report(...)` y referencias SQL simples, además de soportar comillas escapadas `~"` y tipos con paréntesis balanceados como `char(40)` o `decimal(18,2)`;
+- `src/server/features/dataWindowSafeMode.ts` deja de extraer `retrieve`/columnas/bandas por su cuenta y proyecta el resumen read-only desde `buildDataWindowModelFromSnapshot()`;
+- `src/server/features/dataWindowBindingModel.ts` deja de reparsear `arguments=(...)` / `ARG(...)` desde texto raw y reutiliza `retrieveArguments` del modelo canónico para bindings `DataObject`, `signatureHelp`, diagnostics, context packs y métricas enlazadas;
+- las surfaces ya apoyadas en `DataWindowModel` (`definition`, `documentSymbols`, property paths, hover local `.srd`, SQL lineage y golden cross-surface`) quedan alineadas sobre el mismo backbone sin abrir un segundo parser DataWindow.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/architectureImports.test.js out/test/server/unit/dataWindowModel.test.js out/test/server/unit/dataWindowLegacySafeMode.test.js out/test/server/unit/dataWindowSafeMode.test.js out/test/server/unit/dataWindowSqlLineage.test.js out/test/server/unit/documentSymbols.test.js out/test/server/unit/definition.test.js out/test/server/unit/completion.test.js out/test/server/unit/hover.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/currentObjectContext.test.js out/test/server/unit/signatureHelp.test.js out/test/server/unit/crossSurfaceGoldenMatrix.test.js out/test/server/unit/powerBuilderCodeMetrics.test.js out/test/server/unit/powerBuilderTechnicalDebtReport.test.js`
+- `npm test`
+
+## 1.138 B288. DataWindow SQL parser safe subset v2 — **Cerrada (spec 350, safe SQL subset 2026-05)**
+
+**Objetivo:** mejorar el parsing seguro del SQL `retrieve` DataWindow sin abrir un motor SQL completo ni duplicar parsing fuera de `dataWindowModel`.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowModel.ts` amplía `sqlReferences` para cubrir `select` con aliases, `JOIN ... ON` simples y `WHERE` básico, resolviendo aliases de tabla hacia nombres reales cuando la evidencia es defendible;
+- el mismo parser degrada de forma honesta ante cláusulas complejas con subquery (`select`/`exists`/`case`/`union`) y evita inventar referencias SQL inseguras fuera del subset soportado;
+- `dataWindowSqlLineage` reutiliza automáticamente esas referencias más ricas sin cambios de surface, y `provideDataWindowLegacyDefinition()` hereda la navegación segura desde referencias SQL aliased hacia `column=(...)` del `.srd`;
+- el subset sigue siendo read-only, no abre una engine SQL general y conserva `retrieveArguments`/bindings sobre el backbone canónico cerrado en `B287`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/architectureImports.test.js out/test/server/unit/dataWindowModel.test.js out/test/server/unit/dataWindowLegacySafeMode.test.js out/test/server/unit/dataWindowSqlLineage.test.js out/test/server/unit/crossSurfaceGoldenMatrix.test.js`
+- `npm test`
+
+## 1.139 B289. DataWindow expression safe evaluator metadata — **Cerrada (spec 351, safe expression metadata 2026-05)**
+
+**Objetivo:** modelar metadata segura de expresiones DataWindow y dependencias de columnas/controles dentro de `.srd` sin evaluar valores runtime ni abrir un parser paralelo fuera de `dataWindowModel`.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowModel.ts` amplía el backbone canónico con controles nombrados y nodos de expresión extraídos desde `expression=` y atributos quoted con `~t...`, clasificando dependencias como `table-column`, `control` o `unresolved` únicamente desde la evidencia del mismo `.srd`;
+- `src/server/features/completion.ts` abre completion conservadora dentro de expresiones `.srd` reutilizando ese mismo modelo, incluso en contexto string DataWindow reconocible, sin caer en completion global ni fingir semántica fuera del rango de la expresión;
+- `src/server/features/diagnostics.ts` emite `datawindow-expression-dependency-unresolved` cuando una expresión referencia una dependencia que no resuelve como columna `table` o control nombrado del DataWindow actual;
+- `docs/architecture.md`, `docs/rules-catalog.md`, backlog y current-focus dejan trazado que `B289` queda cerrada y que el siguiente foco canónico pasa a `B290`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/dataWindowModel.test.js out/test/server/unit/completion.test.js out/test/server/unit/diagnostics.test.js`
+
+## 1.156 B347. Refactor server LSP handler registration — **Cerrada (spec 368, server entrypoint decomposition 2026-05)**
+
+**Objetivo:** descomponer `src/server/server.ts` en bootstrap, lifecycle/document handlers, feature handlers, command routing y runtime orchestration sin cambiar nombres LSP ni el comportamiento observable del servidor.
+
+**Resultado registrado:**
+- `src/server/handlers/featureHandlers.ts` concentra el wiring de `documentSymbol`, `hover`, `workspaceSymbol`, `definition`, `references`, `signatureHelp`, `completion`, `semanticTokens`, `codeAction`, `codeLens` y `rename` mediante contexto explícito;
+- `src/server/handlers/documentHandlers.ts` y `src/server/handlers/lifecycleHandlers.ts` sacan del entrypoint los eventos de documento, watcher bridge, shutdown, initialize e initialized, preservando warm resume, discovery e indexación incremental;
+- `src/server/handlers/buildCommandHandlers.ts`, `reportCommandHandlers.ts` y `runtimeCommandHandlers.ts` absorben `workspace/executeCommand`, dejando `src/server/server.ts` como bootstrap + runtime orchestration con helpers locales de scheduler/memoria;
+- `docs/architecture.md`, `docs/testing.md` y `docs/performance-budget.md` quedan alineados con la estructura real del servidor tras la descomposición.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm test`
+- `npx mocha --ui tdd out/test/server/unit/architectureImports.test.js`
+- `npx mocha --ui tdd out/test/server/performance/pfc-workspace.smoke.test.js out/test/server/performance/orderentry.smoke.test.js`
+- `npm run test:smoke -- --grep "el formatter devuelve edits reales para un documento PowerBuilder abierto"`
+- `npm run test:smoke -- --grep "registra comandos de PBAutoBuild y cancelar degrada sin build activo"`
+- `npm run test:smoke -- --grep "puede ejecutar el adapter ORCA legacy sobre el archivo activo"`
+- `npm run test:smoke -- --grep "exporta un health report reutilizando stats y manifest del workspace activo"`
+
+## 1.155 B295. Support bundle redaction policy — **Cerrada (spec 367, profile-aware sanitization 2026-05)**
+
+**Objetivo:** volver explícita la policy de redacción del support bundle según el perfil activo del workspace, manteniendo el bundle útil para soporte offline y sin copiar código bruto.
+
+**Resultado registrado:**
+- `src/client/support/supportBundle.ts` añade una `redactionPolicy` explícita por perfil (`sanitized` o `summary-only`) para paths, snippets, diagnostics, settings y manifest, y la publica dentro del `manifest.json` y del `README.md` del bundle;
+- `ci-support` y `support-safe` endurecen la redacción donde corresponde, mientras los perfiles de trabajo habituales mantienen el baseline `sanitized` con basename redacted;
+- `src/client/extension.ts` endurece la exportación real del bundle con un reintento corto al pedir el `semanticWorkspaceManifest`, evitando fallos transitorios del export en frío;
+- `test/server/unit/supportBundle.test.ts` y `test/smoke/support-bundle.extension.test.ts` fijan la policy explícita, la degradación `summary-only` y la exportación real del bundle con el perfil activo.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/supportBundle.test.js`
+- `npm run test:smoke -- --grep "exporta un support bundle saneado desde el workspace activo"`
+
+## 1.154 B294. Enterprise configuration policy — **Cerrada (spec 366, governed workspace profiles 2026-05)**
+
+**Objetivo:** cerrar una policy explícita y gobernable de settings del workspace con perfiles corporativos visibles, sin abrir overrides opacos fuera del carril actual de governance.
+
+**Resultado registrado:**
+- `src/client/settingsGovernance.ts` amplía el catálogo a los perfiles `fast`, `balanced`, `deep-analysis`, `legacy-orca`, `ci-support` y `support-safe`, con claves gobernadas explícitas y aliases legacy normalizados para `interactive` y `legacy-safe`;
+- `package.json` publica el schema actualizado de `vscPowerSyntax.profile` para esos seis perfiles y mantiene `balanced` como baseline por defecto;
+- `test/server/unit/settingsGovernance.test.ts` fija el catálogo estable, los conflictos estructurales y la normalización de aliases, mientras `test/smoke/extension.test.ts` fija el schema visible y la inspección read-only de la governance real en la extensión.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/settingsGovernance.test.js`
+- `npm run test:smoke -- --grep "settings governance publica perfiles corporativos y tolera la inspección read-only"`
+
+## 1.153 B296. Enterprise health score — **Cerrada (spec 365, health dashboard scoring 2026-05)**
+
+**Objetivo:** añadir un score agregado y explicable del workspace sobre las surfaces ya publicadas del runtime para resumir readiness, diagnostics, build, ORCA, cache, sourceOrigin, performance y support matrix sin abrir otro motor de health.
+
+**Resultado registrado:**
+- `src/client/projectHealthDashboard.ts` añade un scorecard puro del enterprise health con ocho dimensiones ponderadas, degradación honesta ante snapshots parciales y proyección Markdown dentro del dashboard ya existente;
+- el dashboard y el `health report` exportado reutilizan exclusivamente stats, manifest, build health y support matrix ya publicados, sin tocar servidor ni contrato público;
+- `test/server/unit/projectHealthDashboard.test.ts` fija tanto el score puro como su tabla Markdown visible, y `test/smoke/health-report.extension.test.ts` fija que el reporte exportado proyecta el score enterprise real del workspace.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/projectHealthDashboard.test.js`
+- `npm run test:smoke -- --grep "exporta un health report reutilizando stats y manifest del workspace activo"`
+
+## 1.152 B297. Runtime self-test command — **Cerrada (spec 364, supportability command 2026-05)**
+
+**Objetivo:** añadir un self-test rápido del runtime que reutilice las surfaces read-only ya públicas para validar API, LSP, cache, project model, diagnósticos, build y ORCA sin abrir otra fuente de verdad.
+
+**Resultado registrado:**
+- `src/client/runtimeSelfTest.ts` añade un builder puro del reporte de self-test y su render Markdown, con checks accionables para API pública, roundtrip LSP/runtime, cache/persistencia, project model, diagnósticos, build snapshot y ORCA snapshot;
+- `src/client/extension.ts` registra `vscPowerSyntax.runRuntimeSelfTest`, lo incorpora al menú de estado y abre el reporte Markdown reutilizando `getPublicContract()`, `refreshRuntimeStatusSnapshot()` y `getSemanticWorkspaceManifest()` sin tocar el servidor;
+- `src/client/coreMaintenanceCommandCatalog.ts`, `src/client/statusBarPresentation.ts` y `package.json` dejan el comando visible dentro del core maintenance pack y de las acciones rápidas del runtime;
+- `test/server/unit/runtimeSelfTest.test.ts`, `test/server/unit/coreMaintenanceCommandCatalog.test.ts` y `test/smoke/extension.test.ts` fijan el modelo puro, el catálogo de maintenance actualizado y la ejecución real del comando.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/runtimeSelfTest.test.js out/test/server/unit/coreMaintenanceCommandCatalog.test.js`
+
+## 1.151 B293. Workspace support matrix finalization — **Cerrada (spec 363, visible support contract 2026-05)**
+
+**Objetivo:** cerrar la matriz oficial de soporte del producto sobre un contrato visible y auditable, alineando health report y documentación canónica sin abrir otro rail topológico/semántico en servidor.
+
+**Resultado registrado:**
+- `src/client/projectSupportMatrix.ts` añade un builder puro que deriva la matriz de soporte desde `RuntimeStatusStats` + `ApiSemanticWorkspaceManifest`, cubriendo `Workspace`, `Solution`, target `.pbt`, `pbl-only`, source plain-text/exportado, staging ORCA, `DataWindow .srd`, `PBAutoBuild` y build files PowerServer/PowerClient con límites explícitos;
+- `src/client/projectHealthDashboard.ts` proyecta esa matriz en el health report exportado, de forma que el artefacto visible reutiliza la misma verdad que el dashboard read-only y no inventa otra capa de cálculo;
+- `test/server/unit/projectSupportMatrix.test.ts`, `test/server/unit/projectHealthDashboard.test.ts` y `test/smoke/health-report.extension.test.ts` fijan el contrato puro, su renderizado Markdown y la exportación real del report;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md` y `docs/testing.md` quedan alineados con la matriz oficial y con la derivación cliente-side del contrato.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/projectSupportMatrix.test.js out/test/server/unit/projectHealthDashboard.test.js`
+- `npm run test:smoke`
+
+## 1.150 B336. Catalog corpus validation against PFC/OrderEntry/legacy — **Cerrada (spec 362, corpus catalog baseline 2026-05)**
+
+**Objetivo:** validar cobertura y consumo del catálogo contra PFC, STD_FC_OrderEntry y legacy PBL dump con una baseline separada de discovery/indexing general.
+
+**Resultado registrado:**
+- `src/server/features/catalogCorpusValidation.ts` añade un builder puro que resume `hits`, `misses`, `ambigüedades` y `budget violations` por dominio y surface a partir de probes reales trazables;
+- `test/server/unit/catalogCorpusValidation.test.ts` fija la semántica del reporte y bloquea clasificaciones/budget violations antes de tocar los corpora reales;
+- `test/server/performance/catalogCorpusValidation.smoke.test.ts` indexa PFC Solution, STD_FC_OrderEntry y el legacy PBL dump, calienta una pasada interactiva por probe para aislar la latencia servida del cold parse ya cubierto por otras suites, y congela cinco probes reales sobre `system-globals`, `global-functions` y `datawindow-functions`, exigiendo baseline `0 misses / 0 ambigüedades / 0 budget violations` en `hover`, `completion` y `diagnostics`;
+- `test/results/003-real-corpora-baseline.md` registra la baseline catalog-driven por dominio/surface sin remezclarla con discovery/indexing general ni con la calibración de confidence cerrada en `B283`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/catalogCorpusValidation.test.js out/test/server/performance/catalogCorpusValidation.smoke.test.js`
+- `npx mocha --ui tdd out/test/server/performance/catalogCorpusValidation.smoke.test.js out/test/server/performance/pfc-solution.smoke.test.js out/test/server/performance/orderentry.semantic.test.js out/test/server/performance/legacy-pbl-dump.smoke.test.js`
+- `npx mocha --ui tdd out/test/server/unit/catalogV2.test.js out/test/server/unit/completion.test.js out/test/server/unit/hover.test.js out/test/server/unit/diagnostics.test.js`
+
+## 1.149 B283. Semantic confidence calibration over real corpora — **Cerrada (spec 361, corpus-driven confidence baseline 2026-05)**
+
+**Objetivo:** convertir la policy de readiness/confidence en una calibración ejecutable sobre PFC, OrderEntry y el corpus legacy público, fijando baseline de falsos positivos/negativos por feature y revisando thresholds contra evidencia real en lugar de intuición local.
+
+**Resultado registrado:**
+- `src/server/features/confidenceCalibration.ts` añade un builder puro de baseline que compara expectativas calibradas con `decideFeatureReadiness(...)` y clasifica desviaciones como `false-positive` o `false-negative`, con resumen por feature y findings trazables por corpus/escenario;
+- `test/server/unit/confidenceCalibration.test.ts` fija la semántica del baseline y bloquea las clasificaciones más permisivas/restrictivas, evitando que el reporte esconda desviaciones de policy;
+- `test/server/performance/confidenceCalibration.smoke.test.ts` indexa PFC Solution, STD_FC_OrderEntry y el legacy PBL dump, congela cuatro escenarios reales (`low`, `medium`, `high`) y verifica que `hover`, `completion`, `definition`, `references`, `rename` y `signature-help` mantienen baseline `0 false positives / 0 false negatives` con los thresholds actuales;
+- la calibración revisa los thresholds por feature sin cambiarlos: `low` sigue siendo suficiente para `hover/completion/signature-help`, `medium` sigue desbloqueando `definition`, y `high` permanece requerido para `references/rename` en snapshot `ready`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/confidenceCalibration.test.js out/test/server/performance/confidenceCalibration.smoke.test.js`
+
+## 1.148 B330. Catalog-driven contextual completion v2 — **Cerrada (spec 360, contextual catalog completion 2026-05)**
+
+**Objetivo:** ampliar completion para consumir `reserved-words`, `pronouns`, `system-globals` y `enumerated-values` desde el catálogo, manteniendo prefix filtering, deduplicación, prioridad estable y bloqueo en member contexts irrelevantes.
+
+**Resultado registrado:**
+- `src/server/features/completion.ts` amplía la rama sin qualifier para incorporar `reserved-words`, `pronouns`, `system-globals` y `enumerated-values` desde `SystemCatalog`, reutilizando el conjunto `seen` ya existente para dedupe case-insensitive y manteniendo esos dominios detrás de las prioridades `0_local`, `1_member` y `2_global`;
+- `createSystemCompletionItem(...)` deja de tratar todo lo no callable como `Keyword` y ahora clasifica `system-global` y `pronoun` como `Variable`, `enumerated-value` como `EnumMember`, `datatype` como `TypeParameter`, `system-type` como `Class` y `constant`/`property` con kinds específicos;
+- `completion.test.ts` fija el nuevo comportamiento contextual: aparecen `COMMIT`, `THIS`, `SQLCA` y `SaveAsType!` cuando el prefijo y el contexto global lo permiten, se deduplican homónimos frente a símbolos locales y se bloquea la mezcla de estos dominios en `member context` como `SQLCA.sa`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/completion.test.js`
+- `npx mocha --ui tdd out/test/server/unit/hotPathAllocationBudget.test.js`
+
+## 1.147 B325. System globals and runtime singleton catalog — **Cerrada (spec 359, typed runtime singletons 2026-05)**
+
+**Objetivo:** completar `system-globals` y runtime singletons con tipo, riesgo y contexto útiles para consumers transaccionales y de runtime, eliminando hardcodes de `SQLCA` donde el catálogo ya debía ser la fuente de verdad.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/systemGlobals.ts` ahora publica metadata tipada y de riesgo para `SQLCA`, `SQLSA`, `SQLDA`, `Error` y `Message`, usando firmas como `SQLCA : Transaction` y `SQLDA : DynamicDescriptionArea` para exponer tipo/contexto directamente desde el catálogo;
+- `src/server/knowledge/resolution/semanticQueryService.ts` deja de hardcodear `SQLCA -> transaction` y resuelve el tipo base del qualifier desde `resolveSystemGlobal(...)`, permitiendo que completion y otros consumers usen el catálogo para system globals en lugar de comparación por nombre crudo;
+- `src/server/features/signatureHelp.ts` también deja de inferir `sqlca` por hardcode y consume `valueType` del catálogo, lo que permite seleccionar overloads locales `transaction` cuando el argumento es `SQLCA`;
+- los tests focales de catálogo, completion, hover, diagnostics y signatureHelp dejan fijado que `SQLCA` expone `valueType = Transaction`, que el hover muestra tipo/riesgo y que completion/signatureHelp siguen funcionando desde metadata catalog-driven.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/catalogV2.test.js out/test/server/unit/completion.test.js out/test/server/unit/hover.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/signatureHelp.test.js`
+
+## 1.146 B324. Official operators, pronouns and enumerated values catalog generation — **Cerrada (spec 358, curated language-domain hardening 2026-05)**
+
+**Objetivo:** endurecer `operators`, `pronouns` y `enumerated-values` como dominios separados del catálogo, con aliases útiles y guardrails explícitos de no overlap frente a `keywords`/`reserved-words` ya oficializados.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/enumeratedValues.ts` introduce aliases sin `!` para tipos enumerados como `SaveAsType!`, `DWItemStatus!`, `Border!`, `WindowType!` o `Encoding!`, de modo que consumers basados en identificadores puedan resolver el dominio sin depender del sufijo léxico;
+- `test/server/unit/catalogV2.test.ts` fija que `resolveLanguageSymbol('SaveAsType')` resuelva `SaveAsType!` como `enumerated-value`, bloqueando la regresión que dejaba fuera del catálogo los enumerados cuando el consumer sólo veía el identificador plano;
+- el mismo `catalogV2.test.ts` añade un guardrail explícito de no solape entre `operators`/`pronouns`/`enumerated-values` y los lookup keys combinados de `keywords`/`reserved-words`, asegurando que el hardening curado del dominio no contamine el rail oficial recién cerrado en `B322`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/catalogV2.test.js`
+
+## 1.145 B322. Official reserved words and keywords catalog generation — **Cerrada (spec 357, official language vocabulary coverage 2026-05)**
+
+**Objetivo:** oficializar `keywords` y `reserved-words` sobre el rail restaurado en `B319`, alinear `PB_KEYWORDS` con el vocabulario oficial relevante y mantener `pronouns`/`system-globals` como blockers explícitos, no como fuente primaria del dominio.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` ahora audita `keywords` y `reserved-words` en `officialCoverage.generated.ts`, donde ambos dominios quedan con `missingCount = 0` y coverage explícita de `60` y `43` unidades respectivamente;
+- el generador materializa `PB_GENERATED_KEYWORDS` y `PB_GENERATED_RESERVED_WORDS` en `generated.generated.ts`, cubriendo modifiers oficiales como `PUBLIC` y reserved words oficiales como `COMMIT`, `NAMESPACE`, `WITH`, `XOR`, `SYSTEMREAD` y `SYSTEMWRITE` sin reabrir slices manuales paralelos;
+- `generatedKeywordLexemes.generated.ts` pasa a ser el set canónico del fast-path para `PB_KEYWORDS`, mientras `grammar.ts` conserva sólo phrases de bloque y blockers explícitos de `pronouns`/`system-globals` (`this`, `super`, `sqlca`, etc.) fuera de la fuente primaria del dominio;
+- el parser de reserved words queda anclado a la tabla oficial real de Appeon y deja de capturar navegación espuria (`Prev`, `Up`, `Sidebar`), cerrando el drift entre el rail oficial y el set rápido del parser.
+
+**Validación registrada:**
+- `node script/generate_official_function_catalog.cjs`
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/catalogGeneratorScript.test.js out/test/server/unit/catalogConsistency.test.js out/test/server/unit/catalogV2.test.js`
+
+## 1.144 B323. Official datatypes and system object datatypes catalog generation — **Cerrada (spec 356, official types coverage 2026-05)**
+
+**Objetivo:** oficializar `datatypes` y `system-object-datatypes` sobre el rail restaurado en `B319`, cerrando aliases críticos y alineando el parser fast-path con la cobertura oficial relevante.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` ahora audita `datatypes` y `system-object-datatypes` en `officialCoverage.generated.ts`, donde ambos dominios quedan con `missingCount = 0`;
+- el generador materializa en `generated.generated.ts` los `system-object-datatypes` oficiales faltantes y publica `generatedBuiltinTypes.generated.ts` para mantener `PB_BUILTIN_TYPES` alineado con los nombres oficiales relevantes sin introducir lógica dinámica en el hot path;
+- `UnsignedInt` queda cubierto como alias oficial de `UnsignedInteger`, y tipos oficiales como `SMTPClient`, `WindowObject`, `PDFAction`, `SyncParm` y `PowerServerResult` pasan a resolverse desde el catálogo y el parser fast-path;
+- `diagnostics.test.ts` fija el caso SD3 negativo/positivo sobre `windowobject` vs `windowobject_typo`, y `semanticConsistencyOracle.smoke.test.ts` mantiene PFC Solution y OrderEntry saludables sobre corpus real tras la ampliación del catálogo.
+
+**Validación registrada:**
+- `node script/generate_official_function_catalog.cjs`
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/catalogGeneratorScript.test.js out/test/server/unit/catalogConsistency.test.js out/test/server/unit/catalogV2.test.js out/test/server/unit/diagnostics.test.js`
+- `npx mocha --ui tdd out/test/server/performance/semanticConsistencyOracle.smoke.test.js`
+
+## 1.143 B319. Restore official catalog generator and coverage v2 — **Cerrada (spec 355, official generator rail 2026-05)**
+
+**Objetivo:** restaurar el rail reproducible de generación oficial del catálogo sobre el layout real actual y publicar coverage por dominios relevantes sin depender de rutas históricas.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` sigue ya apuntando al layout actual `out/server/...` y ahora serializa `officialCoverage.generated.ts` para `global-functions`, `object-functions`, `datawindow-functions`, `system-events` y `statements`, no sólo para los dos dominios históricos;
+- la ejecución real del generador recompone `officialCoverage.generated.ts` con coverage agregada por dominio y actualiza únicamente `generatedAt` en `provenance.generated.ts`, sin churn adicional en `generated.generated.ts` ni `ownerTypes.generated.ts`;
+- `test/server/unit/catalogGeneratorScript.test.ts` fija tanto el layout actual/wrapper compatible como la presencia de los dominios oficiales relevantes en `officialCoverage.generated.ts`, mientras `catalogConsistency.test.ts` revalida consistencia del catálogo resultante.
+
+**Validación registrada:**
+- `node script/generate_official_function_catalog.cjs`
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/catalogGeneratorScript.test.js out/test/server/unit/catalogConsistency.test.js`
+
+## 1.142 B285. System catalog coverage v2 — **Cerrada (spec 354, runtime catalog coverage 2026-05)**
+
+**Objetivo:** ampliar el catálogo runtime base con system types frecuentes de PFC/OrderEntry sin dispersar hardcode por `hover`, `completion`, `diagnostics` o consumers adyacentes.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/systemObjectDatatypes.ts` amplía el slice curado de `system-object-datatypes` con tipos runtime frecuentes usados en corpus real, incluyendo clúster HTTP/JSON/OAuth, controles visuales (`CommandButton`, `TreeView`, `WebBrowser`, `RibbonBar`, etc.), objetos no visuales (`INet`, `InternetResult`, `RestClient`, `WSConnection`, `Pipeline`, profiling/trace) y tipos de reflexión/runtime (`EnumerationDefinition`, `Function_Object`, `PBDOM_*`);
+- `src/server/parsing/grammar.ts` alinea `PB_BUILTIN_TYPES` con esa cobertura curada para que el reconocimiento rápido del parser no vuelva a divergir del catálogo base;
+- `test/server/unit/catalogV2.test.ts`, `completion.test.ts`, `hover.test.ts` y `powerbuilderSemanticGolden.test.ts` fijan que los nuevos system types resuelven en catálogo, aparecen en surfaces visibles y no dependen de hardcode local por feature;
+- una comprobación corpus-backed sobre ancestros `global type ... from ...` en `fixtures-local/pfc` y `fixtures-local/STD_FC_OrderEntry` deja ya solo tipos de proyecto/custom sin resolver tras filtrar prefijos de workspace, sin huecos runtime obvios en el carril base.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/catalogV2.test.js out/test/server/unit/completion.test.js out/test/server/unit/hover.test.js out/test/server/unit/powerbuilderSemanticGolden.test.js`
+
+## 1.141 B291. Embedded SQL semantic anchors — **Cerrada (spec 353, embedded SQL anchors 2026-05)**
+
+**Objetivo:** reutilizar `sqlRegions` y el carril transaccional ya existente para publicar anchors SQL embebidos explicables, con `confidence` y degradación honesta, en context packs, code metrics, debt report y support bundle.
+
+**Resultado registrado:**
+- `src/server/features/embeddedSqlAnchors.ts` concentra el modelo reusable de anchors SQL embebido sobre `findSqlRegions(...)`, infiere `transactionTarget` desde `CONNECT/DISCONNECT USING ...` o `SQLCA` y clasifica `confidence` como `high`/`medium`/`low` sin abrir un parser SQL nuevo;
+- `src/server/features/currentObjectContext.ts`, `powerBuilderCodeMetrics.ts` y `powerBuilderTechnicalDebtReport.ts` proyectan esos anchors en las APIs read-only del objeto activo, métricas por objeto y hotspots de deuda técnica, manteniendo la degradación honesta cuando el contexto transaccional no es defendible;
+- `src/client/currentObjectContextPanelModel.ts`, los markdown reports de métricas/deuda y `src/client/support/supportBundle.ts` exponen los anchors al usuario y los exportan saneados dentro del support bundle offline;
+- `test/server/unit/currentObjectContext.test.ts`, `powerBuilderCodeMetrics.test.ts`, `powerBuilderTechnicalDebtReport.test.ts`, `currentObjectContextPanelModel.test.ts` y `supportBundle.test.ts` fijan el cierre del slice con `SQLCA`, confidence y export saneado.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/currentObjectContext.test.js out/test/server/unit/powerBuilderCodeMetrics.test.js out/test/server/unit/powerBuilderTechnicalDebtReport.test.js`
+- `npx mocha --ui tdd out/test/server/unit/currentObjectContextPanelModel.test.js out/test/server/unit/supportBundle.test.js`
+
+## 1.140 B290. DataStore/DataWindow behavioral catalog v2 — **Cerrada (spec 352, behavioral catalog 2026-05)**
+
+**Objetivo:** alinear el catálogo contextual de DataStore/DataWindow para `Retrieve`, `Update`, `SetTrans`, `SetTransObject`, `GetChild`, `Describe` y `Modify` sobre un carril único consumido por `hover`, `signatureHelp`, `completion` y `diagnostics`.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/dataWindowFunctions.ts` publica firmas, documentación y `risk` coherentes para `Describe`, `Modify`, `Retrieve`, `SetTransObject`, `Update`, `GetChild` y `SetTrans`, y corrige `GetChild` para que solo aplique a DataWindow control y DataStore;
+- `src/server/features/hover.ts` y `src/server/features/signatureHelp.ts` dejan de caer al lookup plano por nombre cuando la llamada está cualificada y el `ownerType` ya es conocido, evitando que `DataWindowChild` herede por error APIs incompatibles;
+- `src/server/features/diagnostics.ts` emite `sd2UnresolvedCallable` para mismatch de owner en llamadas cualificadas del catálogo comportamental DataWindow en vez de silenciarlas por ser member calls;
+- `test/server/unit/completion.test.ts`, `hover.test.ts`, `signatureHelp.test.ts` y `diagnostics.test.ts` fijan `GetChild` ausente en `DataWindowChild`, metadata ampliada de `Update(...)` y routing owner-scoped estable.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/completion.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/hover.test.js out/test/server/unit/signatureHelp.test.js` → `60 passing`
+
 ## 1.103 B081. Inteligencia de DataWindow y acceso a `.Object` — **Cerrada (spec 283, DataWindow Object/GetChild navigation 2026-05)**
 
 **Objetivo:** resolver rutas `dw.Object...` y `GetChild()` sobre DataWindow/DataWindowChild reutilizando el backbone DataWindow ya existente, sin fingir semántica cuando el binding o la cadena child no sean defendibles.

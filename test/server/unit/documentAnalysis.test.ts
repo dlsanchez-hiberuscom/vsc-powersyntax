@@ -401,6 +401,40 @@ suite('unit/documentAnalysis', () => {
     assert.equal(local?.fileObjectName, 'w_main');
   });
 
+  test('B281 conserva overloads y solo sustituye prototipo por implementación de la misma firma', () => {
+    const source = [
+      'forward',
+      'global type w_overload from window',
+      'end type',
+      'end forward',
+      '',
+      'forward prototypes',
+      'public function integer of_pick(integer ai_value)',
+      'public function integer of_pick(integer ai_value, string as_value)',
+      'end prototypes',
+      '',
+      'global type w_overload from window',
+      'end type',
+      '',
+      'public function integer of_pick(integer ai_value);',
+      'return ai_value',
+      'end function',
+      '',
+      'public function integer of_pick(integer ai_value, string as_value);',
+      'return ai_value',
+      'end function'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///documentAnalysis-b281-overloads.sru', 'powerbuilder', 1, source);
+    const analysis = analyzeDocument(document);
+    const overloads = analysis.semanticFacts.filter((fact) => fact.name.toLowerCase() === 'of_pick');
+
+    assert.equal(overloads.length, 2);
+    assert.deepEqual(overloads.map((fact) => fact.parameterCount).sort(), [1, 2]);
+    assert.ok(overloads.every((fact) => fact.isPrototype !== true));
+    assert.ok(overloads.every((fact) => fact.lineage?.phase === 'implementation'));
+  });
+
   test('analyzeDocumentStructural publica snapshot structural-only sin facts ni scopes', () => {
     const source = loadFixture('basic/sample_forward.sru');
     const document = TextDocument.create(

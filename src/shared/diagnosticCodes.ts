@@ -17,6 +17,7 @@ export const DIAGNOSTIC_CODES = {
   dataObjectAmbiguous: 'dataobject-ambiguous',
   dataObjectDynamic: 'dataobject-dynamic',
   dataWindowPropertyPathUnresolved: 'datawindow-property-path-unresolved',
+  dataWindowExpressionDependencyUnresolved: 'datawindow-expression-dependency-unresolved',
   retrieveArityMismatch: 'retrieve-arity-mismatch',
   transactionBindingMissing: 'transaction-binding-missing',
   transactionBindingUnknown: 'transaction-binding-unknown',

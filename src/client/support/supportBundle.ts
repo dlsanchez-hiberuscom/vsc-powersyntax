@@ -1,13 +1,28 @@
 import * as path from 'path';
 
 import type {
+  ApiObservabilityRedaction,
+  ApiCurrentObjectContext,
   ApiDiagnosticsSnapshot,
+  ApiPowerBuilderCodeMetrics,
+  ApiPowerBuilderTechnicalDebtReport,
   ApiPublicContractDescriptor,
   ApiReadOnlyToolBridgeDescriptor,
   ApiSemanticWorkspaceManifest,
   ApiServerStats,
 } from '../../shared/publicApi';
-import type { PowerSyntaxSettingsGovernanceReport } from '../settingsGovernance';
+import type { PowerSyntaxProfileId, PowerSyntaxSettingsGovernanceReport } from '../settingsGovernance';
+
+export type SupportBundleRedactionLevel = Exclude<ApiObservabilityRedaction, 'none'>;
+
+export interface SupportBundleRedactionPolicy {
+  profile: PowerSyntaxProfileId;
+  paths: SupportBundleRedactionLevel;
+  snippets: SupportBundleRedactionLevel;
+  diagnostics: SupportBundleRedactionLevel;
+  settings: SupportBundleRedactionLevel;
+  manifest: SupportBundleRedactionLevel;
+}
 
 export interface SupportBundleInput {
   workspaceRootPath: string;
@@ -17,6 +32,9 @@ export interface SupportBundleInput {
   activeWorkspaceRelativePath?: string;
   workspaceManifest: ApiSemanticWorkspaceManifest;
   serverStats: ApiServerStats;
+  currentObjectContext?: ApiCurrentObjectContext;
+  codeMetrics?: ApiPowerBuilderCodeMetrics;
+  technicalDebtReport?: ApiPowerBuilderTechnicalDebtReport;
   publicContract: ApiPublicContractDescriptor;
   readOnlyToolBridge: ApiReadOnlyToolBridgeDescriptor;
   settingsGovernance: PowerSyntaxSettingsGovernanceReport;
@@ -49,10 +67,19 @@ export interface SupportBundleManifest {
     rawSourceIncluded: false;
     publicApiVersion: string;
     readOnlyToolCount: number;
+    redactionProfile: PowerSyntaxProfileId;
+    redactionPolicy: {
+      paths: SupportBundleRedactionLevel;
+      snippets: SupportBundleRedactionLevel;
+      diagnostics: SupportBundleRedactionLevel;
+      settings: SupportBundleRedactionLevel;
+      manifest: SupportBundleRedactionLevel;
+    };
   };
   files: Array<{
     relativePath: string;
     description: string;
+    redaction: ApiObservabilityRedaction;
   }>;
 }
 
@@ -71,6 +98,38 @@ interface SupportBundleRuntimeJournalTail {
 
 const DEFAULT_MAX_RUNTIME_JOURNAL_EVENTS = 40;
 
+export function buildSupportBundleRedactionPolicy(profile: PowerSyntaxProfileId): SupportBundleRedactionPolicy {
+  switch (profile) {
+    case 'ci-support':
+      return {
+        profile,
+        paths: 'summary-only',
+        snippets: 'summary-only',
+        diagnostics: 'summary-only',
+        settings: 'summary-only',
+        manifest: 'summary-only',
+      };
+    case 'support-safe':
+      return {
+        profile,
+        paths: 'summary-only',
+        snippets: 'summary-only',
+        diagnostics: 'sanitized',
+        settings: 'summary-only',
+        manifest: 'sanitized',
+      };
+    default:
+      return {
+        profile,
+        paths: 'sanitized',
+        snippets: 'sanitized',
+        diagnostics: 'sanitized',
+        settings: 'sanitized',
+        manifest: 'sanitized',
+      };
+  }
+}
+
 export function suggestSupportBundleDirectoryName(label: string): string {
   const slug = label
     .trim()
@@ -86,65 +145,59 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundleBund
     path.relative(input.workspaceRootPath, input.bundleRootPath)
   );
   const generatedAt = input.generatedAt ?? new Date().toISOString();
-  const serverStats = sanitizeServerStats(input.serverStats);
-  const diagnosticsSnapshot = buildSanitizedDiagnosticsSnapshot(input.serverStats.diagnostics);
-  const reducedManifest = buildReducedManifest(input.workspaceManifest);
-  const runtimeJournalTail = buildRuntimeJournalTail(input.serverStats, input.maxJournalEvents);
+  const redactionPolicy = buildSupportBundleRedactionPolicy(input.settingsGovernance.selectedProfile);
+  const serverStats = sanitizeServerStats(input.serverStats, redactionPolicy);
+  const diagnosticsSnapshot = buildSanitizedDiagnosticsSnapshot(input.serverStats.diagnostics, redactionPolicy);
+  const reducedManifest = buildReducedManifest(input.workspaceManifest, redactionPolicy);
+  const runtimeJournalTail = buildRuntimeJournalTail(input.serverStats, input.maxJournalEvents, redactionPolicy);
   const performanceSummary = buildPerformanceSummary(input.serverStats);
-  const buildOrcaSnapshot = buildBuildOrcaSnapshot(input.serverStats);
-  const settingsSnapshot = buildSanitizedSettings(input.settingsValues, input.settingsGovernance);
+  const buildOrcaSnapshot = buildBuildOrcaSnapshot(input.serverStats, redactionPolicy);
+  const settingsSnapshot = buildSanitizedSettings(input.settingsValues, input.settingsGovernance, redactionPolicy);
   const apiInventory = buildApiInventory(input.publicContract, input.readOnlyToolBridge);
 
-  const files: SupportBundleFile[] = [
-    {
-      relativePath: 'runtime-health.json',
-      content: `${JSON.stringify(input.serverStats.health ?? null, null, 2)}\n`,
-    },
-    {
-      relativePath: 'server-stats.sanitized.json',
-      content: `${JSON.stringify(serverStats, null, 2)}\n`,
-    },
-    {
-      relativePath: 'diagnostics-snapshot.sanitized.json',
-      content: `${JSON.stringify(diagnosticsSnapshot, null, 2)}\n`,
-    },
-    {
-      relativePath: 'semantic-workspace-manifest.reduced.json',
-      content: `${JSON.stringify(reducedManifest, null, 2)}\n`,
-    },
-    {
-      relativePath: 'runtime-journal-tail.json',
-      content: `${JSON.stringify(runtimeJournalTail, null, 2)}\n`,
-    },
-    {
-      relativePath: 'performance-summary.json',
-      content: `${JSON.stringify(performanceSummary, null, 2)}\n`,
-    },
-    {
-      relativePath: 'settings-governance.json',
-      content: `${JSON.stringify(input.settingsGovernance, null, 2)}\n`,
-    },
-    {
-      relativePath: 'settings-sanitized.json',
-      content: `${JSON.stringify(settingsSnapshot, null, 2)}\n`,
-    },
-    {
-      relativePath: 'build-orca-snapshot.json',
-      content: `${JSON.stringify(buildOrcaSnapshot, null, 2)}\n`,
-    },
-    {
-      relativePath: 'public-contract.json',
-      content: `${JSON.stringify(input.publicContract, null, 2)}\n`,
-    },
-    {
-      relativePath: 'read-only-tool-bridge.json',
-      content: `${JSON.stringify(input.readOnlyToolBridge, null, 2)}\n`,
-    },
-    {
-      relativePath: 'api-inventory.json',
-      content: `${JSON.stringify(apiInventory, null, 2)}\n`,
-    },
-  ];
+  const files: SupportBundleFile[] = [];
+  const manifestFiles: SupportBundleManifest['files'] = [];
+  const appendFile = (relativePath: string, content: string, description: string, redaction: ApiObservabilityRedaction): void => {
+    files.push({ relativePath, content });
+    manifestFiles.push({ relativePath, description, redaction });
+  };
+
+  appendFile('runtime-health.json', `${JSON.stringify(sanitizeUnknown(input.serverStats.health ?? null, ['runtimeHealth'], redactionPolicy), null, 2)}\n`, 'Salud agregada del runtime y findings visibles.', redactionPolicy.paths);
+  appendFile('server-stats.sanitized.json', `${JSON.stringify(serverStats, null, 2)}\n`, 'Snapshot saneado de stats del runtime.', redactionPolicy.paths);
+  appendFile('diagnostics-snapshot.sanitized.json', `${JSON.stringify(diagnosticsSnapshot, null, 2)}\n`, 'Snapshot agregada de diagnósticos con rutas saneadas.', redactionPolicy.diagnostics);
+  appendFile('semantic-workspace-manifest.reduced.json', `${JSON.stringify(reducedManifest, null, 2)}\n`, 'Manifest semántico reducido sin inventario completo de URIs.', redactionPolicy.manifest);
+  appendFile('runtime-journal-tail.json', `${JSON.stringify(runtimeJournalTail, null, 2)}\n`, 'Cola reciente del journal técnico del runtime.', combineRedactionLevels(redactionPolicy.paths, redactionPolicy.snippets));
+  appendFile('performance-summary.json', `${JSON.stringify(performanceSummary, null, 2)}\n`, 'Resumen de memoria, caches, query trace e indexación.', 'none');
+  if (input.currentObjectContext) {
+    appendFile(
+      'current-object-context.sanitized.json',
+      `${JSON.stringify(sanitizeUnknown(input.currentObjectContext, ['currentObjectContext'], redactionPolicy), null, 2)}\n`,
+      'Context pack saneado del objeto activo, incluyendo anchors SQL embebido.',
+      combineRedactionLevels(redactionPolicy.paths, redactionPolicy.snippets),
+    );
+  }
+  if (input.codeMetrics) {
+    appendFile(
+      'powerbuilder-code-metrics.sanitized.json',
+      `${JSON.stringify(sanitizeUnknown(input.codeMetrics, ['powerBuilderCodeMetrics'], redactionPolicy), null, 2)}\n`,
+      'Reporte saneado de code metrics con anchors SQL embebido por objeto.',
+      combineRedactionLevels(redactionPolicy.paths, redactionPolicy.snippets),
+    );
+  }
+  if (input.technicalDebtReport) {
+    appendFile(
+      'powerbuilder-technical-debt-report.sanitized.json',
+      `${JSON.stringify(sanitizeUnknown(input.technicalDebtReport, ['powerBuilderTechnicalDebtReport'], redactionPolicy), null, 2)}\n`,
+      'Reporte saneado de deuda técnica con hotspots y anchors SQL embebido.',
+      combineRedactionLevels(redactionPolicy.paths, redactionPolicy.snippets),
+    );
+  }
+  appendFile('settings-governance.json', `${JSON.stringify(input.settingsGovernance, null, 2)}\n`, 'Reporte de gobernanza y divergencias del perfil actual.', 'none');
+  appendFile('settings-sanitized.json', `${JSON.stringify(settingsSnapshot, null, 2)}\n`, 'Settings exportados con redacción de rutas y secretos locales.', redactionPolicy.settings);
+  appendFile('build-orca-snapshot.json', `${JSON.stringify(buildOrcaSnapshot, null, 2)}\n`, 'Estado saneado de build moderno, ORCA legacy y journal asociado.', redactionPolicy.paths);
+  appendFile('public-contract.json', `${JSON.stringify(input.publicContract, null, 2)}\n`, 'Contrato público exportado por la extensión.', 'none');
+  appendFile('read-only-tool-bridge.json', `${JSON.stringify(input.readOnlyToolBridge, null, 2)}\n`, 'Descriptor del bridge read-only y schemas visibles.', 'none');
+  appendFile('api-inventory.json', `${JSON.stringify(apiInventory, null, 2)}\n`, 'Inventario resumido de métodos y tools read-only.', 'none');
 
   const manifest: SupportBundleManifest = {
     schemaVersion: 1,
@@ -165,21 +218,18 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundleBund
       rawSourceIncluded: false,
       publicApiVersion: input.publicContract.apiVersion,
       readOnlyToolCount: input.readOnlyToolBridge.tools.length,
+      redactionProfile: redactionPolicy.profile,
+      redactionPolicy: {
+        paths: redactionPolicy.paths,
+        snippets: redactionPolicy.snippets,
+        diagnostics: redactionPolicy.diagnostics,
+        settings: redactionPolicy.settings,
+        manifest: redactionPolicy.manifest,
+      },
     },
     files: [
-      { relativePath: 'runtime-health.json', description: 'Salud agregada del runtime y findings visibles.' },
-      { relativePath: 'server-stats.sanitized.json', description: 'Snapshot saneado de stats del runtime.' },
-      { relativePath: 'diagnostics-snapshot.sanitized.json', description: 'Snapshot agregada de diagnósticos con rutas saneadas.' },
-      { relativePath: 'semantic-workspace-manifest.reduced.json', description: 'Manifest semántico reducido sin inventario completo de URIs.' },
-      { relativePath: 'runtime-journal-tail.json', description: 'Cola reciente del journal técnico del runtime.' },
-      { relativePath: 'performance-summary.json', description: 'Resumen de memoria, caches, query trace e indexación.' },
-      { relativePath: 'settings-governance.json', description: 'Reporte de gobernanza y divergencias del perfil actual.' },
-      { relativePath: 'settings-sanitized.json', description: 'Settings exportados con redacción de rutas y secretos locales.' },
-      { relativePath: 'build-orca-snapshot.json', description: 'Estado saneado de build moderno, ORCA legacy y journal asociado.' },
-      { relativePath: 'public-contract.json', description: 'Contrato público exportado por la extensión.' },
-      { relativePath: 'read-only-tool-bridge.json', description: 'Descriptor del bridge read-only y schemas visibles.' },
-      { relativePath: 'api-inventory.json', description: 'Inventario resumido de métodos y tools read-only.' },
-      { relativePath: 'README.md', description: 'Guía de reproducción y uso del support bundle.' },
+      ...manifestFiles,
+      { relativePath: 'README.md', description: 'Guía de reproducción y uso del support bundle.', redaction: 'none' },
     ],
   };
 
@@ -199,16 +249,20 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundleBund
   };
 }
 
-function buildReducedManifest(manifest: ApiSemanticWorkspaceManifest): Record<string, unknown> {
+function buildReducedManifest(
+  manifest: ApiSemanticWorkspaceManifest,
+  redactionPolicy: SupportBundleRedactionPolicy,
+): Record<string, unknown> {
   const objectKinds = manifest.objects.reduce<Record<string, number>>((accumulator, objectInfo) => {
     const key = objectInfo.objectKind ?? 'unknown';
     accumulator[key] = (accumulator[key] ?? 0) + 1;
     return accumulator;
   }, {});
 
-  return {
+  const reducedManifest = {
     schemaVersion: manifest.schemaVersion,
     generatedAt: manifest.generatedAt,
+    redaction: redactionPolicy.manifest,
     readiness: manifest.readiness,
     limits: manifest.limits,
     counts: {
@@ -228,6 +282,14 @@ function buildReducedManifest(manifest: ApiSemanticWorkspaceManifest): Record<st
         projectCount: manifest.diagnosticsSummary.projects.length,
       }
       : undefined,
+  };
+
+  if (redactionPolicy.manifest === 'summary-only') {
+    return reducedManifest;
+  }
+
+  return {
+    ...reducedManifest,
     projects: manifest.projects.slice(0, 12).map((project) => ({
       name: project.name,
       kind: project.kind,
@@ -240,6 +302,7 @@ function buildReducedManifest(manifest: ApiSemanticWorkspaceManifest): Record<st
 function buildRuntimeJournalTail(
   stats: ApiServerStats,
   maxJournalEvents: number | undefined,
+  redactionPolicy: SupportBundleRedactionPolicy,
 ): SupportBundleRuntimeJournalTail {
   const events = stats.runtimeJournal?.events ?? [];
   const limit = typeof maxJournalEvents === 'number' && Number.isFinite(maxJournalEvents)
@@ -251,7 +314,7 @@ function buildRuntimeJournalTail(
     total: stats.runtimeJournal?.total ?? 0,
     dropped: stats.runtimeJournal?.dropped ?? 0,
     exported: selectedEvents.length,
-    events: selectedEvents.map((event) => sanitizeUnknown(event, ['runtimeJournal', event.kind, event.action])),
+    events: selectedEvents.map((event) => sanitizeUnknown(event, ['runtimeJournal', event.kind, event.action], redactionPolicy)),
   };
 }
 
@@ -277,21 +340,24 @@ function buildPerformanceSummary(stats: ApiServerStats): Record<string, unknown>
   };
 }
 
-function buildBuildOrcaSnapshot(stats: ApiServerStats): Record<string, unknown> {
+function buildBuildOrcaSnapshot(
+  stats: ApiServerStats,
+  redactionPolicy: SupportBundleRedactionPolicy,
+): Record<string, unknown> {
   return {
-    buildTooling: sanitizeUnknown(stats.buildTooling, ['buildTooling']),
+    buildTooling: sanitizeUnknown(stats.buildTooling, ['buildTooling'], redactionPolicy),
     buildFiles: stats.buildFiles,
-    buildProfile: sanitizeUnknown(stats.buildProfile, ['buildProfile']),
-    buildRunner: sanitizeUnknown(stats.buildRunner, ['buildRunner']),
+    buildProfile: sanitizeUnknown(stats.buildProfile, ['buildProfile'], redactionPolicy),
+    buildRunner: sanitizeUnknown(stats.buildRunner, ['buildRunner'], redactionPolicy),
     buildProblems: stats.buildProblems,
     buildHealth: stats.buildHealth,
-    orcaTooling: sanitizeUnknown(stats.orcaTooling, ['orcaTooling']),
-    orcaRunner: sanitizeUnknown(stats.orcaRunner, ['orcaRunner']),
+    orcaTooling: sanitizeUnknown(stats.orcaTooling, ['orcaTooling'], redactionPolicy),
+    orcaRunner: sanitizeUnknown(stats.orcaRunner, ['orcaRunner'], redactionPolicy),
     persistence: sanitizeUnknown({
       buildOrcaJournalUri: stats.persistence?.buildOrcaJournalUri,
       journalUri: stats.persistence?.journalUri,
       checkpointUri: stats.persistence?.checkpointUri,
-    }, ['persistence']),
+    }, ['persistence'], redactionPolicy),
   };
 }
 
@@ -327,13 +393,34 @@ function buildApiInventory(
 function buildSanitizedSettings(
   settingsValues: Record<string, unknown>,
   governance: PowerSyntaxSettingsGovernanceReport,
+  redactionPolicy: SupportBundleRedactionPolicy,
 ): Record<string, unknown> {
   const keys = Object.keys(settingsValues).sort();
+  const governedKeys = new Set(governance.managedSettings.map((entry) => entry.key));
+
+  if (redactionPolicy.settings === 'summary-only') {
+    return {
+      selectedProfile: governance.selectedProfile,
+      redaction: redactionPolicy.settings,
+      managedSettings: keys.map((key) => ({
+        key,
+        governed: governedKeys.has(key),
+        valueType: summarizeValueType(settingsValues[key]),
+      })),
+      availableProfiles: governance.availableProfiles.map((profile) => ({
+        id: profile.id,
+        label: profile.label,
+      })),
+      conflictCount: governance.conflicts.length,
+    };
+  }
+
   return {
     selectedProfile: governance.selectedProfile,
+    redaction: redactionPolicy.settings,
     managedSettings: keys.map((key) => ({
       key,
-      value: sanitizeUnknown(settingsValues[key], [key]),
+      value: sanitizeUnknown(settingsValues[key], [key], redactionPolicy),
     })),
     availableProfiles: governance.availableProfiles.map((profile) => ({
       id: profile.id,
@@ -345,27 +432,40 @@ function buildSanitizedSettings(
 
 function buildSanitizedDiagnosticsSnapshot(
   diagnostics: ApiDiagnosticsSnapshot | undefined,
+  redactionPolicy: SupportBundleRedactionPolicy,
 ): Record<string, unknown> {
   if (!diagnostics) {
     return {
       available: false,
+      redaction: redactionPolicy.diagnostics,
     };
   }
 
-  return {
+  const summary = {
     available: true,
+    redaction: redactionPolicy.diagnostics,
     totals: diagnostics.totals,
     bySeverity: diagnostics.bySeverity,
     topCodes: takeTopEntries(diagnostics.byCode, 20),
+    documentCount: diagnostics.documents.length,
+    projectCount: diagnostics.projects.length,
+  };
+
+  if (redactionPolicy.diagnostics === 'summary-only') {
+    return summary;
+  }
+
+  return {
+    ...summary,
     topDocuments: diagnostics.documents.slice(0, 20).map((documentNode) => ({
-      uri: redactLocation(documentNode.uri),
+      uri: redactLocation(documentNode.uri, redactionPolicy.paths),
       total: documentNode.total,
       bySeverity: documentNode.bySeverity,
       projectLabel: documentNode.projectLabel,
       objectLabel: documentNode.objectLabel,
       sourceOrigin: documentNode.sourceOrigin,
       snapshotIdentity: documentNode.snapshotIdentity
-        ? redactLocation(documentNode.snapshotIdentity)
+        ? redactLocation(documentNode.snapshotIdentity, redactionPolicy.paths)
         : undefined,
     })),
     projects: diagnostics.projects.slice(0, 10).map((projectNode) => ({
@@ -377,18 +477,23 @@ function buildSanitizedDiagnosticsSnapshot(
   };
 }
 
-function sanitizeServerStats(stats: ApiServerStats): Record<string, unknown> {
-  return sanitizeUnknown(stats, ['serverStats']) as Record<string, unknown>;
+function sanitizeServerStats(stats: ApiServerStats, redactionPolicy: SupportBundleRedactionPolicy): Record<string, unknown> {
+  return sanitizeUnknown(stats, ['serverStats'], redactionPolicy) as Record<string, unknown>;
 }
 
-function sanitizeUnknown(value: unknown, keyChain: readonly string[]): unknown {
+function sanitizeUnknown(value: unknown, keyChain: readonly string[], redactionPolicy: SupportBundleRedactionPolicy): unknown {
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizeUnknown(item, keyChain));
+    return value.map((item) => sanitizeUnknown(item, keyChain, redactionPolicy));
   }
 
   if (typeof value === 'string') {
+    const lastKey = keyChain[keyChain.length - 1]?.toLowerCase() ?? '';
+    if (redactionPolicy.snippets === 'summary-only' && /(preview|snippet|excerpt)/.test(lastKey)) {
+      return 'redacted-snippet';
+    }
+
     return shouldRedactString(keyChain, value)
-      ? redactLocation(value)
+      ? redactLocation(value, redactionPolicy.paths)
       : value;
   }
 
@@ -398,7 +503,7 @@ function sanitizeUnknown(value: unknown, keyChain: readonly string[]): unknown {
 
   const sanitizedEntries = Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
     key,
-    sanitizeUnknown(nestedValue, [...keyChain, key]),
+    sanitizeUnknown(nestedValue, [...keyChain, key], redactionPolicy),
   ]);
   return Object.fromEntries(sanitizedEntries);
 }
@@ -424,13 +529,39 @@ function looksLikeLocation(value: string): boolean {
   return /[\\/].+\.[a-z0-9]{1,8}$/i.test(value);
 }
 
-function redactLocation(value: string): string {
+function redactLocation(value: string, redaction: SupportBundleRedactionLevel = 'sanitized'): string {
   if (!value) {
     return value;
   }
 
+  if (redaction === 'summary-only') {
+    return 'redacted';
+  }
+
   const basename = basenameFromPathOrUri(value);
   return basename ? `redacted:${basename}` : 'redacted';
+}
+
+function summarizeValueType(value: unknown): string {
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+
+  if (value === null) {
+    return 'null';
+  }
+
+  return typeof value;
+}
+
+function combineRedactionLevels(...levels: ApiObservabilityRedaction[]): ApiObservabilityRedaction {
+  if (levels.includes('summary-only')) {
+    return 'summary-only';
+  }
+  if (levels.includes('sanitized')) {
+    return 'sanitized';
+  }
+  return 'none';
 }
 
 function basenameFromPathOrUri(value: string): string | undefined {
@@ -468,15 +599,17 @@ function buildReadme(manifest: SupportBundleManifest): string {
     ...(manifest.summary.healthStatus ? [`- Runtime health: ${manifest.summary.healthStatus}`] : []),
     ...(manifest.summary.buildHealthState ? [`- Build health: ${manifest.summary.buildHealthState}`] : []),
     `- Runtime journal events exportados: ${manifest.summary.runtimeJournalEvents}`,
+    `- Redaction profile: ${manifest.summary.redactionProfile}`,
+    `- Redaction policy: paths=${manifest.summary.redactionPolicy.paths} · snippets=${manifest.summary.redactionPolicy.snippets} · diagnostics=${manifest.summary.redactionPolicy.diagnostics} · settings=${manifest.summary.redactionPolicy.settings} · manifest=${manifest.summary.redactionPolicy.manifest}`,
     `- API version: ${manifest.summary.publicApiVersion}`,
     `- Read-only tools: ${manifest.summary.readOnlyToolCount}`,
     `- Raw source included: ${manifest.summary.rawSourceIncluded}`,
     '',
     '## Redaccion aplicada',
     '',
-    '- rutas, URIs, ejecutables y artefactos locales se exportan redacted:basename;',
-    '- settings se exportan en forma saneada y con gobernanza del perfil activo;',
-    '- el manifest semantico se reduce a resumenes y no incluye el inventario completo de objetos/URIs.',
+    `- rutas, URIs, ejecutables y artefactos locales se exportan como ${manifest.summary.redactionPolicy.paths === 'summary-only' ? 'redacted' : 'redacted:basename'};`,
+    `- snippets y previews sensibles se exportan como ${manifest.summary.redactionPolicy.snippets === 'summary-only' ? 'redacted-snippet' : 'texto saneado'};`,
+    `- diagnostics, settings y manifest usan la policy ${manifest.summary.redactionProfile} (${manifest.summary.redactionPolicy.diagnostics}/${manifest.summary.redactionPolicy.settings}/${manifest.summary.redactionPolicy.manifest}).`,
     '',
     '## Artefactos',
     '',
