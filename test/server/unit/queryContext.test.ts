@@ -96,6 +96,7 @@ suite('unit/queryContext', () => {
     const queryContext = createDocumentQueryContext(document, { line: 0, character: 5 }, kb, graph);
 
     assert.equal(queryContext.hasResolutionAmbiguity, true);
+    assert.equal(queryContext.ambiguityKind, 'distance-minimum');
     assert.equal(queryContext.resolutionConfidence, 'medium');
     assert.equal(queryContext.resolutionTargetCount, 2);
     assert.deepEqual(queryContext.resolutionEvidenceKinds, ['winner-target', 'distance-ambiguity']);
@@ -130,9 +131,10 @@ suite('unit/queryContext', () => {
 
     assert.equal(queryContext.primaryResolutionReasonCode, 'global-fallback');
     assert.equal(queryContext.hasResolutionAmbiguity, true);
+    assert.equal(queryContext.ambiguityKind, 'global-fallback');
     assert.equal(queryContext.resolutionConfidence, 'low');
     assert.equal(queryContext.resolutionTargetCount, 2);
-    assert.deepEqual(queryContext.resolutionEvidenceKinds, ['winner-target']);
+    assert.deepEqual(queryContext.resolutionEvidenceKinds, ['winner-target', 'fallback-ambiguity']);
   });
 
   test('createDocumentQueryContext degrada resolutionConfidence a undefined si no hay contexto resoluble', () => {
@@ -166,5 +168,26 @@ suite('unit/queryContext', () => {
     assert.equal(queryContext.primaryResolutionReasonCode, 'member-hierarchy');
     assert.equal(queryContext.invocationKind, 'this-call');
     assert.equal(queryContext.invocationRisk, 'safe');
+  });
+
+  test('createDocumentQueryContext resuelve correctamente una invocacion en una linea intermedia sin partir todo el documento', () => {
+    const document = TextDocument.create(
+      'file:///w_main.sru',
+      'powerbuilder',
+      1,
+      [
+        'forward',
+        'global type w_main from w_base',
+        'end type',
+        'this.of_SetData()',
+        'end forward'
+      ].join('\n')
+    );
+    const queryContext = createDocumentQueryContext(document, { line: 3, character: 10 }, kb, graph);
+
+    assert.equal(queryContext.context?.identifier, 'of_SetData');
+    assert.equal(queryContext.context?.qualifier, 'this');
+    assert.equal(queryContext.primaryResolutionReasonCode, 'member-hierarchy');
+    assert.equal(queryContext.invocationKind, 'this-call');
   });
 });

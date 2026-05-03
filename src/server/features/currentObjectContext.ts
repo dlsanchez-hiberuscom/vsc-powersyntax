@@ -36,9 +36,10 @@ import {
 } from '../../shared/publicApi';
 import type { WorkspaceState } from '../workspace/workspaceState';
 import { ScopeKind } from '../knowledge/types';
+import { getQueryConsumerPolicy } from './queryScopePolicy';
 
 const DEFAULT_EXCERPT_LINES = 48;
-const DEFAULT_REFERENCED_SYMBOLS = 24;
+const DEFAULT_REFERENCED_SYMBOLS = getQueryConsumerPolicy('current-object-context').resultCap;
 const MAX_EXCERPT_LINES = 120;
 const MAX_REFERENCED_SYMBOLS = 64;
 

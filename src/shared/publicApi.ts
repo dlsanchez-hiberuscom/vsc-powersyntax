@@ -4,7 +4,7 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.12.0';
+export const PUBLIC_API_VERSION = '2.13.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
@@ -181,6 +181,7 @@ export type ApiPowerBuilderDependencyGraphNodeResolution = 'resolved' | 'ambiguo
 export interface ApiPowerBuilderDependencyGraphFocus {
   objectName: string;
   uri: string;
+  identityKey?: string;
   baseType?: string;
   projectUri?: string;
   library?: string;
@@ -192,6 +193,7 @@ export interface ApiPowerBuilderDependencyGraphNode {
   label: string;
   kind: ApiPowerBuilderDependencyGraphNodeKind;
   resolution: ApiPowerBuilderDependencyGraphNodeResolution;
+  identityKey?: string;
   uri?: string;
   projectUri?: string;
   library?: string;
@@ -289,6 +291,7 @@ export interface ApiCrossProjectSymbolConflictCandidate {
   uri: string;
   line: number;
   character: number;
+  identityKey?: string;
   ownerName?: string;
   parameterCount?: number;
   signature?: string;
@@ -561,6 +564,44 @@ export interface ApiPublicContractSchema {
   kind: 'request' | 'response' | 'descriptor';
 }
 
+export type ApiObservabilityDomain =
+  | 'readiness'
+  | 'indexing'
+  | 'cache'
+  | 'memory'
+  | 'latency'
+  | 'build'
+  | 'orca'
+  | 'diagnostics'
+  | 'query-trace'
+  | 'support-bundle'
+  | 'health';
+
+export type ApiObservabilityExposure = 'public-api-method' | 'read-only-tool' | 'offline-export';
+export type ApiObservabilityRedaction = 'none' | 'sanitized' | 'summary-only';
+
+export interface ApiObservabilitySurfaceDescriptor {
+  domain: ApiObservabilityDomain;
+  schema: string;
+  exposure: ApiObservabilityExposure;
+  method?: string;
+  tool?: ApiReadOnlyToolName;
+  command?: string;
+  fieldPath?: string;
+  redaction: ApiObservabilityRedaction;
+}
+
+export interface ApiObservabilityContractDescriptor {
+  schemaVersion: '1.0.0';
+  apiVersion: string;
+  privacy: {
+    externalTelemetry: false;
+    localOnly: true;
+    offlineExportRequiresExplicitUserAction: true;
+  };
+  surfaces: ApiObservabilitySurfaceDescriptor[];
+}
+
 export interface ApiPublicContractDescriptor {
   extensionId: string;
   apiVersion: string;
@@ -568,6 +609,7 @@ export interface ApiPublicContractDescriptor {
   exportedFrom: 'activate';
   methods: ApiPublicContractMethod[];
   schemas: ApiPublicContractSchema[];
+  observability: ApiObservabilityContractDescriptor;
   taskExecutionCatalog: ApiTaskExecutionContractCatalog;
   capabilities: {
     readOnlyMethods: string[];
@@ -723,6 +765,116 @@ const TASK_EXECUTION_CONTRACTS: ReadonlyArray<ApiTaskExecutionContract> = [
   },
 ];
 
+const OBSERVABILITY_SURFACES: ReadonlyArray<ApiObservabilitySurfaceDescriptor> = [
+  {
+    domain: 'readiness',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'readiness',
+    redaction: 'none',
+  },
+  {
+    domain: 'indexing',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'indexer',
+    redaction: 'none',
+  },
+  {
+    domain: 'cache',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'caches',
+    redaction: 'none',
+  },
+  {
+    domain: 'memory',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'memory',
+    redaction: 'none',
+  },
+  {
+    domain: 'latency',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'scheduler',
+    redaction: 'none',
+  },
+  {
+    domain: 'build',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'buildTooling',
+    redaction: 'none',
+  },
+  {
+    domain: 'orca',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'orcaTooling',
+    redaction: 'none',
+  },
+  {
+    domain: 'diagnostics',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'diagnostics',
+    redaction: 'none',
+  },
+  {
+    domain: 'query-trace',
+    schema: 'ApiServerStats',
+    exposure: 'read-only-tool',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'lastQueryTrace',
+    redaction: 'none',
+  },
+  {
+    domain: 'support-bundle',
+    schema: 'SupportBundleManifest',
+    exposure: 'offline-export',
+    command: 'vscPowerSyntax.exportSupportBundle',
+    redaction: 'sanitized',
+  },
+  {
+    domain: 'health',
+    schema: 'ApiRuntimeHealthReport',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'health',
+    redaction: 'none',
+  },
+];
+
 function cloneTaskExecutionContract(contract: ApiTaskExecutionContract): ApiTaskExecutionContract {
   return {
     ...contract,
@@ -741,6 +893,19 @@ export function getTaskExecutionContractCatalog(): ApiTaskExecutionContractCatal
     schemaVersion: '1.0.0',
     apiVersion: PUBLIC_API_VERSION,
     contracts: TASK_EXECUTION_CONTRACTS.map(cloneTaskExecutionContract),
+  };
+}
+
+export function getObservabilityContractDescriptor(): ApiObservabilityContractDescriptor {
+  return {
+    schemaVersion: '1.0.0',
+    apiVersion: PUBLIC_API_VERSION,
+    privacy: {
+      externalTelemetry: false,
+      localOnly: true,
+      offlineExportRequiresExplicitUserAction: true,
+    },
+    surfaces: OBSERVABILITY_SURFACES.map((surface) => ({ ...surface })),
   };
 }
 
@@ -955,6 +1120,7 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
 const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiPublicContractDescriptor', version: '2.12.0', kind: 'descriptor' },
   { name: 'ApiTaskExecutionContractCatalog', version: '1.0.0', kind: 'descriptor' },
+  { name: 'ApiObservabilityContractDescriptor', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiReadOnlyToolBridgeDescriptor', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiReadOnlyToolCallRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiReadOnlyToolCallResult', version: '1.0.0', kind: 'response' },
@@ -1009,6 +1175,7 @@ export function getPublicApiContractDescriptor(): ApiPublicContractDescriptor {
     exportedFrom: 'activate',
     methods,
     schemas,
+    observability: getObservabilityContractDescriptor(),
     taskExecutionCatalog: getTaskExecutionContractCatalog(),
     capabilities: {
       readOnlyMethods: methods.filter((method) => method.access === 'read-only').map((method) => method.name),
@@ -1034,6 +1201,7 @@ export interface ApiSymbol {
   uri: string;
   line: number;
   character: number;
+  identityKey?: string;
   lineage?: ApiSymbolLineage;
 }
 
@@ -1043,6 +1211,7 @@ export interface ApiSymbolInput {
   uri: string;
   line: number;
   character: number;
+  identityKey?: string;
   lineage?: ApiSymbolLineage;
 }
 
@@ -1071,6 +1240,7 @@ export function toApiSymbol(symbol: ApiSymbolInput): ApiSymbol {
     uri: symbol.uri,
     line: symbol.line,
     character: symbol.character,
+    ...(symbol.identityKey ? { identityKey: symbol.identityKey } : {}),
     ...(cloneApiSymbolLineage(symbol.lineage) ? { lineage: cloneApiSymbolLineage(symbol.lineage) } : {}),
   };
 }
@@ -1386,6 +1556,7 @@ export interface ApiSemanticWorkspaceManifestProject {
 export interface ApiSemanticWorkspaceManifestObject {
   name: string;
   uri: string;
+  identityKey?: string;
   baseType?: string;
   projectUri?: string;
   library?: string;
@@ -1721,6 +1892,12 @@ export interface ApiServerStats {
     pendingNear?: number;
     pendingBackground?: number;
     interactiveBusy?: boolean;
+    pendingWorkloads?: Record<string, number>;
+    activeInteractiveWorkloads?: Record<string, number>;
+    activeNearWorkload?: string;
+    activeBackgroundWorkload?: string;
+    throttledBackgroundWorkload?: string;
+    throttledBackgroundReason?: string;
   };
   workspace?: {
     mode?: string;

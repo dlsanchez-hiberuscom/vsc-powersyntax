@@ -648,7 +648,9 @@ function collectFactsAndScopes(
       // el de menor startLine es el global type
       let earliest = rootCandidates[0];
       for (const r of rootCandidates) if (r.startLine < earliest.startLine) earliest = r;
-      return earliest.name;
+      if (line >= earliest.startLine) {
+        return earliest.name;
+      }
     }
     return undefined;
   };
@@ -665,20 +667,45 @@ function collectFactsAndScopes(
     const existing = globalScope.children.find(
       (c) => c.kind === ScopeKind.Type && c.id.toLowerCase() === wanted
     );
+    const range = resolveTypeScopeRange(name);
     if (existing) return existing;
-    const tb = typeBlocks.find((b) => b.name.toLowerCase() === wanted);
     const created: Scope = {
       id: name,
       kind: ScopeKind.Type,
       uri,
-      startLine: tb?.startLine ?? 0,
-      endLine: tb?.endLine ?? lines.length - 1,
+      startLine: range.startLine,
+      endLine: range.endLine,
       parent: globalScope,
       children: [],
       symbols: []
     };
     globalScope.children.push(created);
     return created;
+  };
+
+  const resolveTypeScopeRange = (name: string): { startLine: number; endLine: number } => {
+    const wanted = name.toLowerCase();
+    const matches = typeBlocks.filter((block) => block.name.toLowerCase() === wanted);
+    if (matches.length === 0) {
+      return { startLine: 0, endLine: Math.max(0, lines.length - 1) };
+    }
+
+    let startLine = matches[0].startLine;
+    let endLine = matches[0].endLine;
+    for (let index = 1; index < matches.length; index++) {
+      const match = matches[index];
+      if (match.startLine < startLine) {
+        startLine = match.startLine;
+      }
+      if (match.endLine > endLine) {
+        endLine = match.endLine;
+      }
+    }
+
+    return {
+      startLine,
+      endLine: Math.max(endLine, startLine)
+    };
   };
 
   for (let i = 0; i < lines.length; i++) {
@@ -699,14 +726,9 @@ function collectFactsAndScopes(
         // misma instancia para que los hijos no queden huérfanos.
         currentTypeScope = ensureTypeScope(typeMatch.name);
         if (currentTypeScope) {
-          currentTypeScope.startLine = i;
-          // Spec 064: ajusta endLine al `end type` real si lo conocemos.
-          const tb = typeBlocks.find(
-            (b) => b.name.toLowerCase() === typeMatch.name.toLowerCase()
-          );
-          if (tb) {
-            currentTypeScope.endLine = tb.endLine;
-          }
+          const range = resolveTypeScopeRange(typeMatch.name);
+          currentTypeScope.startLine = Math.min(currentTypeScope.startLine, range.startLine);
+          currentTypeScope.endLine = Math.max(currentTypeScope.endLine, range.endLine);
         }
       }
       facts.push({

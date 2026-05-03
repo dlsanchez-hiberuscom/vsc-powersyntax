@@ -395,6 +395,46 @@
         "category": "VSC PowerSyntax"
       },
       {
+        "command": "vscPowerSyntax.exportHealthReport",
+        "title": "PowerSyntax: Exportar Health Report",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.showMemoryBudgets",
+        "title": "PowerSyntax: Mostrar Memory Budgets",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.showIndexingState",
+        "title": "PowerSyntax: Mostrar Estado de Indexación",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.showProjectRouting",
+        "title": "PowerSyntax: Mostrar Project Routing",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.showSourceOriginConflicts",
+        "title": "PowerSyntax: Mostrar Conflictos de sourceOrigin",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.validatePersistentCache",
+        "title": "PowerSyntax: Validar Cache Persistente",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.clearSemanticCache",
+        "title": "PowerSyntax: Limpiar Cache Semántica",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.rebuildWorkspaceIndex",
+        "title": "PowerSyntax: Rebuild Workspace Index",
+        "category": "VSC PowerSyntax"
+      },
+      {
         "command": "vscPowerSyntax.runSemanticCacheMaintenance",
         "title": "PowerSyntax: Ejecutar Mantenimiento de Cache Semántica",
         "category": "VSC PowerSyntax"
@@ -660,6 +700,7 @@
     "test:integration": "npm run build:test && vscode-test --label integration",
     "test:performance": "npm run build:test && vscode-test --label performance",
     "test:performance:gate": "node ./tools/run-performance-budget-gate.mjs",
+    "test:performance:soak": "node ./tools/run-session-stability-soak.mjs",
     "package:vsix": "node -e \"require('fs').mkdirSync('.dist',{recursive:true})\" && vsce package --no-yarn --out ./.dist/vsc-powersyntax.vsix",
     "package:vsix:list": "vsce ls --no-yarn",
     "release:verify": "npm test && npm run test:performance:gate && npm run package:vsix"

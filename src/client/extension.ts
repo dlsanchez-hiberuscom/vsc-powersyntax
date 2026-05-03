@@ -82,6 +82,7 @@ import {
   formatStatusBarSummary,
   type RuntimeStatusStats,
 } from './statusBarPresentation';
+import { findCoreMaintenanceCommandModel } from './coreMaintenanceCommandCatalog';
 import { buildProjectHealthDashboardMarkdown } from './projectHealthDashboard';
 import { PowerBuilderObjectExplorerController } from './objectExplorer';
 import { CurrentObjectContextPanelController } from './currentObjectContextPanel';
@@ -183,10 +184,45 @@ interface SupportBundleCommandOptions {
   workspaceFolderUri?: string;
 }
 
+interface HealthReportCommandOptions extends SupportBundleCommandOptions {}
+
+interface CoreMaintenanceConfirmationOptions {
+  skipConfirmation?: boolean;
+}
+
 interface SupportBundleExportResult {
   bundleUri: string;
   manifestUri: string;
   fileCount: number;
+}
+
+interface HealthReportExportResult {
+  directoryUri: string;
+  reportUri: string;
+  statsUri: string;
+  manifestUri?: string;
+}
+
+interface SemanticCacheClearCommandResult {
+  cleared: boolean;
+  reason?: string;
+  workspaceKey?: string;
+  storageUri?: string;
+  checkpointUri?: string;
+  journalUri?: string;
+}
+
+interface PersistentCacheValidationCommandResult {
+  valid: boolean;
+  decision: {
+    action: 'reuse' | 'rebuild';
+    reason?: string;
+  };
+  documentCount: number;
+  workspaceKey?: string;
+  checkpointUri?: string;
+  journalUri?: string;
+  maintenance?: ApiSemanticCacheMaintenanceResult['currentWorkspace'];
 }
 
 interface SemanticCacheMaintenanceCommandResult extends ApiSemanticCacheMaintenanceResult {}
@@ -653,6 +689,54 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.exportHealthReport', async (options?: HealthReportCommandOptions) => {
+      return exportHealthReport(options);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.showMemoryBudgets', async () => {
+      return showMemoryBudgets();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.showIndexingState', async () => {
+      return showIndexingState();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.showProjectRouting', async () => {
+      return showProjectRouting();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.showSourceOriginConflicts', async () => {
+      return showSourceOriginConflicts();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.validatePersistentCache', async () => {
+      return validatePersistentCache();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.clearSemanticCache', async (options?: CoreMaintenanceConfirmationOptions) => {
+      return clearSemanticCache(options);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.rebuildWorkspaceIndex', async (options?: CoreMaintenanceConfirmationOptions) => {
+      return rebuildWorkspaceIndex(options);
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('vscPowerSyntax.runSemanticCacheMaintenance', async () => {
       await runSemanticCacheMaintenance();
     })
@@ -711,6 +795,37 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
           command: 'vscPowerSyntax.showStatusStats'
         },
         {
+          label: '$(note) Exportar health report',
+          description: stats?.health?.summary ?? 'Exporta dashboard, stats y manifest del workspace activo',
+          command: 'vscPowerSyntax.exportHealthReport'
+        },
+        {
+          label: '$(flame) Ver memory budgets',
+          description: stats?.memory
+            ? `${stats.memory.status} · ${(stats.memory.layers?.length ?? 0)} capas con budget visible`
+            : 'Presupuesto global y capas de memoria del runtime',
+          command: 'vscPowerSyntax.showMemoryBudgets'
+        },
+        {
+          label: '$(sync) Ver estado de indexación',
+          description: stats?.indexer?.phase
+            ? `${stats.indexer.phase}${typeof stats.indexer.current === 'number' && typeof stats.indexer.total === 'number' ? ` · ${stats.indexer.current}/${stats.indexer.total}` : ''}`
+            : stats?.readiness?.state ?? 'Readiness e indexer del runtime',
+          command: 'vscPowerSyntax.showIndexingState'
+        },
+        {
+          label: '$(source-control) Ver project routing',
+          description: stats?.workspace?.activeProject?.name
+            ? `${stats.workspace.activeProject.name} · routing del archivo y topología activa`
+            : 'Routing del archivo activo y resumen de proyectos detectados',
+          command: 'vscPowerSyntax.showProjectRouting'
+        },
+        {
+          label: '$(warning) Ver conflictos de sourceOrigin',
+          description: 'Conflictos cross-project donde compiten varios sourceOrigin preferidos',
+          command: 'vscPowerSyntax.showSourceOriginConflicts'
+        },
+        {
           label: stats?.buildRunner?.state === 'running' ? '$(debug-stop) Cancelar PBAutoBuild' : '$(tools) Ejecutar PBAutoBuild',
           description: [
             stats?.buildProfile?.label,
@@ -755,6 +870,23 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
             ? 'Compacta journals grandes y limpia workspaces persistidos obsoletos'
             : 'Verifica compactación/retención v2 y limpia workspaces obsoletos si hace falta',
           command: 'vscPowerSyntax.runSemanticCacheMaintenance'
+        },
+        {
+          label: '$(verified) Validar cache persistente',
+          description: stats?.persistence?.checkpointUri
+            ? 'Comprueba si el checkpoint persistido actual puede reutilizarse sin rebuild'
+            : 'Verifica si existe un estado persistido reutilizable para este workspace',
+          command: 'vscPowerSyntax.validatePersistentCache'
+        },
+        {
+          label: '$(trash) Limpiar cache semántica',
+          description: 'Elimina checkpoint y journal persistidos del workspace activo (requiere confirmación)',
+          command: 'vscPowerSyntax.clearSemanticCache'
+        },
+        {
+          label: '$(debug-restart) Rebuild workspace index',
+          description: 'Reinicia el runtime y relanza discovery/indexación del workspace (requiere confirmación)',
+          command: 'vscPowerSyntax.rebuildWorkspaceIndex'
         },
         {
           label: '$(settings-gear) Ver gobernanza de settings',
@@ -2321,16 +2453,68 @@ async function exportSupportBundle(options?: SupportBundleCommandOptions): Promi
   };
 }
 
+async function exportHealthReport(options?: HealthReportCommandOptions): Promise<HealthReportExportResult | undefined> {
+  const workspaceFolder = resolveSupportBundleWorkspaceFolder(options);
+  if (!workspaceFolder) {
+    void vscode.window.showWarningMessage('PowerSyntax: no hay un workspace activo para exportar el health report.');
+    return undefined;
+  }
+
+  const generatedAt = new Date().toISOString();
+  const workspaceLabel = workspaceFolder.name || path.basename(workspaceFolder.uri.fsPath || workspaceFolder.uri.path);
+  const destinationUri = resolveHealthReportDestinationUri(workspaceFolder, generatedAt, workspaceLabel, options?.destinationUri);
+  const stats = await refreshRuntimeStatusSnapshot();
+
+  let manifest: ApiSemanticWorkspaceManifest | undefined;
+  try {
+    manifest = clonePlainData(await publicApiSingleton.getSemanticWorkspaceManifest({
+      maxObjects: 200,
+      maxSymbols: 400,
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(`[HealthReport] No se pudo obtener el manifest semántico: ${message}`);
+  }
+
+  const files = [
+    {
+      relativePath: 'README.md',
+      content: buildProjectHealthDashboardMarkdown(lastProgressNotification, stats, manifest),
+    },
+    {
+      relativePath: 'server-stats.json',
+      content: `${JSON.stringify(stats ?? {}, null, 2)}\n`,
+    },
+    ...(manifest
+      ? [{
+          relativePath: 'semantic-workspace-manifest.json',
+          content: `${JSON.stringify(manifest, null, 2)}\n`,
+        }]
+      : []),
+  ];
+
+  await writeTextFileBundle(destinationUri, files);
+
+  outputChannel?.show(true);
+  outputChannel?.appendLine(`[HealthReport] Health report exportado en ${destinationUri.fsPath}.`);
+  for (const file of files) {
+    outputChannel?.appendLine(`[HealthReport]   - ${path.posix.join('tools/health-reports', path.basename(destinationUri.path), file.relativePath)}`);
+  }
+
+  void vscode.window.showInformationMessage(`Health report exportado en ${destinationUri.fsPath}.`);
+
+  return {
+    directoryUri: destinationUri.toString(),
+    reportUri: joinUriPath(destinationUri, 'README.md').toString(),
+    statsUri: joinUriPath(destinationUri, 'server-stats.json').toString(),
+    ...(manifest ? { manifestUri: joinUriPath(destinationUri, 'semantic-workspace-manifest.json').toString() } : {}),
+  };
+}
+
 async function runSemanticCacheMaintenance(): Promise<SemanticCacheMaintenanceCommandResult | undefined> {
   try {
     const result = await executeServerCommand<SemanticCacheMaintenanceCommandResult>('powerbuilder.runSemanticCacheMaintenance');
-    const refreshedStats = await fetchRuntimeStatusStats();
-    if (refreshedStats) {
-      lastStatusStats = refreshedStats;
-      if (statusBarItem) {
-        renderProgress(statusBarItem, lastProgressNotification, refreshedStats);
-      }
-    }
+    await refreshRuntimeStatusSnapshot();
 
     outputChannel?.show(true);
     outputChannel?.appendLine(
@@ -2348,6 +2532,139 @@ async function runSemanticCacheMaintenance(): Promise<SemanticCacheMaintenanceCo
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`PowerSyntax: no se pudo ejecutar el mantenimiento de cache semántica: ${message}`);
+    return undefined;
+  }
+}
+
+async function clearSemanticCache(
+  options?: CoreMaintenanceConfirmationOptions
+): Promise<SemanticCacheClearCommandResult | undefined> {
+  const confirmed = await confirmCoreMaintenanceAction('vscPowerSyntax.clearSemanticCache', options);
+  if (!confirmed) {
+    return undefined;
+  }
+
+  try {
+    const result = await executeServerCommand<SemanticCacheClearCommandResult>('powerbuilder.clearSemanticCache');
+    await refreshRuntimeStatusSnapshot();
+
+    if (!result.cleared) {
+      void vscode.window.showWarningMessage('PowerSyntax: no había una cache persistente activa que limpiar.');
+      return result;
+    }
+
+    outputChannel?.show(true);
+    outputChannel?.appendLine(`[CACHE] clear workspaceKey=${result.workspaceKey ?? 'n/a'} storage=${result.storageUri ?? 'n/a'}`);
+    void vscode.window.showInformationMessage('PowerSyntax: cache semántica persistida limpiada. Usa Rebuild Workspace Index si quieres reindexar ahora.');
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo limpiar la cache semántica: ${message}`);
+    return undefined;
+  }
+}
+
+async function validatePersistentCache(): Promise<string | undefined> {
+  try {
+    const result = await executeServerCommand<PersistentCacheValidationCommandResult>('powerbuilder.validatePersistentCache');
+    const stats = await refreshRuntimeStatusSnapshot();
+    const content = buildPersistentCacheValidationMarkdown(result, stats);
+
+    outputChannel?.show(true);
+    outputChannel?.appendLine(
+      `[CACHE] validate valid=${result.valid ? 'yes' : 'no'} action=${result.decision.action}${result.decision.reason ? ` reason=${result.decision.reason}` : ''} documents=${result.documentCount}`
+    );
+
+    if (result.valid) {
+      void vscode.window.showInformationMessage('PowerSyntax: la cache persistente actual es reutilizable.');
+    } else {
+      void vscode.window.showWarningMessage(`PowerSyntax: la cache persistente requiere rebuild${result.decision.reason ? ` (${result.decision.reason})` : ''}.`);
+    }
+
+    return openMarkdownReportDocument(content);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo validar la cache persistente: ${message}`);
+    return undefined;
+  }
+}
+
+async function showMemoryBudgets(): Promise<string | undefined> {
+  const stats = await refreshRuntimeStatusSnapshot();
+  return openMarkdownReportDocument(buildMemoryBudgetMarkdown(stats));
+}
+
+async function showIndexingState(): Promise<string | undefined> {
+  const stats = await refreshRuntimeStatusSnapshot();
+  return openMarkdownReportDocument(buildIndexingStateMarkdown(lastProgressNotification, stats));
+}
+
+async function showProjectRouting(): Promise<string | undefined> {
+  const stats = await refreshRuntimeStatusSnapshot();
+
+  let manifest: ApiSemanticWorkspaceManifest | undefined;
+  try {
+    manifest = clonePlainData(await publicApiSingleton.getSemanticWorkspaceManifest({
+      maxObjects: 80,
+      maxSymbols: 80,
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(`[ProjectRouting] No se pudo obtener el manifest: ${message}`);
+  }
+
+  let currentObjectContext: ApiCurrentObjectContext | undefined;
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor) {
+    try {
+      currentObjectContext = clonePlainData(await publicApiSingleton.getCurrentObjectContext({
+        uri: activeEditor.document.uri.toString(),
+        line: activeEditor.selection.active.line,
+        character: activeEditor.selection.active.character,
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      outputChannel?.appendLine(`[ProjectRouting] No se pudo obtener el contexto del objeto activo: ${message}`);
+    }
+  }
+
+  return openMarkdownReportDocument(buildProjectRoutingMarkdown(stats, manifest, currentObjectContext));
+}
+
+async function showSourceOriginConflicts(): Promise<string | undefined> {
+  try {
+    const conflicts = clonePlainData(await publicApiSingleton.getCrossProjectSymbolConflicts({
+      maxConflicts: 25,
+      maxCandidatesPerConflict: 4,
+    }));
+    return openMarkdownReportDocument(buildSourceOriginConflictMarkdown(conflicts));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudieron abrir los conflictos de sourceOrigin: ${message}`);
+    return undefined;
+  }
+}
+
+async function rebuildWorkspaceIndex(
+  options?: CoreMaintenanceConfirmationOptions
+): Promise<{ restarted: boolean } | undefined> {
+  if (!extensionContextRef) {
+    void vscode.window.showErrorMessage('PowerSyntax: no hay un contexto de extensión activo para relanzar la indexación.');
+    return undefined;
+  }
+
+  const confirmed = await confirmCoreMaintenanceAction('vscPowerSyntax.rebuildWorkspaceIndex', options);
+  if (!confirmed) {
+    return undefined;
+  }
+
+  try {
+    await restartClient(extensionContextRef);
+    void vscode.window.showInformationMessage('PowerSyntax: rebuild del workspace solicitado; el runtime ha reiniciado discovery e indexación.');
+    return { restarted: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo relanzar la indexación del workspace: ${message}`);
     return undefined;
   }
 }
@@ -2479,29 +2796,27 @@ async function writePbAutoBuildCiHelperBundle(
   helperRootUri: vscode.Uri,
   files: readonly { relativePath: string; content: string }[]
 ): Promise<void> {
-  await vscode.workspace.fs.createDirectory(helperRootUri);
-
-  for (const file of files) {
-    const fileUri = joinUriPath(helperRootUri, file.relativePath);
-    const parentRelativePath = path.posix.dirname(file.relativePath);
-    if (parentRelativePath && parentRelativePath !== '.') {
-      await vscode.workspace.fs.createDirectory(joinUriPath(helperRootUri, parentRelativePath));
-    }
-    await vscode.workspace.fs.writeFile(fileUri, Buffer.from(file.content, 'utf8'));
-  }
+  await writeTextFileBundle(helperRootUri, files);
 }
 
 async function writeSemanticReproPackBundle(
   reproRootUri: vscode.Uri,
   files: readonly { relativePath: string; content: string }[]
 ): Promise<void> {
-  await vscode.workspace.fs.createDirectory(reproRootUri);
+  await writeTextFileBundle(reproRootUri, files);
+}
+
+async function writeTextFileBundle(
+  rootUri: vscode.Uri,
+  files: readonly { relativePath: string; content: string }[]
+): Promise<void> {
+  await vscode.workspace.fs.createDirectory(rootUri);
 
   for (const file of files) {
-    const fileUri = joinUriPath(reproRootUri, file.relativePath);
+    const fileUri = joinUriPath(rootUri, file.relativePath);
     const parentRelativePath = path.posix.dirname(file.relativePath);
     if (parentRelativePath && parentRelativePath !== '.') {
-      await vscode.workspace.fs.createDirectory(joinUriPath(reproRootUri, parentRelativePath));
+      await vscode.workspace.fs.createDirectory(joinUriPath(rootUri, parentRelativePath));
     }
     await vscode.workspace.fs.writeFile(fileUri, Buffer.from(file.content, 'utf8'));
   }
@@ -2535,6 +2850,21 @@ function resolveSupportBundleDestinationUri(
   const timestampSegment = generatedAt.slice(0, 19).replace(/[:T]/g, '-');
   const directoryName = `${suggestSupportBundleDirectoryName(workspaceLabel)}-${timestampSegment}`;
   return vscode.Uri.joinPath(workspaceFolder.uri, 'tools', 'support-bundles', directoryName);
+}
+
+function resolveHealthReportDestinationUri(
+  workspaceFolder: vscode.WorkspaceFolder,
+  generatedAt: string,
+  workspaceLabel: string,
+  overrideDestinationUri?: string
+): vscode.Uri {
+  if (overrideDestinationUri) {
+    return vscode.Uri.parse(overrideDestinationUri);
+  }
+
+  const timestampSegment = generatedAt.slice(0, 19).replace(/[:T]/g, '-');
+  const directoryName = `health-${suggestSupportBundleDirectoryName(workspaceLabel)}-${timestampSegment}`;
+  return vscode.Uri.joinPath(workspaceFolder.uri, 'tools', 'health-reports', directoryName);
 }
 
 function resolveSupportBundleWorkspaceFolder(options?: SupportBundleCommandOptions): vscode.WorkspaceFolder | undefined {
@@ -2782,13 +3112,7 @@ function applyPbAutoBuildProblems(problems: readonly PbAutoBuildProblem[]): void
 }
 
 async function openProjectHealthDashboard(): Promise<void> {
-  const stats = await fetchRuntimeStatusStats();
-  if (stats) {
-    lastStatusStats = stats;
-    if (statusBarItem) {
-      renderProgress(statusBarItem, lastProgressNotification, stats);
-    }
-  }
+  const stats = await refreshRuntimeStatusSnapshot();
 
   let manifest: ApiSemanticWorkspaceManifest | undefined;
   try {
@@ -2810,6 +3134,50 @@ async function openProjectHealthDashboard(): Promise<void> {
     preview: false,
     viewColumn: vscode.ViewColumn.Beside,
   });
+}
+
+async function openMarkdownReportDocument(content: string): Promise<string> {
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content,
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  return content;
+}
+
+async function refreshRuntimeStatusSnapshot(): Promise<RuntimeStatusStats | undefined> {
+  const stats = await fetchRuntimeStatusStats();
+  if (stats) {
+    lastStatusStats = stats;
+    if (statusBarItem) {
+      renderProgress(statusBarItem, lastProgressNotification, stats);
+    }
+  }
+  return stats;
+}
+
+async function confirmCoreMaintenanceAction(
+  command: string,
+  options?: CoreMaintenanceConfirmationOptions
+): Promise<boolean> {
+  if (options?.skipConfirmation) {
+    return true;
+  }
+
+  const model = findCoreMaintenanceCommandModel(command);
+  const confirmationLabel = 'Confirmar';
+  const selection = await vscode.window.showWarningMessage(
+    [model?.title, model?.summary].filter((part): part is string => Boolean(part)).join('\n\n') || 'Confirma la operación de mantenimiento.',
+    { modal: true },
+    confirmationLabel
+  );
+
+  return selection === confirmationLabel;
 }
 
 function buildPowerBuilderDependencyGraphMarkdown(graph: ApiPowerBuilderDependencyGraph): string {
@@ -2981,6 +3349,241 @@ function buildCrossProjectSymbolConflictsMarkdown(conflicts: ApiCrossProjectSymb
     }
     lines.push('');
   }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function pushMarkdownBullet(lines: string[], label: string, value?: string): void {
+  if (!value) {
+    return;
+  }
+
+  lines.push(`- ${label}: ${value}`);
+}
+
+function formatBytesAsMiB(bytes?: number): string | undefined {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes)) {
+    return undefined;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function formatSourceOriginSummaryInline(summary: Record<string, number> | undefined): string | undefined {
+  if (!summary) {
+    return undefined;
+  }
+
+  const parts = Object.entries(summary)
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([sourceOrigin, count]) => `${sourceOrigin} ${count}`);
+
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+function buildMemoryBudgetMarkdown(stats?: RuntimeStatusStats): string {
+  const lines = ['# Memory Budgets', ''];
+  const memory = stats?.memory;
+
+  if (!memory) {
+    lines.push('- Estado: sin snapshot de memoria disponible.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  pushMarkdownBullet(lines, 'Estado', memory.status);
+  pushMarkdownBullet(lines, 'Total', [formatBytesAsMiB(memory.totalEstimatedBytes), formatBytesAsMiB(memory.totalBudgetBytes)]
+    .filter((part): part is string => Boolean(part))
+    .join(' / '));
+  pushMarkdownBullet(lines, 'Proceso', [
+    formatBytesAsMiB(memory.process?.heapUsedBytes) ? `heap ${formatBytesAsMiB(memory.process?.heapUsedBytes)}` : undefined,
+    formatBytesAsMiB(memory.process?.heapTotalBytes) ? `heapTotal ${formatBytesAsMiB(memory.process?.heapTotalBytes)}` : undefined,
+    formatBytesAsMiB(memory.process?.rssBytes) ? `rss ${formatBytesAsMiB(memory.process?.rssBytes)}` : undefined,
+    formatBytesAsMiB(memory.process?.externalBytes) ? `external ${formatBytesAsMiB(memory.process?.externalBytes)}` : undefined,
+  ].filter((part): part is string => Boolean(part)).join(' · '));
+
+  if (!memory.layers?.length) {
+    lines.push('');
+    lines.push('- Capas: sin budgets detallados publicados por el runtime.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  lines.push('');
+  lines.push('## Layers');
+  lines.push('');
+
+  for (const layer of memory.layers) {
+    lines.push(`- ${layer.label}: ${[
+      layer.status,
+      [formatBytesAsMiB(layer.estimatedBytes), formatBytesAsMiB(layer.budgetBytes)]
+        .filter((part): part is string => Boolean(part))
+        .join(' / '),
+      typeof layer.usageRatio === 'number' ? `${Math.round(layer.usageRatio * 100)}%` : undefined,
+      typeof layer.unitCount === 'number' && layer.unitLabel ? `${layer.unitCount} ${layer.unitLabel}` : undefined,
+    ].filter((part): part is string => Boolean(part)).join(' · ')}`);
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildIndexingStateMarkdown(
+  progress: ProgressNotification,
+  stats?: RuntimeStatusStats
+): string {
+  const lines = ['# Indexing State', ''];
+
+  pushMarkdownBullet(lines, 'Estado', formatStatusBarSummary(progress, stats));
+  pushMarkdownBullet(lines, 'Readiness', [stats?.readiness?.state, stats?.readiness?.detail].filter((part): part is string => Boolean(part)).join(' · '));
+  pushMarkdownBullet(lines, 'Indexer', [
+    stats?.indexer?.phase,
+    typeof stats?.indexer?.current === 'number' && typeof stats?.indexer?.total === 'number'
+      ? `${stats.indexer.current}/${stats.indexer.total}`
+      : undefined,
+    typeof stats?.indexer?.degraded === 'boolean' ? `degraded ${stats.indexer.degraded}` : undefined,
+  ].filter((part): part is string => Boolean(part)).join(' · '));
+  pushMarkdownBullet(lines, 'Scheduler', [
+    typeof stats?.scheduler?.pendingNear === 'number' ? `near ${stats.scheduler.pendingNear}` : undefined,
+    typeof stats?.scheduler?.pendingBackground === 'number' ? `background ${stats.scheduler.pendingBackground}` : undefined,
+    stats?.scheduler?.activeNearWorkload ? `activeNear ${stats.scheduler.activeNearWorkload}` : undefined,
+    stats?.scheduler?.activeBackgroundWorkload ? `activeBackground ${stats.scheduler.activeBackgroundWorkload}` : undefined,
+    stats?.scheduler?.throttledBackgroundWorkload ? `throttle ${stats.scheduler.throttledBackgroundWorkload}` : undefined,
+  ].filter((part): part is string => Boolean(part)).join(' · '));
+  pushMarkdownBullet(lines, 'Workspace', [
+    stats?.workspace?.mode,
+    typeof stats?.workspace?.files === 'number' ? `${stats.workspace.files} archivos` : undefined,
+  ].filter((part): part is string => Boolean(part)).join(' · '));
+  pushMarkdownBullet(lines, 'Proyecto', stats?.projectStatus?.summary);
+  pushMarkdownBullet(lines, 'Salud', stats?.health
+    ? [stats.health.status, stats.health.summary].filter((part): part is string => Boolean(part)).join(' · ')
+    : undefined);
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildProjectRoutingMarkdown(
+  stats?: RuntimeStatusStats,
+  manifest?: ApiSemanticWorkspaceManifest,
+  currentObjectContext?: ApiCurrentObjectContext
+): string {
+  const lines = ['# Project Routing', ''];
+  const activeProject = stats?.workspace?.activeProject;
+
+  pushMarkdownBullet(lines, 'Workspace', [
+    stats?.workspace?.mode,
+    typeof stats?.workspace?.files === 'number' ? `${stats.workspace.files} archivos` : undefined,
+  ].filter((part): part is string => Boolean(part)).join(' · '));
+  pushMarkdownBullet(lines, 'Proyecto activo', activeProject?.name
+    ? [
+      activeProject.name,
+      activeProject.kind,
+      typeof activeProject.files?.length === 'number' ? `${activeProject.files.length} archivos` : undefined,
+      typeof activeProject.libraries?.length === 'number' ? `${activeProject.libraries.length} librerías` : undefined,
+    ].filter((part): part is string => Boolean(part)).join(' · ')
+    : undefined);
+
+  if (currentObjectContext?.available) {
+    pushMarkdownBullet(lines, 'Documento activo', currentObjectContext.uri);
+    pushMarkdownBullet(lines, 'Objeto activo', [
+      currentObjectContext.objectInfo?.globalType,
+      currentObjectContext.objectInfo?.objectKind,
+      currentObjectContext.objectInfo?.project,
+      currentObjectContext.objectInfo?.library,
+      currentObjectContext.objectInfo?.sourceOrigin,
+      currentObjectContext.objectInfo?.readiness,
+    ].filter((part): part is string => Boolean(part)).join(' · '));
+    pushMarkdownBullet(lines, 'Routing activo', currentObjectContext.projectContext
+      ? [
+        currentObjectContext.projectContext.name ?? currentObjectContext.projectContext.uri,
+        `${currentObjectContext.projectContext.libraries.length} librerías`,
+      ].filter((part): part is string => Boolean(part)).join(' · ')
+      : undefined);
+  } else if (currentObjectContext?.reason) {
+    pushMarkdownBullet(lines, 'Documento activo', `no disponible · ${currentObjectContext.reason}`);
+  }
+
+  pushMarkdownBullet(lines, 'Source origins', formatSourceOriginSummaryInline(manifest?.sourceOriginSummary));
+
+  if (manifest?.projects?.length) {
+    lines.push('');
+    lines.push('## Projects');
+    lines.push('');
+    for (const project of manifest.projects.slice(0, 8)) {
+      lines.push(`- ${project.name} · ${project.kind} · archivos=${project.fileCount} · librerías=${project.libraries.length}`);
+    }
+    if (manifest.projects.length > 8) {
+      lines.push(`- ... ${manifest.projects.length - 8} proyecto(s) más`);
+    }
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildSourceOriginConflictMarkdown(conflicts: ApiCrossProjectSymbolConflicts): string {
+  if (!conflicts.available) {
+    return [
+      '# SourceOrigin Conflicts',
+      '',
+      `No disponible: ${conflicts.reason ?? 'sin detalle'}`,
+    ].join('\n');
+  }
+
+  const relevant = conflicts.conflicts.filter((conflict) => conflict.sourceOrigins.length > 1);
+  if (relevant.length === 0) {
+    return [
+      '# SourceOrigin Conflicts',
+      '',
+      '- Estado: sin conflictos de sourceOrigin detectados.',
+      `- Resumen: conflictos totales=${conflicts.summary.totalConflictCount}, candidatos=${conflicts.summary.totalCandidateCount}`,
+    ].join('\n');
+  }
+
+  const lines = [
+    '# SourceOrigin Conflicts',
+    '',
+    `- Resumen: sourceOrigin mixto=${relevant.length}, conflictos totales=${conflicts.summary.totalConflictCount}, candidatos=${conflicts.summary.totalCandidateCount}, truncado=${conflicts.summary.truncated ? 'sí' : 'no'}`,
+    '',
+  ];
+
+  for (const conflict of relevant.slice(0, 12)) {
+    lines.push(`## ${conflict.symbolName} (${conflict.kind})`);
+    lines.push('');
+    lines.push(`- Scope: ${conflict.scope}`);
+    lines.push(`- Source origins: ${conflict.sourceOrigins.join(', ')}`);
+    lines.push(`- Resumen: candidatos=${conflict.candidateCount}, proyectos=${conflict.projectCount}, librerías=${conflict.libraryCount}`);
+    lines.push('');
+    for (const candidate of conflict.candidates.slice(0, 4)) {
+      lines.push(`- ${candidate.name} @ ${candidate.uri}${candidate.projectName ? ` | proyecto=${candidate.projectName}` : candidate.projectUri ? ` | proyecto=${candidate.projectUri}` : ''}${candidate.library ? ` | librería=${candidate.library}` : ''}${candidate.sourceOrigin ? ` | origen=${candidate.sourceOrigin}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (relevant.length > 12) {
+    lines.push(`- ... ${relevant.length - 12} conflicto(s) más`);
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildPersistentCacheValidationMarkdown(
+  result: PersistentCacheValidationCommandResult,
+  stats?: RuntimeStatusStats
+): string {
+  const lines = ['# Persistent Cache Validation', ''];
+
+  pushMarkdownBullet(lines, 'Resultado', result.valid ? 'reutilizable' : 'rebuild requerido');
+  pushMarkdownBullet(lines, 'Decisión', [result.decision.action, result.decision.reason].filter((part): part is string => Boolean(part)).join(' · '));
+  pushMarkdownBullet(lines, 'Documentos persistidos', `${result.documentCount}`);
+  pushMarkdownBullet(lines, 'Workspace key', result.workspaceKey);
+  pushMarkdownBullet(lines, 'Checkpoint', result.checkpointUri);
+  pushMarkdownBullet(lines, 'Journal', result.journalUri);
+  pushMarkdownBullet(lines, 'Workspace snapshot', result.maintenance
+    ? [
+      formatBytesAsMiB(result.maintenance.totalBytes) ? `total ${formatBytesAsMiB(result.maintenance.totalBytes)}` : undefined,
+      typeof result.maintenance.journalEntries === 'number' ? `journal ${result.maintenance.journalEntries}` : undefined,
+      formatBytesAsMiB(result.maintenance.journalBytes) ? `journalBytes ${formatBytesAsMiB(result.maintenance.journalBytes)}` : undefined,
+      typeof result.maintenance.partitionCount === 'number' ? `particiones ${result.maintenance.partitionCount}` : undefined,
+    ].filter((part): part is string => Boolean(part)).join(' · ')
+    : undefined);
+  pushMarkdownBullet(lines, 'Runtime', [stats?.persistence?.restoreState, stats?.persistence?.restoreReason].filter((part): part is string => Boolean(part)).join(' · '));
 
   return `${lines.join('\n')}\n`;
 }

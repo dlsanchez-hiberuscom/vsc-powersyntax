@@ -52,6 +52,7 @@ import { buildDataWindowSqlLineage } from './features/dataWindowSqlLineage';
 import { buildWorkspaceMigrationAssistant } from './features/workspaceMigrationAssistant';
 import { buildHierarchyInspection } from './features/hierarchyInspection';
 import { collectReferenceSourcePool } from './features/referenceSourcePool';
+import type { QueryConsumerId } from './features/queryScopePolicy';
 import { buildSemanticWorkspaceManifest } from './features/semanticWorkspaceManifest';
 import { buildSafeBatchRefactorPlan } from './features/safeBatchRefactorPlan';
 import { buildSafeEditPlan } from './features/safeEditPlan';
@@ -62,16 +63,27 @@ import {
 import { provideRename } from './features/rename';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
+import type { CancellationToken } from './runtime/cancellation';
+import { getRuntimeWorkloadPolicy, type RuntimeWorkloadClass } from './runtime/backpressurePolicy';
 import { createLatencyGovernor } from './runtime/latencyGovernor';
 import { buildRuntimeHealthReport } from './runtime/runtimeHealth';
 import { buildRuntimeMemoryReport } from './runtime/memoryBudgets';
+import {
+  applyAdaptiveLimit,
+  buildRuntimeMemoryPressurePolicy,
+  isWorkloadDeferredByMemoryPressure,
+  type RuntimeMemoryPressurePolicy,
+} from './runtime/memoryPressurePolicy';
 import { BuildOrcaJournalStore } from './runtime/buildOrcaJournalStore';
 import { RuntimeJournal } from './runtime/runtimeJournal';
 import {
   PbAutoBuildRunner,
   selectPbAutoBuildBuildFile,
+  type PbAutoBuildRunnerRequest,
 } from './build/pbAutoBuildRunner';
-import { OrcaRunner } from './build/orcaRunner';
+import type { PbAutoBuildRunResult } from '../shared/pbAutoBuildProtocol';
+import { OrcaRunner, type OrcaRunnerRequest } from './build/orcaRunner';
+import type { OrcaRunResult } from '../shared/orcaProtocol';
 import { applySpecDrivenPblUpdate, applySpecDrivenPblUpdateBatch } from './build/specDrivenPblUpdate';
 import { runOrcaStagingImport, runOrcaWriteOperation } from './build/orcaStagingImport';
 import { prepareOrcaStagingExport, restoreOrcaStagingAliases } from './build/orcaStagingExport';
@@ -176,6 +188,10 @@ const MAX_CODE_LENS_CACHE_ENTRIES = 128;
 const codeLensCache = new Map<string, { key: string; lenses: ReturnType<typeof provideReferenceCodeLenses> }>();
 const codeLensCacheCounters = { hits: 0, misses: 0, evictions: 0 };
 let lastHealthJournalSignature = '';
+let lastMemoryPressureReliefReason: string | null = null;
+let lastMemoryPressureSampleAt = 0;
+let lastMemoryPressurePolicy: RuntimeMemoryPressurePolicy | null = null;
+const MEMORY_PRESSURE_SAMPLE_TTL_MS = 200;
 
 type DefinitionCacheEntry = {
   result: ReturnType<typeof provideDefinition>;
@@ -193,6 +209,7 @@ const watcherIntake = createFileWatcherDebouncer({
     void scheduler.enqueueBackground({
       id: `watcher-intake-${Date.now()}`,
       priority: TaskPriority.Background,
+      workload: 'background-indexing',
       execute: async (token) => {
         if (token.isCancelled) return;
         const result = await applyWatchedFileEvents({
@@ -355,6 +372,93 @@ function publishRuntimeProgressReadiness(): void {
   sendProgress(toProgressNotification(snapshot));
 }
 
+function buildRuntimeMemorySnapshot() {
+  return buildRuntimeMemoryReport({
+    analysis: getAnalysisCacheStats(),
+    serving: servingCache.getStats(),
+    documents: documentCache.getStats(),
+    hotContext: hotContextCache.getStats(),
+    codeLens: getCodeLensCacheStats(),
+    kb: knowledgeBase.getStats(),
+  });
+}
+
+function invalidateRuntimeMemoryPressureSample(): void {
+  lastMemoryPressureSampleAt = 0;
+  lastMemoryPressurePolicy = null;
+}
+
+function getRuntimeMemoryPressurePolicy(force = false): RuntimeMemoryPressurePolicy {
+  const now = Date.now();
+  if (!force && lastMemoryPressurePolicy && now - lastMemoryPressureSampleAt < MEMORY_PRESSURE_SAMPLE_TTL_MS) {
+    return lastMemoryPressurePolicy;
+  }
+
+  lastMemoryPressurePolicy = buildRuntimeMemoryPressurePolicy(buildRuntimeMemorySnapshot());
+  lastMemoryPressureSampleAt = now;
+
+  if (lastMemoryPressurePolicy.level === 'healthy') {
+    lastMemoryPressureReliefReason = null;
+  }
+
+  return lastMemoryPressurePolicy;
+}
+
+function ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy {
+  let policy = getRuntimeMemoryPressurePolicy();
+  if (!policy.purgeServingCache) {
+    lastMemoryPressureReliefReason = null;
+    return policy;
+  }
+
+  if (servingCache.size() === 0 || lastMemoryPressureReliefReason === policy.reason) {
+    return policy;
+  }
+
+  invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
+  lastMemoryPressureReliefReason = policy.reason;
+  connection.console.log(`[MEMORY] ${policy.reason}; serving cache vaciado para sostener el carril interactivo.`);
+  runtimeJournal.record({
+    phase: 'health',
+    kind: 'memory-pressure',
+    action: 'serving-cache-relief',
+    severity: 'warning',
+    detail: {
+      level: policy.level,
+      reason: policy.reason,
+      ...(policy.triggerLayer ? { triggerLayer: policy.triggerLayer } : {}),
+      deferredWorkloads: policy.deferredWorkloads,
+    }
+  });
+
+  invalidateRuntimeMemoryPressureSample();
+  policy = getRuntimeMemoryPressurePolicy(true);
+  if (!policy.purgeServingCache) {
+    lastMemoryPressureReliefReason = null;
+  }
+  return policy;
+}
+
+function resolveAdaptiveLimit(requested: unknown, cap: number | undefined, minValue = 0): number | undefined {
+  if (typeof cap !== 'number' || !Number.isFinite(cap)) {
+    return typeof requested === 'number' && Number.isFinite(requested)
+      ? Math.max(minValue, Math.trunc(requested))
+      : undefined;
+  }
+
+  return applyAdaptiveLimit(requested, cap, minValue);
+}
+
+function cacheServingResultWithMemoryPressure<T>(key: string, value: T): void {
+  const policy = ensureRuntimeMemoryPressureRelief();
+  if (!policy.allowServingCacheWrites) {
+    return;
+  }
+
+  cacheServingResult(servingCache, key, value, servingCacheFlushCoordinator);
+  invalidateRuntimeMemoryPressureSample();
+}
+
 function isLatencyPressureHigh(): boolean {
   return !servingLatencyGovernor.isBackgroundAllowed();
 }
@@ -365,6 +469,77 @@ function recordInteractiveLatency(feature: string, elapsedMs: number): void {
   if (isLatencyPressureHigh()) {
     connection.console.log(`[LATENCY] Presion alta tras ${feature}: ${elapsedMs.toFixed(2)}ms.`);
   }
+}
+
+let managedBackgroundTaskSequence = 0;
+
+function nextManagedBackgroundTaskId(prefix: string): string {
+  managedBackgroundTaskSequence += 1;
+  return `${prefix}-${managedBackgroundTaskSequence}`;
+}
+
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function runBackgroundWorkload<T>(
+  idPrefix: string,
+  workload: RuntimeWorkloadClass,
+  execute: (token: CancellationToken) => Promise<T> | T
+): Promise<T> {
+  return scheduler.enqueueBackground({
+    id: nextManagedBackgroundTaskId(idPrefix),
+    priority: TaskPriority.Background,
+    workload,
+    execute: async (token) => {
+      await yieldToEventLoop();
+      if (token.isCancelled) {
+        throw new Error(`Workload ${idPrefix} cancelado antes de iniciar.`);
+      }
+      return execute(token);
+    }
+  });
+}
+
+async function runNearContextWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T> {
+  return scheduler.enqueueNear({
+    id: nextManagedBackgroundTaskId(idPrefix),
+    priority: TaskPriority.Near,
+    workload: 'near-context',
+    execute: async (token) => {
+      await yieldToEventLoop();
+      if (token.isCancelled) {
+        throw new Error(`Workload ${idPrefix} cancelado antes de iniciar.`);
+      }
+      return execute();
+    }
+  });
+}
+
+async function runExportReportingWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T> {
+  return runBackgroundWorkload(idPrefix, 'export-reporting', async () => execute());
+}
+
+async function runMaintenanceWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T> {
+  return runBackgroundWorkload(idPrefix, 'maintenance', async () => execute());
+}
+
+async function runPbAutoBuildWithBackpressure(request: PbAutoBuildRunnerRequest): Promise<PbAutoBuildRunResult> {
+  return runBackgroundWorkload('pbautobuild', 'build', async (token) => {
+    token.onCancelled(() => {
+      pbAutoBuildRunner.cancel();
+    });
+    return pbAutoBuildRunner.run(request);
+  });
+}
+
+async function runOrcaWithBackpressure(request: OrcaRunnerRequest): Promise<OrcaRunResult> {
+  return runBackgroundWorkload('orca', 'legacy-orca', async (token) => {
+    token.onCancelled(() => {
+      orcaRunner.cancel();
+    });
+    return orcaRunner.run(request);
+  });
 }
 
 function makeCodeLensSymbolKey(entity: Entity): string {
@@ -459,9 +634,11 @@ function getCodeLensHierarchyMeta(entity: Entity): { relation?: 'override'; over
 
 async function collectReferenceSourcesForQuery(
   document: TextDocument,
+  consumer: QueryConsumerId,
   queryContext?: ReturnType<typeof createDocumentQueryContext>
 ): Promise<Array<{ uri: string; content: string; lines?: string[]; maskedLines?: string[] }>> {
   const pool = await collectReferenceSourcePool({
+    consumer,
     currentUri: document.uri,
     resolvedTargetUris: queryContext?.resolvedTargets?.targets.map((target) => target.uri) ?? [],
     workspaceState,
@@ -499,6 +676,7 @@ async function buildCodeLensReferenceCounts(
     let pending = sourceCache.get(cacheKey);
     if (!pending) {
       pending = collectReferenceSourcePool({
+        consumer: 'code-lens-references',
         currentUri: entity.uri,
         resolvedTargetUris: [entity.uri],
         workspaceState,
@@ -536,7 +714,29 @@ async function buildCodeLensReferenceCounts(
 }
 
 scheduler.setLogger((msg) => connection.console.log(msg));
-scheduler.setBackgroundAdmissionGate(() => servingLatencyGovernor.isBackgroundAllowed());
+scheduler.setBackgroundAdmissionGate((task) => {
+  const workload = task.workload ?? 'background-indexing';
+  const memoryPolicy = ensureRuntimeMemoryPressureRelief();
+  if (isWorkloadDeferredByMemoryPressure(memoryPolicy, workload)) {
+    return {
+      allowed: false,
+      reason: `${memoryPolicy.reason}:${workload}`
+    };
+  }
+
+  const policy = getRuntimeWorkloadPolicy(workload);
+  if (!policy.throttledByLatency) {
+    return { allowed: true };
+  }
+  if (servingLatencyGovernor.isBackgroundAllowed()) {
+    return { allowed: true };
+  }
+
+  return {
+    allowed: false,
+    reason: `latency-pressure:${workload}`
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Ciclo de Vida (Lifecycle)
@@ -582,7 +782,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       renameProvider: { prepareProvider: true },
       // Spec 106: comandos personalizados expuestos vía workspace/executeCommand.
       executeCommandProvider: {
-        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.crossProjectSymbolConflicts', 'powerbuilder.workspaceMigrationAssistant', 'powerbuilder.dependencyGraph', 'powerbuilder.codeMetrics', 'powerbuilder.technicalDebtReport', 'powerbuilder.dataWindowSqlLineage', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.safeBatchRefactorPlan', 'powerbuilder.applySpecDrivenPblUpdate', 'powerbuilder.applySpecDrivenPblUpdateBatch', 'powerbuilder.semanticWorkspaceManifest', 'powerbuilder.runSemanticCacheMaintenance', 'powerbuilder.formatDocument', 'powerbuilder.listPbAutoBuildBuildFiles', 'powerbuilder.listPbAutoBuildBuildInventory', 'powerbuilder.runPbAutoBuild', 'powerbuilder.cancelPbAutoBuild', 'powerbuilder.runOrcaScript', 'powerbuilder.cancelOrcaScript', 'powerbuilder.exportOrcaStaging', 'powerbuilder.importOrcaStaging', 'powerbuilder.regenerateOrcaLibraries', 'powerbuilder.rebuildOrcaProject']
+        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.crossProjectSymbolConflicts', 'powerbuilder.workspaceMigrationAssistant', 'powerbuilder.dependencyGraph', 'powerbuilder.codeMetrics', 'powerbuilder.technicalDebtReport', 'powerbuilder.dataWindowSqlLineage', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.safeBatchRefactorPlan', 'powerbuilder.applySpecDrivenPblUpdate', 'powerbuilder.applySpecDrivenPblUpdateBatch', 'powerbuilder.semanticWorkspaceManifest', 'powerbuilder.runSemanticCacheMaintenance', 'powerbuilder.validatePersistentCache', 'powerbuilder.clearSemanticCache', 'powerbuilder.formatDocument', 'powerbuilder.listPbAutoBuildBuildFiles', 'powerbuilder.listPbAutoBuildBuildInventory', 'powerbuilder.runPbAutoBuild', 'powerbuilder.cancelPbAutoBuild', 'powerbuilder.runOrcaScript', 'powerbuilder.cancelOrcaScript', 'powerbuilder.exportOrcaStaging', 'powerbuilder.importOrcaStaging', 'powerbuilder.regenerateOrcaLibraries', 'powerbuilder.rebuildOrcaProject']
       }
     }
   };
@@ -603,6 +803,7 @@ connection.onInitialized(() => {
     scheduler.enqueueBackground({
       id: 'workspace-discovery',
       priority: TaskPriority.Background,
+      workload: 'background-indexing',
       execute: async (token) => {
         let earlyRestoreApplied = false;
         let earlyRestoreServingEntries = 0;
@@ -871,6 +1072,7 @@ connection.onHover((params) => {
           kbVersion: knowledgeBase.version
         });
 
+        ensureRuntimeMemoryPressureRelief();
         const cached = servingCache.get(cacheKey);
         if (cached !== undefined) {
           return cached as ReturnType<typeof provideHover>;
@@ -890,7 +1092,7 @@ connection.onHover((params) => {
         }
 
         connection.console.log(formatTiming('hover', elapsedMs));
-        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
+        cacheServingResultWithMemoryPressure(cacheKey, result);
         return result;
       }
     });
@@ -944,6 +1146,7 @@ connection.onDefinition((params) => {
           character: params.position.character,
           kbVersion: knowledgeBase.version
         });
+        ensureRuntimeMemoryPressureRelief();
         const cached = servingCache.get(cacheKey);
         if (isDefinitionCacheEntry(cached)) {
           const readiness = resolveServingReadiness({
@@ -983,10 +1186,10 @@ connection.onDefinition((params) => {
         }
 
         connection.console.log(formatTiming('definition', elapsedMs));
-        cacheServingResult(servingCache, cacheKey, {
+        cacheServingResultWithMemoryPressure(cacheKey, {
           result,
           resolutionConfidence: queryContext.resolutionConfidence
-        }, servingCacheFlushCoordinator);
+        });
         return result;
       }
     });
@@ -1022,7 +1225,7 @@ connection.onReferences(async (params) => {
       connection.console.warn(readiness.warningMessage);
       return readiness.blockedResult;
     }
-    const sources = await collectReferenceSourcesForQuery(document, queryContext);
+    const sources = await collectReferenceSourcesForQuery(document, 'references', queryContext);
     const { result, elapsedMs } = measureMs(() =>
       provideReferences(
         document,
@@ -1073,9 +1276,28 @@ connection.onSignatureHelp((params) => {
           character: params.position.character,
           kbVersion: knowledgeBase.version
         });
+        const readiness = resolveServingReadiness({
+          feature: 'signature-help',
+          consumerLabel: 'signatureHelp',
+          snapshot: buildRuntimeProgressReadiness(document.uri),
+          blockedResult: null,
+          context: {
+            latencyOverloaded: isLatencyPressureHigh()
+          }
+        });
+        ensureRuntimeMemoryPressureRelief();
         const cached = servingCache.get(cacheKey);
         if (cached !== undefined) {
+          if (readiness.blocked) {
+            connection.console.warn(readiness.warningMessage);
+            return readiness.blockedResult;
+          }
           return cached as ReturnType<typeof provideSignatureHelp>;
+        }
+
+        if (readiness.blocked) {
+          connection.console.warn(readiness.warningMessage);
+          return readiness.blockedResult;
         }
 
         const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache));
@@ -1087,7 +1309,7 @@ connection.onSignatureHelp((params) => {
         }
 
         connection.console.log(formatTiming('signatureHelp', elapsedMs));
-        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
+        cacheServingResultWithMemoryPressure(cacheKey, result);
         return result;
       }
     });
@@ -1128,6 +1350,7 @@ connection.onCompletion((params) => {
           kbVersion: knowledgeBase.version,
           extra: `${params.context?.triggerKind ?? ''}|${params.context?.triggerCharacter ?? ''}`
         });
+        ensureRuntimeMemoryPressureRelief();
         const cached = servingCache.get(cacheKey);
         if (cached !== undefined) {
           return cached as ReturnType<typeof provideCompletion>;
@@ -1147,7 +1370,7 @@ connection.onCompletion((params) => {
         }
 
         connection.console.log(formatTiming('completion', elapsedMs));
-        cacheServingResult(servingCache, cacheKey, result, servingCacheFlushCoordinator);
+        cacheServingResultWithMemoryPressure(cacheKey, result);
         return result;
       }
     });
@@ -1469,7 +1692,7 @@ connection.onRenameRequest(async (params) => {
     params.newName,
     knowledgeBase,
     inheritanceGraph,
-    await collectReferenceSourcesForQuery(document, queryContext),
+    await collectReferenceSourcesForQuery(document, 'rename', queryContext),
     systemCatalog,
     hotContextCache,
     queryContext
@@ -1494,6 +1717,7 @@ connection.onExecuteCommand(async (params) => {
       const progressReadiness = buildRuntimeProgressReadiness();
       const buildOrcaJournalUri = buildOrcaJournal.storageUri;
       const cacheMaintenance = cacheStore ? await cacheStore.inspectMaintenance() : undefined;
+      const memory = buildRuntimeMemorySnapshot();
       const baseStats = {
         kb: stats,
         scheduler: sched,
@@ -1523,14 +1747,7 @@ connection.onExecuteCommand(async (params) => {
           codeLens: getCodeLensCacheStats(),
           watcher: watcherIntake.getStats()
         },
-        memory: buildRuntimeMemoryReport({
-          analysis: getAnalysisCacheStats(),
-          serving: servingCache.getStats(),
-          documents: documentCache.getStats(),
-          hotContext: hotContextCache.getStats(),
-          codeLens: getCodeLensCacheStats(),
-          kb: stats,
-        }),
+        memory,
         projectModel: projectStats,
         buildFiles: workspaceState.getBuildFileSummary(),
         buildRunner: pbAutoBuildRunner.getSnapshot(),
@@ -1619,7 +1836,7 @@ connection.onExecuteCommand(async (params) => {
         throw new Error(selection.detail ?? 'No se pudo seleccionar un build file utilizable.');
       }
 
-      const runResult = await pbAutoBuildRunner.run({
+      const runResult = await runPbAutoBuildWithBackpressure({
         executablePath,
         buildFile: selection.buildFile,
         timeoutMs
@@ -1696,7 +1913,7 @@ connection.onExecuteCommand(async (params) => {
         ? (request as { timeoutMs: number }).timeoutMs
         : undefined;
 
-      return orcaRunner.run({
+      return runOrcaWithBackpressure({
         executablePath,
         scriptUri,
         timeoutMs
@@ -1739,7 +1956,7 @@ connection.onExecuteCommand(async (params) => {
         fs,
       });
 
-      const result = await orcaRunner.run({
+      const result = await runOrcaWithBackpressure({
         executablePath,
         scriptUri: prepared.scriptUri,
         timeoutMs,
@@ -1801,7 +2018,7 @@ connection.onExecuteCommand(async (params) => {
         workspaceFolders,
         workspaceState,
         fs,
-        runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+        runOrca: (orcaRequest) => runOrcaWithBackpressure(orcaRequest),
         journal: runtimeJournal,
       });
     }
@@ -1835,7 +2052,7 @@ connection.onExecuteCommand(async (params) => {
         workspaceFolders,
         workspaceState,
         fs,
-        runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+        runOrca: (orcaRequest) => runOrcaWithBackpressure(orcaRequest),
         journal: runtimeJournal,
       });
     }
@@ -1922,7 +2139,7 @@ connection.onExecuteCommand(async (params) => {
         }
       }
 
-      return buildCurrentObjectContext(
+      return runNearContextWorkload('current-object-context', () => buildCurrentObjectContext(
         document,
         {
           ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
@@ -1937,7 +2154,7 @@ connection.onExecuteCommand(async (params) => {
           workspaceState,
           hotContext: hotContextCache,
         }
-      );
+      ));
     }
     case 'powerbuilder.analyzeImpact': {
       const [uriArg, lineArg, characterArg, safeRefsArg] = params.arguments ?? [];
@@ -1979,7 +2196,7 @@ connection.onExecuteCommand(async (params) => {
         }
       }
 
-      return buildImpactAnalysis(
+      return runExportReportingWorkload('impact-analysis', () => buildImpactAnalysis(
         document,
         {
           ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
@@ -2004,7 +2221,7 @@ connection.onExecuteCommand(async (params) => {
           workspaceState,
           hotContext: hotContextCache,
         }
-      );
+      ));
     }
     case 'powerbuilder.safeEditPlan': {
       const [uriArg, lineArg, characterArg, safeRefsArg] = params.arguments ?? [];
@@ -2044,7 +2261,7 @@ connection.onExecuteCommand(async (params) => {
         }
       }
 
-      return buildSafeEditPlan(
+      return runExportReportingWorkload('safe-edit-plan', () => buildSafeEditPlan(
         document,
         {
           ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
@@ -2069,13 +2286,13 @@ connection.onExecuteCommand(async (params) => {
           workspaceState,
           hotContext: hotContextCache,
         }
-      );
+      ));
     }
     case 'powerbuilder.safeBatchRefactorPlan': {
       const [requestArg] = params.arguments ?? [];
       const request = typeof requestArg === 'object' && requestArg !== null ? requestArg as import('./../shared/publicApi').ApiSafeBatchRefactorPlanRequest : undefined;
 
-      return buildSafeBatchRefactorPlan(
+      return runExportReportingWorkload('safe-batch-refactor-plan', () => buildSafeBatchRefactorPlan(
         request,
         async (targetUri) => {
           const opened = documents.get(targetUri);
@@ -2107,7 +2324,7 @@ connection.onExecuteCommand(async (params) => {
           workspaceState,
           hotContext: hotContextCache,
         }
-      );
+      ));
     }
     case 'powerbuilder.applySpecDrivenPblUpdate': {
       const request = Array.isArray(params.arguments) ? params.arguments[0] : undefined;
@@ -2197,7 +2414,7 @@ connection.onExecuteCommand(async (params) => {
           kb: knowledgeBase,
           graph: inheritanceGraph,
           systemCatalog,
-          runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+          runOrca: (orcaRequest) => runOrcaWithBackpressure(orcaRequest),
           loadSource: async (targetUri) => {
             const opened = documents.get(targetUri);
             if (opened) {
@@ -2237,7 +2454,7 @@ connection.onExecuteCommand(async (params) => {
           kb: knowledgeBase,
           graph: inheritanceGraph,
           systemCatalog,
-          runOrca: (orcaRequest) => orcaRunner.run(orcaRequest),
+          runOrca: (orcaRequest) => runOrcaWithBackpressure(orcaRequest),
           loadSource: async (targetUri) => {
             const opened = documents.get(targetUri);
             if (opened) {
@@ -2265,10 +2482,13 @@ connection.onExecuteCommand(async (params) => {
     case 'powerbuilder.semanticWorkspaceManifest': {
       const [maxObjectsArg, maxSymbolsArg] = params.arguments ?? [];
       const progressReadiness = buildRuntimeProgressReadiness();
-      return buildSemanticWorkspaceManifest(
+      const reportLimits = ensureRuntimeMemoryPressureRelief().reportLimits?.semanticWorkspaceManifest;
+      const maxObjects = resolveAdaptiveLimit(maxObjectsArg, reportLimits?.maxObjects, 1);
+      const maxSymbols = resolveAdaptiveLimit(maxSymbolsArg, reportLimits?.maxSymbols, 1);
+      return runExportReportingWorkload('semantic-workspace-manifest', () => buildSemanticWorkspaceManifest(
         {
-          ...(typeof maxObjectsArg === 'number' ? { maxObjects: Math.max(1, Math.trunc(maxObjectsArg)) } : {}),
-          ...(typeof maxSymbolsArg === 'number' ? { maxSymbols: Math.max(1, Math.trunc(maxSymbolsArg)) } : {}),
+          ...(typeof maxObjects === 'number' ? { maxObjects } : {}),
+          ...(typeof maxSymbols === 'number' ? { maxSymbols } : {}),
         },
         knowledgeBase,
         inheritanceGraph,
@@ -2278,42 +2498,92 @@ connection.onExecuteCommand(async (params) => {
           state: progressReadiness.readiness.state,
           detail: progressReadiness.readiness.detail,
         }
-      );
+      ));
     }
     case 'powerbuilder.runSemanticCacheMaintenance': {
       if (!cacheStore) {
         throw new Error('No hay una caché semántica persistida activa para mantener.');
       }
 
-      return cacheStore.runMaintenance(buildCacheCheckpointMetadata());
+      const activeCacheStore = cacheStore;
+      return runMaintenanceWorkload('semantic-cache-maintenance', () => activeCacheStore.runMaintenance(buildCacheCheckpointMetadata()));
+    }
+    case 'powerbuilder.validatePersistentCache': {
+      if (!cacheStore) {
+        return {
+          valid: false,
+          decision: { action: 'rebuild', reason: 'missing-persisted-state' },
+          documentCount: 0,
+        };
+      }
+
+      const activeCacheStore = cacheStore;
+      return runMaintenanceWorkload('semantic-cache-validate', async () => {
+        const restore = await activeCacheStore.load(buildCacheCheckpointMetadata());
+        const maintenance = await activeCacheStore.inspectMaintenance();
+        return {
+          valid: restore.decision.action === 'reuse',
+          decision: restore.decision,
+          documentCount: restore.checkpoint.documents.length,
+          workspaceKey: activeCacheStore.workspaceKey,
+          checkpointUri: activeCacheStore.checkpointUri,
+          journalUri: activeCacheStore.journalUri,
+          maintenance: maintenance.currentWorkspace,
+        };
+      });
+    }
+    case 'powerbuilder.clearSemanticCache': {
+      if (!cacheStore) {
+        return {
+          cleared: false,
+          reason: 'no-persisted-cache-active',
+        };
+      }
+
+      const activeCacheStore = cacheStore;
+      return runMaintenanceWorkload('semantic-cache-clear', async () => {
+        await activeCacheStore.clear();
+        return {
+          cleared: true,
+          workspaceKey: activeCacheStore.workspaceKey,
+          storageUri: activeCacheStore.storageUri,
+          checkpointUri: activeCacheStore.checkpointUri,
+          journalUri: activeCacheStore.journalUri,
+        };
+      });
     }
     case 'powerbuilder.crossProjectSymbolConflicts': {
       const [symbolNameArg, maxConflictsArg, maxCandidatesPerConflictArg] = params.arguments ?? [];
-      return buildCrossProjectSymbolConflicts(
+      const reportLimits = ensureRuntimeMemoryPressureRelief().reportLimits?.crossProjectSymbolConflicts;
+      const maxConflicts = resolveAdaptiveLimit(maxConflictsArg, reportLimits?.maxConflicts, 0);
+      const maxCandidatesPerConflict = resolveAdaptiveLimit(maxCandidatesPerConflictArg, reportLimits?.maxCandidatesPerConflict, 0);
+      return runExportReportingWorkload('cross-project-symbol-conflicts', () => buildCrossProjectSymbolConflicts(
         {
           ...(typeof symbolNameArg === 'string' && symbolNameArg.trim().length > 0 ? { symbolName: symbolNameArg } : {}),
-          ...(typeof maxConflictsArg === 'number' ? { maxConflicts: Math.max(0, Math.trunc(maxConflictsArg)) } : {}),
-          ...(typeof maxCandidatesPerConflictArg === 'number' ? { maxCandidatesPerConflict: Math.max(0, Math.trunc(maxCandidatesPerConflictArg)) } : {}),
+          ...(typeof maxConflicts === 'number' ? { maxConflicts } : {}),
+          ...(typeof maxCandidatesPerConflict === 'number' ? { maxCandidatesPerConflict } : {}),
         },
         knowledgeBase,
         workspaceState,
-      );
+      ));
     }
     case 'powerbuilder.workspaceMigrationAssistant': {
       const [preferredTargetModeArg, maxRecommendationsArg] = params.arguments ?? [];
-      return buildWorkspaceMigrationAssistant(
+      const reportLimits = ensureRuntimeMemoryPressureRelief().reportLimits?.workspaceMigrationAssistant;
+      const maxRecommendations = resolveAdaptiveLimit(maxRecommendationsArg, reportLimits?.maxRecommendations, 0);
+      return runExportReportingWorkload('workspace-migration-assistant', () => buildWorkspaceMigrationAssistant(
         {
           ...(preferredTargetModeArg === 'workspace' || preferredTargetModeArg === 'solution'
             ? { preferredTargetMode: preferredTargetModeArg }
             : {}),
-          ...(typeof maxRecommendationsArg === 'number' ? { maxRecommendations: Math.max(0, Math.trunc(maxRecommendationsArg)) } : {}),
+          ...(typeof maxRecommendations === 'number' ? { maxRecommendations } : {}),
         },
         workspaceState,
-      );
+      ));
     }
     case 'powerbuilder.dependencyGraph': {
       const [uriArg, objectNameArg, maxDependenciesArg, maxDependentsArg] = params.arguments ?? [];
-      return buildPowerBuilderDependencyGraph(
+      return runNearContextWorkload('dependency-graph', () => buildPowerBuilderDependencyGraph(
         {
           ...(typeof uriArg === 'string' ? { uri: uriArg } : {}),
           ...(typeof objectNameArg === 'string' && objectNameArg.trim().length > 0 ? { objectName: objectNameArg } : {}),
@@ -2322,31 +2592,37 @@ connection.onExecuteCommand(async (params) => {
         },
         knowledgeBase,
         workspaceState,
-      );
+      ));
     }
     case 'powerbuilder.codeMetrics': {
       const [maxObjectsArg] = params.arguments ?? [];
-      return buildPowerBuilderCodeMetrics(
+      const reportLimits = ensureRuntimeMemoryPressureRelief().reportLimits?.codeMetrics;
+      const maxObjects = resolveAdaptiveLimit(maxObjectsArg, reportLimits?.maxObjects, 0);
+      return runExportReportingWorkload('code-metrics', () => buildPowerBuilderCodeMetrics(
         {
-          ...(typeof maxObjectsArg === 'number' ? { maxObjects: Math.max(0, Math.trunc(maxObjectsArg)) } : {}),
+          ...(typeof maxObjects === 'number' ? { maxObjects } : {}),
         },
         knowledgeBase,
         workspaceState,
         getDiagnosticsSummary(),
-      );
+      ));
     }
     case 'powerbuilder.technicalDebtReport': {
       const [maxObjectsArg, maxHotspotsArg, maxRecommendationsArg] = params.arguments ?? [];
-      return buildPowerBuilderTechnicalDebtReport(
+      const reportLimits = ensureRuntimeMemoryPressureRelief().reportLimits?.technicalDebtReport;
+      const maxObjects = resolveAdaptiveLimit(maxObjectsArg, reportLimits?.maxObjects, 0);
+      const maxHotspots = resolveAdaptiveLimit(maxHotspotsArg, reportLimits?.maxHotspots, 0);
+      const maxRecommendations = resolveAdaptiveLimit(maxRecommendationsArg, reportLimits?.maxRecommendations, 0);
+      return runExportReportingWorkload('technical-debt-report', () => buildPowerBuilderTechnicalDebtReport(
         {
-          ...(typeof maxObjectsArg === 'number' ? { maxObjects: Math.max(0, Math.trunc(maxObjectsArg)) } : {}),
-          ...(typeof maxHotspotsArg === 'number' ? { maxHotspots: Math.max(0, Math.trunc(maxHotspotsArg)) } : {}),
-          ...(typeof maxRecommendationsArg === 'number' ? { maxRecommendations: Math.max(0, Math.trunc(maxRecommendationsArg)) } : {}),
+          ...(typeof maxObjects === 'number' ? { maxObjects } : {}),
+          ...(typeof maxHotspots === 'number' ? { maxHotspots } : {}),
+          ...(typeof maxRecommendations === 'number' ? { maxRecommendations } : {}),
         },
         knowledgeBase,
         workspaceState,
         getDiagnosticsSummary(),
-      );
+      ));
     }
     case 'powerbuilder.dataWindowSqlLineage': {
       const [uriArg, lineArg, dataObjectNameArg, maxDepthArg] = params.arguments ?? [];

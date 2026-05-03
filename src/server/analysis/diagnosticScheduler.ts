@@ -29,6 +29,7 @@ export function scheduleDiagnostics(
     void scheduler.runInteractive({
       id: `diagnostics-${document.uri}`,
       priority: TaskPriority.Interactive,
+      workload: 'diagnostics',
       execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState)
     });
   }, delayMs);
@@ -49,6 +50,7 @@ export function publishDiagnosticsNow(
   void scheduler.runInteractive({
     id: `diagnostics-${document.uri}`,
     priority: TaskPriority.Interactive,
+    workload: 'diagnostics',
     execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState)
   });
 }

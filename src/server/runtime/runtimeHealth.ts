@@ -91,6 +91,16 @@ export function buildRuntimeHealthReport(
     });
   }
 
+  if (stats.scheduler?.throttledBackgroundWorkload || stats.scheduler?.throttledBackgroundReason) {
+    pushFinding(findings, checkedLayers, {
+      code: 'scheduler-background-throttled',
+      layer: 'scheduler',
+      severity: 'info',
+      message: `background throttled${stats.scheduler.throttledBackgroundWorkload ? ` (${stats.scheduler.throttledBackgroundWorkload})` : ''}`,
+      ...(stats.scheduler.throttledBackgroundReason ? { detail: stats.scheduler.throttledBackgroundReason } : {}),
+    });
+  }
+
   if (typeof stats.projectModel?.orphanFiles === 'number' && stats.projectModel.orphanFiles > 0) {
     pushFinding(findings, checkedLayers, {
       code: 'project-model-orphans',

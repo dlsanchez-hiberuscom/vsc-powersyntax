@@ -101,6 +101,15 @@ Regla: cualquier renombrado futuro hacia `PB-*` requiere compatibilidad explíci
 
 ## 4. Reglas de símbolos
 
+## 4.0 Contrato vigente de ambigüedad semántica
+
+Estado operativo tras `B280`:
+
+- `distance-minimum` identifica empates reales de distancia mínima dentro del winner path semántico y se publica con `distance-ambiguity`;
+- `global-fallback` ambiguo identifica varios winners tras caer al fallback global y se publica con `fallback-ambiguity`;
+- `source-origin-conflict` se emite cuando el winner queda resuelto por prioridad de `sourceOrigin` descartando origins más débiles como `orca-staging`;
+- `queryContext`, hover, definition, references y rename deben consumir esta señal compartida desde el query engine y no volver a inferir ambigüedad local por nombre visible o por conteo plano de candidatos.
+
 ## PB-SYM-001 — Unresolved symbol
 
 - **Estado:** draft

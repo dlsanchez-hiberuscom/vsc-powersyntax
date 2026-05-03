@@ -9,6 +9,37 @@ import {
   simulateTaskExecutionDryRun,
   toApiSymbol,
 } from '../../../src/shared/publicApi';
+import { loadFixture } from '../helpers/fixtureLoader';
+
+interface LegacyPublicContractFixture {
+  apiVersion: string;
+  apiVersionMajor: number;
+  extensionId: string;
+  methods: Array<{
+    name: string;
+    responseSchema?: string;
+  }>;
+  schemas: Array<{
+    name: string;
+  }>;
+  capabilities: {
+    readOnlyMethods: string[];
+    readOnlyTools: string[];
+  };
+}
+
+interface LegacyReadOnlyToolBridgeFixture {
+  schemaVersion: string;
+  apiVersion: string;
+  tools: Array<{
+    name: string;
+    responseSchema: string;
+  }>;
+}
+
+function loadCompatibilityFixture<T>(fileName: string): T {
+  return JSON.parse(loadFixture('compatibility', fileName)) as T;
+}
 
 suite('unit/publicApi (B109)', () => {
   test('versión exportada', () => {
@@ -115,6 +146,68 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(single?.validationRequired.includes('safe-edit-plan'));
     assert.ok(single?.receipts.includes('journalUri'));
     assert.ok(single?.handoff.some((entry) => entry.includes('docs/spec-driven-development.md')));
+  });
+
+  test('descriptor contractual y bridge mantienen compatibilidad con fixtures versionados', () => {
+    const descriptor = getPublicApiContractDescriptor();
+    const bridge = getReadOnlyToolBridgeDescriptor();
+    const legacyContract = loadCompatibilityFixture<LegacyPublicContractFixture>('public-contract.v2.11.0.json');
+    const legacyBridge = loadCompatibilityFixture<LegacyReadOnlyToolBridgeFixture>('read-only-tool-bridge.v1.json');
+
+    assert.equal(isApiVersionCompatible(legacyContract.apiVersion), true);
+    assert.equal(descriptor.extensionId, legacyContract.extensionId);
+    assert.equal(descriptor.apiVersionMajor, legacyContract.apiVersionMajor);
+    assert.ok(legacyContract.capabilities.readOnlyMethods.every((method) => descriptor.capabilities.readOnlyMethods.includes(method)));
+    assert.ok(legacyContract.capabilities.readOnlyTools.every((tool) => descriptor.capabilities.readOnlyTools.some((current) => current === tool)));
+    assert.ok(legacyContract.methods.every((method) => descriptor.methods.some((current) => current.name === method.name && current.responseSchema === method.responseSchema)));
+    assert.ok(legacyContract.schemas.every((schema) => descriptor.schemas.some((current) => current.name === schema.name)));
+
+    assert.equal(bridge.schemaVersion, legacyBridge.schemaVersion);
+    assert.equal(isApiVersionCompatible(legacyBridge.apiVersion), true);
+    assert.ok(legacyBridge.tools.every((tool) => bridge.tools.some((current) => current.name === tool.name && current.responseSchema === tool.responseSchema)));
+    assert.deepEqual(JSON.parse(JSON.stringify(descriptor)), descriptor);
+    assert.deepEqual(JSON.parse(JSON.stringify(bridge)), bridge);
+  });
+
+  test('descriptor contractual publica observabilidad local versionada sin telemetría externa', () => {
+    const descriptor = getPublicApiContractDescriptor();
+    const requiredDomains = [
+      'readiness',
+      'indexing',
+      'cache',
+      'memory',
+      'latency',
+      'build',
+      'orca',
+      'diagnostics',
+      'query-trace',
+      'support-bundle',
+      'health',
+    ];
+
+    assert.equal(descriptor.observability.schemaVersion, '1.0.0');
+    assert.equal(descriptor.observability.apiVersion, PUBLIC_API_VERSION);
+    assert.equal(descriptor.observability.privacy.externalTelemetry, false);
+    assert.equal(descriptor.observability.privacy.localOnly, true);
+    assert.equal(descriptor.observability.privacy.offlineExportRequiresExplicitUserAction, true);
+    assert.ok(requiredDomains.every((domain) => descriptor.observability.surfaces.some((surface) => surface.domain === domain)));
+    assert.ok(
+      descriptor.observability.surfaces.some((surface) => surface.domain === 'support-bundle'
+        && surface.exposure === 'offline-export'
+        && surface.command === 'vscPowerSyntax.exportSupportBundle'
+        && surface.redaction === 'sanitized')
+    );
+    assert.ok(
+      descriptor.observability.surfaces.some((surface) => surface.domain === 'health'
+        && surface.schema === 'ApiRuntimeHealthReport'
+        && surface.fieldPath === 'health'
+        && surface.method === 'getServerStats')
+    );
+    assert.ok(
+      descriptor.observability.surfaces.some((surface) => surface.domain === 'query-trace'
+        && surface.fieldPath === 'lastQueryTrace'
+        && surface.tool === 'server-stats')
+    );
   });
 
   test('simula dry-run de task execution sin ejecutar writes', () => {

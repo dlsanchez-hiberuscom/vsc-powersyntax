@@ -6,6 +6,7 @@ import {
   type ApiPowerBuilderDependencyGraphRequest,
 } from '../../shared/publicApi';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { buildSymbolKey } from '../knowledge/symbolKey';
 import { EntityKind, type Entity } from '../knowledge/types';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import type { WorkspaceState } from '../workspace/workspaceState';
@@ -139,6 +140,7 @@ function createFocusDescriptor(entity: Entity, workspaceState: WorkspaceState): 
   return {
     objectName: entity.name,
     uri: entity.uri,
+    identityKey: buildSymbolKey(entity),
     ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
     ...(projectContext?.projectUri ? { projectUri: projectContext.projectUri } : {}),
     ...(library ? { library } : {}),
@@ -161,6 +163,7 @@ function createEntityNode(
     label: entity.name,
     kind,
     resolution,
+    identityKey: buildSymbolKey(entity),
     uri: entity.uri,
     ...(projectContext?.projectUri ? { projectUri: projectContext.projectUri } : {}),
     ...(library ? { library } : {}),

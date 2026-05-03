@@ -6,7 +6,7 @@ import {
 } from '../../shared/publicApi';
 import { compareSourceOriginPriority, type SourceOrigin } from '../../shared/sourceOrigin';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
-import { buildSymbolKey } from '../knowledge/symbolKey';
+import { buildConflictFamilyKey, buildSymbolKey } from '../knowledge/symbolKey';
 import { Entity, EntityKind } from '../knowledge/types';
 import { normalizeUri } from '../system/uriUtils';
 import type { WorkspaceState } from '../workspace/workspaceState';
@@ -193,6 +193,7 @@ function toApiCandidate(candidate: CandidateWithContext): ApiCrossProjectSymbolC
     uri: candidate.entity.uri,
     line: candidate.entity.line,
     character: candidate.entity.character,
+    identityKey: buildSymbolKey(candidate.entity),
     ...(getEntityOwnerName(candidate.entity) ? { ownerName: getEntityOwnerName(candidate.entity) } : {}),
     ...(typeof candidate.entity.parameterCount === 'number' ? { parameterCount: candidate.entity.parameterCount } : {}),
     ...(candidate.entity.signature ? { signature: candidate.entity.signature } : {}),
@@ -295,7 +296,7 @@ export function buildCrossProjectSymbolConflicts(
   for (const entity of kb.queryEntities({
     include: (candidate) => isConflictCandidate(candidate) && (!symbolName || candidate.name.toLowerCase() === symbolName),
   })) {
-    const symbolKey = buildSymbolKey(entity);
+    const symbolKey = buildConflictFamilyKey(entity);
     const bucket = groupedCandidates.get(symbolKey) ?? [];
     bucket.push(toCandidateWithContext(entity, workspaceState));
     groupedCandidates.set(symbolKey, bucket);

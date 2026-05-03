@@ -2508,6 +2508,242 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run build:test`
 - `npx mocha --ui tdd out/test/server/unit/definition.test.js out/test/server/unit/hover.test.js`
 
+## 1.134 B280. Ambiguity model v2 for query engine — **Cerrada (spec 325, ambiguity model v2 for query engine 2026-05)**
+
+**Objetivo:** diferenciar ambigüedad real del query engine, `global-fallback` ambiguo y conflicto de `sourceOrigin` sin abrir un segundo motor de resolución ni volver a comparaciones opacas por nombre.
+
+**Resultado registrado:**
+- `src/server/knowledge/resolution/semanticQueryService.ts` publica ya `ambiguityKind`, `fallback-ambiguity` y `source-origin-conflict` además de la evidence previa del winner path;
+- `src/server/features/queryContext.ts` expone esa clasificación a features del editor, y `src/server/features/hoverFormat.ts` distingue ya entre empate por distancia mínima y ambigüedad de `global-fallback`;
+- `test/server/unit/semanticQueryService.test.ts`, `queryContext.test.ts`, `hoverFormat.test.ts`, `hover.test.ts`, `definition.test.ts`, `references.test.ts` y `rename.test.ts` fijan el cierre de `B280` y preservan los guardrails previos;
+- `docs/rules-catalog.md`, `docs/testing.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B281`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticQueryService.test.js out/test/server/unit/queryContext.test.js out/test/server/unit/hoverFormat.test.js out/test/server/unit/hover.test.js out/test/server/unit/definition.test.js`
+- `npx mocha --ui tdd out/test/server/unit/references.test.js out/test/server/unit/rename.test.js`
+
+## 1.133 B279. Symbol identity canonical key v2 — **Cerrada (spec 324, symbol identity canonical key v2 2026-05)**
+
+**Objetivo:** endurecer la identidad canónica exacta de símbolo para que query engine, reports y surfaces visibles no vuelvan a comparar solo por nombre y no mezclen source real con `orca-staging`.
+
+**Resultado registrado:**
+- `src/server/knowledge/symbolKey.ts` publica ya `buildSymbolKey` exacta y `buildConflictFamilyKey` como única agregación relajada permitida para conflictos cross-project/cross-library;
+- `src/server/knowledge/resolution/semanticQueryService.ts`, `src/server/features/references.ts`, `src/server/features/rename.ts` y `src/server/features/crossProjectSymbolConflicts.ts` separan ya identidad exacta, family key y preferencia por la surface local o real frente a staging;
+- `src/server/features/workspaceSymbols.ts`, `src/server/features/semanticWorkspaceManifest.ts`, `src/server/features/dependencyGraph.ts`, `src/server/features/crossProjectSymbolConflicts.ts` y `src/shared/publicApi.ts` publican `identityKey` canónica en exported symbols, manifest, dependency graph y candidatos de conflicto;
+- `test/server/unit/symbolKey.test.ts`, `references.test.ts`, `rename.test.ts`, `semanticWorkspaceManifest.test.ts`, `dependencyGraph.test.ts` y `crossProjectSymbolConflicts.test.ts` fijan el cierre de `B279`;
+- `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/testing.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B280`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/symbolKey.test.js out/test/server/unit/crossProjectSymbolConflicts.test.js`
+- `npx mocha --ui tdd out/test/server/unit/references.test.js out/test/server/unit/rename.test.js`
+- `npx mocha --ui tdd out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/dependencyGraph.test.js out/test/server/unit/crossProjectSymbolConflicts.test.js`
+
+## 1.132 B278. Core maintenance command pack — **Cerrada (spec 323, core maintenance command pack 2026-05)**
+
+**Objetivo:** exponer un pack homogéneo de comandos seguros para inspeccionar y mantener el core, reutilizando observabilidad local, manifest, support bundle y persistencia v2 sin abrir rails paralelos.
+
+**Resultado registrado:**
+- `src/client/coreMaintenanceCommandCatalog.ts` fija el catálogo tipado de los nueve comandos de `B278` y su clasificación `read-only` frente a `confirmable`;
+- `src/client/extension.ts`, `src/server/server.ts` y `package.json` exponen ya el pack completo: `exportHealthReport`, `showMemoryBudgets`, `showIndexingState`, `showProjectRouting`, `showSourceOriginConflicts`, `validatePersistentCache`, `clearSemanticCache`, `rebuildWorkspaceIndex` y el `exportSupportBundle` ya existente, integrados además en `openStatusMenu`;
+- `test/server/unit/coreMaintenanceCommandCatalog.test.ts`, `test/smoke/extension.test.ts` y `test/smoke/health-report.extension.test.ts` fijan el wiring del pack y el export real del health report sobre dashboard/stats/manifest del workspace;
+- `README.md`, `docs/developer-workflows.md`, `docs/testing.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B279`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/coreMaintenanceCommandCatalog.test.js`
+- `npm run test:smoke -- --grep "smoke/extension|smoke/health-report-extension"`
+
+## 1.131 B272. PowerBuilder parser resilience fuzzing — **Cerrada (spec 322, powerbuilder parser resilience fuzzing 2026-05)**
+
+**Objetivo:** endurecer parser/masking/splitter con fuzzing determinista sobre entradas PowerBuilder raras o truncadas, sin crash, sin scopes corruptos y sin diagnósticos explosivos.
+
+**Resultado registrado:**
+- `test/server/unit/powerbuilderParserResilienceFuzz.test.ts` añade una matriz determinista de corpus + mutaciones sobre comentarios anidados, strings raros, continuaciones `&`, SQL embebido, external functions, prototypes incompletos, eventos, `try/catch/finally`, labels y EOF truncado, comprobando no crash, rangos de scope sanos y diagnósticos acotados;
+- `src/server/parsing/statementSplitter.ts` construye ya `logicalStatements` desde `stripCommentsSmart` y sus máscaras, de modo que el texto lógico no arrastra comentarios y `test/server/unit/statementSplitter.test.ts` fija el caso con `;` y `&` dentro de comentarios anidados;
+- `src/server/analysis/documentAnalysis.ts` mantiene rangos agregados/monotónicos para scopes de type repetidos en `forward/implementation` y degrada a `global` los callables truncados que aparecen antes del primer `type` real, evitando colgarlos del objeto futuro bajo input malformado;
+- `docs/testing.md`, `docs/architecture.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B278`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/codeMasking.test.js out/test/server/unit/nestedComments.test.js out/test/server/unit/statementSplitter.test.js out/test/server/unit/documentAnalysis.test.js out/test/server/unit/externalFunctions.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/powerbuilderSemanticGolden.test.js out/test/server/unit/corpusRegression.test.js out/test/server/unit/powerbuilderParserResilienceFuzz.test.js`
+
+## 1.130 B271. Core telemetry-free observability contract — **Cerrada (spec 321, telemetry-free observability contract 2026-05)**
+
+**Objetivo:** formalizar un contrato versionado de observabilidad local para readiness, indexing, cache, memory, latency, build, ORCA, diagnostics, query trace, support bundle y health, sin telemetría externa ni rails paralelos de reporting.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` añade `ApiObservabilityContractDescriptor` dentro de `ApiPublicContractDescriptor`, declarando dominios observables, surfaces `getServerStats`/`server-stats`/`vscPowerSyntax.exportSupportBundle`, privacidad `externalTelemetry = false`, `localOnly = true` y export offline explícito para support bundle;
+- `test/server/unit/publicApi.test.ts` fija el contrato versionado y `test/server/unit/supportBundle.test.ts` mantiene verde el carril de redacción/saneamiento que respalda ese descriptor;
+- `README.md`, `docs/architecture.md`, `docs/developer-workflows.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B272`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/publicApi.test.js out/test/server/unit/supportBundle.test.js`
+
+## 1.129 B269. Semantic snapshot schema evolution and compatibility tests — **Cerrada (spec 320, semantic snapshot schema evolution and compatibility 2026-05)**
+
+**Objetivo:** asegurar evolución compatible de snapshots semánticos, manifests, support bundles y payloads públicos exportables, sin compatibilidad silenciosa ni aceptación ambigua de versiones.
+
+**Resultado registrado:**
+- `src/client/semanticWorkspaceSnapshot.ts` normaliza snapshots legados compatibles que llegan sin `schemaVersion` o `summary`, recomputa el resumen desde `workspaceManifest` + `serverStats` y mantiene rechazo explícito de versiones no soportadas;
+- `test/fixtures/compatibility/*.json`, `test/server/unit/semanticWorkspaceSnapshot.test.ts`, `publicApi.test.ts` y `supportBundle.test.ts` congelan fixtures versionadas y roundtrips sobre manifest externo, `public-contract`, `read-only-tool-bridge` y `support bundle manifest`, validando compatibilidad minor y serialización estable;
+- `docs/testing.md`, `docs/architecture.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B271`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticWorkspaceSnapshot.test.js out/test/server/unit/publicApi.test.js out/test/server/unit/supportBundle.test.js`
+
+## 1.128 B270. Persistent cache corruption/fuzz recovery suite — **Cerrada (spec 319, persistent cache corruption fuzz recovery suite 2026-05)**
+
+**Objetivo:** demostrar que la persistencia semántica degrada de forma segura ante corrupción realista de checkpoint/journal/manifest/particiones, sin crash ni estado semántico a medias.
+
+**Resultado registrado:**
+- `src/server/cache/cacheStore.ts` valida ahora explícitamente la forma del manifest de particiones antes de consumirlo, de modo que un manifest malformado o una entrada incompleta fuerzan `rebuild` limpio en vez de lanzar o seguir con estado ambiguo;
+- `test/server/unit/cacheStoreCorruptionFuzz.test.ts` añade una matriz determinista de corrupción sobre `project-partitions.json`, checkpoints particionados y journals particionados, verificando que `load()` siempre responde con `decision.action = rebuild` y checkpoint vacío;
+- `test/server/unit/cacheStore.test.ts` y `cachePersistence.test.ts` siguen fijando los casos de truncado/corrupción/TTL/schema/version/journal sequence/serving snapshot sobre el mismo carril, y `docs/testing.md`, `docs/performance-budget.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B269`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/cacheStore.test.js out/test/server/unit/cachePersistence.test.js out/test/server/unit/cacheStoreCorruptionFuzz.test.js`
+
+## 1.127 B276. Hot path allocation budget and regression guard — **Cerrada (spec 318, hot path allocation budget and regression guard 2026-05)**
+
+**Objetivo:** impedir regresiones estructurales de allocations en el carril interactivo, bloqueando materializaciones, splits y clonaciones globales antes de que degraden `hover`, `completion`, `definition`, `references`, diagnostics rápidos o `queryContext`.
+
+**Resultado registrado:**
+- `src/server/utils/documentLineText.ts` introduce acceso por línea para `TextDocument` sin partir el documento completo; `src/server/features/queryContext.ts` y `src/server/features/diagnostics.ts` pasan a consumir solo la línea activa para resolver contexto e inspección puntual;
+- `src/server/features/completion.ts` deja de clonar el catálogo global completo del sistema y consume `listGlobalFunctions()` + `listStatements()`; `src/server/features/referenceSourcePool.ts` deja de renormalizar toda la lista de `getAllSourceFiles()` por cada query;
+- `test/server/unit/hotPathAllocationBudget.test.ts`, junto con `queryContext.test.ts`, `completion.test.ts`, `diagnostics.test.ts`, `referenceSourcePool.test.ts`, `references.test.ts`, `definition.test.ts` y `rename.test.ts`, fija el guard local/CI contra `document.getText().split(...)`, `JSON.stringify`, `getAllEntities`/`exportDocumentRecords`, clonación global del catálogo y renormalización redundante del workspace; `docs/testing.md`, `docs/performance-budget.md`, `docs/architecture.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B270`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/queryContext.test.js out/test/server/unit/completion.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/referenceSourcePool.test.js out/test/server/unit/references.test.js out/test/server/unit/definition.test.js out/test/server/unit/rename.test.js out/test/server/unit/hotPathAllocationBudget.test.js`
+
+## 1.126 B275. Long-running session stability soak tests — **Cerrada (spec 317, long-running session stability soak tests 2026-05)**
+
+**Objetivo:** simular sesiones largas para detectar crecimiento no acotado, readiness roto o cachés huérfanas antes de abrir el siguiente bloque de guards de performance.
+
+**Resultado registrado:**
+- `test/server/performance/session-stability-soak.perf.test.ts` añade una soak suite local opt-in que reutiliza el runtime ya existente para simular apertura/cierre de archivos, cambios incrementales, watcher bursts, diagnostics, `hover`/`completion`, build snapshot, support bundle, cache flush y workspace resume sobre un workspace sintético;
+- `tools/run-session-stability-soak.mjs` y `package.json` exponen el runner `npm run test:performance:soak`, que compila, ejecuta solo esa suite con opt-in explícito y materializa evidencia en `artifacts/performance/session-stability-soak.json` y `.md`;
+- el soak deja trazado explícito de tamaño inicial/final de `DocumentCache` y `KnowledgeBase`, máximo/final de `ServingCache`, flushes, resume checks y health/build snapshot, y `docs/testing.md`, `docs/performance-budget.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B276`.
+
+**Validación registrada:**
+- `$env:POWERSYNTAX_SOAK_ITERATIONS='8'; npm run test:performance:soak; Remove-Item Env:POWERSYNTAX_SOAK_ITERATIONS`
+
+## 1.125 B274. Memory pressure adaptive degradation — **Cerrada (spec 316, memory pressure adaptive degradation 2026-05)**
+
+**Objetivo:** actuar automáticamente bajo presión de memoria para proteger el carril interactivo: aliviar `ServingCache`, aplazar carriles no críticos y limitar reports read-only pesados sin convertir el runtime en un apagón global.
+
+**Resultado registrado:**
+- `src/server/runtime/memoryPressurePolicy.ts` fija la policy explícita de `B274`: thresholds artificiales sobre el reporte unificado de memoria, purga de `ServingCache`, pausa de nuevas escrituras en esa caché, aplazamiento de `background-indexing|maintenance|ai-tooling` y caps adaptativos por report (`semanticWorkspaceManifest`, `crossProjectSymbolConflicts`, `workspaceMigrationAssistant`, `codeMetrics`, `technicalDebtReport`);
+- `src/server/server.ts` consume esa misma policy en el gate de background, en los writes del serving cache y en los comandos read-only pesados, de forma que `hover`, `completion`, `definition` y `signatureHelp` siguen disponibles aunque el runtime entre en modo de alivio;
+- `test/server/unit/memoryPressurePolicy.test.ts`, junto con `memoryBudgets.test.ts`, `runtimeHealth.test.ts`, `semanticWorkspaceManifest.test.ts`, `crossProjectSymbolConflicts.test.ts`, `workspaceMigrationAssistant.test.ts`, `powerBuilderCodeMetrics.test.ts` y `powerBuilderTechnicalDebtReport.test.ts`, deja fijado el cierre con thresholds artificiales y revalidación de los reports capados; `docs/performance-budget.md`, `docs/architecture.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B275`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/memoryPressurePolicy.test.js out/test/server/unit/memoryBudgets.test.js out/test/server/unit/runtimeHealth.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/crossProjectSymbolConflicts.test.js out/test/server/unit/workspaceMigrationAssistant.test.js out/test/server/unit/powerBuilderCodeMetrics.test.js out/test/server/unit/powerBuilderTechnicalDebtReport.test.js`
+
+## 1.124 B268. Workspace partition isolation and multi-root stress hardening — **Cerrada (spec 315, workspace partition isolation and multi-root stress hardening 2026-05)**
+
+**Objetivo:** evitar contaminación entre roots, proyectos, librerías, staging y build profiles, de modo que routing, `sourceOrigin`, manifest, Object Explorer, caché persistente y carriles build/ORCA sigan aislados aunque se repitan labels visibles entre roots distintos.
+
+**Resultado registrado:**
+- `src/server/workspace/workspaceState.ts` deja de inferir `sourceOrigin` con un `hasSolutionRoots` global y pasa a decidirlo por el marker topológico más cercano; `watchedFileIntake.ts` y `workspaceIndexer.ts` reutilizan la misma inferencia contextual para no divergir del estado canónico;
+- `test/server/unit/workspace.test.ts`, `semanticWorkspaceManifest.test.ts` y `objectExplorerModel.test.ts` fijan el aislamiento multi-root para proyectos/librerías homónimos, la separación por `projectUri` y la ausencia de mezcla visible en manifest/Object Explorer;
+- `test/server/unit/cacheStore.test.ts`, `pbAutoBuildProfileMatrix.test.ts` y `orcaStagingExport.test.ts` fijan además particiones de caché por proyecto homónimo en roots distintos, último build profile recordado por URI y selección del workspace folder correcto para staging ORCA; `docs/testing.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus quedan alineados para mover el foco canónico a `B274`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/workspace.test.js out/test/server/unit/watchedFileIntake.test.js out/test/server/unit/cacheStore.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/objectExplorerModel.test.js out/test/server/unit/pbAutoBuildProfileMatrix.test.js out/test/server/unit/orcaStagingExport.test.js`
+
+## 1.123 B273. Cross-surface golden contract matrix — **Cerrada (spec 314, cross-surface golden contract matrix 2026-05)**
+
+**Objetivo:** congelar los outputs visibles de las surfaces read-only principales sobre un fixture compartido para que el drift entre `documentSymbols`, navegación, diagnostics, context packs, manifest, lineage y support bundle quede detectado por una única matriz golden explícita.
+
+**Resultado registrado:**
+- `test/server/unit/crossSurfaceGoldenMatrix.test.ts` crea un fixture compartido (`w_context`, `w_context_base`, `d_sales_orders`) y resume en una sola matriz estable `documentSymbols`, `workspaceSymbols`, hover, definition, references, rename eligibility, diagnostics, semantic tokens, `currentObjectContext`, `impactAnalysis`, `safeEditPlan`, manifest, dependency graph, DataWindow lineage y support bundle;
+- la normalización del golden congela nombres, ubicaciones, reason codes, riesgos, `sourceOrigin`, inventory del support bundle y demás señales visibles sin fijar blobs enteros frágiles ni abrir infraestructura nueva fuera del backbone read-only ya cerrado;
+- `docs/testing.md`, backlog, roadmap y current-focus quedan alineados para dejar `B273` fuera del backlog activo y mover el foco canónico a `B268`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/crossSurfaceGoldenMatrix.test.js out/test/server/unit/powerbuilderSemanticGolden.test.js out/test/server/unit/semanticConsistencyOracle.test.js out/test/server/unit/documentSymbols.test.js out/test/server/unit/workspaceSymbols.test.js out/test/server/unit/semanticTokens.test.js out/test/server/unit/impactAnalysis.test.js out/test/server/unit/safeEditPlan.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/dependencyGraph.test.js out/test/server/unit/dataWindowSqlLineage.test.js out/test/server/unit/supportBundle.test.js`
+
+## 1.122 B277. Core module dependency firewall — **Cerrada (spec 313, core module dependency firewall 2026-05)**
+
+**Objetivo:** impedir dependencias indebidas entre `client`, `shared`, `runtime`, `features`, `knowledge/parsing/utils` y el carril `build/ORCA`, de modo que el hot path semántico y el contrato entre capas queden protegidos por un guard automático y no por convención difusa.
+
+**Resultado registrado:**
+- `test/server/unit/architectureImports.test.ts` deja de ser un guard puntual de `B228` y pasa a escanear reglas por capa: `knowledge/parsing/utils` no pueden importar `vscode`/`vscode-languageserver`, `client` no puede importar `server`, `runtime/features` no pueden importar `client`, `shared` no puede importar `client/server` y `build` no puede tocar el hot path semántico interactivo (`documentAnalysis`, `semanticQueryService`, parsing ni features interactivas);
+- la allowlist mínima queda implícita en las reglas y los imports resueltos realmente por archivo, evitando depender de un listado textual frágil o de documentación manual;
+- `docs/architecture.md`, `docs/testing.md`, backlog, roadmap y current-focus quedan alineados para tratar `B277` como guardrail previo del siguiente bloque visible (`B273`).
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/architectureImports.test.js`
+
+## 1.121 B267. Runtime backpressure policy v2 for competing workloads — **Cerrada (spec 312, runtime backpressure policy v2 2026-05)**
+
+**Objetivo:** formalizar una policy runtime global por workload para que `interactive`, `near-context`, `diagnostics`, `background-indexing`, `export-reporting`, `build`, `legacy-orca`, `ai-tooling` y `maintenance` compitan sobre el mismo scheduler sin abrir un segundo runtime ni dejar build/ORCA/reporting fuera de control.
+
+**Resultado registrado:**
+- `src/server/runtime/backpressurePolicy.ts` fija ya el registro único por workload con `lane`, `throttledByLatency` y `preemptible`, de modo que `build` y `legacy-orca` quedan preservados una vez arrancan mientras `background-indexing`, `export-reporting`, `maintenance` y `ai-tooling` siguen siendo cancelables/preemptibles;
+- `src/server/runtime/scheduler.ts` consume esa policy para exponer `pendingWorkloads`, `active*Workload`, `throttledBackgroundWorkload/reason` y respetar la no preempción de `build/legacy-orca`; `src/server/analysis/diagnosticScheduler.ts` clasifica diagnostics como workload propio;
+- `src/server/server.ts` ya pasa `pbAutoBuild`, ORCA, maintenance y reports read-only por el scheduler común con yielding previo y admission gating por latencia; `currentObjectContext` y `dependencyGraph` entran por `near-context`, mientras `runtimeHealth` y `statusBarPresentation` proyectan el throttling visible;
+- `test/server/unit/backpressurePolicy.test.ts`, `scheduler.test.ts`, `diagnosticScheduler.test.ts`, `runtimeHealth.test.ts`, `statusBarPresentation.test.ts`, junto con la batería `currentObjectContext|impactAnalysis|safeEditPlan|safeBatchRefactorPlan|semanticWorkspaceManifest|crossProjectSymbolConflicts|workspaceMigrationAssistant|powerBuilderCodeMetrics|powerBuilderTechnicalDebtReport|pbAutoBuildRunner|orcaRunner|specDrivenPblUpdate|specDrivenPblUpdateBatch`, fijan la policy runtime y el wiring read-only/build/legacy sobre el scheduler único.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/backpressurePolicy.test.js out/test/server/unit/scheduler.test.js out/test/server/unit/diagnosticScheduler.test.js out/test/server/unit/runtimeHealth.test.js out/test/server/unit/statusBarPresentation.test.js`
+- `npx mocha --ui tdd out/test/server/unit/currentObjectContext.test.js out/test/server/unit/impactAnalysis.test.js out/test/server/unit/safeEditPlan.test.js out/test/server/unit/safeBatchRefactorPlan.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/crossProjectSymbolConflicts.test.js out/test/server/unit/workspaceMigrationAssistant.test.js out/test/server/unit/powerBuilderCodeMetrics.test.js out/test/server/unit/powerBuilderTechnicalDebtReport.test.js out/test/server/unit/pbAutoBuildRunner.test.js out/test/server/unit/orcaRunner.test.js out/test/server/unit/specDrivenPblUpdate.test.js out/test/server/unit/specDrivenPblUpdateBatch.test.js`
+
+## 1.120 B266. Query scope policy v2 and consumer budget declarations — **Cerrada (spec 311, query scope policy v2 2026-05)**
+
+**Objetivo:** formalizar scope máximo, budget, result cap, readiness, confidence, fallback y allowances `staging/generated/external` por consumer semántico, evitando widening global y materialización no defendible fuera de policy.
+
+**Resultado registrado:**
+- `src/server/features/queryScopePolicy.ts` centraliza ya la policy v2 para `hover`, `definition`, `signatureHelp`, `completion`, `references`, `rename`, `CodeLens`, `diagnostics`, `currentObjectContext`, `impactAnalysis` y los planes seguros, con `maxScope`, `budgetMs`, `resultCap`, readiness, confidence, fallback y allowances explícitos por consumer;
+- `src/server/features/referenceSourcePool.ts` y `src/server/server.ts` ya consumen esa policy para `references`, `rename` y `CodeLens`, de modo que los consumers acotados a `project` no caen a `workspace` cuando falta routing y no materializan `orca-staging/generated` por defecto;
+- `src/server/features/featureReadiness.ts` deriva ya readiness/confidence/fallback del mismo registro y `signatureHelp` entra en el gate común del servidor; `completion`, `currentObjectContext` e `impactAnalysis` consumen además los caps por defecto del mismo contrato central;
+- `test/server/unit/queryScopePolicy.test.ts`, `referenceSourcePool.test.ts`, `featureReadiness.test.ts`, `references.test.ts`, `rename.test.ts`, `codeLensReferences.test.ts`, `completion.test.ts`, `signatureHelp.test.ts`, `currentObjectContext.test.ts` e `impactAnalysis.test.ts` fijan la policy, el no-widening a `workspace`, la exclusión de `staging/generated` y el caso negativo de report pesado sin materialización global.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/queryScopePolicy.test.js out/test/server/unit/referenceSourcePool.test.js out/test/server/unit/featureReadiness.test.js out/test/server/unit/references.test.js out/test/server/unit/rename.test.js out/test/server/unit/codeLensReferences.test.js out/test/server/unit/completion.test.js out/test/server/unit/signatureHelp.test.js out/test/server/unit/currentObjectContext.test.js out/test/server/unit/impactAnalysis.test.js`
+
+## 1.119 B265. Incremental invalidation proof suite — **Cerrada (spec 310, incremental invalidation proof suite 2026-05)**
+
+**Objetivo:** demostrar que cada cambio invalida solo lo necesario sin rediscovery global innecesario, cubriendo cambios cosméticos, implementation/prototype/ancestor, `.srd`/`DataObject`, markers topológicos, `sourceOrigin`, ORCA staging y external functions.
+
+**Resultado registrado:**
+- `src/server/knowledge/semanticDiff.ts` ya incorpora dependencias `DataObject`/`report`/`dddw` y trata los argumentos retrieve de `.srd` como contrato semántico, permitiendo que el fan-out incremental alcance a consumidores ligados sin abrir otro motor de invalidación;
+- `test/server/unit/watchedFileIntake.test.ts` fija ya la proof suite incremental sobre snapshots, serving cache, dependency graph, manifest, diagnostics y current object context para cambios cosméticos, implementation-only, prototype-only heredado, ancestor signature, `.srd`/`DataObject`, external function, ORCA staging, markers/sourceOrigin y bursts del watcher;
+- `test/server/unit/semanticDiff.test.ts` fija los nuevos dependency keys y el cambio de contrato retrieve de `.srd`, mientras `test/server/performance/large-workspace-incremental.perf.test.ts` mantiene el gate de presupuesto incremental y degradación segura para ráfagas watcher;
+- `docs/testing.md`, `docs/performance-budget.md`, backlog, roadmap y current-focus dejan trazado que `B265` queda cerrada en `specs/310-incremental-invalidation-proof-suite` y que el siguiente foco canónico pasa a `B266`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticDiff.test.js out/test/server/unit/watchedFileIntake.test.js`
+- `npx mocha --ui tdd out/test/server/performance/large-workspace-incremental.perf.test.js`
+
+## 1.118 B264. Semantic consistency oracle across all read-only surfaces — **Cerrada (spec 309, semantic consistency oracle 2026-05)**
+
+**Objetivo:** comprobar que las surfaces read-only cuentan la misma historia sobre el mismo objeto/símbolo y dejar un oracle con reason codes que detecte drift de `objectName`, `objectKind`, `project`, `library`, `sourceOrigin`, ancestros, diagnostics, readiness, confidence y DataObject bindings sin abrir otro motor semántico.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderObjectKind.ts` centraliza la inferencia de `objectKind` por URI y `src/server/features/currentObjectContext.ts` deja de publicar el `EntityKind` genérico (`Type`) para alinearse con el manifest y el resto de surfaces read-only;
+- `src/server/features/semanticConsistencyOracle.ts` compone `currentObjectContext`, `semanticWorkspaceManifest`, `dependencyGraph`, diagnostics directos, `dataWindowSqlLineage` y `crossProjectSymbolConflicts` en un oracle interno con reason codes explícitos, comparación honesta de budgets truncados del manifest y detección de drift/casos ambiguos sin otra API pública;
+- `test/server/unit/semanticConsistencyOracle.test.ts` fija casos sanos, divergencias forzadas y convivencia real/orca-staging; `test/server/performance/semanticConsistencyOracle.smoke.test.ts` valida además un archivo real de PFC Solution y otro de OrderEntry; `currentObjectContext.test.ts` y `semanticWorkspaceManifest.test.ts` fijan la normalización compartida de `objectKind`;
+- `docs/testing.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B264` queda cerrada en `specs/309-semantic-consistency-oracle` y que el siguiente foco canónico pasa a `B265`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/currentObjectContext.test.js out/test/server/unit/semanticWorkspaceManifest.test.js out/test/server/unit/semanticConsistencyOracle.test.js`
+- `npx mocha --ui tdd out/test/server/performance/semanticConsistencyOracle.smoke.test.js`
+
 ## 1.117 B263. Agent-ready task execution contracts — **Cerrada (spec 308, agent-ready task execution contracts 2026-05)**
 
 **Objetivo:** definir contratos versionados de ejecución de tareas aptos para agentes sobre la surface actual, con dry-run, límites write-enabled, receipts y handoff SDD explícitos, sin meter IA dentro del core.

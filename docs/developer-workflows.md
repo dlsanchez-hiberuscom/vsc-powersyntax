@@ -32,6 +32,7 @@ Estado actual:
 
 - el discovery ya distingue `PBL-only` cuando solo aparecen roots `.pbl`;
 - el project model y el Object Explorer proyectan esas librerías como nodos read-only sin requerir `.pbt/.pbproj` ni staging.
+- en multi-root, `project routing`, `semanticWorkspaceManifest` y Object Explorer aíslan proyectos/librerías homónimos por URI real, sin colapsarlos por label visible.
 
 ---
 
@@ -106,6 +107,7 @@ Estado actual:
 - el parser de logs y Problems Panel ya están cerrados con publicación separada de problemas de build cuando hay mapeo fiable;
 - la health unificada del build moderno ya está cerrada y se reutiliza en status, menú y health report;
 - la UX final de perfiles/comandos ya está cerrada con último build recordado y selección explícita de build file utilizable;
+- el último build profile recordado y la matriz read-only distinguen roots homónimos por `buildFileUri`, aunque el label visible del JSON se repita.
 - el helper CI/CD ya está cerrado como bundle neutral y versionable en `tools/pbautobuild-ci/<perfil>` sin acoplar la extensión a un proveedor concreto.
 - el carril legacy ORCA ya tiene adapter base out-of-process y capability detection read-only visible en status/health; el comando del script activo consume `vscPowerSyntax.legacy.orcaPath` o `PB_ORCA_PATH` sin autodetección difusa por instalaciones locales, el export controlado a `.vsc-powersyntax/orca-export/orca-staging` usa `vscPowerSyntax.legacy.orcaSessionDll`, `PB_ORCA_DLL` o `pborc250.dll` para dejar source indexable sin tocar la PBL original, `vscPowerSyntax.importOrcaStaging` reutiliza ese último export persistido para ejecutar preflight, verificar drift del source real rastreado, hacer backup binario, correr `import-from-staging.orc` y dejar `last-import-ledger.json`, `vscPowerSyntax.regenerateOrcaLibraries` / `vscPowerSyntax.rebuildOrcaProject` reutilizan el mismo rail seguro para mantenimiento legacy sin abrir un segundo motor, la API pública `applySpecDrivenPblUpdate()` encadena safe edit plan + export fresco + edits explícitos sobre staging + import seguro sobre ese mismo rail, `applySpecDrivenPblUpdateBatch()` coordina múltiples PBL de forma secuencial con `stopOnError`, y el servidor persiste la secuencia técnica reciente de build/ORCA en `.vsc-powersyntax/runtime/build-orca-journal.json` además de publicarla por `showStats`.
 
@@ -150,6 +152,11 @@ El plugin debe:
 - tratar `.pbw/.pbt/.pbproj/.pbsln` y `.pbl` como inputs de topología/discovery, no como documentos semánticos PowerScript aunque un override de lenguaje intente forzar ese camino;
 - mantener status/readiness coherentes mientras el watcher procesa el batch;
 - degradar de forma segura si un marker no puede reprocesarse.
+
+Estado actual:
+
+- `WorkspaceState`, watcher y indexador recalculan `sourceOrigin` según el marker topológico más cercano, no según un modo global del workspace;
+- el export ORCA a staging elige además el workspace folder correcto cuando hay varias raíces abiertas y mantiene los aliases ligados a la librería legacy original del root correcto.
 
 ---
 
@@ -338,6 +345,28 @@ Reglas:
 
 ## 18. Workflow 17 — Exportar support bundle offline
 
+## 17A. Workflow 17A — Usar el core maintenance command pack
+
+El maintainer o agente quiere inspeccionar o sanear el runtime sin abrir debugging manual, sin duplicar observabilidad y sin tocar código del workspace.
+
+Flujo:
+
+1. abrir `PowerSyntax: Abrir Menú de Estado` o ejecutar directamente el comando del síntoma principal;
+2. usar `PowerSyntax: Exportar Health Report`, `Mostrar Memory Budgets`, `Mostrar Estado de Indexación`, `Mostrar Project Routing` o `Mostrar Conflictos de sourceOrigin` para inspección read-only del runtime;
+3. ejecutar `PowerSyntax: Validar Cache Persistente` antes de tocar persistencia y usar `PowerSyntax: Ejecutar Mantenimiento de Cache Semántica` solo cuando la retención/journal lo recomienden;
+4. reservar `PowerSyntax: Limpiar Cache Semántica` y `PowerSyntax: Rebuild Workspace Index` para limpieza explícita del estado persistido o relanzado del runtime, siempre tras confirmación modal.
+
+Reglas:
+
+- `export health report`, `show memory budgets`, `show indexing state`, `show project routing`, `show sourceOrigin conflicts`, `validate persistent cache` y `export support bundle` son read-only;
+- `clear semantic cache` y `rebuild workspace index` son comandos confirmables y no deben dispararse en background ni sin acción explícita del usuario;
+- el pack reutiliza `showStats`, dashboard, manifest, `currentObjectContext`, conflictos cross-project y `cacheStore`, sin abrir un segundo motor de observabilidad;
+- `health report` y `support bundle` son complementarios: el primero congela dashboard/stats/manifest para inspección rápida y el segundo añade snapshot saneada para soporte offline.
+
+---
+
+## 18. Workflow 17 — Exportar support bundle offline
+
 El maintainer o soporte quiere congelar una evidencia técnica del runtime para análisis offline sin copiar código bruto del workspace ni depender de releer el estado vivo del editor.
 
 Flujo:
@@ -350,6 +379,7 @@ Flujo:
 Reglas:
 
 - el support bundle se construye cliente-side sobre `showStats`, health, manifest semántico, gobernanza de settings y contrato API ya publicados;
+- el contrato público ya declara este carril como observabilidad local `externalTelemetry = false`; la exportación offline requiere una acción explícita del usuario y no existe envío automático de métricas fuera de la máquina local;
 - rutas, URIs, ejecutables y artefactos locales deben salir redaccionados y el bundle no copia código bruto por defecto;
 - el repro pack semántico sigue siendo el carril para bugs donde haga falta copiar contexto fuente relacionado, mientras que el support bundle prioriza observabilidad offline y privacidad local.
 

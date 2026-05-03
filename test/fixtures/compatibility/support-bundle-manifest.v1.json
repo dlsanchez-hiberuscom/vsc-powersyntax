@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-01T00:00:00.000Z",
+  "supportBundleWorkspaceRelativePath": "tools/support-bundles/sample-support",
+  "workspace": {
+    "label": "repo",
+    "mode": "workspace"
+  },
+  "summary": {
+    "readinessState": "ready",
+    "healthStatus": "healthy",
+    "diagnosticsAvailable": true,
+    "runtimeJournalEvents": 2,
+    "rawSourceIncluded": false,
+    "publicApiVersion": "2.11.0",
+    "readOnlyToolCount": 3
+  },
+  "files": [
+    {
+      "relativePath": "runtime-health.json",
+      "description": "Salud agregada del runtime y findings visibles."
+    },
+    {
+      "relativePath": "server-stats.sanitized.json",
+      "description": "Snapshot saneado de stats del runtime."
+    },
+    {
+      "relativePath": "diagnostics-snapshot.sanitized.json",
+      "description": "Snapshot agregada de diagnósticos con rutas saneadas."
+    },
+    {
+      "relativePath": "semantic-workspace-manifest.reduced.json",
+      "description": "Manifest semántico reducido sin inventario completo de URIs."
+    },
+    {
+      "relativePath": "runtime-journal-tail.json",
+      "description": "Cola reciente del journal técnico del runtime."
+    },
+    {
+      "relativePath": "performance-summary.json",
+      "description": "Resumen de memoria, caches, query trace e indexación."
+    },
+    {
+      "relativePath": "settings-governance.json",
+      "description": "Reporte de gobernanza y divergencias del perfil actual."
+    },
+    {
+      "relativePath": "settings-sanitized.json",
+      "description": "Settings exportados con redacción de rutas y secretos locales."
+    },
+    {
+      "relativePath": "build-orca-snapshot.json",
+      "description": "Estado saneado de build moderno, ORCA legacy y journal asociado."
+    },
+    {
+      "relativePath": "public-contract.json",
+      "description": "Contrato público exportado por la extensión."
+    },
+    {
+      "relativePath": "read-only-tool-bridge.json",
+      "description": "Descriptor del bridge read-only y schemas visibles."
+    },
+    {
+      "relativePath": "README.md",
+      "description": "Guía de reproducción y uso del support bundle."
+    }
+  ]
+}

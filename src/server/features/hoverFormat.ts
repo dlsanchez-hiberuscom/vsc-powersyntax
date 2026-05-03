@@ -8,7 +8,7 @@
 
 import { enrichEntity } from '../knowledge/enrichEntity';
 import { Entity, EntityKind, type EntityLineage } from '../knowledge/types';
-import type { QueryReasonCode, QueryResolutionConfidence } from '../knowledge/resolution/semanticQueryService';
+import type { QueryAmbiguityKind, QueryReasonCode, QueryResolutionConfidence } from '../knowledge/resolution/semanticQueryService';
 
 const KIND_NAME: Record<string, string> = {
   Type: 'Objeto / Estructura',
@@ -22,6 +22,7 @@ export interface HoverResolutionSummary {
   confidence?: QueryResolutionConfidence;
   reasonCode?: QueryReasonCode;
   ambiguous?: boolean;
+  ambiguityKind?: QueryAmbiguityKind;
   targetCount?: number;
 }
 
@@ -127,7 +128,10 @@ export function formatUserHover(entity: Entity, resolution?: HoverResolutionSumm
 
   if (resolution?.ambiguous) {
     out.push('');
-    out.push(`*Resolución ambigua:* ${resolution.targetCount ?? 0} candidatos con distancia mínima`);
+    const ambiguityDetail = resolution.ambiguityKind === 'global-fallback'
+      ? `${resolution.targetCount ?? 0} candidatos ganadores por global fallback`
+      : `${resolution.targetCount ?? 0} candidatos con distancia mínima`;
+    out.push(`*Resolución ambigua:* ${ambiguityDetail}`);
   }
 
   if (typeof resolution?.targetCount === 'number' && resolution.targetCount > 0) {

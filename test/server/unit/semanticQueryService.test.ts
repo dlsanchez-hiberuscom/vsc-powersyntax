@@ -156,7 +156,14 @@ suite('unit/semanticQueryService', () => {
     assert.equal(resolved.reasonCodes[0], 'global-fallback');
     assert.equal(resolved.targets.length, 1);
     assert.equal(resolved.targets[0]?.uri, 'file:///proj/src/n_shared.sru');
+    assert.equal(resolved.ambiguityKind, undefined);
     assert.equal(resolved.winnerLineage?.sourceOrigin, 'solution-source');
+    assert.ok(resolved.evidence.some((entry) =>
+      entry.kind === 'source-origin-conflict'
+      && entry.reasonCode === 'global-fallback'
+      && entry.preferredOrigin === 'solution-source'
+      && entry.discardedOrigins.includes('orca-staging')
+    ));
   });
 
   test('resolveTargetEntity: unknown returns empty', () => {
@@ -248,6 +255,7 @@ suite('unit/semanticQueryService', () => {
     );
 
     assert.equal(resolved.targets.length, 2);
+    assert.equal(resolved.ambiguityKind, 'distance-minimum');
     assert.equal(resolved.confidence, 'medium');
     assert.ok(resolved.evidence.some((entry) =>
       entry.kind === 'distance-ambiguity' &&

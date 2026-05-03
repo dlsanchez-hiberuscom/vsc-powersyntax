@@ -1,8 +1,9 @@
 import type { SemanticReadinessLevel } from '../analysis/semanticSnapshot';
 import type { QueryResolutionConfidence } from '../knowledge/resolution/semanticQueryService';
 import type { ProgressReadinessSnapshot } from './progressReadiness';
+import { getQueryConsumerPolicy, type QueryConsumerId } from './queryScopePolicy';
 
-export type FeatureReadinessFeature = 'hover' | 'completion' | 'definition' | 'references' | 'rename';
+export type FeatureReadinessFeature = 'hover' | 'completion' | 'definition' | 'references' | 'rename' | 'signature-help';
 export type FeatureReadinessAction = 'allow' | 'degrade' | 'block';
 
 export interface FeatureReadinessDecision {
@@ -33,12 +34,13 @@ const RESOLUTION_CONFIDENCE_ORDER: Record<QueryResolutionConfidence, number> = {
   high: 2
 };
 
-const FEATURE_RESOLUTION_CONFIDENCE: Record<FeatureReadinessFeature, QueryResolutionConfidence> = {
-  hover: 'low',
-  completion: 'low',
-  definition: 'medium',
-  references: 'high',
-  rename: 'high'
+const FEATURE_CONSUMER_MAP: Record<FeatureReadinessFeature, QueryConsumerId> = {
+  hover: 'hover',
+  completion: 'completion',
+  definition: 'definition',
+  references: 'references',
+  rename: 'rename',
+  'signature-help': 'signature-help',
 };
 
 const FEATURE_POLICY: Record<FeatureReadinessFeature, {
@@ -46,30 +48,26 @@ const FEATURE_POLICY: Record<FeatureReadinessFeature, {
   fallbackAction: FeatureReadinessAction;
   latencyAction?: FeatureReadinessAction;
 }> = {
-  hover: {
-    requiredLevel: 'nearby-semantic-ready',
-    fallbackAction: 'degrade',
-    latencyAction: 'degrade'
-  },
-  completion: {
-    requiredLevel: 'nearby-semantic-ready',
-    fallbackAction: 'degrade',
-    latencyAction: 'degrade'
-  },
-  definition: {
-    requiredLevel: 'nearby-semantic-ready',
-    fallbackAction: 'block'
-  },
-  references: {
-    requiredLevel: 'project-semantic-ready',
-    fallbackAction: 'block',
-    latencyAction: 'block'
-  },
-  rename: {
-    requiredLevel: 'nearby-semantic-ready',
-    fallbackAction: 'block'
-  }
+  hover: toFeaturePolicy('hover'),
+  completion: toFeaturePolicy('completion'),
+  definition: toFeaturePolicy('definition'),
+  references: toFeaturePolicy('references'),
+  rename: toFeaturePolicy('rename'),
+  'signature-help': toFeaturePolicy('signature-help'),
 };
+
+function toFeaturePolicy(feature: FeatureReadinessFeature): {
+  requiredLevel: SemanticReadinessLevel;
+  fallbackAction: FeatureReadinessAction;
+  latencyAction?: FeatureReadinessAction;
+} {
+  const consumerPolicy = getQueryConsumerPolicy(FEATURE_CONSUMER_MAP[feature]);
+  return {
+    requiredLevel: consumerPolicy.requiredReadiness,
+    fallbackAction: consumerPolicy.fallbackAction,
+    ...(consumerPolicy.latencyAction ? { latencyAction: consumerPolicy.latencyAction } : {}),
+  };
+}
 
 export function getSemanticReadinessLevel(snapshot: ProgressReadinessSnapshot): SemanticReadinessLevel {
   if (snapshot.readiness.levels.workspaceReady) {
@@ -94,7 +92,7 @@ export function compareResolutionConfidence(
 export function getRequiredResolutionConfidence(
   feature: FeatureReadinessFeature
 ): QueryResolutionConfidence {
-  return FEATURE_RESOLUTION_CONFIDENCE[feature];
+  return getQueryConsumerPolicy(FEATURE_CONSUMER_MAP[feature]).requiredResolutionConfidence;
 }
 
 export function isResolutionConfidenceSufficient(

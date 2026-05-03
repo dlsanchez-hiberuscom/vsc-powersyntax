@@ -187,6 +187,28 @@ suite('unit/workspace', () => {
     assert.equal(state.getMode(), 'mixed');
   });
 
+  test('discovery recalcula sourceOrigin por root y no contamina roots workspace con solution-source', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///workspace-root');
+    fs.addFile('file:///workspace-root/app.pbw');
+    fs.addDir('file:///workspace-root/src');
+    fs.addFile('file:///workspace-root/src/w_workspace.srw');
+
+    fs.addDir('file:///solution-root');
+    fs.addFile('file:///solution-root/app.pbsln');
+    fs.addDir('file:///solution-root/src');
+    fs.addFile('file:///solution-root/src/w_solution.srw');
+
+    await discoverWorkspace(['file:///workspace-root', 'file:///solution-root'], fs, state, cancelSource.token);
+
+    assert.equal(state.getMode(), 'mixed');
+    assert.equal(state.getSourceOrigin('file:///workspace-root/src/w_workspace.srw'), 'unknown');
+    assert.equal(state.getSourceOrigin('file:///solution-root/src/w_solution.srw'), 'solution-source');
+  });
+
   test('discovery devuelve modo unknown si no hay markers', async () => {
     const fs = new FakeFileSystem();
     const state = new WorkspaceState();
@@ -303,6 +325,58 @@ suite('unit/workspace', () => {
 
     assert.equal(state.getProjectRegistry()?.getProjectForFile('file:///proj/lib_app.pbl/u_demo.sru'), 'file:///proj/app.pbt');
     assert.equal(state.getProjectModel()?.getProjectForFile('file:///proj/lib_app.pbl/u_demo.sru')?.projectUri, 'file:///proj/app.pbt');
+  });
+
+  test('refreshProjectRouting aísla roots con nombres duplicados sin mezclar proyectos ni librerías', () => {
+    const state = new WorkspaceState();
+
+    state.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///workspace-a/app.pbt',
+        name: 'app',
+        libraries: ['file:///workspace-a/lib_shared.pbl']
+      }
+    });
+    state.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///workspace-b/app.pbt',
+        name: 'app',
+        libraries: ['file:///workspace-b/lib_shared.pbl']
+      }
+    });
+    state.addSourceFile('file:///workspace-a/lib_shared.pbl/u_shared.sru', 'pbl-folder-source');
+    state.addSourceFile('file:///workspace-b/lib_shared.pbl/u_shared.sru', 'pbl-folder-source');
+
+    state.refreshProjectRouting();
+
+    assert.deepEqual(state.getProjectRegistry()?.getAllProjects(), [
+      'file:///workspace-a/app.pbt',
+      'file:///workspace-b/app.pbt'
+    ]);
+    assert.equal(
+      state.getProjectRegistry()?.getProjectForFile('file:///workspace-a/lib_shared.pbl/u_shared.sru'),
+      'file:///workspace-a/app.pbt'
+    );
+    assert.equal(
+      state.getProjectRegistry()?.getProjectForFile('file:///workspace-b/lib_shared.pbl/u_shared.sru'),
+      'file:///workspace-b/app.pbt'
+    );
+    assert.deepEqual(state.getProjectContextForFile('file:///workspace-a/lib_shared.pbl/u_shared.sru'), {
+      projectUri: 'file:///workspace-a/app.pbt',
+      kind: 'target',
+      name: 'app',
+      libraries: ['file:///workspace-a/lib_shared.pbl'],
+      files: ['file:///workspace-a/lib_shared.pbl/u_shared.sru']
+    });
+    assert.deepEqual(state.getProjectContextForFile('file:///workspace-b/lib_shared.pbl/u_shared.sru'), {
+      projectUri: 'file:///workspace-b/app.pbt',
+      kind: 'target',
+      name: 'app',
+      libraries: ['file:///workspace-b/lib_shared.pbl'],
+      files: ['file:///workspace-b/lib_shared.pbl/u_shared.sru']
+    });
   });
 
   test('discovery descubre y clasifica build files JSON de PBAutoBuild', async () => {

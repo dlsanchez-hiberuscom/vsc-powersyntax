@@ -56,7 +56,7 @@ export function importSemanticWorkspaceSnapshot(raw: unknown, sourceUri?: string
     };
   }
 
-  if (raw.schemaVersion !== '1.0.0') {
+  if (typeof raw.schemaVersion !== 'undefined' && raw.schemaVersion !== '1.0.0') {
     return {
       valid: false,
       reason: `schemaVersion no soportado: ${String(raw.schemaVersion ?? 'unknown')}`,
@@ -72,15 +72,48 @@ export function importSemanticWorkspaceSnapshot(raw: unknown, sourceUri?: string
     };
   }
 
-  if (!isRecord(raw.contract) || !isRecord(raw.readOnlyToolBridge) || !isRecord(raw.workspaceManifest) || !isRecord(raw.summary)) {
+  if (!isRecord(raw.contract) || !isRecord(raw.readOnlyToolBridge) || !isRecord(raw.workspaceManifest)) {
     return {
       valid: false,
-      reason: 'El snapshot semántico requiere contract, readOnlyToolBridge, workspaceManifest y summary serializables.',
+      reason: 'El snapshot semántico requiere contract, readOnlyToolBridge y workspaceManifest serializables.',
       ...(sourceUri ? { sourceUri } : {}),
     };
   }
 
-  const snapshot = JSON.parse(JSON.stringify(raw)) as ApiSemanticWorkspaceSnapshot;
+  if (typeof raw.summary !== 'undefined' && !isRecord(raw.summary)) {
+    return {
+      valid: false,
+      reason: 'El snapshot semántico requiere un summary serializable cuando está presente.',
+      ...(sourceUri ? { sourceUri } : {}),
+    };
+  }
+
+  if (typeof raw.serverStats !== 'undefined' && !isRecord(raw.serverStats)) {
+    return {
+      valid: false,
+      reason: 'El snapshot semántico requiere serverStats serializable cuando está presente.',
+      ...(sourceUri ? { sourceUri } : {}),
+    };
+  }
+
+  const workspaceManifest = JSON.parse(JSON.stringify(raw.workspaceManifest)) as ApiSemanticWorkspaceManifest;
+  const serverStats = isRecord(raw.serverStats)
+    ? (JSON.parse(JSON.stringify(raw.serverStats)) as ApiServerStats)
+    : undefined;
+  const summary = isRecord(raw.summary)
+    ? (JSON.parse(JSON.stringify(raw.summary)) as ApiSemanticWorkspaceSnapshotSummary)
+    : summarizeSemanticWorkspaceSnapshot(workspaceManifest, serverStats);
+  const snapshot: ApiSemanticWorkspaceSnapshot = {
+    schemaVersion: '1.0.0',
+    generatedAt: raw.generatedAt,
+    apiVersion: raw.apiVersion,
+    contract: JSON.parse(JSON.stringify(raw.contract)) as ApiPublicContractDescriptor,
+    readOnlyToolBridge: JSON.parse(JSON.stringify(raw.readOnlyToolBridge)) as ApiReadOnlyToolBridgeDescriptor,
+    workspaceManifest,
+    ...(serverStats ? { serverStats } : {}),
+    summary,
+  };
+
   return {
     valid: true,
     ...(sourceUri ? { sourceUri } : {}),

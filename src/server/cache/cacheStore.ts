@@ -60,6 +60,29 @@ interface AppendJournalInput {
   documents?: SemanticCacheDocumentRecord[];
 }
 
+function isValidProjectPartitionManifestEntry(value: unknown): value is ProjectPartitionManifestEntry {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const entry = value as Partial<ProjectPartitionManifestEntry>;
+  return typeof entry.projectKey === 'string'
+    && entry.projectKey.length > 0
+    && typeof entry.projectUri === 'string'
+    && entry.projectUri.length > 0;
+}
+
+function isValidProjectPartitionsManifest(value: unknown): value is ProjectPartitionsManifest {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const manifest = value as Partial<ProjectPartitionsManifest>;
+  return manifest.schemaVersion === CACHE_SCHEMA_VERSION
+    && Array.isArray(manifest.partitions)
+    && manifest.partitions.every((entry) => isValidProjectPartitionManifestEntry(entry));
+}
+
 export interface SemanticCacheRetentionPolicy {
   version: 2;
   staleWorkspaceTtlMs: number;
@@ -454,6 +477,13 @@ export function createSemanticCacheStore(
         };
       }
 
+      if (manifestRead.value !== undefined && !isValidProjectPartitionsManifest(manifestRead.value)) {
+        return {
+          checkpoint: createCacheCheckpoint(0, [], expectedMetadata),
+          decision: { action: 'rebuild', reason: 'invalid-checkpoint-payload' }
+        };
+      }
+
       journalEntries = (journalRead.value ?? [])
         .filter((entry) => entry.schemaVersion === CACHE_SCHEMA_VERSION)
         .sort((left, right) => left.sequence - right.sequence);
@@ -461,7 +491,7 @@ export function createSemanticCacheStore(
       projectJournalEntries.clear();
       projectNextSequences.clear();
 
-      if (manifestRead.value?.schemaVersion === CACHE_SCHEMA_VERSION && manifestRead.value.partitions.length > 0) {
+      if (manifestRead.value && manifestRead.value.partitions.length > 0) {
         partitionedPersistenceEnabled = true;
 
         const workspaceRestore = resolveCheckpointRestore(

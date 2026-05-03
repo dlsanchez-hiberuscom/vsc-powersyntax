@@ -261,11 +261,15 @@ suite('unit/scheduler', () => {
     let allowBackground = false;
     let started = false;
 
-    scheduler.setBackgroundAdmissionGate(() => allowBackground);
+    scheduler.setBackgroundAdmissionGate(() => ({
+      allowed: allowBackground,
+      reason: 'latency-pressure:background-indexing'
+    }));
 
     const backgroundPromise = scheduler.enqueueBackground({
       id: 'bg-gated',
       priority: TaskPriority.Background,
+      workload: 'background-indexing',
       execute: () => {
         started = true;
         return 'background-result';
@@ -274,6 +278,8 @@ suite('unit/scheduler', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 30));
     assert.equal(started, false);
+    assert.equal(scheduler.getStatus().throttledBackgroundWorkload, 'background-indexing');
+    assert.equal(scheduler.getStatus().throttledBackgroundReason, 'latency-pressure:background-indexing');
 
     allowBackground = true;
     scheduler.requestDrain();
@@ -281,6 +287,77 @@ suite('unit/scheduler', () => {
     const result = await backgroundPromise;
     assert.equal(result, 'background-result');
     assert.equal(started, true);
+  });
+
+  test('expone pending workloads por clase mientras el background sigue throttled', async () => {
+    const scheduler = new TaskScheduler();
+    let allowBackground = false;
+
+    scheduler.setBackgroundAdmissionGate((task) => ({
+      allowed: allowBackground,
+      reason: `latency-pressure:${task.workload ?? 'background-indexing'}`
+    }));
+
+    const backgroundPromise = scheduler.enqueueBackground({
+      id: 'report-gated',
+      priority: TaskPriority.Background,
+      workload: 'export-reporting',
+      execute: () => 'report-result'
+    });
+
+    const nearPromise = scheduler.enqueueNear({
+      id: 'near-summary',
+      priority: TaskPriority.Near,
+      workload: 'near-context',
+      execute: () => 'near-result'
+    });
+
+    assert.equal(await nearPromise, 'near-result');
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const status = scheduler.getStatus();
+    assert.equal(status.pendingWorkloads['export-reporting'], 1);
+    assert.equal(status.throttledBackgroundWorkload, 'export-reporting');
+    assert.equal(status.throttledBackgroundReason, 'latency-pressure:export-reporting');
+
+    allowBackground = true;
+    scheduler.requestDrain();
+    assert.equal(await backgroundPromise, 'report-result');
+  });
+
+  test('build preserva su ejecución activa frente a preempción interactiva', async () => {
+    const scheduler = new TaskScheduler();
+    let backgroundStarted = false;
+    let backgroundCancelled = false;
+
+    const backgroundPromise = scheduler.enqueueBackground({
+      id: 'build-running',
+      priority: TaskPriority.Background,
+      workload: 'build',
+      execute: async (token) => {
+        backgroundStarted = true;
+        token.onCancelled(() => {
+          backgroundCancelled = true;
+        });
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        return 'build-result';
+      }
+    });
+
+    while (!backgroundStarted) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+
+    const interactiveResult = await scheduler.runInteractive({
+      id: 'interactive-during-build',
+      priority: TaskPriority.Interactive,
+      execute: () => 'interactive-result'
+    });
+
+    assert.equal(interactiveResult, 'interactive-result');
+    assert.equal(await backgroundPromise, 'build-result');
+    assert.equal(backgroundCancelled, false);
   });
 });
 

@@ -401,6 +401,17 @@ export function buildStatusStatsReport(stats?: RuntimeStatusStats): string {
     return 'No hay estadísticas disponibles del servidor.';
   }
 
+  const schedulerParts = [
+    typeof stats.scheduler?.pendingNear === 'number' ? `near ${stats.scheduler.pendingNear}` : undefined,
+    typeof stats.scheduler?.pendingBackground === 'number' ? `background ${stats.scheduler.pendingBackground}` : undefined,
+    typeof stats.scheduler?.interactiveBusy === 'boolean' ? `interactiveBusy ${stats.scheduler.interactiveBusy}` : undefined,
+    stats.scheduler?.activeNearWorkload ? `activeNear ${stats.scheduler.activeNearWorkload}` : undefined,
+    stats.scheduler?.activeBackgroundWorkload ? `activeBackground ${stats.scheduler.activeBackgroundWorkload}` : undefined,
+    stats.scheduler?.throttledBackgroundWorkload
+      ? `throttle ${stats.scheduler.throttledBackgroundWorkload}${stats.scheduler.throttledBackgroundReason ? ` (${stats.scheduler.throttledBackgroundReason})` : ''}`
+      : undefined,
+  ].filter((part): part is string => Boolean(part)).join(' · ');
+
   const lines: string[] = ['[PowerSyntax] Stats'];
   pushIfPresent(lines, 'Readiness', [stats.readiness?.state, stats.readiness?.detail].filter((part): part is string => Boolean(part)).join(' · '));
   pushIfPresent(lines, 'Resumen proyecto', stats.projectStatus?.summary);
@@ -410,11 +421,7 @@ export function buildStatusStatsReport(stats?: RuntimeStatusStats): string {
     typeof stats.projectModel?.libraries === 'number' ? `${stats.projectModel.libraries} librerías` : undefined,
     typeof stats.projectModel?.orphanFiles === 'number' ? `${stats.projectModel.orphanFiles} huérfanos` : undefined,
   ].filter((part): part is string => Boolean(part)).join(' · '));
-  pushIfPresent(lines, 'Scheduler', [
-    typeof stats.scheduler?.pendingNear === 'number' ? `near ${stats.scheduler.pendingNear}` : undefined,
-    typeof stats.scheduler?.pendingBackground === 'number' ? `background ${stats.scheduler.pendingBackground}` : undefined,
-    typeof stats.scheduler?.interactiveBusy === 'boolean' ? `interactiveBusy ${stats.scheduler.interactiveBusy}` : undefined,
-  ].filter((part): part is string => Boolean(part)).join(' · '));
+  pushIfPresent(lines, 'Scheduler', schedulerParts);
   pushIfPresent(lines, 'Cachés', [
     stats.caches?.analysis ? `analysis ${formatCountPair(stats.caches.analysis.size, stats.caches.analysis.capacity)}` : undefined,
     formatServingCacheStats(stats),

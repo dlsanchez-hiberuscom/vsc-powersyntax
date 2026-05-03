@@ -7,7 +7,12 @@ suite('unit/runtimeHealth (B176)', () => {
     const report = buildRuntimeHealthReport({
       readiness: { state: 'degraded', detail: 'failed-files' },
       indexer: { degraded: true, phase: 'enriched' },
-      scheduler: { pendingNear: 2, pendingBackground: 4 },
+      scheduler: {
+        pendingNear: 2,
+        pendingBackground: 4,
+        throttledBackgroundWorkload: 'export-reporting',
+        throttledBackgroundReason: 'latency-pressure:export-reporting'
+      },
       projectModel: { orphanFiles: 1 },
       caches: {
         analysis: { size: 220, capacity: 256 },
@@ -86,6 +91,7 @@ suite('unit/runtimeHealth (B176)', () => {
     assert.ok(report.findings.some((finding) => finding.code === 'analysis-cache-capacity-near-limit'));
     assert.ok(report.findings.some((finding) => finding.code === 'memory-knowledge-near-limit'));
     assert.ok(report.findings.some((finding) => finding.code === 'serving-cache-low-hit-ratio'));
+    assert.ok(report.findings.some((finding) => finding.code === 'scheduler-background-throttled'));
     assert.ok(report.findings.some((finding) => finding.code === 'persistence-stale-workspaces'));
     assert.ok(report.findings.some((finding) => finding.code === 'persistence-compaction-recommended'));
     assert.ok(report.findings.some((finding) => finding.code === 'persistence-disk-budget-exceeded'));

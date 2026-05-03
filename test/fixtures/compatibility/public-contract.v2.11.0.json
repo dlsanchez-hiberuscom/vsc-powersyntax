@@ -1,0 +1,78 @@
+{
+  "apiVersion": "2.11.0",
+  "apiVersionMajor": 2,
+  "extensionId": "lopez.vsc-powersyntax",
+  "exportedFrom": "activate",
+  "methods": [
+    {
+      "name": "getPublicContract",
+      "access": "read-only",
+      "stability": "stable",
+      "responseSchema": "ApiPublicContractDescriptor"
+    },
+    {
+      "name": "getSemanticWorkspaceManifest",
+      "access": "read-only",
+      "stability": "stable",
+      "command": "powerbuilder.semanticWorkspaceManifest",
+      "responseSchema": "ApiSemanticWorkspaceManifest"
+    },
+    {
+      "name": "exportSemanticWorkspaceSnapshot",
+      "access": "read-only",
+      "stability": "stable",
+      "command": "powerbuilder.exportSemanticWorkspaceSnapshot",
+      "responseSchema": "ApiSemanticWorkspaceSnapshotExportResult"
+    },
+    {
+      "name": "diffSemanticWorkspaceSnapshots",
+      "access": "read-only",
+      "stability": "stable",
+      "responseSchema": "ApiSemanticWorkspaceSnapshotDiff"
+    }
+  ],
+  "schemas": [
+    {
+      "name": "ApiPublicContractDescriptor",
+      "version": "2.11.0",
+      "kind": "response"
+    },
+    {
+      "name": "ApiSemanticWorkspaceManifest",
+      "version": "1.0.0",
+      "kind": "response"
+    },
+    {
+      "name": "ApiSemanticWorkspaceSnapshot",
+      "version": "1.0.0",
+      "kind": "response"
+    },
+    {
+      "name": "ApiSemanticWorkspaceSnapshotDiff",
+      "version": "1.0.0",
+      "kind": "response"
+    }
+  ],
+  "taskExecutionCatalog": {
+    "schemaVersion": "1.0.0",
+    "apiVersion": "2.11.0",
+    "contracts": []
+  },
+  "capabilities": {
+    "readOnlyMethods": [
+      "getPublicContract",
+      "getSemanticWorkspaceManifest",
+      "exportSemanticWorkspaceSnapshot",
+      "diffSemanticWorkspaceSnapshots"
+    ],
+    "writeEnabledMethods": [
+      "applySpecDrivenPblUpdate",
+      "applySpecDrivenPblUpdateBatch"
+    ],
+    "readOnlyTools": [
+      "contract",
+      "semantic-workspace-manifest",
+      "semantic-snapshot-diff"
+    ]
+  }
+}

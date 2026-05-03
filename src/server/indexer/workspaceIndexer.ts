@@ -42,9 +42,7 @@ function resolveContextualSourceOrigin(uri: string, workspaceState: WorkspaceSta
     return contextual;
   }
 
-  return inferSourceOrigin(uri, {
-    hasSolutionRoots: workspaceState.getMode() === 'solution' || workspaceState.getMode() === 'mixed'
-  });
+  return workspaceState.inferSourceOriginForUri(uri);
 }
 
 interface PreparedDocument {

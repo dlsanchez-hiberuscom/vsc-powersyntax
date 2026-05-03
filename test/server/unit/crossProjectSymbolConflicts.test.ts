@@ -2,6 +2,7 @@ import * as assert from 'assert/strict';
 
 import { buildCrossProjectSymbolConflicts } from '../../../src/server/features/crossProjectSymbolConflicts';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { buildSymbolKey } from '../../../src/server/knowledge/symbolKey';
 import { EntityKind, type Entity } from '../../../src/server/knowledge/types';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
 import type { SourceOrigin } from '../../../src/shared/sourceOrigin';
@@ -74,7 +75,7 @@ suite('unit/crossProjectSymbolConflicts (B255)', () => {
     workspaceState.addSourceFile(uri, sourceOrigin);
   }
 
-  test('agrupa conflictos por buildSymbolKey y colapsa staging dentro de la misma ubicación', () => {
+  test('agrupa conflictos por family key y colapsa staging dentro de la misma ubicación', () => {
     const conflicts = buildCrossProjectSymbolConflicts(
       {
         maxConflicts: 8,
@@ -103,6 +104,13 @@ suite('unit/crossProjectSymbolConflicts (B255)', () => {
     assert.ok(sharedTypeConflict?.evidence.includes('collapsed-same-location'));
     assert.ok(sharedTypeConflict?.candidates.every((candidate) => candidate.sourceOrigin === 'solution-source'));
     assert.ok(!sharedTypeConflict?.candidates.some((candidate) => candidate.uri.includes('orca-staging')));
+    assert.deepEqual(
+      sharedTypeConflict?.candidates.map((candidate) => candidate.identityKey),
+      ['file:///proj_a/lib_app.pbl/n_shared.sru', 'file:///proj_b/lib_app.pbl/n_shared.sru']
+        .map((uri) => kb.getEntitiesByUri(uri)[0])
+        .filter((entity): entity is Entity => Boolean(entity))
+        .map((entity) => buildSymbolKey(entity))
+    );
     assert.deepEqual(
       sharedTypeConflict?.candidates.map((candidate) => candidate.projectUri),
       ['file:///proj_a/app_a.pbt', 'file:///proj_b/app_b.pbt']

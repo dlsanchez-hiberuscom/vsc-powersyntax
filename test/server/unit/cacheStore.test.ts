@@ -410,6 +410,69 @@ suite('unit/cacheStore', () => {
     }
   });
 
+  test('checkpoint mantiene particiones distintas para proyectos homónimos en roots distintos', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const projectA = 'file:///workspace-a/app.pbt';
+    const projectB = 'file:///workspace-b/app.pbt';
+    const projectModel: UnifiedProjectModel = {
+      getProjects() {
+        return [
+          { projectUri: projectA, kind: 'target', name: 'app', libraries: ['file:///workspace-a/lib_shared.pbl'] },
+          { projectUri: projectB, kind: 'target', name: 'app', libraries: ['file:///workspace-b/lib_shared.pbl'] }
+        ];
+      },
+      getProjectForFile(uri: string) {
+        if (uri.startsWith('file:///workspace-a/')) {
+          return { projectUri: projectA, kind: 'target', name: 'app', libraries: ['file:///workspace-a/lib_shared.pbl'] };
+        }
+        if (uri.startsWith('file:///workspace-b/')) {
+          return { projectUri: projectB, kind: 'target', name: 'app', libraries: ['file:///workspace-b/lib_shared.pbl'] };
+        }
+        return null;
+      },
+      getFilesForProject(projectUri: string) {
+        if (projectUri === projectA) return ['file:///workspace-a/lib_shared.pbl/u_shared.sru'];
+        if (projectUri === projectB) return ['file:///workspace-b/lib_shared.pbl/u_shared.sru'];
+        return [];
+      },
+      getLibrariesForFile(uri: string) {
+        return this.getProjectForFile(uri)?.libraries ?? [];
+      },
+      getStats() {
+        return { projects: 2, libraries: 2, orphanFiles: 0 };
+      }
+    };
+    const store = createSemanticCacheStore(
+      new NodeFileSystem(),
+      storageUri,
+      ['file:///workspace-a', 'file:///workspace-b'],
+      projectModel
+    );
+
+    try {
+      await store.persistCheckpoint(createCacheCheckpoint(9, [
+        { uri: 'file:///workspace-a/lib_shared.pbl/u_shared.sru', version: 'hash-a', facts: [], scopes: [] },
+        { uri: 'file:///workspace-b/lib_shared.pbl/u_shared.sru', version: 'hash-b', facts: [], scopes: [] }
+      ], {
+        workspaceMode: 'mixed',
+        rootUris: ['file:///workspace-a', 'file:///workspace-b'],
+        projectStats: projectModel.getStats()
+      }));
+
+      const persistedRoot = path.join(tempRoot, store.workspaceKey);
+      const manifest = JSON.parse(
+        await fs.readFile(path.join(persistedRoot, 'project-partitions.json'), 'utf8')
+      ) as { partitions: Array<{ projectUri: string; projectKey: string }> };
+      const projectKeys = new Map(manifest.partitions.map((entry) => [entry.projectUri, entry.projectKey]));
+
+      assert.equal(manifest.partitions.length, 2);
+      assert.notEqual(projectKeys.get(projectA), projectKeys.get(projectB));
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test('persistServingCacheSnapshot guarda y restaura snapshots válidos de ServingCache', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
     const storageUri = fsPathToUri(tempRoot);

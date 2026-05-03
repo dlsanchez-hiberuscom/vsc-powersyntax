@@ -4,11 +4,13 @@
  * Segmenta un documento en statements lógicos respetando:
  *   - Continuaciones `&` al final de línea.
  *   - Separadores `;` fuera de strings/comentarios.
+ *   - Texto lógico limpio de comentarios para no contaminar diagnósticos
+ *     ni analizadores derivados.
  *
  * @module parsing/statementSplitter
  */
 
-import { maskDocument } from './codeMasking';
+import { CharType, stripCommentsSmart } from '../utils/comments';
 
 export interface LogicalStatement {
   /** Texto unido (sin `&` final ni saltos de línea). */
@@ -19,8 +21,8 @@ export interface LogicalStatement {
 }
 
 export function splitStatements(content: string): LogicalStatement[] {
-  const masked = maskDocument(content).split(/\r?\n/);
   const raw = content.split(/\r?\n/);
+  const { lines: stripped, masks } = stripCommentsSmart(raw);
   const result: LogicalStatement[] = [];
 
   let bufText: string[] = [];
@@ -46,30 +48,30 @@ export function splitStatements(content: string): LogicalStatement[] {
   }
 
   for (let i = 0; i < raw.length; i++) {
-    const maskedLine = masked[i] ?? '';
+    const strippedLine = stripped[i] ?? '';
+    const mask = masks[i] ?? new Uint8Array(raw[i]?.length ?? 0);
     const rawLine = raw[i];
     if (bufStart < 0) bufStart = i;
     bufRaw.push(rawLine);
 
-    // ¿Esta línea (en su forma enmascarada) acaba con `&`?
-    const trimmed = maskedLine.replace(/\s+$/, '');
+    // ¿Esta línea (sin comentarios) acaba con `&`?
+    const trimmed = strippedLine.replace(/\s+$/, '');
     const continues = trimmed.endsWith('&');
     if (continues) {
-      // Guardar la línea sin el `&` final usando el mismo recorte sobre `rawLine`.
-      const cut = rawLine.replace(/&\s*$/, '');
+      const cut = strippedLine.replace(/&\s*$/, '');
       bufText.push(cut);
       continue;
     }
 
-    // Detectar `;` en la línea enmascarada → potencial split adicional.
-    if (maskedLine.includes(';')) {
+    // Detectar `;` reales de código (no strings/comentarios) → split adicional.
+    if (hasCodeSemicolon(strippedLine, mask)) {
       // Recorrer y separar.
-      let segmentRaw = '';
+      let segmentText = '';
       const finalText: string[] = [...bufText];
       let lastEnd = i;
-      for (let c = 0; c < rawLine.length; c++) {
-        if (maskedLine[c] === ';') {
-          finalText.push(segmentRaw);
+      for (let c = 0; c < strippedLine.length; c++) {
+        if (strippedLine[c] === ';' && mask[c] === CharType.Code) {
+          finalText.push(segmentText);
           if (finalText.join(' ').trim()) {
             result.push({
               text: finalText.join(' ').trim(),
@@ -79,15 +81,15 @@ export function splitStatements(content: string): LogicalStatement[] {
             });
           }
           finalText.length = 0;
-          segmentRaw = '';
+          segmentText = '';
           bufStart = i;
           bufRaw = [rawLine];
         } else {
-          segmentRaw += rawLine[c];
+          segmentText += strippedLine[c];
         }
       }
-      if (segmentRaw.trim()) {
-        bufText = [segmentRaw];
+      if (segmentText.trim()) {
+        bufText = [segmentText];
         bufStart = i;
         bufRaw = [rawLine];
         flush(i);
@@ -99,9 +101,19 @@ export function splitStatements(content: string): LogicalStatement[] {
       continue;
     }
 
-    bufText.push(rawLine);
+    bufText.push(strippedLine);
     flush(i);
   }
   flush(raw.length - 1);
   return result;
+}
+
+function hasCodeSemicolon(line: string, mask: Uint8Array): boolean {
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === ';' && mask[i] === CharType.Code) {
+      return true;
+    }
+  }
+
+  return false;
 }

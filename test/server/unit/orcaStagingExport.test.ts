@@ -180,6 +180,40 @@ suite('unit/orcaStagingExport (B191)', () => {
     assert.equal(manifest.objects[0]?.library, libraryUri);
     assert.equal(manifest.objects[0]?.sourceOrigin, 'orca-staging');
   });
+
+  test('elige el workspace folder correcto para staging cuando hay varias raíces abiertas', async () => {
+    const fs = new FakeFileSystem();
+    const workspaceState = new WorkspaceState();
+    const libraryAUri = 'file:///c:/workspace-a/legacy/app.pbl';
+    const libraryBUri = 'file:///c:/workspace-b/legacy/app.pbl';
+
+    await fs.createDirectory('file:///c:/workspace-a');
+    await fs.createDirectory('file:///c:/workspace-a/legacy');
+    await fs.createDirectory('file:///c:/workspace-b');
+    await fs.createDirectory('file:///c:/workspace-b/legacy');
+    await fs.writeFile(libraryAUri, 'binary-a');
+    await fs.writeFile(libraryBUri, 'binary-b');
+
+    workspaceState.addRoot('libraries', libraryAUri);
+    workspaceState.addRoot('libraries', libraryBUri);
+    workspaceState.refreshProjectRouting();
+
+    const prepared = await prepareOrcaStagingExport({
+      executablePath: 'C:/Tools/pborca.exe',
+      sessionLibrary: 'pborc250.dll',
+      focusUri: libraryBUri,
+    }, {
+      workspaceFolders: ['file:///c:/workspace-a', 'file:///c:/workspace-b'],
+      workspaceState,
+      fs,
+    });
+
+    assert.equal(prepared.exportedLibraries.length, 1);
+    assert.equal(prepared.exportedLibraries[0]?.libraryUri, libraryBUri);
+    assert.ok(decodeURIComponent(prepared.stagingRootUri).startsWith('file:///c:/workspace-b/'));
+    assert.deepEqual(workspaceState.getLibrarySourceAliases()[libraryAUri] ?? [], []);
+    assert.equal((workspaceState.getLibrarySourceAliases()[libraryBUri] ?? []).length, 1);
+  });
 });
 
 function parentUri(uri: string): string {

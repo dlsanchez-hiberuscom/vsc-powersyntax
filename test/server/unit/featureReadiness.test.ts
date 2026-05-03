@@ -51,6 +51,7 @@ suite('unit/featureReadiness (B158)', () => {
     assert.equal(getRequiredResolutionConfidence('definition'), 'medium');
     assert.equal(getRequiredResolutionConfidence('references'), 'high');
     assert.equal(getRequiredResolutionConfidence('rename'), 'high');
+    assert.equal(getRequiredResolutionConfidence('signature-help'), 'low');
   });
 
   test('isResolutionConfidenceSufficient respeta el threshold minimo por feature', () => {
@@ -117,6 +118,7 @@ suite('unit/featureReadiness (B158)', () => {
     assert.equal(decideFeatureReadiness('definition', snapshot).action, 'block');
     assert.equal(decideFeatureReadiness('references', snapshot).action, 'block');
     assert.equal(decideFeatureReadiness('rename', snapshot).action, 'block');
+    assert.equal(decideFeatureReadiness('signature-help', snapshot).action, 'block');
   });
 
   test('structural-only degrada hover y completion en lugar de bloquearlos', () => {
@@ -173,5 +175,15 @@ suite('unit/featureReadiness (B158)', () => {
     });
 
     assert.equal(decideFeatureReadiness('references', snapshot, { latencyOverloaded: true }).action, 'block');
+  });
+
+  test('presion de latencia bloquea signature-help porque no tiene modo degradado separado', () => {
+    const snapshot = createSnapshot({
+      activeContextReady: true,
+      projectReady: true,
+      workspaceReady: true
+    });
+
+    assert.equal(decideFeatureReadiness('signature-help', snapshot, { latencyOverloaded: true }).action, 'block');
   });
 });

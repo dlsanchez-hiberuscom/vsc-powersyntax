@@ -126,13 +126,19 @@ El sistema debe tender a:
 Hoy el runtime ya dispone de:
 - budgets dinámicos en el indexador,
 - yielding cooperativo,
-- cancelación/preempción del background,
+- cancelación/preempción del background gobernada por `backpressurePolicy`, preservando `build/legacy-orca` una vez arrancan y manteniendo cancelables `background-indexing`, `export-reporting`, `maintenance` y `ai-tooling`,
+- admisión unificada de workloads `background-indexing`, `export-reporting`, `build`, `legacy-orca` y `maintenance` detrás del mismo scheduler + latency governor, con yielding previo para reports read-only y observabilidad explícita de `throttledBackgroundWorkload/reason`,
 - backpressure del watcher,
 - refresco incremental de routing/provenance para markers de topología y altas calientes de SR* sin rediscovery completo,
-- pool acotado de fuentes para `references`/`rename`/CodeLens con reuso de `maskedText` ya indexado,
+- diff snapshot-aware con dependencias `DataObject`/`report`/`dddw` y contrato retrieve de `.srd`, de modo que el fan-out incremental alcance solo a los consumidores necesarios sin abrir otro motor de invalidación,
+- policy v2 `queryScopePolicy` por consumer semántico, con `maxScope`, `budgetMs`, `resultCap`, readiness/confidence/fallback y allowances `staging/generated/external` servidos desde un registro único,
+- pool acotado de fuentes para `references`/`rename`/CodeLens con reuso de `maskedText` ya indexado, sin widening a `workspace` cuando la policy del consumer queda en `project` y sin materializar `orca-staging/generated` salvo allowance explícito,
 - mutaciones `upsert/remove` de `KnowledgeBase` con copy-on-write por bucket y consultas/conteos acotados por `kind` para serving y manifest, evitando clonar o recorrer toda la base cuando el hot path ya conoce el subconjunto necesario,
+- guard estructural local/CI sobre hot path para impedir `document.getText().split(...)`, `JSON.stringify`, `getAllEntities`/`exportDocumentRecords`, clonación global del catálogo de sistema y renormalización redundante del workspace en `queryContext`, `completion`, `diagnostics` y `referenceSourcePool`,
 - caché CodeLens LRU acotada y visible en stats/health,
 - reporte unificado de memory budgets por capa con estimates soft y estado agregado visible en stats/health/status,
+- degradación adaptativa por presión de memoria que purga serving cache, pausa nuevas escrituras en esa caché, aplaza `background-indexing/maintenance/ai-tooling` y acota payloads de reports read-only pesados sin apagar `hover`/`completion`/`near-context`,
+- persistencia dañada o malformada que cae a `rebuild` limpio sin exponer estado semántico medio ni bloquear el carril interactivo,
 - cierre de documento sin borrar conocimiento semántico publicado mientras el archivo siga siendo fuente del workspace,
 - y progreso/readiness/modo degradado observables.
 
@@ -209,7 +215,8 @@ Se vigila:
 - memoria por documento caliente,
 - crecimiento del índice,
 - picos durante indexación,
-- densidad de caché.
+- densidad de caché,
+- activación de la policy adaptativa de presión (`serving cache relief`, deferrals y caps de reports).
 
 ---
 
@@ -256,10 +263,17 @@ Ante una regresión:
 
 El gate ejecutable actual del presupuesto es `npm run test:performance:gate`.
 
+El soak local opt-in actual es `npm run test:performance:soak`; genera `artifacts/performance/session-stability-soak.json` y `artifacts/performance/session-stability-soak.md` para dejar evidencia de estabilidad prolongada sin meter ese coste en CI por defecto.
+
+El guard local/CI actual contra allocations accidentales en hot path es `test/server/unit/hotPathAllocationBudget.test.ts`; queda revalidado junto con `queryContext/completion/diagnostics/referenceSourcePool/references/definition/rename` para bloquear patrones estructurales antes de que se conviertan en regresión de latencia.
+
 Hoy ese carril debe:
 
 - ejecutar budgets deterministas sobre el corpus publico `fixtures-local/public/legacy-pbl-dump` para hover, diagnostics y batch analysis del archivo activo;
 - incluir la suite `performance/large-workspace-incremental` para rafagas moderadas y masivas sobre workspaces sinteticos grandes;
+- seguir verde junto con la proof suite `semanticDiff + watchedFileIntake` que fija el fan-out incremental de `B265` para cambios cosméticos, implementation/prototype/ancestor, `.srd`/`DataObject`, markers, `sourceOrigin`, ORCA staging y external functions;
+- seguir verde junto con la suite `queryScopePolicy + referenceSourcePool + featureReadiness + references/rename/CodeLens + completion/signatureHelp/currentObjectContext/impactAnalysis`, que fija la policy v2 de `B266`, los caps por consumer y la no materialización global fuera del contract;
+- seguir verde junto con la suite `backpressurePolicy + scheduler + diagnosticScheduler + runtimeHealth + statusBarPresentation`, y con la batería read-only/build/legacy reencolada (`currentObjectContext`, `impactAnalysis`, `safeEditPlan`, `safeBatchRefactorPlan`, `semanticWorkspaceManifest`, `crossProjectSymbolConflicts`, `workspaceMigrationAssistant`, `powerBuilderCodeMetrics`, `powerBuilderTechnicalDebtReport`, `pbAutoBuildRunner`, `orcaRunner`, `specDrivenPblUpdate`, `specDrivenPblUpdateBatch`), que fija la policy runtime v2 de `B267` sobre el scheduler común;
 - serializar evidencia en `artifacts/performance/performance-budget-gate.json`;
 - y quedar reutilizable tanto en CI como en el release lane (`npm run release:verify`).
 

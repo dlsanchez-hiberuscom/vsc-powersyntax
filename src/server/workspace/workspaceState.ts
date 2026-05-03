@@ -80,6 +80,49 @@ function normalizeRoots(roots?: Partial<WorkspaceRoots>): WorkspaceRoots {
   };
 }
 
+function dirname(uri: string): string {
+  const index = uri.lastIndexOf('/');
+  return index > 0 ? uri.slice(0, index) : uri;
+}
+
+function ensureTrailingSlash(uri: string): string {
+  return uri.endsWith('/') ? uri : `${uri}/`;
+}
+
+function resolveHasSolutionRootsForUri(uri: string, roots: WorkspaceRoots): boolean {
+  const normalizedUri = normalizeUri(uri).toLowerCase();
+  let bestPrefixLength = -1;
+  let bestMode: 'solution' | 'workspace' | null = null;
+
+  const workspaceMarkers = [...roots.workspaces, ...roots.targets].map((rootUri) => ensureTrailingSlash(dirname(normalizeUri(rootUri))).toLowerCase());
+  for (const markerDir of workspaceMarkers) {
+    if (!normalizedUri.startsWith(markerDir)) {
+      continue;
+    }
+    if (markerDir.length > bestPrefixLength) {
+      bestPrefixLength = markerDir.length;
+      bestMode = 'workspace';
+    }
+  }
+
+  const solutionMarkers = [...roots.solutions, ...roots.projects].map((rootUri) => ensureTrailingSlash(dirname(normalizeUri(rootUri))).toLowerCase());
+  for (const markerDir of solutionMarkers) {
+    if (!normalizedUri.startsWith(markerDir)) {
+      continue;
+    }
+    if (markerDir.length > bestPrefixLength) {
+      bestPrefixLength = markerDir.length;
+      bestMode = 'solution';
+    }
+  }
+
+  if (bestMode) {
+    return bestMode === 'solution';
+  }
+
+  return solutionMarkers.length > 0 && workspaceMarkers.length === 0;
+}
+
 /**
  * Modo de proyecto detectado durante el discovery.
  *
@@ -170,6 +213,12 @@ export class WorkspaceState {
     return summarizeSourceOrigins(this.knownFiles.values());
   }
 
+  inferSourceOriginForUri(uri: string): SourceOrigin {
+    return inferSourceOrigin(uri, {
+      hasSolutionRoots: resolveHasSolutionRootsForUri(uri, this.roots)
+    });
+  }
+
   registerLibrarySourceAlias(libraryUri: string, sourceRootUri: string): void {
     const normalizedLibraryUri = normalizeUri(libraryUri);
     const normalizedSourceRootUri = normalizeUri(sourceRootUri);
@@ -242,11 +291,11 @@ export class WorkspaceState {
     }
 
     const roots = normalizeRoots(snapshot.roots);
-    const hasSolutionRoots = roots.solutions.length > 0 || roots.projects.length > 0;
+    this.roots = roots;
     this.knownFiles = new Map(
       normalizeRootList(snapshot.sourceFiles).map((uri) => [
         uri,
-        snapshot.sourceOrigins?.[uri] ?? inferSourceOrigin(uri, { hasSolutionRoots })
+        snapshot.sourceOrigins?.[uri] ?? this.inferSourceOriginForUri(uri)
       ])
     );
     this.librarySourceAliases = new Map(
@@ -255,7 +304,6 @@ export class WorkspaceState {
         normalizeRootList(sourceRoots)
       ])
     );
-    this.roots = roots;
     this.topology = emptyTopology();
     this.buildFileCandidates = new Map();
     this.buildFiles = (snapshot.buildFiles ?? []).map((buildFile) => clonePbAutoBuildBuildFileInfo(buildFile));
@@ -452,11 +500,10 @@ export class WorkspaceState {
   }
 
   recomputeSourceOrigins(): void {
-    const hasSolutionRoots = this.roots.solutions.length > 0 || this.roots.projects.length > 0;
     this.knownFiles = new Map(
       this.getAllSourceFiles().map((uri) => [
         uri,
-        pickPreferredSourceOrigin(this.getSourceOrigin(uri), inferSourceOrigin(uri, { hasSolutionRoots }))
+        pickPreferredSourceOrigin(this.getSourceOrigin(uri), this.inferSourceOriginForUri(uri))
       ])
     );
     this.indexDirty = true;

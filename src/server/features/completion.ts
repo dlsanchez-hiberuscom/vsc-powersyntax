@@ -11,8 +11,9 @@ import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
 import { providePowerScriptDataWindowPropertyCompletion } from './dataWindowPropertyPaths';
 import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
+import { getQueryConsumerPolicy } from './queryScopePolicy';
 
-const MAX_GLOBAL_COMPLETION_ENTITIES = 200;
+const MAX_GLOBAL_COMPLETION_ENTITIES = getQueryConsumerPolicy('completion').resultCap;
 
 function getMembersForCompletion(
   typeName: string,
@@ -158,9 +159,7 @@ export function provideCompletion(
     }
 
     // 3. Global and System functions
-    const systemSymbols = systemCatalog.getAllSystemSymbols();
-    for (const sys of systemSymbols) {
-      if (sys.domain !== 'global-functions' && sys.domain !== 'statements') continue;
+    for (const sys of systemCatalog.listGlobalFunctions()) {
       if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
       if (seen.has(sys.name.toLowerCase())) continue;
       seen.add(sys.name.toLowerCase());
@@ -170,6 +169,20 @@ export function provideCompletion(
         kind: sys.kind === 'callable' ? CompletionItemKind.Function : CompletionItemKind.Keyword,
         detail: sys.summary,
         documentation: sys.summary, // Can be improved
+        sortText: '2_global_' + sys.name.toLowerCase()
+      });
+    }
+
+    for (const sys of systemCatalog.listStatements()) {
+      if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
+      if (seen.has(sys.name.toLowerCase())) continue;
+      seen.add(sys.name.toLowerCase());
+
+      items.push({
+        label: sys.name,
+        kind: CompletionItemKind.Keyword,
+        detail: sys.summary,
+        documentation: sys.summary,
         sortText: '2_global_' + sys.name.toLowerCase()
       });
     }

@@ -35,6 +35,7 @@ import {
 import { EntityKind, ScopeKind } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
 import { buildHierarchyInspection } from './hierarchyInspection';
+import { getDocumentLineText } from '../utils/documentLineText';
 import {
   DATAWINDOW_BIND_OWNER_TYPES,
   extractDataObjectLiteral,
@@ -917,7 +918,7 @@ function inspectFirstDataWindowPropertyOnLine(
   line: number,
   kb: KnowledgeBase,
 ): ReturnType<typeof inspectPowerScriptDataWindowProperty> {
-  const lineText = document.getText().split(/\r?\n/)[line] ?? '';
+  const lineText = getDocumentLineText(document, line);
   for (let character = 0; character < lineText.length; character++) {
     const inspection = inspectPowerScriptDataWindowProperty(document, Position.create(line, character), kb);
     if (inspection) {

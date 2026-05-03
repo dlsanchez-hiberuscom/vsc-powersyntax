@@ -22,6 +22,7 @@ import {
   type CancellationSource,
   createCancellationSource
 } from './cancellation.js';
+import { isRuntimeWorkloadPreemptible, type RuntimeWorkloadClass } from './backpressurePolicy';
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -39,7 +40,13 @@ export enum TaskPriority {
 export interface ScheduledTask<T = void> {
   readonly id: string;
   readonly priority: TaskPriority;
+  readonly workload?: RuntimeWorkloadClass;
   execute(token: CancellationToken): Promise<T> | T;
+}
+
+export interface BackgroundAdmissionDecision {
+  allowed: boolean;
+  reason?: string;
 }
 
 interface QueuedTask {
@@ -55,11 +62,59 @@ export interface SchedulerStatus {
   interactiveBusy: boolean;
   activeNearId: string | null;
   activeBackgroundId: string | null;
+  pendingWorkloads: Partial<Record<RuntimeWorkloadClass, number>>;
+  activeInteractiveWorkloads: Partial<Record<RuntimeWorkloadClass, number>>;
+  activeNearWorkload?: RuntimeWorkloadClass;
+  activeBackgroundWorkload?: RuntimeWorkloadClass;
+  throttledBackgroundWorkload?: RuntimeWorkloadClass;
+  throttledBackgroundReason?: string;
   preemptions: {
     interactiveCancelledNear: number;
     interactiveCancelledBackground: number;
     nearCancelledBackground: number;
   };
+}
+
+function resolveTaskWorkload(task: ScheduledTask<unknown>, fallbackWorkload: RuntimeWorkloadClass): RuntimeWorkloadClass {
+  return task.workload ?? fallbackWorkload;
+}
+
+function incrementWorkloadCount(map: Map<RuntimeWorkloadClass, number>, workload: RuntimeWorkloadClass): void {
+  map.set(workload, (map.get(workload) ?? 0) + 1);
+}
+
+function decrementWorkloadCount(map: Map<RuntimeWorkloadClass, number>, workload: RuntimeWorkloadClass): void {
+  const current = map.get(workload) ?? 0;
+  if (current <= 1) {
+    map.delete(workload);
+    return;
+  }
+  map.set(workload, current - 1);
+}
+
+function snapshotWorkloadCounts(map: Map<RuntimeWorkloadClass, number>): Partial<Record<RuntimeWorkloadClass, number>> {
+  const snapshot: Partial<Record<RuntimeWorkloadClass, number>> = {};
+  for (const [workload, count] of map.entries()) {
+    snapshot[workload] = count;
+  }
+  return snapshot;
+}
+
+function collectPendingWorkloads(
+  nearQueue: readonly QueuedTask[],
+  backgroundQueue: readonly QueuedTask[]
+): Partial<Record<RuntimeWorkloadClass, number>> {
+  const counts = new Map<RuntimeWorkloadClass, number>();
+
+  for (const queued of nearQueue) {
+    incrementWorkloadCount(counts, resolveTaskWorkload(queued.task, 'near-context'));
+  }
+
+  for (const queued of backgroundQueue) {
+    incrementWorkloadCount(counts, resolveTaskWorkload(queued.task, 'background-indexing'));
+  }
+
+  return snapshotWorkloadCounts(counts);
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +125,7 @@ export class TaskScheduler {
   private readonly nearQueue: QueuedTask[] = [];
   private readonly backgroundQueue: QueuedTask[] = [];
   private activeInteractiveCount = 0;
+  private readonly activeInteractiveWorkloads = new Map<RuntimeWorkloadClass, number>();
   private activeNearTask: QueuedTask | null = null;
   private activeBackgroundTask: QueuedTask | null = null;
   private drainScheduled = false;
@@ -78,7 +134,8 @@ export class TaskScheduler {
     interactiveCancelledBackground: 0,
     nearCancelledBackground: 0
   };
-  private backgroundAdmissionGate: (() => boolean) | undefined;
+  private backgroundAdmissionGate: ((task: ScheduledTask<unknown>) => BackgroundAdmissionDecision | boolean) | undefined;
+  private throttledBackground: { workload: RuntimeWorkloadClass; reason: string } | null = null;
 
   // ---- Callback de registro/logs (opcional) -------------------------------
 
@@ -88,7 +145,7 @@ export class TaskScheduler {
     this.logFn = fn;
   }
 
-  setBackgroundAdmissionGate(fn: (() => boolean) | undefined): void {
+  setBackgroundAdmissionGate(fn: ((task: ScheduledTask<unknown>) => BackgroundAdmissionDecision | boolean) | undefined): void {
     this.backgroundAdmissionGate = fn;
   }
 
@@ -107,7 +164,9 @@ export class TaskScheduler {
    * Cancela cualquier tarea `Near` o `Background` activa.
    */
   async runInteractive<T>(task: ScheduledTask<T>): Promise<T> {
+    const workload = resolveTaskWorkload(task, 'interactive');
     this.activeInteractiveCount++;
+    incrementWorkloadCount(this.activeInteractiveWorkloads, workload);
     this.log(`[PLANIFICADOR] Inicio interactivo: ${task.id} (activos: ${this.activeInteractiveCount})`);
 
     // Cancelar tareas inferiores en curso para liberar el thread.
@@ -119,6 +178,7 @@ export class TaskScheduler {
       return result;
     } finally {
       this.activeInteractiveCount--;
+      decrementWorkloadCount(this.activeInteractiveWorkloads, workload);
       this.log(`[PLANIFICADOR] Fin interactivo: ${task.id} (activos: ${this.activeInteractiveCount})`);
       this.scheduleDrain();
     }
@@ -130,15 +190,19 @@ export class TaskScheduler {
    */
   enqueueNear<T>(task: ScheduledTask<T>): Promise<T> {
     const cancellation = createCancellationSource();
+    const normalizedTask: ScheduledTask<T> = {
+      ...task,
+      workload: resolveTaskWorkload(task, 'near-context')
+    };
 
     const promise = new Promise<T>((resolve, reject) => {
       this.nearQueue.push({
-        task,
+        task: normalizedTask,
         cancellation,
         resolve: resolve as (v: unknown) => void,
         reject
       });
-      this.log(`[PLANIFICADOR] Tarea Near encolada: ${task.id} (cola: ${this.nearQueue.length})`);
+      this.log(`[PLANIFICADOR] Tarea Near encolada: ${normalizedTask.id} (cola: ${this.nearQueue.length})`);
     });
 
     // Si hay un background corriendo, cederle el paso a Near.
@@ -153,15 +217,19 @@ export class TaskScheduler {
    */
   enqueueBackground<T>(task: ScheduledTask<T>): Promise<T> {
     const cancellation = createCancellationSource();
+    const normalizedTask: ScheduledTask<T> = {
+      ...task,
+      workload: resolveTaskWorkload(task, 'background-indexing')
+    };
 
     return new Promise<T>((resolve, reject) => {
       this.backgroundQueue.push({
-        task,
+        task: normalizedTask,
         cancellation,
         resolve: resolve as (v: unknown) => void,
         reject
       });
-      this.log(`[PLANIFICADOR] Tarea de fondo encolada: ${task.id} (cola: ${this.backgroundQueue.length})`);
+      this.log(`[PLANIFICADOR] Tarea de fondo encolada: ${normalizedTask.id} (cola: ${this.backgroundQueue.length})`);
       this.scheduleDrain();
     });
   }
@@ -214,12 +282,26 @@ export class TaskScheduler {
   }
 
   getStatus(): SchedulerStatus {
+    const activeNearWorkload = this.activeNearTask
+      ? resolveTaskWorkload(this.activeNearTask.task, 'near-context')
+      : undefined;
+    const activeBackgroundWorkload = this.activeBackgroundTask
+      ? resolveTaskWorkload(this.activeBackgroundTask.task, 'background-indexing')
+      : undefined;
+    const throttledBackground = this.backgroundQueue.length > 0 ? this.throttledBackground : null;
+
     return {
       pendingNear: this.pendingNearCount,
       pendingBackground: this.pendingBackgroundCount,
       interactiveBusy: this.isInteractiveBusy,
       activeNearId: this.activeNearTask?.task.id ?? null,
       activeBackgroundId: this.activeBackgroundTask?.task.id ?? null,
+      pendingWorkloads: collectPendingWorkloads(this.nearQueue, this.backgroundQueue),
+      activeInteractiveWorkloads: snapshotWorkloadCounts(this.activeInteractiveWorkloads),
+      activeNearWorkload,
+      activeBackgroundWorkload,
+      ...(throttledBackground?.workload ? { throttledBackgroundWorkload: throttledBackground.workload } : {}),
+      ...(throttledBackground?.reason ? { throttledBackgroundReason: throttledBackground.reason } : {}),
       preemptions: { ...this.preemptions }
     };
   }
@@ -248,6 +330,11 @@ export class TaskScheduler {
 
   private cancelActiveBackground(reason: 'interactive' | 'near' | 'manual'): void {
     if (this.activeBackgroundTask) {
+      const workload = resolveTaskWorkload(this.activeBackgroundTask.task, 'background-indexing');
+      if (reason !== 'manual' && !isRuntimeWorkloadPreemptible(workload)) {
+        this.log(`[PLANIFICADOR] Fondo preservado: ${this.activeBackgroundTask.task.id} (${workload})`);
+        return;
+      }
       this.activeBackgroundTask.cancellation.cancel();
       if (reason === 'interactive') {
         this.preemptions.interactiveCancelledBackground++;
@@ -286,6 +373,7 @@ export class TaskScheduler {
     while (this.activeInteractiveCount === 0) {
       // Prioridad Near sobre Background.
       if (this.nearQueue.length > 0 && !this.activeNearTask) {
+        this.throttledBackground = null;
         const queued = this.nearQueue.shift()!;
         if (queued.cancellation.token.isCancelled) {
           queued.reject(new Error(`Tarea ${queued.task.id} cancelada antes de ejecución`));
@@ -316,10 +404,23 @@ export class TaskScheduler {
         this.nearQueue.length === 0 &&
         !this.activeNearTask
       ) {
-        if (this.backgroundAdmissionGate && !this.backgroundAdmissionGate()) {
-          this.scheduleDrainAfter(25);
-          break;
+        const nextBackground = this.backgroundQueue[0]!;
+        if (this.backgroundAdmissionGate) {
+          const decision = this.backgroundAdmissionGate(nextBackground.task);
+          const normalizedDecision = typeof decision === 'boolean'
+            ? { allowed: decision }
+            : decision;
+          if (!normalizedDecision.allowed) {
+            this.throttledBackground = {
+              workload: resolveTaskWorkload(nextBackground.task, 'background-indexing'),
+              reason: normalizedDecision.reason ?? 'background-throttled'
+            };
+            this.scheduleDrainAfter(25);
+            break;
+          }
         }
+
+        this.throttledBackground = null;
         const queued = this.backgroundQueue.shift()!;
         if (queued.cancellation.token.isCancelled) {
           queued.reject(new Error(`Tarea ${queued.task.id} cancelada antes de ejecución`));
@@ -341,6 +442,10 @@ export class TaskScheduler {
           this.log(`[PLANIFICADOR] Fin fondo: ${queued.task.id}`);
         }
         continue;
+      }
+
+      if (this.backgroundQueue.length === 0) {
+        this.throttledBackground = null;
       }
 
       break;

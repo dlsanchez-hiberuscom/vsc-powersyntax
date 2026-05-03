@@ -6,6 +6,7 @@ import {
   PUBLIC_API_VERSION,
   type VscPowerSyntaxApi,
 } from '../../src/shared/publicApi';
+import { getCoreMaintenanceCommandModels } from '../../src/client/coreMaintenanceCommandCatalog';
 
 suite('smoke/extension', () => {
   test('la extensión se activa en menos de 500ms', async function () {
@@ -58,6 +59,9 @@ suite('smoke/extension', () => {
     assert.ok(commands.includes('vscPowerSyntax.openWorkspaceMigrationAssistant'));
     assert.ok(commands.includes('vscPowerSyntax.focusDiagnosticsExplainabilityPanel'));
     assert.ok(commands.includes('vscPowerSyntax.refreshDiagnosticsExplainabilityPanel'));
+    for (const model of getCoreMaintenanceCommandModels()) {
+      assert.ok(commands.includes(model.command), `El comando ${model.command} debería estar registrado`);
+    }
 
     const contractToolResult = await api!.invokeReadOnlyTool({ tool: 'contract' });
     assert.equal(contractToolResult.schema, 'ApiPublicContractDescriptor');
@@ -250,6 +254,21 @@ suite('smoke/extension', () => {
       await vscode.commands.executeCommand('vscPowerSyntax.openDataWindowSqlLineage');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /DataWindow SQL Lineage/);
+
+      const memoryReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showMemoryBudgets');
+      assert.match(memoryReport ?? '', /# Memory Budgets/);
+
+      const indexingReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showIndexingState');
+      assert.match(indexingReport ?? '', /# Indexing State/);
+
+      const routingReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showProjectRouting');
+      assert.match(routingReport ?? '', /# Project Routing/);
+
+      const sourceOriginReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showSourceOriginConflicts');
+      assert.match(sourceOriginReport ?? '', /# SourceOrigin Conflicts/);
+
+      const cacheValidationReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.validatePersistentCache');
+      assert.match(cacheValidationReport ?? '', /# Persistent Cache Validation/);
 
       const exportedSnapshot = await api!.exportSemanticWorkspaceSnapshot({
         maxObjects: 16,

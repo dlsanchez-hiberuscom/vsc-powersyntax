@@ -80,6 +80,11 @@ suite('unit/hoverFormat (B103)', () => {
     assert.match(md, /Resolución ambigua:\* 2 candidatos con distancia mínima/);
   });
 
+  test('distingue la ambiguedad de global fallback cuando se aporta', () => {
+    const md = formatUserHover(fn(), { ambiguous: true, ambiguityKind: 'global-fallback', targetCount: 2 });
+    assert.match(md, /Resolución ambigua:\* 2 candidatos ganadores por global fallback/);
+  });
+
   test('muestra el numero de candidatos ganadores cuando se aporta', () => {
     const md = formatUserHover(fn(), { targetCount: 2 });
     assert.match(md, /Candidatos ganadores:\* 2/);

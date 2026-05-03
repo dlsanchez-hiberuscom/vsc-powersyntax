@@ -114,6 +114,68 @@ suite('unit/objectExplorerModel (B214)', () => {
     assert.equal(kindNode.children[0]?.label, 'w_context');
   });
 
+  test('mantiene separados proyectos homónimos entre roots distintos y focaliza por projectUri', () => {
+    const manifest = createManifest();
+    manifest.projects = [
+      {
+        projectUri: 'file:///workspace-a/app.pbt',
+        kind: 'target',
+        name: 'app',
+        libraries: ['file:///workspace-a/lib_shared.pbl'],
+        fileCount: 1,
+      },
+      {
+        projectUri: 'file:///workspace-b/app.pbt',
+        kind: 'target',
+        name: 'app',
+        libraries: ['file:///workspace-b/lib_shared.pbl'],
+        fileCount: 1,
+      }
+    ];
+    manifest.libraries = ['file:///workspace-a/lib_shared.pbl', 'file:///workspace-b/lib_shared.pbl'];
+    manifest.objects = [
+      {
+        name: 'u_shared',
+        uri: 'file:///workspace-a/lib_shared.pbl/u_shared.sru',
+        projectUri: 'file:///workspace-a/app.pbt',
+        library: 'file:///workspace-a/lib_shared.pbl',
+        objectKind: 'userobject',
+        readiness: 'nearby-semantic-ready',
+        sourceOrigin: 'pbl-folder-source',
+      },
+      {
+        name: 'u_shared',
+        uri: 'file:///workspace-b/lib_shared.pbl/u_shared.sru',
+        projectUri: 'file:///workspace-b/app.pbt',
+        library: 'file:///workspace-b/lib_shared.pbl',
+        objectKind: 'userobject',
+        readiness: 'nearby-semantic-ready',
+        sourceOrigin: 'pbl-folder-source',
+      }
+    ];
+    manifest.sourceOriginSummary = { 'pbl-folder-source': 2 };
+
+    const workspaceModel = buildObjectExplorerModel(manifest, 'workspace');
+    assert.equal(workspaceModel.roots.length, 2);
+    assert.deepEqual(
+      workspaceModel.roots
+        .filter((entry): entry is typeof workspaceModel.roots[number] & { type: 'project'; projectUri: string } => entry.type === 'project' && Boolean(entry.projectUri))
+        .map((entry) => entry.projectUri)
+        .sort(),
+      ['file:///workspace-a/app.pbt', 'file:///workspace-b/app.pbt']
+    );
+
+    const currentProjectModel = buildObjectExplorerModel(
+      manifest,
+      'current-project',
+      'file:///workspace-b/lib_shared.pbl/u_shared.sru',
+    );
+    assert.equal(currentProjectModel.effectiveScope, 'current-project');
+    assert.equal(currentProjectModel.roots.length, 1);
+    assert.equal(currentProjectModel.roots[0]?.type, 'project');
+    assert.equal(currentProjectModel.roots[0]?.projectUri, 'file:///workspace-b/app.pbt');
+  });
+
   test('consume sin degradación un proyecto legacy sintetizado desde una librería PBL', () => {
     const manifest = createManifest();
     manifest.projects = [{

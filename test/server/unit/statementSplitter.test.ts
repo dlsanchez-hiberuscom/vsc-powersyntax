@@ -28,4 +28,16 @@ suite('unit/statementSplitter (B095)', () => {
     assert.equal(stmts[0].startLine, 0);
     assert.equal(stmts[1].startLine, 1);
   });
+
+  test('ignora ; y & dentro de comentarios anidados', () => {
+    const stmts = splitStatements([
+      '/* outer /* inner ; */ still &',
+      'continued */ a = 1'
+    ].join('\n'));
+
+    assert.equal(stmts.length, 1);
+    assert.equal(stmts[0].text, 'a = 1');
+    assert.equal(stmts[0].startLine, 1);
+    assert.equal(stmts[0].endLine, 1);
+  });
 });

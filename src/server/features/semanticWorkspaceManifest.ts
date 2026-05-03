@@ -10,6 +10,7 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { listPowerBuilderFrameworkKnowledgePacks } from '../knowledge/system/frameworkKnowledgePacks';
+import { buildSymbolKey } from '../knowledge/symbolKey';
 import { EntityKind } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
 
@@ -68,6 +69,7 @@ export function buildSemanticWorkspaceManifest(
     return {
       name: entity.name,
       uri: entity.uri,
+      identityKey: buildSymbolKey(entity),
       ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
       ...(projectContext?.projectUri ? { projectUri: projectContext.projectUri } : {}),
       ...(library ? { library } : {}),

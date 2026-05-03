@@ -3,6 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
   resolveQualifierType,
+  type QueryAmbiguityKind,
   type QueryEvidenceEntry,
   type QueryInvocationKind,
   type QueryInvocationRisk,
@@ -17,6 +18,7 @@ import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
 import { Entity, EntityKind } from '../knowledge/types';
 import { normalizeUri } from '../system/uriUtils';
+import { getDocumentLineText } from '../utils/documentLineText';
 import { getEventApiInvocationContext, getInvocationContext, type InvocationContext } from '../utils/invocationContext';
 
 export interface DocumentQueryContext {
@@ -26,6 +28,7 @@ export interface DocumentQueryContext {
   currentMainObject: Entity | undefined;
   resolvedTargets: ResolvedTargetInfo | null;
   resolutionConfidence?: QueryResolutionConfidence;
+  ambiguityKind?: QueryAmbiguityKind;
   primaryResolutionReasonCode?: QueryReasonCode;
   invocationKind?: QueryInvocationKind;
   invocationRisk?: QueryInvocationRisk;
@@ -64,8 +67,9 @@ export function createDocumentQueryContext(
   const currentUri = normalizeUri(document.uri);
   const documentEntities = getDocumentEntities(currentUri, kb, hotContext);
   const currentMainObject = resolveCurrentObjectAtLine(currentUri, documentEntities, kb, position.line);
-  const lines = document.getText().split(/\r?\n/);
-  const context = getEventApiInvocationContext(lines, position) ?? getInvocationContext(lines, position);
+  const lineText = getDocumentLineText(document, position.line);
+  const context = getEventApiInvocationContext([lineText], { line: 0, character: position.character })
+    ?? getInvocationContext([lineText], { line: 0, character: position.character });
   const resolvedTargets = context
     ? resolveTargetEntityDetailed(context, document.uri, kb, graph, {
       line: position.line,
@@ -81,6 +85,7 @@ export function createDocumentQueryContext(
     currentMainObject,
     resolvedTargets,
     resolutionConfidence: resolvedTargets?.confidence,
+    ambiguityKind: resolvedTargets?.ambiguityKind,
     primaryResolutionReasonCode: resolvedTargets?.reasonCodes[0],
     invocationKind: resolvedTargets?.invocationKind,
     invocationRisk: resolvedTargets?.invocationRisk,

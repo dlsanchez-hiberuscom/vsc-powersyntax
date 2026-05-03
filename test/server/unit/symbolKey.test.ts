@@ -2,7 +2,12 @@ import * as assert from 'assert/strict';
 import { buildSymbolKey, dedupeBySymbolKey } from '../../../src/server/knowledge/symbolKey';
 import { EntityKind, type Entity } from '../../../src/server/knowledge/types';
 
-function fn(name: string, container?: string, parameters: { label: string }[] = []): Entity {
+function fn(
+  name: string,
+  container?: string,
+  parameters: { label: string }[] = [],
+  overrides: Partial<Entity> = {}
+): Entity {
   return {
     id: name.toLowerCase(),
     name,
@@ -11,7 +16,8 @@ function fn(name: string, container?: string, parameters: { label: string }[] = 
     line: 0,
     character: 0,
     containerName: container,
-    parameters
+    parameters,
+    ...overrides,
   };
 }
 
@@ -32,5 +38,75 @@ suite('unit/symbolKey (B101)', () => {
     const a = fn('foo', 'w', [{ label: 'a' }]);
     const b = fn('foo', 'w', [{ label: 'a' }, { label: 'b' }]);
     assert.notEqual(buildSymbolKey(a), buildSymbolKey(b));
+  });
+
+  test('sourceOrigin, uri y fileObjectName afectan la clave canónica', () => {
+    const real = fn('of_setdata', 'w_main', [{ label: 'a' }], {
+      uri: 'file:///proj/src/w_main.srw',
+      fileObjectName: 'w_main',
+      implementationKind: 'function',
+      declarationScope: 'member',
+      signature: 'of_setdata(integer a)',
+      lineage: {
+        sourceKind: 'document',
+        sourceOrigin: 'solution-source',
+        authority: 'derived',
+        phase: 'implementation',
+        role: 'implementation',
+        confidence: 'direct',
+      },
+    });
+    const staged = fn('of_setdata', 'w_main', [{ label: 'a' }], {
+      uri: 'file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/w_main.srw',
+      fileObjectName: 'w_main',
+      implementationKind: 'function',
+      declarationScope: 'member',
+      signature: 'of_setdata(integer a)',
+      lineage: {
+        sourceKind: 'document',
+        sourceOrigin: 'orca-staging',
+        authority: 'derived',
+        phase: 'implementation',
+        role: 'implementation',
+        confidence: 'direct',
+      },
+    });
+
+    assert.notEqual(buildSymbolKey(real), buildSymbolKey(staged));
+  });
+
+  test('dedupe no colapsa duplicados aparentes cuando cambia la identidad canónica', () => {
+    const member = fn('of_setdata', 'w_main', [{ label: 'a' }], {
+      uri: 'file:///proj/lib_app.pbl/w_main.srw',
+      fileObjectName: 'w_main',
+      implementationKind: 'function',
+      declarationScope: 'member',
+      signature: 'of_setdata(integer a)',
+      lineage: {
+        sourceKind: 'document',
+        sourceOrigin: 'solution-source',
+        authority: 'derived',
+        phase: 'implementation',
+        role: 'implementation',
+        confidence: 'direct',
+      },
+    });
+    const sibling = fn('of_setdata', 'w_main', [{ label: 'a' }], {
+      uri: 'file:///proj/lib_app.pbl/w_other.srw',
+      fileObjectName: 'w_other',
+      implementationKind: 'function',
+      declarationScope: 'member',
+      signature: 'of_setdata(integer a)',
+      lineage: {
+        sourceKind: 'document',
+        sourceOrigin: 'solution-source',
+        authority: 'derived',
+        phase: 'implementation',
+        role: 'implementation',
+        confidence: 'direct',
+      },
+    });
+
+    assert.equal(dedupeBySymbolKey([member, sibling]).length, 2);
   });
 });

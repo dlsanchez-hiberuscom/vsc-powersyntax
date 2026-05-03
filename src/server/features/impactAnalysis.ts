@@ -20,8 +20,9 @@ import {
   type ApiImpactBuildTarget,
   type ApiImpactLocation,
 } from '../../shared/publicApi';
+import { getQueryConsumerPolicy } from './queryScopePolicy';
 
-const DEFAULT_SAFE_REFERENCES = 64;
+const DEFAULT_SAFE_REFERENCES = getQueryConsumerPolicy('impact-analysis').resultCap;
 const MAX_SAFE_REFERENCES = 256;
 
 interface ImpactAnalysisOptions {

@@ -3,7 +3,7 @@ import { InheritanceGraph } from './InheritanceGraph';
 import type { HotContextCache } from '../HotContextCache';
 import type { InvocationContext } from '../../utils/invocationContext';
 import { Entity, EntityKind, ScopeKind, type EntityLineageConfidence, type Scope } from '../types';
-import { compareSourceOriginPriority } from '../../../shared/sourceOrigin';
+import { compareSourceOriginPriority, type SourceOrigin } from '../../../shared/sourceOrigin';
 import { normalizeUri } from '../../system/uriUtils';
 import { annotateLastTraceResolution, recordTraceStep, type TraceStep, withTrace } from '../queryTrace';
 
@@ -37,6 +37,7 @@ export type ResolvedWinnerLineage = NonNullable<Entity['lineage']> & {
 };
 
 export type QueryResolutionConfidence = 'high' | 'medium' | 'low';
+export type QueryAmbiguityKind = 'distance-minimum' | 'global-fallback';
 
 export interface QueryEvidence {
   kind: 'winner-target';
@@ -88,7 +89,21 @@ export interface DistanceAmbiguityEvidence {
   candidateCount: number;
 }
 
-export type QueryEvidenceEntry = QueryEvidence | DistanceDiscardEvidence | ContextDiscardEvidence | DistanceAmbiguityEvidence;
+export interface SourceOriginConflictEvidence {
+  kind: 'source-origin-conflict';
+  reasonCode: QueryReasonCode;
+  preferredOrigin: SourceOrigin;
+  discardedOrigins: SourceOrigin[];
+  candidateCount: number;
+}
+
+export interface FallbackAmbiguityEvidence {
+  kind: 'fallback-ambiguity';
+  reasonCode: 'global-fallback';
+  candidateCount: number;
+}
+
+export type QueryEvidenceEntry = QueryEvidence | DistanceDiscardEvidence | ContextDiscardEvidence | DistanceAmbiguityEvidence | SourceOriginConflictEvidence | FallbackAmbiguityEvidence;
 
 export interface QueryCandidate {
   kind: 'candidate';
@@ -105,6 +120,7 @@ export interface ResolvedTargetInfo {
   reasonCodes: QueryReasonCode[];
   invocationKind: QueryInvocationKind;
   invocationRisk: QueryInvocationRisk;
+  ambiguityKind?: QueryAmbiguityKind;
   resolvedQualifierType?: string;
   winnerLineage: ResolvedWinnerLineage | null;
   confidence: QueryResolutionConfidence;
@@ -401,6 +417,71 @@ function buildDistanceAmbiguityEvidence(
   }];
 }
 
+function getDistinctSourceOrigins(entities: ReadonlyArray<Entity>): SourceOrigin[] {
+  return [...new Set(entities.map((entity) => getEntitySourceOrigin(entity)))].sort((left, right) => compareSourceOriginPriority(left, right));
+}
+
+function buildSourceOriginConflictEvidence(
+  candidates: Entity[],
+  winners: Entity[],
+  reasonCode: QueryReasonCode | undefined
+): QueryEvidenceEntry[] {
+  if (!reasonCode || candidates.length === 0 || winners.length === 0) {
+    return [];
+  }
+
+  const candidateOrigins = getDistinctSourceOrigins(candidates);
+  const winnerOrigins = getDistinctSourceOrigins(winners);
+  if (candidateOrigins.length <= 1 || winnerOrigins.length !== 1) {
+    return [];
+  }
+
+  const preferredOrigin = winnerOrigins[0]!;
+  const discardedOrigins = candidateOrigins.filter((origin) => origin !== preferredOrigin);
+  if (discardedOrigins.length === 0) {
+    return [];
+  }
+
+  return [{
+    kind: 'source-origin-conflict',
+    reasonCode,
+    preferredOrigin,
+    discardedOrigins,
+    candidateCount: candidates.length
+  }];
+}
+
+function buildFallbackAmbiguityEvidence(
+  winners: Entity[],
+  reasonCode: QueryReasonCode | undefined
+): QueryEvidenceEntry[] {
+  if (reasonCode !== 'global-fallback' || winners.length <= 1) {
+    return [];
+  }
+
+  return [{
+    kind: 'fallback-ambiguity',
+    reasonCode,
+    candidateCount: winners.length
+  }];
+}
+
+function deriveAmbiguityKind(
+  targets: Entity[],
+  reasonCodes: QueryReasonCode[],
+  ambiguity: RankedTargetsResult['ambiguity']
+): QueryAmbiguityKind | undefined {
+  if (ambiguity) {
+    return 'distance-minimum';
+  }
+
+  if (reasonCodes[0] === 'global-fallback' && targets.length > 1) {
+    return 'global-fallback';
+  }
+
+  return undefined;
+}
+
 function buildCandidatePool(candidates: Entity[], reasonCode: QueryReasonCode | undefined): QueryCandidate[] {
   if (!reasonCode || candidates.length === 0) {
     return [];
@@ -447,17 +528,23 @@ function compareEntitiesBySourcePriority(left: Entity, right: Entity): number {
   return left.character - right.character;
 }
 
-function preferTargetsBySourceOrigin(targets: Entity[]): Entity[] {
+function preferTargetsBySourceOrigin(targets: Entity[], currentUri?: string): Entity[] {
   if (targets.length <= 1) {
     return targets;
   }
 
-  const sorted = [...targets].sort(compareEntitiesBySourcePriority);
+  const normalizedCurrentUri = currentUri ? normalizeUri(currentUri) : undefined;
+  const sameDocumentTargets = normalizedCurrentUri
+    ? targets.filter((target) => normalizeUri(target.uri) === normalizedCurrentUri)
+    : [];
+  const preferredTargets = sameDocumentTargets.length > 0 ? sameDocumentTargets : targets;
+
+  const sorted = [...preferredTargets].sort(compareEntitiesBySourcePriority);
   const preferredOrigin = getEntitySourceOrigin(sorted[0]!);
   return sorted.filter((target) => compareSourceOriginPriority(getEntitySourceOrigin(target), preferredOrigin) === 0);
 }
 
-function rankTargetsByDistance(targets: Entity[], fromType: string, graph: InheritanceGraph): RankedTargetsResult {
+function rankTargetsByDistance(targets: Entity[], fromType: string, graph: InheritanceGraph, currentUri?: string): RankedTargetsResult {
   if (targets.length <= 1) {
     return { winners: targets, discarded: [], ambiguity: null };
   }
@@ -470,7 +557,8 @@ function rankTargetsByDistance(targets: Entity[], fromType: string, graph: Inher
   withDistance.sort((left, right) => left.distance - right.distance);
   const winnerDistance = withDistance[0].distance;
   const winners = preferTargetsBySourceOrigin(
-    withDistance.filter((entry) => entry.distance === winnerDistance).map((entry) => entry.entity)
+    withDistance.filter((entry) => entry.distance === winnerDistance).map((entry) => entry.entity),
+    currentUri
   );
 
   return {
@@ -525,7 +613,7 @@ export function resolveTargetEntityDetailed(
         if (qualifierLower === 'super' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph);
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
@@ -533,7 +621,7 @@ export function resolveTargetEntityDetailed(
         } else if (qualifierLower === 'ancestor' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph);
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.baseTypeName, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
@@ -541,7 +629,7 @@ export function resolveTargetEntityDetailed(
         } else if (qualifierLower === 'parent' && currentMainObject?.containerName) {
           const members = getMembersForType(currentMainObject.containerName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.containerName, graph);
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.containerName, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
@@ -549,7 +637,7 @@ export function resolveTargetEntityDetailed(
         } else if (qualifierLower === 'this' && currentMainObject) {
           const members = getMembersForType(currentMainObject.name, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph);
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
@@ -557,7 +645,7 @@ export function resolveTargetEntityDetailed(
         } else {
           const members = getMembersForType(resolvedQualifierType, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-          const ranked = rankTargetsByDistance(candidatePool, resolvedQualifierType, graph);
+          const ranked = rankTargetsByDistance(candidatePool, resolvedQualifierType, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
@@ -607,7 +695,7 @@ export function resolveTargetEntityDetailed(
         const members = getMembersForType(currentMainObject.name, currentUri, kb, graph, options.hotContext);
         candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
         if (candidatePool.length > 0) {
-          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph);
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
@@ -618,7 +706,7 @@ export function resolveTargetEntityDetailed(
 
       if (possibleTargets.length === 0) {
         candidatePool = kb.findAllDefinitions(identifier);
-        possibleTargets = preferTargetsBySourceOrigin(candidatePool);
+        possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
         if (possibleTargets.length > 0) {
           reasonCodes.push('global-fallback');
           recordTraceStep('targets:global-fallback', {
@@ -651,6 +739,7 @@ export function resolveTargetEntityDetailed(
   });
 
   const winnerLineage = deriveWinnerLineage(result.targets[0], result.reasonCodes);
+  const ambiguityKind = deriveAmbiguityKind(result.targets, result.reasonCodes, result.distanceAmbiguity);
   const confidence = deriveResolutionConfidence(
     result.targets,
     result.reasonCodes,
@@ -662,6 +751,8 @@ export function resolveTargetEntityDetailed(
     ...buildWinnerEvidence(result.targets[0], winnerLineage),
     ...buildDistanceDiscardEvidence(result.distanceDiscards, result.reasonCodes[0]),
     ...buildDistanceAmbiguityEvidence(result.distanceAmbiguity, result.reasonCodes[0]),
+    ...buildFallbackAmbiguityEvidence(result.targets, result.reasonCodes[0]),
+    ...buildSourceOriginConflictEvidence(result.candidatePool, result.targets, result.reasonCodes[0]),
     ...result.contextDiscards
   ];
 
@@ -681,6 +772,7 @@ export function resolveTargetEntityDetailed(
     reasonCodes: result.reasonCodes,
     invocationKind: result.invocationKind,
     invocationRisk: result.invocationRisk,
+    ...(ambiguityKind ? { ambiguityKind } : {}),
     ...(result.resolvedQualifierType ? { resolvedQualifierType: result.resolvedQualifierType } : {}),
     winnerLineage,
     confidence,

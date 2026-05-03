@@ -6,6 +6,8 @@ import { invalidateDocumentAnalysis } from '../../../src/server/analysis/analysi
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { buildPowerBuilderDependencyGraph } from '../../../src/server/features/dependencyGraph';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
+import { buildSymbolKey } from '../../../src/server/knowledge/symbolKey';
+import { EntityKind } from '../../../src/server/knowledge/types';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
 
 suite('unit/dependencyGraph (B252)', () => {
@@ -94,14 +96,22 @@ suite('unit/dependencyGraph (B252)', () => {
       kb,
       workspaceState,
     );
+    const focusEntity = kb.getEntitiesByUri(focusUri).find((entity) => entity.kind === EntityKind.Type && entity.name === 'w_main');
+    const baseEntity = kb.getEntitiesByUri(baseUri).find((entity) => entity.kind === EntityKind.Type && entity.name === 'w_base');
+    const serviceEntity = kb.getEntitiesByUri(serviceUri).find((entity) => entity.kind === EntityKind.Type && entity.name === 'n_service');
 
     assert.equal(graph.available, true);
     assert.equal(graph.focus?.objectName, 'w_main');
+    assert.equal(graph.focus?.identityKey, focusEntity ? buildSymbolKey(focusEntity) : undefined);
     assert.equal(graph.scope, 'immediate-neighborhood');
     assert.ok(graph.nodes.some((node) => node.kind === 'focus-object' && node.uri === focusUri));
+    assert.equal(graph.nodes.find((node) => node.kind === 'focus-object' && node.uri === focusUri)?.identityKey, focusEntity ? buildSymbolKey(focusEntity) : undefined);
     assert.ok(graph.nodes.some((node) => node.label === 'w_base' && node.resolution === 'resolved'));
+    assert.equal(graph.nodes.find((node) => node.label === 'w_base')?.identityKey, baseEntity ? buildSymbolKey(baseEntity) : undefined);
     assert.ok(graph.nodes.some((node) => node.label === 'n_service' && node.resolution === 'resolved'));
+    assert.equal(graph.nodes.find((node) => node.label === 'n_service')?.identityKey, serviceEntity ? buildSymbolKey(serviceEntity) : undefined);
     assert.ok(graph.nodes.some((node) => node.label === 'n_missing_service' && node.resolution === 'unresolved'));
+    assert.equal(graph.nodes.find((node) => node.label === 'n_missing_service')?.identityKey, undefined);
     assert.ok(graph.nodes.some((node) => node.label === 'w_consumer' && node.kind === 'dependent-object'));
     assert.ok(graph.edges.some((edge) => edge.relation === 'inherits'));
     assert.ok(graph.edges.some((edge) => edge.relation === 'depends-on' && edge.reason.includes('datatype')));

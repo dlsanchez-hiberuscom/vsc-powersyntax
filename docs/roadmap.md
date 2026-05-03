@@ -286,6 +286,9 @@ Bloque ya cerrado dentro de la fase:
 - `B261` informe técnico de deuda y modernización (`specs/306-technical-debt-and-modernization-report`);
 - `B262` framework versionado de code actions seguras (`specs/307-safe-code-action-framework-v2`);
 - `B263` contratos de ejecución de tareas aptos para agentes (`specs/308-agent-ready-task-execution-contracts`);
+- `B264` oracle de consistencia semántica entre surfaces read-only (`specs/309-semantic-consistency-oracle`);
+- `B265` proof suite de invalidación incremental (`specs/310-incremental-invalidation-proof-suite`);
+- `B266` policy v2 de query scope y consumer budgets (`specs/311-query-scope-policy-v2`);
 - `B188` adapter ORCA base out-of-process (`specs/272-orca-adapter-architecture`);
 - `B216` dashboard read-only de salud del proyecto (`specs/269-project-health-dashboard`);
 - `B214` PowerBuilder Object Explorer read-only (`specs/270-powerbuilder-object-explorer`);
@@ -293,7 +296,7 @@ Bloque ya cerrado dentro de la fase:
 
 Notas de orden:
 
-- `B043` queda cerrada como épica base; con `B186`, `B198`, `B195`, `B251`, `B252`, `B253`, `B254`, `B255`, `B256`, `B257`, `B258`, `B259`, `B260`, `B261`, `B262` y `B263` ya no queda deuda técnica ni documental inmediata en el carril build/legacy/public graphing/DataWindow/read-only interactivity/migración legacy/validación de perfiles/soporte offline/persistencia v2/métricas avanzadas/reporting técnico/safe actions/agent contracts, y el siguiente bloque pasa a `B264-B267`.
+- `B043` queda cerrada como épica base; con `B186`, `B198`, `B195`, `B251`, `B252`, `B253`, `B254`, `B255`, `B256`, `B257`, `B258`, `B259`, `B260`, `B261`, `B262`, `B263`, `B264`, `B265`, `B266`, `B267`, `B268`, `B269`, `B270`, `B271`, `B272`, `B273`, `B274`, `B275`, `B276`, `B277`, `B278`, `B279` y `B280` ya no queda deuda técnica ni documental inmediata en el carril build/legacy/public graphing/DataWindow/read-only interactivity/migración legacy/validación de perfiles/soporte offline/persistencia v2/métricas avanzadas/reporting técnico/safe actions/agent contracts/oracle cross-surface/invalidation proofing/query budgets/runtime backpressure/multi-root partition isolation/persistent cache corruption recovery/compatibilidad versionada de payloads/observabilidad local sin telemetría/hardening determinista del parser/visible contract matrix/graceful degradation/session stability/hot-path allocation guards/guardrails de capas/identidad canónica de símbolo/modelo v2 de ambigüedad, y el siguiente bloque pasa a `B281`.
 - `B081` ya queda cerrada y movida a `docs/done-log.md`: el backbone DataWindow resuelve `.Object.<...>` y `GetChild()` sobre rutas hijas deterministas reutilizando `DataWindowModel`; el siguiente bloque pedido por el usuario queda ahora formalizado como `B241-B250` en backlog/specs y pasa a ser el frente activo.
 
 ---
@@ -371,13 +374,13 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Bloque pedido por el usuario — continuidad `B264`**
+**Bloque pedido por el usuario — continuidad `B281`**
 
 Con foco en:
 
-- continuar por `B264`, reutilizando la base read-only/exportable ya cerrada, el soporte offline saneado de `B258`, la persistencia v2 de `B259`, las métricas avanzadas de `B260`, el informe técnico de `B261`, el framework seguro de code actions de `B262`, los contratos agent-ready de `B263`, el diff de snapshots de `B251`, el grafo inmediato de `B252`, el lineage SQL de `B253`, el analizador cross-project de `B255`, el asistente de migración de `B256` y la matriz de build de `B257`;
-- mantener verde el carril build/legacy ya cerrado en `B198` y `B195`;
-- continuar `B264` en el orden pedido por el usuario salvo bloqueo real.
+- continuar por `B281`, reutilizando la identidad canónica exacta fijada por `B279`, el modelo v2 de ambigüedad fijado por `B280`, el pack de mantenimiento del core fijado por `B278`, el hardening determinista del parser de `B272`, el contrato local de observabilidad de `B271`, el soporte offline saneado de `B258`, la persistencia v2 de `B259`, la recuperación limpia de `B270`, la compatibilidad versionada fijada por `B269`, el oracle cross-surface de `B264`, la proof suite incremental de `B265`, la policy v2 de `B266`, la policy runtime v2 de `B267`, la degradación adaptativa por memoria de `B274`, el soak de sesión larga de `B275`, el guard de allocations de `B276`, el aislamiento multi-root de `B268`, la matriz visible de `B273`, el firewall de capas de `B277`, las métricas avanzadas de `B260`, el informe técnico de `B261`, el framework seguro de code actions de `B262`, los contratos agent-ready de `B263`, el diff de snapshots de `B251`, el grafo inmediato de `B252`, el lineage SQL de `B253`, el analizador cross-project de `B255`, el asistente de migración de `B256` y la matriz de build de `B257`;
+- mantener verde el carril build/legacy/runtime/architecture/visible-contract ya cerrado en `B198`, `B195`, `B267`, `B268`, `B273` y `B277`;
+- continuar `B281` en el orden pedido por el usuario salvo bloqueo real.
 
 ### Trabajo paralelo permitido
 

@@ -85,6 +85,7 @@ suite('unit/referenceSourcePool (B223)', () => {
     await fs.writeFile(otherUri, 'forward prototypes\r\npublic function integer of_else()\r\nend prototypes');
 
     const pool = await collectReferenceSourcePool({
+      consumer: 'references',
       currentUri,
       resolvedTargetUris: [siblingUri],
       workspaceState,
@@ -101,7 +102,7 @@ suite('unit/referenceSourcePool (B223)', () => {
     assert.deepEqual(pool.sources.find((source) => source.uri === siblingUri)?.maskedLines, siblingSnapshot?.maskedText.lines);
   });
 
-  test('cae al workspace completo cuando no existe routing de proyecto', async () => {
+  test('consumer acotado a project no cae al workspace completo cuando no existe routing de proyecto', async () => {
     const fs = new CountingFileSystem();
     const workspaceState = new WorkspaceState();
     const firstUri = normalizeUri('file:///workspace/a.sru');
@@ -114,13 +115,55 @@ suite('unit/referenceSourcePool (B223)', () => {
     await fs.writeFile(secondUri, 'forward\nend forward');
 
     const pool = await collectReferenceSourcePool({
+      consumer: 'references',
       currentUri: firstUri,
       workspaceState,
       fs
     });
 
-    assert.equal(pool.scope, 'workspace');
-    assert.deepEqual(pool.candidateUris, [firstUri, secondUri]);
-    assert.deepEqual(fs.reads.sort(), [firstUri, secondUri]);
+    assert.equal(pool.scope, 'direct');
+    assert.deepEqual(pool.candidateUris, [firstUri]);
+    assert.deepEqual(fs.reads, [firstUri]);
+  });
+
+  test('consumer project excluye staging y generated del barrido adicional', async () => {
+    const fs = new CountingFileSystem();
+    const workspaceState = new WorkspaceState();
+    const currentUri = normalizeUri('file:///proj/lib_app.pbl/w_use.sru');
+    const siblingUri = normalizeUri('file:///proj/lib_app.pbl/n_service.sru');
+    const stagedUri = normalizeUri('file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_service.sru');
+    const generatedUri = normalizeUri('file:///proj/generated/n_service.sru');
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl']
+      }
+    });
+    workspaceState.addSourceFile(currentUri, 'pbl-folder-source');
+    workspaceState.addSourceFile(siblingUri, 'pbl-folder-source');
+    workspaceState.addSourceFile(stagedUri, 'orca-staging');
+    workspaceState.addSourceFile(generatedUri, 'generated');
+    workspaceState.refreshProjectRouting();
+
+    await fs.writeFile(currentUri, 'event open();\r\n  of_call()\r\nend event');
+    await fs.writeFile(siblingUri, 'forward prototypes\r\npublic function integer of_call()\r\nend prototypes');
+    await fs.writeFile(stagedUri, 'forward prototypes\r\npublic function integer of_call()\r\nend prototypes');
+    await fs.writeFile(generatedUri, 'forward prototypes\r\npublic function integer of_call()\r\nend prototypes');
+
+    const pool = await collectReferenceSourcePool({
+      consumer: 'references',
+      currentUri,
+      resolvedTargetUris: [siblingUri],
+      workspaceState,
+      fs
+    });
+
+    assert.equal(pool.scope, 'project');
+    assert.deepEqual(pool.candidateUris, [siblingUri, currentUri]);
+    assert.ok(!pool.candidateUris.includes(stagedUri));
+    assert.ok(!pool.candidateUris.includes(generatedUri));
   });
 });

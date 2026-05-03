@@ -252,6 +252,9 @@ Estado runtime actual:
 - KnowledgeBase ordena buckets globales y por kind con esta prioridad.
 - semanticQueryService desempata global fallback y candidatos equivalentes con la misma regla.
 - semanticWorkspaceManifest sirve primero source real cuando un límite de objetos trunca duplicados con orca-staging.
+- buildSymbolKey define la identidad exacta de símbolo e incorpora URI/posición, fileObjectName, owner o container, kind, signature, sourceOrigin, implementationKind y declarationScope.
+- buildConflictFamilyKey es la única agregación relajada permitida para conflictos cross-project o cross-library; references, rename, manifest, dependency graph y API symbols no deben volver a comparar solo por nombre visible.
+- las surfaces visibles que exportan símbolos publican identityKey derivada de esa misma serialización canónica en lugar de recomponer IDs locales por feature.
 ```
 
 Estado actual del runtime:

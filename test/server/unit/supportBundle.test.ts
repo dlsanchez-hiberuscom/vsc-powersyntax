@@ -2,6 +2,28 @@ import * as assert from 'assert/strict';
 import * as path from 'path';
 
 import { buildSupportBundle, suggestSupportBundleDirectoryName } from '../../../src/client/support/supportBundle';
+import {
+  getPublicApiContractDescriptor,
+  getReadOnlyToolBridgeDescriptor,
+  type ApiSemanticWorkspaceManifest,
+} from '../../../src/shared/publicApi';
+import { loadFixture } from '../helpers/fixtureLoader';
+
+interface LegacySupportBundleManifestFixture {
+  schemaVersion: number;
+  summary: {
+    rawSourceIncluded: boolean;
+    publicApiVersion: string;
+    readOnlyToolCount: number;
+  };
+  files: Array<{
+    relativePath: string;
+  }>;
+}
+
+function loadCompatibilityFixture<T>(fileName: string): T {
+  return JSON.parse(loadFixture('compatibility', fileName)) as T;
+}
 
 suite('unit/supportBundle (B258)', () => {
   test('normaliza un nombre de carpeta estable para el support bundle', () => {
@@ -126,6 +148,7 @@ suite('unit/supportBundle (B258)', () => {
         exportedFrom: 'activate',
         methods: [{ name: 'getServerStats', access: 'read-only', stability: 'stable', command: 'powerbuilder.showStats', responseSchema: 'ApiServerStats' }],
         schemas: [{ name: 'ApiServerStats', version: '1.0.0', kind: 'response' }],
+        observability: getPublicApiContractDescriptor().observability,
         taskExecutionCatalog: {
           schemaVersion: '1.0.0',
           apiVersion: '2.9.0',
@@ -180,5 +203,78 @@ suite('unit/supportBundle (B258)', () => {
     const readme = bundle.files.find((file) => file.relativePath === 'README.md')?.content ?? '';
     assert.match(readme, /sin incluir codigo bruto/i);
     assert.match(readme, /runtime-health\.json/);
+  });
+
+  test('mantiene roundtrip del manifest y compatibilidad con el fixture v1', () => {
+    const workspaceManifest = loadCompatibilityFixture<ApiSemanticWorkspaceManifest>('semantic-workspace-manifest.v1.json');
+    const legacyManifest = loadCompatibilityFixture<LegacySupportBundleManifestFixture>('support-bundle-manifest.v1.json');
+
+    const bundle = buildSupportBundle({
+      workspaceRootPath: path.join('C:', 'repo'),
+      bundleRootPath: path.join('C:', 'repo', 'tools', 'support-bundles', 'compatibility-sample'),
+      workspaceLabel: 'repo',
+      workspaceManifest,
+      serverStats: {
+        readiness: { state: 'ready', detail: 'ok' },
+        workspace: { mode: 'workspace', files: 2 },
+        health: {
+          status: 'healthy',
+          summary: 'ok',
+          findings: [],
+          counts: { info: 0, warning: 0, error: 0 },
+          checkedLayers: [],
+        },
+        diagnostics: {
+          totals: { error: 0, warning: 0, info: 0, hint: 0 },
+          byFile: {},
+          byCode: {},
+          bySeverity: {},
+          documents: [],
+          projects: [],
+        },
+        runtimeJournal: {
+          total: 2,
+          dropped: 0,
+          events: [
+            { ts: 1, phase: 'index', kind: 'cache', action: 'restore', detail: { checkpointUri: 'file:///repo/.vsc-powersyntax/runtime/checkpoint.json' } },
+            { ts: 2, phase: 'serve', kind: 'hover', action: 'query', detail: { uri: 'file:///proj/lib_app.pbl/w_main.srw' } },
+          ],
+        },
+        memory: {
+          status: 'healthy',
+          totalEstimatedBytes: 1024,
+          totalBudgetBytes: 4096,
+          layers: [],
+        },
+        caches: {
+          analysis: { size: 1, capacity: 8 },
+          serving: { size: 1, capacity: 8, hits: 2, misses: 0, evictions: 0, ttlMs: 5000 },
+        },
+      },
+      publicContract: getPublicApiContractDescriptor(),
+      readOnlyToolBridge: getReadOnlyToolBridgeDescriptor(),
+      settingsGovernance: {
+        selectedProfile: 'balanced',
+        availableProfiles: [],
+        managedSettings: [],
+        conflicts: [],
+      },
+      settingsValues: {},
+      generatedAt: '2026-05-03T18:10:00.000Z',
+    });
+
+    const manifestFile = JSON.parse(bundle.files.find((file) => file.relativePath === 'manifest.json')?.content ?? '{}');
+
+    assert.deepEqual(manifestFile, bundle.manifest);
+    assert.equal(bundle.manifest.schemaVersion, legacyManifest.schemaVersion);
+    assert.equal(bundle.manifest.summary.rawSourceIncluded, legacyManifest.summary.rawSourceIncluded);
+    assert.equal(
+      bundle.manifest.summary.publicApiVersion.split('.')[0],
+      legacyManifest.summary.publicApiVersion.split('.')[0]
+    );
+    assert.ok(bundle.manifest.summary.readOnlyToolCount >= legacyManifest.summary.readOnlyToolCount);
+    assert.ok(
+      legacyManifest.files.every((entry) => bundle.manifest.files.some((current) => current.relativePath === entry.relativePath))
+    );
   });
 });

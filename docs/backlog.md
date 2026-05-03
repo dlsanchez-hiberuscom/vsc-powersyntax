@@ -46,192 +46,7 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 # 3. Backlog activo
 
 
-# L3.5 — Core Hardening v2 / Runtime Reliability
-
-## B264 — Semantic consistency oracle across all read-only surfaces
-- **Estado:** Open
-- **Track:** core consistency
-- **Prioridad:** Muy alta
-- **Depende de:** B217, B218, B219, B220, B245, B251, B252, B253, B255
-- **Objetivo:** comprobar que todas las surfaces read-only dicen lo mismo sobre el mismo objeto/símbolo.
-- **Cierre:** oracle con reason codes que detecta divergencias de `objectName`, `objectKind`, `project`, `library`, `sourceOrigin`, ancestor chain, diagnostics, readiness, confidence y DataObject bindings.
-- **Validación esperada:** golden cross-surface sobre PFC, OrderEntry, DataWindow y ORCA staging.
-- **Docs afectadas:** `docs/testing.md`, `docs/architecture.md`.
-
-## B265 — Incremental invalidation proof suite
-- **Estado:** Open
-- **Track:** core invalidation / performance
-- **Prioridad:** Muy alta
-- **Depende de:** B154, B170, B223, B224, B229, B230
-- **Objetivo:** demostrar que cada cambio invalida solo lo necesario.
-- **Casos mínimos:** cambio cosmético, prototype, implementation, ancestor, `.srd`, marker `.pbt/.pbproj`, sourceOrigin, ORCA staging, external function y DataObject binding.
-- **Cierre:** suite valida snapshots, serving cache, dependency graph, manifest, diagnostics y evita rediscovery global innecesario.
-- **Validación esperada:** unit/integration con counters de invalidación y performance incremental.
-- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
-
-## B266 — Query scope policy v2 and consumer budget declarations
-- **Estado:** Open
-- **Track:** query engine / budgets
-- **Prioridad:** Muy alta
-- **Depende de:** B156, B157, B171, B223, B230, B252
-- **Objetivo:** formalizar scope y presupuesto por consumidor semántico.
-- **Scopes canónicos:** `document`, `active-object`, `library`, `project`, `dependency-neighborhood`, `workspace`, `staging`, `generated`, `external`.
-- **Cierre:** cada consumer declara scope máximo, budget, result cap, readiness, confidence, fallback y si permite staging/generated.
-- **Validación esperada:** unit de policy, tests negativos de reports pesados y no materialización global.
-- **Docs afectadas:** `docs/architecture.md`, `docs/performance-budget.md`.
-
-## B267 — Runtime backpressure policy v2 for competing workloads
-- **Estado:** Open
-- **Track:** runtime / scheduling
-- **Prioridad:** Muy alta
-- **Depende de:** B123, B124, B159, B183, B188, B246, B247
-- **Objetivo:** definir política global cuando compiten indexación, serving, diagnostics, build, ORCA, reports, support bundles y tools IA.
-- **Clases de workload:** interactive, near-context, diagnostics, background-indexing, export-reporting, build, legacy-orca, ai-tooling, maintenance.
-- **Cierre:** interactive siempre gana; build/ORCA nunca bloquean LSP; exports grandes se trocean o degradan; health explica throttling.
-- **Validación esperada:** scheduler/backpressure tests + stress incremental.
-- **Docs afectadas:** `docs/architecture.md`, `docs/performance-budget.md`.
-
-## B268 — Workspace partition isolation and multi-root stress hardening
-- **Estado:** Open
-- **Track:** workspace / enterprise scale
-- **Prioridad:** Alta
-- **Depende de:** B141, B224, B255, B256
-- **Objetivo:** evitar contaminación entre roots, proyectos, librerías, staging y build profiles.
-- **Cierre:** tests multi-root con nombres duplicados, caches particionadas, sourceOrigin por root, build profile por root, ORCA staging por root y Object Explorer sin mezcla.
-- **Validación esperada:** smoke/integration multi-root y stress routing.
-- **Docs afectadas:** `docs/testing.md`, `docs/developer-workflows.md`.
-
-## B269 — Semantic snapshot schema evolution and compatibility tests
-- **Estado:** Open
-- **Track:** persistence / API compatibility
-- **Prioridad:** Alta
-- **Depende de:** B168, B220, B241, B243, B251
-- **Objetivo:** asegurar evolución compatible de snapshots semánticos, manifests, bundles y public API payloads.
-- **Cierre:** fixtures de versiones anteriores, migración segura o rebuild explícito con reason code.
-- **Validación esperada:** schema tests, downgrade/upgrade tests y import/export roundtrip.
-- **Docs afectadas:** `docs/architecture.md`, `docs/testing.md`.
-
-## B270 — Persistent cache corruption/fuzz recovery suite
-- **Estado:** Open
-- **Track:** persistence reliability
-- **Prioridad:** Alta
-- **Depende de:** B155, B167, B168, B259
-- **Objetivo:** probar recuperación ante corrupción realista de caché.
-- **Casos:** JSON truncado, schema desconocido, journal parcial, checkpoint incompleto, serving snapshot corrupto, workspaceKey mismatch, partition missing y stale sourceOrigin.
-- **Cierre:** no crash, rebuild limpio, health warning y sin estado medio expuesto.
-- **Validación esperada:** fuzz corpus de payloads persistentes y tests de restore.
-- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
-
-## B271 — Core telemetry-free observability contract
-- **Estado:** Open
-- **Track:** observability / privacy
-- **Prioridad:** Media-Alta
-- **Depende de:** B163, B176, B241, B258
-- **Objetivo:** formalizar observabilidad local sin telemetría externa.
-- **Cierre:** contrato versionado para readiness, indexing, cache, memory, latency, build, ORCA, diagnostics, query trace, support bundle y health.
-- **Validación esperada:** public API contract tests y redaction tests.
-- **Docs afectadas:** `README.md`, `docs/architecture.md`, `docs/developer-workflows.md`.
-
-## B272 — PowerBuilder parser resilience fuzzing
-- **Estado:** Open
-- **Track:** parser hardening
-- **Prioridad:** Alta
-- **Depende de:** B089, B092, B095, B113, B205
-- **Objetivo:** fuzzing controlado de parser/masking/splitter sobre casos PowerBuilder raros.
-- **Casos:** comentarios anidados, strings raros, continuaciones `&`, SQL embebido, external functions, prototypes incompletos, eventos, `try/catch/finally`, labels y EOF incompleto.
-- **Cierre:** no crash, no scopes corruptos, diagnostics razonables y sin bloqueo.
-- **Validación esperada:** fuzz determinista + corpus regression.
-- **Docs afectadas:** `docs/testing.md`.
-
-## B273 — Cross-surface golden contract matrix
-- **Estado:** Open
-- **Track:** regression / product quality
-- **Prioridad:** Muy alta
-- **Depende de:** B161, B222, B264
-- **Objetivo:** congelar outputs visibles de features sobre fixtures clave.
-- **Surfaces:** documentSymbols, workspaceSymbols, hover, definition, references, rename eligibility, diagnostics, semantic tokens, currentObjectContext, impactAnalysis, safeEditPlan, manifest, dependencyGraph, DataWindow lineage y support bundle.
-- **Cierre:** matriz golden estable con actualización explícita cuando cambie contrato.
-- **Validación esperada:** golden suite cross-feature.
-- **Docs afectadas:** `docs/testing.md`.
-
-## B274 — Memory pressure adaptive degradation
-- **Estado:** Open
-- **Track:** runtime memory / graceful degradation
-- **Prioridad:** Alta
-- **Depende de:** B070, B159, B259, B267
-- **Objetivo:** actuar automáticamente bajo presión de memoria.
-- **Cierre:** limpiar serving cache, reducir payloads, aplazar background, limitar reports pesados y mantener hover/completion activos.
-- **Validación esperada:** unit de policy + stress con thresholds artificiales.
-- **Docs afectadas:** `docs/performance-budget.md`, `docs/architecture.md`.
-
-## B275 — Long-running session stability soak tests
-- **Estado:** Open
-- **Track:** reliability / soak testing
-- **Prioridad:** Alta
-- **Depende de:** B247, B259, B267, B274
-- **Objetivo:** simular sesiones largas para detectar fugas, handles huérfanos o readiness roto.
-- **Debe simular:** apertura/cierre de archivos, cambios incrementales, watcher bursts, diagnostics, hover/completion, build snapshot, support bundle, cache flush y workspace resume.
-- **Cierre:** sin crecimiento no acotado, sin readiness roto, sin caches huérfanas.
-- **Validación esperada:** soak local opt-in y reporte JSON/MD.
-- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
-
-## B276 — Hot path allocation budget and regression guard
-- **Estado:** Open
-- **Track:** performance / allocation
-- **Prioridad:** Alta
-- **Depende de:** B159, B223, B230, B246
-- **Objetivo:** controlar allocations en hot path interactivo.
-- **Hot paths:** hover, completion, definition, references, documentSymbols, diagnostics rápidos y queryContext.
-- **Cierre:** guard detecta materialización de KB completa, clones grandes, split/remask global y JSON stringify en hot path.
-- **Validación esperada:** performance guard local/CI con tolerancias.
-- **Docs afectadas:** `docs/performance-budget.md`, `docs/testing.md`.
-
-## B277 — Core module dependency firewall
-- **Estado:** Open
-- **Track:** architecture guardrails
-- **Prioridad:** Muy alta
-- **Depende de:** B228
-- **Objetivo:** impedir dependencias indebidas entre capas.
-- **Reglas:** core/knowledge/parsing no importa VS Code/LSP; runtime no importa UI; features no importan cliente; client no importa dominio servidor; shared/contracts no importa entidades internas mutables; build/ORCA no toca hot path semántico.
-- **Cierre:** test automático tipo `architectureImports` con allowlist mínima.
-- **Validación esperada:** unit architectureImports y CI gate.
-- **Docs afectadas:** `docs/architecture.md`.
-
-## B278 — Core maintenance command pack
-- **Estado:** Open
-- **Track:** operability / maintenance
-- **Prioridad:** Media
-- **Depende de:** B258, B259, B271
-- **Objetivo:** comandos seguros para inspeccionar y mantener el core.
-- **Comandos:** clear semantic cache, export health report, export support bundle, show memory budgets, show indexing state, show project routing, show sourceOrigin conflicts, rebuild workspace index y validate persistent cache.
-- **Cierre:** comandos read-only o confirmables, documentados y validados.
-- **Validación esperada:** smoke commands + unit de command models.
-- **Docs afectadas:** `README.md`, `docs/developer-workflows.md`.
-
----
-
 # L2.6 — Semantic Precision v2
-
-## B279 — Symbol identity canonical key v2
-- **Estado:** Open
-- **Track:** semantic identity
-- **Prioridad:** Muy alta
-- **Depende de:** B206, B204, B172, B255
-- **Objetivo:** endurecer la clave canónica de identidad de símbolos.
-- **Debe considerar:** project, library, object, container, kind, signature, sourceOrigin, implementationKind, declarationScope y fileObjectName.
-- **Cierre:** todas las surfaces consumen identidad estable y no comparan solo por nombre.
-- **Validación esperada:** cross-project conflicts, references, rename, manifest y dependency graph.
-- **Docs afectadas:** `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-
-## B280 — Ambiguity model v2 for query engine
-- **Estado:** Open
-- **Track:** query engine / evidence
-- **Prioridad:** Alta
-- **Depende de:** B157, B171, B255, B279
-- **Objetivo:** diferenciar ambigüedad real, homónimos seguros, fallback global, sourceOrigin conflict y conflictos cross-project.
-- **Cierre:** reason codes canónicos y confidence ajustada para cada tipo de ambigüedad.
-- **Validación esperada:** semanticQueryService, queryContext, hover, definition, references y rename.
-- **Docs afectadas:** `docs/rules-catalog.md`, `docs/testing.md`.
 
 ## B281 — Override and overload resolution hardening
 - **Estado:** Open
@@ -634,7 +449,7 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Track:** knowledge / generator
 - **Prioridad:** Media
 - **Depende de:** B318
-- **Objetivo:** recrear el script de generación de catálogo (actualmente fuera del repo) para automatizar la extracción de símbolos oficiales.
+- **Objetivo:** recrear el script de generación de catálogo, hoy fuera del repo, para automatizar la extracción de símbolos oficiales.
 - **Cierre:** script `generate_official_function_catalog.cjs` restaurado y alineado con el modelo v2; reporte de cobertura real generado.
 - **Validación:** el script genera `generated.generated.ts` válido y consistente.
 - **Docs afectadas:** `docs/architecture.md`.
@@ -662,32 +477,25 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # 6. Current execution focus recomendado
 
-## Fase activa — Core Hardening v2 / Runtime Reliability
+## Fase activa — Semantic Precision v2
 
-1. B264 — Semantic consistency oracle across all read-only surfaces
-2. B265 — Incremental invalidation proof suite
-3. B266 — Query scope policy v2 and consumer budget declarations
-4. B267 — Runtime backpressure policy v2 for competing workloads
-5. B277 — Core module dependency firewall
-6. B273 — Cross-surface golden contract matrix
-7. B274 — Memory pressure adaptive degradation
-8. B275 — Long-running session stability soak tests
-9. B276 — Hot path allocation budget and regression guard
-10. B270 — Persistent cache corruption/fuzz recovery suite
+1. B281 — Override and overload resolution hardening
+2. mantenimiento verde del carril architecture/runtime/contract ya cerrado en `specs/325-ambiguity-model-v2-query-engine`, `specs/324-symbol-identity-canonical-key-v2`, `specs/323-core-maintenance-command-pack`, `specs/322-powerbuilder-parser-resilience-fuzzing`, `specs/321-telemetry-free-observability-contract`, `specs/320-semantic-snapshot-schema-evolution-compatibility`, `specs/319-persistent-cache-corruption-fuzz-recovery-suite`, `specs/318-hot-path-allocation-budget-and-regression-guard`, `specs/317-long-running-session-stability-soak-tests`, `specs/316-memory-pressure-adaptive-degradation`, `specs/315-workspace-partition-isolation-multi-root-stress-hardening`, `specs/314-cross-surface-golden-contract-matrix`, `specs/313-core-module-dependency-firewall` y `specs/312-runtime-backpressure-policy-v2`
 
 ## No abrir todavía salvo necesidad real
 
 - Automatización write-enabled avanzada sin `B263`, `B299` y `B300`.
-- Nuevas features visuales pesadas sin `B266`, `B267` y preferencia por Tree View frente a Webview cuando baste.
-- Nuevos reports grandes sin `B274`, `B276` y `B301`.
+- Nuevas features visuales pesadas sin guardrails claros y preferencia por Tree View frente a Webview cuando baste.
+- Nuevos reports grandes sin `B276` y `B301`.
 - Nuevos carriles ORCA/PBAutoBuild sin pasar por support matrix, troubleshooting y health.
 
 ---
 
 # 7. Backlog derivado
 
-- Mantener `L3.5 — Core Hardening v2 / Runtime Reliability` como fase activa actual tras cerrar `B263` en `specs/308-agent-ready-task-execution-contracts`.
+- Mantener `L2.6 — Semantic Precision v2` como fase activa actual tras cerrar `B280` en `specs/325-ambiguity-model-v2-query-engine`.
 - Añadir `L3.5 — Core Hardening v2 / Runtime Reliability` como bloque prioritario posterior.
+- Mantener `B281` como foco canónico inmediato con `B280` ya cerrada como modelo v2 de ambigüedad sobre `specs/325-ambiguity-model-v2-query-engine`, `B279` ya cerrada como identidad canónica exacta sobre `specs/324-symbol-identity-canonical-key-v2`, `B278` como pack de comandos de mantenimiento sobre `specs/323-core-maintenance-command-pack`, `B272` como suite determinista de resiliencia del parser, `B271` como contrato versionado de observabilidad local sin telemetría externa, `B269` como guard de compatibilidad para snapshots/manifests/support bundles/payloads públicos versionados, `B270` como suite de recuperación limpia ante persistencia dañada, `B276` como guard estructural de allocations en hot path, `B275` como soak guard de sesiones largas, `B274` como policy de degradación por memoria, `B268` como guard multi-root, `B273` como matriz visible y `B277` como guardrail previo del bloque.
 - Mantener DataWindow como sublenguaje propio y evitar cualquier parser DataWindow como PowerScript normal.
 - Mantener ORCA fuera del hot path y detrás de policy/feature flags cuando implique write-enabled o packaging.
 - Formalizar en docs la matriz de soporte final tras `B293`.

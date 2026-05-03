@@ -13,6 +13,7 @@ Plugin profesional de **Visual Studio Code** para **PowerBuilder 2025** y **Powe
 - **Formatter conservador configurable** para scripts PowerBuilder soportados
 - **Inspección jerárquica activa** desde comando
 - **API pública mínima versionada** para herramientas y otras extensiones
+- **Contrato de observabilidad local versionado** para stats, health, query trace y support bundle, sin telemetría externa
 - **Bridge JSON-RPC / local tool read-only** sobre la API pública endurecida
 - **Export / import de semantic workspace snapshot** versionado
 - **Diff read-only entre dos semantic workspace snapshots** para resumir cambios de impacto entre estados exportados
@@ -32,6 +33,7 @@ Plugin profesional de **Visual Studio Code** para **PowerBuilder 2025** y **Powe
 - **Adapter ORCA legacy** out-of-process con capability detection read-only vía configuración o `PB_ORCA_PATH`, y export controlado a staging indexable con DLL de sesión explícita
 - **Export de repro packs semánticos** desde el editor activo para bugs complejos
 - **Export de support bundles offline** con estado técnico saneado para soporte y troubleshooting
+- **Core maintenance command pack** para health report, budgets de memoria, estado de indexación, project routing, conflictos de `sourceOrigin`, validación/limpieza de caché y rebuild explícito del workspace
 - **Diagnósticos estructurales y semánticos** con `diagnostic.code` estable para tooling y troubleshooting
 - **Descubrimiento de Workspace, Solution y PBL-only**
 - **Indexación progresiva** con prioridad al archivo activo
@@ -68,6 +70,7 @@ Actualmente el plugin ya incluye una base funcional sólida con:
 - adapter ORCA legacy out-of-process y separado del hot path, con capability detection read-only vía configuración o `PB_ORCA_PATH`, snapshot visible en status/dashboard, export controlado a `.vsc-powersyntax/orca-export/orca-staging`, import controlado de vuelta a PBL y comandos `regenerate/rebuild` sobre el mismo rail seguro con `vscPowerSyntax.legacy.orcaSessionDll`, `PB_ORCA_DLL` o fallback `pborc250.dll`, preflight por fingerprint de PBL y fingerprints del source real rastreado, backup binario, ledger persistido, workflow spec-driven por API pública para export fresco + edits explícitos sobre staging + import seguro, batch versionado para coordinar múltiples PBL con `stopOnError`, y journal técnico persistente en `.vsc-powersyntax/runtime/build-orca-journal.json` sin declarar el staging como fuente canónica,
 - detección read-only de `PBAutoBuild250.exe` vía configuración, entorno y candidatos por defecto, junto con discovery/validation read-only de build files JSON, runner out-of-process cancelable, publicación segura de problemas de build y export neutral de helper CI/CD versionable bajo `tools/pbautobuild-ci`,
 - API pública mínima exportada desde la activación para stats, consulta de símbolos, superficies read-only como current object context, impact analysis, cross-project conflicts, workspace migration assistant, build profile matrix, safe edit plan y semantic workspace manifest, y los workflows versionados `applySpecDrivenPblUpdate()` / `applySpecDrivenPblUpdateBatch()` para automatización controlada sobre PBL legacy,
+- descriptor versionado de observabilidad local embebido en ese contrato público, declarando `externalTelemetry = false`, `localOnly = true` y los dominios readiness/indexing/cache/memory/latency/build/ORCA/diagnostics/query trace/support bundle/health sin abrir un rail paralelo,
 - exportación de repro packs semánticos bajo `tools/semantic-repros`, reutilizando esas surfaces read-only y copias de archivos relacionados para reabrir bugs complejos,
 - exportación de support bundles offline bajo `tools/support-bundles`, reutilizando health/stats/runtime journal/manifest/API inventory/settings governance con redacción explícita y sin copiar código bruto por defecto,
 - contrato diagnóstico estable vía `diagnostic.code`, manteniendo compatibilidad legacy puntual donde aún existe `source = PowerScript:SDx`,
@@ -137,10 +140,12 @@ Comprobaciones básicas:
 - `npm run build:test` para recompilar cliente/servidor antes de validar el wiring real.
 - `npm run release:verify` para repetir smoke, unit, integration, gate de rendimiento y VSIX.
 - dashboard, status bar y `PowerSyntax: Mostrar Stats del Runtime` para revisar `buildTooling`, `buildFiles`, `buildRunner`, `orcaTooling`, `orcaRunner` y `showStats.persistence.buildOrcaJournalUri`.
+- `PowerSyntax: Exportar Health Report`, `Mostrar Memory Budgets`, `Mostrar Estado de Indexación`, `Mostrar Project Routing`, `Mostrar Conflictos de sourceOrigin`, `Validar Cache Persistente`, `Limpiar Cache Semántica` y `Rebuild Workspace Index` para inspección/mantenimiento directo del core sin abrir un rail paralelo.
 
 Artefactos operativos reales:
 
 - `tools/pbautobuild-ci/<perfil>` para el bundle neutral exportado a CI/CD.
+- `tools/health-reports/<workspace>-<timestamp>` para snapshots offline del dashboard, stats y manifest del runtime.
 - `tools/support-bundles/<workspace>-<timestamp>` para bundles offline de soporte saneados y sin código bruto por defecto.
 - `.vsc-powersyntax/orca-export/orca-staging` para el staging ORCA indexable.
 - `.vsc-powersyntax/orca-export/state/last-export.state` para el último export ORCA persistido.

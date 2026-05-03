@@ -1,6 +1,7 @@
 import * as assert from 'assert/strict';
 
 import {
+  type ApiSemanticWorkspaceManifest,
   PUBLIC_API_VERSION,
   getPublicApiContractDescriptor,
   getReadOnlyToolBridgeDescriptor,
@@ -10,6 +11,11 @@ import {
   diffSemanticWorkspaceSnapshots,
   importSemanticWorkspaceSnapshot,
 } from '../../../src/client/semanticWorkspaceSnapshot';
+import { loadFixture } from '../helpers/fixtureLoader';
+
+function loadJsonFixture<T>(fileName: string): T {
+  return JSON.parse(loadFixture('compatibility', fileName)) as T;
+}
 
 suite('unit/semanticWorkspaceSnapshot (B243)', () => {
   test('exporta un snapshot versionado y resumido del workspace', () => {
@@ -81,6 +87,56 @@ suite('unit/semanticWorkspaceSnapshot (B243)', () => {
     const invalid = importSemanticWorkspaceSnapshot({ ...snapshot, schemaVersion: '9.0.0' });
     assert.equal(invalid.valid, false);
     assert.match(invalid.reason ?? '', /schemaVersion no soportado/i);
+  });
+
+  test('migra un snapshot legado compatible sin schemaVersion ni summary', () => {
+    const legacySnapshot = loadJsonFixture<unknown>('semantic-workspace-snapshot.legacy-no-summary.json');
+
+    const imported = importSemanticWorkspaceSnapshot(legacySnapshot, 'file:///tmp/legacy-snapshot.json');
+
+    assert.equal(imported.valid, true);
+    assert.equal(imported.sourceUri, 'file:///tmp/legacy-snapshot.json');
+    assert.equal(imported.snapshot?.schemaVersion, '1.0.0');
+    assert.deepEqual(imported.summary, {
+      projectCount: 1,
+      objectCount: 2,
+      exportedSymbolCount: 1,
+      readinessState: 'ready',
+      healthStatus: 'healthy',
+    });
+  });
+
+  test('roundtripea un manifest versionado desde fixture externo', () => {
+    const workspaceManifest = loadJsonFixture<ApiSemanticWorkspaceManifest>('semantic-workspace-manifest.v1.json');
+
+    const snapshot = buildSemanticWorkspaceSnapshot({
+      apiVersion: PUBLIC_API_VERSION,
+      contract: getPublicApiContractDescriptor(),
+      readOnlyToolBridge: getReadOnlyToolBridgeDescriptor(),
+      workspaceManifest,
+      serverStats: {
+        health: {
+          status: 'healthy',
+          summary: 'ok',
+          findings: [],
+          counts: { info: 0, warning: 0, error: 0 },
+          checkedLayers: [],
+        },
+      },
+      generatedAt: '2026-05-03T18:00:00.000Z',
+    });
+
+    const imported = importSemanticWorkspaceSnapshot(JSON.parse(JSON.stringify(snapshot)));
+
+    assert.equal(imported.valid, true);
+    assert.deepEqual(imported.snapshot?.workspaceManifest, workspaceManifest);
+    assert.deepEqual(imported.summary, {
+      projectCount: workspaceManifest.projects.length,
+      objectCount: workspaceManifest.objects.length,
+      exportedSymbolCount: workspaceManifest.exportedSymbols.length,
+      readinessState: 'ready',
+      healthStatus: 'healthy',
+    });
   });
 
   test('resume cambios relevantes entre dos snapshots exportados', () => {

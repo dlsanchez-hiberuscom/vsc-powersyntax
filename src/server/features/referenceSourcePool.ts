@@ -5,6 +5,11 @@ import type { IFileSystem } from '../system/fileSystem';
 import { normalizeUri } from '../system/uriUtils';
 import type { WorkspaceState } from '../workspace/workspaceState';
 import type { ReferenceSource } from './references';
+import {
+  getQueryConsumerPolicy,
+  isSourceOriginAllowedForConsumer,
+  type QueryConsumerId,
+} from './queryScopePolicy';
 
 export type ReferenceSourcePoolScope = 'direct' | 'project' | 'multi-project' | 'workspace';
 
@@ -15,6 +20,7 @@ export interface ReferenceSourcePool {
 }
 
 export interface CollectReferenceSourcePoolOptions {
+  consumer: QueryConsumerId;
   currentUri: string;
   resolvedTargetUris?: readonly string[];
   workspaceState?: WorkspaceState;
@@ -61,24 +67,45 @@ function resolveCandidateUris(options: CollectReferenceSourcePoolOptions): {
   candidateUris: string[];
   scope: ReferenceSourcePoolScope;
 } {
+  const policy = getQueryConsumerPolicy(options.consumer);
   const directUris = new Set<string>();
   directUris.add(normalizeUri(options.currentUri));
   addAll(directUris, options.resolvedTargetUris ?? []);
 
+  const addMaterializedCandidates = (uris: readonly string[]): string[] => {
+    const candidateUris = new Set(directUris);
+    for (const uri of uris) {
+      const normalized = normalizeUri(uri);
+      if (candidateUris.has(normalized)) {
+        continue;
+      }
+      if (!isSourceOriginAllowedForConsumer(options.consumer, options.workspaceState?.getSourceOrigin(normalized))) {
+        continue;
+      }
+      candidateUris.add(normalized);
+    }
+    return [...candidateUris].sort();
+  };
+
   const project = getProjectFileSet(options.workspaceState, [...directUris]);
-  if (project.files.length > 0) {
-    addAll(directUris, project.files);
+  if (policy.maxScope === 'project' || policy.maxScope === 'library' || policy.maxScope === 'dependency-neighborhood') {
+    if (project.files.length > 0) {
+      return {
+        candidateUris: addMaterializedCandidates(project.files),
+        scope: project.projectUris.length > 1 ? 'multi-project' : 'project'
+      };
+    }
+
     return {
       candidateUris: [...directUris].sort(),
-      scope: project.projectUris.length > 1 ? 'multi-project' : 'project'
+      scope: 'direct'
     };
   }
 
-  const workspaceFiles = options.workspaceState?.getAllSourceFiles().map((uri) => normalizeUri(uri)) ?? [];
-  if (workspaceFiles.length > directUris.size) {
-    addAll(directUris, workspaceFiles);
+  const workspaceFiles = options.workspaceState?.getAllSourceFiles() ?? [];
+  if (policy.maxScope === 'workspace' && workspaceFiles.length > directUris.size) {
     return {
-      candidateUris: [...directUris].sort(),
+      candidateUris: addMaterializedCandidates(workspaceFiles),
       scope: 'workspace'
     };
   }

@@ -48,9 +48,7 @@ function resolveContextualSourceOrigin(uri: string, workspaceState: WorkspaceSta
     return contextual;
   }
 
-  return inferSourceOrigin(uri, {
-    hasSolutionRoots: workspaceState.getMode() === 'solution' || workspaceState.getMode() === 'mixed'
-  });
+  return workspaceState.inferSourceOriginForUri(uri);
 }
 
 function snapshotMatchesSourceOrigin(snapshot: ReturnType<KnowledgeBase['getDocumentSnapshot']>, sourceOrigin: ReturnType<typeof inferSourceOrigin>): boolean {

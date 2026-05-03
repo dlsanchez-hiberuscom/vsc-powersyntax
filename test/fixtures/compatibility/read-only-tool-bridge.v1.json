@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0.0",
+  "apiVersion": "2.11.0",
+  "tools": [
+    {
+      "name": "contract",
+      "description": "Contrato público",
+      "responseSchema": "ApiPublicContractDescriptor",
+      "usesActiveEditorFallback": false
+    },
+    {
+      "name": "semantic-workspace-manifest",
+      "description": "Manifest semántico",
+      "responseSchema": "ApiSemanticWorkspaceManifest",
+      "command": "powerbuilder.semanticWorkspaceManifest",
+      "usesActiveEditorFallback": false
+    },
+    {
+      "name": "semantic-snapshot-diff",
+      "description": "Diff semántico",
+      "responseSchema": "ApiSemanticWorkspaceSnapshotDiff",
+      "usesActiveEditorFallback": false
+    }
+  ]
+}

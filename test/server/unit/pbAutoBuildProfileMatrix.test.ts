@@ -70,4 +70,40 @@ suite('unit/pbAutoBuildProfileMatrix (B257)', () => {
     assert.ok(matrix.findings.some((finding) => finding.code === 'tooling-unavailable'));
     assert.ok(matrix.findings.some((finding) => finding.code === 'preferred-profile-stale'));
   });
+
+  test('identifica el último profile por URI aunque existan labels duplicados entre roots', () => {
+    const matrix = buildPbAutoBuildProfileMatrix({
+      inventory: [
+        {
+          uri: 'file:///workspace-a/app.build.json',
+          label: 'app.build.json',
+          representedProjectUri: 'file:///workspace-a/app.pbt',
+          status: 'usable',
+        },
+        {
+          uri: 'file:///workspace-b/app.build.json',
+          label: 'app.build.json',
+          representedProjectUri: 'file:///workspace-b/app.pbt',
+          status: 'usable',
+        },
+      ],
+      preferredBuildFileUri: 'file:///workspace-b/app.build.json',
+      buildTooling: {
+        status: 'available',
+        source: 'config',
+        executablePath: 'C:/Appeon/pbautobuild250.exe',
+        versionLabel: '25.0 / 2025',
+        capabilities: ['json-build'],
+        detail: 'PBAutoBuild disponible vía configuración.',
+      },
+    });
+
+    assert.equal(matrix.summary.totalProfiles, 2);
+    assert.equal(matrix.summary.runnableProfiles, 2);
+    assert.equal(matrix.summary.preferredProfileUri, 'file:///workspace-b/app.build.json');
+    assert.equal(matrix.profiles[0]?.buildFileUri, 'file:///workspace-b/app.build.json');
+    assert.equal(matrix.profiles[0]?.isLastUsed, true);
+    assert.equal(matrix.profiles[1]?.buildFileUri, 'file:///workspace-a/app.build.json');
+    assert.equal(matrix.profiles[1]?.isLastUsed, false);
+  });
 });

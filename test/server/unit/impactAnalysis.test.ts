@@ -122,4 +122,42 @@ suite('unit/impactAnalysis (B218)', () => {
     assert.ok(impact.affectedSymbols.some((entry) => entry.name === 'w_context'));
     assert.equal(impact.buildTargets[0]?.projectUri, 'file:///proj/app.pbt');
   });
+
+  test('sin routing de proyecto no materializa el workspace completo para un report pesado', async () => {
+    const mainUri = 'file:///workspace/w_context.srw';
+    const otherUri = 'file:///workspace/n_other.sru';
+    const document = setupAnalyzedDocument(mainUri, [
+      'global type w_context from window',
+      'end type',
+      '',
+      'event open();',
+      '  of_local()',
+      'end event',
+      '',
+      'public subroutine of_local();',
+      'end subroutine'
+    ].join('\r\n'));
+    setupAnalyzedDocument(otherUri, [
+      'global type n_other from nonvisualobject',
+      'end type'
+    ].join('\r\n'));
+
+    const loads: string[] = [];
+    const impact = await buildImpactAnalysis(
+      document,
+      undefined,
+      kb,
+      graph,
+      catalog,
+      async (uri) => {
+        loads.push(uri);
+        return contentsByUri.get(uri) ?? null;
+      },
+      { workspaceState }
+    );
+
+    assert.equal(impact.available, true);
+    assert.deepEqual(loads, [mainUri]);
+    assert.ok(impact.safeReferences.every((entry) => entry.uri === mainUri));
+  });
 });

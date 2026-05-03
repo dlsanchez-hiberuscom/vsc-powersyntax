@@ -79,6 +79,41 @@ suite('unit/semanticDiff', () => {
     assert.deepEqual(collectSnapshotDependencyKeys(snapshot), ['n_parent', 'n_service']);
   });
 
+  test('incluye dependencias DataObject y child DataWindow derivadas del snapshot', () => {
+    const snapshot = createSnapshot({
+      symbols: [
+        {
+          id: 'w_orders',
+          name: 'w_orders',
+          kind: EntityKind.Type,
+          uri: 'file:///semantic-diff.srw',
+          line: 1,
+          character: 0,
+          baseTypeName: 'window'
+        }
+      ],
+      logicalStatements: [
+        {
+          text: 'ids_orders.DataObject = "d_sales_orders"',
+          startLine: 10,
+          endLine: 10,
+          rawLines: ['ids_orders.DataObject = "d_sales_orders"']
+        }
+      ],
+      maskedText: {
+        lines: [
+          '$PBExportHeader$d_parent.srd',
+          'datawindow(units=0)',
+          'table(column=(type=char(10) update=yes name=status_id dbname="sales.status_id" dddw.name="d_status"))',
+          'report(name=rpt_orders dataobject="d_report_child")'
+        ],
+        masks: []
+      }
+    });
+
+    assert.deepEqual(collectSnapshotDependencyKeys(snapshot), ['d_report_child', 'd_sales_orders', 'd_status']);
+  });
+
   test('cambios de lineage en diff marcan export actualizado', () => {
     const previous = createSnapshot({
       symbols: [
@@ -145,5 +180,39 @@ suite('unit/semanticDiff', () => {
 
     assert.equal(diff.changed, false);
     assert.equal(diff.fingerprintChanged, true);
+  });
+
+  test('cambio en argumentos retrieve de un .srd marca cambio de contrato documental', () => {
+    const previous = createSnapshot({
+      fingerprint: 20,
+      identity: 'file:///d_sales_orders.srd@20',
+      maskedText: {
+        lines: [
+          '$PBExportHeader$d_sales_orders.srd',
+          'release 39;',
+          'datawindow(units=0)',
+          'table(retrieve="PBSELECT( VERSION(400) TABLE(NAME=~"sales_order~" ) ARG(NAME = ~"custarg~" TYPE = number) ARG(NAME = ~"orderarg~" TYPE = number) )" arguments=(("custarg", number), ("orderarg", number)) )'
+        ],
+        masks: []
+      }
+    });
+    const next = createSnapshot({
+      fingerprint: 21,
+      identity: 'file:///d_sales_orders.srd@21',
+      maskedText: {
+        lines: [
+          '$PBExportHeader$d_sales_orders.srd',
+          'release 39;',
+          'datawindow(units=0)',
+          'table(retrieve="PBSELECT( VERSION(400) TABLE(NAME=~"sales_order~" ) ARG(NAME = ~"custarg~" TYPE = number) )" arguments=(("custarg", number)) )'
+        ],
+        masks: []
+      }
+    });
+
+    const diff = diffSemanticSnapshots(previous, next);
+
+    assert.equal(diff.changed, true);
+    assert.deepEqual(diff.documentContractsUpdated, ['datawindow-retrieve-arguments']);
   });
 });

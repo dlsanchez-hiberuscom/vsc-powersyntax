@@ -144,6 +144,7 @@ export function provideHover(
           confidence: resolved.confidence,
           reasonCode: resolved.reasonCodes[0],
           ambiguous: resolved.targets.length > 1,
+          ambiguityKind: resolved.ambiguityKind,
           targetCount: resolved.targets.length
         })}${lifecycleBlock ? `\n${lifecycleBlock}` : ''}${dataWindowBlock ? `\n${dataWindowBlock}` : ''}`
       }

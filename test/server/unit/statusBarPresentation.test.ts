@@ -52,7 +52,10 @@ suite('unit/statusBarPresentation (B107)', () => {
     scheduler: {
       pendingNear: 1,
       pendingBackground: 4,
-      interactiveBusy: false
+      interactiveBusy: false,
+      activeBackgroundWorkload: 'background-indexing',
+      throttledBackgroundWorkload: 'export-reporting',
+      throttledBackgroundReason: 'latency-pressure:export-reporting'
     },
     caches: {
       analysis: { size: 12, capacity: 64 },
@@ -227,7 +230,7 @@ suite('unit/statusBarPresentation (B107)', () => {
     const report = buildStatusStatsReport(stats);
 
     assert.match(report, /Readiness: indexing · enriched/);
-    assert.match(report, /Scheduler: near 1 · background 4 · interactiveBusy false/);
+    assert.match(report, /Scheduler: near 1 · background 4 · interactiveBusy false · activeBackground background-indexing · throttle export-reporting \(latency-pressure:export-reporting\)/);
     assert.match(report, /Cachés: analysis 12\/64 · serving 8\/32 · hit 75% \(9\/3\) · evict 1 · documents 20 · hot 4\/16/);
     assert.match(report, /Persistencia: workspace-key · checkpoint · journal · restored 18 docs · serving 8 entries/);
     assert.match(report, /Build profile: demo\.json · demo\.pbt/);

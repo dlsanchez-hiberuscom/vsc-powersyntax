@@ -1,6 +1,7 @@
 import { SymbolInformation, SymbolKind, Location, Position } from 'vscode-languageserver/node';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { Entity, EntityKind } from '../knowledge/types';
+import { buildSymbolKey } from '../knowledge/symbolKey';
 import { toApiSymbol, type ApiSymbol } from '../../shared/publicApi';
 
 const MAX_RESULTS = 200;
@@ -42,6 +43,7 @@ function entityToApiSymbol(entity: Entity): ApiSymbol {
     uri: entity.uri,
     line: entity.line,
     character: entity.character,
+    identityKey: buildSymbolKey(entity),
     lineage: entity.lineage
   });
 }

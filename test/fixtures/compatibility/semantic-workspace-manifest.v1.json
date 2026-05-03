@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": 1713435300000,
+  "limits": {
+    "maxObjects": 50,
+    "maxSymbols": 100,
+    "objectsTruncated": false,
+    "symbolsTruncated": false
+  },
+  "projects": [
+    {
+      "projectUri": "file:///proj/app.pbt",
+      "kind": "target",
+      "name": "app",
+      "libraries": [
+        "file:///proj/lib_app.pbl"
+      ],
+      "fileCount": 2
+    }
+  ],
+  "libraries": [
+    "file:///proj/lib_app.pbl"
+  ],
+  "objects": [
+    {
+      "name": "w_main",
+      "uri": "file:///proj/lib_app.pbl/w_main.srw",
+      "objectKind": "window",
+      "sourceOrigin": "pbl-folder-source"
+    },
+    {
+      "name": "n_service",
+      "uri": "file:///proj/lib_app.pbl/n_service.sru",
+      "objectKind": "userobject",
+      "sourceOrigin": "pbl-folder-source"
+    }
+  ],
+  "inheritanceSummary": {
+    "totalTypes": 2,
+    "roots": 1,
+    "items": []
+  },
+  "exportedSymbols": [
+    {
+      "name": "w_main",
+      "kind": "Type",
+      "uri": "file:///proj/lib_app.pbl/w_main.srw",
+      "line": 0,
+      "character": 0
+    }
+  ],
+  "sourceOriginSummary": {
+    "pbl-folder-source": 2
+  },
+  "readiness": {
+    "state": "ready"
+  }
+}
