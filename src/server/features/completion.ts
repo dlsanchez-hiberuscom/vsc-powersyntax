@@ -190,6 +190,28 @@ export function provideCompletion(
 
       items.push(createCompletionItem(entity, '2_global_'));
     }
+
+    // 4. Keywords and datatypes from catalog v2 (only if prefix matches)
+    if (identifierPrefix.length >= 2) {
+      for (const kw of systemCatalog.listKeywords()) {
+        if (!kw.name.toLowerCase().startsWith(identifierPrefix)) continue;
+        if (seen.has(kw.name.toLowerCase())) continue;
+        seen.add(kw.name.toLowerCase());
+        items.push({ label: kw.name, kind: CompletionItemKind.Keyword, detail: kw.summary, sortText: '3_keyword_' + kw.name.toLowerCase() });
+      }
+      for (const dt of systemCatalog.listDatatypes()) {
+        if (!dt.name.toLowerCase().startsWith(identifierPrefix)) continue;
+        if (seen.has(dt.name.toLowerCase())) continue;
+        seen.add(dt.name.toLowerCase());
+        items.push({ label: dt.name, kind: CompletionItemKind.TypeParameter, detail: dt.summary, sortText: '3_keyword_' + dt.name.toLowerCase() });
+      }
+      for (const st of systemCatalog.listSystemTypes()) {
+        if (!st.name.toLowerCase().startsWith(identifierPrefix)) continue;
+        if (seen.has(st.name.toLowerCase())) continue;
+        seen.add(st.name.toLowerCase());
+        items.push({ label: st.name, kind: CompletionItemKind.Class, detail: st.summary, sortText: '3_keyword_' + st.name.toLowerCase() });
+      }
+    }
   }
 
   return items.length > 0 ? items : null;

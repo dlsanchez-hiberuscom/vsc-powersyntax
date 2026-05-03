@@ -492,6 +492,28 @@ El bloque `B241-B250` deja cerrado, sobre código y documentación viva, un carr
 - `docs/roadmap.md`
 - `docs/testing.md`
 
+### B318. PowerBuilder Language Knowledge Catalog v2 — **Cerrada (spec 318)**
+**Objetivo:** evolucionar el catálogo de callable/event/statement a un modelo de lenguaje completo (keywords, datatypes, operators, etc.).
+
+**Resultado registrado:**
+- extensión de tipos base (`PbSystemSymbolKind`, `PbSystemSymbolDomain`, `PbSystemSymbolNamespace`);
+- creación de 8 slices manuales curadas (`manual-core`) cubriendo keywords, reserved words, datatypes (primitive/system), pronouns, operators, system globals y enumerated values;
+- implementación de APIs de consulta indexadas en `queryService` y `SystemCatalog` facade para acceso $O(1)$;
+- integración en `hover.ts` (fallback para símbolos de lenguaje) y `completion.ts` (sugerencias de keywords/datatypes);
+- reporte de consistencia ampliado con `kindCounts`.
+
+**Validación registrada:**
+- suite `test/server/unit/catalogV2.test.ts` con 30+ casos cubriendo compatibilidad, nuevos dominios, resolución y alias;
+- green en la suite completa de 742 tests.
+
+**Documentación afectada:**
+- `specs/318-powerbuilder-language-knowledge-catalog-v2/`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/roadmap.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+
 ---
 
 ## 1.8D B157. Descartes contextuales de qualifier — **Slice cerrada (spec 222)**

@@ -5,7 +5,7 @@
  */
 
 import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
-import type { PbSystemSymbolDataset, PbSystemSymbolDomain } from './types';
+import type { PbSystemSymbolDataset, PbSystemSymbolDomain, PbSystemSymbolKind } from './types';
 
 export interface CatalogReport {
   total: number;
@@ -14,6 +14,7 @@ export interface CatalogReport {
   emptyName: string[]; // ids
   domainCounts: Record<PbSystemSymbolDomain, number>;
   datasetCounts: Partial<Record<PbSystemSymbolDataset, number>>;
+  kindCounts: Record<PbSystemSymbolKind, number>;
 }
 
 export function buildCatalogConsistencyReport(): CatalogReport {
@@ -23,6 +24,7 @@ export function buildCatalogConsistencyReport(): CatalogReport {
   const emptyName: string[] = [];
   const domainCounts: Record<string, number> = {};
   const datasetCounts: Record<string, number> = {};
+  const kindCounts: Record<string, number> = {};
 
   for (const e of entries) {
     seen.set(e.id, (seen.get(e.id) ?? 0) + 1);
@@ -30,6 +32,7 @@ export function buildCatalogConsistencyReport(): CatalogReport {
     if (!e.name || !e.name.trim()) emptyName.push(e.id);
     domainCounts[e.domain] = (domainCounts[e.domain] ?? 0) + 1;
     datasetCounts[e.dataset] = (datasetCounts[e.dataset] ?? 0) + 1;
+    kindCounts[e.kind] = (kindCounts[e.kind] ?? 0) + 1;
   }
 
   const duplicateIds: string[] = [];
@@ -41,6 +44,7 @@ export function buildCatalogConsistencyReport(): CatalogReport {
     missingSignatures,
     emptyName,
     domainCounts: domainCounts as Record<PbSystemSymbolDomain, number>,
-    datasetCounts: datasetCounts as Partial<Record<PbSystemSymbolDataset, number>>
+    datasetCounts: datasetCounts as Partial<Record<PbSystemSymbolDataset, number>>,
+    kindCounts: kindCounts as Record<PbSystemSymbolKind, number>,
   };
 }

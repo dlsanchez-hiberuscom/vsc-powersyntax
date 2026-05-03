@@ -89,7 +89,7 @@ Deben cubrir prioritariamente:
 - utilidades semánticas puras.
 
 Estado actual relevante:
-- `test/server/unit/systemCatalog.test.ts`, `inheritanceGraph.test.ts`, `hierarchyInspection.test.ts`, `currentObjectContext.test.ts`, `diagnostics.test.ts` e `impactAnalysis.test.ts` fijan ya la cadena nativa del runtime hasta raices como `powerobject`, evitando que diagnostics y surfaces read-only diverjan al llegar al borde del `system catalog`.
+- `test/server/unit/systemCatalog.test.ts`, `catalogV2.test.ts`, `catalogConsistency.test.ts`, `inheritanceGraph.test.ts`, `hierarchyInspection.test.ts`, `currentObjectContext.test.ts`, `diagnostics.test.ts` e `impactAnalysis.test.ts` fijan ya la cadena nativa del runtime hasta raices como `powerobject`, evitando que diagnostics y surfaces read-only diverjan al llegar al borde del `system catalog`.
 - `test/server/unit/runtimeJournal.test.ts`, `buildOrcaJournalStore.test.ts`, `runtimeHealth.test.ts`, `queryTrace.test.ts`, `servingCache.test.ts` y `statusBarPresentation.test.ts` fijan el journal exportable del runtime, la proyección persistente de `build|legacy`, el health report estructurado, los observers de trace/cache y su proyección visible en stats/status.
 - `test/server/unit/pbAutoBuildDetection.test.ts`, junto con `statusBarPresentation.test.ts`, fija la detección read-only de `PBAutoBuild250.exe` por configuración/entorno/candidatos por defecto y su proyección visible en status/health sin lanzar build.
 - `test/server/unit/pbAutoBuildBuildFiles.test.ts`, junto con `workspace.test.ts` y `watchedFileIntake.test.ts`, fija el discovery/validation read-only de build files JSON de PBAutoBuild, su mapeo a markers `.pbw/.pbt/.pbproj/.pbsln` y el refresh incremental por watcher.

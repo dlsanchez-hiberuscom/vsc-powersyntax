@@ -22,3 +22,36 @@ export {
     PB_MANUAL_CORE_SYSTEM_EVENTS,
     PB_MANUAL_CORE_SYSTEM_EVENT_CATEGORIES,
 } from './systemEvents';
+// -- Catalog v2: language constructs --
+export {
+    PB_MANUAL_CORE_KEYWORDS,
+    PB_MANUAL_CORE_KEYWORD_CATEGORIES,
+} from './languageKeywords';
+export {
+    PB_MANUAL_CORE_RESERVED_WORDS,
+    PB_MANUAL_CORE_RESERVED_WORD_CATEGORIES,
+} from './reservedWords';
+export {
+    PB_MANUAL_CORE_DATATYPES,
+    PB_MANUAL_CORE_DATATYPE_CATEGORIES,
+} from './datatypes';
+export {
+    PB_MANUAL_CORE_SYSTEM_OBJECT_DATATYPES,
+    PB_MANUAL_CORE_SYSTEM_OBJECT_DATATYPE_CATEGORIES,
+} from './systemObjectDatatypes';
+export {
+    PB_MANUAL_CORE_PRONOUNS,
+    PB_MANUAL_CORE_PRONOUN_CATEGORIES,
+} from './pronouns';
+export {
+    PB_MANUAL_CORE_OPERATORS,
+    PB_MANUAL_CORE_OPERATOR_CATEGORIES,
+} from './operators';
+export {
+    PB_MANUAL_CORE_SYSTEM_GLOBALS,
+    PB_MANUAL_CORE_SYSTEM_GLOBAL_CATEGORIES,
+} from './systemGlobals';
+export {
+    PB_MANUAL_CORE_ENUMERATED_VALUES,
+    PB_MANUAL_CORE_ENUMERATED_VALUE_CATEGORIES,
+} from './enumeratedValues';

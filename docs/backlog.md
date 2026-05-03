@@ -620,6 +620,44 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Validación esperada:** docs lifecycle tests.
 - **Docs afectadas:** `docs/spec-driven-development.md`, `docs/backlog.md`, `docs/done-log.md`.
 
+## B318 — PowerBuilder Language Knowledge Catalog v2
+- **Estado:** Done
+- **Track:** knowledge / catalog
+- **Prioridad:** Alta
+- **Objetivo:** evolucionar el catálogo de callable/event/statement a un modelo de lenguaje completo.
+- **Cierre:** soporte para keywords, datatypes, pronouns, operators, system globals y enumerated values con metadata rica e integración en hover/completion.
+- **Validación:** suite `catalogV2.test.ts` + green en 742 tests.
+- **Docs afectadas:** `docs/architecture.md`, `docs/testing.md`, `specs/318-powerbuilder-language-knowledge-catalog-v2/`.
+
+## B319 — Restore official catalog generator and coverage v2
+- **Estado:** Open
+- **Track:** knowledge / generator
+- **Prioridad:** Media
+- **Depende de:** B318
+- **Objetivo:** recrear el script de generación de catálogo (actualmente fuera del repo) para automatizar la extracción de símbolos oficiales.
+- **Cierre:** script `generate_official_function_catalog.cjs` restaurado y alineado con el modelo v2; reporte de cobertura real generado.
+- **Validación:** el script genera `generated.generated.ts` válido y consistente.
+- **Docs afectadas:** `docs/architecture.md`.
+
+## B320 — DataWindow expression/property official catalog
+- **Estado:** Open
+- **Track:** knowledge / datawindow
+- **Prioridad:** Media
+- **Depende de:** B318, B289
+- **Objetivo:** integrar funciones de expresiones de DataWindow y propiedades de objetos DW en el catálogo v2.
+- **Cierre:** dominios `datawindow-expression-functions` y `datawindow-properties` poblados con metadata oficial.
+- **Validación:** hover/completion funcional sobre expresiones DW complejas.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
+
+## B321 — Generated catalog domain enrichment v2
+- **Estado:** Open
+- **Track:** knowledge / catalog
+- **Prioridad:** Media
+- **Depende de:** B319
+- **Objetivo:** enriquecer las entradas generadas automáticamente con metadata adicional de lenguaje (introducedIn, risk, etc.).
+- **Cierre:** el catálogo generado aprovecha los nuevos campos de `PbSystemSymbolEntryDraft`.
+- **Validación:** sanity tests de metadata enriquecida.
+
 ---
 
 # 6. Current execution focus recomendado

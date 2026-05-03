@@ -91,7 +91,8 @@ El producto ya dispone de:
 - latency governor operativo;
 - API pública mínima;
 - diagnostics snapshot agrupado;
-- hierarchy inspection y CodeLens robustecidos.
+- hierarchy inspection y CodeLens robustecidos;
+- PowerBuilder Language Knowledge Catalog v2 (keywords, datatypes, pronouns, operators, system globals).
 
 ### Lectura estratégica
 

@@ -1,12 +1,26 @@
 export type PbSystemSymbolKind =
     | 'callable'
     | 'event'
-    | 'statement';
+    | 'statement'
+    | 'keyword'
+    | 'reserved-word'
+    | 'datatype'
+    | 'system-type'
+    | 'operator'
+    | 'pronoun'
+    | 'enumerated-value'
+    | 'system-global'
+    | 'property'
+    | 'constant';
 
 export type PbSystemSymbolNamespace =
     | 'powerscript'
     | 'object'
-    | 'datawindow';
+    | 'datawindow'
+    | 'datawindow-expression'
+    | 'embedded-sql'
+    | 'powerbuilder-runtime'
+    | 'powerbuilder-tooling';
 
 export type PbSystemSymbolInvocation =
     | 'global'
@@ -18,7 +32,20 @@ export type PbSystemSymbolDomain =
     | 'datawindow-functions'
     | 'system-events'
     | 'datawindow-events'
-    | 'statements';
+    | 'statements'
+    | 'reserved-words'
+    | 'keywords'
+    | 'datatypes'
+    | 'system-object-datatypes'
+    | 'operators'
+    | 'pronouns'
+    | 'enumerated-values'
+    | 'system-globals'
+    | 'datawindow-properties'
+    | 'datawindow-expression-functions'
+    | 'datawindow-constants'
+    | 'obsolete-symbols'
+    | 'tooling-symbols';
 
 export type PbSystemSymbolDataset =
     | 'manual-core'
@@ -80,6 +107,12 @@ export interface PbSystemSymbolEntryDraft {
     replacement?: string;
     lookupAliases?: readonly string[];
     provenance?: PbSystemSymbolProvenance;
+    syntax?: string;
+    tokenType?: string;
+    tokenModifiers?: readonly string[];
+    languageRole?: string;
+    introducedIn?: string;
+    risk?: 'safe' | 'dynamic' | 'deprecated' | 'legacy' | 'external';
 }
 
 export interface PbSystemSymbolEntry extends PbSystemSymbolEntryDraft {

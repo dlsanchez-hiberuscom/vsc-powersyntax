@@ -170,6 +170,17 @@ export function provideHover(
     };
   }
 
+  // 3. Si no hay callable/event/statement, buscar símbolos de lenguaje (keyword, datatype, pronoun, etc.)
+  const langSymbol = catalog.resolveLanguageSymbol(identifier);
+  if (langSymbol) {
+    return {
+      contents: {
+        kind: MarkupKind.Markdown,
+        value: buildLanguageSymbolMarkdown(langSymbol)
+      }
+    };
+  }
+
   return null;
 }
 
@@ -226,6 +237,39 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
   if (lineage) {
     lines.push('');
     lines.push(lineage);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Formatea un símbolo de lenguaje (keyword, datatype, pronoun, etc.) como Markdown compacto.
+ */
+function buildLanguageSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
+  const kindLabels: Record<string, string> = {
+    'keyword': '🔤 Palabra clave',
+    'reserved-word': '🔒 Palabra reservada',
+    'datatype': '📦 Tipo de dato',
+    'system-type': '🏛️ Tipo de sistema',
+    'operator': '⚡ Operador',
+    'pronoun': '👆 Pronombre de objeto',
+    'system-global': '🌐 Global del sistema',
+    'enumerated-value': '🏷️ Tipo enumerado',
+    'property': '🔧 Propiedad',
+    'constant': '📌 Constante',
+  };
+
+  const lines: string[] = [];
+  lines.push(`\`\`\`powerbuilder\n${symbol.name}\n\`\`\``);
+  lines.push('---');
+  lines.push(kindLabels[symbol.kind] ?? `📋 ${symbol.kind}`);
+  if (symbol.summary) {
+    lines.push('');
+    lines.push(symbol.summary);
+  }
+  if (symbol.category) {
+    lines.push('');
+    lines.push(`**Categoría:** ${symbol.category}`);
   }
 
   return lines.join('\n');

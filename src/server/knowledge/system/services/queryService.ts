@@ -307,3 +307,76 @@ export function resolveReplacement(
 
     return entry?.replacement;
 }
+
+// -- Catalog v2: language construct queries --
+
+export function listKeywords(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('keywords');
+}
+
+export function listReservedWords(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('reserved-words');
+}
+
+export function listDatatypes(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('datatypes');
+}
+
+export function listSystemTypes(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('system-object-datatypes');
+}
+
+export function listPronouns(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('pronouns');
+}
+
+export function listOperators(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('operators');
+}
+
+export function listEnumeratedValues(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('enumerated-values');
+}
+
+export function listSystemGlobals(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('system-globals');
+}
+
+export function resolveKeyword(name: string): PbSystemSymbolEntry | undefined {
+    return findEntriesInDomain('keywords', name)[0];
+}
+
+export function resolveReservedWord(name: string): PbSystemSymbolEntry | undefined {
+    return findEntriesInDomain('reserved-words', name)[0];
+}
+
+export function resolveDatatype(name: string): PbSystemSymbolEntry | undefined {
+    return findEntriesInDomain('datatypes', name)[0]
+        ?? findEntriesInDomain('system-object-datatypes', name)[0];
+}
+
+export function resolveSystemGlobal(name: string): PbSystemSymbolEntry | undefined {
+    return findEntriesInDomain('system-globals', name)[0];
+}
+
+export function resolvePronoun(name: string): PbSystemSymbolEntry | undefined {
+    return findEntriesInDomain('pronouns', name)[0];
+}
+
+/**
+ * Resuelve un nombre como símbolo de lenguaje (keyword, reserved word, datatype,
+ * system type, pronoun, system global, operator, enumerated value).
+ * No busca callables/events/statements — para esos usar findSystemSymbolsByLookupKey.
+ */
+export function resolveLanguageSymbol(name: string): PbSystemSymbolEntry | undefined {
+    const normalizedName = normalizeSystemSymbolName(name);
+    if (!normalizedName) {
+        return undefined;
+    }
+
+    const candidates = lookupInIndex(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byLookupKey, name);
+    return candidates.find(entry =>
+        entry.kind !== 'callable' && entry.kind !== 'event' && entry.kind !== 'statement'
+    );
+}
+

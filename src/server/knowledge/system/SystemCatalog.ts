@@ -21,7 +21,22 @@ import {
   resolveSystemMemberFunctionForOwner,
   resolveSystemObjectEvent,
   resolveSystemObjectFunction,
-  resolveSystemObjectFunctionForOwner
+  resolveSystemObjectFunctionForOwner,
+  // -- Catalog v2: language construct queries --
+  listKeywords,
+  listReservedWords,
+  listDatatypes,
+  listSystemTypes,
+  listPronouns,
+  listOperators,
+  listEnumeratedValues,
+  listSystemGlobals,
+  resolveKeyword,
+  resolveReservedWord,
+  resolveDatatype,
+  resolveSystemGlobal,
+  resolvePronoun,
+  resolveLanguageSymbol,
 } from './services/queryService';
 import { isKnownNativeAncestorType } from './nativeAncestors';
 import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
@@ -128,4 +143,22 @@ export class SystemCatalog {
   size(): number {
     return PB_SYSTEM_SYMBOL_REGISTRY.entries.length;
   }
+
+  // -- Catalog v2: language construct queries --------------------------
+
+  listKeywords(): readonly PbSystemSymbolEntry[] { return listKeywords(); }
+  listReservedWords(): readonly PbSystemSymbolEntry[] { return listReservedWords(); }
+  listDatatypes(): readonly PbSystemSymbolEntry[] { return listDatatypes(); }
+  listSystemTypes(): readonly PbSystemSymbolEntry[] { return listSystemTypes(); }
+  listPronouns(): readonly PbSystemSymbolEntry[] { return listPronouns(); }
+  listOperators(): readonly PbSystemSymbolEntry[] { return listOperators(); }
+  listEnumeratedValues(): readonly PbSystemSymbolEntry[] { return listEnumeratedValues(); }
+  listSystemGlobals(): readonly PbSystemSymbolEntry[] { return listSystemGlobals(); }
+
+  resolveKeyword(name: string): PbSystemSymbolEntry | undefined { return resolveKeyword(name); }
+  resolveReservedWord(name: string): PbSystemSymbolEntry | undefined { return resolveReservedWord(name); }
+  resolveDatatype(name: string): PbSystemSymbolEntry | undefined { return resolveDatatype(name); }
+  resolveSystemGlobal(name: string): PbSystemSymbolEntry | undefined { return resolveSystemGlobal(name); }
+  resolvePronoun(name: string): PbSystemSymbolEntry | undefined { return resolvePronoun(name); }
+  resolveLanguageSymbol(name: string): PbSystemSymbolEntry | undefined { return resolveLanguageSymbol(name); }
 }

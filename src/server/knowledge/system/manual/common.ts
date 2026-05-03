@@ -269,6 +269,106 @@ export const PB_MANUAL_CORE_OBJECT_FUNCTION_OWNER_TYPES = mergeUniqueValues(
     REDRAWABLE_OBJECT_TYPES,
 );
 
+// -- Factorias para catalog v2: language constructs --
+
+type LanguageSymbolArgs = {
+    name: string;
+    category: string;
+    summary: string;
+    lookupAliases?: readonly string[];
+    syntax?: string;
+    languageRole?: string;
+    signatures?: readonly PbSystemSymbolSignature[];
+};
+
+export function languageKeyword(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'keyword',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'keywords',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function reservedWord(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'reserved-word',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'reserved-words',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function datatype(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'datatype',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'datatypes',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function systemObjectDatatype(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'system-type',
+        namespace: 'powerbuilder-runtime',
+        invocation: 'global',
+        domain: 'system-object-datatypes',
+    }, OBJECTS_AND_CONTROLS_REFERENCE, OBJECTS_AND_CONTROLS_REFERENCE_URL);
+}
+
+export function pronoun(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'pronoun',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'pronouns',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function operator(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'operator',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'operators',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function systemGlobal(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'system-global',
+        namespace: 'powerbuilder-runtime',
+        invocation: 'global',
+        domain: 'system-globals',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function enumeratedValue(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'enumerated-value',
+        namespace: 'powerbuilder-runtime',
+        invocation: 'global',
+        domain: 'enumerated-values',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
 export {
     EVENT_CAPABLE_OBJECT_TYPES,
     FOCUSABLE_OBJECT_TYPES,
