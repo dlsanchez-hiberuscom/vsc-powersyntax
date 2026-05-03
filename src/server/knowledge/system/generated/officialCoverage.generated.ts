@@ -8,8 +8,8 @@ export const PB_GENERATED_OFFICIAL_COVERAGE = {
     },
     "object-functions": {
         measurement: "name-owner",
-        officialCount: 3757,
-        coveredCount: 3724,
+        officialCount: 3944,
+        coveredCount: 3911,
         missingCount: 33,
         missingUnits: ["Clear:datawindow", "Clipboard:datastore", "Copy:datawindow", "CopyRTF:datastore", "CopyRTF:datawindow", "Cut:datawindow", "DataCount:datastore", "Find:datawindow", "FindNext:datawindow", "InsertDocument:datastore", "InsertDocument:datawindow", "LineCount:datawindow", "Paste:datawindow", "PasteRTF:datastore", "PasteRTF:datawindow", "Position:datawindow", "ReplaceText:datawindow", "SaveAs:datastore", "Scroll:datawindow", "ScrollNextRow:datawindow", "ScrollPriorPage:datawindow", "ScrollPriorRow:datawindow", "SelectText:datawindow", "SelectTextAll:datawindow", "SelectTextLine:datawindow", "SelectTextWord:datawindow", "SelectedLength:datawindow", "SelectedLine:datawindow", "SelectedStart:datawindow", "SelectedText:datawindow", "ShowHeadFoot:datawindow", "TextLine:datawindow", "Undo:datawindow"],
     },
@@ -37,6 +37,18 @@ export const PB_GENERATED_OFFICIAL_COVERAGE = {
         coveredCount: 24,
         missingCount: 0,
     },
+    "enumerated-types": {
+        measurement: "lookup-key",
+        officialCount: 33,
+        coveredCount: 33,
+        missingCount: 0,
+    },
+    "enumerated-values": {
+        measurement: "type-name-value",
+        officialCount: 233,
+        coveredCount: 233,
+        missingCount: 0,
+    },
     "system-object-datatypes": {
         measurement: "name",
         officialCount: 211,
@@ -45,8 +57,8 @@ export const PB_GENERATED_OFFICIAL_COVERAGE = {
     },
     "system-events": {
         measurement: "name-owner",
-        officialCount: 788,
-        coveredCount: 788,
+        officialCount: 810,
+        coveredCount: 810,
         missingCount: 0,
     },
     "statements": {

@@ -13,6 +13,10 @@ import { buildDataWindowModel, rangeContains } from './dataWindowModel';
 import { providePowerScriptDataWindowPropertyCompletion } from './dataWindowPropertyPaths';
 import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
+import {
+  matchesEnumeratedPropertyContext,
+  resolveExpectedEnumTypeForCallArgumentAtPosition,
+} from './enumeratedContext';
 
 const MAX_GLOBAL_COMPLETION_ENTITIES = getQueryConsumerPolicy('completion').resultCap;
 
@@ -69,18 +73,46 @@ export function provideCompletion(
     return null;
   }
 
+  const trailingIdentifierPrefix = extractTrailingIdentifierPrefix(lineText);
+
+  const enumAssignmentContext = extractEnumeratedAssignmentContext(lineText);
+  if (enumAssignmentContext) {
+    const ownerType = resolveDocumentQualifierType(document, enumAssignmentContext.qualifier, position, kb);
+    const enumType = systemCatalog.resolveEnumeratedType(enumAssignmentContext.enumTypeName);
+    if (ownerType && enumType) {
+      const enumValueItems = createEnumeratedValueCompletionItemsForType(
+        systemCatalog,
+        enumType.name,
+        enumAssignmentContext.propertyName,
+        ownerType,
+        enumAssignmentContext.identifierPrefix,
+      );
+      if (enumValueItems.length > 0) {
+        return enumValueItems;
+      }
+    }
+  }
+
+  const enumArgumentItems = createEnumeratedValueCompletionItemsForCallArgument(
+    document,
+    position,
+    kb,
+    systemCatalog,
+    trailingIdentifierPrefix,
+  );
+  if (enumArgumentItems.length > 0) {
+    return enumArgumentItems;
+  }
+
   let qualifier: string | undefined;
-  let identifierPrefix = '';
+  let identifierPrefix = trailingIdentifierPrefix;
 
   const qualMatch = lineText.match(/([a-zA-Z_$#%][\w$#%\-]*)\s*\.\s*([a-zA-Z_$#%][\w$#%\-]*)?$/);
   if (qualMatch) {
     qualifier = qualMatch[1];
     identifierPrefix = (qualMatch[2] || '').toLowerCase();
   } else {
-    const idMatch = lineText.match(/([a-zA-Z_$#%][\w$#%\-]+)$/);
-    if (idMatch) {
-      identifierPrefix = idMatch[1].toLowerCase();
-    } else {
+    if (!identifierPrefix) {
       // If we don't match anything but we are at a whitespace, we just show global scope (no prefix)
       // Or we can return null to not show completions everywhere.
       // But let's allow empty prefix for now.
@@ -232,8 +264,9 @@ export function provideCompletion(
         seen.add(st.name.toLowerCase());
         items.push({ label: st.name, kind: CompletionItemKind.Class, detail: st.summary, sortText: '3_keyword_' + st.name.toLowerCase() });
       }
+      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedTypes(), identifierPrefix, '3_enumerated_type_');
       appendCatalogCompletionItems(items, seen, systemCatalog.listSystemGlobals(), identifierPrefix, '3_system_global_');
-      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, '3_enumerated_');
+      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, '3_enumerated_value_');
     }
   }
 
@@ -320,6 +353,11 @@ function findLastNonWhitespaceCharacter(text: string): string | undefined {
   return undefined;
 }
 
+function extractTrailingIdentifierPrefix(lineText: string): string {
+  const match = lineText.match(/([a-zA-Z_$#%][\w$#%\-]*)$/);
+  return (match?.[1] ?? '').toLowerCase();
+}
+
 function createCompletionItem(entity: Entity, sortPrefix: string): CompletionItem {
   let kind: CompletionItemKind;
   switch (entity.kind) {
@@ -380,6 +418,9 @@ function createSystemCompletionItem(entry: PbSystemSymbolEntry, sortPrefix: stri
     case 'system-type':
       kind = CompletionItemKind.Class;
       break;
+    case 'enumerated-type':
+      kind = CompletionItemKind.Enum;
+      break;
     case 'system-global':
     case 'pronoun':
       kind = CompletionItemKind.Variable;
@@ -404,5 +445,69 @@ function createSystemCompletionItem(entry: PbSystemSymbolEntry, sortPrefix: stri
     documentation: entry.summary,
     insertTextFormat: InsertTextFormat.PlainText,
     sortText: sortPrefix + entry.name.toLowerCase()
+  };
+}
+
+function createEnumeratedValueCompletionItemsForType(
+  systemCatalog: SystemCatalog,
+  typeName: string,
+  propertyName: string,
+  ownerType: string,
+  identifierPrefix: string,
+): CompletionItem[] {
+  const items: CompletionItem[] = [];
+  const seen = new Set<string>();
+  appendCatalogCompletionItems(
+    items,
+    seen,
+    systemCatalog.listEnumeratedValuesForType(typeName).filter((entry) =>
+      matchesEnumeratedPropertyContext(entry, propertyName, ownerType),
+    ),
+    identifierPrefix,
+    '0_enum_value_context_',
+  );
+  return items;
+}
+
+function createEnumeratedValueCompletionItemsForCallArgument(
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog,
+  identifierPrefix: string,
+): CompletionItem[] {
+  const enumTypeName = resolveExpectedEnumTypeForCallArgumentAtPosition(document, position, kb, systemCatalog);
+  if (!enumTypeName) {
+    return [];
+  }
+
+  const items: CompletionItem[] = [];
+  const seen = new Set<string>();
+  appendCatalogCompletionItems(
+    items,
+    seen,
+    systemCatalog.listEnumeratedValuesForType(enumTypeName),
+    identifierPrefix,
+    '0_enum_value_context_',
+  );
+  return items;
+}
+
+function extractEnumeratedAssignmentContext(lineText: string): {
+  qualifier: string;
+  enumTypeName: string;
+  propertyName: string;
+  identifierPrefix: string;
+} | null {
+  const match = lineText.match(/([a-zA-Z_$#%][\w$#%\-]*)\s*\.\s*([a-zA-Z_$#%][\w$#%\-]*)\s*=\s*([a-zA-Z_$#%][\w$#%\-]*)?$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    qualifier: match[1],
+    enumTypeName: match[2],
+    propertyName: match[2],
+    identifierPrefix: (match[3] || '').toLowerCase(),
   };
 }

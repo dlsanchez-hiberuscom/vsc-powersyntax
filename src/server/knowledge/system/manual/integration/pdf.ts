@@ -1,0 +1,47 @@
+import { PbSystemSymbolEntry } from '../../types';
+import { systemObjectDatatype } from '../common';
+
+export const PB_MANUAL_CORE_INTEGRATION_PDF_CATEGORIES = [
+  'PDF',
+] as const;
+
+export const PB_MANUAL_CORE_INTEGRATION_PDF_TYPES: readonly PbSystemSymbolEntry[] = [
+  systemObjectDatatype({ name: 'PDFAction', category: 'PDF', summary: 'Acción PDF reutilizable dentro del runtime.' }),
+  systemObjectDatatype({ name: 'PDFActionJavaScript', category: 'PDF', summary: 'Acción PDF basada en JavaScript.' }),
+  systemObjectDatatype({ name: 'PDFActionNamed', category: 'PDF', summary: 'Acción PDF nombrada reutilizable.' }),
+  systemObjectDatatype({ name: 'PDFActionResetForm', category: 'PDF', summary: 'Acción PDF para restaurar formularios.' }),
+  systemObjectDatatype({ name: 'PDFAttachment', category: 'PDF', summary: 'Adjunto incrustado dentro de un documento PDF.' }),
+  systemObjectDatatype({ name: 'PDFColor', category: 'PDF', summary: 'Color reutilizable dentro del subsistema PDF.' }),
+  systemObjectDatatype({ name: 'PDFContent', category: 'PDF', summary: 'Contenido base reutilizable dentro de una página PDF.' }),
+  systemObjectDatatype({ name: 'PDFContext', category: 'PDF', summary: 'Contexto no visual para operaciones PDF.' }),
+  systemObjectDatatype({ name: 'PDFDocExtractor', category: 'PDF', summary: 'Extractor de contenido y metadatos PDF.' }),
+  systemObjectDatatype({ name: 'PDFDocument', category: 'PDF', summary: 'Documento PDF no visual.' }),
+  systemObjectDatatype({ name: 'PDFDocumentProperties', category: 'PDF', summary: 'Propiedades de documento PDF.' }),
+  systemObjectDatatype({ name: 'PDFFont', category: 'PDF', summary: 'Fuente reutilizable dentro del runtime PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormField', category: 'PDF', summary: 'Campo base de formularios PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldCheckBox', category: 'PDF', summary: 'Campo checkbox de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldComboBox', category: 'PDF', summary: 'Campo combo box de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldGroup', category: 'PDF', summary: 'Grupo de campos de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldListBox', category: 'PDF', summary: 'Campo list box de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldPushButton', category: 'PDF', summary: 'Campo push button de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldRadioButton', category: 'PDF', summary: 'Campo radio button de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldRadioButtonGroup', category: 'PDF', summary: 'Grupo de radio buttons de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFFormFieldText', category: 'PDF', summary: 'Campo de texto de formulario PDF.' }),
+  systemObjectDatatype({ name: 'PDFImage', category: 'PDF', summary: 'Imagen reutilizable dentro del runtime PDF.' }),
+  systemObjectDatatype({ name: 'PDFImportContent', category: 'PDF', summary: 'Contenido importado desde otro PDF.' }),
+  systemObjectDatatype({ name: 'PDFInvisibleContent', category: 'PDF', summary: 'Contenido PDF no visible pero persistido en el documento.' }),
+  systemObjectDatatype({ name: 'PDFModel', category: 'PDF', summary: 'Modelo no visual para contenido PDF.' }),
+  systemObjectDatatype({ name: 'PDFMultilineText', category: 'PDF', summary: 'Texto multilínea reutilizable dentro del subsistema PDF.' }),
+  systemObjectDatatype({ name: 'PDFObject', category: 'PDF', summary: 'Objeto base no visual del subsistema PDF.' }),
+  systemObjectDatatype({ name: 'PDFPage', category: 'PDF', summary: 'Página PDF no visual.' }),
+  systemObjectDatatype({ name: 'PDFRichText', category: 'PDF', summary: 'Texto enriquecido reutilizable dentro del subsistema PDF.' }),
+  systemObjectDatatype({ name: 'PDFSecurity', category: 'PDF', summary: 'Configuración de seguridad PDF no visual.' }),
+  systemObjectDatatype({ name: 'PDFSharedText', category: 'PDF', summary: 'Texto compartido reutilizable entre páginas PDF.' }),
+  systemObjectDatatype({ name: 'PDFTableOfContents', category: 'PDF', summary: 'Tabla de contenidos PDF no visual.' }),
+  systemObjectDatatype({ name: 'PDFTableOfContentsItem', category: 'PDF', summary: 'Ítem de tabla de contenidos PDF.' }),
+  systemObjectDatatype({ name: 'PDFText', category: 'PDF', summary: 'Texto simple reutilizable dentro del runtime PDF.' }),
+  systemObjectDatatype({ name: 'PDFTextBlock', category: 'PDF', summary: 'Bloque de texto PDF reutilizable.' }),
+  systemObjectDatatype({ name: 'PDFTextLayout', category: 'PDF', summary: 'Layout de texto reutilizable dentro del runtime PDF.' }),
+  systemObjectDatatype({ name: 'PDFVisibleContent', category: 'PDF', summary: 'Contenido PDF visible dentro de una página.' }),
+  systemObjectDatatype({ name: 'PDFWatermark', category: 'PDF', summary: 'Marca de agua reutilizable dentro del runtime PDF.' }),
+];

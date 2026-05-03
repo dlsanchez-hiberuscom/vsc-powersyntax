@@ -310,7 +310,7 @@ async function buildCrossSurfaceMatrix(fixture: CrossSurfaceFixture): Promise<Re
     { includeDeclaration: true },
   );
   const diagnostics = buildDiagnosticsForDocument(fixture.document, fixture.kb, fixture.catalog, fixture.graph);
-  const semanticTokens = provideSemanticTokens(fixture.document, fixture.kb, fixture.graph);
+  const semanticTokens = provideSemanticTokens(fixture.document, fixture.kb, fixture.graph, fixture.catalog);
   const currentObjectContext = buildCurrentObjectContext(
     fixture.document,
     {

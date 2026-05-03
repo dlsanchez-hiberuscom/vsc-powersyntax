@@ -726,6 +726,7 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
     scheduler,
     knowledgeBase,
     inheritanceGraph,
+    systemCatalog,
     firstInvocation,
     serverStartTime,
     isSemanticallyServedDocument,
@@ -745,7 +746,7 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
         id: `semanticTokens-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
-          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph));
+          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog));
 
           if (firstInvocation.isFirst('semanticTokens')) {
             const sinceStart = performance.now() - serverStartTime;

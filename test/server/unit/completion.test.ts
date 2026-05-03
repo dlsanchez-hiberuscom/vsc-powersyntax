@@ -163,9 +163,9 @@ end subroutine
     assert.strictEqual(sqlcaItem?.kind, CompletionItemKind.Variable);
 
     const enumItems = provideCompletion(doc, Position.create(enumLine, 7), kb, systemCatalog, graph);
-    const saveAsTypeItem = enumItems?.find((item) => item.label === 'SaveAsType!');
+    const saveAsTypeItem = enumItems?.find((item) => item.label === 'SaveAsType');
     assert.ok(saveAsTypeItem);
-    assert.strictEqual(saveAsTypeItem?.kind, CompletionItemKind.EnumMember);
+    assert.strictEqual(saveAsTypeItem?.kind, CompletionItemKind.Enum);
   });
 
   test('prioriza símbolos locales frente a system globals homónimos y deduplica resultados', () => {
@@ -209,8 +209,87 @@ end subroutine
 
     const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
     assert.ok(!items?.some((item) => item.label === 'SaveAsType!'));
+    assert.ok(!items?.some((item) => item.label === 'SaveAsType'));
     assert.ok(!items?.some((item) => String(item.label).toLowerCase() === 'this'));
     assert.ok(!items?.some((item) => String(item.label).toLowerCase() === 'commit'));
+  });
+
+  test('sugiere valores enumerados cuando una asignacion de propiedad deja el tipo esperado inequívoco', () => {
+    const doc = setupDocument('file:///test_enum_assignment_completion.srw', `
+global type test_enum_assignment_completion from window
+  multilineedit mle_1
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  mle_1.Alignment = 
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'mle_1.Alignment =');
+    const pos = Position.create(lineIndex, lines[lineIndex].length);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items);
+    assert.deepStrictEqual(
+      items.map((item) => item.label),
+      ['Left!', 'Center!', 'Right!', 'Justify!'],
+    );
+    assert.ok(items.every((item) => item.kind === CompletionItemKind.EnumMember));
+  });
+
+  test('sugiere valores enumerados cuando un parámetro de sistema tiene un enum esperado inequívoco', () => {
+    const doc = setupDocument('file:///test_enum_argument_completion.sru', `
+global type test_enum_argument_completion from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  integer li_file
+  FileSeek(li_file, 0, Fro)
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('FileSeek(li_file, 0, Fro)'));
+    const pos = Position.create(lineIndex, lines[lineIndex].indexOf('Fro') + 'Fro'.length);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items);
+    assert.deepStrictEqual(
+      items.map((item) => item.label),
+      ['FromBeginning!', 'FromCurrent!', 'FromEnd!'],
+    );
+    assert.ok(items.every((item) => item.kind === CompletionItemKind.EnumMember));
+  });
+
+  test('sugiere valores enumerados en parámetros member-scoped de DataWindow', () => {
+    const doc = setupDocument('file:///test_dw_enum_argument_completion.srw', `
+global type test_dw_enum_argument_completion from window
+  datastore ids_orders
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  ids_orders.RowsMove(1, 1, 
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('RowsMove(1, 1,'));
+    const pos = Position.create(lineIndex, lines[lineIndex].length);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items);
+    assert.deepStrictEqual(
+      items.map((item) => item.label),
+      ['Primary!', 'Delete!', 'Filter!'],
+    );
+    assert.ok(items.every((item) => item.kind === CompletionItemKind.EnumMember));
   });
 
   test('debe sugerir miembros de una variable tipada', () => {

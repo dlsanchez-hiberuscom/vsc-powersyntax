@@ -31,6 +31,22 @@ const OUTPUT_OFFICIAL_COVERAGE_FILE = path.join(
     repoRoot,
     'src/server/knowledge/system/generated/officialCoverage.generated.ts',
 );
+const OUTPUT_ENUMERATED_TYPES_FILE = path.join(
+    repoRoot,
+    'src/server/knowledge/system/generated/enumeratedTypes.generated.ts',
+);
+const OUTPUT_ENUMERATED_VALUES_FILE = path.join(
+    repoRoot,
+    'src/server/knowledge/system/generated/enumeratedValues.generated.ts',
+);
+const OUTPUT_ENUMERATED_COVERAGE_FILE = path.join(
+    repoRoot,
+    'src/server/knowledge/system/generated/enumeratedCoverage.generated.ts',
+);
+const OUTPUT_ENUMERATED_PROVENANCE_FILE = path.join(
+    repoRoot,
+    'src/server/knowledge/system/generated/enumeratedProvenance.generated.ts',
+);
 const OUTPUT_PARSING_BUILTIN_TYPES_FILE = path.join(
     repoRoot,
     'src/server/parsing/generatedBuiltinTypes.generated.ts',
@@ -49,9 +65,12 @@ const POWERSCRIPT_STATEMENTS_URL = new URL('PowerScript_Statements.html', POWERS
 const POWERSCRIPT_RESERVED_WORDS_URL = new URL('xREF_80481_Reserved_words.html', POWERSCRIPT_BASE_URL).toString();
 const POWERSCRIPT_STANDARD_DATATYPES_URL = new URL('xREF_87805_Standard_datatypes.html', POWERSCRIPT_BASE_URL).toString();
 const POWERSCRIPT_ANY_DATATYPE_URL = new URL('xREF_99128_The_Any_datatype.html', POWERSCRIPT_BASE_URL).toString();
+const POWERSCRIPT_ENUMERATED_DATATYPES_URL = new URL('xREF_30880_Enumerated.html', POWERSCRIPT_BASE_URL).toString();
 const OBJECTS_AND_CONTROLS_INDEX_URL = new URL('index.html', OBJECTS_AND_CONTROLS_BASE_URL).toString();
+const OBJECTS_AND_CONTROLS_PROPERTIES_URL = new URL('ch03.html', OBJECTS_AND_CONTROLS_BASE_URL).toString();
 const OBJECTS_AND_CONTROLS_UNDOCUMENTED_BASE_CLASSES_URL = new URL('ch01s03s01.html', OBJECTS_AND_CONTROLS_BASE_URL).toString();
 const DATAWINDOW_INDEX_URL = new URL('index.html', DATAWINDOW_BASE_URL).toString();
+const DATAWINDOW_CONSTANTS_CHAPTER_URL = new URL('XREF_81683_CHAPTER_6.html', DATAWINDOW_BASE_URL).toString();
 
 const DATAWINDOW_OWNER_TYPES = new Set(['datawindow', 'datawindowchild', 'datastore']);
 const NON_CONTROL_OBJECT_OWNER_TYPES = new Set(['application', 'menu', 'nonvisualobject']);
@@ -188,6 +207,28 @@ const OFFICIAL_STANDARD_DATATYPE_CELL_TO_NAME = new Map([
 ]);
 
 const OFFICIAL_SYSTEM_OBJECT_LABEL_BLACKLIST = new Set(['Home', 'Next', 'Prev', 'Sidebar', 'Up']);
+const DATAWINDOW_CONSTANT_SECTION_BLACKLIST = new Set([
+    'about datawindow constants',
+    'alphabetical list of datawindow constants',
+    'datawindow constants',
+]);
+const OBJECTS_AND_CONTROLS_ENUM_PROPERTY_TARGETS = [
+    'AccessibleRole',
+    'Alignment',
+    'BorderStyle',
+    'FillPattern',
+    'FontCharSet',
+    'FontFamily',
+    'FontPitch',
+    'GraphType',
+    'HighDPIMode',
+    'SecureProtocol',
+    'TextCase',
+    'ToolbarAlignment',
+    'ToolbarStyle',
+    'WindowState',
+    'WindowType',
+];
 
 function unique(values) {
     return Array.from(new Set(values));
@@ -330,7 +371,11 @@ function extractSectionHtml(html, label, nextLabels) {
     }
 
     const startIndex = startMatch.index + startMatch[0].length;
-    const endIndex = findLabelIndex(html, nextLabels, startIndex);
+    const nextLabelIndex = findLabelIndex(html, nextLabels, startIndex);
+    const pageEndIndex = findDocPageEndIndex(html, startIndex);
+    const endIndex = nextLabelIndex >= 0
+        ? pageEndIndex >= 0 ? Math.min(nextLabelIndex, pageEndIndex) : nextLabelIndex
+        : pageEndIndex;
     return html.slice(startIndex, endIndex >= 0 ? endIndex : html.length);
 }
 
@@ -357,6 +402,29 @@ function extractBodyAfterPrimaryTitle(html) {
     }
 
     return html.slice(titleMatch.index + titleMatch[0].length);
+}
+
+function findDocPageEndIndex(html, fromIndex = 0) {
+    const slice = html.slice(fromIndex);
+    const candidateIndexes = [
+        slice.search(/<div class="navfooter">/i),
+        slice.search(/<table[^>]*summary="Navigation footer"/i),
+        slice.search(/<div id="sidebar"/i),
+        slice.search(/<\/body>/i),
+    ].filter(index => index >= 0);
+
+    if (candidateIndexes.length === 0) {
+        return -1;
+    }
+
+    return fromIndex + Math.min(...candidateIndexes);
+}
+
+function extractPrimaryContentHtml(html) {
+    const bodyHtml = extractBodyAfterPrimaryTitle(html);
+    const endIndex = findDocPageEndIndex(bodyHtml);
+
+    return bodyHtml.slice(0, endIndex >= 0 ? endIndex : bodyHtml.length);
 }
 
 function extractDescription(html) {
@@ -528,6 +596,305 @@ function extractTableRows(html) {
             ].includes(cell));
         })
         .filter(row => row.length > 0);
+}
+
+function extractFirstSentence(value) {
+    const normalizedValue = normalizeWhitespace(value);
+
+    if (!normalizedValue) {
+        return '';
+    }
+
+    const sentenceMatch = normalizedValue.match(/^[\s\S]*?[.!?](?:\s|$)/);
+    return (sentenceMatch?.[0] ?? normalizedValue).trim();
+}
+
+function compactOfficialMeaning(value) {
+    const sentence = extractFirstSentence(value);
+
+    if (sentence.length <= 240) {
+        return sentence;
+    }
+
+    return `${sentence.slice(0, 237).trim()}...`;
+}
+
+function normalizeEnumeratedValueName(value) {
+    const cleaned = normalizeWhitespace(value)
+        .replace(/\s*\((?:default|obsolete|obsoleta)\)\s*$/i, '')
+        .replace(/[.:;]+$/g, '')
+        .trim();
+
+    if (!cleaned) {
+        return undefined;
+    }
+
+    if (/^[A-Za-z_][A-Za-z0-9_]*!$/.test(cleaned)) {
+        return cleaned;
+    }
+
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(cleaned)) {
+        return `${cleaned}!`;
+    }
+
+    return undefined;
+}
+
+function parseEnumeratedNumericValue(value) {
+    const normalizedValue = normalizeWhitespace(value).replace(/,/g, '');
+
+    if (!/^-?\d+$/.test(normalizedValue)) {
+        return undefined;
+    }
+
+    return Number.parseInt(normalizedValue, 10);
+}
+
+function extractAllTableRows(html) {
+    if (!html) {
+        return [];
+    }
+
+    return [...html.matchAll(/<table[\s\S]*?<\/table>/gi)]
+        .map(match => extractTableRows(match[0]))
+        .filter(rows => rows.length > 0);
+}
+
+function extractListItemParagraphGroups(html) {
+    if (!html) {
+        return [];
+    }
+
+    return [...html.matchAll(/<li[\s\S]*?<\/li>/gi)]
+        .map(match => {
+            const paragraphs = [...match[0].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+                .map(paragraphMatch => normalizeWhitespace(stripTags(paragraphMatch[1])))
+                .filter(Boolean);
+
+            return paragraphs.length > 0
+                ? paragraphs
+                : [normalizeWhitespace(stripTags(match[0]))].filter(Boolean);
+        })
+        .filter(group => group.length > 0);
+}
+
+function extractEnumeratedDatatypeName(html, fallbackName) {
+    const flattenedText = normalizeWhitespace(stripTags(html));
+    const patterns = [
+        /(?:datatype of [^.]*? is|takes a value of(?: the)?|takes values of(?: the)?|is the)\s+([A-Za-z_][A-Za-z0-9_]*)\s+enumerated datatype\b/i,
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s+enumerated datatype\b/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = pattern.exec(flattenedText);
+
+        if (!match) {
+            continue;
+        }
+
+        const candidate = match[1];
+
+        if (candidate && !/^the$/i.test(candidate)) {
+            return candidate;
+        }
+    }
+
+    return fallbackName;
+}
+
+function extractEnumeratedValueRowsFromTables(html, sourceUrl) {
+    return extractAllTableRows(html)
+        .flat()
+        .map(row => {
+            const name = normalizeEnumeratedValueName(row[0] ?? '');
+
+            if (!name) {
+                return undefined;
+            }
+
+            const enumNumericValue = parseEnumeratedNumericValue(row[1] ?? '');
+            const meaningSource = enumNumericValue !== undefined
+                ? row.slice(2).join(' ')
+                : row.slice(1).join(' ');
+            const meaning = compactOfficialMeaning(meaningSource);
+            const obsolete = /\bobsolete\b/i.test(`${row[0] ?? ''} ${meaningSource}`);
+
+            return {
+                enumNumericValue,
+                enumValueMeaning: meaning || undefined,
+                name,
+                obsolete,
+                obsoleteMessage: obsolete
+                    ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
+                    : undefined,
+                replacement: obsolete ? extractReplacement(meaningSource, name) : undefined,
+                sourceUrl,
+            };
+        })
+        .filter(Boolean);
+}
+
+function extractEnumeratedValueRowsFromListItems(html, sourceUrl) {
+    return extractListItemParagraphGroups(html)
+        .map(group => {
+            const name = normalizeEnumeratedValueName(group[0] ?? '');
+
+            if (!name) {
+                return undefined;
+            }
+
+            const meaning = compactOfficialMeaning(group.slice(1).join(' '));
+            const obsolete = /\bobsolete\b/i.test(group.join(' '));
+
+            return {
+                enumValueMeaning: meaning || undefined,
+                name,
+                obsolete,
+                obsoleteMessage: obsolete
+                    ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
+                    : undefined,
+                replacement: obsolete ? extractReplacement(group.join(' '), name) : undefined,
+                sourceUrl,
+            };
+        })
+        .filter(Boolean);
+}
+
+function extractEnumeratedValueTokens(html) {
+    if (!html) {
+        return [];
+    }
+
+    return unique(
+        [...normalizeWhitespace(stripTags(html)).matchAll(/([A-Za-z_][A-Za-z0-9_]*!)/g)]
+            .map(match => match[1])
+            .filter(Boolean),
+    );
+}
+
+function mergeEnumeratedValueCandidates(candidates) {
+    const byName = new Map();
+
+    for (const candidate of candidates) {
+        const normalizedName = normalizeSystemSymbolName(candidate.name);
+
+        if (!normalizedName) {
+            continue;
+        }
+
+        const current = byName.get(normalizedName) ?? {
+            ...candidate,
+            allowedInParameters: new Set(candidate.allowedInParameters ?? []),
+            allowedOnOwners: new Set(candidate.allowedOnOwners ?? []),
+            allowedOnProperties: new Set(candidate.allowedOnProperties ?? []),
+        };
+
+        if (!current.sourceUrl && candidate.sourceUrl) {
+            current.sourceUrl = candidate.sourceUrl;
+        }
+
+        if (candidate.enumNumericValue !== undefined && current.enumNumericValue === undefined) {
+            current.enumNumericValue = candidate.enumNumericValue;
+        }
+
+        if (!current.enumValueMeaning && candidate.enumValueMeaning) {
+            current.enumValueMeaning = candidate.enumValueMeaning;
+        }
+
+        if (!current.summary && candidate.summary) {
+            current.summary = candidate.summary;
+        }
+
+        current.obsolete = current.obsolete === true || candidate.obsolete === true;
+        current.obsoleteMessage = current.obsoleteMessage ?? candidate.obsoleteMessage;
+        current.replacement = current.replacement ?? candidate.replacement;
+
+        for (const value of candidate.allowedOnOwners ?? []) {
+            current.allowedOnOwners.add(value);
+        }
+
+        for (const value of candidate.allowedOnProperties ?? []) {
+            current.allowedOnProperties.add(value);
+        }
+
+        for (const value of candidate.allowedInParameters ?? []) {
+            current.allowedInParameters.add(value);
+        }
+
+        byName.set(normalizedName, current);
+    }
+
+    return Array.from(byName.values())
+        .map(candidate => ({
+            ...candidate,
+            allowedInParameters: candidate.allowedInParameters.size > 0
+                ? Array.from(candidate.allowedInParameters).sort()
+                : undefined,
+            allowedOnOwners: candidate.allowedOnOwners.size > 0
+                ? Array.from(candidate.allowedOnOwners).sort()
+                : undefined,
+            allowedOnProperties: candidate.allowedOnProperties.size > 0
+                ? Array.from(candidate.allowedOnProperties).sort()
+                : undefined,
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }));
+}
+
+function buildEnumeratedValueCoverageKey(typeName, valueName) {
+    const normalizedTypeName = normalizeSystemSymbolName(typeName);
+    const normalizedValueName = normalizeSystemSymbolName(valueName);
+
+    if (!normalizedTypeName || !normalizedValueName) {
+        return undefined;
+    }
+
+    return `${normalizedTypeName}|${normalizedValueName}`;
+}
+
+function buildEnumeratedValueCoverageSet(entries) {
+    const coverage = new Set();
+
+    for (const entry of entries) {
+        const coverageKey = buildEnumeratedValueCoverageKey(entry.enumValueOf ?? entry.valueType, entry.name);
+
+        if (coverageKey) {
+            coverage.add(coverageKey);
+        }
+    }
+
+    return coverage;
+}
+
+function collectOfficialEnumeratedValueCoverage(entries, coverage) {
+    const seen = new Set();
+    let coveredCount = 0;
+    let missingCount = 0;
+    const missingUnits = [];
+
+    for (const entry of entries) {
+        const coverageKey = buildEnumeratedValueCoverageKey(entry.enumValueOf, entry.name);
+
+        if (!coverageKey || seen.has(coverageKey)) {
+            continue;
+        }
+
+        seen.add(coverageKey);
+
+        if (coverage.has(coverageKey)) {
+            coveredCount += 1;
+        } else {
+            missingCount += 1;
+            missingUnits.push(`${entry.enumValueOf}:${entry.name}`);
+        }
+    }
+
+    return {
+        measurement: 'type-name-value',
+        officialCount: seen.size,
+        coveredCount,
+        missingCount,
+        missingUnits: missingUnits.sort(),
+    };
 }
 
 function extractArgumentNames(sectionHtml) {
@@ -1084,6 +1451,213 @@ function parseUndocumentedBaseClassEntries(html) {
     return entries;
 }
 
+function parsePowerScriptEnumeratedDatatypeConcept(html) {
+    const description = extractDescription(html);
+    const flattenedText = normalizeWhitespace(stripTags(html));
+    const canonicalBangSuffix = /values of enumerated datatypes always end with an exclamation point/i.test(flattenedText);
+
+    if (!canonicalBangSuffix) {
+        throw new Error('No se pudo confirmar la regla oficial del sufijo ! para enumerated datatypes.');
+    }
+
+    return {
+        canonicalBangSuffix,
+        description,
+        sourceUrl: POWERSCRIPT_ENUMERATED_DATATYPES_URL,
+        title: sanitizeOfficialTitle(extractTitle(html)),
+    };
+}
+
+function parseDataWindowConstantPage(html, pageUrl) {
+    const typeName = sanitizeOfficialTitle(extractTitle(html));
+
+    if (!typeName || shouldSkipByTitle(typeName)) {
+        return undefined;
+    }
+
+    const contentHtml = extractPrimaryContentHtml(html);
+
+    const descriptionHtml = extractSectionHtml(contentHtml, 'Description', [
+        'Values',
+        'Usage',
+        'See also',
+        'Examples',
+        'Example',
+    ]);
+    const valuesHtml = extractSectionHtml(contentHtml, 'Values', [
+        'Usage',
+        'See also',
+        'Examples',
+        'Example',
+    ]);
+    const description = normalizeWhitespace(stripTags(descriptionHtml)) || extractDescription(contentHtml);
+    const values = mergeEnumeratedValueCandidates([
+        ...extractEnumeratedValueRowsFromTables(`${valuesHtml}\n${descriptionHtml}`, pageUrl),
+        ...extractEnumeratedValueRowsFromListItems(`${valuesHtml}\n${descriptionHtml}`, pageUrl),
+        ...extractEnumeratedValueTokens(valuesHtml).map(name => ({ name, sourceUrl: pageUrl })),
+    ]);
+
+    if (values.length === 0) {
+        return undefined;
+    }
+
+    const obsolete = /\bobsolete\b/i.test(normalizeWhitespace(stripTags(contentHtml))) || /\bobsolete\b/i.test(typeName);
+
+    return {
+        category: 'Constante oficial DataWindow',
+        documentation: description || undefined,
+        obsolete,
+        obsoleteMessage: obsolete
+            ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
+            : undefined,
+        replacement: obsolete ? extractReplacement(contentHtml, typeName) : undefined,
+        sourceUrl: pageUrl,
+        sourceUrls: [pageUrl],
+        summary: extractFirstSentence(description) || `Datatype enumerado oficial ${typeName} de DataWindow.`,
+        typeName,
+        values,
+    };
+}
+
+function extractObjectsPropertyVariantReferences(html) {
+    const contentHtml = extractPrimaryContentHtml(html);
+    const seen = new Set();
+
+    return [...contentHtml.matchAll(/<a href="([^"]+\.html)"[^>]*>([\s\S]*?)<\/a>/gi)]
+        .map(match => ({
+            label: normalizeWhitespace(stripTags(match[2])),
+            url: new URL(match[1], OBJECTS_AND_CONTROLS_BASE_URL).toString(),
+        }))
+        .filter(reference => /^for\b/i.test(reference.label))
+        .filter(reference => {
+            if (seen.has(reference.url)) {
+                return false;
+            }
+
+            seen.add(reference.url);
+            return true;
+        });
+}
+
+function parseObjectsPropertyEnumPageVariant(html, pageUrl, propertyName) {
+    const title = sanitizeOfficialTitle(extractTitle(html));
+
+    if (!title || shouldSkipByTitle(title)) {
+        return undefined;
+    }
+
+    const contentHtml = extractPrimaryContentHtml(html);
+
+    const descriptionHtml = extractSectionHtml(contentHtml, 'Description', [
+        'Usage',
+        'In a painter',
+        'In scripts',
+        'See also',
+        'Examples',
+        'Example',
+    ]);
+    const inScriptsHtml = extractSectionHtml(contentHtml, 'In scripts', [
+        'See also',
+        'Examples',
+        'Example',
+    ]);
+    const description = normalizeWhitespace(stripTags(descriptionHtml)) || extractDescription(contentHtml);
+    const explicitTypeName = extractEnumeratedDatatypeName(contentHtml);
+    const appliesTo = extractAppliesToLabels(
+        extractSectionHtml(contentHtml, 'Applies to', [
+            'Description',
+            'Usage',
+            'In a painter',
+            'In scripts',
+            'See also',
+        ]),
+    );
+    const values = mergeEnumeratedValueCandidates([
+        ...extractEnumeratedValueRowsFromTables(descriptionHtml, pageUrl),
+        ...extractEnumeratedValueRowsFromListItems(descriptionHtml, pageUrl),
+        ...extractEnumeratedValueTokens(inScriptsHtml).map(name => ({ name, sourceUrl: pageUrl })),
+    ].map(value => ({
+        ...value,
+        allowedOnOwners: appliesTo,
+        allowedOnProperties: [propertyName],
+    })));
+    const flattenedText = normalizeWhitespace(stripTags(contentHtml));
+    const isPropertyVariantPage = title !== propertyName && /^for\b/i.test(title);
+    const typeName = explicitTypeName
+        ?? (title === propertyName ? propertyName : undefined)
+        ?? (isPropertyVariantPage ? propertyName : undefined);
+
+    if (!typeName && values.length === 0 && !/enumerated datatype/i.test(flattenedText)) {
+        return undefined;
+    }
+
+    const obsolete = /\bobsolete\b/i.test(flattenedText);
+
+    return {
+        allowedOnOwners: appliesTo,
+        category: 'Datatype oficial de propiedad',
+        description,
+        obsolete,
+        obsoleteMessage: obsolete
+            ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
+            : undefined,
+        replacement: obsolete ? extractReplacement(contentHtml, propertyName) : undefined,
+        sourceUrl: pageUrl,
+        summary: extractFirstSentence(description) || `Datatype enumerado oficial ${propertyName}.`,
+        typeName: typeName ?? propertyName,
+        values,
+    };
+}
+
+async function parseObjectsPropertyEnumTarget(reference) {
+    const html = await fetchText(reference.url);
+    const variantReferences = extractObjectsPropertyVariantReferences(html);
+    const variants = [];
+    const mainVariant = parseObjectsPropertyEnumPageVariant(html, reference.url, reference.name);
+
+    if (mainVariant) {
+        variants.push(mainVariant);
+    }
+
+    for (const variantReference of variantReferences) {
+        const variantHtml = await fetchText(variantReference.url);
+        const parsedVariant = parseObjectsPropertyEnumPageVariant(variantHtml, variantReference.url, reference.name);
+
+        if (parsedVariant) {
+            variants.push(parsedVariant);
+        }
+    }
+
+    if (variants.length === 0) {
+        return undefined;
+    }
+
+    const typeName = variants.map(variant => variant.typeName).find(Boolean) ?? reference.name;
+    const values = mergeEnumeratedValueCandidates(
+        variants.flatMap(variant => variant.values ?? []),
+    );
+    const allowedOnOwners = unique(variants.flatMap(variant => variant.allowedOnOwners ?? [])).sort();
+    const documentation = variants.map(variant => variant.description).find(Boolean);
+    const obsolete = variants.some(variant => variant.obsolete === true);
+
+    return {
+        allowedOnOwners: allowedOnOwners.length > 0 ? allowedOnOwners : undefined,
+        allowedOnProperties: [reference.name],
+        category: 'Datatype oficial de propiedad',
+        documentation,
+        obsolete,
+        obsoleteMessage: obsolete
+            ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
+            : undefined,
+        replacement: variants.map(variant => variant.replacement).find(Boolean),
+        sourceUrl: variants.find(variant => (variant.values?.length ?? 0) > 0)?.sourceUrl ?? reference.url,
+        sourceUrls: unique([reference.url, ...variants.map(variant => variant.sourceUrl)]),
+        summary: variants.map(variant => variant.summary).find(Boolean) || `Datatype enumerado oficial ${typeName}.`,
+        typeName,
+        values,
+    };
+}
+
 function buildCoverageMap(entries, domain) {
     const coverage = new Map();
 
@@ -1339,6 +1913,188 @@ function collectOfficialLookupKeyCoverage(unitNames, coverage) {
     };
 }
 
+function collectOfficialEnumeratedTypeUnits(bundles) {
+    const byType = new Map();
+
+    for (const bundle of bundles) {
+        const normalizedTypeName = normalizeSystemSymbolName(bundle.typeName);
+
+        if (!normalizedTypeName) {
+            continue;
+        }
+
+        const current = byType.get(normalizedTypeName) ?? {
+            allowedInParameters: new Set(),
+            allowedOnOwners: new Set(),
+            allowedOnProperties: new Set(),
+            category: bundle.category,
+            documentation: bundle.documentation,
+            enumValues: new Set(),
+            name: bundle.typeName,
+            obsolete: false,
+            obsoleteMessage: undefined,
+            replacement: undefined,
+            sourceUrl: bundle.sourceUrl,
+            summary: bundle.summary,
+        };
+
+        if (!current.documentation && bundle.documentation) {
+            current.documentation = bundle.documentation;
+        }
+
+        if (!current.summary && bundle.summary) {
+            current.summary = bundle.summary;
+        }
+
+        if (!current.sourceUrl && bundle.sourceUrl) {
+            current.sourceUrl = bundle.sourceUrl;
+        }
+
+        current.obsolete = current.obsolete || bundle.obsolete === true;
+        current.obsoleteMessage = current.obsoleteMessage ?? bundle.obsoleteMessage;
+        current.replacement = current.replacement ?? bundle.replacement;
+
+        for (const value of bundle.allowedOnOwners ?? []) {
+            current.allowedOnOwners.add(value);
+        }
+
+        for (const value of bundle.allowedOnProperties ?? []) {
+            current.allowedOnProperties.add(value);
+        }
+
+        for (const value of bundle.allowedInParameters ?? []) {
+            current.allowedInParameters.add(value);
+        }
+
+        for (const value of bundle.values ?? []) {
+            current.enumValues.add(value.name);
+        }
+
+        byType.set(normalizedTypeName, current);
+    }
+
+    return Array.from(byType.values())
+        .map(entry => ({
+            allowedInParameters: entry.allowedInParameters.size > 0
+                ? Array.from(entry.allowedInParameters).sort()
+                : undefined,
+            allowedOnOwners: entry.allowedOnOwners.size > 0
+                ? Array.from(entry.allowedOnOwners).sort()
+                : undefined,
+            allowedOnProperties: entry.allowedOnProperties.size > 0
+                ? Array.from(entry.allowedOnProperties).sort()
+                : undefined,
+            category: entry.category,
+            documentation: entry.documentation,
+            enumValues: entry.enumValues.size > 0
+                ? Array.from(entry.enumValues).sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }))
+                : undefined,
+            name: entry.name,
+            obsolete: entry.obsolete,
+            obsoleteMessage: entry.obsolete ? entry.obsoleteMessage : undefined,
+            replacement: entry.replacement,
+            sourceUrl: entry.sourceUrl,
+            summary: entry.summary || `Datatype enumerado oficial ${entry.name}.`,
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }));
+}
+
+function collectOfficialEnumeratedValueUnits(bundles) {
+    const byValue = new Map();
+
+    for (const bundle of bundles) {
+        for (const value of bundle.values ?? []) {
+            const coverageKey = buildEnumeratedValueCoverageKey(bundle.typeName, value.name);
+
+            if (!coverageKey) {
+                continue;
+            }
+
+            const current = byValue.get(coverageKey) ?? {
+                allowedInParameters: new Set(value.allowedInParameters ?? []),
+                allowedOnOwners: new Set(value.allowedOnOwners ?? bundle.allowedOnOwners ?? []),
+                allowedOnProperties: new Set(value.allowedOnProperties ?? bundle.allowedOnProperties ?? []),
+                category: bundle.category,
+                enumNumericValue: value.enumNumericValue,
+                enumValueMeaning: value.enumValueMeaning,
+                enumValueOf: bundle.typeName,
+                name: value.name,
+                obsolete: value.obsolete === true,
+                obsoleteMessage: value.obsoleteMessage,
+                replacement: value.replacement,
+                sourceUrl: value.sourceUrl ?? bundle.sourceUrl,
+                summary: value.summary || `Valor enumerado oficial de ${bundle.typeName}: ${value.name.replace(/!$/, '')}.`,
+            };
+
+            if (!current.sourceUrl && (value.sourceUrl ?? bundle.sourceUrl)) {
+                current.sourceUrl = value.sourceUrl ?? bundle.sourceUrl;
+            }
+
+            if (value.enumNumericValue !== undefined && current.enumNumericValue === undefined) {
+                current.enumNumericValue = value.enumNumericValue;
+            }
+
+            if (!current.enumValueMeaning && value.enumValueMeaning) {
+                current.enumValueMeaning = value.enumValueMeaning;
+            }
+
+            if (!current.summary && value.summary) {
+                current.summary = value.summary;
+            }
+
+            current.obsolete = current.obsolete || value.obsolete === true;
+            current.obsoleteMessage = current.obsoleteMessage ?? value.obsoleteMessage;
+            current.replacement = current.replacement ?? value.replacement;
+
+            for (const owner of value.allowedOnOwners ?? bundle.allowedOnOwners ?? []) {
+                current.allowedOnOwners.add(owner);
+            }
+
+            for (const property of value.allowedOnProperties ?? bundle.allowedOnProperties ?? []) {
+                current.allowedOnProperties.add(property);
+            }
+
+            for (const parameter of value.allowedInParameters ?? bundle.allowedInParameters ?? []) {
+                current.allowedInParameters.add(parameter);
+            }
+
+            byValue.set(coverageKey, current);
+        }
+    }
+
+    return Array.from(byValue.values())
+        .map(entry => ({
+            allowedInParameters: entry.allowedInParameters.size > 0
+                ? Array.from(entry.allowedInParameters).sort()
+                : undefined,
+            allowedOnOwners: entry.allowedOnOwners.size > 0
+                ? Array.from(entry.allowedOnOwners).sort()
+                : undefined,
+            allowedOnProperties: entry.allowedOnProperties.size > 0
+                ? Array.from(entry.allowedOnProperties).sort()
+                : undefined,
+            category: entry.category,
+            enumNumericValue: entry.enumNumericValue,
+            enumValueMeaning: entry.enumValueMeaning,
+            enumValueOf: entry.enumValueOf,
+            name: entry.name,
+            obsolete: entry.obsolete,
+            obsoleteMessage: entry.obsolete ? entry.obsoleteMessage : undefined,
+            replacement: entry.replacement,
+            sourceUrl: entry.sourceUrl,
+            summary: entry.summary,
+        }))
+        .sort((left, right) => {
+            const typeComparison = left.enumValueOf.localeCompare(right.enumValueOf, 'en', { sensitivity: 'base' });
+
+            if (typeComparison !== 0) {
+                return typeComparison;
+            }
+
+            return left.name.localeCompare(right.name, 'en', { sensitivity: 'base' });
+        });
+}
+
 function parsePowerScriptReservedWordPage(html, sourceUrl) {
     const tableMatch = html.match(/<table[\s\S]*?<p>\s*alias\s*<\/p>[\s\S]*?<p>\s*autoinstantiate\s*<\/p>[\s\S]*?<\/table>/i);
 
@@ -1495,8 +2251,16 @@ function renderBuilderCall(builderName, entry) {
         `category: ${renderString(entry.category)}`,
         `summary: ${renderString(entry.summary)}`,
         `signatures: ${renderSignatures(entry.signatures)}`,
+        entry.documentation ? `documentation: ${renderString(entry.documentation)}` : undefined,
         entry.appliesTo?.length ? `appliesTo: ${renderStringArray(entry.appliesTo)}` : undefined,
         entry.ownerTypes?.length ? `ownerTypes: ${renderStringArray(entry.ownerTypes)}` : undefined,
+        entry.enumValues?.length ? `enumValues: ${renderStringArray(entry.enumValues)}` : undefined,
+        entry.enumValueOf ? `enumValueOf: ${renderString(entry.enumValueOf)}` : undefined,
+        entry.enumNumericValue !== undefined ? `enumNumericValue: ${entry.enumNumericValue}` : undefined,
+        entry.enumValueMeaning ? `enumValueMeaning: ${renderString(entry.enumValueMeaning)}` : undefined,
+        entry.allowedOnOwners?.length ? `allowedOnOwners: ${renderStringArray(entry.allowedOnOwners)}` : undefined,
+        entry.allowedOnProperties?.length ? `allowedOnProperties: ${renderStringArray(entry.allowedOnProperties)}` : undefined,
+        entry.allowedInParameters?.length ? `allowedInParameters: ${renderStringArray(entry.allowedInParameters)}` : undefined,
         entry.lookupAliases?.length ? `lookupAliases: ${renderStringArray(entry.lookupAliases)}` : undefined,
         entry.obsolete ? 'obsolete: true' : undefined,
         entry.obsoleteMessage ? `obsoleteMessage: ${renderString(entry.obsoleteMessage)}` : undefined,
@@ -1596,10 +2360,10 @@ function renderProvenanceFile(generatedAt) {
     return `${lines.join('\n')}\n`;
 }
 
-function renderOfficialCoverageFile(coverageByDomain) {
+function renderCoverageFile(exportName, coverageByDomain) {
     const lines = [
         '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
-        'export const PB_GENERATED_OFFICIAL_COVERAGE = {',
+        `export const ${exportName} = {`,
     ];
 
     for (const [domain, coverage] of Object.entries(coverageByDomain)) {
@@ -1616,6 +2380,64 @@ function renderOfficialCoverageFile(coverageByDomain) {
 
     lines.push('} as const;');
     lines.push('');
+
+    return `${lines.join('\n')}\n`;
+}
+
+function renderOfficialCoverageFile(coverageByDomain) {
+    return renderCoverageFile('PB_GENERATED_OFFICIAL_COVERAGE', coverageByDomain);
+}
+
+function renderEnumeratedCoverageFile(coverageByDomain) {
+    return renderCoverageFile('PB_GENERATED_ENUMERATED_COVERAGE', coverageByDomain);
+}
+
+function renderEnumeratedTypesFile(entries) {
+    const lines = [
+        '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
+        "import { PbSystemSymbolEntry } from '../types';",
+        "import { generatedEnumeratedType } from './common';",
+        '',
+        'export const PB_GENERATED_ENUMERATED_TYPES: readonly PbSystemSymbolEntry[] = [',
+        ...entries.map(entry => renderBuilderCall('generatedEnumeratedType', entry)),
+        '];',
+        '',
+    ];
+
+    return `${lines.join('\n')}\n`;
+}
+
+function renderEnumeratedValuesFile(entries) {
+    const lines = [
+        '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
+        "import { PbSystemSymbolEntry } from '../types';",
+        "import { generatedEnumeratedValue } from './common';",
+        '',
+        'export const PB_GENERATED_ENUMERATED_VALUES: readonly PbSystemSymbolEntry[] = [',
+        ...entries.map(entry => renderBuilderCall('generatedEnumeratedValue', entry)),
+        '];',
+        '',
+    ];
+
+    return `${lines.join('\n')}\n`;
+}
+
+function renderEnumeratedProvenanceFile(provenance) {
+    const lines = [
+        '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
+        'export const PB_GENERATED_ENUMERATED_PROVENANCE = {',
+        `    generatedAt: ${renderString(provenance.generatedAt)},`,
+        `    version: ${renderString(provenance.version)},`,
+        '    sources: {',
+        `        concept: ${renderString(provenance.sources.concept)},`,
+        `        datawindowConstants: ${renderString(provenance.sources.datawindowConstants)},`,
+        `        objectsAndControlsProperties: ${renderString(provenance.sources.objectsAndControlsProperties)},`,
+        '    },',
+        `    officialTypeCount: ${provenance.officialTypeCount},`,
+        `    officialValueCount: ${provenance.officialValueCount},`,
+        '} as const;',
+        '',
+    ];
 
     return `${lines.join('\n')}\n`;
 }
@@ -1755,6 +2577,56 @@ async function loadDataWindowMethodPageUrls() {
     });
 }
 
+async function loadDataWindowConstantReferences() {
+    const html = await fetchText(DATAWINDOW_CONSTANTS_CHAPTER_URL);
+    const directReferences = [...html.matchAll(/<dt><span class="section"><a href="([^"]+\.html)"[^>]*>([\s\S]*?)<\/a><\/span><\/dt>/gi)]
+        .map(match => ({
+            label: normalizeWhitespace(stripTags(match[2])),
+            url: new URL(match[1], DATAWINDOW_BASE_URL).toString(),
+        }));
+    const references = (directReferences.length > 0
+        ? directReferences
+        : [...html.matchAll(/<a href="([^"]+\.html)"[^>]*>([\s\S]*?)<\/a>/gi)]
+            .map(match => ({
+                label: normalizeWhitespace(stripTags(match[2])),
+                url: new URL(match[1], DATAWINDOW_BASE_URL).toString(),
+            })))
+        .filter(reference => reference.label)
+        .filter(reference => /^[A-Za-z_][A-Za-z0-9_]*(?:\s*\((?:obsolete|obsoleta)\))?$/i.test(reference.label))
+        .filter(reference => !DATAWINDOW_CONSTANT_SECTION_BLACKLIST.has(normalizeLabel(reference.label)));
+    const seen = new Set();
+
+    return references.filter(reference => {
+        const key = `${normalizeSystemSymbolName(reference.label) ?? reference.label}|${reference.url}`;
+
+        if (seen.has(key)) {
+            return false;
+        }
+
+        seen.add(key);
+        return true;
+    });
+}
+
+async function loadObjectsPropertyEnumReferences() {
+    const html = await fetchText(OBJECTS_AND_CONTROLS_PROPERTIES_URL);
+
+    return OBJECTS_AND_CONTROLS_ENUM_PROPERTY_TARGETS.map(name => {
+        const expression = new RegExp(`<a href="([^"]+\\.html)"[^>]*>${escapeRegExp(name)}<\\/a>`, 'i');
+        const match = expression.exec(html);
+
+        if (!match?.[1]) {
+            console.warn(`No se encontró enlace oficial para property datatype ${name} en ${OBJECTS_AND_CONTROLS_PROPERTIES_URL}.`);
+            return undefined;
+        }
+
+        return {
+            name,
+            url: new URL(match[1], OBJECTS_AND_CONTROLS_BASE_URL).toString(),
+        };
+    }).filter(Boolean);
+}
+
 function buildGeneratedEntry(baseEntry, ownerTypes, appliesTo) {
     return {
         appliesTo,
@@ -1768,6 +2640,43 @@ function buildGeneratedEntry(baseEntry, ownerTypes, appliesTo) {
         signatures: baseEntry.signatures,
         sourceUrl: baseEntry.sourceUrl,
         summary: baseEntry.description || `Official generated coverage for ${baseEntry.name}.`,
+    };
+}
+
+function buildGeneratedEnumeratedTypeEntry(entry) {
+    return {
+        allowedInParameters: entry.allowedInParameters,
+        allowedOnOwners: entry.allowedOnOwners,
+        allowedOnProperties: entry.allowedOnProperties,
+        category: entry.category,
+        documentation: entry.documentation,
+        enumValues: entry.enumValues,
+        name: entry.name,
+        obsolete: entry.obsolete,
+        obsoleteMessage: entry.obsoleteMessage,
+        replacement: entry.replacement,
+        signatures: [{ label: entry.name }],
+        sourceUrl: entry.sourceUrl,
+        summary: entry.summary,
+    };
+}
+
+function buildGeneratedEnumeratedValueEntry(entry) {
+    return {
+        allowedInParameters: entry.allowedInParameters,
+        allowedOnOwners: entry.allowedOnOwners,
+        allowedOnProperties: entry.allowedOnProperties,
+        category: entry.category,
+        enumNumericValue: entry.enumNumericValue,
+        enumValueMeaning: entry.enumValueMeaning,
+        enumValueOf: entry.enumValueOf,
+        name: entry.name,
+        obsolete: entry.obsolete,
+        obsoleteMessage: entry.obsoleteMessage,
+        replacement: entry.replacement,
+        signatures: [{ label: entry.name }],
+        sourceUrl: entry.sourceUrl,
+        summary: entry.summary,
     };
 }
 
@@ -1793,6 +2702,8 @@ async function main() {
     const manualSystemEventEntries = manualEntries.filter(entry => entry.domain === 'system-events');
     const manualStatementEntries = manualEntries.filter(entry => entry.domain === 'statements');
     const manualSystemGlobalEntries = manualEntries.filter(entry => entry.domain === 'system-globals');
+    const manualEnumeratedTypeEntries = manualEntries.filter(entry => entry.domain === 'enumerated-types');
+    const manualEnumeratedValueEntries = manualEntries.filter(entry => entry.domain === 'enumerated-values');
     const currentObjectOwnerUniverse = collectManualObjectOwnerUniverse();
     const specificParsedObjectOwnerTypes = unique(
         parsedPowerScriptPages
@@ -1842,6 +2753,8 @@ async function main() {
     const datatypeCoverage = buildLookupCoverageSet(manualDatatypeEntries);
     const pronounCoverage = buildLookupCoverageSet(manualPronounEntries);
     const systemTypeCoverage = buildCoverageMap(manualSystemTypeEntries, 'system-object-datatypes');
+    const enumeratedTypeCoverage = buildLookupCoverageSet(manualEnumeratedTypeEntries);
+    const enumeratedValueCoverage = buildEnumeratedValueCoverageSet(manualEnumeratedValueEntries);
     const systemEventCoverage = buildCoverageMap(manualSystemEventEntries, 'system-events');
     const systemGlobalCoverage = buildLookupCoverageSet(manualSystemGlobalEntries);
     const statementCoverage = buildCoverageMap(manualStatementEntries, 'statements');
@@ -1853,6 +2766,8 @@ async function main() {
     const generatedReservedWordEntries = [];
     const generatedEventEntries = [];
     const generatedStatementEntries = [];
+    const generatedEnumeratedTypeEntries = [];
+    const generatedEnumeratedValueEntries = [];
     const officialKeywordUnits = [];
     const officialReservedWordUnits = [];
     const unknownPowerScriptAppliesToLabels = new Map();
@@ -1986,6 +2901,15 @@ async function main() {
     const dataWindowPageReferences = await loadDataWindowMethodPageUrls();
     console.log(`DataWindow Methods: ${dataWindowPageReferences.length} páginas candidatas.`);
 
+    console.log('Descargando documentación oficial de enumerated datatypes...');
+    const enumeratedConcept = parsePowerScriptEnumeratedDatatypeConcept(
+        await fetchText(POWERSCRIPT_ENUMERATED_DATATYPES_URL),
+    );
+    const dataWindowConstantReferences = await loadDataWindowConstantReferences();
+    console.log(`DataWindow Constants: ${dataWindowConstantReferences.length} páginas candidatas.`);
+    const objectPropertyEnumReferences = await loadObjectsPropertyEnumReferences();
+    console.log(`Objects enum properties: ${objectPropertyEnumReferences.length} páginas candidatas.`);
+
     console.log('Descargando referencias oficiales de datatypes y system objects...');
     const [standardDatatypesHtml, anyDatatypeHtml, systemObjectsIndexHtml, undocumentedBaseClassesHtml] = await Promise.all([
         fetchText(POWERSCRIPT_STANDARD_DATATYPES_URL),
@@ -2016,6 +2940,19 @@ async function main() {
         const html = await fetchText(reference.url);
         return parseDataWindowPage(html, reference.url, reference.chapterTitle);
     })).flat();
+    const parsedDataWindowConstantPages = (await mapConcurrent(dataWindowConstantReferences, 12, async reference => {
+        const html = await fetchText(reference.url);
+        return parseDataWindowConstantPage(html, reference.url);
+    })).filter(Boolean);
+    const parsedObjectPropertyEnumPages = (await mapConcurrent(objectPropertyEnumReferences, 8, async reference =>
+        parseObjectsPropertyEnumTarget(reference),
+    )).filter(Boolean);
+    const officialEnumeratedBundles = [
+        ...parsedDataWindowConstantPages,
+        ...parsedObjectPropertyEnumPages,
+    ];
+    const officialEnumeratedTypeUnits = collectOfficialEnumeratedTypeUnits(officialEnumeratedBundles);
+    const officialEnumeratedValueUnits = collectOfficialEnumeratedValueUnits(officialEnumeratedBundles);
 
     const generatedDataWindowEntries = [];
     const generatedSystemTypeEntries = [];
@@ -2034,6 +2971,28 @@ async function main() {
             summary: entry.summary,
         });
         registerCoverage(systemTypeCoverage, 'system-object-datatypes', entry.name, []);
+    }
+
+    for (const entry of officialEnumeratedTypeUnits) {
+        const normalizedName = normalizeSystemSymbolName(entry.name);
+
+        if (!normalizedName || enumeratedTypeCoverage.has(normalizedName)) {
+            continue;
+        }
+
+        generatedEnumeratedTypeEntries.push(buildGeneratedEnumeratedTypeEntry(entry));
+        enumeratedTypeCoverage.add(normalizedName);
+    }
+
+    for (const entry of officialEnumeratedValueUnits) {
+        const coverageKey = buildEnumeratedValueCoverageKey(entry.enumValueOf, entry.name);
+
+        if (!coverageKey || enumeratedValueCoverage.has(coverageKey)) {
+            continue;
+        }
+
+        generatedEnumeratedValueEntries.push(buildGeneratedEnumeratedValueEntry(entry));
+        enumeratedValueCoverage.add(coverageKey);
     }
 
     for (const entry of sortGeneratedEntries(parsedDataWindowPages)) {
@@ -2194,6 +3153,14 @@ async function main() {
             officialDatatypeUnits,
             datatypeCoverage,
         ),
+        'enumerated-types': collectOfficialLookupKeyCoverage(
+            officialEnumeratedTypeUnits.map(entry => entry.name),
+            enumeratedTypeCoverage,
+        ),
+        'enumerated-values': collectOfficialEnumeratedValueCoverage(
+            officialEnumeratedValueUnits,
+            enumeratedValueCoverage,
+        ),
         'system-object-datatypes': collectOfficialNameCoverage(
             officialSystemObjectDatatypeUnits,
             systemTypeCoverage,
@@ -2233,6 +3200,22 @@ async function main() {
             ...reservedWordCoverage,
         ]).sort(),
     );
+    const generatedEnumeratedTypesFile = renderEnumeratedTypesFile(
+        sortGeneratedEntries(generatedEnumeratedTypeEntries),
+    );
+    const generatedEnumeratedValuesFile = renderEnumeratedValuesFile(
+        sortGeneratedEntries(generatedEnumeratedValueEntries),
+    );
+    const generatedEnumeratedCoverageFile = renderEnumeratedCoverageFile({
+        'enumerated-types': collectOfficialLookupKeyCoverage(
+            officialEnumeratedTypeUnits.map(entry => entry.name),
+            enumeratedTypeCoverage,
+        ),
+        'enumerated-values': collectOfficialEnumeratedValueCoverage(
+            officialEnumeratedValueUnits,
+            enumeratedValueCoverage,
+        ),
+    });
 
     const generatedCatalog = renderCatalogFile(
         sortGeneratedEntries(generatedGlobalEntries),
@@ -2250,11 +3233,26 @@ async function main() {
     const generatedOwnerTypesFile = renderOwnerTypesFile(generatedOwnerTypes);
     const generatedAt = new Date().toISOString();
     const generatedProvenanceFile = renderProvenanceFile(generatedAt);
+    const generatedEnumeratedProvenanceFile = renderEnumeratedProvenanceFile({
+        generatedAt,
+        officialTypeCount: officialEnumeratedTypeUnits.length,
+        officialValueCount: officialEnumeratedValueUnits.length,
+        sources: {
+            concept: enumeratedConcept.sourceUrl,
+            datawindowConstants: DATAWINDOW_CONSTANTS_CHAPTER_URL,
+            objectsAndControlsProperties: OBJECTS_AND_CONTROLS_PROPERTIES_URL,
+        },
+        version: 'PowerBuilder 2025',
+    });
 
     await fs.writeFile(OUTPUT_CATALOG_FILE, generatedCatalog, 'utf8');
     await fs.writeFile(OUTPUT_OWNER_TYPES_FILE, generatedOwnerTypesFile, 'utf8');
     await fs.writeFile(OUTPUT_PROVENANCE_FILE, generatedProvenanceFile, 'utf8');
     await fs.writeFile(OUTPUT_OFFICIAL_COVERAGE_FILE, generatedOfficialCoverageFile, 'utf8');
+    await fs.writeFile(OUTPUT_ENUMERATED_TYPES_FILE, generatedEnumeratedTypesFile, 'utf8');
+    await fs.writeFile(OUTPUT_ENUMERATED_VALUES_FILE, generatedEnumeratedValuesFile, 'utf8');
+    await fs.writeFile(OUTPUT_ENUMERATED_COVERAGE_FILE, generatedEnumeratedCoverageFile, 'utf8');
+    await fs.writeFile(OUTPUT_ENUMERATED_PROVENANCE_FILE, generatedEnumeratedProvenanceFile, 'utf8');
     await fs.writeFile(OUTPUT_PARSING_BUILTIN_TYPES_FILE, generatedBuiltinTypesFile, 'utf8');
     await fs.writeFile(OUTPUT_PARSING_KEYWORD_LEXEMES_FILE, generatedKeywordLexemesFile, 'utf8');
 
@@ -2262,6 +3260,8 @@ async function main() {
     console.log(`  Global functions generadas: ${generatedGlobalEntries.length}`);
     console.log(`  Keywords generadas: ${generatedKeywordEntries.length}`);
     console.log(`  Object functions generadas: ${generatedObjectEntries.length}`);
+    console.log(`  Enumerated types generados: ${generatedEnumeratedTypeEntries.length}`);
+    console.log(`  Enumerated values generados: ${generatedEnumeratedValueEntries.length}`);
     console.log(`  Reserved words generadas: ${generatedReservedWordEntries.length}`);
     console.log(`  DataWindow functions generadas: ${generatedDataWindowEntries.length}`);
     console.log(`  System events generados: ${generatedEventEntries.length}`);

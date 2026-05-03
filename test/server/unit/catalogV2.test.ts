@@ -143,13 +143,77 @@ suite('unit/catalogV2 (B318)', () => {
     }
   });
 
+  test('v2: enumerated-types domain tiene entradas canónicas sin sufijo !', () => {
+    const enumTypes = catalog.listEnumeratedTypes();
+    assert.ok(enumTypes.length >= 5, `enumerated-types=${enumTypes.length}`);
+    for (const enumType of enumTypes) {
+      assert.equal(enumType.kind, 'enumerated-type');
+      assert.equal(enumType.domain, 'enumerated-types');
+      assert.equal(enumType.name.endsWith('!'), false);
+    }
+  });
+
   test('v2: enumerated-values domain tiene entradas', () => {
     const evs = catalog.listEnumeratedValues();
     assert.ok(evs.length >= 5, `enumerated-values=${evs.length}`);
     for (const ev of evs) {
       assert.equal(ev.kind, 'enumerated-value');
       assert.equal(ev.domain, 'enumerated-values');
+      assert.equal(ev.name.endsWith('!'), true);
+      assert.ok(ev.enumValueOf, `${ev.name} debe declarar enumValueOf`);
     }
+  });
+
+  test('v2: generated enum values amplían tipos manuales sin romper el merge por tipo', () => {
+    const windowType = catalog.resolveEnumeratedType('WindowType');
+    const secureProtocol = catalog.resolveEnumeratedType('SecureProtocol');
+    const values = catalog.listEnumeratedValuesForType('WindowType').map((entry) => entry.name);
+
+    assert.ok(windowType, 'debe resolver WindowType desde manual-core');
+    assert.ok(secureProtocol, 'debe publicar SecureProtocol desde generated');
+    assert.ok(values.includes('Main!'), 'WindowType debe conservar valores manuales');
+    assert.ok(values.includes('MDIDock!'), 'WindowType debe incorporar valores oficiales generated');
+    assert.ok(values.includes('MDIDockHelp!'), 'WindowType debe incorporar variantes oficiales generated');
+  });
+
+  test('v2: SecureProtocol mantiene explicación oficial sin inventar enumerated-values nominales', () => {
+    const secureProtocol = catalog.resolveEnumeratedType('SecureProtocol');
+    const values = catalog.listEnumeratedValuesForType('SecureProtocol');
+
+    assert.ok(secureProtocol, 'debe resolver SecureProtocol desde generated');
+    assert.match(secureProtocol?.documentation ?? '', /integer value|security protocol/i);
+    assert.ok((secureProtocol?.allowedOnOwners?.length ?? 0) > 0, 'debe conservar applies-to oficial');
+    assert.equal(values.length, 0, 'no debe inventar valores nominales con ! cuando la doc solo publica códigos enteros');
+  });
+
+  test('v2: tipos enumerados manual-core mantienen documentación útil', () => {
+    const documentedTypes = [
+      'Border',
+      'Alignment',
+      'FillPattern',
+      'WindowType',
+      'WindowState',
+      'FileAccess',
+      'FileMode',
+      'Encoding',
+      'SeekType',
+    ];
+
+    for (const name of documentedTypes) {
+      const entry = catalog.resolveEnumeratedType(name);
+      assert.ok(entry, `debe resolver ${name}`);
+      assert.ok(entry?.documentation, `${name} debe exponer documentation`);
+    }
+
+    assert.ok(
+      catalog.listEnumeratedValuesForType('FillPattern').length > 0,
+      'FillPattern debe seguir resolviendo valores generated a través del merge por tipo',
+    );
+    assert.deepEqual(
+      catalog.listEnumeratedValuesForType('SeekType').map((entry) => entry.name),
+      ['FromBeginning!', 'FromCurrent!', 'FromEnd!'],
+      'SeekType debe exponer los tres valores canónicos usados por FileSeek',
+    );
   });
 
   // -- Catalog v2: resolve functions -----------------------------------
@@ -309,6 +373,20 @@ suite('unit/catalogV2 (B318)', () => {
     assert.equal(sym.kind, 'keyword');
   });
 
+  test('v2: resolveLanguageSymbol("public") prioriza keyword oficial explícito', () => {
+    const sym = catalog.resolveLanguageSymbol('public');
+    assert.ok(sym, 'debe resolver PUBLIC como language symbol');
+    assert.equal(sym.kind, 'keyword');
+    assert.equal(sym.name, 'PUBLIC');
+  });
+
+  test('v2: resolveLanguageSymbol("commit") prioriza reserved-word oficial explícito', () => {
+    const sym = catalog.resolveLanguageSymbol('commit');
+    assert.ok(sym, 'debe resolver COMMIT como language symbol');
+    assert.equal(sym.kind, 'reserved-word');
+    assert.equal(sym.name, 'COMMIT');
+  });
+
   test('v2: resolveLanguageSymbol("integer") encuentra datatype', () => {
     const sym = catalog.resolveLanguageSymbol('integer');
     assert.ok(sym, 'debe resolver Integer como language symbol');
@@ -327,11 +405,25 @@ suite('unit/catalogV2 (B318)', () => {
     assert.equal(sym.kind, 'pronoun');
   });
 
-  test('v2: resolveLanguageSymbol("SaveAsType") encuentra enumerated-value sin depender del sufijo !', () => {
+  test('v2: resolveLanguageSymbol("SaveAsType") encuentra enumerated-type canónico', () => {
     const sym = catalog.resolveLanguageSymbol('SaveAsType');
     assert.ok(sym, 'debe resolver SaveAsType como language symbol');
-    assert.equal(sym.kind, 'enumerated-value');
-    assert.equal(sym.name, 'SaveAsType!');
+    assert.equal(sym.kind, 'enumerated-type');
+    assert.equal(sym.name, 'SaveAsType');
+  });
+
+  test('v2: resolveEnumeratedType/Value aplican el breaking change de B360', () => {
+    const enumType = catalog.resolveEnumeratedType('SaveAsType');
+    const enumValue = catalog.resolveEnumeratedValue('Text!');
+
+    assert.ok(enumType, 'SaveAsType debe resolver como enumerated-type');
+    assert.equal(enumType?.kind, 'enumerated-type');
+    assert.equal(enumType?.name, 'SaveAsType');
+    assert.equal(catalog.resolveEnumeratedType('SaveAsType!'), undefined);
+
+    assert.ok(enumValue, 'Text! debe resolver como enumerated-value');
+    assert.equal(enumValue?.kind, 'enumerated-value');
+    assert.equal(enumValue?.enumValueOf, 'SaveAsType');
   });
 
   test('v2: operators/pronouns/enumerated-values no solapan lookup keys con keywords/reserved-words', () => {
@@ -353,6 +445,8 @@ suite('unit/catalogV2 (B318)', () => {
     assert.deepEqual(overlap(collectLookupKeys(catalog.listOperators()), reservedLookupKeys), []);
     assert.deepEqual(overlap(collectLookupKeys(catalog.listPronouns()), keywordLookupKeys), []);
     assert.deepEqual(overlap(collectLookupKeys(catalog.listPronouns()), reservedLookupKeys), []);
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listEnumeratedTypes()), keywordLookupKeys), []);
+    assert.deepEqual(overlap(collectLookupKeys(catalog.listEnumeratedTypes()), reservedLookupKeys), []);
     assert.deepEqual(overlap(collectLookupKeys(catalog.listEnumeratedValues()), keywordLookupKeys), []);
     assert.deepEqual(overlap(collectLookupKeys(catalog.listEnumeratedValues()), reservedLookupKeys), []);
   });
@@ -372,10 +466,12 @@ suite('unit/catalogV2 (B318)', () => {
     assert.ok((r.kindCounts['keyword'] ?? 0) > 0, 'keyword');
     assert.ok((r.kindCounts['datatype'] ?? 0) > 0, 'datatype');
     assert.ok((r.kindCounts['system-type'] ?? 0) > 0, 'system-type');
+    assert.ok((r.kindCounts['enumerated-type'] ?? 0) > 0, 'enumerated-type');
     assert.ok((r.kindCounts['pronoun'] ?? 0) > 0, 'pronoun');
     assert.ok((r.kindCounts['operator'] ?? 0) > 0, 'operator');
     assert.ok((r.kindCounts['system-global'] ?? 0) > 0, 'system-global');
     assert.ok((r.kindCounts['enumerated-value'] ?? 0) > 0, 'enumerated-value');
+    assert.equal(r.invalidEnumeratedTypeNames.length, 0, 'enumerated-type canónicos no deben terminar en !');
   });
 
   test('v2: kindCounts suman al total', () => {
@@ -393,6 +489,7 @@ suite('unit/catalogV2 (B318)', () => {
     assert.ok((r.domainCounts['pronouns'] ?? 0) > 0, 'pronouns');
     assert.ok((r.domainCounts['operators'] ?? 0) > 0, 'operators');
     assert.ok((r.domainCounts['system-globals'] ?? 0) > 0, 'system-globals');
+    assert.ok((r.domainCounts['enumerated-types'] ?? 0) > 0, 'enumerated-types');
     assert.ok((r.domainCounts['enumerated-values'] ?? 0) > 0, 'enumerated-values');
   });
 

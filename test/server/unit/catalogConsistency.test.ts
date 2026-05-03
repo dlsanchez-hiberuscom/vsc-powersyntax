@@ -7,6 +7,7 @@ suite('unit/catalogConsistency (B132)', () => {
     assert.equal(r.duplicateIds.length, 0, `dups: ${r.duplicateIds.slice(0, 3).join(',')}`);
     assert.equal(r.missingSignatures.length, 0);
     assert.equal(r.emptyName.length, 0);
+    assert.equal(r.invalidEnumeratedTypeNames.length, 0);
   });
 
   test('domain counts suman al total', () => {

@@ -185,7 +185,8 @@ La revisión actual de thresholds por feature queda cerrada por `B283` con basel
 La revisión actual del consumo/cobertura catalog-driven sobre corpora reales queda cerrada por `B336` con baseline ejecutable sobre **PFC Solution**, **STD_FC_OrderEntry** y el **legacy PBL dump**:
 - `test/server/performance/catalogCorpusValidation.smoke.test.ts` congela cinco probes reales sobre `system-globals`, `global-functions` y `datawindow-functions`, y exige `0 misses / 0 ambigüedades / 0 budget violations` al revisar la ruta warm de `hover`, `completion` y `diagnostics`;
 - la smoke calienta una pasada no medida por probe para aislar la latencia servida del cold parse inicial, que ya sigue cubierto por `active-file.perf.test.ts` y el baseline general de archivo activo;
-- cualquier cambio futuro de catálogo o de sus consumers reales debe revalidar esta smoke corpus-driven junto con `catalogV2.test.ts`, `completion.test.ts`, `hover.test.ts` y `diagnostics.test.ts` antes de tocar claims de cobertura.
+- el cierre de `B363` añade consumers catalog-driven ligeros para enums: `signatureHelp` y `diagnostics` comparten `enumeratedContext.ts` sobre indices ya materializados del catálogo, y `semanticTokens` solo verifica tokens con sufijo `!` contra `SystemCatalog` sin scans globales por documento o por dominio;
+- cualquier cambio futuro de catálogo o de sus consumers reales debe revalidar esta smoke corpus-driven junto con `catalogV2.test.ts`, `completion.test.ts`, `hover.test.ts`, `semanticTokens.test.ts`, `signatureHelp.test.ts` y `diagnostics.test.ts` antes de tocar claims de cobertura.
 
 ---
 

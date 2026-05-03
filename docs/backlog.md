@@ -24,6 +24,25 @@ Toda spec nueva debe respetar esta meta. Si una mejora aumenta complejidad pero 
 - Tratar `plugin_old` como guía, dataset y referencia de patrones probados, no como código a portar por inercia.
 - Las dependencias hacia ítems `Done` se consideran ya satisfechas y quedan solo como trazabilidad histórica.
 - No sacrificar la meta maestra por features secundarias.
+- `generated` debe representar la fuente oficial reproducible; `manual/curated` solo debe contener gaps, enrichments, overrides o candidates con política explícita.
+- La localización no debe duplicar símbolos ni traducir nombres reales de PowerBuilder. Debe aplicarse como overlay de documentación en consumers, con fallback al texto oficial.
+
+### 1.1. Checklist final para agentes Copilot
+
+Before closing any spec from this document, perform this checklist:
+
+```txt
+1. Re-read changed code.
+2. Verify no generated/manual ID changed unless the spec explicitly authorizes a breaking change.
+3. Verify no full-catalog scans were introduced in hot paths.
+4. Verify registry/datasets imports remain stable and not slice-exploded.
+5. Verify manual/common.ts contains factories/helpers only.
+6. Verify consistency report catches new structural errors.
+7. Verify docs/backlog/current-focus/roadmap are aligned.
+8. Verify tests are green.
+9. Verify done-log is updated only for fully closed specs.
+10. If real corpora are required but absent, document honest skip paths and do not fake results.
+```
 
 ---
 
@@ -34,6 +53,7 @@ Toda spec nueva debe respetar esta meta. Si una mejora aumenta complejidad pero 
 - **Ready for closure:** código y tests básicos existen; falta revisión final, documentación o validación ampliada.
 - **Blocked:** no puede avanzar por dependencia, entorno o decisión explícita.
 - **Done:** código, tests, documentación y validación cerrados; vive en `done-log.md`, no en backlog activo.
+- **Superseded:** ítem absorbido por otra spec activa o cerrada; no debe ejecutarse de forma independiente.
 
 Un ítem `Partial` debe incluir, siempre que sea posible:
 
@@ -45,6 +65,7 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # 3. Backlog activo
 
+---
 
 # L2.6 — Semantic Precision v2
 
@@ -286,15 +307,12 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Validación esperada:** tests DataWindow de hover/completion/diagnostics/property paths, negativos fuera de DataWindow y smoke real sobre `.srd`.
 
 ## B321 — Generated catalog domain enrichment v2
-- **Estado:** Open
+- **Estado:** Superseded
 - **Track:** knowledge / catalog
 - **Prioridad:** Media
-- **Depende de:** B319
-- **Objetivo:** enriquecer las entradas generadas automáticamente con metadata adicional de lenguaje (introducedIn, risk, etc.).
-- **Razón técnica:** los nuevos campos existen, pero el dataset generated todavía no publica metadata uniforme para completado, hover, diagnostics y documentación versionada.
-- **Criterios de cierre verificables:** entradas generated con `introducedIn`, `risk`, owners, appliesTo normalizado y provenance auditada; tests de compatibilidad prueban que IDs/kind/domain/namespace existentes se preservan.
-- **Docs afectadas:** `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/testing.md`.
-- **Validación esperada:** `catalogV2.test.ts`, `catalogConsistency.test.ts`, tests de compatibilidad de IDs generados y diff del catálogo.
+- **Superseded by:** B366, B367
+- **Motivo:** el enriquecimiento del catálogo generated queda absorbido por `B366 — Official Appeon scraper bugfixes and structural enrichment v2` y `B367 — Generated catalog as complete official source v2`.
+- **Acción:** no abrir esta spec como trabajo independiente salvo que aparezca una necesidad concreta no cubierta por B366/B367.
 
 ## B327 — DataWindow constants and property path catalog
 - **Estado:** Open
@@ -322,23 +340,12 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Estado:** Open
 - **Track:** catalog governance
 - **Prioridad:** Media
-- **Depende de:** B319, B321
+- **Depende de:** B367, B339
 - **Objetivo:** publicar una vista/gate de cobertura por dominio, kind, dataset y provenance.
-- **Razón técnica:** `buildCatalogConsistencyReport()` ya expone counts, pero `officialCoverage.generated.ts` aún no cubre todos los dominios generados/curados.
+- **Razón técnica:** `buildCatalogConsistencyReport()` ya expone counts y audit reproducible de provenance/authority por dominio, pero `officialCoverage.generated.ts` debe alinearse con el nuevo generated oficial completo y con la política generated/manual.
 - **Criterios de cierre verificables:** reporte reproducible con kindCounts/domainCounts/datasetCounts/provenance, umbrales documentados y fallo claro ante drift.
 - **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
 - **Validación esperada:** tests de consistency/gate y artifact de cobertura local.
-
-## B339 — Catalog provenance audit against official Appeon sources
-- **Estado:** Open
-- **Track:** catalog governance
-- **Prioridad:** Media
-- **Depende de:** B319, B322, B323, B324, B325
-- **Objetivo:** auditar provenance y authority de entradas oficiales, generadas y curadas.
-- **Razón técnica:** las slices manuales son útiles, pero la herramienta no debe inventar cobertura oficial ni copiar documentación extensa.
-- **Criterios de cierre verificables:** cada dominio declara fuente, authority, versión y límites; entries no oficiales quedan marcadas `curated`.
-- **Docs afectadas:** `docs/architecture.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-- **Validación esperada:** consistency/provenance tests y revisión documental.
 
 ## B340 — ORCA/PBAutoBuild tooling vocabulary catalog
 - **Estado:** Open
@@ -388,7 +395,8 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Estado:** Open
 - **Track:** architecture metrics
 - **Prioridad:** Media
-- **Depende de:** B346, B347
+- **Depende de:** B346
+- **Trazabilidad:** B347
 - **Objetivo:** añadir un guard reproducible de tamaño/responsabilidad/imports para hotspots.
 - **Razón técnica:** hoy existe firewall de imports, pero no un inventario ejecutable de line count/responsibility drift para `extension.ts`, `server.ts` y generated/manual catalog slices.
 - **Criterios de cierre verificables:** reporte local/CI con thresholds razonables, allowlist para generated/manual catalogs y señal clara ante crecimiento no justificado.
@@ -399,7 +407,8 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Estado:** Open
 - **Track:** runtime architecture
 - **Prioridad:** Alta
-- **Depende de:** B347, B267, B274
+- **Depende de:** B267, B274
+- **Trazabilidad:** B347
 - **Objetivo:** separar orquestación runtime de LSP wiring sin cambiar scheduling/backpressure/memory policies.
 - **Razón técnica:** `server.ts` aún administra scheduler, readiness, memory pressure, serving cache, persistence y journals en el mismo archivo de handlers.
 - **Criterios de cierre verificables:** policies siguen centralizadas, stats/health/status conservan payloads, build/legacy no entran al hot path y PFC/OrderEntry no muestran loops ni crashes.
@@ -410,659 +419,708 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Estado:** Open
 - **Track:** validation / real corpora
 - **Prioridad:** Alta
-- **Depende de:** B346, B347, B336
+- **Depende de:** B346, B336
+- **Trazabilidad:** B347
 - **Objetivo:** convertir la validación rápida PFC/STD en gate documentado para refactors arquitectónicos.
 - **Razón técnica:** las suites reales existen y se ejecutan manualmente, pero el cierre de refactors grandes debe exigir explícitamente PFC Workspace/Solution y STD/OrderEntry.
 - **Criterios de cierre verificables:** comando/gate rápido con discovery, indexing, serving básico, readiness y evidencia de no crash; skip honesto si faltan corpus.
 - **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`, `test/corpora/README.md`.
 - **Validación esperada:** `npm run test:performance -- --grep "PFC|OrderEntry|STD"` o comando específico equivalente.
 
-## B357 — Manual catalog modularization and slice ownership
-- **Estado:** Open
-- **Track:** knowledge / catalog architecture
-- **Prioridad:** Alta
-- **Depende de:** B318, B319
-- **Objetivo:** reorganizar `src/server/knowledge/system/manual/` en slices pequeñas, mantenibles y con ownership claro, evitando archivos gigantes y evitando que `registry/datasets.ts` tenga que importar docenas de sub-slices internas.
-- **Razón técnica:** el catálogo manual ya mezcla lenguaje, DataWindow, visuales, runtime, generated overrides, owner groups y helpers. Para poder integrar todos los símbolos PowerBuilder de forma profesional, el catálogo debe crecer por slices con agregadores estables.
-
-### Alcance incluido
-
-- Crear estructura modular bajo `manual/`.
-- Mantener `manual/common.ts` solo para factories/helpers.
-- Crear `manual/sources.ts` para fuentes oficiales/provenance base.
-- Mover owner groups fuera de `manual/common.ts`.
-- Mantener `manual/index.ts` como agregador estable.
-- Mover slices existentes sin cambiar entradas, IDs, `kind`, `domain`, `namespace`, `invocation` ni `ownerTypes`.
-- Crear índices por carpeta.
-- Asegurar que `registry/datasets.ts` consume agregadores estables, no sub-slices internas.
-- Añadir tests de no duplicados y cobertura de slices manuales.
-
-### Estructura objetivo
-
-```txt
-src/server/knowledge/system/manual/
-  common.ts
-  sources.ts
-  index.ts
-
-  ownerTypes/
-    index.ts
-    objectOwnerTypes.ts
-    visualOwnerTypes.ts
-    dataWindowOwnerTypes.ts
-
-  language/
-    index.ts
-    datatypes.ts
-    languageKeywords.ts
-    reservedWords.ts
-    statements.ts
-    operators.ts
-    pronouns.ts
-    enumerations/
-      index.ts
-      common.ts
-      datawindow.ts
-      ui.ts
-      windows.ts
-      file.ts
-      drawing.ts
-      print.ts
-      dragDrop.ts
-      database.ts
-      runtime.ts
-      pdf.ts
-      corpusCandidates.ts
-
-  visual/
-    index.ts
-    visualObjects.ts
-    textControls.ts
-    listControls.ts
-    drawingControls.ts
-    dataControls.ts
-    ribbonControls.ts
-    oleVisualControls.ts
-
-  runtime/
-    index.ts
-    systemTypes.ts
-    systemGlobals.ts
-    errors.ts
-    reflection.ts
-    ole.ts
-    mail.ts
-    profiling.ts
-
-  integration/
-    index.ts
-    json.ts
-    http.ts
-    rest.ts
-    oauth.ts
-    pdf.ts
-    filesystem.ts
-    compression.ts
-    crypto.ts
-    dotnet.ts
-
-  datawindow/
-    index.ts
-    dataWindowEvents.ts
-    dataWindowFunctions.ts
-    dataWindowExpressions.ts
-    dataWindowProperties.ts
-    dataWindowConstants.ts
-
-  legacy/
-    index.ts
-    globalFunctions.ts
-    objectFunctions.ts
-    systemEvents.ts
-```
-
-### Required aggregator pattern
-
-`registry/datasets.ts` must consume stable aggregators such as:
-
-```ts
-import {
-  PB_MANUAL_CORE_DATASET_SLICES,
-  PB_MANUAL_CORE_OWNER_TYPE_GROUPS,
-} from '../manual';
-```
-
-or domain aggregators such as:
-
-```ts
-import {
-  PB_MANUAL_CORE_LANGUAGE_DATASET_SLICES,
-  PB_MANUAL_CORE_VISUAL_DATASET_SLICES,
-  PB_MANUAL_CORE_RUNTIME_DATASET_SLICES,
-  PB_MANUAL_CORE_INTEGRATION_DATASET_SLICES,
-  PB_MANUAL_CORE_DATAWINDOW_DATASET_SLICES,
-  PB_MANUAL_CORE_LEGACY_DATASET_SLICES,
-} from '../manual';
-```
-
-Avoid direct imports such as:
-
-```ts
-import { PB_MANUAL_CORE_TEXT_CONTROL_DATATYPES } from '../manual/visual/textControls';
-```
-
-### Criterios de cierre verificables
-
-- `manual/` queda organizado por carpetas funcionales.
-- `manual/common.ts` no contiene arrays grandes ni owner groups.
-- `manual/sources.ts` contiene fuentes/provenance base.
-- `manual/ownerTypes/` contiene owner groups.
-- `manual/index.ts` exporta agregadores estables.
-- `registry/datasets.ts` no importa sub-slices internas una a una.
-- No cambia ningún ID existente.
-- No cambia ningún `kind`, `domain`, `namespace`, `invocation` u `ownerTypes` existente.
-- `catalogConsistency` no detecta duplicados.
-- Consumers no dependen de rutas internas frágiles.
-- Documentación explica ownership de slices.
-
-### Docs afectadas
-
-- `docs/architecture.md`
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `docs/testing.md`
-- `docs/backlog.md`
-- `docs/current-focus.md`
-- `docs/roadmap.md`
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|ownerTypes|architectureImports"
-npm run test:unit -- --grep "completion|hover|signatureHelp"
-```
-
 ---
 
-## B358 — Visual PowerBuilder system object datatypes catalog completion
+# L5.1 — Official Generated Catalog / Source-of-truth / Localization
+
+## B366 — Official Appeon scraper bugfixes and structural enrichment v2
 - **Estado:** Open
-- **Track:** knowledge / visual object catalog
+- **Track:** knowledge / generator / official catalog
 - **Prioridad:** Alta
-- **Depende de:** B357, B323, B339, B365
-- **Objetivo:** completar e integrar todos los tipos visuales PowerBuilder bajo `manual/visual/`, incluyendo ventanas, controles estándar, controles de texto, listas, dibujo, DataWindow visual, MDI, ActiveX visual y Ribbon.
-- **Razón técnica:** los controles y objetos visuales son esenciales para owner resolution, hover, completion, Object Explorer, UI hierarchy y reglas visuales. Deben vivir en slices pequeñas, no en un único `systemObjectDatatypes.ts` gigante.
+- **Depende de:** B357, B365, B339
+- **Objetivo:** corregir fallos actuales del scraper oficial de Appeon y extraer la máxima estructura semántica aprovechable desde la documentación oficial: `appliesTo` real, múltiples syntaxes separadas, argumentos estructurados, return values, obsolete/deprecated, event IDs, return codes, usage notes, object metadata, reserved word metadata y enums.
+- **Razón técnica:** el generated actual ya extrae nombres, summaries, signatures, appliesTo, ownerTypes y sourceUrl, pero todavía pierde información oficial útil y tiene algunos fallos estructurales. Las páginas oficiales contienen secciones reutilizables como `Description`, `Syntax`, `Argument`, `Return value`, `Usage`, `Event ID`, `Return Values`, `Properties`, `Events` y `Functions`.
 
-### Alcance incluido
+### Relación con enumerated datatypes
 
-- Completar:
-  - `manual/visual/visualObjects.ts`
-  - `manual/visual/textControls.ts`
-  - `manual/visual/listControls.ts`
-  - `manual/visual/drawingControls.ts`
-  - `manual/visual/dataControls.ts`
-  - `manual/visual/ribbonControls.ts`
-  - `manual/visual/oleVisualControls.ts`
-- Integrar en `manual/visual/index.ts`.
-- Integrar en el agregador manual estable.
-- Añadir tests de resolución para controles clave.
-- Completar owner groups visuales si falta cobertura.
+- B366 prepara infraestructura general de scraping estructural.
+- La cobertura oficial completa de `enumerated-types` y `enumerated-values` quedó cerrada en B361 (`specs/375-official-enumerated-datatype-extractor-and-coverage-rail`).
+- B366 no debe reabrir B361 ni sustituir su rail específico de enumerados.
 
-### Categorías objetivo
+### Fallos actuales que debe corregir
 
-```txt
-Objetos visuales
-Controles de texto
-Controles de lista
-Controles de dibujo
-Controles de datos/UI
-Controles Ribbon
-OLE visual
-```
+1. **`Applies to` contaminado por links internos**
+   - Fallo observado: `extractAppliesToLabels()` prioriza `<a>` antes que párrafos/tablas.
+   - Riesgo: captura enlaces como `SetItem` en vez del `Applies to` real.
+   - Caso obligatorio: `SetItemDate` no debe generar `appliesTo: ["SetItem"]`; si la página oficial indica Web DataWindow server component, no debe clasificarse como DataWindow/DataStore normal.
 
-### Tipos a incluir o revisar
+2. **Múltiples syntaxes concatenadas en una sola firma**
+   - Fallo observado: se normaliza todo el `<pre>` antes de dividir líneas.
+   - Caso obligatorio: `OLEActivate` debe generar dos signatures separadas, una con `integer column` y otra con `string column`.
 
-```txt
-Window
-MDIClient
-UserObject
-Menu
-MenuCascade
-DataWindow
-SingleLineEdit
-MultiLineEdit
-EditMask
-RichTextEdit
-StaticText
-StaticHyperLink
-CommandButton
-PictureButton
-CheckBox
-RadioButton
-ListBox
-PictureListBox
-DropDownListBox
-DropDownPictureListBox
-ListView
-ListViewItem
-TreeView
-TreeViewItem
-Tab
-TabbedBar
-GroupBox
-Graph
-grAxis
-grDispAttr
-Picture
-PictureHyperLink
-Line
-Oval
-Rectangle
-RoundRectangle
-HScrollBar
-VScrollBar
-HProgressBar
-VProgressBar
-HTrackBar
-VTrackBar
-DatePicker
-MonthCalendar
-Animation
-InkEdit
-InkPicture
-WebBrowser
-OLEControl
-OLECustomControl
-RibbonBar
-RibbonApplicationButtonItem
-RibbonApplicationMenu
-RibbonCategoryItem
-RibbonCheckBoxItem
-RibbonComboBoxItem
-RibbonGroupItem
-RibbonLargeButtonItem
-RibbonMenu
-RibbonMenuItem
-RibbonPanelItem
-RibbonSmallButtonItem
-RibbonTabButtonItem
-PowerServerLabel
-```
+3. **Obsolete/deprecated insuficiente**
+   - Fallo observado: solo se detecta `obsolete` en el título.
+   - Debe detectar también `Obsolete method`, `Obsolete function`, `should not be used`, `will be removed`, `obsolete values`.
+   - Debe extraer `obsoleteMessage`, `replacement` y `risk: 'deprecated'`.
+   - Caso obligatorio: `SetItemDate` debe marcarse como obsolete y deprecated.
 
-### Explicit classification rules
+4. **Faltan return values**
+   - Fallo observado: no se extrae la sección `Return value`.
+   - Casos obligatorios:
+     - `ApplyTheme` debe extraer `returnType: "Integer"` y descripción de retorno.
+     - `AddItemArray` debe extraer `returnType: "Long"` y descripción de retorno.
 
-- `Application` is not a visual control. It belongs to runtime/system types.
-- `DataWindow` is visual when used as a control, but DataWindow expression functions/properties/constants remain separate specs/domains.
-- `DataStore` is nonvisual and belongs to runtime/system types.
-- `OLEObject`, `OLEStorage`, `OLEStream`, `OLETxnObject` are nonvisual OLE runtime types, not visual controls.
+5. **Faltan argumentos estructurados**
+   - Fallo observado: los parámetros solo viven como texto dentro de `signature.label`.
+   - Caso obligatorio: `AddItemArray` debe extraer `ParentItemHandle`, `ParentItemPath` y `Key` con documentación.
 
-### Fuera de alcance
+6. **Faltan Event IDs**
+   - Fallo observado: eventos como `BeginDrag` solo generan firma.
+   - Caso obligatorio: `BeginDrag` debe extraer `pbm_lvnbegindrag` para `ListView` y `pbm_tvnbegindrag` para `TreeView`.
 
-- PDF object model.
-- JSON/HTTP/OAuth.
-- Mail/SMTP/MIME.
-- Profiling/traces.
-- Reflection.
-- Error hierarchy.
-- DataWindow expressions/properties/constants.
+7. **Faltan syntax groups en eventos**
+   - Fallo observado: se pierden grupos tipo `Syntax 1`, `Syntax 2`, `Syntax 3`.
+   - Caso obligatorio: `DragDrop` debe conservar grupos para `ListBox/PictureListBox/ListView/Tab`, `TreeView` y `windows and other controls`.
 
-### Criterios de cierre verificables
+8. **Summaries genéricos en system object datatypes**
+   - Fallo observado: summaries como `Official documented PowerBuilder system object/control datatype X`.
+   - Caso obligatorio: `PDFDocumentProperties` debe extraer summary específico, `baseType: "PDFModel"` y propiedades principales como `Application`, `Author`, `Keywords`, `Subject`, `Title`.
 
-- All relevant visual types are present or explicitly rejected with reason.
-- No duplicate IDs.
-- Existing IDs remain unchanged unless a prior breaking spec explicitly authorizes the change.
-- Every entry uses `systemObjectDatatype()` or the approved factory for system object datatypes.
-- `resolveDatatype()` resolves representative types:
-  - `SingleLineEdit`
-  - `DataWindow`
-  - `MDIClient`
-  - `RibbonBar`
-  - `RibbonApplicationMenu`
-  - `WebBrowser`
-  - `OLEControl`
-- Completion/hover/signatureHelp do not regress.
-- Visual owner groups are complete enough for completion/hover/Object Explorer.
+9. **Reserved words con `*` pierden metadata estructural**
+   - Fallo observado: `canBeFunctionName` solo acaba en summary textual.
+   - Debe producir `reservedWordCanBeFunctionName: true` e `identifierPolicy: 'allowed-as-function-name'`.
 
-### Docs afectadas
+10. **Generated actual mezcla scraping, coverage, rendering y heurísticas**
+    - Debe dividirse el script en módulos.
+    - El entrypoint debe orquestar; las reglas deben vivir en módulos separados.
 
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `docs/architecture.md`
-- `docs/rules-catalog.md`
-- `docs/testing.md`
-- `docs/backlog.md`
-- `docs/current-focus.md`
-- `docs/roadmap.md`
+### Información máxima a extraer por tipo de página
 
-### Validación esperada
+#### PowerScript functions
 
-```bash
-npm run build:test
-npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|nativeAncestors|ownerTypes"
-npm run test:unit -- --grep "completion|hover|signatureHelp|objectExplorer"
-```
-
----
-
-## B359 — Runtime, integration and nonvisual system object datatypes catalog completion
-- **Estado:** Open
-- **Track:** knowledge / runtime object catalog
-- **Prioridad:** Alta
-- **Depende de:** B357, B323, B339, B365
-- **Objetivo:** completar e integrar tipos no visuales, runtime, integración moderna, PDF, correo, profiling/trazas, reflexión, OLE no visual, objetos de sistema y errores bajo `manual/runtime/` e `manual/integration/`.
-- **Razón técnica:** el runtime moderno de PowerBuilder contiene muchos subsistemas no visuales. Mezclarlos con controles visuales dificulta owner resolution, hover, completion, diagnostics conservadores, modernization reports y future catalog-driven rules.
-
-### Alcance incluido
-
-- Completar:
-  - `manual/runtime/systemTypes.ts`
-  - `manual/runtime/errors.ts`
-  - `manual/runtime/reflection.ts`
-  - `manual/runtime/ole.ts`
-  - `manual/runtime/mail.ts`
-  - `manual/runtime/profiling.ts`
-  - `manual/integration/json.ts`
-  - `manual/integration/http.ts`
-  - `manual/integration/rest.ts`
-  - `manual/integration/oauth.ts`
-  - `manual/integration/pdf.ts`
-  - `manual/integration/filesystem.ts`
-  - `manual/integration/compression.ts`
-  - `manual/integration/crypto.ts`
-  - `manual/integration/dotnet.ts`
-- Reclassify `Application` as runtime/system if currently visual.
-- Add representative resolution tests.
-
-### Categorías objetivo
+Extraer:
 
 ```txt
-Objetos no visuales
-JSON / HTTP / OAuth / REST
-PDF
-Correo
-Profiling y trazas
-Objetos de sistema
-Reflexión
-OLE
-Errores
-Filesystem
-Crypto / compression
-.NET interop
+title
+canonicalName
+description
+documentation
+appliesTo
+ownerTypes
+syntaxGroups
+signatures
+parameters
+returnType
+returnDocumentation
+returnsNullOnNullArgument
+usageNotes
+limitations
+examplesAvailable
+seeAlso
+obsolete
+obsoleteMessage
+replacement
+risk
+sourceUrl
 ```
 
-### Tipos a incluir o revisar
+#### DataWindow methods
+
+Extraer:
 
 ```txt
-ADOResultSet
-ArrayBounds
-Application
-BatchDataObjects
-ClassDefinition
-CoderObject
-CompressorObject
-ContextInformation
-ContextKeyword
-CrypterObject
-DataStore
-DataWindowChild
-DotNetAssembly
-DotNetObject
-DynamicDescriptionArea
-DynamicStagingArea
-Environment
-Error
-ErrorLogging
-Exception
-ExtractorObject
-HTTPClient
-Inet
-InternetResult
-JSONGenerator
-JSONPackage
-JSONParser
-MailFileDescription
-MailMessage
-MailRecipient
-MailSession
-Message
-MimeMessage
-MLSync
-MLSynchronization
-OAuthClient
-OAuthRequest
-OLEObject
-OLEStorage
-OLEStream
-OLETxnObject
-PDFAction
-PDFActionJavaScript
-PDFActionNamed
-PDFActionResetForm
-PDFAttachment
-PDFColor
-PDFContent
-PDFContext
-PDFDocExtractor
-PDFDocument
-PDFDocumentProperties
-PDFFont
-PDFFormField
-PDFFormFieldCheckBox
-PDFFormFieldComboBox
-PDFFormFieldGroup
-PDFFormFieldListBox
-PDFFormFieldPushButton
-PDFFormFieldRadioButton
-PDFFormFieldRadioButtonGroup
-PDFFormFieldText
-PDFImage
-PDFImportContent
-PDFInvisibleContent
-PDFModel
-PDFMultilineText
-PDFPage
-PDFRichText
-PDFSecurity
-PDFSharedText
-PDFTableOfContents
-PDFTableOfContentsItem
-PDFText
-PDFTextBlock
-PDFTextLayout
-PDFVisibleContent
-PDFWatermark
-Pipeline
-PowerObject
-PowerServerResult
-ProfileCall
-ProfileClass
-ProfileLine
-ProfileRoutine
-Profiling
-ResourceResponse
-RESTClient
-ResultSet
-RuntimeError
-ScriptDefinition
-SimpleTypeDefinition
-SMTPClient
-SyncParm
-Throwable
-Timing
-TokenRequest
-TokenResponse
-TraceActivityNode
-TraceBeginEnd
-TraceError
-TraceESQL
-TraceFile
-TraceGarbageCollect
-TraceLine
-TraceObject
-TraceRoutine
-TraceTree
-TraceTreeError
-TraceTreeESQL
-TraceTreeGarbageCollect
-TraceTreeLine
-TraceTreeNode
-TraceTreeObject
-TraceTreeRoutine
-TraceTreeUser
-TraceUser
-Transaction
-TransactionServer
-TypeDefinition
-ULSync
-VariableCardinalityDefinition
-VariableDefinition
-WSConnection
+title
+canonicalName
+description
+appliesTo DataWindow type
+ownerTypes
+syntaxGroups
+signatures
+parameters
+returnType
+returnDocumentation
+usageNotes
+obsolete
+obsoleteMessage
+replacement
+legacyWebDataWindowFlag
+dataWindowContextOnly
+seeAlso
+sourceUrl
 ```
 
-### OwnerTypes que NO deben añadirse como tipos
+#### PowerScript events
+
+Extraer:
 
 ```txt
-longhandleofbuttonmenuisassociatedwith
-longhandleofitem
-longindexofmenuitemclicked
-longindexofmenuitemmouseison
-longindexofsubmenuitemclicked0indicateseventistriggeredbymainmenu
-longindexofsubmenuitemmouseison0indicateseventistriggeredbymainmenu
+title
+eventName
+syntaxGroup
+syntaxDescription
+description
+appliesTo
+ownerTypes
+eventId
+eventIds
+parameters
+eventReturnType
+eventReturnCodes
+usageNotes
+examplesAvailable
+seeAlso
+obsolete
+obsoleteMessage
+sourceUrl
 ```
 
-These are extractor noise, not PowerBuilder system object datatypes.
+#### Objects and Controls
 
-### Fuera de alcance
+Extraer:
 
-- Visual controls.
-- Ribbon visual controls.
-- DataWindow expression functions/properties/constants.
-- Official generated extraction rail.
-
-### Criterios de cierre verificables
-
-- All relevant runtime/nonvisual/integration types are present or explicitly rejected with reason.
-- `Application` is classified as runtime/system.
-- No duplicate IDs.
-- Existing IDs remain unchanged unless a prior breaking spec explicitly authorizes the change.
-- Representative types resolve:
-  - `HTTPClient`
-  - `JSONParser`
-  - `PDFDocument`
-  - `PDFPage`
-  - `SMTPClient`
-  - `MimeMessage`
-  - `TraceTreeRoutine`
-  - `BatchDataObjects`
-  - `ResourceResponse`
-  - `DataStore`
-  - `Transaction`
-- Completion/hover/signatureHelp do not regress.
-
-### Docs afectadas
-
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `docs/architecture.md`
-- `docs/rules-catalog.md`
-- `docs/testing.md`
-- `docs/backlog.md`
-- `docs/current-focus.md`
-- `docs/roadmap.md`
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|nativeAncestors|ownerTypes"
-npm run test:unit -- --grep "completion|hover|signatureHelp"
+```txt
+name
+description
+documentation
+category
+baseType
+derivedFrom
+properties
+events
+functions
+inheritedProperties
+inheritedFunctions
+obsolete
+obsoleteMessage
+sourceUrl
 ```
 
----
+#### Reserved words / keywords
 
-## B360 — Enumerated catalog model breaking normalization
-- **Estado:** Open
-- **Track:** knowledge / language catalog / breaking normalization
-- **Prioridad:** Alta
-- **Depende de:** B357, B365, B324, B339
-- **Objetivo:** normalizar de forma estricta el modelo de enumerados PowerBuilder separando `enumerated-type` y `enumerated-value`, eliminando completamente la representación legacy donde tipos como `SaveAsType!`, `DWBuffer!`, `DWItemStatus!` o `Encoding!` se modelan como entradas canónicas.
-- **Razón técnica:** en PowerBuilder, el tipo enumerado y el valor enumerado son conceptos distintos. El tipo se usa como datatype de argumentos/propiedades (`SaveAsType`, `DWBuffer`, `Alignment`, `Encoding`) y los valores terminan con `!` (`Text!`, `Primary!`, `Left!`, `EncodingUTF8!`). Mantener tipos con `!` confunde hover, completion, signatureHelp y diagnostics.
-- **Decisión arquitectónica:** breaking change intencionado. No mantener aliases legacy para tipos con `!`.
+Extraer:
 
-### Alcance incluido
+```txt
+name
+category
+summary
+reservedWordCanBeFunctionName
+identifierPolicy
+sourceUrl
+```
 
-- Añadir `PbSystemSymbolKind = 'enumerated-type'`.
-- Mantener `PbSystemSymbolKind = 'enumerated-value'`.
-- Añadir `PbSystemSymbolDomain = 'enumerated-types'`.
-- Mantener `PbSystemSymbolDomain = 'enumerated-values'`.
-- Eliminar/migrar entradas legacy mal modeladas:
-  - `SaveAsType!`
-  - `DWBuffer!`
-  - `DWItemStatus!`
-  - `Encoding!`
-  - `WindowType!`
-  - `WindowState!`
-  - any other enum type ending in `!`.
-- Canonical type name must never end in `!`.
-- Canonical value name must end in `!`.
-- Add enum metadata fields.
-- Add explicit query APIs.
+#### Enumerated datatypes / values
 
-### Required metadata fields
+Extraer cuando aplique:
+
+```txt
+enumeratedType
+enumeratedValues
+enumNumericValue
+enumValueMeaning
+obsolete
+obsoleteMessage
+replacement
+sourceUrl
+```
+
+### Modelo de metadata objetivo
 
 ```ts
-export interface PbSystemSymbolEntryDraft {
+type PbSystemSymbolParameter = {
+    name: string;
+    type?: string;
     documentation?: string;
+    optional?: boolean;
+    byRef?: boolean;
+};
+
+type PbSystemSymbolSignature = {
+    label: string;
+    parameters?: readonly PbSystemSymbolParameter[];
+    returnType?: string;
+};
+
+type PbSystemSymbolEntryDraft = {
+    documentation?: string;
+    returnType?: string;
+    returnDocumentation?: string;
+    returnsNullOnNullArgument?: boolean;
+    usageNotes?: readonly string[];
+    limitations?: readonly string[];
+    examplesAvailable?: boolean;
+    seeAlso?: readonly string[];
+
+    eventId?: string;
+    eventIds?: readonly {
+        id: string;
+        ownerTypes?: readonly string[];
+    }[];
+    eventReturnType?: string;
+    eventReturnCodes?: readonly {
+        value: string;
+        meaning: string;
+    }[];
+    syntaxGroup?: string;
+    syntaxDescription?: string;
+
+    baseType?: string;
+    properties?: readonly string[];
+    functions?: readonly string[];
+    events?: readonly string[];
+
+    reservedWordCanBeFunctionName?: boolean;
+    identifierPolicy?: 'reserved' | 'allowed-as-function-name' | 'literal' | 'operator';
+
     enumValues?: readonly string[];
     enumValueOf?: string;
     enumNumericValue?: number;
     enumValueMeaning?: string;
-    allowedOnOwners?: readonly string[];
-    allowedOnProperties?: readonly string[];
-    allowedInParameters?: readonly string[];
-    obsolete?: boolean;
-    obsoleteMessage?: string;
-    replacement?: string;
-}
+};
 ```
 
-### Required query APIs
+### Refactor esperado del script
 
-```ts
-listEnumeratedTypes(): readonly PbSystemSymbolEntry[];
-listEnumeratedValues(): readonly PbSystemSymbolEntry[];
-resolveEnumeratedType(name: string): PbSystemSymbolEntry | undefined;
-resolveEnumeratedValue(name: string): PbSystemSymbolEntry | undefined;
-listValuesForEnumeratedType(typeName: string): readonly PbSystemSymbolEntry[];
-resolveEnumValueForExpectedType(valueName: string, typeName: string): PbSystemSymbolEntry | undefined;
+```txt
+scripts/catalog/
+  generate_official_function_catalog.cjs
+
+  appeon/
+    fetch.cjs
+    html.cjs
+    sections.cjs
+    powerScriptFunctions.cjs
+    powerScriptEvents.cjs
+    powerScriptStatements.cjs
+    dataWindowMethods.cjs
+    objectsAndControls.cjs
+    reservedWords.cjs
+    enumeratedDatatypes.cjs
+
+  rules/
+    ownerTypeRules.cjs
+    datatypeRules.cjs
+    keywordRules.cjs
+    statementRules.cjs
+    obsoleteRules.cjs
+
+  render/
+    renderCatalog.cjs
+    renderCoverage.cjs
+    renderParsingArtifacts.cjs
+
+  coverage/
+    coverage.cjs
 ```
-
-### Strict rules
-
-- `SaveAsType` is type.
-- `SaveAsType!` must not exist as type or type alias.
-- `Text!`, `CSV!`, `PDF!`, `XLSX!` are values.
-- `DWBuffer` is type.
-- `Primary!`, `Delete!`, `Filter!` are values.
-- `Encoding` is type.
-- `EncodingUTF8!` is value.
-- PFC/STD cannot define official enum membership.
 
 ### Criterios de cierre verificables
 
-- `resolveEnumeratedType('SaveAsType')` resolves.
-- `resolveEnumeratedType('SaveAsType!')` does not resolve.
-- `resolveEnumeratedValue('Text!')` resolves.
-- `resolveEnumeratedType('DWBuffer')` resolves.
-- `resolveEnumeratedValue('Primary!')` resolves.
-- No `enumerated-type` entry ends with `!`.
-- `buildCatalogConsistencyReport()` reports invalid enum type names ending in `!`.
-- Old incompatible tests are updated or removed.
-- Docs explain the breaking change.
+- `SetItemDate` se marca obsolete/deprecated y no queda como DataWindow/DataStore normal si la fuente indica Web DataWindow server component.
+- `OLEActivate` genera signatures separadas.
+- `ApplyTheme` incluye return info y usage notes.
+- `AddItemArray` incluye parámetros estructurados y return info.
+- `BeginDrag` incluye Event IDs.
+- `DragDrop` conserva syntax groups.
+- `PDFDocumentProperties` incluye summary específico, `baseType` y propiedades.
+- Reserved words con `*` tienen metadata estructural.
+- El scraper no extrae `appliesTo` desde breadcrumbs, navegación, `See also` ni links auxiliares.
+- Hay tests/snapshots de cada caso obligatorio.
+- Output determinista.
 
 ### Docs afectadas
 
 - `docs/architecture.md`
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `docs/rules-catalog.md`
 - `docs/testing.md`
+- `docs/rules-catalog.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "generator|scraper|official|catalog|provenance"
+npm run test:unit -- --grep "ApplyTheme|AddItemArray|SetItemDate|OLEActivate|BeginDrag|DragDrop|PDFDocumentProperties|reserved"
+```
+
+---
+
+## B370 — Generated catalog regression fixtures and extraction quality gate
+- **Estado:** Open
+- **Track:** knowledge / generator / regression gate
+- **Prioridad:** Alta
+- **Depende de:** B366
+- **Relacionada con:** B367
+- **Objetivo:** crear una suite de fixtures/snapshots que proteja el scraper oficial frente a regresiones de extracción, cambios HTML de Appeon y errores de heurística.
+- **Razón técnica:** cuando el generated se convierta en fuente oficial primaria o semi-primaria, cualquier bug del scraper puede contaminar hover, completion, diagnostics y owner resolution. Necesitamos fixtures estables por página representativa.
+
+### Fixtures obligatorios
+
+```txt
+PowerScript functions:
+  ApplyTheme_func.html
+  additemarray_func.html
+
+DataWindow methods:
+  dwmeth_SetItemDate.html
+  dwmeth_OLEActivate.html
+
+Events:
+  beginDrag_event.html
+  dragDrop_event.html
+
+Objects and Controls:
+  PDFDocumentProperties_object.html
+
+Language:
+  xREF_80481_Reserved_words.html
+```
+
+### Qué debe validar cada fixture
+
+```txt
+ApplyTheme:
+  returnType
+  returnDocumentation
+  usageNotes
+  limitations
+
+AddItemArray:
+  signatures separadas
+  parameters
+  returnType
+
+SetItemDate:
+  obsolete
+  deprecated risk
+  Web DataWindow classification
+  no appliesTo contaminado con SetItem
+
+OLEActivate:
+  two signatures
+
+BeginDrag:
+  syntax groups
+  event IDs
+  ownerTypes
+
+DragDrop:
+  three syntax groups
+  event IDs
+  owner mappings
+
+PDFDocumentProperties:
+  summary específico
+  baseType
+  properties
+
+Reserved words:
+  asterisk metadata
+  identifierPolicy
+```
+
+### Criterios de cierre verificables
+
+- Fixtures HTML oficiales guardados en tests o snapshots permitidos.
+- Tests no dependen de red.
+- Se compara extractor output contra expected compact JSON.
+- Si cambia HTML oficial, el diff es revisable.
+- El gate falla si reaparece un fallo conocido.
+- El gate forma parte de `build:test` o de un comando generator CI/local documentado.
+
+### Docs afectadas
+
+- `docs/testing.md`
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "scraper|generator|fixture|official|regression"
+```
+
+---
+
+## B367 — Generated catalog as complete official source v2
+- **Estado:** Open
+- **Track:** knowledge / generated catalog / source of truth
+- **Prioridad:** Alta
+- **Depende de:** B366, B370, B365
+- **Objetivo:** cambiar el generated oficial para que represente el catálogo oficial completo extraído de Appeon, no solo el delta no cubierto por `manual-core`.
+- **Razón técnica:** el script actual usa `manual-core` como cobertura previa y omite entradas oficiales ya cubiertas manualmente. Para decidir generated vs manual curated, primero necesitamos un generated oficial completo, medible y comparable.
+
+### Fallo actual a corregir
+
+El script actual usa manual como filtro:
+
+```ts
+const manualEntries = listSystemSymbolsByDataset('manual-core');
+const globalCoverage = buildCoverageMap(manualGlobalEntries, 'global-functions');
+
+if (globalCoverage.has(coverageKey)) {
+    continue;
+}
+```
+
+Esto convierte `generated.generated.ts` en un dataset de huecos, no en una fuente oficial completa.
+
+### Decisión objetivo
+
+Separar:
+
+```txt
+generated official complete catalog
+manual curated gaps/enrichments/overrides
+coverage report
+runtime merged registry
+```
+
+### Alcance incluido
+
+- Añadir modo `complete`.
+- Mantener modo `gap-fill` solo si se necesita transición.
+- Por defecto, el modo futuro debe ser `complete`.
+- Generar todo lo oficial extraíble:
+  - global functions
+  - object functions
+  - DataWindow functions
+  - system events
+  - statements
+  - keywords
+  - reserved words
+  - datatypes
+  - system object datatypes
+  - enumerated types/values si B361/B366 lo permite.
+- Hacer que `officialCoverage.generated.ts` sea reporte comparativo, no filtro de generación.
+- Añadir `generatedCompleteness.generated.ts`.
+
+### Salidas esperadas
+
+```txt
+generated.generated.ts
+ownerTypes.generated.ts
+provenance.generated.ts
+officialCoverage.generated.ts
+generatedCompleteness.generated.ts
+```
+
+### Criterios de cierre verificables
+
+- El generated incluye entradas oficiales aunque exista manual equivalente.
+- El coverage no decide qué se genera.
+- Hay modo `complete`.
+- Hay diff/snapshot de generated completo.
+- Registry no devuelve duplicados en runtime gracias a merge policy o query dedupe explícita.
+- Docs explican diferencia entre generated official, manual curated y merged registry.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "generator|generated|officialCoverage|catalogConsistency"
+npm run test:unit -- --grep "registry|datasets|merge|duplicates"
+```
+
+---
+
+## B368 — Manual curated overlays, gaps and overrides policy
+- **Estado:** Open
+- **Track:** knowledge / manual curated governance
+- **Prioridad:** Alta
+- **Depende de:** B357, B367, B339
+- **Objetivo:** redefinir `manual/` para que no compita silenciosamente con `generated`, sino que actúe como capa explícita de gaps, enrichments, overrides y candidates.
+- **Razón técnica:** si generated pasa a ser el catálogo oficial completo, manual debe aportar curación humana donde la extracción oficial no llega o necesita corrección.
+
+### Estructura objetivo
+
+```txt
+manual/
+  curated/
+    gaps/
+      globalFunctions.ts
+      objectFunctions.ts
+      dataWindowFunctions.ts
+      systemEvents.ts
+      dataWindowEvents.ts
+      systemObjectDatatypes.ts
+
+    enrichments/
+      generatedFunctionEnrichments.ts
+      generatedEventEnrichments.ts
+      generatedDatatypeEnrichments.ts
+      generatedStatementEnrichments.ts
+
+    overrides/
+      generatedFunctionOverrides.ts
+      generatedEventOverrides.ts
+      generatedOwnerTypeOverrides.ts
+      generatedDatatypeOverrides.ts
+
+    candidates/
+      corpusCandidates.ts
+      pluginOldCandidates.ts
+```
+
+### Definiciones
+
+```txt
+gap:
+  Símbolo no cubierto por generated oficial.
+
+enrichment:
+  Metadata adicional sobre generated sin cambiar identidad base.
+
+override:
+  Corrección explícita de generated.
+
+candidate:
+  Hallazgo no oficial procedente de PFC/STD/plugin_old/corpus.
+```
+
+### Metadata obligatoria
+
+```ts
+type ManualCuratedOverlay = {
+    targetId?: string;
+    targetKey?: {
+        domain: string;
+        kind: string;
+        namespace: string;
+        invocation: string;
+        name: string;
+        ownerTypes?: readonly string[];
+    };
+    mode: 'gap' | 'enrichment' | 'override' | 'candidate';
+    reason: string;
+    evidence: readonly string[];
+    sourceUrl?: string;
+    reviewedBy?: string;
+};
+```
+
+### Separación respecto a localización
+
+- `manual/curated/` contiene curación técnica: gaps, enrichments, overrides y candidates.
+- `localization/es/` contiene traducción y presentación en español.
+- No guardar traducciones españolas dentro de `manual/curated/` salvo que sean explicaciones técnicas curadas no derivadas directamente del texto oficial.
+
+### Criterios de cierre verificables
+
+- Manual gaps no duplican generated.
+- Enrichments se fusionan, no crean entradas competidoras.
+- Overrides declaran razón y evidencia.
+- Candidates no entran en hot path.
+- Consistency falla ante duplicados manual/generated sin política.
+- Registry merge policy queda documentada y testeada.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "catalog|manual|curated|overlay|override|enrichment|gap|consistency"
+npm run test:unit -- --grep "registry|datasets|merge"
+```
+
+---
+
+## B369 — Generated-vs-manual catalog adoption decision gate
+- **Estado:** Open
+- **Track:** knowledge / architecture decision / catalog governance
+- **Prioridad:** Alta
+- **Depende de:** B367, B368, B335, B339
+- **Objetivo:** decidir con métricas reales si el catálogo definitivo será `generated official primary`, `manual curated primary` o `hybrid by domain`.
+- **Razón técnica:** antes de seguir ampliando manual o generated, hay que decidir la fuente principal por dominio con datos: cobertura, errores de scraping, utilidad para hover/signatureHelp y coste de mantenimiento.
+
+### Opciones a evaluar
+
+```txt
+A. generated official primary
+B. manual curated primary
+C. hybrid by domain
+```
+
+### Métricas obligatorias
+
+```txt
+officialCount
+generatedCount
+manualCount
+duplicateCount
+gapCount
+overrideCount
+enrichmentCount
+scraperErrorCount
+signatureQuality
+appliesToQuality
+ownerTypesQuality
+obsoleteDetectionQuality
+eventIdCoverage
+returnTypeCoverage
+parameterDocsCoverage
+hoverUsefulness
+signatureHelpUsefulness
+maintenanceCost
+```
+
+### ADR requerido
+
+```txt
+docs/adr/ADR-xxxx-system-catalog-source-of-truth.md
+```
+
+Debe incluir:
+
+```md
+# ADR — System catalog source of truth
+
+## Context
+## Options considered
+## Evidence
+## Decision
+## Consequences
+## Migration plan
+## Rollback plan
+```
+
+### Decisión preliminar recomendada
+
+```txt
+generated official primary + manual curated gaps/enrichments/overrides
+```
+
+Pero la decisión final debe basarse en métricas, no intuición.
+
+### Criterios de cierre verificables
+
+- Existe reporte comparativo generated vs manual.
+- Existe ADR.
+- Existe merge policy.
+- Existe plan de migración.
+- Existe test contra duplicados silenciosos.
+- Docs/backlog/current-focus/roadmap quedan alineados.
+- No se cierra sin métricas reales.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/adr/ADR-xxxx-system-catalog-source-of-truth.md`
 - `docs/backlog.md`
 - `docs/current-focus.md`
 - `docs/roadmap.md`
@@ -1071,149 +1129,519 @@ resolveEnumValueForExpectedType(valueName: string, typeName: string): PbSystemSy
 
 ```bash
 npm run build:test
-npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|enumerated|enum"
-npm run test:unit -- --grep "completion|hover|semanticTokens|signatureHelp"
+npm run test:unit -- --grep "catalog|generated|manual|coverage|consistency|registry|merge"
+npm run test:unit -- --grep "completion|hover|signatureHelp"
 ```
 
 ---
 
-## B361 — Official enumerated datatype extractor and coverage rail
+## B371 — Catalog localization model and immutable overlay contract
 - **Estado:** Open
-- **Track:** knowledge / generator / official catalog
+- **Track:** knowledge / localization / catalog UX
 - **Prioridad:** Alta
-- **Depende de:** B319, B360
-- **Objetivo:** crear o extender el rail de generación/auditoría oficial para extraer tipos enumerados, valores enumerados, numeric values, significado breve, obsolescencia y provenance desde documentación oficial Appeon.
-- **Razón técnica:** el catálogo manual puede arrancar con curación, pero la herramienta profesional necesita una fuente reproducible y auditada para enum types/values.
+- **Depende de:** B366, B367
+- **Relacionada con:** B368, B369
+- **Objetivo:** añadir un modelo de localización ligero para documentación del catálogo sin duplicar entradas completas ni modificar el texto oficial original del generated.
+- **Razón técnica:** el generated oficial está en inglés porque procede de la documentación Appeon. Para una UX profesional en español, el plugin necesita mostrar summaries, documentación, usage notes y mensajes en español, pero sin perder provenance oficial, sin duplicar símbolos y sin traducir en runtime.
+
+### Decisión arquitectónica
+
+```txt
+generated.summary = texto oficial/original en inglés
+localization/es = texto español precompilado
+entry.id / targetKey = enlace estable entre generated y localización
+runtime = símbolo único + overlay documental opcional
+```
 
 ### Alcance incluido
 
-- Auditar generadores existentes:
-  - `scripts/generate_official_function_catalog.cjs`
-  - `script/generate_official_function_catalog.cjs`
-  - equivalent scripts.
-- Crear extractor específico si no existe rail adecuado.
-- Extraer/auditar desde:
-  - PowerScript Reference / Enumerated datatypes.
-  - DataWindow Reference / DataWindow Constants.
-  - Objects and Controls / Property Descriptions and Usage.
-- Capturar:
-  - enum type;
-  - enum values;
-  - numeric value when available;
-  - compact value meaning;
-  - obsolete/deprecated flag;
-  - replacement when documented;
-  - sourceUrl;
-  - provenance;
-  - documentation version.
+- Añadir tipos de localización para documentación de catálogo.
+- Definir contrato inmutable de overlay por `entry.id` o `targetKey` estable.
+- Mantener `summary` original del generated sin traducir.
+- Añadir soporte para localización de:
+  - `summary`
+  - `documentation`
+  - `usageNotes`
+  - `limitations`
+  - `obsoleteMessage`
+  - `returnDocumentation`
+  - `parameter.documentation`
+  - `eventReturnCodes.meaning`
+  - `category` solo si es categoría visible de UX.
+- No traducir nombres reales de PowerBuilder.
+- Añadir validación de que cada overlay apunta a una entrada existente o queda reportado como orphan.
 
-### Minimum official targets
+### No traducir nunca
 
 ```txt
-DataWindow constants:
-  AccessibleRole
-  Alignment
-  Band
-  Border
-  BorderStyle
-  CharSet
-  DWBuffer
-  DWConflictResolution
-  DWItemStatus
-  FillPattern
-  LineStyle
-  RichTextToolbarActivation
-  RowFocusInd
-  SaveAsType
-  SaveMetaData
-  SQLPreviewFunction
-  SQLPreviewType
-  WebPagingMethod
-
-Objects and Controls property datatypes:
-  AccessibleRole
-  Alignment
-  BorderStyle
-  FillPattern
-  FontCharSet
-  FontFamily
-  FontPitch
-  GraphType
-  HighDPIMode
-  SecureProtocol
-  TextCase
-  ToolbarAlignment
-  ToolbarStyle
-  WindowState
-  WindowType
-
-PowerScript Reference:
-  Enumerated datatype concept and official constraints.
+name
+id
+lookupKeys
+normalizedName
+ownerTypes
+domain
+kind
+namespace
+invocation
+signatures.label
+function names
+event names
+datatypes
+enum values
+sourceUrl
 ```
 
-### Anti-invention rule
+### Modelo objetivo
 
-- Do not generate enums from intuition.
-- Do not add `HTTPMethod`, `OAuthGrantType`, `CPUArchitecture`, `TransactionScope`, etc. unless official docs or generated official extraction confirms them.
-- If a value appears only in PFC/STD, store as corpus candidate, not official.
+```ts
+export type PbCatalogLocale = 'en' | 'es';
 
-### Expected generated outputs
+export type PbLocalizedText = {
+    summary?: string;
+    documentation?: string;
+    usageNotes?: readonly string[];
+    limitations?: readonly string[];
+    obsoleteMessage?: string;
+    returnDocumentation?: string;
+    category?: string;
+};
+
+export type PbLocalizedParameterDocumentation = {
+    signatureLabel: string;
+    parameterName: string;
+    documentation: string;
+};
+
+export type PbLocalizedEventReturnCodeDocumentation = {
+    value: string;
+    meaning: string;
+};
+
+export type PbSystemSymbolLocalizationOverlay = {
+    targetId?: string;
+    targetKey?: {
+        domain: string;
+        kind: string;
+        namespace: string;
+        invocation: string;
+        name: string;
+        ownerTypes?: readonly string[];
+    };
+    locale: PbCatalogLocale;
+    text?: PbLocalizedText;
+    parameters?: readonly PbLocalizedParameterDocumentation[];
+    eventReturnCodes?: readonly PbLocalizedEventReturnCodeDocumentation[];
+    reviewed?: boolean;
+    source?: 'manual-curated' | 'machine-assisted-reviewed' | 'generated-assisted';
+};
+```
+
+### Estructura objetivo
 
 ```txt
-src/server/knowledge/system/generated/enumeratedTypes.generated.ts
-src/server/knowledge/system/generated/enumeratedValues.generated.ts
-src/server/knowledge/system/generated/enumeratedCoverage.generated.ts
-src/server/knowledge/system/generated/enumeratedProvenance.generated.ts
+src/server/knowledge/system/localization/
+  index.ts
+  types.ts
+  localizationResolver.ts
+  es/
+    index.ts
+    generatedFunctionLocalization.ts
+    generatedEventLocalization.ts
+    generatedDatatypeLocalization.ts
+    generatedStatementLocalization.ts
+    generatedEnumLocalization.ts
 ```
+
+### Reglas estrictas
+
+- No crear `PB_GENERATED_GLOBAL_FUNCTIONS_ES` ni duplicar entries por idioma.
+- No modificar `summary` oficial en generated para traducirlo.
+- No traducir en runtime usando servicios externos.
+- No hacer deep merge global en startup.
+- Las localizaciones se consultan lazy solo cuando una feature necesita texto visible.
+- Si falta traducción española, fallback seguro al texto original inglés.
 
 ### Criterios de cierre verificables
 
-- Extractor output is deterministic.
-- `SaveAsType` includes official known values such as `Excel!`, `Text!`, `CSV!`, `SQLInsert!`, `PSReport!`, `PDF!`, `Excel8!`, `XLSX!`, `XLSB!` where officially documented.
-- `DWBuffer` includes `Primary!`, `Delete!`, `Filter!` with numeric values when officially available.
-- Obsolete values are flagged when official docs mark them obsolete.
-- Coverage report includes `enumerated-types` and `enumerated-values` counts.
-- No large official documentation text is copied.
+- Existe modelo de overlay localizado.
+- Existe índice español inicial aunque sea parcial.
+- Los overlays se validan contra entradas reales.
+- Los overlays huérfanos fallan en consistency o aparecen en reporte.
+- No se duplican entradas del catálogo por idioma.
+- No se altera el texto original del generated.
+- Docs explican qué se traduce y qué no.
 
 ### Docs afectadas
 
 - `docs/architecture.md`
-- `docs/testing.md`
+- `docs/rules-catalog.md`
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
 
 ### Validación esperada
 
 ```bash
 npm run build:test
-npm run test:unit -- --grep "generator|enumerated|catalogCoverage|catalogConsistency"
+npm run test:unit -- --grep "catalog|localization|overlay|consistency"
 ```
 
 ---
 
-## B362 — PowerBuilder enumerated datatypes and values catalog completion
+## B372 — DocumentationService locale-aware lazy resolver
 - **Estado:** Open
+- **Track:** knowledge / localization / runtime performance
+- **Prioridad:** Alta
+- **Depende de:** B371, B365
+- **Objetivo:** crear un servicio de documentación localizado que resuelva textos visibles por idioma de forma lazy, O(1), sin scans, sin traducción dinámica y sin merge global en startup.
+- **Razón técnica:** hover, completion, signatureHelp y diagnostics necesitan documentación localizada, pero esas rutas son sensibles a latencia. La localización debe ser un lookup por índice sobre la entrada ya resuelta, no una transformación masiva del catálogo.
+
+### Alcance incluido
+
+- Crear `documentationService.ts` o equivalente.
+- Resolver documentación preferida por locale.
+- Implementar fallback:
+
+```txt
+locale solicitado: es
+1. overlay es si existe
+2. texto original de entry
+3. string vacío/undefined si no hay documentación
+```
+
+- Exponer APIs pequeñas y sin scans.
+- Cachear de forma segura si aporta valor, sin stale data.
+- No tocar resolución semántica ni índices principales salvo integración mínima.
+
+### API objetivo
+
+```ts
+export type DocumentationLocale = 'en' | 'es';
+
+export function getDisplaySummary(
+    entry: PbSystemSymbolEntry,
+    locale: DocumentationLocale,
+): string;
+
+export function getDisplayDocumentation(
+    entry: PbSystemSymbolEntry,
+    locale: DocumentationLocale,
+): string | undefined;
+
+export function getDisplayUsageNotes(
+    entry: PbSystemSymbolEntry,
+    locale: DocumentationLocale,
+): readonly string[];
+
+export function getDisplayObsoleteMessage(
+    entry: PbSystemSymbolEntry,
+    locale: DocumentationLocale,
+): string | undefined;
+
+export function getDisplayReturnDocumentation(
+    entry: PbSystemSymbolEntry,
+    locale: DocumentationLocale,
+): string | undefined;
+
+export function getDisplayParameterDocumentation(
+    entry: PbSystemSymbolEntry,
+    signatureLabel: string,
+    parameterName: string,
+    locale: DocumentationLocale,
+): string | undefined;
+```
+
+### Performance rules
+
+- `entry.id` → localization overlay debe ser `Map<string, Overlay>` o estructura equivalente.
+- No recorrer todos los overlays en hover/completion/signatureHelp.
+- No construir copias profundas de `PbSystemSymbolEntry` por idioma.
+- No generar arrays nuevos si no hay uso visible, salvo valores pequeños inevitables.
+- No llamar traductores ni APIs externas.
+- El servicio no resuelve símbolos; solo transforma documentación de una entry ya resuelta.
+
+### Criterios de cierre verificables
+
+- Hover puede pedir resumen/documentación en español con lookup O(1).
+- Si falta overlay español, se muestra inglés original.
+- Tests cubren fallback `es → en`.
+- Tests cubren overlay por `targetId`.
+- Tests cubren overlay por `targetKey` si se implementa.
+- No hay full-catalog scans en el servicio.
+- No hay merge global en startup.
+- Performance/hot-path tests siguen verdes.
+
+### Docs afectadas
+
+- `docs/architecture.md`
+- `docs/performance-budget.md`
+- `docs/testing.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "documentationService|localization|fallback|catalog"
+npm run test:unit -- --grep "hotPath|performance|allocation"
+```
+
+---
+
+## B373 — Localized catalog consumers for hover, completion and signatureHelp
+- **Estado:** Open
+- **Track:** language services / localization / UX
+- **Prioridad:** Alta
+- **Depende de:** B372
+- **Objetivo:** integrar la documentación localizada en hover, completion y signatureHelp sin cambiar la identidad semántica de los símbolos ni introducir coste adicional significativo.
+- **Razón técnica:** la localización solo aporta valor si aparece en las superficies visibles del usuario. La integración debe hacerse en los renderers/consumers, no en el registry ni en la resolución semántica.
+
+### Alcance incluido
+
+- Integrar `documentationService` en hover.
+- Integrar `documentationService` en completion item detail/documentation.
+- Integrar `documentationService` en signatureHelp para documentación de parámetros y retorno.
+- Preparar diagnostics para mensajes localizados si ya existe infraestructura de reason codes.
+- Añadir configuración de locale si no existe.
+- Mantener signatures originales sin traducir.
+- Mantener nombres de símbolos originales.
+
+### Configuración objetivo
+
+Usar una de estas opciones, según arquitectura existente:
+
+```ts
+powerbuilder.catalog.documentationLocale: 'auto' | 'en' | 'es'
+```
+
+o:
+
+```ts
+powerbuilder.languageServices.documentationLocale: 'auto' | 'en' | 'es'
+```
+
+Reglas:
+
+```txt
+auto → usar idioma de VS Code si disponible, si no es/en fallback definido
+en → usar texto original
+es → usar overlay español si existe
+```
+
+### Reglas de render
+
+- Hover:
+  - título/nombre original.
+  - firma original.
+  - summary/documentation localizados.
+  - sourceUrl oficial si aplica.
+- Completion:
+  - label original.
+  - detail original o técnico.
+  - documentation localizada.
+- SignatureHelp:
+  - signature label original.
+  - parameter docs localizados si existen.
+  - return docs localizados si existen.
+- Diagnostics:
+  - mantener reason codes estables.
+  - mensaje localizado solo como presentación.
+
+### Criterios de cierre verificables
+
+- Hover de una función generated muestra español si hay overlay.
+- Hover de una función sin overlay cae a inglés.
+- Completion no duplica items por idioma.
+- SignatureHelp mantiene firmas originales y localiza descripciones.
+- La configuración de locale funciona y tiene fallback.
+- No se alteran tests de resolución semántica.
+- No se introducen scans por token ni por completion item.
+
+### Docs afectadas
+
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `README.md` si se documenta la setting pública.
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "hover|completion|signatureHelp|localization|documentationService"
+npm run test:unit -- --grep "catalog|systemCatalog|queryService"
+npm run test:unit -- --grep "hotPath|performance|allocation"
+```
+
+---
+
+## B374 — Spanish catalog localization authoring workflow and coverage gate
+- **Estado:** Open
+- **Track:** localization / docs governance / catalog quality
+- **Prioridad:** Media-Alta
+- **Depende de:** B371, B372, B366, B367
+- **Relacionada con:** B369
+- **Objetivo:** crear un workflow mantenible para añadir traducciones españolas por tandas, medir cobertura y evitar drift entre generated y overlays localizados.
+- **Razón técnica:** traducir todo el catálogo de golpe es costoso y arriesgado. La localización debe poder crecer incrementalmente, con cobertura medible, validación de overlays huérfanos y prioridad por utilidad de usuario.
+
+### Alcance incluido
+
+- Crear comando/script de reporte de cobertura de localización.
+- Medir cobertura por dominio:
+  - global-functions
+  - object-functions
+  - datawindow-functions
+  - system-events
+  - statements
+  - datatypes
+  - system-object-datatypes
+  - enumerated-types
+  - enumerated-values
+- Detectar overlays huérfanos.
+- Detectar overlays incompletos.
+- Detectar traducciones que intentan cambiar nombres técnicos.
+- Definir prioridad de traducción incremental.
+- Documentar guía de estilo para traducciones españolas.
+
+### Orden recomendado de traducción
+
+```txt
+1. Functions/events más usados y visibles.
+2. DataWindow core.
+3. System object datatypes principales.
+4. Enumerated types/values.
+5. Statements y reserved words.
+6. Resto generated.
+```
+
+### Guía de estilo de traducción
+
+- Mantener nombres reales del lenguaje en inglés/original.
+- Traducir significado, no símbolos.
+- Usar español técnico claro y breve.
+- Evitar traducciones literales pobres si no ayudan al programador.
+- No inventar comportamiento no presente en la fuente oficial.
+- Si se añade explicación curada, marcar source como `manual-curated`.
+- Mantener `sourceUrl` oficial como trazabilidad.
+
+### Ejemplo esperado
+
+```ts
+export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES = {
+  'generated:global-functions:callable:powerscript:global:applytheme:all': {
+    locale: 'es',
+    text: {
+      summary: 'Aplica un tema a la interfaz de usuario de la aplicación actual.',
+      documentation: 'Debe llamarse cuando todas las ventanas estén cerradas para que el tema se aplique correctamente a ventanas y controles.',
+    },
+    reviewed: true,
+    source: 'manual-curated',
+  },
+} as const;
+```
+
+### Criterios de cierre verificables
+
+- Existe reporte de cobertura de localización.
+- El reporte detecta overlays huérfanos.
+- El reporte detecta overlays contra IDs inexistentes tras regenerar catálogo.
+- Existe guía de estilo documentada.
+- Existe primera tanda de localización española revisada.
+- Tests cubren que no se traducen nombres de símbolos ni signatures.
+- Docs explican cómo añadir nuevas traducciones.
+
+### Docs afectadas
+
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/localization.md` si se crea documento nuevo.
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "localization|coverage|catalog|consistency"
+```
+
+---
+
+## B375 — Generated localization compatibility with regenerated catalog IDs
+- **Estado:** Open
+- **Track:** localization / generated compatibility / catalog governance
+- **Prioridad:** Media-Alta
+- **Depende de:** B371, B367, B374
+- **Objetivo:** garantizar que los overlays de localización sobreviven a regeneraciones del catálogo o fallan con mensajes claros cuando cambian IDs o claves de destino.
+- **Razón técnica:** si la localización se enlaza por `entry.id`, una mejora del generated puede cambiar IDs si cambian domain/kind/namespace/invocation/name/ownerTypes. El sistema debe detectar esos cambios y ofrecer una ruta de migración segura.
+
+### Alcance incluido
+
+- Añadir test/snapshot de IDs localizados.
+- Añadir reporte de overlays rotos tras regenerar generated.
+- Soportar `targetKey` como fallback si `targetId` cambia pero la identidad semántica sigue siendo localizable.
+- Añadir script opcional de migración de localization IDs.
+- Documentar cuándo usar `targetId` y cuándo usar `targetKey`.
+
+### Reglas recomendadas
+
+```txt
+targetId:
+  usar cuando el ID es estable y la entry ya está consolidada.
+
+targetKey:
+  usar cuando la entry procede de generated en evolución o puede cambiar ownerTypes.
+
+Ambos:
+  targetId preferido; targetKey fallback de recuperación.
+```
+
+### Criterios de cierre verificables
+
+- Una regeneración de generated no rompe silenciosamente localizaciones.
+- Overlays sin destino válido fallan en consistency o aparecen en reporte claro.
+- Existe fixture de ID cambiado que demuestra recuperación por targetKey.
+- Existe documentación de migración.
+- No hay coste en hot path por resolver migraciones; la resolución se preindexa.
+
+### Docs afectadas
+
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/architecture.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "localization|generated|ids|compatibility|consistency"
+```
+
+---
+
+# L5.2 — Enumerated Catalog / DataWindow Knowledge
+
+## B362 — PowerBuilder enumerated datatypes and values catalog completion
+- **Estado:** Closed
 - **Track:** knowledge / language catalog / enumerations
 - **Prioridad:** Alta
 - **Depende de:** B360, B361, B339
-- **Objetivo:** completar el catálogo de tipos enumerados y valores enumerados con entradas oficiales cuando estén disponibles y entradas manual-curated solo con evidencia suficiente.
-- **Razón técnica:** el programador debe entender qué está escribiendo. El catálogo debe explicar tanto el tipo (`DWBuffer`) como cada valor (`Primary!`) con significado concreto, numeric value y obsolescencia cuando aplique.
+- **Objetivo:** completar la integración consumible del catálogo de tipos y valores enumerados usando como base primaria el rail oficial generado por B361, añadiendo solo gaps, enrichments, overrides o candidates manual-curated cuando exista evidencia suficiente.
+- **Razón técnica:** el programador debe entender qué está escribiendo. El catálogo debe explicar tanto el tipo (`DWBuffer`) como cada valor (`Primary!`) con significado concreto, numeric value y obsolescencia cuando aplique, sin duplicar entradas oficiales ya generadas.
+- **Nota de continuidad:** `B361` deja ya cerrados `enumeratedTypes.generated.ts`, `enumeratedValues.generated.ts`, `enumeratedCoverage.generated.ts` y `enumeratedProvenance.generated.ts`; `B362` debe consumir ese rail oficial, no reabrirlo ni volver a scrapearlo.
+- **Cierre 2026-05:** `SecureProtocol` conserva documentación y `allowedOnOwners` oficiales sin inventar `enumValues` nominales, el rail manual-core ya no deja `enumerated-types` sin `documentation` y `SeekType` queda cubierto como gap manual-curated con `FromBeginning!`, `FromCurrent!` y `FromEnd!`; ver `specs/376-enumerated-catalog-completion-and-curated-gap-closure`.
 
 ### Structure target
 
 ```txt
-manual/language/enumerations/
-  common.ts
+generated/
+  enumeratedTypes.generated.ts
+  enumeratedValues.generated.ts
+  enumeratedCoverage.generated.ts
+  enumeratedProvenance.generated.ts
+
+manual/curated/enumerations/
   index.ts
-  datawindow.ts
-  ui.ts
-  windows.ts
-  file.ts
-  drawing.ts
-  print.ts
-  dragDrop.ts
-  database.ts
-  runtime.ts
-  pdf.ts
+  gaps.ts
+  enrichments.ts
+  overrides.ts
   corpusCandidates.ts
 ```
 
@@ -1401,103 +1829,11 @@ npm run test:unit -- --grep "enumerated|enum|catalog|systemCatalog"
 
 ---
 
-## B363 — Catalog-driven enum hover, completion, signatureHelp and diagnostics
-- **Estado:** Open
-- **Track:** language services / catalog consumers
-- **Prioridad:** Alta
-- **Depende de:** B360, B362, B365
-- **Objetivo:** integrar el modelo correcto de enumerated types/values en hover, completion, signatureHelp, semanticTokens y diagnostics conservadores, priorizando utilidad real para programadores PowerBuilder.
-- **Razón técnica:** el usuario debe entender exactamente qué significa `CSV!`, `Primary!`, `EncodingUTF8!` o `Right!`, y completion/signatureHelp deben sugerir valores válidos cuando el tipo esperado sea inequívoco.
-
-### Alcance incluido
-
-- Hover para `enumerated-type`.
-- Hover para `enumerated-value`.
-- Completion de valores cuando el tipo esperado es inequívoco.
-- SignatureHelp enriquecido con valores enumerados.
-- Semantic tokens para valores terminados en `!`.
-- Diagnostics conservadores para valor incorrecto con confidence alta.
-
-### Example code targets
-
-```powerscript
-dw_1.SaveAs("x.csv", CSV!, true, EncodingUTF8!)
-dw_1.RowsMove(1, 1, Primary!, dw_2, 1, Primary!)
-dw_1.SetItemStatus(1, "name", Primary!, DataModified!)
-mle_1.Alignment = Right!
-```
-
-### Expected hover over type
-
-```md
-### DWBuffer
-
-Tipo enumerado PowerBuilder.
-
-Selecciona el buffer de filas de un DataWindow sobre el que opera un método.
-
-**Valores conocidos:**
-- `Primary!` — buffer principal.
-- `Delete!` — buffer de filas eliminadas.
-- `Filter!` — buffer de filas filtradas.
-```
-
-### Expected hover over value
-
-```md
-### Primary!
-
-Valor enumerado de `DWBuffer`.
-
-Buffer principal del DataWindow.
-
-Representa las filas activas que no han sido eliminadas ni filtradas.
-
-**Valor numérico:** `0`
-```
-
-### Safety rules
-
-- Do not diagnose if expected type is ambiguous.
-- Do not diagnose dynamic calls.
-- Do not diagnose values coming from variables, strings or expressions.
-- Do not diagnose outside typed contexts.
-- Do not perform full catalog lookup per token.
-- Use indexes/caches by lookupKey and `enumValueOf`.
-
-### Criterios de cierre verificables
-
-- Hover over `SaveAsType` shows enum type documentation.
-- Hover over `CSV!` shows value of `SaveAsType` and meaning.
-- Hover over `Primary!` shows value of `DWBuffer` and meaning.
-- Completion in `DWBuffer` parameter suggests `Primary!`, `Delete!`, `Filter!`.
-- Completion in `Encoding` parameter suggests `EncodingANSI!`, `EncodingUTF8!`, `EncodingUTF16LE!`, `EncodingUTF16BE!`.
-- SignatureHelp shows known values for enum parameters.
-- Semantic tokens classify enum values without degrading performance.
-- Diagnostics only report incompatible enum values when the expected type is unequivocal.
-
-### Docs afectadas
-
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `docs/rules-catalog.md`
-- `docs/testing.md`
-- `docs/performance-budget.md`
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "completion|hover|signatureHelp|semanticTokens|diagnostics|enumerated|enum"
-npm run test:unit -- --grep "catalog|systemCatalog|catalogV2"
-```
-
----
-
 ## B364 — Enum catalog real-corpus validation against PFC, STD and public PB repositories
 - **Estado:** Open
 - **Track:** validation / real corpora / catalog
 - **Prioridad:** Alta
-- **Depende de:** B362, B363, B336
+- **Depende de:** B362, B363, B356
 - **Objetivo:** validar el catálogo de enumerated types/values contra corpus reales PowerBuilder, incluyendo PFC 2025, STD/OrderEntry y otros repositorios públicos PowerBuilder, para detectar gaps, falsos positivos y patrones reales de uso.
 - **Razón técnica:** el catálogo debe ser útil en código real. PFC y STD/OrderEntry son corpus grandes y actuales para comprobar indexación, hover, completion, diagnostics y ausencia de ruido masivo.
 
@@ -1561,122 +1897,1545 @@ npm run test:unit -- --grep "enumerated|enum|catalog"
 npm run test:performance -- --grep "PFC|OrderEntry|STD"
 npm run test:unit -- --grep "enumerated|enum|catalog"
 ```
+---
+
+## B376 — Workspace check command and AI-readable validation report
+- **Estado:** Open
+- **Track:** developer workflow / diagnostics / AI supportability
+- **Prioridad:** Alta
+- **Depende de:** B335, B365
+- **Objetivo:** añadir una tool/API read-only consolidada para comprobar el workspace con las capacidades reales del plugin y devolver un informe estructurado apto para IA.
+- **Razón técnica:** la API actual expone piezas útiles (`server-stats`, `semantic-workspace-manifest`, `code-metrics`, `technical-debt-report`, `build-profile-matrix`, etc.), pero no existe un comando único equivalente a “compilar/checkear” desde la perspectiva del plugin. Una IA necesita una llamada única que responda: “¿qué errores detecta el plugin ahora mismo y puedo cerrar la spec?”.
 
 ---
 
-## B365 — System catalog query/index hardening v2
+## Diagnóstico actual
+
+La API pública ya contiene muchas superficies read-only útiles:
+
+```txt
+server-stats
+semantic-workspace-manifest
+code-metrics
+technical-debt-report
+build-profile-matrix
+cross-project-symbol-conflicts
+datawindow-sql-lineage
+current-object-context
+impact-analysis
+safe-edit-plan
+safe-batch-refactor-plan
+```
+
+Pero falta una superficie consolidada tipo:
+
+```txt
+workspace-check
+checkWorkspace()
+powerbuilder.checkWorkspace
+```
+
+La nueva API no debe crear un motor paralelo; debe actuar como **orquestador read-only** de información ya disponible.
+
+---
+
+## Alcance incluido
+
+### 1. Añadir read-only tool
+
+Añadir a `ApiReadOnlyToolName`:
+
+```ts
+| 'workspace-check'
+```
+
+Añadir descriptor:
+
+```ts
+{
+  name: 'workspace-check',
+  description: 'Ejecuta una comprobación read-only consolidada del workspace usando discovery, indexing, diagnostics, health, catálogo y señales semánticas ya disponibles.',
+  command: 'powerbuilder.checkWorkspace',
+  requestSchema: 'ApiWorkspaceCheckRequest',
+  responseSchema: 'ApiWorkspaceCheckReport',
+  usesActiveEditorFallback: false,
+}
+```
+
+### 2. Añadir comando VS Code
+
+```txt
+PowerBuilder: Check Workspace
+```
+
+Command ID:
+
+```txt
+powerbuilder.checkWorkspace
+```
+
+Opcional si encaja con la arquitectura existente:
+
+```txt
+PowerBuilder: Check Current File
+powerbuilder.checkCurrentFile
+```
+
+### 3. Añadir método público
+
+Añadir a `VscPowerSyntaxApi`:
+
+```ts
+checkWorkspace(request?: ApiWorkspaceCheckRequest): Promise<ApiWorkspaceCheckReport>;
+```
+
+Añadir a `PUBLIC_API_CONTRACT_METHODS`:
+
+```ts
+{
+  name: 'checkWorkspace',
+  command: 'powerbuilder.checkWorkspace',
+  access: 'read-only',
+  stability: 'stable',
+  requestSchema: 'ApiWorkspaceCheckRequest',
+  responseSchema: 'ApiWorkspaceCheckReport',
+}
+```
+
+### 4. Añadir schemas al contrato público
+
+Añadir a `PUBLIC_API_CONTRACT_SCHEMAS`:
+
+```ts
+{ name: 'ApiWorkspaceCheckRequest', version: '1.0.0', kind: 'request' },
+{ name: 'ApiWorkspaceCheckReport', version: '1.0.0', kind: 'response' },
+{ name: 'ApiWorkspaceCheckFinding', version: '1.0.0', kind: 'response' },
+{ name: 'ApiWorkspaceCheckCatalogSummary', version: '1.0.0', kind: 'response' },
+```
+
+---
+
+## Modelo de API objetivo
+
+### Request
+
+```ts
+export type ApiWorkspaceCheckMode = 'quick' | 'full' | 'catalog' | 'diagnostics';
+
+export interface ApiWorkspaceCheckRequest {
+  mode?: ApiWorkspaceCheckMode;
+  includeDiagnostics?: boolean;
+  includeCatalog?: boolean;
+  includeHealth?: boolean;
+  includeBuildProfiles?: boolean;
+  includeTechnicalDebt?: boolean;
+  includeCodeMetrics?: boolean;
+  includeManifest?: boolean;
+  maxDiagnostics?: number;
+  maxFiles?: number;
+  maxFindings?: number;
+}
+```
+
+### Finding
+
+```ts
+export interface ApiWorkspaceCheckFinding {
+  code: string;
+  severity: 'info' | 'warning' | 'error';
+  area:
+    | 'readiness'
+    | 'indexing'
+    | 'diagnostics'
+    | 'catalog'
+    | 'semantic'
+    | 'datawindow'
+    | 'build'
+    | 'health'
+    | 'performance'
+    | 'localization'
+    | 'unknown';
+  message: string;
+  detail?: string;
+  uri?: string;
+  line?: number;
+  character?: number;
+  evidence?: string[];
+  suggestedAction?: string;
+}
+```
+
+### Catalog summary
+
+```ts
+export interface ApiWorkspaceCheckCatalogSummary {
+  available: boolean;
+  totalEntries?: number;
+  duplicates?: number;
+  missingSignatures?: number;
+  invalidEnumTypes?: number;
+  orphanEnumValues?: number;
+  orphanLocalizationOverlays?: number;
+  generatedManualConflicts?: number;
+  consistencyStatus: 'passed' | 'warning' | 'failed' | 'unknown';
+}
+```
+
+### Summary
+
+```ts
+export interface ApiWorkspaceCheckSummary {
+  projectCount: number;
+  objectCount: number;
+  exportedSymbolCount: number;
+
+  diagnostics: {
+    error: number;
+    warning: number;
+    info: number;
+    hint: number;
+  };
+
+  healthStatus?: 'healthy' | 'warning' | 'error';
+  readinessState?: string;
+
+  catalogIssues: number;
+  blockingFindings: number;
+  warningFindings: number;
+
+  generatedFromCache?: boolean;
+  truncated: boolean;
+}
+```
+
+### Report
+
+```ts
+export interface ApiWorkspaceCheckReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+  mode: ApiWorkspaceCheckMode;
+  status: 'passed' | 'warning' | 'failed';
+  available: boolean;
+  reason?: string;
+
+  summary: ApiWorkspaceCheckSummary;
+
+  readiness?: ApiServerStats['readiness'];
+  health?: ApiRuntimeHealthReport;
+  diagnostics?: ApiDiagnosticsSnapshot;
+  catalog?: ApiWorkspaceCheckCatalogSummary;
+  manifest?: ApiSemanticWorkspaceManifest;
+  codeMetrics?: ApiPowerBuilderCodeMetrics;
+  technicalDebt?: ApiPowerBuilderTechnicalDebtReport;
+  buildProfiles?: ApiBuildProfileMatrix;
+
+  findings: ApiWorkspaceCheckFinding[];
+  recommendedActions: string[];
+}
+```
+
+---
+
+## Composición interna esperada
+
+`workspace-check` debe componer datos ya existentes, sin duplicar motores:
+
+```txt
+1. getServerStats()
+2. getSemanticWorkspaceManifest()
+3. ApiServerStats.diagnostics
+4. ApiServerStats.health
+5. catalog consistency report si está disponible
+6. localization consistency si B371-B375 están implementadas
+7. getBuildProfileMatrix() solo en full o si includeBuildProfiles=true
+8. getPowerBuilderCodeMetrics() solo en full o si includeCodeMetrics=true
+9. getPowerBuilderTechnicalDebtReport() solo en full o si includeTechnicalDebt=true
+```
+
+---
+
+## Reglas de estado
+
+### `failed`
+
+El reporte debe devolver `failed` si ocurre cualquiera de estas condiciones:
+
+```txt
+diagnostics.error > 0
+health.status === 'error'
+catalog consistency failed
+readiness blocked/error
+required index unavailable
+```
+
+### `warning`
+
+El reporte debe devolver `warning` si ocurre cualquiera de estas condiciones y no hay errores bloqueantes:
+
+```txt
+diagnostics.warning > 0
+health.status === 'warning'
+index degraded
+catalog warnings
+build profile invalid but not required
+localization orphan overlays warning
+```
+
+### `passed`
+
+El reporte debe devolver `passed` si:
+
+```txt
+no hay diagnostics error
+no hay health error
+no hay catalog failure
+no hay readiness blocked/error
+```
+
+---
+
+## Reglas estrictas
+
+- La tool debe ser read-only.
+- No debe modificar archivos.
+- No debe borrar caches.
+- No debe ejecutar ORCA/build por defecto.
+- No debe hacer full scans si hay índices/caches válidos.
+- No debe bloquear VS Code.
+- No debe inventar resultados si un subsistema no está disponible.
+- Si falta información, debe devolver `available: false` o `reason` claro para esa sección.
+- Debe respetar límites de contexto (`maxDiagnostics`, `maxFiles`, `maxFindings`).
+- Debe marcar `truncated: true` cuando recorte información.
+
+---
+
+## Salidas recomendadas
+
+### API / tool
+
+La salida primaria debe ser JSON estructurado:
+
+```txt
+ApiWorkspaceCheckReport
+```
+
+### Command Palette
+
+El comando `PowerBuilder: Check Workspace` puede mostrar:
+
+```txt
+passed / warning / failed
+número de errores
+número de warnings
+readiness
+health
+acciones recomendadas
+```
+
+### Export opcional
+
+Si encaja con la arquitectura existente, puede exportar:
+
+```txt
+test/results/pb-check/latest.json
+test/results/pb-check/latest.md
+test/results/pb-check/latest.diagnostics.json
+```
+
+Este export debe ser explícito, no automático si no existe una política de artifacts.
+
+---
+
+## Ejemplo de salida esperada
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-03T21:45:00.000Z",
+  "apiVersion": "2.14.0",
+  "mode": "quick",
+  "status": "failed",
+  "available": true,
+  "summary": {
+    "projectCount": 3,
+    "objectCount": 1240,
+    "exportedSymbolCount": 98234,
+    "diagnostics": {
+      "error": 3,
+      "warning": 42,
+      "info": 18,
+      "hint": 0
+    },
+    "healthStatus": "warning",
+    "readinessState": "ready",
+    "catalogIssues": 1,
+    "blockingFindings": 3,
+    "warningFindings": 43,
+    "truncated": false
+  },
+  "findings": [
+    {
+      "code": "diagnostics.errors-present",
+      "severity": "error",
+      "area": "diagnostics",
+      "message": "El workspace contiene diagnostics de error.",
+      "suggestedAction": "Revisar diagnostics por archivo antes de cerrar la spec."
+    }
+  ],
+  "recommendedActions": [
+    "Corregir diagnostics de error.",
+    "Revisar catalog consistency report."
+  ]
+}
+```
+
+---
+
+## Criterios de cierre verificables
+
+- `ApiReadOnlyToolName` incluye `workspace-check`.
+- `READ_ONLY_TOOL_DESCRIPTORS` incluye `workspace-check`.
+- `getReadOnlyToolBridgeDescriptor()` publica `workspace-check`.
+- `PUBLIC_API_CONTRACT_METHODS` incluye `checkWorkspace`.
+- `PUBLIC_API_CONTRACT_SCHEMAS` incluye los schemas nuevos.
+- `VscPowerSyntaxApi` expone `checkWorkspace`.
+- Existe command `powerbuilder.checkWorkspace`.
+- `ApiWorkspaceCheckReport.status` devuelve `passed`, `warning` o `failed`.
+- El reporte incluye diagnostics agregados.
+- El reporte incluye readiness y health.
+- El reporte incluye catalog consistency si está disponible.
+- La tool es read-only.
+- No se ejecuta ORCA/build por defecto.
+- Tests cubren workspace sano.
+- Tests cubren workspace con diagnostics.
+- Tests cubren catalog failure.
+- Tests cubren truncado por límites.
+- Docs explican que este comando es el equivalente “check/compile-like” del plugin para IA.
+
+---
+
+## Docs afectadas
+
+- `docs/developer-workflows.md`
+- `docs/ai-orchestrator.md`
+- `docs/testing.md`
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `README.md` si se expone en Command Palette.
+- `docs/backlog.md`
+- `docs/current-focus.md`
+
+---
+
+## Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "workspace-check|publicApi|readOnlyTool|diagnostics|health|catalog"
+npm run test:unit -- --grep "contract|publicApi|toolBridge"
+```
+---
+
+## B377 — Current object/class check command and AI-readable validation report
 - **Estado:** Open
-- **Track:** knowledge / catalog performance / query architecture
+- **Track:** developer workflow / diagnostics / AI supportability
 - **Prioridad:** Alta
-- **Depende de:** B357
-- **Objetivo:** reforzar `buildIndexes.ts`, `queryService.ts` y `SystemCatalog.ts` para evitar filtros y combinaciones costosas conforme crecen manual/generated/enumerated/visual/runtime catalog slices.
-- **Razón técnica:** el query service ya usa `byLookupKey` y `byDomain`, pero owner-context queries todavía pueden combinar listas grandes, `resolveLanguageSymbol()` depende del orden de slices y futuras enum queries necesitan índices específicos.
+- **Depende de:** B376, B365
+- **Objetivo:** añadir una tool/API read-only para comprobar una clase/objeto PowerBuilder completo usando el índice semántico, diagnostics, contexto del objeto, dependencias inmediatas, DataWindow bindings y safe-edit signals.
+- **Razón técnica:** una IA necesita poder validar una unidad concreta después de modificar o revisar una clase, ventana, userobject, menú, datastore, DataWindow o nonvisual object. `workspace-check` valida el workspace completo; esta spec valida una unidad focal sin obligar a analizar todo el workspace.
+
+---
+
+## Alcance incluido
+
+### 1. Nueva read-only tool
+
+Añadir a `ApiReadOnlyToolName`:
+
+```ts
+| 'object-check'
+```
+
+Descriptor:
+
+```ts
+{
+  name: 'object-check',
+  description: 'Ejecuta una comprobación read-only de una clase/objeto PowerBuilder completo usando contexto semántico, diagnostics, dependencias, bindings DataWindow y health local.',
+  command: 'powerbuilder.checkCurrentObject',
+  requestSchema: 'ApiObjectCheckRequest',
+  responseSchema: 'ApiObjectCheckReport',
+  usesActiveEditorFallback: true,
+}
+```
+
+---
+
+### 2. Comandos VS Code
+
+```txt
+PowerBuilder: Check Current Object
+PowerBuilder: Check Object...
+```
+
+Command IDs:
+
+```txt
+powerbuilder.checkCurrentObject
+powerbuilder.checkObject
+```
+
+---
+
+### 3. Método público
+
+Añadir a `VscPowerSyntaxApi`:
+
+```ts
+checkObject(request?: ApiObjectCheckRequest): Promise<ApiObjectCheckReport>;
+```
+
+Añadir a `PUBLIC_API_CONTRACT_METHODS`:
+
+```ts
+{
+  name: 'checkObject',
+  command: 'powerbuilder.checkCurrentObject',
+  access: 'read-only',
+  stability: 'stable',
+  requestSchema: 'ApiObjectCheckRequest',
+  responseSchema: 'ApiObjectCheckReport',
+}
+```
+
+---
+
+### 4. Añadir schemas al contrato público
+
+Añadir a `PUBLIC_API_CONTRACT_SCHEMAS`:
+
+```ts
+{ name: 'ApiObjectCheckRequest', version: '1.0.0', kind: 'request' },
+{ name: 'ApiObjectCheckReport', version: '1.0.0', kind: 'response' },
+{ name: 'ApiObjectCheckFinding', version: '1.0.0', kind: 'response' },
+{ name: 'ApiObjectCheckSummary', version: '1.0.0', kind: 'response' },
+```
+
+---
+
+## Modelo de API objetivo
+
+### Request
+
+```ts
+export interface ApiObjectCheckRequest {
+  uri?: string;
+  objectName?: string;
+  line?: number;
+  character?: number;
+
+  includeDiagnostics?: boolean;
+  includeContext?: boolean;
+  includeDependencyGraph?: boolean;
+  includeImpactAnalysis?: boolean;
+  includeSafeEditPlan?: boolean;
+  includeDataWindowBindings?: boolean;
+  includeEmbeddedSql?: boolean;
+  includeLifecycle?: boolean;
+
+  maxDiagnostics?: number;
+  maxReferences?: number;
+  maxDependencyNodes?: number;
+  maxFindings?: number;
+}
+```
+
+---
+
+### Finding
+
+```ts
+export interface ApiObjectCheckFinding {
+  code: string;
+  severity: 'info' | 'warning' | 'error';
+  area:
+    | 'parser'
+    | 'diagnostics'
+    | 'semantic'
+    | 'inheritance'
+    | 'override'
+    | 'lifecycle'
+    | 'datawindow'
+    | 'sql'
+    | 'dependency'
+    | 'safe-edit'
+    | 'health'
+    | 'unknown';
+
+  message: string;
+  detail?: string;
+  uri?: string;
+  line?: number;
+  character?: number;
+  evidence?: string[];
+  suggestedAction?: string;
+}
+```
+
+---
+
+### Summary
+
+```ts
+export interface ApiObjectCheckSummary {
+  objectName?: string;
+  objectKind?: string;
+  uri?: string;
+
+  diagnostics: {
+    error: number;
+    warning: number;
+    info: number;
+    hint: number;
+  };
+
+  dependencyCount: number;
+  dependentCount: number;
+  unresolvedDependencyCount: number;
+  ambiguousDependencyCount: number;
+
+  dataWindowBindingCount: number;
+  unresolvedDataWindowBindingCount: number;
+
+  embeddedSqlCount: number;
+  dynamicSqlRiskCount: number;
+
+  blockingFindings: number;
+  warningFindings: number;
+
+  truncated: boolean;
+}
+```
+
+---
+
+### Report
+
+```ts
+export interface ApiObjectCheckReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+
+  status: 'passed' | 'warning' | 'failed';
+
+  source: {
+    kind: 'active-editor' | 'uri' | 'object-name';
+    uri?: string;
+    objectName?: string;
+    line?: number;
+    character?: number;
+  };
+
+  summary: ApiObjectCheckSummary;
+
+  objectContext?: ApiCurrentObjectContext;
+  dependencyGraph?: ApiPowerBuilderDependencyGraph;
+  impactAnalysis?: ApiImpactAnalysis;
+  safeEditPlan?: ApiSafeEditPlan;
+
+  findings: ApiObjectCheckFinding[];
+  recommendedActions: string[];
+}
+```
+
+---
+
+## Composición interna esperada
+
+La tool debe reutilizar APIs existentes:
+
+```txt
+1. getCurrentObjectContext()
+2. getPowerBuilderDependencyGraph()
+3. analyzeImpact()
+4. generateSafeEditPlan()
+5. diagnostics del objeto/documento desde ApiCurrentObjectContext
+6. DataWindow bindings desde ApiCurrentObjectContext.dataWindowBindings
+7. embedded SQL anchors desde ApiCurrentObjectContext.embeddedSqlAnchors
+8. dependency graph summary
+```
+
+No debe crear un motor paralelo.
+
+---
+
+## Reglas de estado
+
+### `failed`
+
+El reporte debe devolver `failed` si ocurre cualquiera de estas condiciones:
+
+```txt
+diagnostics.error > 0
+objectContext.available === false
+safeEditPlan.blocked === true, si includeSafeEditPlan=true
+unresolved critical inheritance/base object
+critical parser failure for the object
+```
+
+### `warning`
+
+El reporte debe devolver `warning` si ocurre cualquiera de estas condiciones y no hay errores bloqueantes:
+
+```txt
+diagnostics.warning > 0
+dependencyGraph has unresolved/ambiguous dependencies
+DataWindow bindings unresolved
+dynamic SQL risk detected
+safeEditPlan has high risks but not blocked
+```
+
+### `passed`
+
+El reporte debe devolver `passed` si:
+
+```txt
+objectContext available
+no diagnostics error
+no critical unresolved inheritance
+no blocking safe edit plan
+```
+
+---
+
+## Reglas estrictas
+
+- La tool debe ser read-only.
+- No debe modificar archivos.
+- No debe ejecutar ORCA/build.
+- No debe hacer full workspace scan si el objeto ya está indexado.
+- Debe usar active editor fallback solo si no se pasa `uri/objectName`.
+- Si el objeto no está indexado, debe devolver `available: false` y `reason` claro.
+- Debe respetar límites `maxDiagnostics`, `maxReferences`, `maxDependencyNodes`, `maxFindings`.
+- Debe marcar `truncated: true` si recorta resultados.
+- No debe inventar resultados cuando una sección no esté disponible.
+- No debe bloquear VS Code.
+
+---
+
+## Salidas recomendadas
+
+### API / tool
+
+La salida primaria debe ser JSON estructurado:
+
+```txt
+ApiObjectCheckReport
+```
+
+### Command Palette
+
+El comando `PowerBuilder: Check Current Object` puede mostrar:
+
+```txt
+passed / warning / failed
+nombre del objeto
+kind del objeto
+diagnostics agregados
+riesgos principales
+acciones recomendadas
+```
+
+### Export opcional
+
+Si encaja con la arquitectura existente, puede exportar explícitamente:
+
+```txt
+test/results/pb-check/current-object.latest.json
+test/results/pb-check/current-object.latest.md
+```
+
+---
+
+## Ejemplo de salida esperada
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-03T22:30:00.000Z",
+  "apiVersion": "2.14.0",
+  "available": true,
+  "status": "warning",
+  "source": {
+    "kind": "active-editor",
+    "uri": "file:///workspace/app/w_customer.srw",
+    "objectName": "w_customer"
+  },
+  "summary": {
+    "objectName": "w_customer",
+    "objectKind": "window",
+    "uri": "file:///workspace/app/w_customer.srw",
+    "diagnostics": {
+      "error": 0,
+      "warning": 2,
+      "info": 1,
+      "hint": 0
+    },
+    "dependencyCount": 6,
+    "dependentCount": 3,
+    "unresolvedDependencyCount": 1,
+    "ambiguousDependencyCount": 0,
+    "dataWindowBindingCount": 2,
+    "unresolvedDataWindowBindingCount": 1,
+    "embeddedSqlCount": 1,
+    "dynamicSqlRiskCount": 0,
+    "blockingFindings": 0,
+    "warningFindings": 3,
+    "truncated": false
+  },
+  "findings": [
+    {
+      "code": "datawindow.binding.unresolved",
+      "severity": "warning",
+      "area": "datawindow",
+      "message": "Hay un binding DataWindow no resuelto en el objeto actual.",
+      "suggestedAction": "Revisar dataobject asignado y disponibilidad del .srd correspondiente."
+    }
+  ],
+  "recommendedActions": [
+    "Revisar el binding DataWindow no resuelto.",
+    "Revisar warnings antes de cerrar la spec."
+  ]
+}
+```
+
+---
+
+## Criterios de cierre verificables
+
+- `ApiReadOnlyToolName` incluye `object-check`.
+- `READ_ONLY_TOOL_DESCRIPTORS` incluye `object-check`.
+- `getReadOnlyToolBridgeDescriptor()` publica `object-check`.
+- `PUBLIC_API_CONTRACT_METHODS` incluye `checkObject`.
+- `PUBLIC_API_CONTRACT_SCHEMAS` incluye los schemas nuevos.
+- `VscPowerSyntaxApi` expone `checkObject`.
+- Existe command `powerbuilder.checkCurrentObject`.
+- Usa active editor fallback correctamente.
+- Devuelve `passed`, `warning` o `failed`.
+- Incluye diagnostics del objeto.
+- Incluye contexto semántico del objeto.
+- Incluye dependency graph si se solicita.
+- Incluye impact analysis si se solicita.
+- Incluye safe edit plan si se solicita.
+- Incluye DataWindow bindings si existen.
+- Incluye embedded SQL anchors si existen.
+- No ejecuta ORCA/build.
+- Tests cubren objeto sano.
+- Tests cubren objeto con diagnostics.
+- Tests cubren objeto no resoluble.
+- Tests cubren objeto con DataWindow binding missing.
+- Tests cubren objeto con dependencia ambigua.
+- Tests cubren truncado por límites.
+
+---
+
+## Docs afectadas
+
+- `docs/developer-workflows.md`
+- `docs/ai-orchestrator.md`
+- `docs/testing.md`
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `README.md` si se expone en Command Palette.
+- `docs/backlog.md`
+- `docs/current-focus.md`
+
+---
+
+## Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "object-check|currentObjectContext|dependencyGraph|safeEditPlan|diagnostics"
+npm run test:unit -- --grep "publicApi|readOnlyTool|toolBridge|contract"
+```
+---
+
+
+## B378 — AI PowerBuilder context pack and token budget contract
+- **Estado:** Open
+- **Track:** AI supportability / developer workflow / context budget
+- **Prioridad:** Alta
+- **Depende de:** B301, B365
+- **Relacionada con:** B376, B377
+- **Objetivo:** crear un context pack compacto, estable y versionado para que una IA pueda programar en PowerBuilder respetando arquitectura, estilo, validación y reglas del proyecto sin cargar documentación masiva.
+- **Razón técnica:** la IA funciona mejor con contexto breve, estable y accionable que con documentos extensos repetidos en cada tarea. Un context pack reduce tokens, evita drift y estandariza cómo los agentes deben trabajar con PowerBuilder y con este plugin.
 
 ### Alcance incluido
 
-- Añadir índices compuestos cuando aporten valor:
-  - `byDomainAndLookupKey`
-  - `byKindAndLookupKey`
-  - `byEnumValueOf`
-  - `byOwnerTypeAndDomain` or equivalent if needed
-- Refactorizar `findEntriesInDomain()` para usar índice compuesto.
-- Refactorizar enum queries para no hacer scans de dominio.
-- Refactorizar owner-context queries para aprovechar `byOwnerType`/composite index.
-- Mover accesos directos a `PB_SYSTEM_SYMBOL_REGISTRY.indexes` desde `SystemCatalog.ts` hacia `queryService.ts`.
-- Definir prioridad explícita para `resolveLanguageSymbol()`.
-- Congelar o tratar como readonly buckets de índices si es viable.
-- Mantener registry creation cheap and deterministic.
-
-### Suggested query priority for `resolveLanguageSymbol()`
+- Crear documento compacto:
 
 ```txt
-reserved-word
-keyword
-pronoun
-datatype
-system-type
-system-global
-enumerated-type
-enumerated-value
-operator
-property
-constant
+docs/ai-context/powerbuilder-plugin-context.md
 ```
 
-The final order can differ if tests prove a better PowerBuilder user experience, but it must be explicit and documented.
+- Opcionalmente añadir versión reducida o referencia desde:
 
-### Required query APIs
-
-```ts
-listSystemSymbolsByDomain(domain): readonly PbSystemSymbolEntry[];
-isKnownSystemOwnerType(name): boolean;
-findEntriesByDomainAndLookupKey(domain, name): readonly PbSystemSymbolEntry[];
-findEntriesByKindAndLookupKey(kind, name): readonly PbSystemSymbolEntry[];
-listValuesForEnumeratedType(typeName): readonly PbSystemSymbolEntry[];
-resolveEnumValueForExpectedType(valueName, typeName): PbSystemSymbolEntry | undefined;
-resolveLanguageSymbol(name, options?): PbSystemSymbolEntry | undefined;
+```txt
+AGENTS.md
+.github/copilot-instructions.md
 ```
 
-### Performance rules
+- Incluir solo información estable y de alto valor:
+  - arquitectura general del plugin;
+  - reglas PowerBuilder del proyecto;
+  - reglas de SQL y DataWindow;
+  - rutas importantes;
+  - comandos de validación;
+  - herramientas read-only disponibles;
+  - flujo recomendado para tareas IA;
+  - qué no hacer;
+  - specs activas actuales;
+  - reglas de documentación.
 
-- No full catalog scan in hover/completion/signatureHelp/semanticTokens/diagnostics.
-- Owner-specific member completion must not concatenate all object/datawindow functions when specific owner types are available.
-- Enum value resolution by expected type must use index lookup.
-- `SystemCatalog` remains facade; heavy logic stays in `queryService`/indexes.
+### Contenido mínimo requerido
+
+```md
+# AI context — PowerBuilder plugin
+
+## Mission
+## Architecture boundaries
+## PowerBuilder coding rules
+## SQL formatting rules
+## DataWindow rules
+## Catalog/generated/manual/localization rules
+## Validation commands and tools
+## Recommended AI workflow
+## Do not do
+## Active focus
+## Documentation ownership
+```
+
+### Reglas estrictas
+
+- El context pack no debe duplicar documentación larga.
+- El context pack debe enlazar a documentos propietarios cuando haga falta detalle.
+- El context pack debe caber en un prompt pequeño.
+- El context pack no debe incluir generated/manual catalog completo.
+- El context pack debe mantenerse actualizado cuando cambien arquitectura, reglas de validación o foco activo.
+- Si hay conflicto entre context pack y documentación propietaria, la documentación propietaria gana y debe corregirse el context pack.
 
 ### Criterios de cierre verificables
 
-- `findEntriesInDomain()` uses `byDomainAndLookupKey` or equivalent.
-- Enum queries use `byEnumValueOf` or equivalent.
-- Owner-context member queries use owner indexes where possible.
-- `resolveLanguageSymbol()` has explicit documented priority.
-- `SystemCatalog.ts` no longer directly accesses registry indexes except justified exceptional cases.
-- Index buckets are treated as readonly and not mutated by consumers.
-- Tests cover index/query behavior.
-- Performance/hot-path tests remain green.
+- Existe `docs/ai-context/powerbuilder-plugin-context.md`.
+- El documento incluye reglas PowerBuilder críticas.
+- El documento incluye comandos/tools recomendadas para IA.
+- El documento referencia `workspace-check` y `object-check` cuando B376/B377 estén disponibles.
+- El documento indica que no se debe cargar generated/manual completo en prompts.
+- El documento enlaza a docs propietarias en vez de duplicarlas.
+- Tests/checks documentales detectan si el archivo desaparece o queda sin referencias.
 
 ### Docs afectadas
 
-- `docs/architecture.md`
-- `docs/performance-budget.md`
-- `docs/testing.md`
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/ai-strategy.md`
+- `docs/ai-orchestrator.md`
+- `docs/developer-workflows.md`
+- `docs/spec-driven-development.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `AGENTS.md` si existe.
 
 ### Validación esperada
 
 ```bash
 npm run build:test
-npm run test:unit -- --grep "catalog|systemCatalog|queryService|indexes|catalogConsistency"
-npm run test:unit -- --grep "completion|hover|signatureHelp|semanticTokens|diagnostics"
-npm run test:unit -- --grep "hotPath|performance|allocation"
+npm run test:unit -- --grep "docs|ai-context|context-budget|documentation"
 ```
 
 ---
 
-# Final checklist for Copilot agents
+## B379 — Explain diagnostic tool and suggested safe fix contract
+- **Estado:** Open
+- **Track:** diagnostics / AI supportability / safe fixes
+- **Prioridad:** Alta
+- **Depende de:** B376, B377, B365
+- **Objetivo:** añadir una tool/API read-only para explicar un diagnostic concreto con contexto mínimo, reason code, evidencia, scope, riesgo y posible fix seguro si existe.
+- **Razón técnica:** para ahorrar tokens, una IA no debería necesitar leer archivos completos para entender un error. Debe poder pedir explicación estructurada de un diagnostic concreto y recibir solo la evidencia necesaria para decidir una corrección segura.
 
-Before closing any spec from this document, perform this checklist:
+### Alcance incluido
+
+- Añadir read-only tool:
+
+```ts
+| 'explain-diagnostic'
+```
+
+- Añadir comando:
 
 ```txt
-1. Re-read changed code.
-2. Verify no generated/manual ID changed unless the spec explicitly authorizes a breaking change.
-3. Verify no full-catalog scans were introduced in hot paths.
-4. Verify registry/datasets imports remain stable and not slice-exploded.
-5. Verify manual/common.ts contains factories/helpers only.
-6. Verify consistency report catches new structural errors.
-7. Verify docs/backlog/current-focus/roadmap are aligned.
-8. Verify tests are green.
-9. Verify done-log is updated only for fully closed specs.
-10. If real corpora are required but absent, document honest skip paths and do not fake results.
+PowerBuilder: Explain Diagnostic at Cursor
+powerbuilder.explainDiagnostic
 ```
+
+- Añadir método público:
+
+```ts
+explainDiagnostic(request: ApiExplainDiagnosticRequest): Promise<ApiExplainDiagnosticReport>;
+```
+
+- Integrar con diagnostics existentes, current-object-context y safe-edit-plan cuando aplique.
+- No aplicar fixes automáticamente.
+- No modificar archivos.
+
+### Descriptor de tool
+
+```ts
+{
+  name: 'explain-diagnostic',
+  description: 'Explica un diagnostic PowerBuilder concreto con evidencia mínima, reason code, scope y posible fix seguro si existe.',
+  command: 'powerbuilder.explainDiagnostic',
+  requestSchema: 'ApiExplainDiagnosticRequest',
+  responseSchema: 'ApiExplainDiagnosticReport',
+  usesActiveEditorFallback: true,
+}
+```
+
+### Request
+
+```ts
+export interface ApiExplainDiagnosticRequest {
+  uri?: string;
+  line?: number;
+  character?: number;
+  code?: string;
+  diagnosticIndex?: number;
+  includeObjectContext?: boolean;
+  includeSafeFixPlan?: boolean;
+  maxEvidence?: number;
+  maxExcerptLines?: number;
+}
+```
+
+### Report
+
+```ts
+export interface ApiExplainDiagnosticReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+
+  diagnostic?: {
+    code?: string;
+    message: string;
+    severity: 'error' | 'warning' | 'info' | 'hint';
+    uri: string;
+    line: number;
+    character: number;
+  };
+
+  explanation?: {
+    summary: string;
+    reasonCode?: string;
+    area:
+      | 'parser'
+      | 'semantic'
+      | 'catalog'
+      | 'datawindow'
+      | 'sql'
+      | 'lifecycle'
+      | 'unused'
+      | 'shadowing'
+      | 'unknown';
+    confidence: 'high' | 'medium' | 'low';
+    whyItMatters?: string;
+  };
+
+  evidence: Array<{
+    kind: 'source-excerpt' | 'symbol' | 'scope' | 'catalog' | 'datawindow' | 'dependency' | 'rule';
+    label: string;
+    detail?: string;
+    uri?: string;
+    line?: number;
+    character?: number;
+  }>;
+
+  safeFix?: {
+    available: boolean;
+    kind?:
+      | 'remove-declaration'
+      | 'rename-symbol'
+      | 'add-reference'
+      | 'adjust-signature'
+      | 'replace-enum-value'
+      | 'update-datatype'
+      | 'manual-review';
+    confidence?: 'high' | 'medium' | 'low';
+    blocked?: boolean;
+    blockedReasons?: string[];
+    planSummary?: string;
+  };
+
+  recommendedActions: string[];
+}
+```
+
+### Reglas estrictas
+
+- Read-only.
+- No aplicar cambios.
+- No generar edits directamente salvo que se integren como safe-edit-plan read-only.
+- No leer todo el workspace si el diagnostic está en un documento ya indexado.
+- Usar active editor fallback solo si no se pasa `uri`.
+- Si hay varios diagnostics en la posición, devolver el más cercano o razón clara de ambigüedad.
+- Respetar `maxEvidence` y `maxExcerptLines`.
+- Marcar `confidence` baja cuando la explicación dependa de heurísticas.
+
+### Casos mínimos
+
+```txt
+unused-variable
+shadowing
+unresolved-symbol
+ambiguous-call
+obsolete-symbol
+enum-value-not-valid-for-expected-type
+datawindow-binding-unresolved
+dynamic-sql-risk
+parser-error-near-token
+```
+
+### Criterios de cierre verificables
+
+- `ApiReadOnlyToolName` incluye `explain-diagnostic`.
+- `READ_ONLY_TOOL_DESCRIPTORS` incluye `explain-diagnostic`.
+- `VscPowerSyntaxApi` expone `explainDiagnostic`.
+- El contrato público incluye schemas nuevos.
+- El comando `powerbuilder.explainDiagnostic` existe.
+- Explica diagnostics de variable no usada con evidencia mínima.
+- Explica unresolved symbol con scope/candidates si existen.
+- Explica enum value incompatible si B360-B363 están implementadas.
+- No modifica archivos.
+- Tests cubren diagnostic inexistente, diagnóstico único, múltiples diagnostics en posición y truncado.
+
+### Docs afectadas
+
+- `docs/developer-workflows.md`
+- `docs/ai-orchestrator.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "explain-diagnostic|diagnostics|safeFix|publicApi|readOnlyTool"
+```
+
+---
+
+## B380 — Explain system symbol and catalog lookup tool for AI
+- **Estado:** Open
+- **Track:** catalog / AI supportability / hover-signatureHelp
+- **Prioridad:** Alta
+- **Depende de:** B367, B368, B371, B365
+- **Relacionada con:** B335, B376
+- **Objetivo:** añadir una tool/API read-only para explicar un símbolo del catálogo PowerBuilder sin pasar generated/manual completos al prompt.
+- **Razón técnica:** una IA necesita saber qué significa un símbolo PowerBuilder, qué signatures tiene, qué ownerTypes aplican, si está obsoleto, de dónde viene y cómo se documenta en español si existe. Pasar el catálogo completo consume demasiados tokens y aumenta el riesgo de errores.
+
+### Alcance incluido
+
+- Añadir read-only tool:
+
+```ts
+| 'explain-system-symbol'
+```
+
+- Añadir comando opcional:
+
+```txt
+PowerBuilder: Explain System Symbol
+powerbuilder.explainSystemSymbol
+```
+
+- Añadir método público:
+
+```ts
+explainSystemSymbol(request: ApiExplainSystemSymbolRequest): Promise<ApiExplainSystemSymbolReport>;
+```
+
+- Resolver símbolos desde catálogo merged runtime:
+  - generated official;
+  - manual curated gaps/enrichments/overrides;
+  - localization/es si se solicita;
+  - enums cuando existan;
+  - ownerTypes si aplica.
+
+### Descriptor de tool
+
+```ts
+{
+  name: 'explain-system-symbol',
+  description: 'Explica un símbolo del catálogo PowerBuilder con signatures, ownerTypes, provenance, localización y warnings sin cargar el catálogo completo.',
+  command: 'powerbuilder.explainSystemSymbol',
+  requestSchema: 'ApiExplainSystemSymbolRequest',
+  responseSchema: 'ApiExplainSystemSymbolReport',
+  usesActiveEditorFallback: true,
+}
+```
+
+### Request
+
+```ts
+export interface ApiExplainSystemSymbolRequest {
+  name?: string;
+  uri?: string;
+  line?: number;
+  character?: number;
+  ownerType?: string;
+  domain?: string;
+  kind?: string;
+  locale?: 'en' | 'es';
+  includeSignatures?: boolean;
+  includeParameters?: boolean;
+  includeEnumValues?: boolean;
+  includeProvenance?: boolean;
+  includeConflicts?: boolean;
+  maxCandidates?: number;
+  maxSignatures?: number;
+  maxEnumValues?: number;
+}
+```
+
+### Report
+
+```ts
+export interface ApiExplainSystemSymbolReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+  query: ApiExplainSystemSymbolRequest;
+
+  resolution: {
+    state: 'resolved' | 'ambiguous' | 'unresolved';
+    candidateCount: number;
+    selectedId?: string;
+    confidence: 'high' | 'medium' | 'low';
+  };
+
+  symbol?: {
+    id?: string;
+    name: string;
+    normalizedName?: string;
+    domain?: string;
+    kind?: string;
+    category?: string;
+    ownerTypes?: readonly string[];
+    appliesTo?: readonly string[];
+    summary?: string;
+    documentation?: string;
+    obsolete?: boolean;
+    obsoleteMessage?: string;
+    replacement?: string;
+    risk?: string;
+    sourceUrl?: string;
+    authority?: 'official' | 'curated' | 'generated' | 'project' | 'workspace' | 'custom';
+  };
+
+  signatures?: Array<{
+    label: string;
+    returnType?: string;
+    parameters?: Array<{
+      name: string;
+      type?: string;
+      documentation?: string;
+    }>;
+  }>;
+
+  enumInfo?: {
+    enumValueOf?: string;
+    enumValues?: readonly string[];
+    enumNumericValue?: number;
+    enumValueMeaning?: string;
+  };
+
+  candidates?: Array<{
+    id?: string;
+    name: string;
+    domain?: string;
+    kind?: string;
+    ownerTypes?: readonly string[];
+    summary?: string;
+    sourceUrl?: string;
+  }>;
+
+  findings: Array<{
+    code: string;
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    detail?: string;
+  }>;
+
+  recommendedActions: string[];
+}
+```
+
+### Reglas estrictas
+
+- No devolver catálogos completos.
+- Respetar `maxCandidates`, `maxSignatures` y `maxEnumValues`.
+- Usar locale español solo para textos de presentación, nunca para nombres reales del lenguaje.
+- No traducir signatures, datatypes, enum values ni function names.
+- Si hay ambigüedad, devolver candidates compactos y no elegir con confidence alta.
+- No hacer full-catalog scans en hot path; usar índices existentes.
+- Si se usa active editor fallback, resolver símbolo bajo cursor con contexto.
+
+### Casos mínimos
+
+```txt
+ApplyTheme
+AddItemArray
+SetItemDate
+OLEActivate
+BeginDrag
+JSONParser
+HTTPClient
+RESTClient
+DWBuffer
+Primary!
+SaveAsType
+CSV!
+EncodingUTF8!
+```
+
+### Criterios de cierre verificables
+
+- `ApiReadOnlyToolName` incluye `explain-system-symbol`.
+- `READ_ONLY_TOOL_DESCRIPTORS` incluye `explain-system-symbol`.
+- `VscPowerSyntaxApi` expone `explainSystemSymbol`.
+- El contrato público incluye schemas nuevos.
+- La tool resuelve símbolos generated/manual merged sin duplicar results.
+- La tool devuelve documentación española si existe overlay y `locale: 'es'`.
+- La tool cae a texto oficial si no existe localización.
+- La tool respeta límites de candidates/signatures/enumValues.
+- Tests cubren símbolo resuelto, símbolo ambiguo, símbolo inexistente, enum type, enum value y fallback de idioma.
+
+### Docs afectadas
+
+- `docs/developer-workflows.md`
+- `docs/ai-orchestrator.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/architecture.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "explain-system-symbol|catalog|localization|publicApi|readOnlyTool"
+```
+
+---
+
+## B381 — AI task context bundle orchestration tool
+- **Estado:** Open
+- **Track:** AI supportability / context orchestration / token budget
+- **Prioridad:** Media-Alta
+- **Depende de:** B376, B377, B379, B380
+- **Objetivo:** añadir una tool/API read-only que genere un paquete compacto de contexto para una tarea IA concreta, combinando object-check, current-object-context, safe-edit-plan, dependency-graph y explain diagnostics/symbols según límites de tokens.
+- **Razón técnica:** aunque existen tools focales, una IA sigue necesitando orquestar varias llamadas para preparar una tarea. Un bundle compacto evita repetir contexto, reduce tokens y estandariza la entrada antes de modificar código.
+
+### Alcance incluido
+
+- Añadir read-only tool:
+
+```ts
+| 'ai-task-context-bundle'
+```
+
+- Añadir método público:
+
+```ts
+getAiTaskContextBundle(request: ApiAiTaskContextBundleRequest): Promise<ApiAiTaskContextBundle>;
+```
+
+- Añadir comando opcional:
+
+```txt
+PowerBuilder: Export AI Task Context Bundle
+powerbuilder.exportAiTaskContextBundle
+```
+
+### Request
+
+```ts
+export type ApiAiTaskIntent =
+  | 'bug-fix'
+  | 'refactor'
+  | 'add-feature'
+  | 'diagnose'
+  | 'catalog-work'
+  | 'documentation-update'
+  | 'unknown';
+
+export interface ApiAiTaskContextBundleRequest {
+  intent?: ApiAiTaskIntent;
+  uri?: string;
+  objectName?: string;
+  line?: number;
+  character?: number;
+  includeWorkspaceCheck?: boolean;
+  includeObjectCheck?: boolean;
+  includeSafeEditPlan?: boolean;
+  includeDependencyGraph?: boolean;
+  includeDiagnosticsExplanation?: boolean;
+  includeSystemSymbolExplanations?: boolean;
+  maxTokensHint?: number;
+  maxDiagnostics?: number;
+  maxSymbols?: number;
+  maxFiles?: number;
+}
+```
+
+### Bundle
+
+```ts
+export interface ApiAiTaskContextBundle {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+
+  intent: ApiAiTaskIntent;
+  tokenBudget: {
+    maxTokensHint?: number;
+    estimatedTokens?: number;
+    truncated: boolean;
+  };
+
+  focus: {
+    uri?: string;
+    objectName?: string;
+    line?: number;
+    character?: number;
+  };
+
+  summary: string;
+  rules: string[];
+  context: {
+    workspaceCheck?: ApiWorkspaceCheckReport;
+    objectCheck?: ApiObjectCheckReport;
+    currentObjectContext?: ApiCurrentObjectContext;
+    safeEditPlan?: ApiSafeEditPlan;
+    dependencyGraph?: ApiPowerBuilderDependencyGraph;
+    diagnosticExplanations?: ApiExplainDiagnosticReport[];
+    systemSymbolExplanations?: ApiExplainSystemSymbolReport[];
+  };
+
+  recommendedWorkflow: string[];
+  validationCommands: string[];
+  docsToReview: string[];
+  omissions: string[];
+}
+```
+
+### Reglas estrictas
+
+- Read-only.
+- No modificar archivos.
+- No ejecutar ORCA/build.
+- No incluir código completo salvo excerpts pequeños necesarios.
+- No incluir generated/manual completo.
+- Respetar `maxTokensHint` de forma conservadora.
+- Registrar en `omissions` todo lo omitido por límite.
+- Preferir summaries y reports estructurados sobre texto largo.
+- Usar active editor fallback solo si no se pasa foco explícito.
+
+### Criterios de cierre verificables
+
+- `ApiReadOnlyToolName` incluye `ai-task-context-bundle`.
+- `READ_ONLY_TOOL_DESCRIPTORS` incluye `ai-task-context-bundle`.
+- `VscPowerSyntaxApi` expone `getAiTaskContextBundle`.
+- El contrato público incluye schemas nuevos.
+- El bundle puede generarse para active editor.
+- El bundle puede generarse para `uri/objectName` explícito.
+- El bundle respeta límites y marca truncado.
+- El bundle no incluye catálogos completos.
+- Tests cubren intent `bug-fix`, `refactor`, `catalog-work`, foco ausente y truncado.
+
+### Docs afectadas
+
+- `docs/ai-orchestrator.md`
+- `docs/ai-strategy.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+
+### Validación esperada
+
+```bash
+npm run build:test
+npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|readOnlyTool"
+```
+
 ---
 
 # 6. Current execution focus recomendado
 
-## Fase activa — Semantic Precision v2
+## Fase activa 
 
-1. B281 — Override and overload resolution hardening
-2. mantenimiento verde del carril architecture/runtime/contract ya cerrado en `specs/325-ambiguity-model-v2-query-engine`, `specs/324-symbol-identity-canonical-key-v2`, `specs/323-core-maintenance-command-pack`, `specs/322-powerbuilder-parser-resilience-fuzzing`, `specs/321-telemetry-free-observability-contract`, `specs/320-semantic-snapshot-schema-evolution-compatibility`, `specs/319-persistent-cache-corruption-fuzz-recovery-suite`, `specs/318-hot-path-allocation-budget-and-regression-guard`, `specs/317-long-running-session-stability-soak-tests`, `specs/316-memory-pressure-adaptive-degradation`, `specs/315-workspace-partition-isolation-multi-root-stress-hardening`, `specs/314-cross-surface-golden-contract-matrix`, `specs/313-core-module-dependency-firewall` y `specs/312-runtime-backpressure-policy-v2`
+01. B364 — Enum catalog real-corpus validation against PFC, STD and public PB repositories
+02. B329 — Catalog-driven semantic tokens integration
+03. B346 — Refactor client extension activation and command registration
+04. B353 — Large-file regression guard and architecture metrics
+05. B356 — PFC/STD rapid validation gate for architecture refactors
+06. B370 — Generated catalog regression fixtures and extraction quality gate
+07. B367 — Generated catalog as complete official source v2
+08. B368 — Manual curated overlays, gaps and overrides policy
+09. B376 — Workspace check command and AI-readable validation report
+10. B377 — Current object/class check command and AI-readable validation report
+11. B369 — Generated-vs-manual catalog adoption decision gate
+12. B371 — Catalog localization model and immutable overlay contract
+13. B372 — DocumentationService locale-aware lazy resolver
+14. B373 — Localized catalog consumers for hover, completion and signatureHelp
+15. B374 — Spanish catalog localization authoring workflow and coverage gate
+16. B375 — Generated localization compatibility with regenerated catalog IDs
+
+## Siguiente fase — Localización española de alto rendimiento y datawindow
+
+01. B378 — AI PowerBuilder context pack and token budget contract
+02. B379 — Explain diagnostic tool and suggested safe fix contract
+03. B380 — Explain system symbol and catalog lookup tool for AI
+04. B381 — AI task context bundle orchestration 
+05. B320 — DataWindow expression/property official catalog
+06. B327 — DataWindow constants and property path catalog
+07. B342 — Extract proven symbol heuristics from plugin_old
+08. B344 — DataWindow binding edge cases from plugin_old
+09. B354 — Server runtime orchestration decomposition
+10. B292 — PowerBuilder preprocessor / conditional patterns investigation
+11. B301 — Agent context budget enforcement
+12. B299 — Agent execution dry-run contract
+13. B300 — Agent validation receipt
+14. B302 — Agent-safe documentation updater policy
+15. B303 — Agent task replay from repro/support bundle
 
 ## No abrir todavía salvo necesidad real
 
@@ -1689,10 +3448,10 @@ Before closing any spec from this document, perform this checklist:
 
 # 7. Backlog derivado
 
-- Mantener `L2.6 — Semantic Precision v2` como fase activa actual tras cerrar `B280` en `specs/325-ambiguity-model-v2-query-engine`.
-- Añadir `L3.5 — Core Hardening v2 / Runtime Reliability` como bloque prioritario posterior.
-- Mantener `B281` como foco canónico inmediato con `B280` ya cerrada como modelo v2 de ambigüedad sobre `specs/325-ambiguity-model-v2-query-engine`, `B279` ya cerrada como identidad canónica exacta sobre `specs/324-symbol-identity-canonical-key-v2`, `B278` como pack de comandos de mantenimiento sobre `specs/323-core-maintenance-command-pack`, `B272` como suite determinista de resiliencia del parser, `B271` como contrato versionado de observabilidad local sin telemetría externa, `B269` como guard de compatibilidad para snapshots/manifests/support bundles/payloads públicos versionados, `B270` como suite de recuperación limpia ante persistencia dañada, `B276` como guard estructural de allocations en hot path, `B275` como soak guard de sesiones largas, `B274` como policy de degradación por memoria, `B268` como guard multi-root, `B273` como matriz visible y `B277` como guardrail previo del bloque.
+- Mantener `B321` como absorbida por `B366/B367`; no ejecutarla como spec independiente salvo necesidad nueva demostrada.
+- Si `B358/B359` vuelven al backlog, reformularlas como classification/enrichment/gaps sobre generated, no como duplicación de system object datatypes.
 - Mantener DataWindow como sublenguaje propio y evitar cualquier parser DataWindow como PowerScript normal.
 - Mantener ORCA fuera del hot path y detrás de policy/feature flags cuando implique write-enabled o packaging.
 - Formalizar en docs la matriz de soporte final tras `B293`.
 - Añadir checks de drift documental tras `B316-B317` para evitar backlog/done-log desalineados.
+- Mantener la política de localización como overlay de documentación, nunca como duplicación de entries por idioma.

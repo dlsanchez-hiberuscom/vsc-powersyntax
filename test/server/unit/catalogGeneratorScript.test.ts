@@ -12,6 +12,10 @@ suite('unit/catalogGeneratorScript', () => {
     assert.match(content, /out\/server\/knowledge\/system\/services\/queryService/);
     assert.match(content, /out\/server\/knowledge\/system\/normalization/);
     assert.match(content, /src\/server\/knowledge\/system\/generated\/generated\.generated\.ts/);
+    assert.match(content, /src\/server\/knowledge\/system\/generated\/enumeratedTypes\.generated\.ts/);
+    assert.match(content, /src\/server\/knowledge\/system\/generated\/enumeratedValues\.generated\.ts/);
+    assert.match(content, /src\/server\/knowledge\/system\/generated\/enumeratedCoverage\.generated\.ts/);
+    assert.match(content, /src\/server\/knowledge\/system\/generated\/enumeratedProvenance\.generated\.ts/);
     assert.match(content, /src\/server\/knowledge\/system\/generated\/officialCoverage\.generated\.ts/);
     assert.match(content, /src\/server\/parsing\/generatedKeywordLexemes\.generated\.ts/);
     assert.doesNotMatch(content, /out\/powerbuilder\/knowledge/);
@@ -47,5 +51,15 @@ suite('unit/catalogGeneratorScript', () => {
     assert.match(content, /"commit"/);
     assert.match(content, /"namespace"/);
     assert.match(content, /"with"/);
+  });
+
+  test('enumerated coverage generated publica dominios oficiales de tipos y valores', async () => {
+    const coveragePath = path.join(REPO_ROOT, 'src', 'server', 'knowledge', 'system', 'generated', 'enumeratedCoverage.generated.ts');
+    const content = await fs.readFile(coveragePath, 'utf8');
+
+    assert.match(content, /"enumerated-types"/);
+    assert.match(content, /"enumerated-values"/);
+    assert.match(content, /measurement: "lookup-key"/);
+    assert.match(content, /measurement: "type-name-value"/);
   });
 });

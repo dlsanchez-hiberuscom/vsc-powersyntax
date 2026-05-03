@@ -57,6 +57,7 @@ IDs emitidos hoy:
 - `SD11` — código inalcanzable tras `return`.
 - `SD12` — paréntesis desbalanceados.
 - `SD13` — función con return type sin `return`.
+- `enum-value-context-mismatch` — valor enumerado incompatible con el tipo esperado inequívoco en propiedad o parámetro catalog-driven.
 - `dataobject-not-found`, `dataobject-ambiguous`, `dataobject-dynamic`, `retrieve-arity-mismatch`, `datawindow-expression-dependency-unresolved` — familia actual de DataWindow/DataObject.
 - `transaction-binding-missing`, `transaction-binding-unknown`, `transaction-binding-dynamic` — binding transaccional insuficiente para `Retrieve/Update`.
 - `native-dependency` — external function/subroutine sin implementación interna navegable.
@@ -72,7 +73,9 @@ Consumidores cerrados sobre este contrato:
 Nota de catálogo 2026-05-03:
 
 - las entradas de catálogo v2 pueden alimentar diagnostics solo cuando el contexto y la confidence sean suficientes;
-- no se habilitan diagnósticos agresivos de unknown keyword/operator por el hecho de existir dominios `keywords`, `operators` o `enumerated-values`;
+- no se habilitan diagnósticos agresivos de unknown keyword/operator/enum por el hecho de existir dominios `keywords`, `operators`, `enumerated-types` o `enumerated-values`;
+- el cierre de `B359` amplía la cobertura curada de `system-object-datatypes` runtime/nonvisual e integration moderna (`manual/runtime` + `manual/integration`), pero esa ampliación no introduce por sí sola reglas diagnósticas nuevas: hover/completion/signatureHelp consumen el catálogo enriquecido antes que diagnostics agresivos;
+- el cierre de `B360` normaliza el modelo `enumerated-type` / `enumerated-value`, pero esa separación no autoriza diagnósticos especulativos de membership: diagnostics solo puede usar valores enumerados cuando el tipo esperado sea explícito y la confidence lo sostenga;
 - DataWindow expression/property catalog queda separado en B320/B327 y no debe producir warnings fuera de contexto DataWindow defendible.
 
 Regla: cualquier renombrado futuro hacia `PB-*` requiere compatibilidad explícita o alias y una spec propia; no cambiar IDs diagnósticos emitidos como edición documental aislada.
@@ -155,6 +158,18 @@ Estado operativo tras `B282`:
 - **Readiness mínima:** nearby-semantic-ready
 - **Confidence mínima:** medium
 - **Aplica a:** local variables y parámetros según contexto
+
+## PB-SYM-004 — Enumerated value incompatible with expected context
+
+- **Estado:** active
+- **ID emitido actual:** `enum-value-context-mismatch`
+- **Severidad default:** warning
+- **Readiness mínima:** nearby-semantic-ready
+- **Confidence mínima:** high
+- **Aplica a:** literales enumerados con `!` cuando una propiedad o firma catalog-driven fija un tipo esperado inequívoco
+- **Falso positivo esperado:** bajo, porque no aplica a llamadas dinámicas, expresiones, variables ni contextos ambiguos
+- **Tests:** `test/server/unit/diagnostics.test.ts`, `test/server/unit/completion.test.ts`, `test/server/unit/signatureHelp.test.ts`
+- **Docs relacionadas:** `specs/377-catalog-driven-enum-consumers/spec.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 
 ---
 

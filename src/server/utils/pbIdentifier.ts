@@ -33,11 +33,16 @@ export function findPowerBuilderIdentifierSpan(
 
   let cursor = character;
   if (!isPowerBuilderIdentifierChar(text[cursor])) {
-    if (!options.allowCursorAfterIdentifier || cursor === 0 || !isPowerBuilderIdentifierChar(text[cursor - 1])) {
-      return null;
-    }
+    if (text[cursor] === '!' && cursor > 0 && isPowerBuilderIdentifierChar(text[cursor - 1])) {
+      cursor--;
+    } else {
+      const cursorAfterEnumValue = cursor > 1 && text[cursor - 1] === '!' && isPowerBuilderIdentifierChar(text[cursor - 2]);
+      if (!options.allowCursorAfterIdentifier || cursor === 0 || (!isPowerBuilderIdentifierChar(text[cursor - 1]) && !cursorAfterEnumValue)) {
+        return null;
+      }
 
-    cursor--;
+      cursor -= cursorAfterEnumValue ? 2 : 1;
+    }
   }
 
   let start = cursor;
@@ -50,8 +55,13 @@ export function findPowerBuilderIdentifierSpan(
     end++;
   }
 
+  if (text[end] === '!') {
+    end++;
+  }
+
   const word = text.slice(start, end);
-  if (!PB_IDENTIFIER_RE.test(word) || !PB_IDENTIFIER_START_RE.test(word[0] ?? '')) {
+  const baseWord = word.endsWith('!') ? word.slice(0, -1) : word;
+  if (!PB_IDENTIFIER_RE.test(baseWord) || !PB_IDENTIFIER_START_RE.test(baseWord[0] ?? '')) {
     return null;
   }
 

@@ -2568,6 +2568,144 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run build:test`
 - `npx mocha --ui tdd out/test/server/unit/dataWindowModel.test.js out/test/server/unit/completion.test.js out/test/server/unit/diagnostics.test.js`
 
+## 1.163 B361. Official enumerated datatype extractor and coverage rail — **Cerrada (spec 375, official enum rail 2026-05)**
+
+## 1.164 B362. PowerBuilder enumerated datatypes and values catalog completion — **Cerrada (spec 376, enum catalog completion 2026-05)**
+
+**Objetivo:** completar la integración consumible del catálogo de tipos y valores enumerados reutilizando el rail oficial de `B361`, cerrando gaps curados mínimos y dejando metadata útil y límites honestos para tipos oficiales sin miembros nominales.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` conserva ya `documentation` y `allowedOnOwners` en property variants oficiales con título local `For ...`, de modo que `SecureProtocol` queda explicado con evidencia oficial sin inventar `enumValues` con `!` cuando Appeon solo publica códigos enteros;
+- `src/server/knowledge/system/manual/language/enumerations/index.ts` completa la documentación de los tipos manual-core de UI/archivo (`Border`, `Alignment`, `FillPattern`, `WindowType`, `WindowState`, `FileAccess`, `FileMode`, `Encoding`) y publica `SeekType` como gap manual-curated con `FromBeginning!`, `FromCurrent!` y `FromEnd!`, respaldado por uso real de `FileSeek(...)` en corpus legacy y por la conversión explícita de `seektype` en PFC;
+- `test/server/unit/catalogV2.test.ts` fija que `SecureProtocol` conserva explicación oficial sin valores nominales fabricados, que los tipos manual-core no quedan sin `documentation`, que `FillPattern` mantiene el merge con valores generated y que `SeekType` resuelve sus tres valores canónicos;
+- la comprobación runtime sobre `SystemCatalog` compilado deja `missingDocs = []` en `enumerated-types` y confirma presencia documentada de los mínimos del backlog `B362`, por lo que `docs/backlog.md`, `docs/current-focus.md`, `docs/testing.md`, `docs/architecture.md`, `docs/roadmap.md` y `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` quedan alineados con el paso del foco a `B363`.
+
+**Validación registrada:**
+- `node script/generate_official_function_catalog.cjs`
+- `npm run compile`
+- `npx tsc -p tsconfig.test.json`
+- `npx vscode-test --label unit --grep "unit/catalogGeneratorScript|unit/catalogV2"`
+
+## 1.165 B363. Catalog-driven enum hover, completion, signatureHelp and diagnostics — **Cerrada (spec 377, enum consumers 2026-05)**
+
+**Objetivo:** integrar el modelo canonico `enumerated-type` / `enumerated-value` en hover, completion, signatureHelp, semantic tokens de valores con `!` y diagnostics conservadores, reutilizando `SystemCatalog` y sus indices efectivos sin abrir listas paralelas por feature.
+
+**Resultado registrado:**
+- `src/server/utils/pbIdentifier.ts` deja de truncar valores con `!`, de modo que hover y consumers basados en identificador resuelven ya `CSV!`, `Primary!` o `FromBeginning!` como `enumerated-value` real del catálogo;
+- `src/server/features/enumeratedContext.ts` concentra la resolucion del enum esperado para propiedades y argumentos de llamada, y `completion.ts` / `signatureHelp.ts` reutilizan ese helper junto a `allowedOnProperties`, `allowedOnOwners`, `allowedInParameters` y el fallback desde `signature.label` para contextos como `Alignment`, `FileSeek(...)`, `RowsMove(...)` y `SetItemStatus(...)`;
+- `src/server/features/semanticTokens.ts` publica `enumMember` para valores catalogados con `!` y `src/server/handlers/featureHandlers.ts` sirve el `SystemCatalog` al provider sin abrir un consumer catalog-driven mas amplio del necesario;
+- `src/server/features/diagnostics.ts` emite el codigo estable `enum-value-context-mismatch` solo cuando el tipo esperado es inequívoco en una asignacion de propiedad o en un argumento de llamada, respetando owner/property context y evitando diagnosticos sobre expresiones dinamicas o ambiguas;
+- `docs/backlog.md`, `docs/current-focus.md`, `docs/done-log.md`, `docs/rules-catalog.md`, `docs/testing.md`, `docs/performance-budget.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` y `specs/377-catalog-driven-enum-consumers/spec.md` quedan alineados con el cierre formal de `B363` y con el paso del foco a `B364`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx tsc -p tsconfig.test.json`
+- `npx vscode-test --label unit --grep "completion|hover|signatureHelp|semanticTokens|diagnostics|enumerated|enum"`
+- `npx vscode-test --label unit --grep "catalog|systemCatalog|catalogV2"`
+
+## 1.163 B361. Official enumerated datatype extractor and coverage rail — **Cerrada (spec 375, official enum rail 2026-05)**
+
+**Objetivo:** cerrar el rail oficial reproducible para tipos y valores enumerados PowerBuilder sin abrir un pipeline paralelo al generator actual, dejando cobertura auditable, provenance explícita y consumers runtime capaces de mezclar `manual-core` + `generated` por `enumValueOf`.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` endurece el scraper oficial de Appeon con `findDocPageEndIndex()` y `extractPrimaryContentHtml()`, y ajusta `extractSectionHtml`, `parseDataWindowConstantPage`, `extractObjectsPropertyVariantReferences` y `parseObjectsPropertyEnumPageVariant` para impedir que TOCs, índices locales o `navfooter` globales entren como valores enumerados oficiales;
+- el mismo rail oficial materializa `src/server/knowledge/system/generated/enumeratedTypes.generated.ts`, `enumeratedValues.generated.ts`, `enumeratedCoverage.generated.ts` y `enumeratedProvenance.generated.ts`, dejando `enumerated-types` con `officialCount = coveredCount = 33` y `enumerated-values` con `officialCount = coveredCount = 233`, sin texto oficial masivo copiado y con provenance/version/sourceUrl trazables;
+- `src/server/knowledge/system/registry/datasets.ts` publica ya los slices `generated` de enums junto al rail manual, `buildIndexes.ts`/`queryService.ts` siguen resolviendo la unión efectiva por `byEnumValueOf` y `src/server/features/hover.ts` muestra esa unión real para tipos como `WindowType`, combinando `Main!` con valores generated como `MDIDock!` y `MDIDockHelp!` sin hardcodes paralelos;
+- el cierre deja explícito que tipos como `SecureProtocol` pueden permanecer como datatype oficial sin `enumValues` cuando Appeon solo documenta códigos enteros y no tokens enumerados con `!`, de forma que cualquier curación posterior quede reservada para `B362`;
+- `docs/architecture.md`, `docs/testing.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/backlog.md`, `docs/current-focus.md` y `docs/roadmap.md` quedan alineados con el cierre formal de B361 y con el paso del foco a `B362`.
+
+**Validación registrada:**
+- `node script/generate_official_function_catalog.cjs`
+- `npm run compile`
+- `npx tsc -p tsconfig.test.json`
+- `npx vscode-test --label unit --grep "unit/catalogGeneratorScript|unit/catalogV2|unit/hover"`
+
+## 1.162 B360. Enumerated catalog model breaking normalization — **Cerrada (spec 374, strict enum type/value split 2026-05)**
+
+**Objetivo:** normalizar de forma estricta el modelo de enumerados PowerBuilder separando `enumerated-type` y `enumerated-value`, eliminando la representación legacy donde tipos con sufijo `!` aparecían como entradas canónicas del catálogo.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/types.ts`, `normalization.ts` y `manual/common.ts` amplían el contrato de catálogo con `PbSystemSymbolKind = 'enumerated-type'`, `PbSystemSymbolDomain = 'enumerated-types'` y metadata específica (`documentation`, `enumValues`, `enumValueOf`, `enumNumericValue`, `enumValueMeaning`, `allowedOn*`), sin mantener aliases legacy para tipos como `SaveAsType!` o `DWBuffer!`;
+- `src/server/knowledge/system/manual/language/enumerations/index.ts` deja `manual/language/enumerations/` con tipos canónicos (`SaveAsType`, `DWBuffer`, `DWItemStatus`, `Encoding`, `WindowType`, etc.) y valores representativos (`Text!`, `CSV!`, `Primary!`, `EncodingUTF8!`, etc.) ligados por `enumValueOf`, mientras `manual/index.ts` publica ya los dominios separados `enumerated-types` y `enumerated-values`;
+- `src/server/knowledge/system/indexes/buildIndexes.ts`, `services/queryService.ts`, `SystemCatalog.ts` y `consistency.ts` endurecen el query layer y el audit: `listEnumeratedTypes()`, `resolveEnumeratedType()`, `resolveEnumeratedValue()` y `listValuesForEnumeratedType()` usan el modelo nuevo, `resolveLanguageSymbol()` prioriza `enumerated-type` antes de `system-global`/`enumerated-value` y `buildCatalogConsistencyReport()` publica `invalidEnumeratedTypeNames` para bloquear regresiones de nombres canónicos con `!`;
+- `src/server/features/completion.ts` y `hover.ts`, junto con `catalogV2.test.ts`, `systemCatalogQueryHardening.test.ts`, `completion.test.ts` y `catalogConsistency.test.ts`, alinean completion/hover y los guardrails del catálogo con el breaking split de B360;
+- `docs/architecture.md`, `docs/testing.md`, `docs/rules-catalog.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/roadmap.md`, `docs/backlog.md` y `docs/current-focus.md` quedan alineados con el cierre de B360 y con el siguiente foco natural `B361`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogV2|systemCatalogQueryHardening"`
+- `npm run test:unit -- --grep "completion|hover|semanticTokens|signatureHelp"`
+- `npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|enumerated|enum"`
+
+## 1.161 B359. Runtime, integration and nonvisual system object datatypes catalog completion — **Cerrada (spec 373, manual runtime/integration rails 2026-05)**
+
+**Objetivo:** completar los rails curados `manual/runtime/` y `manual/integration/` para tipos runtime/nonvisual modernos, PDF, correo, profiling/trazas, reflexión, OLE no visual y subsistemas de integración, sin remezclarlos con el carril visual ya cerrado en `B358`.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/runtime/` queda consolidado por ownership (`systemTypes.ts`, `errors.ts`, `reflection.ts`, `ole.ts`, `mail.ts`, `profiling.ts`) y `src/server/knowledge/system/manual/integration/` hace lo mismo para `json.ts`, `http.ts`, `rest.ts`, `oauth.ts`, `pdf.ts`, `filesystem.ts`, `compression.ts`, `crypto.ts` y `dotnet.ts`, cerrando el backlog B359 completo sobre `manual-core` en vez de depender solo del rail `generated`;
+- el catálogo fija además casing canónico para tipos runtime/integration relevantes (`Inet`, `RESTClient`, `MailFileDescription`, `MailMessage`) y completa families que faltaban en profiling (`TraceTreeRoutine`, `TraceTreeObject`, `TraceTreeUser`, etc.), correo (`SMTPClient`) e integración moderna (`ResourceResponse`, `PDFPage`, `PDFTableOfContents`, etc.);
+- `src/server/parsing/grammar.ts` alinea `PB_BUILTIN_TYPES` con los tipos runtime/integration/PDF/traza representativos y `test/server/unit/runtimeCatalogDatatypes.test.ts` bloquea ya la lista completa de tipos B359 como `manual-core`, la resolución representativa por categoría y la exclusión del extractor noise que solo debe seguir siendo owner-type generado;
+- `docs/architecture.md`, `docs/testing.md`, `docs/rules-catalog.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/roadmap.md`, `docs/backlog.md` y `docs/current-focus.md` quedan alineados con el cierre de B359 y con el siguiente foco natural `B360`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "runtimeCatalogDatatypes|catalogV2"`
+- `npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|nativeAncestors|ownerTypes"`
+- `npm run test:unit -- --grep "completion|hover|signatureHelp"`
+
+## 1.160 B358. Visual PowerBuilder system object datatypes catalog completion — **Cerrada (spec 372, manual visual rail 2026-05)**
+
+**Objetivo:** cerrar el rail visual curado del catálogo PowerBuilder bajo `manual/visual/`, separando ventanas, controles, Ribbon y OLE visual del runtime nonvisual y dejando owner groups + ancestros nativos alineados con el catálogo estable.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/visual/` queda materializado en slices pequeñas (`visualObjects.ts`, `textControls.ts`, `listControls.ts`, `drawingControls.ts`, `dataControls.ts`, `ribbonControls.ts`, `oleVisualControls.ts`) y `manual/visual/index.ts` publica un agregador estable reutilizable por `manual/index.ts` sin volver a un `systemTypes.ts` monolítico;
+- `src/server/knowledge/system/manual/runtime/systemTypes.ts` queda reducido al carril runtime/nonvisual, `Application` pasa a `Objetos de sistema`, `OLEControl`/`OLECustomControl` quedan en `OLE visual` y el agregador manual recompone visual + runtime sin cambiar el dominio público `system-object-datatypes`;
+- `visualOwnerTypes.ts`, `nativeAncestors.ts` y `grammar.ts` alinean owner groups, builtins y cadenas nativas para tipos visuales avanzados como `MDIFrame`, `MDIClient`, `MenuCascade`, `RibbonApplicationMenu`, `RibbonPanelItem` y `WindowActiveX`, preservando la separación visual/runtime para el siguiente slice `B359`;
+- `test/server/unit/visualCatalogDatatypes.test.ts` fija el cierre de B358 y `catalogV2.test.ts` sigue bloqueando regresiones del catálogo combinado.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "visualCatalogDatatypes|catalogV2"`
+
+## 1.159 B339. Catalog provenance audit against official Appeon sources — **Cerrada (spec 371, catalog provenance guardrails 2026-05)**
+
+**Objetivo:** auditar provenance, authority, versionado y límites de cobertura del system catalog para distinguir de forma ejecutable rails `generated` oficiales frente a rails `manual-core` curados, sin sobreatribuir cobertura Appeon.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/consistency.ts` amplía `buildCatalogConsistencyReport()` con un audit explícito de provenance: counts por `kind`/`authority`, summaries por dominio, guards de mismatch `dataset -> authority/kind` y listas de incidencias para `source`, `sourceUrl`, `version` y `generatedAt` donde aplica;
+- `test/server/unit/catalogProvenanceAudit.test.ts` y `catalogConsistency.test.ts` fijan que `manual-core` se publique como `manual/curated`, que `generated` se publique como `generated/official`, que los entries oficiales mantengan `sourceUrl` y `generatedAt`, y que dominios representativos como `global-functions`, `system-globals` y `operators` conserven límites de coverage explícitos;
+- `docs/architecture.md`, `docs/testing.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/roadmap.md`, `docs/backlog.md` y `docs/current-focus.md` quedan alineados con el contrato de provenance ya ejecutable.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "catalogConsistency|catalogProvenanceAudit"`
+
+## 1.158 B365. System catalog query/index hardening v2 — **Cerrada (spec 370, composite catalog queries 2026-05)**
+
+**Objetivo:** endurecer `buildIndexes.ts`, `queryService.ts` y `SystemCatalog.ts` para que las queries del system catalog escalen con rails manual/generated/curados crecientes sin scans completos en hot paths interactivos.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/indexes/buildIndexes.ts` publica buckets compuestos y congelados para `byDomainAndLookupKey`, `byKindAndLookupKey`, `byEnumValueOf` y `byOwnerTypeAndDomain`, manteniendo construcción determinista y consumo readonly;
+- `src/server/knowledge/system/services/queryService.ts` concentra queries indexadas por domain/kind/owner/enum, evita concatenaciones amplias cuando hay owner types conocidos y fija `PB_LANGUAGE_SYMBOL_RESOLUTION_PRIORITY` como orden explícito de `resolveLanguageSymbol()`;
+- `src/server/knowledge/system/SystemCatalog.ts` queda como facade delgada sobre `queryService.ts`, sin acceso directo a `PB_SYSTEM_SYMBOL_REGISTRY.indexes` para listados y resoluciones públicas del catálogo;
+- `test/server/unit/systemCatalogQueryHardening.test.ts` y `test/server/unit/catalogV2.test.ts` fijan el contrato nuevo para índices compuestos, owner types nativos, queries de enumerados y prioridad explícita de lenguaje.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "systemCatalogQueryHardening|catalogV2"`
+
+## 1.157 B357. Manual catalog modularization and slice ownership — **Cerrada (spec 369, stable manual catalog ownership 2026-05)**
+
+**Objetivo:** reorganizar `src/server/knowledge/system/manual/` en slices funcionales con ownership explícito, sacar provenance y owner groups fuera de `manual/common.ts` y dejar agregadores estables para el registry y sus consumers.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/` queda reorganizado en `language/`, `datawindow/`, `runtime/`, `core/`, `ownerTypes/`, `visual/` e `integration/`, moviendo los slices manuales existentes a carpetas funcionales sin tocar IDs ni metadata semántica;
+- `src/server/knowledge/system/manual/common.ts` queda helper-only, `manual/sources.ts` centraliza provenance base y `manual/ownerTypes/` concentra owner groups y applies-to compartidos;
+- `src/server/knowledge/system/manual/index.ts` publica `PB_MANUAL_CORE_DATASET_SLICES` y `PB_MANUAL_CORE_OWNER_TYPE_GROUPS`, mientras `src/server/knowledge/system/registry/datasets.ts`, `generated/common.ts` y `nativeAncestors.ts` dejan de depender de imports frágiles hacia `manual/common.ts`;
+- `test/server/unit/manualCatalogStructure.test.ts` fija la cobertura estructural del rail manual y la suite unitaria completa confirma que no hay regresiones en catálogo, completion, hover, signatureHelp ni boundaries arquitectónicos.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit`
+
 ## 1.156 B347. Refactor server LSP handler registration — **Cerrada (spec 368, server entrypoint decomposition 2026-05)**
 
 **Objetivo:** descomponer `src/server/server.ts` en bootstrap, lifecycle/document handlers, feature handlers, command routing y runtime orchestration sin cambiar nombres LSP ni el comportamiento observable del servidor.

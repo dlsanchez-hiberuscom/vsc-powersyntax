@@ -350,6 +350,8 @@ Aprovechar plataforma madura para automatización e IA sin reescribir arquitectu
 
 El catálogo oficial del lenguaje/runtime alimenta hover, completion, signature help, diagnósticos, navegación y automatización futura.
 
+Desde `B339/B357/B365/B358/B359/B360/B361/B362`, el rail manual base ya está modularizado por ownership (`manual/{language,datawindow,visual,runtime,integration,core,ownerTypes}` con `sources.ts` y agregadores estables), el query layer consume índices compuestos con prioridad explícita de lenguaje, `buildCatalogConsistencyReport()` deja trazado ejecutable de provenance/authority por dominio, el carril visual ya quedó separado en slices pequeñas, el carril runtime/integration nonvisual queda cerrado en `manual-core`, el modelo de enumerados ya se normaliza en `enumerated-types`/`enumerated-values` sin aliases legacy con `!`, el rail oficial genera `enumeratedTypes.generated.ts`, `enumeratedValues.generated.ts`, `enumeratedCoverage.generated.ts` y `enumeratedProvenance.generated.ts` sin contaminación de TOC/navfooter de Appeon, y la capa curada ya cubre gaps mínimos como `SeekType` sin rellenar de forma deshonesta tipos oficiales como `SecureProtocol`. Con esa base, la siguiente ola del roadmap puede abordar los consumers visibles de enums (`B363`) y su validación corpus-driven (`B364`) sin reabrir el extractor oficial ni sobreatribuir coverage.
+
 ### 8.2 Documentación viva
 
 Cambios relevantes sobre PowerScript, scopes, SR*, Workspace/Solution, DataWindow, encoding o build deben reflejarse en la guía técnica.

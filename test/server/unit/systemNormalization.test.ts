@@ -1,6 +1,9 @@
 import * as assert from 'assert/strict';
 
-import { systemProvenanceToLineage } from '../../../src/server/knowledge/system/normalization';
+import {
+  buildSystemSymbolId,
+  systemProvenanceToLineage,
+} from '../../../src/server/knowledge/system/normalization';
 
 suite('unit/systemNormalization', () => {
   test('systemProvenanceToLineage mapea provenance oficial al vocabulario común', () => {
@@ -27,5 +30,32 @@ suite('unit/systemNormalization', () => {
         confidence: 'fallback'
       }
     );
+  });
+
+  test('buildSystemSymbolId distingue enumerated-values homónimos por enumValueOf', () => {
+    const borderId = buildSystemSymbolId({
+      dataset: 'manual-core',
+      domain: 'enumerated-values',
+      kind: 'enumerated-value',
+      namespace: 'powerbuilder-runtime',
+      invocation: 'global',
+      name: 'StyleBox!',
+      enumValueOf: 'Border',
+      ownerTypes: undefined,
+    });
+    const borderStyleId = buildSystemSymbolId({
+      dataset: 'manual-core',
+      domain: 'enumerated-values',
+      kind: 'enumerated-value',
+      namespace: 'powerbuilder-runtime',
+      invocation: 'global',
+      name: 'StyleBox!',
+      enumValueOf: 'BorderStyle',
+      ownerTypes: undefined,
+    });
+
+    assert.notEqual(borderId, borderStyleId);
+    assert.match(borderId, /:border:stylebox!:all$/);
+    assert.match(borderStyleId, /:borderstyle:stylebox!:all$/);
   });
 });

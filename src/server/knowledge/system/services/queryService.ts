@@ -1,8 +1,29 @@
 import { normalizeSystemSymbolName, normalizeOwnerTypeNames } from '../normalization';
+import { isKnownNativeAncestorType } from '../nativeAncestors';
 import { PB_SYSTEM_SYMBOL_REGISTRY } from '../registry/registry';
-import { PbSystemSymbolEntry } from '../types';
+import { PbSystemSymbolDomain, PbSystemSymbolEntry, PbSystemSymbolKind } from '../types';
 
 const DATAWINDOW_OWNER_TYPES = new Set(['datawindow', 'datawindowchild', 'datastore']);
+const MEMBER_FUNCTION_DOMAINS: readonly PbSystemSymbolDomain[] = ['object-functions', 'datawindow-functions'];
+const MEMBER_EVENT_DOMAINS: readonly PbSystemSymbolDomain[] = ['system-events', 'datawindow-events'];
+
+export const PB_LANGUAGE_SYMBOL_RESOLUTION_PRIORITY: readonly PbSystemSymbolKind[] = [
+    'reserved-word',
+    'keyword',
+    'pronoun',
+    'datatype',
+    'system-type',
+    'enumerated-type',
+    'system-global',
+    'enumerated-value',
+    'operator',
+    'property',
+    'constant',
+];
+
+function buildCompositeKey(left: string, right: string): string {
+    return `${left}\u0000${right}`;
+}
 
 function lookupInIndex(
     index: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>,
@@ -15,6 +36,27 @@ function lookupInIndex(
     }
 
     return index.get(normalizedName) ?? [];
+}
+
+function lookupInCompositeLookupIndex(
+    index: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>,
+    left: string,
+    name: string,
+): readonly PbSystemSymbolEntry[] {
+    const normalizedName = normalizeSystemSymbolName(name);
+
+    if (!normalizedName) {
+        return [];
+    }
+
+    return index.get(buildCompositeKey(left, normalizedName)) ?? [];
+}
+
+function lookupInOwnerTypeDomainIndex(
+    ownerType: string,
+    domain: PbSystemSymbolDomain,
+): readonly PbSystemSymbolEntry[] {
+    return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byOwnerTypeAndDomain.get(buildCompositeKey(ownerType, domain)) ?? [];
 }
 
 function getOwnerMatchScore(
@@ -107,16 +149,57 @@ function getEntriesForDomain(domain: PbSystemSymbolEntry['domain']): readonly Pb
     return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomain.get(domain) ?? [];
 }
 
-function findEntriesInDomain(
+function collectEntriesForOwnerDomains(
+    ownerTypeNames: readonly string[],
+    domains: readonly PbSystemSymbolDomain[],
+): readonly PbSystemSymbolEntry[] {
+    const normalizedOwnerTypeNames = normalizeOwnerTypeNames(ownerTypeNames);
+
+    if (normalizedOwnerTypeNames.length === 0) {
+        return dedupeEntries(domains.flatMap(domain => getEntriesForDomain(domain)));
+    }
+
+    return dedupeEntries(
+        normalizedOwnerTypeNames.flatMap(ownerType =>
+            domains.flatMap(domain => lookupInOwnerTypeDomainIndex(ownerType, domain)),
+        ),
+    );
+}
+
+export function listSystemSymbolsByDomain(
+    domain: PbSystemSymbolEntry['domain'],
+): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain(domain);
+}
+
+export function findEntriesByDomainAndLookupKey(
     domain: PbSystemSymbolEntry['domain'],
     name: string,
 ): readonly PbSystemSymbolEntry[] {
-    return lookupInIndex(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byLookupKey, name)
-        .filter(entry => entry.domain === domain);
+    return lookupInCompositeLookupIndex(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomainAndLookupKey, domain, name);
+}
+
+export function findEntriesByKindAndLookupKey(
+    kind: PbSystemSymbolEntry['kind'],
+    name: string,
+): readonly PbSystemSymbolEntry[] {
+    return lookupInCompositeLookupIndex(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byKindAndLookupKey, kind, name);
+}
+
+export function isKnownSystemOwnerType(name: string): boolean {
+    const normalizedName = normalizeSystemSymbolName(name);
+
+    return normalizedName !== undefined
+        && (PB_SYSTEM_SYMBOL_REGISTRY.indexes.byOwnerType.has(normalizedName)
+            || isKnownNativeAncestorType(normalizedName));
 }
 
 export function listSystemSymbols(): readonly PbSystemSymbolEntry[] {
     return PB_SYSTEM_SYMBOL_REGISTRY.entries;
+}
+
+export function getSystemCatalogSize(): number {
+    return PB_SYSTEM_SYMBOL_REGISTRY.entries.length;
 }
 
 export function findSystemSymbolsByName(name: string): readonly PbSystemSymbolEntry[] {
@@ -177,11 +260,11 @@ export function listSystemStatements(): readonly PbSystemSymbolEntry[] {
 }
 
 export function resolveSystemGlobalFunction(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('global-functions', name)[0];
+    return findEntriesByDomainAndLookupKey('global-functions', name)[0];
 }
 
 export function resolveSystemObjectFunction(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('object-functions', name)[0];
+    return findEntriesByDomainAndLookupKey('object-functions', name)[0];
 }
 
 export function resolveSystemObjectFunctionForOwner(
@@ -189,13 +272,13 @@ export function resolveSystemObjectFunctionForOwner(
     ownerTypeNames: readonly string[],
 ): PbSystemSymbolEntry | undefined {
     return sortEntriesByOwnerMatch(
-        findEntriesInDomain('object-functions', name),
+        findEntriesByDomainAndLookupKey('object-functions', name),
         ownerTypeNames,
     )[0];
 }
 
 export function resolveSystemDataWindowFunction(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('datawindow-functions', name)[0];
+    return findEntriesByDomainAndLookupKey('datawindow-functions', name)[0];
 }
 
 export function resolveSystemDataWindowFunctionForOwner(
@@ -203,7 +286,7 @@ export function resolveSystemDataWindowFunctionForOwner(
     ownerTypeNames: readonly string[],
 ): PbSystemSymbolEntry | undefined {
     return sortEntriesByOwnerMatch(
-        findEntriesInDomain('datawindow-functions', name),
+        findEntriesByDomainAndLookupKey('datawindow-functions', name),
         ownerTypeNames,
     )[0];
 }
@@ -211,10 +294,12 @@ export function resolveSystemDataWindowFunctionForOwner(
 export function findApplicableMembersForOwnerType(
     ownerTypeNames: readonly string[],
 ): readonly PbSystemSymbolEntry[] {
-    return dedupeEntries(sortEntriesByOwnerMatch([
-        ...listSystemObjectFunctions(),
-        ...listSystemDataWindowFunctions(),
-    ], ownerTypeNames));
+    return dedupeEntries(
+        sortEntriesByOwnerMatch(
+            collectEntriesForOwnerDomains(ownerTypeNames, MEMBER_FUNCTION_DOMAINS),
+            ownerTypeNames,
+        ),
+    );
 }
 
 export function listSystemMemberFunctionsForOwner(
@@ -228,23 +313,28 @@ export function resolveSystemMemberFunctionForOwner(
     ownerTypeNames: readonly string[],
 ): PbSystemSymbolEntry | undefined {
     return dedupeEntries(sortEntriesByOwnerMatch([
-        ...findEntriesInDomain('object-functions', name),
-        ...findEntriesInDomain('datawindow-functions', name),
+        ...findEntriesByDomainAndLookupKey('object-functions', name),
+        ...findEntriesByDomainAndLookupKey('datawindow-functions', name),
     ], ownerTypeNames))[0];
 }
 
 export function resolveSystemObjectEvent(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('system-events', name)[0];
+    return findEntriesByDomainAndLookupKey('system-events', name)[0];
 }
 
 export function resolveSystemDataWindowEvent(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('datawindow-events', name)[0];
+    return findEntriesByDomainAndLookupKey('datawindow-events', name)[0];
 }
 
 export function findApplicableEventsForOwnerType(
     ownerTypeNames: readonly string[],
 ): readonly PbSystemSymbolEntry[] {
-    return dedupeEntries(sortEntriesByOwnerMatch(listSystemEvents(), ownerTypeNames));
+    return dedupeEntries(
+        sortEntriesByOwnerMatch(
+            collectEntriesForOwnerDomains(ownerTypeNames, MEMBER_EVENT_DOMAINS),
+            ownerTypeNames,
+        ),
+    );
 }
 
 export function resolveSystemEventForOwner(
@@ -252,8 +342,7 @@ export function resolveSystemEventForOwner(
     ownerTypeNames: readonly string[],
 ): PbSystemSymbolEntry | undefined {
     return sortEntriesByOwnerMatch(
-        lookupInIndex(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byLookupKey, name)
-            .filter(entry => entry.kind === 'event'),
+        findEntriesByKindAndLookupKey('event', name),
         ownerTypeNames,
     )[0];
 }
@@ -265,12 +354,11 @@ export function listSystemEventsForOwner(
 }
 
 export function resolveSystemEvent(name: string): PbSystemSymbolEntry | undefined {
-    return lookupInIndex(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byLookupKey, name)
-        .filter(entry => entry.kind === 'event')[0];
+    return findEntriesByKindAndLookupKey('event', name)[0];
 }
 
 export function resolveSystemStatement(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('statements', name)[0];
+    return findEntriesByDomainAndLookupKey('statements', name)[0];
 }
 
 export function resolveSystemAlias(name: string): readonly PbSystemSymbolEntry[] {
@@ -326,6 +414,10 @@ export function listSystemTypes(): readonly PbSystemSymbolEntry[] {
     return getEntriesForDomain('system-object-datatypes');
 }
 
+export function listEnumeratedTypes(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('enumerated-types');
+}
+
 export function listPronouns(): readonly PbSystemSymbolEntry[] {
     return getEntriesForDomain('pronouns');
 }
@@ -343,24 +435,57 @@ export function listSystemGlobals(): readonly PbSystemSymbolEntry[] {
 }
 
 export function resolveKeyword(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('keywords', name)[0];
+    return findEntriesByDomainAndLookupKey('keywords', name)[0];
 }
 
 export function resolveReservedWord(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('reserved-words', name)[0];
+    return findEntriesByDomainAndLookupKey('reserved-words', name)[0];
 }
 
 export function resolveDatatype(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('datatypes', name)[0]
-        ?? findEntriesInDomain('system-object-datatypes', name)[0];
+    return findEntriesByKindAndLookupKey('datatype', name)[0]
+        ?? findEntriesByKindAndLookupKey('system-type', name)[0]
+        ?? findEntriesByKindAndLookupKey('enumerated-type', name)[0];
+}
+
+export function resolveEnumeratedType(name: string): PbSystemSymbolEntry | undefined {
+    return findEntriesByDomainAndLookupKey('enumerated-types', name)[0];
+}
+
+export function resolveEnumeratedValue(name: string): PbSystemSymbolEntry | undefined {
+    return findEntriesByDomainAndLookupKey('enumerated-values', name)[0];
 }
 
 export function resolveSystemGlobal(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('system-globals', name)[0];
+    return findEntriesByDomainAndLookupKey('system-globals', name)[0];
 }
 
 export function resolvePronoun(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesInDomain('pronouns', name)[0];
+    return findEntriesByDomainAndLookupKey('pronouns', name)[0];
+}
+
+export function listValuesForEnumeratedType(typeName: string): readonly PbSystemSymbolEntry[] {
+    const normalizedTypeName = normalizeSystemSymbolName(typeName);
+
+    if (!normalizedTypeName) {
+        return [];
+    }
+
+    return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byEnumValueOf.get(normalizedTypeName) ?? [];
+}
+
+export function resolveEnumValueForExpectedType(
+    valueName: string,
+    typeName: string,
+): PbSystemSymbolEntry | undefined {
+    const normalizedValueName = normalizeSystemSymbolName(valueName);
+
+    if (!normalizedValueName) {
+        return undefined;
+    }
+
+    return listValuesForEnumeratedType(typeName)
+        .find(entry => entry.lookupKeys.includes(normalizedValueName));
 }
 
 /**
@@ -369,14 +494,14 @@ export function resolvePronoun(name: string): PbSystemSymbolEntry | undefined {
  * No busca callables/events/statements — para esos usar findSystemSymbolsByLookupKey.
  */
 export function resolveLanguageSymbol(name: string): PbSystemSymbolEntry | undefined {
-    const normalizedName = normalizeSystemSymbolName(name);
-    if (!normalizedName) {
-        return undefined;
+    for (const kind of PB_LANGUAGE_SYMBOL_RESOLUTION_PRIORITY) {
+        const match = findEntriesByKindAndLookupKey(kind, name)[0];
+
+        if (match) {
+            return match;
+        }
     }
 
-    const candidates = lookupInIndex(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byLookupKey, name);
-    return candidates.find(entry =>
-        entry.kind !== 'callable' && entry.kind !== 'event' && entry.kind !== 'statement'
-    );
+    return undefined;
 }
 

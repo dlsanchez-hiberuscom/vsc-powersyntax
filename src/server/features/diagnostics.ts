@@ -82,6 +82,10 @@ import {
 } from '../parsing/grammar';
 import type { LogicalStatement } from '../parsing/statementSplitter';
 import { findObsoleteCalls } from './obsoleteDetector';
+import {
+  matchesEnumeratedPropertyContext,
+  resolveExpectedEnumTypeForCallArgumentAtPosition,
+} from './enumeratedContext';
 
 
 export function publishDiagnostics(
@@ -531,6 +535,7 @@ export function validateSemantics(
       checkDataObjectBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb);
       checkDataWindowPropertyPathDiagnostics(rootScope, document, snapshot, diagnostics, kb);
       checkTransactionBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb, systemCatalog);
+      checkEnumeratedValueContextDiagnostics(rootScope, document, snapshot, mainType, diagnostics, kb, systemCatalog);
     }
     checkLifecycleWarnings(mainType, semanticFacts, diagnostics, kb, inheritanceGraph, systemCatalog);
   }
@@ -735,6 +740,11 @@ const TRANSACTION_OPERATION_CALL_REGEX = new RegExp(
   `\\b(${PB_IDENTIFIER_SOURCE})\\s*\\.\\s*(Retrieve|Update)\\s*\\(`,
   'gi'
 );
+const ENUMERATED_PROPERTY_ASSIGN_REGEX = new RegExp(
+  `\\b(${PB_IDENTIFIER_SOURCE})\\s*\\.\\s*(${PB_IDENTIFIER_SOURCE})\\s*=\\s*(${PB_IDENTIFIER_SOURCE}!)`,
+  'gi'
+);
+const ENUMERATED_VALUE_TOKEN_REGEX = new RegExp(`(${PB_IDENTIFIER_SOURCE}!)`, 'gi');
 
 function checkTransactionBindings(
   scope: import('../knowledge/types').Scope,
@@ -955,6 +965,135 @@ function checkDataWindowPropertyPathDiagnostics(
   for (const child of scope.children) {
     checkDataWindowPropertyPathDiagnostics(child, document, snapshot, diagnostics, kb);
   }
+}
+
+function checkEnumeratedValueContextDiagnostics(
+  scope: import('../knowledge/types').Scope,
+  document: TextDocument,
+  snapshot: SemanticDocumentSnapshot,
+  mainType: import('../knowledge/types').Fact,
+  diagnostics: Diagnostic[],
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog,
+): void {
+  if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
+    const statements = getLogicalStatementsForScope(snapshot, scope);
+
+    for (const statement of statements) {
+      for (let lineOffset = 0; lineOffset < statement.rawLines.length; lineOffset++) {
+        const rawLine = statement.rawLines[lineOffset];
+        const line = statement.startLine + lineOffset;
+        if (!rawLine || rawLine.trim().length === 0) {
+          continue;
+        }
+
+        ENUMERATED_PROPERTY_ASSIGN_REGEX.lastIndex = 0;
+        let propertyMatch: RegExpExecArray | null;
+        while ((propertyMatch = ENUMERATED_PROPERTY_ASSIGN_REGEX.exec(rawLine)) !== null) {
+          const qualifier = propertyMatch[1];
+          const propertyName = propertyMatch[2];
+          const enumValueName = propertyMatch[3];
+          const ownerType = resolveQualifierType(qualifier, document.uri, kb, line, mainType);
+          const expectedEnumType = systemCatalog.resolveEnumeratedType(propertyName);
+          const actualEnumValue = systemCatalog.resolveEnumeratedValue(enumValueName);
+
+          if (!ownerType || !expectedEnumType || !actualEnumValue) {
+            continue;
+          }
+
+          if (
+            actualEnumValue.enumValueOf?.toLowerCase() === expectedEnumType.name.toLowerCase()
+            && matchesEnumeratedPropertyContext(actualEnumValue, propertyName, ownerType)
+          ) {
+            continue;
+          }
+
+          const startChar = propertyMatch.index + propertyMatch[0].lastIndexOf(enumValueName);
+          diagnostics.push(buildEnumeratedValueContextDiagnostic(
+            line,
+            startChar,
+            enumValueName,
+            expectedEnumType.name,
+            actualEnumValue.enumValueOf,
+            'property-assignment',
+            `${qualifier}.${propertyName}`,
+          ));
+        }
+
+        ENUMERATED_VALUE_TOKEN_REGEX.lastIndex = 0;
+        let valueMatch: RegExpExecArray | null;
+        while ((valueMatch = ENUMERATED_VALUE_TOKEN_REGEX.exec(rawLine)) !== null) {
+          const enumValueName = valueMatch[1];
+          const actualEnumValue = systemCatalog.resolveEnumeratedValue(enumValueName);
+          if (!actualEnumValue) {
+            continue;
+          }
+
+          const tokenEnd = valueMatch.index + enumValueName.length;
+          const expectedEnumType = resolveExpectedEnumTypeForCallArgumentAtPosition(
+            document,
+            Position.create(line, tokenEnd),
+            kb,
+            systemCatalog,
+          );
+          if (!expectedEnumType) {
+            continue;
+          }
+
+          if (systemCatalog.resolveEnumeratedValueForType(enumValueName, expectedEnumType)) {
+            continue;
+          }
+
+          diagnostics.push(buildEnumeratedValueContextDiagnostic(
+            line,
+            valueMatch.index,
+            enumValueName,
+            expectedEnumType,
+            actualEnumValue.enumValueOf,
+            'call-argument',
+          ));
+        }
+      }
+    }
+  }
+
+  for (const child of scope.children) {
+    checkEnumeratedValueContextDiagnostics(child, document, snapshot, mainType, diagnostics, kb, systemCatalog);
+  }
+}
+
+function buildEnumeratedValueContextDiagnostic(
+  line: number,
+  col: number,
+  enumValueName: string,
+  expectedEnumType: string,
+  actualEnumType: string | undefined,
+  context: 'property-assignment' | 'call-argument',
+  target?: string,
+): Diagnostic {
+  const actualTypeSuffix = actualEnumType ? ` de tipo '${actualEnumType}'` : '';
+  const message = context === 'property-assignment'
+    ? `El valor enumerado '${enumValueName}'${actualTypeSuffix} no aplica a '${target ?? 'la asignación'}'; se esperaba un valor compatible con '${expectedEnumType}'.`
+    : `El valor enumerado '${enumValueName}'${actualTypeSuffix} no coincide con el tipo esperado '${expectedEnumType}' en esta llamada.`;
+
+  return withDiagnosticCode({
+    severity: DiagnosticSeverity.Warning,
+    range: Range.create(
+      Position.create(line, Math.max(0, col)),
+      Position.create(line, Math.max(0, col) + enumValueName.length)
+    ),
+    message,
+    source: DIAGNOSTIC_SOURCE,
+    data: {
+      kind: 'enumerated-value-context',
+      context,
+      expectedEnumType,
+      actualEnumType,
+      value: enumValueName,
+      target,
+      confidence: 'high',
+    }
+  }, DIAGNOSTIC_CODES.enumValueContextMismatch);
 }
 
 function inspectFirstDataWindowPropertyOnLine(

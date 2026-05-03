@@ -128,11 +128,14 @@ export function buildSystemSymbolLookupKeys(
 export function buildSystemSymbolId(
     entry: Pick<
         PbSystemSymbolEntryDraft,
-        'dataset' | 'domain' | 'kind' | 'namespace' | 'invocation' | 'name' | 'ownerTypes'
+        'dataset' | 'domain' | 'kind' | 'namespace' | 'invocation' | 'name' | 'ownerTypes' | 'enumValueOf'
     >,
 ): string {
     const normalizedName = normalizeSystemSymbolName(entry.name) ?? 'unknown';
     const ownerKey = normalizeOwnerTypeNames(entry.ownerTypes).join('+') || 'all';
+    const enumValueOfKey = entry.kind === 'enumerated-value'
+        ? normalizeSystemSymbolName(entry.enumValueOf ?? '') ?? 'unknown-enum'
+        : undefined;
 
     return [
         entry.dataset,
@@ -140,6 +143,7 @@ export function buildSystemSymbolId(
         entry.kind,
         entry.namespace,
         entry.invocation,
+        ...(enumValueOfKey ? [enumValueOfKey] : []),
         normalizedName,
         ownerKey,
     ].join(':');
@@ -162,9 +166,16 @@ export function finalizeSystemSymbolEntry(
         name: entry.name.trim(),
         category: entry.category.trim(),
         summary: entry.summary.trim(),
+        documentation: entry.documentation?.trim() || undefined,
         source: entry.source.trim(),
         sourceUrl: entry.sourceUrl?.trim(),
         ownerTypes: normalizedOwnerTypes.length > 0 ? normalizedOwnerTypes : undefined,
+        enumValues: entry.enumValues?.map(value => value.trim()).filter(value => value.length > 0),
+        enumValueOf: entry.enumValueOf?.trim() || undefined,
+        enumValueMeaning: entry.enumValueMeaning?.trim() || undefined,
+        allowedOnOwners: entry.allowedOnOwners?.map(value => value.trim()).filter(value => value.length > 0),
+        allowedOnProperties: entry.allowedOnProperties?.map(value => value.trim()).filter(value => value.length > 0),
+        allowedInParameters: entry.allowedInParameters?.map(value => value.trim()).filter(value => value.length > 0),
         lookupAliases: normalizedLookupAliases.length > 0 ? normalizedLookupAliases : undefined,
     };
     const provenance = finalizeSystemSymbolProvenance(normalizedEntry);

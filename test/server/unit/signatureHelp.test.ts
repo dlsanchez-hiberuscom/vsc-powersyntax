@@ -47,6 +47,64 @@ suite('unit/signatureHelp', () => {
     assert.strictEqual(result.activeParameter, 1);
   });
 
+  test('proyecta documentación enum para parámetros de sistema inferidos desde la firma', () => {
+    const doc = setupDocument('file:///test_signature_enum.sru', `
+global type test_signature_enum from nonvisualobject
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  integer li_file
+  FileSeek(li_file, 0, Fro)
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('FileSeek(li_file, 0, Fro)'));
+    const pos = Position.create(lineIndex, lines[lineIndex].indexOf('Fro') + 'Fro'.length);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph);
+
+    assert.ok(result);
+    assert.strictEqual(result.signatures.length > 0, true);
+    const parameters = result.signatures[0].parameters;
+    assert.ok(parameters);
+    assert.strictEqual(parameters?.length, 3);
+    assert.strictEqual(parameters?.[2].label, 'origin?');
+    assert.match(String(parameters?.[2].documentation), /SeekType/i);
+    assert.match(String(parameters?.[2].documentation), /FromBeginning!/i);
+  });
+
+  test('proyecta documentación enum para parámetros member-scoped de DataWindow', () => {
+    const doc = setupDocument('file:///test_dw_signature_enum.srw', `
+global type test_dw_signature_enum from window
+  datastore ids_orders
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  ids_orders.RowsMove(1, 1, Pri)
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('RowsMove(1, 1, Pri)'));
+    const pos = Position.create(lineIndex, lines[lineIndex].indexOf('Pri') + 'Pri'.length);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph);
+
+    assert.ok(result);
+    const parameters = result.signatures[0].parameters;
+    assert.ok(parameters);
+    assert.strictEqual(parameters?.[2].label, 'movebuffer');
+    assert.match(String(parameters?.[2].documentation), /DWBuffer/i);
+    assert.match(String(parameters?.[2].documentation), /Primary!/i);
+  });
+
   test('debe devolver ayuda de firma para un método de instancia local', () => {
     const doc = setupDocument('file:///n_cst_math.sru', `
 forward

@@ -6,6 +6,7 @@ export type PbSystemSymbolKind =
     | 'reserved-word'
     | 'datatype'
     | 'system-type'
+    | 'enumerated-type'
     | 'operator'
     | 'pronoun'
     | 'enumerated-value'
@@ -39,6 +40,7 @@ export type PbSystemSymbolDomain =
     | 'system-object-datatypes'
     | 'operators'
     | 'pronouns'
+    | 'enumerated-types'
     | 'enumerated-values'
     | 'system-globals'
     | 'datawindow-properties'
@@ -96,12 +98,20 @@ export interface PbSystemSymbolEntryDraft {
     domain: PbSystemSymbolDomain;
     category: string;
     summary: string;
+    documentation?: string;
     signatures: readonly PbSystemSymbolSignature[];
     dataset: PbSystemSymbolDataset;
     source: string;
     sourceUrl?: string;
     appliesTo?: readonly string[];
     ownerTypes?: readonly string[];
+    enumValues?: readonly string[];
+    enumValueOf?: string;
+    enumNumericValue?: number;
+    enumValueMeaning?: string;
+    allowedOnOwners?: readonly string[];
+    allowedOnProperties?: readonly string[];
+    allowedInParameters?: readonly string[];
     obsolete?: boolean;
     obsoleteMessage?: string;
     replacement?: string;
@@ -137,12 +147,16 @@ export interface PbSystemSymbolIndexes {
     byId: ReadonlyMap<string, PbSystemSymbolEntry>;
     byName: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>;
     byLookupKey: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>;
+    byDomainAndLookupKey: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>;
+    byKindAndLookupKey: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>;
+    byEnumValueOf: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>;
     byNamespace: ReadonlyMap<PbSystemSymbolNamespace, readonly PbSystemSymbolEntry[]>;
     byKind: ReadonlyMap<PbSystemSymbolKind, readonly PbSystemSymbolEntry[]>;
     byInvocation: ReadonlyMap<PbSystemSymbolInvocation, readonly PbSystemSymbolEntry[]>;
     byDomain: ReadonlyMap<PbSystemSymbolDomain, readonly PbSystemSymbolEntry[]>;
     byDataset: ReadonlyMap<PbSystemSymbolDataset, readonly PbSystemSymbolEntry[]>;
     byOwnerType: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>;
+    byOwnerTypeAndDomain: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>;
 }
 
 export interface PbSystemSymbolRegistry {

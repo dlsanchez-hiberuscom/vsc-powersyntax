@@ -5,6 +5,7 @@ import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
+import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { EntityKind, Scope, ScopeKind } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 
@@ -20,7 +21,8 @@ const TOKEN_TYPES = [
   'property',
   'variable',
   'parameter',
-  'event'
+  'event',
+  'enumMember'
 ] as const;
 
 const TOKEN_MODIFIERS = [
@@ -47,7 +49,8 @@ const TYPE_INDEX = {
   property: 4,
   variable: 5,
   parameter: 6,
-  event: 7
+  event: 7,
+  enumMember: 8
 };
 
 const MODIFIER_MASK = {
@@ -60,6 +63,7 @@ const MODIFIER_MASK = {
 };
 
 const IDENTIFIER_PATTERN = new RegExp(PB_IDENTIFIER_SOURCE, 'gi');
+const ENUMERATED_VALUE_PATTERN = new RegExp(`${PB_IDENTIFIER_SOURCE}!`, 'gi');
 
 interface TokenEntry {
   line: number;
@@ -72,7 +76,8 @@ interface TokenEntry {
 export function provideSemanticTokens(
   document: TextDocument,
   kb: KnowledgeBase,
-  inheritanceGraph: InheritanceGraph
+  inheritanceGraph: InheritanceGraph,
+  systemCatalog: SystemCatalog,
 ): SemanticTokens {
   const snapshot = getDocumentAnalysis(document).snapshot;
 
@@ -82,7 +87,7 @@ export function provideSemanticTokens(
   emitDeclarations(snapshot, tokens);
 
   // Coloreamos los usos
-  emitUsages(document, snapshot, kb, inheritanceGraph, tokens);
+  emitUsages(document, snapshot, kb, inheritanceGraph, systemCatalog, tokens);
 
   // Ordenar tokens: por línea, luego por carácter
   tokens.sort((a, b) => {
@@ -187,6 +192,7 @@ function emitUsages(
   snapshot: SemanticDocumentSnapshot,
   kb: KnowledgeBase,
   inheritanceGraph: InheritanceGraph,
+  systemCatalog: SystemCatalog,
   tokens: TokenEntry[]
 ): void {
   // Aquí escanearemos strippedLines para encontrar usos
@@ -196,12 +202,32 @@ function emitUsages(
     const line = lines[i];
     if (line.trim() === '') continue;
 
+    ENUMERATED_VALUE_PATTERN.lastIndex = 0;
+    let enumMatch: RegExpExecArray | null;
+    while ((enumMatch = ENUMERATED_VALUE_PATTERN.exec(line)) !== null) {
+      const enumValue = enumMatch[0];
+      if (!systemCatalog.resolveEnumeratedValue(enumValue)) {
+        continue;
+      }
+
+      tokens.push({
+        line: i,
+        char: enumMatch.index,
+        length: enumValue.length,
+        type: TYPE_INDEX.enumMember,
+        mods: MODIFIER_MASK.defaultLibrary,
+      });
+    }
+
     IDENTIFIER_PATTERN.lastIndex = 0;
     let match: RegExpExecArray | null;
 
     while ((match = IDENTIFIER_PATTERN.exec(line)) !== null) {
       const identifier = match[0];
       const startChar = match.index;
+      if (line[startChar + identifier.length] === '!') {
+        continue;
+      }
 
       // Evitar procesar si la declaración ya se pintó, aunque SemanticTokensBuilder 
       // ordena automáticamente por línea/caracter, es mejor resolver.

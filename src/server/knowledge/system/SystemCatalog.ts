@@ -1,9 +1,15 @@
 import {
+  findEntriesByDomainAndLookupKey,
+  findEntriesByKindAndLookupKey,
   findApplicableEventsForOwnerType,
   findApplicableMembersForOwnerType,
   findSystemSymbolsByLookupKey,
+  getSystemCatalogSize,
+  isKnownSystemOwnerType,
+  listSystemSymbolsByDomain,
   listSystemDataWindowEvents,
   listSystemDataWindowFunctions,
+  listValuesForEnumeratedType,
   listSystemEvents,
   listSystemGlobalFunctions,
   listSystemObjectEvents,
@@ -27,19 +33,22 @@ import {
   listReservedWords,
   listDatatypes,
   listSystemTypes,
+  listEnumeratedTypes,
   listPronouns,
   listOperators,
   listEnumeratedValues,
   listSystemGlobals,
+  PB_LANGUAGE_SYMBOL_RESOLUTION_PRIORITY,
+  resolveEnumValueForExpectedType,
   resolveKeyword,
   resolveReservedWord,
   resolveDatatype,
+  resolveEnumeratedType,
+  resolveEnumeratedValue,
   resolveSystemGlobal,
   resolvePronoun,
   resolveLanguageSymbol,
 } from './services/queryService';
-import { isKnownNativeAncestorType } from './nativeAncestors';
-import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
 import {
   PbSystemSymbolDataset,
   PbSystemSymbolDomain,
@@ -85,7 +94,7 @@ export class SystemCatalog {
     return listSystemSymbolsByKind(kind);
   }
   listByDomain(domain: PbSystemSymbolDomain): readonly PbSystemSymbolEntry[] {
-    return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomain.get(domain) ?? [];
+    return listSystemSymbolsByDomain(domain);
   }
   listByDataset(dataset: PbSystemSymbolDataset): readonly PbSystemSymbolEntry[] {
     return listSystemSymbolsByDataset(dataset);
@@ -131,17 +140,14 @@ export class SystemCatalog {
   }
 
   isKnownOwnerType(name: string): boolean {
-    const normalizedName = name.trim().toLowerCase();
-    return normalizedName.length > 0
-      && (PB_SYSTEM_SYMBOL_REGISTRY.indexes.byOwnerType.has(normalizedName)
-        || isKnownNativeAncestorType(normalizedName));
+    return isKnownSystemOwnerType(name);
   }
 
   // -- Métricas / introspección ---------------------------------------
 
   /** Tamaño total del catálogo (manual + generated). */
   size(): number {
-    return PB_SYSTEM_SYMBOL_REGISTRY.entries.length;
+    return getSystemCatalogSize();
   }
 
   // -- Catalog v2: language construct queries --------------------------
@@ -150,6 +156,7 @@ export class SystemCatalog {
   listReservedWords(): readonly PbSystemSymbolEntry[] { return listReservedWords(); }
   listDatatypes(): readonly PbSystemSymbolEntry[] { return listDatatypes(); }
   listSystemTypes(): readonly PbSystemSymbolEntry[] { return listSystemTypes(); }
+  listEnumeratedTypes(): readonly PbSystemSymbolEntry[] { return listEnumeratedTypes(); }
   listPronouns(): readonly PbSystemSymbolEntry[] { return listPronouns(); }
   listOperators(): readonly PbSystemSymbolEntry[] { return listOperators(); }
   listEnumeratedValues(): readonly PbSystemSymbolEntry[] { return listEnumeratedValues(); }
@@ -158,7 +165,22 @@ export class SystemCatalog {
   resolveKeyword(name: string): PbSystemSymbolEntry | undefined { return resolveKeyword(name); }
   resolveReservedWord(name: string): PbSystemSymbolEntry | undefined { return resolveReservedWord(name); }
   resolveDatatype(name: string): PbSystemSymbolEntry | undefined { return resolveDatatype(name); }
+  resolveEnumeratedType(name: string): PbSystemSymbolEntry | undefined { return resolveEnumeratedType(name); }
+  resolveEnumeratedValue(name: string): PbSystemSymbolEntry | undefined { return resolveEnumeratedValue(name); }
   resolveSystemGlobal(name: string): PbSystemSymbolEntry | undefined { return resolveSystemGlobal(name); }
   resolvePronoun(name: string): PbSystemSymbolEntry | undefined { return resolvePronoun(name); }
   resolveLanguageSymbol(name: string): PbSystemSymbolEntry | undefined { return resolveLanguageSymbol(name); }
+  listEnumeratedValuesForType(typeName: string): readonly PbSystemSymbolEntry[] { return listValuesForEnumeratedType(typeName); }
+  resolveEnumeratedValueForType(valueName: string, typeName: string): PbSystemSymbolEntry | undefined {
+    return resolveEnumValueForExpectedType(valueName, typeName);
+  }
+  findByDomainAndLookupKey(domain: PbSystemSymbolDomain, name: string): readonly PbSystemSymbolEntry[] {
+    return findEntriesByDomainAndLookupKey(domain, name);
+  }
+  findByKindAndLookupKey(kind: PbSystemSymbolKind, name: string): readonly PbSystemSymbolEntry[] {
+    return findEntriesByKindAndLookupKey(kind, name);
+  }
+  getLanguageSymbolResolutionPriority(): readonly PbSystemSymbolKind[] {
+    return PB_LANGUAGE_SYMBOL_RESOLUTION_PRIORITY;
+  }
 }

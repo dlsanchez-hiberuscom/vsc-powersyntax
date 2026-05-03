@@ -5,18 +5,21 @@ import { InheritanceGraph } from '../../../src/server/knowledge/resolution/Inher
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { setAnalysisBackends } from '../../../src/server/analysis/analysisCache';
 import { provideSemanticTokens, getSemanticTokensLegend } from '../../../src/server/features/semanticTokens';
+import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { EntityKind } from '../../../src/server/knowledge/types';
 
 suite('Semantic Tokens', () => {
   let kb: KnowledgeBase;
   let graph: InheritanceGraph;
   let docCache: DocumentCache;
+  let systemCatalog: SystemCatalog;
   const legend = getSemanticTokensLegend();
 
   setup(() => {
     kb = new KnowledgeBase();
     graph = new InheritanceGraph(kb);
     docCache = new DocumentCache();
+    systemCatalog = new SystemCatalog();
     setAnalysisBackends(docCache, kb);
 
     kb.upsertDocument('file:///sys.pbl', [
@@ -74,7 +77,7 @@ end function
     const document = TextDocument.create('file:///w_main.srw', 'powerbuilder', 1, code);
     
     // Al pedir semantic tokens, el análisis se ejecuta porque el cache lo delega
-    const tokens = provideSemanticTokens(document, kb, graph);
+    const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
 
     assert.ok(tokens, 'Should return semantic tokens');
     assert.ok(tokens.data.length > 0, 'Should have token data');
@@ -130,5 +133,59 @@ end function
     const mbTokens = decoded.filter(t => t.line < lines.length && lines[t.line].substring(t.char, t.char + t.len).toLowerCase() === 'messagebox');
     assert.ok(mbTokens.length >= 1, 'MessageBox should be colored');
     assert.strictEqual(mbTokens[0].type, 'function', 'MessageBox is a function');
+  });
+
+  test('Should color enumerated values with bang suffix as enumMember', () => {
+    const code = [
+      'global type n_enum_tokens from nonvisualobject',
+      'end type',
+      '',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      '',
+      'public subroutine of_test();',
+      '  integer li_file',
+      '  FileSeek(li_file, 0, FromBeginning!)',
+      'end subroutine'
+    ].join('\n');
+
+    const document = TextDocument.create('file:///n_enum_tokens.sru', 'powerbuilder', 1, code);
+    const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
+
+    const decoded: { line: number, char: number, len: number, type: string, mods: number }[] = [];
+    let currentLine = 0;
+    let currentChar = 0;
+
+    for (let i = 0; i < tokens.data.length; i += 5) {
+      const deltaLine = tokens.data[i];
+      const deltaChar = tokens.data[i + 1];
+      const len = tokens.data[i + 2];
+      const typeIdx = tokens.data[i + 3];
+      const mods = tokens.data[i + 4];
+
+      if (deltaLine > 0) {
+        currentLine += deltaLine;
+        currentChar = deltaChar;
+      } else {
+        currentChar += deltaChar;
+      }
+
+      decoded.push({
+        line: currentLine,
+        char: currentChar,
+        len,
+        type: legend.tokenTypes[typeIdx],
+        mods,
+      });
+    }
+
+    const lines = code.split(/\r?\n/);
+    const enumTokens = decoded.filter((token) =>
+      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'FromBeginning!'
+    );
+
+    assert.ok(enumTokens.length >= 1, 'FromBeginning! should be colored');
+    assert.equal(enumTokens[0].type, 'enumMember');
   });
 });

@@ -129,6 +129,43 @@ suite('unit/hover', () => {
     assert.match(value, /Cliente HTTP/i, 'Debe incluir el resumen del system type moderno.');
   });
 
+  test('provideHover une valores manual-core y generated para tipos enumerados', () => {
+    const doc = TextDocument.create('file:///test_windowtype_hover.sru', 'powerbuilder', 1, 'WindowType lt_window_type');
+    const hover = provideHover(doc, Position.create(0, 2), kb, catalog, graph);
+
+    assert.ok(hover, 'Hover no debería ser null para WindowType');
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('WindowType'), 'Debe contener el nombre del tipo enumerado');
+    assert.ok(value.includes('Main!'), 'Debe exponer valores manual-core del tipo enumerado');
+    assert.ok(value.includes('MDIDock!'), 'Debe exponer valores oficiales generated añadidos al tipo enumerado');
+  });
+
+  test('provideHover resuelve valores enumerados con sufijo ! dentro de argumentos de sistema', () => {
+    const doc = setupAnalyzedDocument('file:///test_enum_value_hover.sru', `
+global type test_enum_value_hover from nonvisualobject
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  integer li_file
+  FileSeek(li_file, 0, FromBeginning!)
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('FromBeginning!'));
+    const character = lines[lineIndex].indexOf('FromBeginning!') + 2;
+    const hover = provideHover(doc, Position.create(lineIndex, character), kb, catalog, graph);
+
+    assert.ok(hover, 'Hover no debería ser null para FromBeginning!');
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('FromBeginning!'), 'Debe conservar el sufijo ! del valor enumerado.');
+    assert.ok(value.includes('**Tipo:** SeekType'), 'Debe resolver el tipo enumerado esperado.');
+  });
+
   test('provideHover expone tipo y riesgo de SQLCA desde system-globals', () => {
     const doc = TextDocument.create('file:///test_sqlca_hover.sru', 'powerbuilder', 1, 'SQLCA.DBHandle');
     const hover = provideHover(doc, Position.create(0, 2), kb, catalog, graph);

@@ -177,6 +177,59 @@ suite('unit/diagnostics', () => {
     });
   });
 
+  test('validateSemantics avisa si un valor enumerado no coincide con el contexto esperado', () => {
+    const source = [
+      'global type w_enum_diagnostics from window',
+      '  multilineedit mle_1',
+      'end type',
+      '',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      '',
+      'public subroutine of_test()',
+      '  integer li_file',
+      '  mle_1.Alignment = FromBeginning!',
+      '  FileSeek(li_file, 0, Left!)',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_enum_context.srw', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const enumDiagnostics = diagnostics.filter((diag) => diag.code === DIAGNOSTIC_CODES.enumValueContextMismatch);
+
+    assert.equal(enumDiagnostics.length, 2);
+    assert.ok(enumDiagnostics.some((diag) => diag.message.includes("'FromBeginning!'") && diag.message.includes("'Alignment'")));
+    assert.ok(enumDiagnostics.some((diag) => diag.message.includes("'Left!'") && diag.message.includes("'SeekType'")));
+    assert.equal((enumDiagnostics[0]?.data as { kind?: string } | undefined)?.kind, 'enumerated-value-context');
+  });
+
+  test('validateSemantics respeta restricciones por owner y member calls en contextos enumerados', () => {
+    const source = [
+      'global type w_enum_owner_diagnostics from window',
+      '  multilineedit mle_1',
+      '  datawindow ids_orders',
+      'end type',
+      '',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      '',
+      'public subroutine of_test()',
+      '  mle_1.Alignment = PDFTextAlignRight!',
+      '  ids_orders.RowsMove(1, 1, FromBeginning!, ids_orders, 1, Primary!)',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_enum_owner_context.srw', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const enumDiagnostics = diagnostics.filter((diag) => diag.code === DIAGNOSTIC_CODES.enumValueContextMismatch);
+
+    assert.equal(enumDiagnostics.length, 2);
+    assert.ok(enumDiagnostics.some((diag) => diag.message.includes("'PDFTextAlignRight!'") && diag.message.includes("mle_1.Alignment")));
+    assert.ok(enumDiagnostics.some((diag) => diag.message.includes("'FromBeginning!'") && diag.message.includes("'DWBuffer'")));
+  });
+
   test('validateSemantics avisa si create no llama a super::create teniendo ancestro', () => {
     kb.upsertDocument('file:///w_base_lifecycle.srw', [
       {

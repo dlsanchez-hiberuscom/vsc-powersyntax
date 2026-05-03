@@ -13,6 +13,7 @@ export const DIAGNOSTIC_CODES = {
   sd11UnreachableAfterReturn: 'SD11',
   sd12UnbalancedParens: 'SD12',
   sd13MissingReturn: 'SD13',
+  enumValueContextMismatch: 'enum-value-context-mismatch',
   dataObjectNotFound: 'dataobject-not-found',
   dataObjectAmbiguous: 'dataobject-ambiguous',
   dataObjectDynamic: 'dataobject-dynamic',

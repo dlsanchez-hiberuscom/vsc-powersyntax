@@ -2,33 +2,38 @@
 
 ## 1. Foco activo
 
-`B346 — Refactor client extension activation and command registration`
+`B364 — Enum catalog real-corpus validation against PFC, STD and public PB repositories`
 
-Estado actual: `B198`, `B195`, `B251`, `B252`, `B253`, `B254`, `B255`, `B256`, `B257`, `B258`, `B259`, `B260`, `B261`, `B262`, `B263`, `B264`, `B265`, `B266`, `B267`, `B268`, `B269`, `B270`, `B271`, `B272`, `B273`, `B274`, `B275`, `B276`, `B277`, `B278`, `B279`, `B280`, `B281`, `B282`, `B283`, `B285`, `B287`, `B288`, `B289`, `B290`, `B291`, `B293`, `B294`, `B295`, `B296`, `B297`, `B319`, `B322`, `B323`, `B324`, `B325`, `B330`, `B336` y `B347` quedan ya cerradas con trazas canónicas, incluyendo `specs/364-runtime-self-test-command`, `specs/365-enterprise-health-score`, `specs/366-enterprise-configuration-policy`, `specs/367-support-bundle-redaction-policy` y `specs/368-server-lsp-handler-registration-refactor`, además de `docs/done-log.md`. Con el entrypoint del servidor ya descompuesto, el siguiente hotspot útil pasa ahora a `B346`.
+Estado actual: `B363` queda cerrada con `specs/377-catalog-driven-enum-consumers`. El runtime ya proyecta enums en hover, completion, signatureHelp, semantic tokens para valores con `!` y diagnostics conservadores sin volver a hardcodear listas paralelas: `pbIdentifier.ts` resuelve sufijos `!`, `completion.ts` y `signatureHelp.ts` comparten `enumeratedContext.ts` para propiedades y parametros catalog-driven, `semanticTokens.ts` publica `enumMember` para valores conocidos por `SystemCatalog` y `diagnostics.ts` emite `enum-value-context-mismatch` solo cuando el tipo esperado es inequívoco. La validación ejecutada que deja este cierre trazado es:
 
-Trazas paralelas activas que no desplazan ese foco principal:
+- `npm run build:test`;
+- `npx tsc -p tsconfig.test.json`;
+- `npx vscode-test --label unit --grep "completion|hover|signatureHelp|semanticTokens|diagnostics|enumerated|enum"`;
+- `npx vscode-test --label unit --grep "catalog|systemCatalog|catalogV2"`.
 
-- mantenimiento verde del carril `B258-B297` y `B347` únicamente si aparece una regresión real en server/runtime/supportability;
-- mantenimiento verde de `B279`/`B280`/`B281`/`B282`/`B283`/`B285`/`B287`/`B288`/`B289`/`B290`/`B291`/`B293`/`B319`/`B322`/`B323`/`B324`/`B325`/`B330`/`B336` únicamente si aparece una regresión real en identity, catálogo o serving interactivo;
-- mantenimiento derivado de la auditoría 2026-05-03 sobre catálogo/refactor/real-corpus: `B339` y `B344` siguen abiertos, pero no desplazan `B346` salvo regresión real.
+Trazas paralelas activas que no desplazan este foco principal:
+
+- `B346` continúa abierto como hotspot del cliente, pero no desplaza la validación corpus-driven del carril enumerado mientras no aparezca una regresión real de activación o wiring;
+- `B329` puede retomarse después si se quiere un contract más amplio de semantic tokens catalog-driven fuera del tratamiento explícito de valores con `!`;
+- `B339/B357/B358/B359/B360/B361/B362/B363/B365` deben tratarse ya como base cerrada salvo regresión demostrable.
 
 ---
 
 ## 2. Por qué es prioritario
 
-Tras cerrar `B347`, el hotspot visible siguiente es `src/client/extension.ts`: el cliente sigue fino, pero mezcla activación, wiring, comandos, paneles, build/ORCA, export/support y construcción de API en un único archivo.
+Con los consumers visibles ya cerrados, el siguiente riesgo deja de ser funcional y pasa a ser de validación real sobre corpus:
 
-- `B346` debe separar bootstrap, command registration, vistas/paneles, build/ORCA, support/export y API construction sin romper command IDs ni la API pública;
-- la refactorización debe preservar activación perezosa, no re-registrar comandos y mantener el cliente ligero;
-- el cierre debe sostener verdes `architectureImports`, las smokes principales del cliente y el presupuesto de activación.
+- `B363` ya cerró la utilidad visible del catálogo enumerado en editor y diagnostics;
+- `B364` debe comprobar esa utilidad contra PFC 2025, STD/OrderEntry y corpus públicos antes de ampliar más cobertura o aceptar candidatos nuevos;
+- cerrar `B364` ahora evita convertir usos corpus-driven en catálogo oficial sin distinguir evidencia runtime, curada y falsos positivos textuales.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- extraer boundaries explícitos desde `src/client/extension.ts` hacia bootstrap, comandos, paneles, build/ORCA, support/export y API pública;
-- mantener estable el contrato observable del cliente mientras se reduce acoplamiento y tamaño del entrypoint;
-- alinear `docs/architecture.md`, `docs/testing.md` y `docs/performance-budget.md` cuando la estructura visible cambie.
+- localizar y validar los corpus ya previstos (`fixtures-local/pfc`, `fixtures-local/STD_FC_OrderEntry` y helpers equivalentes) sin tratarlos como fuente oficial;
+- medir hover/completion/diagnostics sobre usos reales de valores con `!`, clasificando conocidos, candidatos, falsos positivos y out-of-context values;
+- convertir solo gaps confirmados en backlog, fixtures o smoke tests, nunca en catálogo oficial automático.
 
 ---
 
@@ -36,28 +41,29 @@ Tras cerrar `B347`, el hotspot visible siguiente es `src/client/extension.ts`: e
 
 No abrir salvo causa clara:
 
-- reabrir `B347` sin drift real en `src/server/server.ts`, `handlers/*.ts`, `architectureImports.test.ts` o las smokes focales del servidor;
-- mezclar `B346` con `B344` (DataWindow/plugin_old) o con nuevos cambios de catálogo antes de cerrar el slice mínimo del cliente;
-- cambiar command IDs, surfaces públicas o el presupuesto de activación sin una validación proporcional que lo vuelva a fijar.
+- reabrir `B363` salvo regresión real en hover/completion/signatureHelp/semantic tokens/diagnostics del carril enumerado;
+- promover valores desconocidos desde PFC/STD/public corpora al catálogo oficial o manual-core sin evidencia de fuente defendible;
+- mezclar `B364` con refactors grandes de cliente, ORCA, scheduler o DataWindow ajenos a la validación corpus-driven de enums.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- `B346` queda cerrada con `src/client/extension.ts` descompuesto en módulos con boundaries explícitos y sin imports indebidos desde `server`;
-- command IDs, API pública y comportamiento observable del cliente permanecen intactos;
-- `docs/architecture.md`, `docs/testing.md` y `docs/performance-budget.md` quedan alineados con la nueva estructura real del cliente.
+- PFC y STD/OrderEntry indexan sin crash si están disponibles en el entorno local;
+- existe un reporte de uso real de valores con `!` que separa valores catalogados, desconocidos, candidatos, falsos positivos y casos fuera de contexto;
+- hover/completion/diagnostics no introducen ruido masivo sobre los corpus validados;
+- `docs/testing.md`, `docs/performance-budget.md`, `test/corpora/README.md` y los resultados/baselines afectados quedan alineados con la validación real ejecutada.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B339` — Catalog provenance audit against official Appeon sources.
-2. `B344` — DataWindow binding edge cases from plugin_old.
-3. `B353` — Large-file regression guard and architecture metrics.
+1. `B346` — Refactor client extension activation and command registration.
+2. `B329` — Catalog-driven semantic tokens integration.
+3. `B376` — Workspace check command and AI-readable validation report.
 
 ---
 
 ## 7. Regla final
 
-`B346` debe apoyarse en la misma disciplina que `B277/B281/B347`: descomponer entrypoints sin tocar el contrato observable, proteger activación/hot path y reforzar boundaries explícitos entre bootstrap, handlers, commands y runtime.
+`B364` valida corpus reales; no redefine membresía oficial. PFC, STD/OrderEntry y dumps públicos pueden abrir backlog, fixtures o smoke tests, pero no deben convertirse por sí solos en autoridad de catálogo ni en hardcodes nuevos dentro de los consumers visibles.

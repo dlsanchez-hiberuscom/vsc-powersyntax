@@ -1,9 +1,5 @@
 import { PB_GENERATED_DATAWINDOW_FUNCTION_OWNER_TYPES, PB_GENERATED_OBJECT_OWNER_TYPES } from './generated/common';
-import {
-  PB_MANUAL_CORE_DATAWINDOW_EVENT_OWNER_TYPES,
-  PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
-  PB_MANUAL_CORE_OBJECT_OWNER_TYPES,
-} from './manual/common';
+import { PB_MANUAL_CORE_OWNER_TYPE_GROUPS } from './manual';
 import { normalizeSystemSymbolName } from './normalization';
 
 const NATIVE_TYPE_ALIASES = new Map<string, string>([
@@ -14,10 +10,24 @@ const EXPLICIT_NATIVE_PARENT_TYPES = new Map<string, readonly string[]>([
   ['application', ['powerobject']],
   ['drawobject', ['graphicobject']],
   ['graphicobject', ['powerobject']],
+  ['mdiclient', ['window']],
   ['mdiframe', ['window']],
   ['menu', ['powerobject']],
+  ['menucascade', ['menu']],
   ['nonvisualobject', ['powerobject']],
   ['olecustomcontrol', ['olecontrol']],
+  ['ribbonapplicationbuttonitem', ['ribbonitem']],
+  ['ribbonapplicationmenu', ['ribbonmenu']],
+  ['ribboncategoryitem', ['ribbonitem']],
+  ['ribboncheckboxitem', ['ribbonitem']],
+  ['ribboncomboboxitem', ['ribbonitem']],
+  ['ribbongroupitem', ['ribbonitem']],
+  ['ribbonlargebuttonitem', ['ribbonitem']],
+  ['ribbonmenu', ['ribbonitem']],
+  ['ribbonmenuitem', ['ribbonitem']],
+  ['ribbonpanelitem', ['ribbonitem']],
+  ['ribbonsmallbuttonitem', ['ribbonitem']],
+  ['ribbontabbuttonitem', ['ribbonitem']],
   ['runtimeerror', ['throwable']],
   ['throwable', ['powerobject']],
   ['window', ['powerobject']],
@@ -55,9 +65,9 @@ function collectKnownNativeSystemTypes(): ReadonlySet<string> {
     }
   };
 
-  pushValues(PB_MANUAL_CORE_OBJECT_OWNER_TYPES);
-  pushValues(PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES);
-  pushValues(PB_MANUAL_CORE_DATAWINDOW_EVENT_OWNER_TYPES);
+  pushValues(PB_MANUAL_CORE_OWNER_TYPE_GROUPS.object);
+  pushValues(PB_MANUAL_CORE_OWNER_TYPE_GROUPS.dataWindowFunction);
+  pushValues(PB_MANUAL_CORE_OWNER_TYPE_GROUPS.dataWindowEvent);
   pushValues(PB_GENERATED_OBJECT_OWNER_TYPES);
   pushValues(PB_GENERATED_DATAWINDOW_FUNCTION_OWNER_TYPES);
   pushValues(EXTRA_NATIVE_SYSTEM_TYPES);

@@ -1,8 +1,5 @@
 import { finalizeSystemSymbolEntry } from '../normalization';
-import {
-    PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
-    PB_MANUAL_CORE_OBJECT_OWNER_TYPES,
-} from '../manual/common';
+import { PB_MANUAL_CORE_OWNER_TYPE_GROUPS } from '../manual';
 import { PB_GENERATED_OBJECT_OWNER_TYPES_EXTENDED } from './ownerTypes.generated';
 import { PB_GENERATED_CATALOG_GENERATED_AT } from './provenance.generated';
 import {
@@ -13,10 +10,13 @@ import {
 
 const POWERSCRIPT_REFERENCE = 'Appeon PowerScript Reference 2025';
 const POWERSCRIPT_REFERENCE_URL = 'https://docs.appeon.com/pb2025/powerscript_reference/index.html';
+const POWERSCRIPT_REFERENCE_PREFIX = 'https://docs.appeon.com/pb2025/powerscript_reference/';
 const OBJECTS_AND_CONTROLS_REFERENCE = 'Appeon Objects and Controls 2025';
 const OBJECTS_AND_CONTROLS_REFERENCE_URL = 'https://docs.appeon.com/pb2025/objects_and_controls/index.html';
+const OBJECTS_AND_CONTROLS_REFERENCE_PREFIX = 'https://docs.appeon.com/pb2025/objects_and_controls/';
 const DATAWINDOW_REFERENCE = 'Appeon DataWindow Reference 2025';
 const DATAWINDOW_REFERENCE_URL = 'https://docs.appeon.com/pb2025/datawindow_reference/index.html';
+const DATAWINDOW_REFERENCE_PREFIX = 'https://docs.appeon.com/pb2025/datawindow_reference/';
 const OFFICIAL_REFERENCE_VERSION = 'PowerBuilder 2025';
 
 function mergeUniqueValues(...valueGroups: readonly (readonly string[])[]): string[] {
@@ -32,12 +32,12 @@ function mergeUniqueValues(...valueGroups: readonly (readonly string[])[]): stri
 }
 
 export const PB_GENERATED_OBJECT_OWNER_TYPES = mergeUniqueValues(
-    PB_MANUAL_CORE_OBJECT_OWNER_TYPES,
+    PB_MANUAL_CORE_OWNER_TYPE_GROUPS.object,
     PB_GENERATED_OBJECT_OWNER_TYPES_EXTENDED,
 );
 
 export const PB_GENERATED_DATAWINDOW_FUNCTION_OWNER_TYPES = mergeUniqueValues(
-    PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
+    PB_MANUAL_CORE_OWNER_TYPE_GROUPS.dataWindowFunction,
 );
 
 type GeneratedSymbolArgs = {
@@ -58,10 +58,52 @@ type GeneratedLanguageSymbolArgs = {
     name: string;
     category: string;
     summary: string;
+    documentation?: string;
     lookupAliases?: readonly string[];
     signatures?: readonly PbSystemSymbolSignature[];
     sourceUrl?: string;
+    obsolete?: boolean;
+    obsoleteMessage?: string;
+    replacement?: string;
+    enumValues?: readonly string[];
+    enumValueOf?: string;
+    enumNumericValue?: number;
+    enumValueMeaning?: string;
+    allowedOnOwners?: readonly string[];
+    allowedOnProperties?: readonly string[];
+    allowedInParameters?: readonly string[];
 };
+
+function resolveGeneratedReferenceFromSourceUrl(sourceUrl?: string): {
+    source: string;
+    defaultSourceUrl: string;
+} {
+    if (sourceUrl?.startsWith(DATAWINDOW_REFERENCE_PREFIX)) {
+        return {
+            source: DATAWINDOW_REFERENCE,
+            defaultSourceUrl: DATAWINDOW_REFERENCE_URL,
+        };
+    }
+
+    if (sourceUrl?.startsWith(OBJECTS_AND_CONTROLS_REFERENCE_PREFIX)) {
+        return {
+            source: OBJECTS_AND_CONTROLS_REFERENCE,
+            defaultSourceUrl: OBJECTS_AND_CONTROLS_REFERENCE_URL,
+        };
+    }
+
+    if (sourceUrl?.startsWith(POWERSCRIPT_REFERENCE_PREFIX)) {
+        return {
+            source: POWERSCRIPT_REFERENCE,
+            defaultSourceUrl: POWERSCRIPT_REFERENCE_URL,
+        };
+    }
+
+    return {
+        source: POWERSCRIPT_REFERENCE,
+        defaultSourceUrl: POWERSCRIPT_REFERENCE_URL,
+    };
+}
 
 function defineGeneratedEntry(
     entry: Omit<PbSystemSymbolEntryDraft, 'dataset' | 'source'>,
@@ -167,4 +209,30 @@ export function generatedSystemObjectDatatype(args: GeneratedLanguageSymbolArgs)
         invocation: 'global',
         domain: 'system-object-datatypes',
     }, OBJECTS_AND_CONTROLS_REFERENCE, OBJECTS_AND_CONTROLS_REFERENCE_URL);
+}
+
+export function generatedEnumeratedType(args: GeneratedLanguageSymbolArgs): PbSystemSymbolEntry {
+    const reference = resolveGeneratedReferenceFromSourceUrl(args.sourceUrl);
+
+    return defineGeneratedEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'enumerated-type',
+        namespace: 'powerbuilder-runtime',
+        invocation: 'global',
+        domain: 'enumerated-types',
+    }, reference.source, reference.defaultSourceUrl);
+}
+
+export function generatedEnumeratedValue(args: GeneratedLanguageSymbolArgs): PbSystemSymbolEntry {
+    const reference = resolveGeneratedReferenceFromSourceUrl(args.sourceUrl);
+
+    return defineGeneratedEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'enumerated-value',
+        namespace: 'powerbuilder-runtime',
+        invocation: 'global',
+        domain: 'enumerated-values',
+    }, reference.source, reference.defaultSourceUrl);
 }

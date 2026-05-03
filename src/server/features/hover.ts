@@ -168,7 +168,7 @@ export function provideHover(
     return {
       contents: {
         kind: MarkupKind.Markdown,
-        value: buildSystemSymbolMarkdown(symbol)
+        value: buildSystemSymbolMarkdown(symbol, catalog)
       }
     };
   }
@@ -179,7 +179,7 @@ export function provideHover(
     return {
       contents: {
         kind: MarkupKind.Markdown,
-        value: buildLanguageSymbolMarkdown(langSymbol)
+        value: buildLanguageSymbolMarkdown(langSymbol, catalog)
       }
     };
   }
@@ -190,8 +190,9 @@ export function provideHover(
 /**
  * Formatea un PbSystemSymbolEntry como un Markdown rico con firmas, resumen y enlaces.
  */
-function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
+function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry, catalog: SystemCatalog): string {
   const lines: string[] = [];
+  const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
 
   // Firma principal (tomamos la primera, a futuro se podría mostrar que hay N sobrecargas)
   if (symbol.signatures && symbol.signatures.length > 0) {
@@ -236,6 +237,22 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
     lines.push(`**Se aplica a:** ${symbol.appliesTo.join(', ')}`);
   }
 
+  if (symbol.kind === 'enumerated-type' && effectiveEnumValues.length > 0) {
+    lines.push('');
+    lines.push(`**Valores:** ${effectiveEnumValues.join(', ')}`);
+  }
+
+  if (symbol.kind === 'enumerated-value' && symbol.enumValueOf) {
+    lines.push('');
+    lines.push(`**Tipo:** ${symbol.enumValueOf}`);
+    if (symbol.enumNumericValue !== undefined) {
+      lines.push(`**Valor numérico:** ${symbol.enumNumericValue}`);
+    }
+    if (symbol.enumValueMeaning) {
+      lines.push(`**Significado:** ${symbol.enumValueMeaning}`);
+    }
+  }
+
   if (symbol.sourceUrl) {
     lines.push('');
     lines.push(`[📚 Documentación Oficial Appeon](${symbol.sourceUrl})`);
@@ -268,21 +285,40 @@ function formatSystemSymbolRisk(risk: NonNullable<PbSystemSymbolEntry['risk']>):
 /**
  * Formatea un símbolo de lenguaje (keyword, datatype, pronoun, etc.) como Markdown compacto.
  */
-function buildLanguageSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
+function collectEffectiveEnumeratedTypeValues(
+  symbol: PbSystemSymbolEntry,
+  catalog: SystemCatalog
+): readonly string[] {
+  if (symbol.kind !== 'enumerated-type') {
+    return [];
+  }
+
+  const values = new Set<string>(symbol.enumValues ?? []);
+
+  for (const entry of catalog.listEnumeratedValuesForType(symbol.name)) {
+    values.add(entry.name);
+  }
+
+  return Array.from(values);
+}
+
+function buildLanguageSymbolMarkdown(symbol: PbSystemSymbolEntry, catalog: SystemCatalog): string {
   const kindLabels: Record<string, string> = {
     'keyword': '🔤 Palabra clave',
     'reserved-word': '🔒 Palabra reservada',
     'datatype': '📦 Tipo de dato',
     'system-type': '🏛️ Tipo de sistema',
+    'enumerated-type': '🏷️ Tipo enumerado',
     'operator': '⚡ Operador',
     'pronoun': '👆 Pronombre de objeto',
     'system-global': '🌐 Global del sistema',
-    'enumerated-value': '🏷️ Tipo enumerado',
+    'enumerated-value': '🔖 Valor enumerado',
     'property': '🔧 Propiedad',
     'constant': '📌 Constante',
   };
 
   const lines: string[] = [];
+  const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
   lines.push(`\`\`\`powerbuilder\n${symbol.name}\n\`\`\``);
   lines.push('---');
   lines.push(kindLabels[symbol.kind] ?? `📋 ${symbol.kind}`);
@@ -293,6 +329,24 @@ function buildLanguageSymbolMarkdown(symbol: PbSystemSymbolEntry): string {
   if (symbol.category) {
     lines.push('');
     lines.push(`**Categoría:** ${symbol.category}`);
+  }
+  if (symbol.documentation) {
+    lines.push('');
+    lines.push(symbol.documentation);
+  }
+  if (symbol.kind === 'enumerated-type' && effectiveEnumValues.length > 0) {
+    lines.push('');
+    lines.push(`**Valores:** ${effectiveEnumValues.join(', ')}`);
+  }
+  if (symbol.kind === 'enumerated-value' && symbol.enumValueOf) {
+    lines.push('');
+    lines.push(`**Tipo:** ${symbol.enumValueOf}`);
+    if (symbol.enumNumericValue !== undefined) {
+      lines.push(`**Valor numérico:** ${symbol.enumNumericValue}`);
+    }
+    if (symbol.enumValueMeaning) {
+      lines.push(`**Significado:** ${symbol.enumValueMeaning}`);
+    }
   }
 
   return lines.join('\n');

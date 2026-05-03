@@ -1,0 +1,116 @@
+import { Position } from 'vscode-languageserver/node';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import type { PbSystemSymbolEntry } from '../knowledge/system/types';
+import { resolveDocumentQualifierType } from './queryContext';
+import {
+  extractSignatureContext,
+  getSignatureParameterLabel,
+  resolveExpectedEnumTypeForParameterLabel,
+} from './signatureHelp';
+
+export function matchesEnumeratedPropertyContext(
+  entry: PbSystemSymbolEntry,
+  propertyName: string,
+  ownerType: string,
+): boolean {
+  if (entry.allowedOnProperties?.length && !entry.allowedOnProperties.some((name) => name.toLowerCase() === propertyName.toLowerCase())) {
+    return false;
+  }
+
+  if (!entry.allowedOnOwners?.length) {
+    return true;
+  }
+
+  const explicitOwners = entry.allowedOnOwners.filter((label) => isExplicitOwnerLabel(label));
+  if (explicitOwners.length === 0) {
+    return true;
+  }
+
+  const normalizedOwnerType = normalizeOwnerLabel(ownerType);
+  return explicitOwners.some((label) => normalizeOwnerLabel(label) === normalizedOwnerType);
+}
+
+export function resolveExpectedEnumTypeForCallArgumentAtPosition(
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog,
+): string | null {
+  const signatureContext = extractSignatureContext(document, position);
+  if (!signatureContext) {
+    return null;
+  }
+
+  const systemTargets = resolveSystemTargetsForCallArgument(
+    signatureContext.identifier,
+    signatureContext.qualifier,
+    document,
+    position,
+    kb,
+    systemCatalog,
+  );
+  return resolveExpectedEnumTypeForCallArgument(systemCatalog, systemTargets, signatureContext.activeParameter);
+}
+
+function resolveSystemTargetsForCallArgument(
+  identifier: string,
+  qualifier: string | undefined,
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog,
+): readonly PbSystemSymbolEntry[] {
+  if (qualifier) {
+    const ownerType = resolveDocumentQualifierType(document, qualifier, position, kb);
+    const ownerTarget = ownerType
+      ? systemCatalog.resolveMemberFunctionForOwner(identifier, [ownerType])
+      : undefined;
+    return ownerTarget ? [ownerTarget] : [];
+  }
+
+  const globalTarget = systemCatalog.resolveGlobalFunction(identifier);
+  if (globalTarget) {
+    return [globalTarget];
+  }
+
+  return systemCatalog.findSystemSymbol(identifier).filter((entry) => entry.kind === 'callable');
+}
+
+function resolveExpectedEnumTypeForCallArgument(
+  systemCatalog: SystemCatalog,
+  targets: readonly PbSystemSymbolEntry[],
+  activeParameter: number,
+): string | null {
+  for (const target of targets) {
+    for (const signature of target.signatures) {
+      const parameterLabel = getSignatureParameterLabel(signature.label, activeParameter);
+      if (!parameterLabel) {
+        continue;
+      }
+
+      const enumTypeName = resolveExpectedEnumTypeForParameterLabel(systemCatalog, parameterLabel);
+      if (enumTypeName) {
+        return enumTypeName;
+      }
+    }
+  }
+
+  return null;
+}
+
+function isExplicitOwnerLabel(label: string): boolean {
+  const trimmed = label.trim();
+  return /^[A-Za-z][\w]*s?$/i.test(trimmed) || /\bobjects?$/i.test(trimmed);
+}
+
+function normalizeOwnerLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/\bobjects?\b/g, '')
+    .replace(/\bcontrols?\b/g, '')
+    .replace(/\s+/g, '')
+    .replace(/s$/, '');
+}

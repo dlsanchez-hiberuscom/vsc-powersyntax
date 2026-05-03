@@ -17,6 +17,7 @@ import {
   findNearestDataObjectLiteralBinding,
   resolveDataWindowRetrieveArguments,
 } from './dataWindowBindingModel';
+import type { PbSystemSymbolSignature } from '../knowledge/system/types';
 
 export function provideSignatureHelp(
   document: TextDocument,
@@ -73,9 +74,7 @@ export function provideSignatureHelp(
     for (const sysTarget of sysTargets) {
       if (sysTarget.signatures && sysTarget.signatures.length > 0) {
         for (const sig of sysTarget.signatures) {
-          const parameters = sig.parameters?.map(p => {
-            return ParameterInformation.create(p.label, p.documentation);
-          }) || [];
+          const parameters = buildSystemSignatureParameters(systemCatalog, sig);
 
           signatures.push(SignatureInformation.create(
             sig.label,
@@ -191,7 +190,7 @@ function inferArgumentType(argumentText: string): string {
   return 'unknown';
 }
 
-function extractSignatureContext(document: TextDocument, position: Position): { identifier: string; qualifier?: string; activeParameter: number; argumentCount?: number; argumentTypes?: string[] } | null {
+export function extractSignatureContext(document: TextDocument, position: Position): { identifier: string; qualifier?: string; activeParameter: number; argumentCount?: number; argumentTypes?: string[] } | null {
   // Vamos a buscar hacia atrás el paréntesis de apertura '(' 
   // y contar las comas en el nivel de profundidad 0.
   let activeParameter = 0;
@@ -291,4 +290,108 @@ function extractSignatureContext(document: TextDocument, position: Position): { 
     : undefined;
 
   return { identifier, qualifier, activeParameter, ...(argumentCount !== undefined ? { argumentCount } : {}), ...(argumentTypes ? { argumentTypes } : {}) };
+}
+
+function buildSystemSignatureParameters(
+  systemCatalog: SystemCatalog,
+  signature: PbSystemSymbolSignature,
+): ParameterInformation[] {
+  const entries: Array<{ label: string; documentation?: string }> = signature.parameters?.length
+    ? signature.parameters.map((parameter) => ({
+        label: parameter.label,
+        documentation: parameter.documentation,
+      }))
+    : listSignatureParameterLabels(signature.label).map((label) => ({ label }));
+
+  return entries.map((parameter) =>
+    ParameterInformation.create(
+      parameter.label,
+      parameter.documentation ?? buildEnumParameterDocumentation(systemCatalog, parameter.label),
+    ),
+  );
+}
+
+function buildEnumParameterDocumentation(systemCatalog: SystemCatalog, parameterLabel: string): string | undefined {
+  const enumTypeName = resolveExpectedEnumTypeForParameterLabel(systemCatalog, parameterLabel);
+  if (!enumTypeName) {
+    return undefined;
+  }
+
+  const enumType = systemCatalog.resolveEnumeratedType(enumTypeName);
+  if (!enumType) {
+    return undefined;
+  }
+
+  const values = systemCatalog.listEnumeratedValuesForType(enumType.name).map((entry) => entry.name);
+  const valuesText = values.length > 0 ? ` Valores: ${values.join(', ')}.` : '';
+  return `Tipo esperado: ${enumType.name}.${valuesText}${enumType.documentation ? ` ${enumType.documentation}` : ''}`.trim();
+}
+
+export function listSignatureParameterLabels(signatureLabel: string): readonly string[] {
+  const match = signatureLabel.match(/\((.*)\)/);
+  if (!match) {
+    return [];
+  }
+
+  return match[1]
+    .split(',')
+    .map((parameter) => parameter.replace(/[{}]/g, '').trim())
+    .filter((parameter) => parameter.length > 0);
+}
+
+export function getSignatureParameterLabel(signatureLabel: string, activeParameter: number): string | null {
+  return listSignatureParameterLabels(signatureLabel)[activeParameter] ?? null;
+}
+
+export function resolveExpectedEnumTypeForParameterLabel(
+  systemCatalog: SystemCatalog,
+  parameterLabel: string,
+): string | null {
+  const explicitType = extractExplicitEnumTypeFromParameterLabel(systemCatalog, parameterLabel);
+  if (explicitType) {
+    return explicitType.name;
+  }
+
+  const parameterName = extractParameterNameFromLabel(parameterLabel);
+  if (!parameterName) {
+    return null;
+  }
+
+  const contextualEnumType = systemCatalog.listEnumeratedTypes().find((entry) =>
+    entry.allowedInParameters?.some((allowedParameter) =>
+      normalizeParameterName(allowedParameter) === normalizeParameterName(parameterName),
+    ),
+  );
+  return contextualEnumType?.name ?? null;
+}
+
+function extractExplicitEnumTypeFromParameterLabel(
+  systemCatalog: SystemCatalog,
+  parameterLabel: string,
+) {
+  const cleaned = parameterLabel.replace(/[{}]/g, '').trim();
+  const typeMatch = cleaned.match(/^(?:ref\s+)?([a-zA-Z_$#%][\w$#%\-]*)\s+[a-zA-Z_$#%][\w$#%\-]*\??$/i);
+  if (!typeMatch) {
+    return undefined;
+  }
+
+  return systemCatalog.resolveEnumeratedType(typeMatch[1]);
+}
+
+function extractParameterNameFromLabel(parameterLabel: string): string | null {
+  const cleaned = parameterLabel.replace(/[{}]/g, '').trim();
+  if (!cleaned) {
+    return null;
+  }
+
+  const tokens = cleaned.split(/\s+/).filter((token) => token.length > 0);
+  if (tokens.length === 0) {
+    return null;
+  }
+
+  return tokens[tokens.length - 1].replace(/\?$/, '');
+}
+
+function normalizeParameterName(parameterName: string): string {
+  return parameterName.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
