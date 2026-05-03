@@ -107,7 +107,13 @@ suite('unit/statusBarPresentation (B107)', () => {
       source: 'config',
       executablePath: 'C:/Tools/orca.exe',
       capabilities: ['legacy-script-runner'],
-      detail: 'ORCA disponible vía configuración.'
+      detail: 'ORCA disponible vía configuración.',
+      packagingPolicy: {
+        exposure: 'not-exposed',
+        requiresFeatureFlag: true,
+        supportedArtifacts: ['exe', 'pbd', 'dll'],
+        detail: 'Packaging ORCA de EXE/PBD/DLL no está expuesto; requiere un feature flag dedicado y queda fuera del carril PBAutoBuild.'
+      }
     },
     orcaRunner: {
       state: 'succeeded',
@@ -203,6 +209,7 @@ suite('unit/statusBarPresentation (B107)', () => {
     assert.match(tooltip, /Build: PBAutoBuild 25\.0 \/ 2025 disponible · configuración/);
     assert.match(tooltip, /Build run: ejecutando · demo\.json/);
     assert.match(tooltip, /ORCA: ORCA disponible · configuración/);
+    assert.match(tooltip, /ORCA packaging: off · Packaging ORCA de EXE\/PBD\/DLL no está expuesto/);
     assert.match(tooltip, /ORCA run: último ORCA ok · demo\.orca · 220ms/);
     assert.match(tooltip, /Memoria: warning · 80\.0 MiB \/ 128\.0 MiB · document cache 94% · heap 70\.0 MiB/);
     assert.match(tooltip, /command:vscPowerSyntax.openProjectHealthDashboard/);

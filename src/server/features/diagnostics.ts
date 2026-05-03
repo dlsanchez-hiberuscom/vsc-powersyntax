@@ -42,6 +42,7 @@ import {
   resolveDataWindowRetrieveArguments,
   type DataWindowRetrieveArgument,
 } from './dataWindowBindingModel';
+import { inspectPowerScriptDataWindowProperty } from './dataWindowPropertyPaths';
 import {
   buildDiagnosticsSnapshot,
   type DiagnosticsSnapshot,
@@ -78,6 +79,7 @@ import {
   LINE_COMMENT_PATTERN
 } from '../parsing/grammar';
 import type { LogicalStatement } from '../parsing/statementSplitter';
+import { findObsoleteCalls } from './obsoleteDetector';
 
 
 export function publishDiagnostics(
@@ -110,7 +112,8 @@ export function buildDiagnosticsForDocument(
     ? validateSemantics(document, kb, systemCatalog, inheritanceGraph)
     : [];
   const extra = runExtraDiagnostics(document);
-  const all = applySeverityOverrides([...structural, ...semantic, ...extra]);
+  const obsolete = findObsoleteCalls(document.getText());
+  const all = applySeverityOverrides([...structural, ...semantic, ...extra, ...obsolete]);
   return dedupAndCap(all, MAX_DIAGNOSTICS_PER_FILE);
 }
 
@@ -521,6 +524,7 @@ export function validateSemantics(
   if (mainType) {
     for (const rootScope of scopes) {
       checkDataObjectBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb);
+      checkDataWindowPropertyPathDiagnostics(rootScope, document, snapshot, diagnostics, kb);
       checkTransactionBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb, systemCatalog);
     }
     checkLifecycleWarnings(mainType, semanticFacts, diagnostics, kb, inheritanceGraph, systemCatalog);
@@ -869,6 +873,101 @@ function checkDataObjectBindings(
   for (const child of scope.children) {
     checkDataObjectBindings(child, currentUri, snapshot, mainType, diagnostics, kb);
   }
+}
+
+function checkDataWindowPropertyPathDiagnostics(
+  scope: import('../knowledge/types').Scope,
+  document: TextDocument,
+  snapshot: SemanticDocumentSnapshot,
+  diagnostics: Diagnostic[],
+  kb: KnowledgeBase
+): void {
+  if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
+    const statements = getLogicalStatementsForScope(snapshot, scope);
+
+    for (const statement of statements) {
+      for (let line = statement.startLine; line <= statement.endLine; line++) {
+        const inspection = inspectFirstDataWindowPropertyOnLine(document, line, kb);
+        if (!inspection || inspection.resolved) {
+          continue;
+        }
+
+        if (!shouldDiagnoseDataWindowPropertyPath(inspection.invocation.path, inspection.invocation.mode)) {
+          continue;
+        }
+
+        diagnostics.push(buildDataWindowPropertyPathDiagnostic(
+          line,
+          inspection.invocation.pathRange.start.character,
+          inspection.invocation.targetName,
+          inspection.invocation.mode,
+          inspection.invocation.path,
+        ));
+      }
+    }
+  }
+
+  for (const child of scope.children) {
+    checkDataWindowPropertyPathDiagnostics(child, document, snapshot, diagnostics, kb);
+  }
+}
+
+function inspectFirstDataWindowPropertyOnLine(
+  document: TextDocument,
+  line: number,
+  kb: KnowledgeBase,
+): ReturnType<typeof inspectPowerScriptDataWindowProperty> {
+  const lineText = document.getText().split(/\r?\n/)[line] ?? '';
+  for (let character = 0; character < lineText.length; character++) {
+    const inspection = inspectPowerScriptDataWindowProperty(document, Position.create(line, character), kb);
+    if (inspection) {
+      return inspection;
+    }
+  }
+  return null;
+}
+
+function shouldDiagnoseDataWindowPropertyPath(
+  path: string,
+  mode: 'describe' | 'modify' | 'object' | 'getchild',
+): boolean {
+  const normalized = path.trim().toLowerCase();
+  if (!normalized || normalized.endsWith('.')) {
+    return false;
+  }
+
+  if (mode === 'getchild') {
+    return true;
+  }
+
+  return normalized.endsWith('datawindow.table.select')
+    || normalized.endsWith('datawindow.dataobject')
+    || normalized.endsWith('dddw.name');
+}
+
+function buildDataWindowPropertyPathDiagnostic(
+  line: number,
+  col: number,
+  targetName: string,
+  mode: 'describe' | 'modify' | 'object' | 'getchild',
+  path: string,
+): Diagnostic {
+  return withDiagnosticCode({
+    severity: DiagnosticSeverity.Warning,
+    range: Range.create(
+      Position.create(line, Math.max(0, col)),
+      Position.create(line, Math.max(0, col) + Math.max(1, path.length))
+    ),
+    message: `La ruta DataWindow '${path}' no es resoluble de forma segura para '${targetName}'.`,
+    source: DIAGNOSTIC_SOURCE,
+    data: {
+      kind: 'datawindow-property-path',
+      confidence: 'medium',
+      target: targetName,
+      mode,
+      path,
+    }
+  }, DIAGNOSTIC_CODES.dataWindowPropertyPathUnresolved);
 }
 
 

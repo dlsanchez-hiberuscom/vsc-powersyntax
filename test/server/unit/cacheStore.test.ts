@@ -215,6 +215,34 @@ suite('unit/cacheStore', () => {
     }
   });
 
+  test('load limpia workspaces persistidos obsoletos por TTL', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const store = createSemanticCacheStore(new NodeFileSystem(), storageUri, ['file:///workspace']);
+    const staleRoot = path.join(tempRoot, 'obsolete-workspace-key');
+    const staleCheckpoint = path.join(staleRoot, 'semantic-checkpoint.json');
+    const expiredAt = Date.now() - store.retentionPolicy.staleWorkspaceTtlMs - 1000;
+
+    try {
+      await fs.mkdir(staleRoot, { recursive: true });
+      await fs.writeFile(staleCheckpoint, JSON.stringify(createCacheCheckpoint(1, [], {
+        workspaceMode: 'workspace',
+        rootUris: ['file:///obsolete']
+      })), 'utf8');
+      await fs.utimes(staleCheckpoint, new Date(expiredAt), new Date(expiredAt));
+      await fs.utimes(staleRoot, new Date(expiredAt), new Date(expiredAt));
+
+      await store.load({
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      });
+
+      await assert.rejects(() => fs.stat(staleRoot));
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test('persistCheckpoint particiona checkpoints por proyecto y recompone el restore agregado', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
     const storageUri = fsPathToUri(tempRoot);
@@ -417,6 +445,46 @@ suite('unit/cacheStore', () => {
 
       const restored = await store.loadServingCacheSnapshot<{ label: string }>();
       assert.deepEqual(restored, []);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('runMaintenance compacta journals grandes y valida el restore posterior', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const store = createSemanticCacheStore(new NodeFileSystem(), storageUri, ['file:///workspace']);
+    const metadata = {
+      workspaceMode: 'workspace' as const,
+      rootUris: ['file:///workspace']
+    };
+
+    try {
+      await store.persistCheckpoint(createCacheCheckpoint(3, [{ uri: 'file:///a.sru', version: 'hash-a', facts: [], scopes: [] }], metadata));
+
+      for (let index = 0; index <= store.retentionPolicy.maxJournalEntries; index++) {
+        await store.appendJournalMutation({
+          semanticEpoch: 4 + index,
+          kind: 'remove',
+          uris: [`file:///obsolete-${index}.sru`]
+        });
+      }
+
+      const before = await store.inspectMaintenance();
+      assert.equal(before.needsCompaction, true);
+      assert.equal(before.maintenanceRecommended, true);
+      assert.ok(before.currentWorkspace.journalEntries > store.retentionPolicy.maxJournalEntries);
+
+      const result = await store.runMaintenance(metadata);
+      assert.equal(result.compacted, true);
+      assert.equal(result.restoreValidated, true);
+      assert.equal(result.currentWorkspace.journalEntries, 0);
+      assert.equal(result.needsCompaction, false);
+
+      const restored = await store.load(metadata);
+      assert.equal(restored.decision.action, 'reuse');
+      assert.equal(restored.checkpoint.documents.length, 1);
+      assert.equal(restored.checkpoint.documents[0].uri, 'file:///a.sru');
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

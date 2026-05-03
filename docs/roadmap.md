@@ -200,7 +200,7 @@ Base materializada. Ya cerrados como bloque operativo:
 
 Gap incremental reabierto en esta fase:
 
-- `B230`, `B231`, `B175`, `B232`, `B233`, `B216`, `B214`, `B215`, `B188`, `B189`, `B190`, `B191`, `B192`, `B193`, `B194`, `B196`, `B197`, `B199`, `B200` y `B081` quedan cerradas como refuerzo de coste interno, boundary del LSP, reproducibilidad read-only, contrato diagnóstico estable, higiene del inventario histórico, dashboard de salud, explorer del workspace, panel de contexto activo, adapter ORCA base, capability/env validation visible, graph legacy read-only, export controlado a staging, rail write-enabled completo de import/regenerate/rebuild, gating frente a source real obsoleto, journal técnico persistente de `build|legacy`, workflow spec-driven unitario de update PBL, su orquestación batch y el bridge DataWindow `.Object`/`GetChild()`; el siguiente bloque del orden pedido por el usuario sigue pendiente de ancla canónica en backlog/specs, quedando `B198` como deuda documental residual del carril legacy.
+- `B230`, `B231`, `B175`, `B232`, `B233`, `B216`, `B214`, `B215`, `B188`, `B189`, `B190`, `B191`, `B192`, `B193`, `B194`, `B196`, `B197`, `B199`, `B200` y `B081` quedan cerradas como refuerzo de coste interno, boundary del LSP, reproducibilidad read-only, contrato diagnóstico estable, higiene del inventario histórico, dashboard de salud, explorer del workspace, panel de contexto activo, adapter ORCA base, capability/env validation visible, graph legacy read-only, export controlado a staging, rail write-enabled completo de import/regenerate/rebuild, gating frente a source real obsoleto, journal técnico persistente de `build|legacy`, workflow spec-driven unitario de update PBL, su orquestación batch, el bridge DataWindow `.Object`/`GetChild()`, el lineage SQL read-only de DataWindow, la capa segura de completion/diagnostics sobre property paths, el analizador cross-project read-only, el asistente read-only de migración de layouts legacy y la matriz read-only de perfiles de build; con `B198`, `B195`, `B251`, `B252`, `B253`, `B254`, `B255`, `B256` y `B257` ya cerradas, el siguiente bloque del orden pedido por el usuario queda formalizado en backlog/specs y continúa en `B258`.
 
 ---
 
@@ -267,8 +267,7 @@ Extender el producto a piezas diferenciales del ecosistema PowerBuilder sin comp
 
 ### Pendientes principales
 
-- `B195`;
-- `B198`;
+- sin gaps activos inmediatos en esta fase tras cerrar `B262` y `B263` en `specs/307` y `specs/308`.
 - el bloque `B241-B250` ya queda cerrado y trazado en `specs/284-293`; cualquier reapertura futura requiere regresion demostrable o cambio de alcance explicito.
 
 Bloque ya cerrado dentro de la fase:
@@ -282,6 +281,10 @@ Bloque ya cerrado dentro de la fase:
 - `B183` runner out-of-process de PBAutoBuild (`specs/259-pbautobuild-runner-out-of-process`);
 - `B184` parser de logs y Problems Panel de PBAutoBuild (`specs/260-pbautobuild-log-parser-problems`);
 - `B186` helper exportable y neutral para CI/CD sobre PBAutoBuild (`specs/263-pbautobuild-cicd-helper-export`);
+- `B260` métricas avanzadas de código PowerBuilder (`specs/305-advanced-powerbuilder-code-metrics`);
+- `B261` informe técnico de deuda y modernización (`specs/306-technical-debt-and-modernization-report`);
+- `B262` framework versionado de code actions seguras (`specs/307-safe-code-action-framework-v2`);
+- `B263` contratos de ejecución de tareas aptos para agentes (`specs/308-agent-ready-task-execution-contracts`);
 - `B188` adapter ORCA base out-of-process (`specs/272-orca-adapter-architecture`);
 - `B216` dashboard read-only de salud del proyecto (`specs/269-project-health-dashboard`);
 - `B214` PowerBuilder Object Explorer read-only (`specs/270-powerbuilder-object-explorer`);
@@ -289,7 +292,7 @@ Bloque ya cerrado dentro de la fase:
 
 Notas de orden:
 
-- `B043` queda cerrada como épica base; con `B186` ya no queda deuda técnica inmediata en el carril moderno salvo operabilidad/documentación posterior (`B198`).
+- `B043` queda cerrada como épica base; con `B186`, `B198`, `B195`, `B251`, `B252`, `B253`, `B254`, `B255`, `B256`, `B257`, `B258`, `B259`, `B260`, `B261`, `B262` y `B263` ya no queda deuda técnica ni documental inmediata en el carril build/legacy/public graphing/DataWindow/read-only interactivity/migración legacy/validación de perfiles/soporte offline/persistencia v2/métricas avanzadas/reporting técnico/safe actions/agent contracts, y el siguiente bloque pasa a `B264-B267`.
 - `B081` ya queda cerrada y movida a `docs/done-log.md`: el backbone DataWindow resuelve `.Object.<...>` y `GetChild()` sobre rutas hijas deterministas reutilizando `DataWindowModel`; el siguiente bloque pedido por el usuario queda ahora formalizado como `B241-B250` en backlog/specs y pasa a ser el frente activo.
 
 ---
@@ -367,13 +370,13 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Deuda operativa residual — `B198`**
+**Bloque pedido por el usuario — continuidad `B264`**
 
 Con foco en:
 
-- documentar y endurecer troubleshooting del carril moderno/legacy ya materializado;
-- mantener verde el bloque `B241-B250` ya cerrado y el bridge DataWindow ya asentado;
-- dejar `B195` detrás de `B198`, sin reabrir el bloque recién cerrado.
+- continuar por `B264`, reutilizando la base read-only/exportable ya cerrada, el soporte offline saneado de `B258`, la persistencia v2 de `B259`, las métricas avanzadas de `B260`, el informe técnico de `B261`, el framework seguro de code actions de `B262`, los contratos agent-ready de `B263`, el diff de snapshots de `B251`, el grafo inmediato de `B252`, el lineage SQL de `B253`, el analizador cross-project de `B255`, el asistente de migración de `B256` y la matriz de build de `B257`;
+- mantener verde el carril build/legacy ya cerrado en `B198` y `B195`;
+- continuar `B264` en el orden pedido por el usuario salvo bloqueo real.
 
 ### Trabajo paralelo permitido
 
@@ -381,7 +384,7 @@ Con foco en:
 
 Solo si no bloquea el foco principal:
 
-- `B195`, como decisión de packaging legacy, solo cuando `B198` ya no deje deuda operativa relevante.
+- mantenimiento verde de la release lane y del carril build/legacy ya cerrado.
 
 ### Validación temprana permitida
 

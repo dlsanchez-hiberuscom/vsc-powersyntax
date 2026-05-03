@@ -978,7 +978,7 @@ Estado actual del producto:
 - `B187` ya unifica capability detection, build files, runner y problemas recientes en un snapshot reutilizable para status/health/menú.
 - `B185` ya recuerda el último build ejecutado por workspace y expone comandos para repetirlo o elegir un build file utilizable desde VS Code.
 - `B186` ya exporta un bundle neutral de CI/CD (`manifest`, README y scripts PowerShell/CMD/Bash) bajo `tools/pbautobuild-ci/<perfil>`, apoyado en el build file/perfil utilizable ya validado.
-- La deuda restante del ecosistema build moderno se concentra ahora en operabilidad/documentación (`B198`) y en la rama legacy ORCA, no en el carril tecnico base de PBAutoBuild.
+- La deuda operativa/documental `B198` ya quedó cerrada en `README.md` y `docs/developer-workflows.md`; `B195` también queda cerrada dejando explícito que el packaging ORCA de `EXE/PBD/DLL` no está expuesto y requeriría un feature flag dedicado, no una ampliación del carril técnico base de PBAutoBuild.
 ```
 
 ---
@@ -1097,6 +1097,8 @@ Nota de implementación actual:
 ```text
 - El runtime persiste hoy una versión library-level del ledger con `pblFingerprintBefore/After`, `backupRootUri`, `preflightResult`, `compileResult`, `warnings[]`, `errors[]` y `rollbackAvailable`.
 - El runtime persiste además `.vsc-powersyntax/runtime/build-orca-journal.json` con el snapshot reciente de eventos `build|legacy`, accesible también desde `showStats.persistence.buildOrcaJournalUri`.
+- La guía operativa y el troubleshooting comparado entre PBAutoBuild y ORCA viven en `README.md` y `docs/developer-workflows.md`; esta guía técnica conserva solo la descripción del runtime y sus invariantes.
+- `orcaTooling.packagingPolicy` declara además que las operaciones `EXE/PBD/DLL` no están expuestas y exigirían un feature flag dedicado antes de abrir cualquier surface write-enabled nueva.
 ```
 
 ---

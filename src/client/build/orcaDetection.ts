@@ -26,6 +26,12 @@ interface OrcaCandidate {
 }
 
 const KNOWN_ORCA_CAPABILITIES = ['legacy-script-runner', 'staging-export', 'staging-import-compile', 'staging-regenerate', 'project-rebuild'];
+const ORCA_PACKAGING_POLICY = {
+  exposure: 'not-exposed' as const,
+  requiresFeatureFlag: true as const,
+  supportedArtifacts: ['exe', 'pbd', 'dll'] as Array<'exe' | 'pbd' | 'dll'>,
+  detail: 'Packaging ORCA de EXE/PBD/DLL no está expuesto; requiere un feature flag dedicado y queda fuera del carril PBAutoBuild.',
+};
 
 export async function detectOrcaCapability(
   options: DetectOrcaCapabilityOptions,
@@ -36,6 +42,7 @@ export async function detectOrcaCapability(
       source: 'unresolved',
       capabilities: [],
       detail: 'ORCA legacy solo está soportado en Windows.',
+      packagingPolicy: ORCA_PACKAGING_POLICY,
     };
   }
 
@@ -66,6 +73,7 @@ export async function detectOrcaCapability(
       executablePath: candidate.path,
       capabilities: [...KNOWN_ORCA_CAPABILITIES],
       detail: `ORCA disponible vía ${formatSource(candidate.source)}.`,
+      packagingPolicy: ORCA_PACKAGING_POLICY,
     };
   }
 
@@ -78,6 +86,7 @@ export async function detectOrcaCapability(
       detail: firstInvalid.reason === 'directory'
         ? `La ruta ${formatSource(firstInvalid.source)} apunta a un directorio, no a un ejecutable: ${firstInvalid.path}`
         : `La ruta ${formatSource(firstInvalid.source)} no existe: ${firstInvalid.path}`,
+      packagingPolicy: ORCA_PACKAGING_POLICY,
     };
   }
 
@@ -86,6 +95,7 @@ export async function detectOrcaCapability(
     source: 'unresolved',
     capabilities: [],
     detail: 'No se encontró ORCA. Configura vscPowerSyntax.legacy.orcaPath o PB_ORCA_PATH.',
+    packagingPolicy: ORCA_PACKAGING_POLICY,
   };
 }
 
@@ -149,6 +159,15 @@ export function formatOrcaStatusInline(snapshot?: ApiOrcaCapabilitySnapshot): st
   }
 
   return 'ORCA no detectado';
+}
+
+export function formatOrcaPackagingPolicyInline(snapshot?: ApiOrcaCapabilitySnapshot): string | undefined {
+  const policy = snapshot?.packagingPolicy;
+  if (!policy) {
+    return undefined;
+  }
+
+  return `off · ${policy.detail}`;
 }
 
 function collectCandidates(options: DetectOrcaCapabilityOptions): OrcaCandidate[] {

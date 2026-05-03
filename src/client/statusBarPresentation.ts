@@ -3,7 +3,7 @@ import type { OrcaRunSnapshot } from '../shared/orcaProtocol';
 import type { PbAutoBuildRunSnapshot } from '../shared/pbAutoBuildProtocol';
 import type { ProgressNotification, ProgressPass } from '../shared/types';
 import { buildPbAutoBuildHealthSnapshot } from './build/pbAutoBuildHealth';
-import { formatOrcaStatusInline } from './build/orcaDetection';
+import { formatOrcaPackagingPolicyInline, formatOrcaStatusInline } from './build/orcaDetection';
 import { formatPbAutoBuildStatusInline, type PbAutoBuildCapabilitySnapshot } from './build/pbAutoBuildDetection';
 
 export interface RuntimeStatusProjectSnapshot {
@@ -375,6 +375,7 @@ export function buildStatusTooltipMarkdown(
   pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats?.buildTooling));
   pushIfPresent(lines, 'Build run', formatPbAutoBuildRunInline(stats?.buildRunner));
   pushIfPresent(lines, 'ORCA', formatOrcaStatusInline(stats?.orcaTooling));
+  pushIfPresent(lines, 'ORCA packaging', formatOrcaPackagingPolicyInline(stats?.orcaTooling));
   pushIfPresent(lines, 'ORCA run', formatOrcaRunInline(stats?.orcaRunner));
   pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
 
@@ -390,7 +391,7 @@ export function buildStatusTooltipMarkdown(
   }
 
   lines.push('');
-  lines.push('[Dashboard](command:vscPowerSyntax.openProjectHealthDashboard) | [Stats](command:vscPowerSyntax.showStatusStats) | [Salud](command:vscPowerSyntax.showStatusHealth) | [Build](command:vscPowerSyntax.runPbAutoBuild) | [Último build](command:vscPowerSyntax.runLastPbAutoBuild) | [Elegir build](command:vscPowerSyntax.runPbAutoBuildWithPicker) | [Cancelar build](command:vscPowerSyntax.cancelPbAutoBuild) | [ORCA](command:vscPowerSyntax.runActiveOrcaScript) | [Cancelar ORCA](command:vscPowerSyntax.cancelOrcaScript) | [Jerarquía](command:vscPowerSyntax.inspectHierarchy) | [Reiniciar](command:vscPowerSyntax.restartServer)');
+  lines.push('[Dashboard](command:vscPowerSyntax.openProjectHealthDashboard) | [Stats](command:vscPowerSyntax.showStatusStats) | [Salud](command:vscPowerSyntax.showStatusHealth) | [Build](command:vscPowerSyntax.runPbAutoBuild) | [Último build](command:vscPowerSyntax.runLastPbAutoBuild) | [Elegir build](command:vscPowerSyntax.runPbAutoBuildWithPicker) | [Matriz build](command:vscPowerSyntax.openBuildProfileMatrix) | [Cancelar build](command:vscPowerSyntax.cancelPbAutoBuild) | [ORCA](command:vscPowerSyntax.runActiveOrcaScript) | [Cancelar ORCA](command:vscPowerSyntax.cancelOrcaScript) | [Jerarquía](command:vscPowerSyntax.inspectHierarchy) | [Reiniciar](command:vscPowerSyntax.restartServer)');
 
   return lines.join('\n');
 }
@@ -432,6 +433,7 @@ export function buildStatusStatsReport(stats?: RuntimeStatusStats): string {
   pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats.buildTooling));
   pushIfPresent(lines, 'Build run', formatPbAutoBuildRunInline(stats.buildRunner));
   pushIfPresent(lines, 'ORCA', formatOrcaStatusInline(stats.orcaTooling));
+  pushIfPresent(lines, 'ORCA packaging', formatOrcaPackagingPolicyInline(stats.orcaTooling));
   pushIfPresent(lines, 'ORCA run', formatOrcaRunInline(stats.orcaRunner));
   pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
   pushIfPresent(lines, 'Salud', stats.health ? [stats.health.status, formatHealthCounts(stats)].filter((part): part is string => Boolean(part)).join(' · ') : undefined);
@@ -458,6 +460,7 @@ export function buildStatusHealthReport(
   pushIfPresent(lines, 'Build', formatPbAutoBuildStatusInline(stats.buildTooling));
   pushIfPresent(lines, 'Build run', formatPbAutoBuildRunInline(stats.buildRunner));
   pushIfPresent(lines, 'ORCA', formatOrcaStatusInline(stats.orcaTooling));
+  pushIfPresent(lines, 'ORCA packaging', formatOrcaPackagingPolicyInline(stats.orcaTooling));
   pushIfPresent(lines, 'ORCA run', formatOrcaRunInline(stats.orcaRunner));
   pushIfPresent(lines, 'Memoria', formatMemoryBudget(stats));
   if (stats.buildHealth?.findings?.length) {

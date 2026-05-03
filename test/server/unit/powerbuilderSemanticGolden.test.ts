@@ -5,6 +5,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { invalidateDocumentAnalysis } from '../../../src/server/analysis/analysisCache';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
+import { provideCompletion } from '../../../src/server/features/completion';
 import { validateSemantics } from '../../../src/server/features/diagnostics';
 import { provideDefinition } from '../../../src/server/features/definition';
 import { decideFeatureReadiness } from '../../../src/server/features/featureReadiness';
@@ -17,6 +18,7 @@ import { InheritanceGraph } from '../../../src/server/knowledge/resolution/Inher
 import { resolveTargetEntity } from '../../../src/server/knowledge/resolution/semanticQueryService';
 import { EntityKind, ScopeKind } from '../../../src/server/knowledge/types';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
+import { DIAGNOSTIC_CODES } from '../../../src/shared/diagnosticCodes';
 import {
   compareSourceOriginPriority,
   inferSourceOrigin,
@@ -335,5 +337,48 @@ suite('unit/powerbuilderSemanticGolden (B222)', () => {
     assert.equal(pickPreferredSourceOrigin('orca-staging', 'workspace-ws_objects'), 'workspace-ws_objects');
     assert.equal(inferSourceOrigin('file:///proj/ws_objects/w_main.srw'), 'workspace-ws_objects');
     assert.equal(inferSourceOrigin('file:///proj/orca-staging/w_main.srw'), 'orca-staging');
+  });
+
+  test('golden: property paths DataWindow comparten backbone entre completion y diagnostics', () => {
+    setupAnalyzedDocument('file:///d_parent_property_golden.srd', [
+      '$PBExportHeader$d_parent_property_golden.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=char(10) update=yes name=state_id dbname="emp.state_id" dddw.name="d_states_property_golden") retrieve="SELECT parent_id, state_id FROM parent")'
+    ].join('\r\n'));
+    setupAnalyzedDocument('file:///d_states_property_golden.srd', [
+      '$PBExportHeader$d_states_property_golden.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT state_id, state_name FROM states")'
+    ].join('\r\n'));
+
+    const { document } = setupAnalyzedDocument('file:///w_dw_property_golden.srw', [
+      'global type w_dw_property_golden from window',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_probe()',
+      'end prototypes',
+      'public subroutine of_probe();',
+      '  datastore dw_parent',
+      '  dw_parent.DataObject = "d_parent_property_golden"',
+      '  dw_parent.Modify("state_id.")',
+      '  dw_parent.Describe("missing.DataWindow.Table.Select")',
+      'end subroutine'
+    ].join('\r\n'));
+
+    const lines = document.getText().split(/\r?\n/);
+    const completionLine = lines.findIndex((line) => line.includes('state_id.'));
+    const completionCharacter = lines[completionLine].indexOf('state_id.') + 'state_id.'.length;
+    const completion = provideCompletion(document, Position.create(completionLine, completionCharacter), kb, catalog, graph);
+
+    assert.ok(completion?.some((item) => item.label === 'DataWindow'));
+    assert.ok(completion?.some((item) => item.label === 'dddw'));
+
+    const diagnostics = validateSemantics(document, kb, catalog, graph);
+    const unresolvedPath = diagnostics.find((diagnostic) => diagnostic.code === DIAGNOSTIC_CODES.dataWindowPropertyPathUnresolved);
+
+    assert.ok(unresolvedPath);
+    assert.match(unresolvedPath?.message ?? '', /missing\.DataWindow\.Table\.Select/);
   });
 });

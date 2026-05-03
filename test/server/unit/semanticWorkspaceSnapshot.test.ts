@@ -7,6 +7,7 @@ import {
 } from '../../../src/shared/publicApi';
 import {
   buildSemanticWorkspaceSnapshot,
+  diffSemanticWorkspaceSnapshots,
   importSemanticWorkspaceSnapshot,
 } from '../../../src/client/semanticWorkspaceSnapshot';
 
@@ -80,5 +81,74 @@ suite('unit/semanticWorkspaceSnapshot (B243)', () => {
     const invalid = importSemanticWorkspaceSnapshot({ ...snapshot, schemaVersion: '9.0.0' });
     assert.equal(invalid.valid, false);
     assert.match(invalid.reason ?? '', /schemaVersion no soportado/i);
+  });
+
+  test('resume cambios relevantes entre dos snapshots exportados', () => {
+    const previous = buildSemanticWorkspaceSnapshot({
+      apiVersion: PUBLIC_API_VERSION,
+      contract: getPublicApiContractDescriptor(),
+      readOnlyToolBridge: getReadOnlyToolBridgeDescriptor(),
+      workspaceManifest: {
+        schemaVersion: '1.0.0',
+        generatedAt: 1,
+        limits: { maxObjects: 4, maxSymbols: 4, objectsTruncated: false, symbolsTruncated: false },
+        projects: [{ projectUri: 'file:///proj/app.pbt', kind: 'target', name: 'app', libraries: ['file:///proj/lib_app.pbl'], fileCount: 2 }],
+        libraries: ['file:///proj/lib_app.pbl'],
+        objects: [{ name: 'w_main', uri: 'file:///proj/lib_app.pbl/w_main.srw', objectKind: 'window', sourceOrigin: 'pbl-folder-source' }],
+        inheritanceSummary: { totalTypes: 1, roots: 1, items: [] },
+        exportedSymbols: [{ name: 'w_main', kind: 'Type', uri: 'file:///proj/lib_app.pbl/w_main.srw', line: 0, character: 0 }],
+        diagnosticsSummary: { totals: { error: 0, warning: 1, info: 0, hint: 0 }, byFile: {}, byCode: {}, bySeverity: {}, documents: [], projects: [] },
+        sourceOriginSummary: { 'pbl-folder-source': 1 },
+        readiness: { state: 'ready' },
+      },
+      serverStats: {
+        health: { status: 'healthy', summary: 'ok', findings: [], counts: { info: 0, warning: 0, error: 0 }, checkedLayers: [] },
+      },
+      generatedAt: '2026-05-03T00:00:00.000Z',
+    });
+
+    const next = JSON.parse(JSON.stringify(previous));
+    next.generatedAt = '2026-05-03T00:05:00.000Z';
+    next.workspaceManifest.objects.push({
+      name: 'n_service',
+      uri: 'file:///proj/lib_app.pbl/n_service.sru',
+      objectKind: 'userobject',
+      sourceOrigin: 'pbl-folder-source',
+    });
+    next.workspaceManifest.exportedSymbols.push({
+      name: 'of_process',
+      kind: 'Function',
+      uri: 'file:///proj/lib_app.pbl/n_service.sru',
+      line: 4,
+      character: 2,
+    });
+    next.workspaceManifest.diagnosticsSummary.totals.warning = 2;
+    next.workspaceManifest.sourceOriginSummary['pbl-folder-source'] = 2;
+    next.workspaceManifest.readiness.state = 'indexing';
+    next.serverStats.health.status = 'warning';
+    next.summary.objectCount = 2;
+    next.summary.exportedSymbolCount = 2;
+    next.summary.readinessState = 'indexing';
+    next.summary.healthStatus = 'warning';
+
+    const diff = diffSemanticWorkspaceSnapshots({
+      previous,
+      next,
+      previousLabel: 'baseline',
+      nextLabel: 'candidate',
+      maxObjectChanges: 8,
+      maxSymbolChanges: 8,
+    });
+
+    assert.equal(diff.changed, true);
+    assert.equal(diff.previousLabel, 'baseline');
+    assert.equal(diff.nextLabel, 'candidate');
+    assert.equal(diff.summary.objects.added, 1);
+    assert.equal(diff.summary.exportedSymbols.added, 1);
+    assert.equal(diff.summary.diagnosticsChanged, true);
+    assert.equal(diff.summary.readinessChanged, true);
+    assert.equal(diff.summary.healthChanged, true);
+    assert.equal(diff.objectChanges[0]?.change, 'added');
+    assert.equal(diff.symbolChanges[0]?.change, 'added');
   });
 });

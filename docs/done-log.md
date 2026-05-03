@@ -2486,6 +2486,242 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run build:test`
 - `npx mocha --ui tdd out/test/server/unit/definition.test.js out/test/server/unit/hover.test.js`
 
+## 1.117 B263. Agent-ready task execution contracts — **Cerrada (spec 308, agent-ready task execution contracts 2026-05)**
+
+**Objetivo:** definir contratos versionados de ejecución de tareas aptos para agentes sobre la surface actual, con dry-run, límites write-enabled, receipts y handoff SDD explícitos, sin meter IA dentro del core.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` amplía `ApiPublicContractDescriptor` con `taskExecutionCatalog`, publica contratos versionados para `applySpecDrivenPblUpdate` y `applySpecDrivenPblUpdateBatch` y deja una simulación declarativa de dry-run sobre `generateSafeEditPlan` sin abrir otro ejecutor;
+- `test/server/unit/publicApi.test.ts` y `test/server/unit/supportBundle.test.ts` fijan schema, copias defensivas, receipts y compatibilidad del descriptor enriquecido con consumers existentes;
+- `test/smoke/extension.test.ts` fija que el tool `contract` expone ese catálogo desde el host real de VS Code y que la activación mantiene el presupuesto contractual ya existente bajo el harness del repo;
+- `docs/ai-orchestrator.md`, `docs/ai-agents-catalog.md`, `docs/spec-driven-development.md`, `docs/testing.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que toda tarea write-enabled debe partir del `taskExecutionCatalog`, citar `contractId`, dry-run y receipts antes del cierre y que el siguiente foco canónico pasa a `B264`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/publicApi.test.js out/test/server/unit/supportBundle.test.js`
+- `npx vscode-test --label smoke --grep "la extensión se activa en menos de 500ms"`
+
+## 1.116 B262. Safe code action framework v2 — **Cerrada (spec 307, safe code action framework v2 2026-05)**
+
+**Objetivo:** endurecer el carril de code actions pequeñas sobre diagnósticos reales, con catálogo versionado, preview, preflight y bloqueos defendibles antes de cualquier edit.
+
+**Resultado registrado:**
+- `src/server/features/codeActions.ts` evoluciona el provider existente a un catálogo versionado (`2.0.0`) con `actionId`, `requiredConfidence`, `evidence`, `preview` explícita y acciones bloqueadas cuando fallan preflight, `sourceOrigin` o guards de dynamic strings;
+- `src/server/server.ts` propaga `sourceOrigin` contextual al provider de code actions para que la decisión use la misma proveniencia canónica que el resto del runtime;
+- `src/server/features/diagnostics.ts` integra `SD7` en el pipeline general de diagnostics, de modo que Problems, explainability, métricas/reportes y code actions consumen la misma señal publicada;
+- `test/server/unit/codeActions.test.ts`, `test/server/unit/diagnosticsObsoleteIntegration.test.ts`, `test/server/unit/obsolete.test.ts` y `test/smoke/code-actions.extension.test.ts` fijan catálogo, bloqueos y la integración real editor -> Problems -> CodeAction;
+- `docs/rules-catalog.md`, `docs/spec-driven-development.md`, `docs/developer-workflows.md`, `docs/testing.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B262` queda cerrada y que el siguiente foco canónico pasa a `B263`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/codeActions.test.js out/test/server/unit/diagnosticsObsoleteIntegration.test.js out/test/server/unit/obsolete.test.js`
+- `npx vscode-test --label smoke --grep "expone quick fixes seguras para diagnósticos obsoletos en Problems/CodeAction"`
+
+## 1.115 B261. Technical debt and modernization report — **Cerrada (spec 306, technical debt and modernization report 2026-05)**
+
+**Objetivo:** consolidar un informe exportable y priorizable de deuda técnica y modernización reutilizando métricas, diagnósticos, `sourceOrigin` y riesgos ORCA/PBL ya publicados, sin abrir un segundo motor de scoring.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderTechnicalDebtReport.ts` compone hotspots y recomendaciones defendibles sobre `code-metrics`, `diagnostic.code`, `sourceOrigin` summary y `workspaceMigrationAssistant`, incluyendo patrones `obsolete`, `dynamic-sql`, `datawindow-risk`, `external-dependency`, complejidad aproximada y riesgos legacy/sourceOrigin;
+- `src/shared/publicApi.ts`, `src/server/server.ts`, `src/client/extension.ts` y `package.json` publican el contrato `ApiPowerBuilderTechnicalDebtReport`, el método `getPowerBuilderTechnicalDebtReport`, el tool read-only `technical-debt-report`, el comando servidor `powerbuilder.technicalDebtReport` y el comando cliente `PowerSyntax: Abrir Informe Técnico de Deuda y Modernización PowerBuilder` con export Markdown;
+- `test/server/unit/powerBuilderTechnicalDebtReport.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan collector, contrato y wiring del host real, mientras `npm run test:unit` mantiene verde la regresión unitaria completa;
+- `docs/developer-workflows.md`, `docs/rules-catalog.md`, `docs/architecture.md`, `docs/testing.md`, backlog, roadmap y current-focus dejan trazado que `B261` queda cerrada y que el siguiente foco canónico pasa a `B262`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/powerBuilderTechnicalDebtReport.test.js out/test/server/unit/publicApi.test.js`
+- `npm run test:unit`
+- `npx vscode-test --label smoke --grep "la extensión se activa en menos de 500ms"`
+
+## 1.114 B260. Advanced PowerBuilder code metrics — **Cerrada (spec 305, advanced powerbuilder code metrics 2026-05)**
+
+**Objetivo:** calcular métricas avanzadas y defendibles de código PowerBuilder sobre la base semántica real y exponerlas como reporte read-only exportable por API/tool/comando.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderCodeMetrics.ts` agrega un collector server-side que deriva por objeto funciones/eventos, complejidad aproximada, SQL embebido, DataWindows enlazadas, dependencias externas, lifecycle warnings, diagnostics por área y footprint build/ORCA reutilizando `KnowledgeBase`, snapshots publicados, bindings `DataObject`, `DiagnosticsSnapshot` y `WorkspaceState`;
+- `src/shared/publicApi.ts`, `src/server/server.ts`, `src/client/extension.ts` y `package.json` publican el contrato `ApiPowerBuilderCodeMetrics`, el método `getPowerBuilderCodeMetrics`, el tool read-only `code-metrics`, el comando servidor `powerbuilder.codeMetrics` y el comando cliente `PowerSyntax: Abrir Métricas Avanzadas de Código PowerBuilder` con export Markdown;
+- `test/server/unit/powerBuilderCodeMetrics.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan collector, contrato público y wiring/preview del reporte, manteniendo la surface read-only alineada con el host real;
+- `docs/developer-workflows.md`, `docs/testing.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B260` queda cerrada y que el siguiente foco canónico pasa a `B261`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit`
+- `npx vscode-test --label smoke --grep "la extensión se activa en menos de 500ms"`
+
+## 1.113 B259. Semantic cache compaction and retention policy v2 — **Cerrada (spec 304, semantic cache compaction retention policy v2 2026-05)**
+
+**Objetivo:** endurecer la persistencia semántica con una policy v2 observable, con TTL por workspace, budgets de disco/journal, cleanup de workspaces obsoletos y compactación segura del journal sin degradar la ruta interactiva.
+
+**Resultado registrado:**
+- `src/server/cache/cacheStore.ts` incorpora la policy v2 con `staleWorkspaceTtlMs`, budgets de journal/disco, métricas por workspace, cleanup de `workspaceKey` obsoletos y `runMaintenance()` con validación explícita del restore tras compactar;
+- `src/shared/publicApi.ts`, `src/server/server.ts` y `src/server/runtime/runtimeHealth.ts` publican la policy y el snapshot de mantenimiento por `showStats`, añaden findings de persistencia y exponen el comando servidor `powerbuilder.runSemanticCacheMaintenance`;
+- `src/client/extension.ts` y `package.json` exponen `PowerSyntax: Ejecutar Mantenimiento de Cache Semántica` y lo dejan disponible también desde el status menu sin abrir un carril paralelo;
+- `test/server/unit/cacheStore.test.ts` fija TTL cleanup y compactación con restore validado; `test/server/unit/runtimeHealth.test.ts` fija findings nuevos de persistencia; la suite existente de `cachePersistence` sigue cubriendo corrupción simulada del payload;
+- `docs/performance-budget.md`, `docs/architecture.md`, `docs/testing.md`, backlog, roadmap y current-focus dejan trazado que `B259` queda cerrada y que el siguiente foco canónico pasa a `B260`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/cacheStore.test.js out/test/server/unit/runtimeHealth.test.js`
+- `npx mocha --ui tdd out/test/server/unit/cachePersistence.test.js`
+- `npx mocha --ui tdd --timeout 30000 out/test/server/performance/indexer.perf.test.js --grep "Cold start|Warm start"`
+
+## 1.112 B258. Offline support bundle / support diagnostics export — **Cerrada (spec 303, offline support bundle support diagnostics export 2026-05)**
+
+**Objetivo:** exportar un bundle offline de soporte con estado técnico relevante, versionado y saneado, útil para troubleshooting sin copiar código bruto del workspace por defecto.
+
+**Resultado registrado:**
+- `src/client/support/supportBundle.ts` construye un support bundle cliente-side reutilizando `serverStats`, health, diagnostics snapshot, manifest semántico, gobernanza de settings y el inventario API/tool ya publicado, con redacción explícita de rutas, URIs, ejecutables y artefactos locales;
+- `src/client/extension.ts` y `package.json` exponen el comando `PowerSyntax: Exportar Support Bundle Offline`, escribiendo bundles bajo `tools/support-bundles` con `runtime-health.json`, `server-stats.sanitized.json`, `diagnostics-snapshot.sanitized.json`, `semantic-workspace-manifest.reduced.json`, `runtime-journal-tail.json`, `performance-summary.json`, `settings-governance.json`, `settings-sanitized.json`, `build-orca-snapshot.json`, `public-contract.json`, `read-only-tool-bridge.json` y `api-inventory.json`;
+- `test/server/unit/supportBundle.test.ts` fija esquema, inventario mínimo y redacción de rutas/settings; `test/smoke/support-bundle.extension.test.ts` valida el wiring real del comando en el host de VS Code y que no se copie código bruto por defecto;
+- `README.md`, `docs/developer-workflows.md`, `docs/testing.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B258` queda cerrada y que el siguiente foco canónico pasa a `B259`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/supportBundle.test.js`
+- `npm run test:smoke -- --grep "support-bundle-extension"`
+
+## 1.111 B257. Build profiles matrix and environment validation — **Cerrada (spec 302, build profile matrix environment validation 2026-05)**
+
+**Objetivo:** formalizar una matriz reproducible de build profiles y validación de entorno para PBAutoBuild, visible por surface read-only y sin disparar builds para conocer el estado real.
+
+**Resultado registrado:**
+- `src/client/build/pbAutoBuildProfileMatrix.ts` construye la matriz read-only combinando inventory completo de build files, capability detection de PBAutoBuild, último profile recordado y build health para proyectar perfiles `usable|ambiguous|invalid` con `canRun` explícito;
+- `src/shared/publicApi.ts` eleva la API pública a `2.9.0` con `ApiPbAutoBuildCapabilitySnapshot`, `getBuildProfileMatrix`, el tool `build-profile-matrix` y el schema `ApiBuildProfileMatrix` para consumo externo estable;
+- `src/server/server.ts`, `src/client/extension.ts`, `src/client/statusBarPresentation.ts` y `package.json` exponen la nueva surface por inventario servidor + API/tool/comando Markdown + acceso rápido visible desde el status report, sin crear un nuevo rail de ejecución;
+- `test/server/unit/pbAutoBuildProfileMatrix.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan comportamiento, contrato y wiring end-to-end del slice;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B257` queda cerrada y que el siguiente foco canónico pasa a `B258`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/pbAutoBuildProfileMatrix.test.js out/test/server/unit/publicApi.test.js --grep "(B257|pbAutoBuildProfileMatrix|build-profile-matrix|versión exportada|descriptor contractual|bridge read-only)"`
+- `npm run test:smoke -- --grep "la extensión se activa"`
+
+## 1.110 B256. Workspace migration assistant for legacy layouts — **Cerrada (spec 301, workspace migration assistant 2026-05)**
+
+**Objetivo:** asistir migraciones desde layouts legacy hacia topologías soportadas por el plugin con recomendaciones read-only, explícitas y defendibles, sin escritura opaca sobre markers o build files.
+
+**Resultado registrado:**
+- `src/server/features/workspaceMigrationAssistant.ts` construye el asistente read-only reutilizando `WorkspaceState`, summary de build files, project model y aliases ORCA para recomendar consolidación de `pbl-only`, `mixed`, build files ambiguos/inválidos y staging legacy accidental;
+- `src/shared/publicApi.ts` eleva la API pública a `2.8.0` con `getWorkspaceMigrationAssistant`, el tool `workspace-migration-assistant` y el schema `ApiWorkspaceMigrationAssistant` para consumo externo estable;
+- `src/server/server.ts`, `src/client/extension.ts` y `package.json` exponen la nueva surface por LSP, tool bridge y el comando `PowerSyntax: Abrir Asistente de Migración de Workspace`, abriendo un Markdown lateral reutilizable incluso cuando discovery todavía degrada a `available: false`;
+- `test/server/unit/workspaceMigrationAssistant.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan comportamiento, contrato y wiring end-to-end del slice, evitando una smoke frágil dependiente del timing de discovery;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B256` queda cerrada y que el siguiente foco canónico pasa a `B257`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/workspaceMigrationAssistant.test.js out/test/server/unit/publicApi.test.js --grep "(B256|workspaceMigrationAssistant|workspace-migration-assistant|versión exportada|descriptor contractual|bridge read-only)"`
+- `npm run test:smoke -- --grep "la extensión se activa"`
+
+## 1.109 B255. Cross-project symbol conflict analyzer — **Cerrada (spec 300, cross project symbol conflict analyzer 2026-05)**
+
+**Objetivo:** detectar conflictos semánticos defendibles entre proyectos o librerías del mismo workspace reutilizando la base read-only ya indexada, con ranking y evidencia exportable.
+
+**Resultado registrado:**
+- `src/server/knowledge/resolution/semanticQueryService.ts` y `src/server/features/queryContext.ts` dejan explícita la ambigüedad cuando el fallback global devuelve múltiples winners cross-project, sin depender solo del empate por distancia;
+- `src/server/features/crossProjectSymbolConflicts.ts` construye el analizador read-only agrupando por `buildSymbolKey`, enriqueciendo proyecto/librería/sourceOrigin desde `WorkspaceState` y colapsando staging o duplicados de la misma ubicación;
+- `src/shared/publicApi.ts` eleva la API pública a `2.7.0` con `getCrossProjectSymbolConflicts`, el tool `cross-project-symbol-conflicts` y el schema `ApiCrossProjectSymbolConflicts` para consumo externo estable;
+- `src/server/server.ts`, `src/client/extension.ts` y `package.json` exponen la nueva surface por LSP, tool bridge y el comando `PowerSyntax: Abrir Analizador de Conflictos Cross-Project`, abriendo un Markdown lateral reutilizable incluso cuando el resultado degrada a `available: false`;
+- `test/server/unit/semanticQueryService.test.ts`, `test/server/unit/queryContext.test.ts`, `test/server/unit/crossProjectSymbolConflicts.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan comportamiento, contrato y wiring end-to-end del slice;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B255` queda cerrada y que el siguiente foco canónico pasa a `B256`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticQueryService.test.js out/test/server/unit/queryContext.test.js out/test/server/unit/crossProjectSymbolConflicts.test.js out/test/server/unit/publicApi.test.js --grep "(cross-project|crossProject|publicApi|cross-project-symbol-conflicts)"`
+- `npm run test:smoke -- --grep "la extensión se activa"`
+
+## 1.108 B254. DataWindow expression diagnostics and safe completion — **Cerrada (spec 299, datawindow expression diagnostics safe completion 2026-05)**
+
+**Objetivo:** añadir diagnósticos y completion segura sobre expresiones DataWindow reutilizando el backbone semántico ya indexado y sin abrir parsing general dentro de strings.
+
+**Resultado registrado:**
+- `src/server/features/completion.ts` deja pasar completion dentro de strings solo cuando `dataWindowPropertyPaths` reconoce un contexto DataWindow defendible, manteniendo el guard general para strings arbitrarios;
+- `src/server/features/dataWindowPropertyPaths.ts` expone completion segura e inspección reutilizable sobre property paths, apoyándose en `DataWindowModel`, bindings `DataObject` y child routes `report/dddw` ya publicados;
+- `src/server/features/diagnostics.ts` añade warnings conservadores para rutas DataWindow completas no resolubles solo cuando el root está enlazado de forma única, manteniendo degradación honesta cuando el binding es dinámico;
+- `src/shared/diagnosticCodes.ts`, `test/server/unit/completion.test.ts`, `test/server/unit/diagnostics.test.ts`, `test/server/unit/powerbuilderSemanticGolden.test.ts` y la estabilización de `test/server/unit/definition.test.ts` fijan contrato, safety rails y convivencia con hover/definition ya cerrados;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B254` queda cerrada y que el siguiente foco canónico pasa a `B255`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/completion.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/powerbuilderSemanticGolden.test.js --grep "(Modify|ruta DataWindow|binding raíz es dinámico|property paths DataWindow)"`
+- `npx mocha --ui tdd out/test/server/unit/completion.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/hover.test.js out/test/server/unit/definition.test.js out/test/server/unit/powerbuilderSemanticGolden.test.js --grep "(DataWindow|DataObject|GetChild|Modify|Describe|property paths DataWindow)"`
+
+## 1.107 B253. Advanced DataWindow SQL lineage — **Cerrada (spec 298, datawindow SQL lineage read only 2026-05)**
+
+**Objetivo:** trazar un lineage SQL read-only de DataWindow sobre `retrieve`, report children, dropdown children y bindings `DataObject` reales sin abrir una segunda engine semántica.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowSqlLineage.ts` construye un árbol read-only de lineage SQL reutilizando `DataWindowModel`, bindings `DataObject` y child routes `report/dddw`, con estados explícitos `resolved|missing|ambiguous|dynamic` y degradación honesta cuando la ruta no es defendible;
+- `src/shared/publicApi.ts` eleva la API pública a `2.6.0` con `getDataWindowSqlLineage`, el tool `datawindow-sql-lineage` y el schema `ApiDataWindowSqlLineage` para consumo externo estable;
+- `src/server/server.ts`, `src/client/extension.ts` y `package.json` exponen la nueva surface por LSP, tool bridge y el comando `PowerSyntax: Abrir DataWindow SQL Lineage`, abriendo un Markdown lateral reutilizable incluso cuando el resultado degrada a `available: false`;
+- `test/server/unit/dataWindowSqlLineage.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan comportamiento, contrato y wiring end-to-end del slice;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que `B253` queda cerrada y que el siguiente foco canónico pasa a `B254`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/dataWindowSqlLineage.test.js out/test/server/unit/publicApi.test.js`
+- `npm run test:smoke -- --grep "la extensión se activa"`
+
+## 1.106 B252. PowerBuilder dependency graph visual/exportable — **Cerrada (spec 297, powerbuilder dependency graph visual exportable 2026-05)**
+
+**Objetivo:** exponer un grafo inmediato de dependencias PowerBuilder que sea navegable, visualizable y exportable sin duplicar semántica fuera del pipeline ya publicado.
+
+**Resultado registrado:**
+- `src/server/features/dependencyGraph.ts` construye un grafo read-only de vecindario inmediato a partir de snapshots, evidencias semánticas y reverse dependencies ya publicadas por `KnowledgeBase`;
+- `src/shared/publicApi.ts` eleva la API pública a `2.5.0` con `getPowerBuilderDependencyGraph`, el tool `dependency-graph` y el schema `ApiPowerBuilderDependencyGraph` para consumo externo estable;
+- `src/client/extension.ts` expone el grafo por API/tool bridge y añade el comando `PowerSyntax: Abrir Grafo de Dependencias PowerBuilder`, abriendo un Markdown con Mermaid en preview lateral;
+- `package.json`, `test/server/unit/dependencyGraph.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan registro, contrato y comportamiento end-to-end del slice;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que el grafo queda cerrado y que el siguiente foco canónico pasa a `B253`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/dependencyGraph.test.js out/test/server/unit/publicApi.test.js`
+- `npm run test:smoke -- --grep "la extensión se activa"`
+
+## 1.105 B251. Semantic change impact diff between two workspace states — **Cerrada (spec 296, semantic snapshot diff workspace states 2026-05)**
+
+**Objetivo:** comparar dos estados semánticos exportados del workspace y resumir cambios defendibles sin reabrir el motor semántico ni depender del estado vivo del editor.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` amplía la API pública v2 a `2.4.0` con `diffSemanticWorkspaceSnapshots`, el tool read-only `semantic-snapshot-diff` y el schema `ApiSemanticWorkspaceSnapshotDiff`;
+- `src/client/semanticWorkspaceSnapshot.ts` calcula diffs de proyectos, objetos, símbolos exportados, readiness, health, diagnósticos y `sourceOrigin` directamente sobre snapshots serializados ya exportados;
+- `src/client/extension.ts` publica el diff tanto como método de API como por el bridge read-only, manteniendo el cliente como única capa de comparación y sin abrir un segundo motor;
+- `test/server/unit/publicApi.test.ts`, `test/server/unit/semanticWorkspaceSnapshot.test.ts` y `test/smoke/extension.test.ts` fijan contrato, comportamiento y uso end-to-end del diff sobre snapshots reales exportados;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md`, backlog, roadmap y current-focus dejan trazado que el snapshot diff queda cerrado y que el siguiente foco canónico pasa a `B252`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticWorkspaceSnapshot.test.js out/test/server/unit/publicApi.test.js`
+- `npm run test:smoke -- --grep "la extensión se activa"`
+
+## 1.104 B195. ORCA executable/PBD operations behind feature flag — **Cerrada (spec 295, ORCA packaging policy behind feature flag 2026-05)**
+
+**Objetivo:** decidir si el producto debía exponer creación de `EXE/PBD/DLL` vía ORCA sin contaminar el carril moderno de `PBAutoBuild`.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` formaliza `orcaTooling.packagingPolicy` como parte de la capability snapshot read-only, declarando `exposure: not-exposed`, `requiresFeatureFlag: true` y los artefactos `exe/pbd/dll` como alcance explícitamente no abierto;
+- `src/client/build/orcaDetection.ts` publica esa policy de forma estable en todos los estados de detección ORCA sin abrir comandos nuevos ni relajar el aislamiento del carril moderno;
+- `src/client/statusBarPresentation.ts` y `src/client/projectHealthDashboard.ts` proyectan la policy en status/stats/dashboard para que soporte y mantenimiento vean la decisión sin releer código;
+- `README.md`, `docs/developer-workflows.md`, `docs/architecture.md` y `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` dejan alineado que el packaging ORCA no está expuesto y requeriría un feature flag dedicado antes de abrir superficie write-enabled nueva.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/orcaDetection.test.js out/test/server/unit/statusBarPresentation.test.js out/test/server/unit/projectHealthDashboard.test.js`
+- `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.103 B198. Build/ORCA documentation and troubleshooting — **Cerrada (spec 294, build/ORCA documentation and troubleshooting 2026-05)**
+
+**Objetivo:** dejar una guía operativa única y trazable para decidir cuándo usar `PBAutoBuild`, cuándo usar `ORCA legacy` y cómo diagnosticar ambos carriles sin reabrir arquitectura ya cerrada.
+
+**Resultado registrado:**
+- `README.md` incorpora una matriz de decisión entre carril moderno y legacy, más troubleshooting rápido orientado a comandos, settings, env vars y artefactos persistidos reales del producto;
+- `docs/developer-workflows.md` añade un workflow explícito para operar y diagnosticar build/ORCA usando status bar, dashboard, stats y los artefactos `tools/pbautobuild-ci`, `.vsc-powersyntax/orca-export/*` y `.vsc-powersyntax/runtime/build-orca-journal.json`;
+- `docs/testing.md`, `docs/architecture.md` y `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` dejan alineado el baseline de validación documental, el estado arquitectónico y la frontera entre guía operativa y guía técnica del runtime;
+- backlog, roadmap y current-focus dejan de tratar `B198` como deuda abierta y mueven el foco canónico a `B195`.
+
+**Validación registrada:**
+- auditoría documental local contra `package.json`, comandos visibles, settings y rutas de artefactos del runtime;
+- `npm run build:test`
+
 ## 1.102 B200. Bulk PBL export/import orchestration — **Cerrada (spec 282, bulk PBL export/import orchestration 2026-05)**
 
 **Objetivo:** coordinar varias actualizaciones PBL sobre el workflow unitario ya cerrado en `B199` sin reabrir ORCA, manteniendo trazabilidad por item, corte temprano opcional y agregación defendible del resultado batch.

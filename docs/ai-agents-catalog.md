@@ -32,6 +32,7 @@ Este repositorio define agentes persistentes por rol. Las tareas cortas deben re
 - Todo custom agent debe tener frontmatter válido con `name` y `description` claros.
 - Si detecta foco activo sin spec mínima (`spec.md`, `plan.md`, `tasks.md`), debe devolverlo a `spec-orchestrator` o crear la spec antes de implementación write-enabled.
 - Los agentes deben distinguir slice cerrado de spec/ítem padre cerrado.
+- Para tareas write-enabled, todo agente debe leer el `taskExecutionCatalog`, citar `contractId` y respetar dry-run, límites y receipts antes de ejecutar.
 
 ---
 
@@ -174,12 +175,14 @@ Write-enabled.
 - spec activa;
 - plan/tasks;
 - current-focus;
+- `contractId` y dry-run asociados si la tarea usa un rail write-enabled del producto;
 - archivos afectados.
 
 ### Salida mínima
 - archivos modificados;
 - cambios realizados;
 - tests ejecutados o pendientes;
+- receipts/journal/ledger generados o pendientes cuando aplique;
 - docs actualizadas;
 - riesgos;
 - siguiente paso.

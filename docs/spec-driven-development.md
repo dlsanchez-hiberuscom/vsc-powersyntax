@@ -147,6 +147,39 @@ Actualizar:
 - `ai-agents-catalog.md`
 - `00-ai-entrypoint.md` si cambia regla global
 
+### Si cambia code actions o quick fixes write-enabled
+
+Actualizar:
+
+- `rules-catalog.md`
+- `developer-workflows.md`
+- `testing.md`
+- `backlog.md`, `done-log.md`, `current-focus.md` y `roadmap.md` si el backlog correspondiente se cierra
+
+Además, la spec debe dejar:
+
+- catálogo versionado por acción;
+- `confidence` mínima, `evidence` y `preview` explícitos;
+- preflight obligatorio y motivos de bloqueo trazables;
+- al menos una smoke Problems/CodeAction sobre un diagnóstico realmente publicado.
+
+### Si cambia contratos de ejecución para agentes
+
+Actualizar:
+
+- `ai-orchestrator.md`
+- `ai-agents-catalog.md`
+- `spec-driven-development.md`
+- `testing.md`
+- `architecture.md` si la surface contractual pública cambia
+- `backlog.md`, `done-log.md`, `current-focus.md` y `roadmap.md` si el backlog correspondiente se cierra
+
+Además, la spec debe dejar:
+
+- contrato versionado exportado por el producto, no solo descrito en docs;
+- inputs/outputs, contexto máximo, validación requerida, límites write-enabled, receipts y handoff SDD explícitos;
+- dry-run auditable antes de cualquier ejecución write-enabled.
+
 ---
 
 ## 8. Reglas para IA

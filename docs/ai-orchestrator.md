@@ -35,6 +35,7 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 - Documentación viva obligatoria.
 - Specs activas sin documentación mínima vuelven a `spec-orchestrator` antes de implementación.
 - Slices cerradas no cuentan como specs completas ni cierran épicas padre.
+- Toda tarea write-enabled debe partir del `taskExecutionCatalog` exportado por el producto; la documentación contextualiza, pero no sustituye el contrato publicado.
 
 ---
 
@@ -116,6 +117,7 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 - riesgos;
 - plan por pasos;
 - validación requerida;
+- `contractId`, dry-run y receipts esperados cuando la tarea sea write-enabled;
 - recomendación final.
 
 ---
@@ -138,3 +140,4 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 - Si hay ambigüedad, vuelve a `spec-orchestrator`.
 - Si una tarea es repetible y simple, usar prompt file.
 - Si una capacidad es estable y reusable, evaluar skill.
+- Toda tarea write-enabled debe citar `contractId`, ejecutar o simular el dry-run declarado y recoger receipts antes del cierre.

@@ -101,6 +101,40 @@ suite('unit/queryContext', () => {
     assert.deepEqual(queryContext.resolutionEvidenceKinds, ['winner-target', 'distance-ambiguity']);
   });
 
+  test('createDocumentQueryContext expone hasResolutionAmbiguity cuando el fallback global devuelve varios winners cross-project', () => {
+    kb.upsertDocument('file:///proj_a/gf_conflict.srf', [
+      {
+        id: 'gf_conflict',
+        name: 'gf_conflict',
+        kind: EntityKind.Function,
+        uri: 'file:///proj_a/gf_conflict.srf',
+        line: 1,
+        character: 0,
+        lineage: { sourceKind: 'document', sourceOrigin: 'solution-source', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      }
+    ]);
+    kb.upsertDocument('file:///proj_b/gf_conflict.srf', [
+      {
+        id: 'gf_conflict',
+        name: 'gf_conflict',
+        kind: EntityKind.Function,
+        uri: 'file:///proj_b/gf_conflict.srf',
+        line: 1,
+        character: 0,
+        lineage: { sourceKind: 'document', sourceOrigin: 'solution-source', authority: 'derived', phase: 'implementation', role: 'implementation', confidence: 'direct' }
+      }
+    ]);
+
+    const document = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, 'gf_conflict()');
+    const queryContext = createDocumentQueryContext(document, { line: 0, character: 5 }, kb, graph);
+
+    assert.equal(queryContext.primaryResolutionReasonCode, 'global-fallback');
+    assert.equal(queryContext.hasResolutionAmbiguity, true);
+    assert.equal(queryContext.resolutionConfidence, 'low');
+    assert.equal(queryContext.resolutionTargetCount, 2);
+    assert.deepEqual(queryContext.resolutionEvidenceKinds, ['winner-target']);
+  });
+
   test('createDocumentQueryContext degrada resolutionConfidence a undefined si no hay contexto resoluble', () => {
     const document = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, ' ');
     const queryContext = createDocumentQueryContext(document, { line: 0, character: 0 }, kb, graph);

@@ -4,17 +4,25 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.3.0';
+export const PUBLIC_API_VERSION = '2.12.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
   | 'contract'
   | 'server-stats'
   | 'query-symbols'
+  | 'cross-project-symbol-conflicts'
+  | 'workspace-migration-assistant'
+  | 'build-profile-matrix'
+  | 'dependency-graph'
+  | 'code-metrics'
+  | 'technical-debt-report'
+  | 'datawindow-sql-lineage'
   | 'current-object-context'
   | 'impact-analysis'
   | 'safe-edit-plan'
   | 'safe-batch-refactor-plan'
+  | 'semantic-snapshot-diff'
   | 'semantic-workspace-manifest';
 
 export interface ApiReadOnlyToolDescriptor {
@@ -87,6 +95,319 @@ export interface ApiSemanticWorkspaceSnapshotImportResult {
   summary?: ApiSemanticWorkspaceSnapshotSummary;
 }
 
+export interface ApiSemanticWorkspaceSnapshotDiffRequest {
+  previous: ApiSemanticWorkspaceSnapshot;
+  next: ApiSemanticWorkspaceSnapshot;
+  previousLabel?: string;
+  nextLabel?: string;
+  maxProjectChanges?: number;
+  maxObjectChanges?: number;
+  maxSymbolChanges?: number;
+}
+
+export interface ApiSemanticWorkspaceSnapshotDiffCount {
+  added: number;
+  removed: number;
+  updated: number;
+  truncated?: boolean;
+}
+
+export interface ApiSemanticWorkspaceSnapshotDiffItem {
+  key: string;
+  label: string;
+  change: 'added' | 'removed' | 'updated';
+  detail?: string;
+}
+
+export interface ApiSemanticWorkspaceSnapshotSourceOriginDelta {
+  sourceOrigin: import('./sourceOrigin').SourceOrigin;
+  previous: number;
+  next: number;
+  delta: number;
+}
+
+export interface ApiSemanticWorkspaceSnapshotStateDelta {
+  changed: boolean;
+  previous?: string;
+  next?: string;
+}
+
+export interface ApiSemanticWorkspaceSnapshotDiagnosticsDelta {
+  changed: boolean;
+  previous: { error: number; warning: number; info: number; hint: number };
+  next: { error: number; warning: number; info: number; hint: number };
+  delta: { error: number; warning: number; info: number; hint: number };
+}
+
+export interface ApiSemanticWorkspaceSnapshotDiff {
+  changed: boolean;
+  comparedAt: string;
+  previousLabel: string;
+  nextLabel: string;
+  summary: {
+    projects: ApiSemanticWorkspaceSnapshotDiffCount;
+    objects: ApiSemanticWorkspaceSnapshotDiffCount;
+    exportedSymbols: ApiSemanticWorkspaceSnapshotDiffCount;
+    sourceOriginsChanged: number;
+    diagnosticsChanged: boolean;
+    readinessChanged: boolean;
+    healthChanged: boolean;
+  };
+  projectChanges: ApiSemanticWorkspaceSnapshotDiffItem[];
+  objectChanges: ApiSemanticWorkspaceSnapshotDiffItem[];
+  symbolChanges: ApiSemanticWorkspaceSnapshotDiffItem[];
+  sourceOriginChanges: ApiSemanticWorkspaceSnapshotSourceOriginDelta[];
+  diagnostics: ApiSemanticWorkspaceSnapshotDiagnosticsDelta;
+  readiness: ApiSemanticWorkspaceSnapshotStateDelta;
+  health: ApiSemanticWorkspaceSnapshotStateDelta;
+}
+
+export interface ApiPowerBuilderDependencyGraphRequest {
+  uri?: string;
+  objectName?: string;
+  maxDependencies?: number;
+  maxDependents?: number;
+}
+
+export type ApiPowerBuilderDependencyGraphNodeKind =
+  | 'focus-object'
+  | 'workspace-object'
+  | 'dependent-object'
+  | 'dependency-key'
+  | 'document';
+
+export type ApiPowerBuilderDependencyGraphNodeResolution = 'resolved' | 'ambiguous' | 'unresolved';
+
+export interface ApiPowerBuilderDependencyGraphFocus {
+  objectName: string;
+  uri: string;
+  baseType?: string;
+  projectUri?: string;
+  library?: string;
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+}
+
+export interface ApiPowerBuilderDependencyGraphNode {
+  id: string;
+  label: string;
+  kind: ApiPowerBuilderDependencyGraphNodeKind;
+  resolution: ApiPowerBuilderDependencyGraphNodeResolution;
+  uri?: string;
+  projectUri?: string;
+  library?: string;
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+  candidateCount?: number;
+  evidence?: string[];
+}
+
+export interface ApiPowerBuilderDependencyGraphEdge {
+  sourceId: string;
+  targetId: string;
+  relation: 'inherits' | 'depends-on' | 'used-by';
+  reason: string;
+  resolved: boolean;
+}
+
+export interface ApiPowerBuilderDependencyGraph {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  available: boolean;
+  scope: 'immediate-neighborhood';
+  reason?: string;
+  focus?: ApiPowerBuilderDependencyGraphFocus;
+  summary: {
+    nodeCount: number;
+    edgeCount: number;
+    dependencyCount: number;
+    dependentCount: number;
+    unresolvedDependencyCount: number;
+    ambiguousDependencyCount: number;
+  };
+  nodes: ApiPowerBuilderDependencyGraphNode[];
+  edges: ApiPowerBuilderDependencyGraphEdge[];
+  mermaidFlowchart: string;
+}
+
+export interface ApiDataWindowSqlLineageRequest {
+  uri?: string;
+  line?: number;
+  dataObjectName?: string;
+  maxDepth?: number;
+}
+
+export interface ApiDataWindowSqlLineageReference {
+  rawText: string;
+  columnName: string;
+  qualifiedTableName?: string;
+}
+
+export interface ApiDataWindowSqlLineageNode {
+  id: string;
+  dataObject: string;
+  relation: 'root' | 'report-child' | 'dropdown-child';
+  state: 'resolved' | 'missing' | 'ambiguous' | 'dynamic';
+  uri?: string;
+  via?: string;
+  path: string[];
+  statement?: string;
+  sqlReferences: ApiDataWindowSqlLineageReference[];
+  children: ApiDataWindowSqlLineageNode[];
+}
+
+export interface ApiDataWindowSqlLineage {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  available: boolean;
+  reason?: string;
+  source: {
+    kind: 'datawindow-document' | 'script-binding' | 'dataobject-name';
+    uri?: string;
+    line?: number;
+    targetName?: string;
+    dataObject?: string | null;
+    state?: 'resolved' | 'missing' | 'ambiguous' | 'dynamic';
+  };
+  summary: {
+    totalNodes: number;
+    totalStatements: number;
+    totalSqlReferences: number;
+    unresolvedLinks: number;
+    maxDepthReached: boolean;
+  };
+  lineage?: ApiDataWindowSqlLineageNode;
+}
+
+export interface ApiCrossProjectSymbolConflictsRequest {
+  symbolName?: string;
+  maxConflicts?: number;
+  maxCandidatesPerConflict?: number;
+}
+
+export interface ApiCrossProjectSymbolConflictCandidate {
+  name: string;
+  kind: string;
+  uri: string;
+  line: number;
+  character: number;
+  ownerName?: string;
+  parameterCount?: number;
+  signature?: string;
+  projectUri?: string;
+  projectName?: string;
+  library?: string;
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+}
+
+export interface ApiCrossProjectSymbolConflict {
+  symbolKey: string;
+  symbolName: string;
+  kind: string;
+  ownerName?: string;
+  parameterCount?: number;
+  scope: 'cross-project' | 'cross-library' | 'cross-workspace';
+  candidateCount: number;
+  projectCount: number;
+  libraryCount: number;
+  sourceOrigins: import('./sourceOrigin').SourceOrigin[];
+  evidence: string[];
+  truncatedCandidates?: boolean;
+  candidates: ApiCrossProjectSymbolConflictCandidate[];
+}
+
+export interface ApiCrossProjectSymbolConflicts {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  available: boolean;
+  reason?: string;
+  summary: {
+    totalConflictCount: number;
+    returnedConflictCount: number;
+    totalCandidateCount: number;
+    crossProjectConflictCount: number;
+    crossLibraryConflictCount: number;
+    truncated: boolean;
+  };
+  conflicts: ApiCrossProjectSymbolConflict[];
+}
+
+export interface ApiWorkspaceMigrationAssistantRequest {
+  preferredTargetMode?: 'workspace' | 'solution';
+  maxRecommendations?: number;
+}
+
+export interface ApiWorkspaceMigrationRecommendation {
+  id: string;
+  priority: 'high' | 'medium' | 'low';
+  category: 'topology' | 'build' | 'legacy';
+  title: string;
+  detail: string;
+  evidence: string[];
+  actions: string[];
+}
+
+export interface ApiWorkspaceMigrationAssistant {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  available: boolean;
+  reason?: string;
+  currentMode: 'workspace' | 'solution' | 'mixed' | 'pbl-only' | 'unknown';
+  targetMode?: 'workspace' | 'solution';
+  summary: {
+    sourceFileCount: number;
+    projectCount: number;
+    buildFilesTotal: number;
+    usableBuildFiles: number;
+    hasLegacyLibraries: boolean;
+    hasMixedMarkers: boolean;
+    hasOrcaAliases: boolean;
+  };
+  recommendations: ApiWorkspaceMigrationRecommendation[];
+}
+
+export interface ApiBuildProfileMatrixRequest {
+  maxProfiles?: number;
+}
+
+export interface ApiBuildProfileMatrixFinding {
+  code: string;
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+  detail?: string;
+}
+
+export interface ApiBuildProfileMatrixProfile {
+  buildFileUri: string;
+  label: string;
+  detail?: string;
+  representedProjectUri?: string;
+  status: 'usable' | 'invalid' | 'ambiguous';
+  reasonCode?: 'missing-build-plan' | 'malformed-json' | 'missing-project-reference' | 'unresolved-project-reference' | 'ambiguous-project-reference';
+  isLastUsed: boolean;
+  canRun: boolean;
+  validationState: 'ready' | 'warning' | 'error';
+  validationMessage: string;
+}
+
+export interface ApiBuildProfileMatrix {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  available: true;
+  summary: {
+    totalProfiles: number;
+    usableProfiles: number;
+    ambiguousProfiles: number;
+    invalidProfiles: number;
+    runnableProfiles: number;
+    toolingStatus: ApiPbAutoBuildCapabilitySnapshot['status'] | 'unknown';
+    healthState: ApiBuildHealthSnapshot['state'];
+    preferredProfileUri?: string;
+  };
+  tooling?: ApiPbAutoBuildCapabilitySnapshot;
+  health: ApiBuildHealthSnapshot;
+  findings: ApiBuildProfileMatrixFinding[];
+  profiles: ApiBuildProfileMatrixProfile[];
+}
+
 const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
   {
     name: 'contract',
@@ -108,6 +429,62 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
     requestSchema: 'ApiQuerySymbolsRequest',
     responseSchema: 'ApiSymbol[]',
     usesActiveEditorFallback: false,
+  },
+  {
+    name: 'cross-project-symbol-conflicts',
+    description: 'Analiza conflictos read-only entre símbolos homónimos preferidos en distintos proyectos o librerías del workspace.',
+    command: 'powerbuilder.crossProjectSymbolConflicts',
+    requestSchema: 'ApiCrossProjectSymbolConflictsRequest',
+    responseSchema: 'ApiCrossProjectSymbolConflicts',
+    usesActiveEditorFallback: false,
+  },
+  {
+    name: 'workspace-migration-assistant',
+    description: 'Resume un plan read-only de migración para layouts legacy hacia una topología PowerBuilder soportada.',
+    command: 'powerbuilder.workspaceMigrationAssistant',
+    requestSchema: 'ApiWorkspaceMigrationAssistantRequest',
+    responseSchema: 'ApiWorkspaceMigrationAssistant',
+    usesActiveEditorFallback: false,
+  },
+  {
+    name: 'build-profile-matrix',
+    description: 'Resume perfiles de build PBAutoBuild y valida entorno/inventario de forma read-only.',
+    command: 'powerbuilder.buildProfileMatrix',
+    requestSchema: 'ApiBuildProfileMatrixRequest',
+    responseSchema: 'ApiBuildProfileMatrix',
+    usesActiveEditorFallback: false,
+  },
+  {
+    name: 'dependency-graph',
+    description: 'Devuelve el grafo inmediato de dependencias PowerBuilder para el objeto o archivo activo.',
+    command: 'powerbuilder.dependencyGraph',
+    requestSchema: 'ApiPowerBuilderDependencyGraphRequest',
+    responseSchema: 'ApiPowerBuilderDependencyGraph',
+    usesActiveEditorFallback: true,
+  },
+  {
+    name: 'code-metrics',
+    description: 'Resume métricas avanzadas de código PowerBuilder sobre la base semántica real ya indexada.',
+    command: 'powerbuilder.codeMetrics',
+    requestSchema: 'ApiPowerBuilderCodeMetricsRequest',
+    responseSchema: 'ApiPowerBuilderCodeMetrics',
+    usesActiveEditorFallback: false,
+  },
+  {
+    name: 'technical-debt-report',
+    description: 'Consolida un informe read-only de deuda técnica y modernización priorizable sobre señales ya publicadas del runtime.',
+    command: 'powerbuilder.technicalDebtReport',
+    requestSchema: 'ApiPowerBuilderTechnicalDebtReportRequest',
+    responseSchema: 'ApiPowerBuilderTechnicalDebtReport',
+    usesActiveEditorFallback: false,
+  },
+  {
+    name: 'datawindow-sql-lineage',
+    description: 'Devuelve el lineage SQL read-only de un DataWindow raíz, incluyendo reports y dropdown children resolubles.',
+    command: 'powerbuilder.dataWindowSqlLineage',
+    requestSchema: 'ApiDataWindowSqlLineageRequest',
+    responseSchema: 'ApiDataWindowSqlLineage',
+    usesActiveEditorFallback: true,
   },
   {
     name: 'current-object-context',
@@ -139,6 +516,13 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
     command: 'powerbuilder.safeBatchRefactorPlan',
     requestSchema: 'ApiSafeBatchRefactorPlanRequest',
     responseSchema: 'ApiSafeBatchRefactorPlan',
+    usesActiveEditorFallback: false,
+  },
+  {
+    name: 'semantic-snapshot-diff',
+    description: 'Compara dos snapshots semánticos exportados y resume cambios de impacto read-only.',
+    requestSchema: 'ApiSemanticWorkspaceSnapshotDiffRequest',
+    responseSchema: 'ApiSemanticWorkspaceSnapshotDiff',
     usesActiveEditorFallback: false,
   },
   {
@@ -184,10 +568,210 @@ export interface ApiPublicContractDescriptor {
   exportedFrom: 'activate';
   methods: ApiPublicContractMethod[];
   schemas: ApiPublicContractSchema[];
+  taskExecutionCatalog: ApiTaskExecutionContractCatalog;
   capabilities: {
     readOnlyMethods: string[];
     writeEnabledMethods: string[];
     readOnlyTools: ApiReadOnlyToolName[];
+  };
+}
+
+export type ApiTaskExecutionContractId = 'spec-driven-pbl-update' | 'spec-driven-pbl-update-batch';
+export type ApiTaskExecutionDryRunStrategy = 'single-read-only-companion' | 'repeat-read-only-companion-per-item';
+
+export interface ApiTaskExecutionContractMaxContext {
+  scope: 'single-document' | 'explicit-batch';
+  selection: 'explicit-uri' | 'explicit-request-items';
+  allowsImplicitWorkspaceSelection: false;
+}
+
+export interface ApiTaskExecutionContractDryRun {
+  strategy: ApiTaskExecutionDryRunStrategy;
+  method: 'generateSafeEditPlan';
+  requestSchema: 'ApiSafeEditPlanRequest';
+  responseSchema: 'ApiSafeEditPlan';
+  description: string;
+}
+
+export interface ApiTaskExecutionContract {
+  id: ApiTaskExecutionContractId;
+  stability: ApiPublicContractStability;
+  method: 'applySpecDrivenPblUpdate' | 'applySpecDrivenPblUpdateBatch';
+  command: 'powerbuilder.applySpecDrivenPblUpdate' | 'powerbuilder.applySpecDrivenPblUpdateBatch';
+  requestSchema: 'ApiSpecDrivenPblUpdateRequest' | 'ApiSpecDrivenPblUpdateBatchRequest';
+  responseSchema: 'ApiSpecDrivenPblUpdateResult' | 'ApiSpecDrivenPblUpdateBatchResult';
+  maxContext: ApiTaskExecutionContractMaxContext;
+  validationRequired: string[];
+  docsAffected: string[];
+  writeEnabledLimits: string[];
+  receipts: string[];
+  handoff: string[];
+  dryRun: ApiTaskExecutionContractDryRun;
+}
+
+export interface ApiTaskExecutionContractCatalog {
+  schemaVersion: '1.0.0';
+  apiVersion: string;
+  contracts: ApiTaskExecutionContract[];
+}
+
+export interface ApiTaskExecutionDryRunSimulationStep {
+  method: 'generateSafeEditPlan';
+  requestSchema: 'ApiSafeEditPlanRequest';
+  responseSchema: 'ApiSafeEditPlan';
+  simulatedCalls: number;
+  description: string;
+}
+
+export interface ApiTaskExecutionDryRunSimulation {
+  contractId: ApiTaskExecutionContractId;
+  strategy: ApiTaskExecutionDryRunStrategy;
+  steps: ApiTaskExecutionDryRunSimulationStep[];
+}
+
+const TASK_EXECUTION_CONTRACTS: ReadonlyArray<ApiTaskExecutionContract> = [
+  {
+    id: 'spec-driven-pbl-update',
+    stability: 'stable',
+    method: 'applySpecDrivenPblUpdate',
+    command: 'powerbuilder.applySpecDrivenPblUpdate',
+    requestSchema: 'ApiSpecDrivenPblUpdateRequest',
+    responseSchema: 'ApiSpecDrivenPblUpdateResult',
+    maxContext: {
+      scope: 'single-document',
+      selection: 'explicit-uri',
+      allowsImplicitWorkspaceSelection: false,
+    },
+    validationRequired: [
+      'safe-edit-plan',
+      'fresh-orca-export',
+      'orca-import-compile',
+    ],
+    docsAffected: [
+      'docs/spec-driven-development.md',
+      'docs/ai-orchestrator.md',
+      'docs/ai-agents-catalog.md',
+    ],
+    writeEnabledLimits: [
+      'explicit-edits-only',
+      'single-session-library-per-request',
+      'no-implicit-workspace-scan',
+    ],
+    receipts: [
+      'journalUri',
+      'importResult.ledgerUri',
+      'importResult.compileResult',
+    ],
+    handoff: [
+      'docs/spec-driven-development.md',
+      'docs/ai-orchestrator.md',
+      'docs/ai-agents-catalog.md',
+    ],
+    dryRun: {
+      strategy: 'single-read-only-companion',
+      method: 'generateSafeEditPlan',
+      requestSchema: 'ApiSafeEditPlanRequest',
+      responseSchema: 'ApiSafeEditPlan',
+      description: 'Ejecutar generateSafeEditPlan sobre la misma URI foco antes de invocar applySpecDrivenPblUpdate.',
+    },
+  },
+  {
+    id: 'spec-driven-pbl-update-batch',
+    stability: 'stable',
+    method: 'applySpecDrivenPblUpdateBatch',
+    command: 'powerbuilder.applySpecDrivenPblUpdateBatch',
+    requestSchema: 'ApiSpecDrivenPblUpdateBatchRequest',
+    responseSchema: 'ApiSpecDrivenPblUpdateBatchResult',
+    maxContext: {
+      scope: 'explicit-batch',
+      selection: 'explicit-request-items',
+      allowsImplicitWorkspaceSelection: false,
+    },
+    validationRequired: [
+      'safe-edit-plan',
+      'per-item-dry-run',
+      'stop-on-error-policy',
+      'journal-review',
+    ],
+    docsAffected: [
+      'docs/spec-driven-development.md',
+      'docs/ai-orchestrator.md',
+      'docs/ai-agents-catalog.md',
+    ],
+    writeEnabledLimits: [
+      'explicit-request-list-only',
+      'per-item-document-load',
+      'batch-stops-on-block-by-default',
+    ],
+    receipts: [
+      'journalUri',
+      'items[].reason',
+      'items[].result.importResult.ledgerUri',
+    ],
+    handoff: [
+      'docs/spec-driven-development.md',
+      'docs/ai-orchestrator.md',
+      'docs/ai-agents-catalog.md',
+    ],
+    dryRun: {
+      strategy: 'repeat-read-only-companion-per-item',
+      method: 'generateSafeEditPlan',
+      requestSchema: 'ApiSafeEditPlanRequest',
+      responseSchema: 'ApiSafeEditPlan',
+      description: 'Repetir generateSafeEditPlan en modo per-item por cada request explícita del batch antes de invocar applySpecDrivenPblUpdateBatch.',
+    },
+  },
+];
+
+function cloneTaskExecutionContract(contract: ApiTaskExecutionContract): ApiTaskExecutionContract {
+  return {
+    ...contract,
+    maxContext: { ...contract.maxContext },
+    validationRequired: [...contract.validationRequired],
+    docsAffected: [...contract.docsAffected],
+    writeEnabledLimits: [...contract.writeEnabledLimits],
+    receipts: [...contract.receipts],
+    handoff: [...contract.handoff],
+    dryRun: { ...contract.dryRun },
+  };
+}
+
+export function getTaskExecutionContractCatalog(): ApiTaskExecutionContractCatalog {
+  return {
+    schemaVersion: '1.0.0',
+    apiVersion: PUBLIC_API_VERSION,
+    contracts: TASK_EXECUTION_CONTRACTS.map(cloneTaskExecutionContract),
+  };
+}
+
+export function simulateTaskExecutionDryRun(
+  contractId: ApiTaskExecutionContractId,
+  options: { requestCount?: number } = {},
+): ApiTaskExecutionDryRunSimulation {
+  const contract = TASK_EXECUTION_CONTRACTS.find((candidate) => candidate.id === contractId);
+  if (!contract) {
+    throw new Error(`Contrato de tarea desconocido: ${contractId}`);
+  }
+
+  const rawRequestCount = typeof options.requestCount === 'number' && Number.isFinite(options.requestCount)
+    ? Math.max(1, Math.trunc(options.requestCount))
+    : 1;
+  const simulatedCalls = contract.dryRun.strategy === 'repeat-read-only-companion-per-item'
+    ? rawRequestCount
+    : 1;
+
+  return {
+    contractId,
+    strategy: contract.dryRun.strategy,
+    steps: [
+      {
+        method: contract.dryRun.method,
+        requestSchema: contract.dryRun.requestSchema,
+        responseSchema: contract.dryRun.responseSchema,
+        simulatedCalls,
+        description: contract.dryRun.description,
+      },
+    ],
   };
 }
 
@@ -233,6 +817,13 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     responseSchema: 'ApiSemanticWorkspaceSnapshotImportResult',
   },
   {
+    name: 'diffSemanticWorkspaceSnapshots',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiSemanticWorkspaceSnapshotDiffRequest',
+    responseSchema: 'ApiSemanticWorkspaceSnapshotDiff',
+  },
+  {
     name: 'getServerStats',
     command: 'powerbuilder.showStats',
     access: 'read-only',
@@ -246,6 +837,62 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     stability: 'stable',
     requestSchema: 'ApiQuerySymbolsRequest',
     responseSchema: 'ApiSymbol[]',
+  },
+  {
+    name: 'getCrossProjectSymbolConflicts',
+    command: 'powerbuilder.crossProjectSymbolConflicts',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiCrossProjectSymbolConflictsRequest',
+    responseSchema: 'ApiCrossProjectSymbolConflicts',
+  },
+  {
+    name: 'getWorkspaceMigrationAssistant',
+    command: 'powerbuilder.workspaceMigrationAssistant',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiWorkspaceMigrationAssistantRequest',
+    responseSchema: 'ApiWorkspaceMigrationAssistant',
+  },
+  {
+    name: 'getBuildProfileMatrix',
+    command: 'powerbuilder.buildProfileMatrix',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiBuildProfileMatrixRequest',
+    responseSchema: 'ApiBuildProfileMatrix',
+  },
+  {
+    name: 'getPowerBuilderDependencyGraph',
+    command: 'powerbuilder.dependencyGraph',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiPowerBuilderDependencyGraphRequest',
+    responseSchema: 'ApiPowerBuilderDependencyGraph',
+  },
+  {
+    name: 'getPowerBuilderCodeMetrics',
+    command: 'powerbuilder.codeMetrics',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiPowerBuilderCodeMetricsRequest',
+    responseSchema: 'ApiPowerBuilderCodeMetrics',
+  },
+  {
+    name: 'getPowerBuilderTechnicalDebtReport',
+    command: 'powerbuilder.technicalDebtReport',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiPowerBuilderTechnicalDebtReportRequest',
+    responseSchema: 'ApiPowerBuilderTechnicalDebtReport',
+  },
+  {
+    name: 'getDataWindowSqlLineage',
+    command: 'powerbuilder.dataWindowSqlLineage',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiDataWindowSqlLineageRequest',
+    responseSchema: 'ApiDataWindowSqlLineage',
   },
   {
     name: 'getCurrentObjectContext',
@@ -306,7 +953,8 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
 ];
 
 const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
-  { name: 'ApiPublicContractDescriptor', version: '2.2.0', kind: 'descriptor' },
+  { name: 'ApiPublicContractDescriptor', version: '2.12.0', kind: 'descriptor' },
+  { name: 'ApiTaskExecutionContractCatalog', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiReadOnlyToolBridgeDescriptor', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiReadOnlyToolCallRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiReadOnlyToolCallResult', version: '1.0.0', kind: 'response' },
@@ -315,7 +963,23 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiSemanticWorkspaceSnapshotExportResult', version: '1.0.0', kind: 'response' },
   { name: 'ApiSemanticWorkspaceSnapshotImportRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiSemanticWorkspaceSnapshotImportResult', version: '1.0.0', kind: 'response' },
+  { name: 'ApiSemanticWorkspaceSnapshotDiffRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiSemanticWorkspaceSnapshotDiff', version: '1.0.0', kind: 'response' },
   { name: 'ApiQuerySymbolsRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiCrossProjectSymbolConflictsRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiCrossProjectSymbolConflicts', version: '1.0.0', kind: 'response' },
+  { name: 'ApiWorkspaceMigrationAssistantRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiWorkspaceMigrationAssistant', version: '1.0.0', kind: 'response' },
+  { name: 'ApiBuildProfileMatrixRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiBuildProfileMatrix', version: '1.0.0', kind: 'response' },
+  { name: 'ApiPowerBuilderDependencyGraphRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiPowerBuilderDependencyGraph', version: '1.0.0', kind: 'response' },
+  { name: 'ApiPowerBuilderCodeMetricsRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiPowerBuilderCodeMetrics', version: '1.0.0', kind: 'response' },
+  { name: 'ApiPowerBuilderTechnicalDebtReportRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiPowerBuilderTechnicalDebtReport', version: '1.0.0', kind: 'response' },
+  { name: 'ApiDataWindowSqlLineageRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiDataWindowSqlLineage', version: '1.0.0', kind: 'response' },
   { name: 'ApiCurrentObjectContextRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCurrentObjectContext', version: '1.0.0', kind: 'response' },
   { name: 'ApiImpactAnalysisRequest', version: '1.0.0', kind: 'request' },
@@ -345,6 +1009,7 @@ export function getPublicApiContractDescriptor(): ApiPublicContractDescriptor {
     exportedFrom: 'activate',
     methods,
     schemas,
+    taskExecutionCatalog: getTaskExecutionContractCatalog(),
     capabilities: {
       readOnlyMethods: methods.filter((method) => method.access === 'read-only').map((method) => method.name),
       writeEnabledMethods: methods.filter((method) => method.access === 'write-enabled').map((method) => method.name),
@@ -779,6 +1444,157 @@ export interface ApiSemanticWorkspaceManifest {
   };
 }
 
+export interface ApiPowerBuilderCodeMetricsRequest {
+  maxObjects?: number;
+}
+
+export interface ApiPowerBuilderCodeMetricsObjectMetrics {
+  functions: number;
+  events: number;
+  approximateComplexity: number;
+  embeddedSqlStatements: number;
+  linkedDataWindows: number;
+  externalDependencies: number;
+  lifecycleWarnings: number;
+  diagnostics: number;
+}
+
+export interface ApiPowerBuilderCodeMetricsObject {
+  name: string;
+  uri: string;
+  projectUri?: string;
+  library?: string;
+  objectKind?: ApiSemanticWorkspaceManifestObject['objectKind'];
+  readiness?: string;
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+  metrics: ApiPowerBuilderCodeMetricsObjectMetrics;
+}
+
+export interface ApiPowerBuilderCodeMetricsSummary {
+  totalProjects: number;
+  totalLibraries: number;
+  totalObjects: number;
+  totalFunctions: number;
+  totalEvents: number;
+  totalEmbeddedSqlStatements: number;
+  totalLinkedDataWindows: number;
+  totalExternalDependencies: number;
+  totalLifecycleWarnings: number;
+  totalDiagnostics: number;
+}
+
+export interface ApiPowerBuilderCodeMetricsDiagnosticArea {
+  area: 'lifecycle' | 'datawindow' | 'external' | 'unused' | 'shadowing' | 'obsolete' | 'resolution' | 'control-flow' | 'general';
+  total: number;
+}
+
+export interface ApiPowerBuilderCodeMetricsDiagnosticsSummary {
+  total: number;
+  byArea: ApiPowerBuilderCodeMetricsDiagnosticArea[];
+}
+
+export interface ApiPowerBuilderCodeMetricsFootprint {
+  build: {
+    total: number;
+    usable: number;
+    invalid: number;
+    ambiguous: number;
+  };
+  orca: {
+    stagedFiles: number;
+    libraryAliases: number;
+  };
+}
+
+export interface ApiPowerBuilderCodeMetrics {
+  schemaVersion: string;
+  generatedAt: number;
+  summary: ApiPowerBuilderCodeMetricsSummary;
+  diagnostics: ApiPowerBuilderCodeMetricsDiagnosticsSummary;
+  footprint: ApiPowerBuilderCodeMetricsFootprint;
+  objects: ApiPowerBuilderCodeMetricsObject[];
+}
+
+export interface ApiPowerBuilderTechnicalDebtReportRequest {
+  maxObjects?: number;
+  maxHotspots?: number;
+  maxRecommendations?: number;
+}
+
+export type ApiPowerBuilderTechnicalDebtHotspotCategory =
+  | 'obsolete'
+  | 'dynamic-sql'
+  | 'external-dependency'
+  | 'datawindow-risk'
+  | 'complexity'
+  | 'source-origin-risk';
+
+export type ApiPowerBuilderTechnicalDebtPriority = 'high' | 'medium' | 'low';
+export type ApiPowerBuilderTechnicalDebtConfidence = 'high' | 'medium';
+
+export interface ApiPowerBuilderTechnicalDebtHotspotMetrics {
+  approximateComplexity: number;
+  diagnostics: number;
+  externalDependencies: number;
+  linkedDataWindows: number;
+  dynamicSqlStatements: number;
+  obsoleteDiagnostics: number;
+}
+
+export interface ApiPowerBuilderTechnicalDebtHotspot {
+  name: string;
+  uri: string;
+  projectUri?: string;
+  library?: string;
+  objectKind?: ApiSemanticWorkspaceManifestObject['objectKind'];
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+  priority: ApiPowerBuilderTechnicalDebtPriority;
+  confidence: ApiPowerBuilderTechnicalDebtConfidence;
+  categories: ApiPowerBuilderTechnicalDebtHotspotCategory[];
+  evidence: string[];
+  recommendations: string[];
+  metrics: ApiPowerBuilderTechnicalDebtHotspotMetrics;
+}
+
+export type ApiPowerBuilderTechnicalDebtRecommendationCategory =
+  | 'modernization'
+  | 'datawindow'
+  | 'source-origin'
+  | 'legacy-layout'
+  | 'orca-pbl'
+  | 'build';
+
+export interface ApiPowerBuilderTechnicalDebtRecommendation {
+  id: string;
+  category: ApiPowerBuilderTechnicalDebtRecommendationCategory;
+  priority: ApiPowerBuilderTechnicalDebtPriority;
+  confidence: ApiPowerBuilderTechnicalDebtConfidence;
+  title: string;
+  detail: string;
+  evidence: string[];
+  actions: string[];
+}
+
+export interface ApiPowerBuilderTechnicalDebtReportSummary {
+  totalHotspots: number;
+  totalRecommendations: number;
+  obsoleteFindings: number;
+  dynamicSqlFindings: number;
+  externalDependencyFindings: number;
+  dataWindowRiskFindings: number;
+  complexObjectFindings: number;
+  sourceOriginRiskFindings: number;
+  legacyWorkspaceRiskFindings: number;
+}
+
+export interface ApiPowerBuilderTechnicalDebtReport {
+  schemaVersion: string;
+  generatedAt: number;
+  summary: ApiPowerBuilderTechnicalDebtReportSummary;
+  hotspots: ApiPowerBuilderTechnicalDebtHotspot[];
+  recommendations: ApiPowerBuilderTechnicalDebtRecommendation[];
+}
+
 export interface ApiCatalogReport {
   total: number;
   duplicates: number;
@@ -842,12 +1658,27 @@ export interface ApiBuildHealthSnapshot {
   findings: ApiBuildHealthFinding[];
 }
 
+export interface ApiPbAutoBuildCapabilitySnapshot {
+  status: 'available' | 'missing' | 'invalid';
+  source: 'config' | 'env' | 'default' | 'unresolved';
+  executablePath?: string;
+  versionLabel?: string;
+  capabilities: string[];
+  detail: string;
+}
+
 export interface ApiOrcaCapabilitySnapshot {
   status: 'available' | 'missing' | 'invalid';
   source: 'config' | 'env' | 'unresolved';
   executablePath?: string;
   capabilities: string[];
   detail: string;
+  packagingPolicy: {
+    exposure: 'not-exposed';
+    requiresFeatureFlag: true;
+    supportedArtifacts: Array<'exe' | 'pbd' | 'dll'>;
+    detail: string;
+  };
 }
 
 export interface ApiRuntimeMemoryLayerBudget {
@@ -911,6 +1742,7 @@ export interface ApiServerStats {
     libraries?: number;
     orphanFiles?: number;
   };
+  buildTooling?: ApiPbAutoBuildCapabilitySnapshot;
   buildFiles?: {
     total?: number;
     usable?: number;
@@ -967,9 +1799,45 @@ export interface ApiServerStats {
       lastRestoredEntries?: number;
       lastPersistedEntries?: number;
     };
+    policy?: ApiSemanticCacheRetentionPolicy;
+    maintenance?: ApiSemanticCacheMaintenanceSnapshot;
   };
   health?: ApiRuntimeHealthReport;
   runtimeJournal?: ApiRuntimeJournalSnapshot;
+}
+
+export interface ApiSemanticCacheRetentionPolicy {
+  version: 2;
+  staleWorkspaceTtlMs: number;
+  maxJournalEntries: number;
+  maxJournalBytes: number;
+  maxWorkspaceBytes: number;
+}
+
+export interface ApiSemanticCacheWorkspaceMaintenanceSnapshot {
+  workspaceKey: string;
+  totalBytes: number;
+  checkpointBytes: number;
+  journalBytes: number;
+  servingSnapshotBytes: number;
+  partitionBytes: number;
+  partitionCount: number;
+  journalEntries: number;
+  lastModifiedAt: number;
+}
+
+export interface ApiSemanticCacheMaintenanceSnapshot {
+  policy: ApiSemanticCacheRetentionPolicy;
+  currentWorkspace: ApiSemanticCacheWorkspaceMaintenanceSnapshot;
+  staleWorkspaces: ApiSemanticCacheWorkspaceMaintenanceSnapshot[];
+  maintenanceRecommended: boolean;
+  needsCompaction: boolean;
+}
+
+export interface ApiSemanticCacheMaintenanceResult extends ApiSemanticCacheMaintenanceSnapshot {
+  compacted: boolean;
+  restoreValidated: boolean;
+  prunedWorkspaceKeys: string[];
 }
 
 /**
@@ -1038,8 +1906,16 @@ export interface VscPowerSyntaxApi {
   invokeReadOnlyTool(request: ApiReadOnlyToolCallRequest): Promise<ApiReadOnlyToolCallResult>;
   exportSemanticWorkspaceSnapshot(request?: ApiSemanticWorkspaceSnapshotExportRequest): Promise<ApiSemanticWorkspaceSnapshotExportResult>;
   importSemanticWorkspaceSnapshot(request: ApiSemanticWorkspaceSnapshotImportRequest): Promise<ApiSemanticWorkspaceSnapshotImportResult>;
+  diffSemanticWorkspaceSnapshots(request: ApiSemanticWorkspaceSnapshotDiffRequest): Promise<ApiSemanticWorkspaceSnapshotDiff>;
   getServerStats(): Promise<ApiServerStats>;
   querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
+  getCrossProjectSymbolConflicts(request?: ApiCrossProjectSymbolConflictsRequest): Promise<ApiCrossProjectSymbolConflicts>;
+  getWorkspaceMigrationAssistant(request?: ApiWorkspaceMigrationAssistantRequest): Promise<ApiWorkspaceMigrationAssistant>;
+  getBuildProfileMatrix(request?: ApiBuildProfileMatrixRequest): Promise<ApiBuildProfileMatrix>;
+  getPowerBuilderDependencyGraph(request?: ApiPowerBuilderDependencyGraphRequest): Promise<ApiPowerBuilderDependencyGraph>;
+  getPowerBuilderCodeMetrics(request?: ApiPowerBuilderCodeMetricsRequest): Promise<ApiPowerBuilderCodeMetrics>;
+  getPowerBuilderTechnicalDebtReport(request?: ApiPowerBuilderTechnicalDebtReportRequest): Promise<ApiPowerBuilderTechnicalDebtReport>;
+  getDataWindowSqlLineage(request?: ApiDataWindowSqlLineageRequest): Promise<ApiDataWindowSqlLineage>;
   getCurrentObjectContext(request?: ApiCurrentObjectContextRequest): Promise<ApiCurrentObjectContext>;
   analyzeImpact(request?: ApiImpactAnalysisRequest): Promise<ApiImpactAnalysis>;
   generateSafeEditPlan(request?: ApiSafeEditPlanRequest): Promise<ApiSafeEditPlan>;

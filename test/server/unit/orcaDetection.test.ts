@@ -4,6 +4,7 @@ import * as path from 'path';
 import {
   createOrcaDetector,
   detectOrcaCapability,
+  formatOrcaPackagingPolicyInline,
   formatOrcaStatusInline,
 } from '../../../src/client/build/orcaDetection';
 
@@ -25,7 +26,11 @@ suite('unit/orcaDetection (B189)', () => {
       'staging-regenerate',
       'project-rebuild',
     ]);
+    assert.equal(snapshot.packagingPolicy.exposure, 'not-exposed');
+    assert.equal(snapshot.packagingPolicy.requiresFeatureFlag, true);
+    assert.deepEqual(snapshot.packagingPolicy.supportedArtifacts, ['exe', 'pbd', 'dll']);
     assert.equal(formatOrcaStatusInline(snapshot), 'ORCA disponible · configuración');
+    assert.match(formatOrcaPackagingPolicyInline(snapshot) ?? '', /feature flag dedicado/);
   });
 
   test('cae a la variable de entorno si la configuración no existe', async () => {

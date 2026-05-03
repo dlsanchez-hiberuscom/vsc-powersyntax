@@ -1,6 +1,7 @@
 import * as assert from 'assert/strict';
 import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { invalidateDocumentAnalysis } from '../../../src/server/analysis/analysisCache';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { provideDefinition } from '../../../src/server/features/definition';
 import { createDocumentQueryContext } from '../../../src/server/features/queryContext';
@@ -32,6 +33,11 @@ suite('unit/definition', () => {
     ]);
     kb.endBatchUpdate();
   });
+
+  function analyzeFreshDocument(document: TextDocument): ReturnType<typeof analyzeDocument> {
+    invalidateDocumentAnalysis(document.uri);
+    return analyzeDocument(document);
+  }
 
   test('provideDefinition returns null if no valid identifier under cursor', () => {
     const doc = TextDocument.create('file:///test.sru', 'powerbuilder', 1, '  =  ');
@@ -311,8 +317,8 @@ suite('unit/definition', () => {
       ].join('\r\n')
     );
 
-    const baseAnalysis = analyzeDocument(baseDocument);
-    const mainAnalysis = analyzeDocument(mainDocument);
+    const baseAnalysis = analyzeFreshDocument(baseDocument);
+    const mainAnalysis = analyzeFreshDocument(mainDocument);
 
     localKb.beginBatchUpdate();
     localKb.upsertDocument(baseDocument.uri, baseAnalysis.semanticFacts, baseAnalysis.scopes);
@@ -346,7 +352,7 @@ suite('unit/definition', () => {
       ].join('\r\n')
     );
 
-    const analysis = analyzeDocument(document);
+    const analysis = analyzeFreshDocument(document);
     localKb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
 
     const loc = provideDefinition(document, Position.create(4, 23), localKb, localGraph);
@@ -379,7 +385,7 @@ suite('unit/definition', () => {
       ].join('\r\n')
     );
 
-    const analysis = analyzeDocument(document);
+    const analysis = analyzeFreshDocument(document);
     localKb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
 
     const loc = provideDefinition(document, Position.create(7, 20), localKb, localGraph);
@@ -417,7 +423,7 @@ suite('unit/definition', () => {
       ].join('\r\n')
     );
 
-    const analysis = analyzeDocument(document);
+    const analysis = analyzeFreshDocument(document);
     localKb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
 
     const loc = provideDefinition(document, Position.create(12, 15), localKb, localGraph);
@@ -443,7 +449,7 @@ suite('unit/definition', () => {
         'datawindow(units=0)'
       ].join('\r\n')
     );
-    const dataWindowAnalysis = analyzeDocument(dataWindowDocument);
+    const dataWindowAnalysis = analyzeFreshDocument(dataWindowDocument);
     localKb.upsertDocument(
       dataWindowDocument.uri,
       dataWindowAnalysis.semanticFacts,
@@ -492,16 +498,16 @@ suite('unit/definition', () => {
     );
 
     for (const indexed of [parentDataWindow, childDataWindow]) {
-      const analysis = analyzeDocument(indexed);
+      const analysis = analyzeFreshDocument(indexed);
       localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
     }
 
     const document = TextDocument.create(
-      'file:///w_probe.srw',
+      'file:///w_probe_modify_definition.srw',
       'powerbuilder',
       1,
       [
-        'global type w_probe from window',
+        'global type w_probe_modify_definition from window',
         '  datawindow dw_parent',
         'end type',
         '',
@@ -544,7 +550,7 @@ suite('unit/definition', () => {
     );
 
     for (const indexed of [parentDataWindow, childDataWindow]) {
-      const analysis = analyzeDocument(indexed);
+      const analysis = analyzeFreshDocument(indexed);
       localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
     }
 
@@ -597,7 +603,7 @@ suite('unit/definition', () => {
     );
 
     for (const indexed of [parentDataWindow, childDataWindow]) {
-      const analysis = analyzeDocument(indexed);
+      const analysis = analyzeFreshDocument(indexed);
       localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
     }
 
@@ -649,7 +655,7 @@ suite('unit/definition', () => {
     );
 
     for (const indexed of [parentDataWindow, childDataWindow]) {
-      const analysis = analyzeDocument(indexed);
+      const analysis = analyzeFreshDocument(indexed);
       localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
     }
 

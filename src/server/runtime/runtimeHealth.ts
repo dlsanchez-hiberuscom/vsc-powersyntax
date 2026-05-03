@@ -119,6 +119,40 @@ export function buildRuntimeHealthReport(
     });
   }
 
+  const maintenance = stats.persistence?.maintenance;
+  const retentionPolicy = stats.persistence?.policy;
+  if ((maintenance?.staleWorkspaces.length ?? 0) > 0) {
+    pushFinding(findings, checkedLayers, {
+      code: 'persistence-stale-workspaces',
+      layer: 'persistence',
+      severity: 'warning',
+      message: `${maintenance?.staleWorkspaces.length ?? 0} workspaces obsoletos pendientes de limpieza`,
+    });
+  }
+
+  if (maintenance?.needsCompaction) {
+    pushFinding(findings, checkedLayers, {
+      code: 'persistence-compaction-recommended',
+      layer: 'persistence',
+      severity: 'warning',
+      message: 'journal persistido pide compactación',
+    });
+  }
+
+  if (
+    typeof maintenance?.currentWorkspace.totalBytes === 'number'
+    && typeof retentionPolicy?.maxWorkspaceBytes === 'number'
+    && retentionPolicy.maxWorkspaceBytes > 0
+    && maintenance.currentWorkspace.totalBytes > retentionPolicy.maxWorkspaceBytes
+  ) {
+    pushFinding(findings, checkedLayers, {
+      code: 'persistence-disk-budget-exceeded',
+      layer: 'persistence',
+      severity: 'warning',
+      message: `cache persistida fuera de budget (${maintenance.currentWorkspace.totalBytes}/${retentionPolicy.maxWorkspaceBytes})`,
+    });
+  }
+
   checkCapacityBudget(
     findings,
     checkedLayers,

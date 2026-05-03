@@ -84,7 +84,7 @@ export function createDocumentQueryContext(
     primaryResolutionReasonCode: resolvedTargets?.reasonCodes[0],
     invocationKind: resolvedTargets?.invocationKind,
     invocationRisk: resolvedTargets?.invocationRisk,
-    hasResolutionAmbiguity: resolvedTargets?.evidence.some((entry) => entry.kind === 'distance-ambiguity') ?? false,
+    hasResolutionAmbiguity: (resolvedTargets?.targets.length ?? 0) > 1,
     resolutionTargetCount: resolvedTargets?.targets.length ?? 0,
     resolutionEvidenceKinds: resolvedTargets?.evidence.map((entry) => entry.kind) ?? []
   };

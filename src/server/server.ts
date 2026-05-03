@@ -43,7 +43,13 @@ import { getSemanticTokensLegend, provideSemanticTokens } from './features/seman
 import { provideCodeActions } from './features/codeActions';
 import { provideReferenceCodeLenses } from './features/codeLensReferences';
 import { buildCurrentObjectContext } from './features/currentObjectContext';
+import { buildCrossProjectSymbolConflicts } from './features/crossProjectSymbolConflicts';
 import { buildImpactAnalysis } from './features/impactAnalysis';
+import { buildPowerBuilderDependencyGraph } from './features/dependencyGraph';
+import { buildPowerBuilderCodeMetrics } from './features/powerBuilderCodeMetrics';
+import { buildPowerBuilderTechnicalDebtReport } from './features/powerBuilderTechnicalDebtReport';
+import { buildDataWindowSqlLineage } from './features/dataWindowSqlLineage';
+import { buildWorkspaceMigrationAssistant } from './features/workspaceMigrationAssistant';
 import { buildHierarchyInspection } from './features/hierarchyInspection';
 import { collectReferenceSourcePool } from './features/referenceSourcePool';
 import { buildSemanticWorkspaceManifest } from './features/semanticWorkspaceManifest';
@@ -74,6 +80,7 @@ import { resolvePbAutoBuildProblems } from './build/pbAutoBuildProblems';
 import { NodeFileSystem } from './system/fileSystem';
 import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
 import { createCacheCheckpoint } from './cache/cacheCheckpoint';
+import type { SemanticCacheCheckpointMetadata } from './cache/cacheSchema';
 import {
   persistServingCacheSnapshot,
   restoreServingCacheSnapshot
@@ -250,6 +257,16 @@ const persistServingSnapshot = async (): Promise<void> => {
 
   lastServingSnapshotPersistEntries = await persistServingCacheSnapshot(servingCache, cacheStore, knowledgeBase.semanticEpoch);
 };
+
+function buildCacheCheckpointMetadata(): Partial<SemanticCacheCheckpointMetadata> {
+  return {
+    workspaceMode: workspaceState.getMode(),
+    rootUris: workspaceFolders,
+    projectStats: workspaceState.getProjectModel()?.getStats(),
+    discovery: workspaceState.exportDiscoverySnapshot()
+  };
+}
+
 const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {
   await persistServingSnapshot();
 });
@@ -565,7 +582,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       renameProvider: { prepareProvider: true },
       // Spec 106: comandos personalizados expuestos vía workspace/executeCommand.
       executeCommandProvider: {
-        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.safeBatchRefactorPlan', 'powerbuilder.applySpecDrivenPblUpdate', 'powerbuilder.applySpecDrivenPblUpdateBatch', 'powerbuilder.semanticWorkspaceManifest', 'powerbuilder.formatDocument', 'powerbuilder.listPbAutoBuildBuildFiles', 'powerbuilder.runPbAutoBuild', 'powerbuilder.cancelPbAutoBuild', 'powerbuilder.runOrcaScript', 'powerbuilder.cancelOrcaScript', 'powerbuilder.exportOrcaStaging', 'powerbuilder.importOrcaStaging', 'powerbuilder.regenerateOrcaLibraries', 'powerbuilder.rebuildOrcaProject']
+        commands: ['powerbuilder.showStats', 'powerbuilder.objectInfo', 'powerbuilder.inspectHierarchy', 'powerbuilder.querySymbols', 'powerbuilder.crossProjectSymbolConflicts', 'powerbuilder.workspaceMigrationAssistant', 'powerbuilder.dependencyGraph', 'powerbuilder.codeMetrics', 'powerbuilder.technicalDebtReport', 'powerbuilder.dataWindowSqlLineage', 'powerbuilder.currentObjectContext', 'powerbuilder.analyzeImpact', 'powerbuilder.safeEditPlan', 'powerbuilder.safeBatchRefactorPlan', 'powerbuilder.applySpecDrivenPblUpdate', 'powerbuilder.applySpecDrivenPblUpdateBatch', 'powerbuilder.semanticWorkspaceManifest', 'powerbuilder.runSemanticCacheMaintenance', 'powerbuilder.formatDocument', 'powerbuilder.listPbAutoBuildBuildFiles', 'powerbuilder.listPbAutoBuildBuildInventory', 'powerbuilder.runPbAutoBuild', 'powerbuilder.cancelPbAutoBuild', 'powerbuilder.runOrcaScript', 'powerbuilder.cancelOrcaScript', 'powerbuilder.exportOrcaStaging', 'powerbuilder.importOrcaStaging', 'powerbuilder.regenerateOrcaLibraries', 'powerbuilder.rebuildOrcaProject']
       }
     }
   };
@@ -657,12 +674,7 @@ connection.onInitialized(() => {
         connection.console.log(`  - Proyectos detectados: ${projectModel?.getProjects().length ?? 0}`);
         connection.console.log(`  - Build files PBAutoBuild: ${workspaceState.getBuildFileSummary().total}`);
 
-        const cacheMetadata = {
-          workspaceMode: workspaceState.getMode(),
-          rootUris: workspaceFolders,
-          projectStats: projectModel?.getStats(),
-          discovery: workspaceState.exportDiscoverySnapshot()
-        } as const;
+        const cacheMetadata = buildCacheCheckpointMetadata();
 
         if (cacheStorageUri) {
           cacheStore = createSemanticCacheStore(fs, cacheStorageUri, workspaceFolders, projectModel);
@@ -1336,7 +1348,10 @@ connection.onCodeAction((params) => {
     return provideCodeActions(
       params.textDocument.uri,
       document.getText(),
-      params.context.diagnostics ?? []
+      params.context.diagnostics ?? [],
+      {
+        sourceOrigin: workspaceState.getSourceOrigin(params.textDocument.uri),
+      }
     );
   } catch (error) {
     connection.console.error(`[ERROR] codeAction: ${error instanceof Error ? error.message : String(error)}`);
@@ -1478,6 +1493,7 @@ connection.onExecuteCommand(async (params) => {
       const activeProject = workspaceState.getProjectContextForFile(activeDocumentUri);
       const progressReadiness = buildRuntimeProgressReadiness();
       const buildOrcaJournalUri = buildOrcaJournal.storageUri;
+      const cacheMaintenance = cacheStore ? await cacheStore.inspectMaintenance() : undefined;
       const baseStats = {
         kb: stats,
         scheduler: sched,
@@ -1532,6 +1548,8 @@ connection.onExecuteCommand(async (params) => {
                 restoreState: lastPersistenceRestoreState,
                 restoreReason: lastPersistenceRestoreReason,
                 restoredDocuments: lastRestoredCheckpointDocuments,
+                policy: cacheStore.retentionPolicy,
+                maintenance: cacheMaintenance,
                 servingSnapshot: {
                   lastRestoredEntries: lastServingSnapshotRestoreEntries,
                   lastPersistedEntries: lastServingSnapshotPersistEntries
@@ -1644,6 +1662,16 @@ connection.onExecuteCommand(async (params) => {
           ...(buildFile.detail ? { detail: buildFile.detail } : {}),
           ...(buildFile.representedProjectUri ? { representedProjectUri: buildFile.representedProjectUri } : {})
         }));
+    }
+    case 'powerbuilder.listPbAutoBuildBuildInventory': {
+      return workspaceState.getBuildFiles().map((buildFile) => ({
+        uri: buildFile.uri,
+        label: basenameFromPathOrUri(buildFile.uri),
+        status: buildFile.status,
+        ...(buildFile.reasonCode ? { reasonCode: buildFile.reasonCode } : {}),
+        ...(buildFile.detail ? { detail: buildFile.detail } : {}),
+        ...(buildFile.representedProjectUri ? { representedProjectUri: buildFile.representedProjectUri } : {}),
+      }));
     }
     case 'powerbuilder.cancelPbAutoBuild': {
       const snapshot = pbAutoBuildRunner.cancel();
@@ -2250,6 +2278,86 @@ connection.onExecuteCommand(async (params) => {
           state: progressReadiness.readiness.state,
           detail: progressReadiness.readiness.detail,
         }
+      );
+    }
+    case 'powerbuilder.runSemanticCacheMaintenance': {
+      if (!cacheStore) {
+        throw new Error('No hay una caché semántica persistida activa para mantener.');
+      }
+
+      return cacheStore.runMaintenance(buildCacheCheckpointMetadata());
+    }
+    case 'powerbuilder.crossProjectSymbolConflicts': {
+      const [symbolNameArg, maxConflictsArg, maxCandidatesPerConflictArg] = params.arguments ?? [];
+      return buildCrossProjectSymbolConflicts(
+        {
+          ...(typeof symbolNameArg === 'string' && symbolNameArg.trim().length > 0 ? { symbolName: symbolNameArg } : {}),
+          ...(typeof maxConflictsArg === 'number' ? { maxConflicts: Math.max(0, Math.trunc(maxConflictsArg)) } : {}),
+          ...(typeof maxCandidatesPerConflictArg === 'number' ? { maxCandidatesPerConflict: Math.max(0, Math.trunc(maxCandidatesPerConflictArg)) } : {}),
+        },
+        knowledgeBase,
+        workspaceState,
+      );
+    }
+    case 'powerbuilder.workspaceMigrationAssistant': {
+      const [preferredTargetModeArg, maxRecommendationsArg] = params.arguments ?? [];
+      return buildWorkspaceMigrationAssistant(
+        {
+          ...(preferredTargetModeArg === 'workspace' || preferredTargetModeArg === 'solution'
+            ? { preferredTargetMode: preferredTargetModeArg }
+            : {}),
+          ...(typeof maxRecommendationsArg === 'number' ? { maxRecommendations: Math.max(0, Math.trunc(maxRecommendationsArg)) } : {}),
+        },
+        workspaceState,
+      );
+    }
+    case 'powerbuilder.dependencyGraph': {
+      const [uriArg, objectNameArg, maxDependenciesArg, maxDependentsArg] = params.arguments ?? [];
+      return buildPowerBuilderDependencyGraph(
+        {
+          ...(typeof uriArg === 'string' ? { uri: uriArg } : {}),
+          ...(typeof objectNameArg === 'string' && objectNameArg.trim().length > 0 ? { objectName: objectNameArg } : {}),
+          ...(typeof maxDependenciesArg === 'number' ? { maxDependencies: Math.max(0, Math.trunc(maxDependenciesArg)) } : {}),
+          ...(typeof maxDependentsArg === 'number' ? { maxDependents: Math.max(0, Math.trunc(maxDependentsArg)) } : {}),
+        },
+        knowledgeBase,
+        workspaceState,
+      );
+    }
+    case 'powerbuilder.codeMetrics': {
+      const [maxObjectsArg] = params.arguments ?? [];
+      return buildPowerBuilderCodeMetrics(
+        {
+          ...(typeof maxObjectsArg === 'number' ? { maxObjects: Math.max(0, Math.trunc(maxObjectsArg)) } : {}),
+        },
+        knowledgeBase,
+        workspaceState,
+        getDiagnosticsSummary(),
+      );
+    }
+    case 'powerbuilder.technicalDebtReport': {
+      const [maxObjectsArg, maxHotspotsArg, maxRecommendationsArg] = params.arguments ?? [];
+      return buildPowerBuilderTechnicalDebtReport(
+        {
+          ...(typeof maxObjectsArg === 'number' ? { maxObjects: Math.max(0, Math.trunc(maxObjectsArg)) } : {}),
+          ...(typeof maxHotspotsArg === 'number' ? { maxHotspots: Math.max(0, Math.trunc(maxHotspotsArg)) } : {}),
+          ...(typeof maxRecommendationsArg === 'number' ? { maxRecommendations: Math.max(0, Math.trunc(maxRecommendationsArg)) } : {}),
+        },
+        knowledgeBase,
+        workspaceState,
+        getDiagnosticsSummary(),
+      );
+    }
+    case 'powerbuilder.dataWindowSqlLineage': {
+      const [uriArg, lineArg, dataObjectNameArg, maxDepthArg] = params.arguments ?? [];
+      return buildDataWindowSqlLineage(
+        {
+          ...(typeof uriArg === 'string' ? { uri: uriArg } : {}),
+          ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
+          ...(typeof dataObjectNameArg === 'string' && dataObjectNameArg.trim().length > 0 ? { dataObjectName: dataObjectNameArg } : {}),
+          ...(typeof maxDepthArg === 'number' ? { maxDepth: Math.max(0, Math.trunc(maxDepthArg)) } : {}),
+        },
+        knowledgeBase,
       );
     }
     default:

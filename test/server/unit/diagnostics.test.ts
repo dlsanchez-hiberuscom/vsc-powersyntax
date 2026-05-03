@@ -638,6 +638,80 @@ suite('unit/diagnostics', () => {
     });
   });
 
+  test('validateSemantics avisa cuando una ruta DataWindow completa no es resoluble sobre un root ya enlazado', () => {
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_parent_path_diag.srd',
+      'powerbuilder-datawindow',
+      1,
+      [
+        '$PBExportHeader$d_parent_path_diag.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(retrieve="SELECT parent_id FROM parent")',
+      ].join('\r\n')
+    );
+    const dataWindowAnalysis = analyzeDocument(dataWindowDocument);
+    kb.upsertDocument(
+      dataWindowDocument.uri,
+      dataWindowAnalysis.semanticFacts,
+      dataWindowAnalysis.scopes,
+      dataWindowAnalysis.snapshot
+    );
+
+    const source = [
+      'global type w_dw_path_diag from window',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_probe()',
+      'end prototypes',
+      'public subroutine of_probe()',
+      '  datastore dw_parent',
+      '  dw_parent.DataObject = "d_parent_path_diag"',
+      '  dw_parent.Describe("missing.DataWindow.Table.Select")',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_dw_path_missing.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missingPath = diagnostics.find((diag) => diag.message.includes('missing.DataWindow.Table.Select') && diag.message.includes('no es resoluble'));
+
+    assert.ok(missingPath, 'Esperaba un warning por ruta DataWindow no resoluble con root ya enlazado.');
+    assert.equal(missingPath?.severity, DiagnosticSeverity.Warning);
+    assert.equal(missingPath?.code, DIAGNOSTIC_CODES.dataWindowPropertyPathUnresolved);
+    assert.deepEqual(missingPath?.data, {
+      kind: 'datawindow-property-path',
+      confidence: 'medium',
+      target: 'dw_parent',
+      mode: 'describe',
+      path: 'missing.DataWindow.Table.Select'
+    });
+  });
+
+  test('validateSemantics no inventa diagnóstico de path DataWindow cuando el binding raíz es dinámico', () => {
+    const source = [
+      'global type w_dw_path_dynamic from window',
+      'end type',
+      'forward prototypes',
+      'public function string of_resolve_dw()',
+      'public subroutine of_probe()',
+      'end prototypes',
+      'public function string of_resolve_dw();',
+      '  return "d_parent_path_diag"',
+      'end function',
+      'public subroutine of_probe()',
+      '  datastore dw_parent',
+      '  dw_parent.DataObject = of_resolve_dw()',
+      '  dw_parent.Describe("missing.DataWindow.Table.Select")',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_dw_path_dynamic.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+
+    assert.ok(diagnostics.some((diag) => diag.code === DIAGNOSTIC_CODES.dataObjectDynamic), 'Esperaba mantener el diagnóstico informativo por DataObject dinámico.');
+    assert.ok(!diagnostics.some((diag) => diag.code === DIAGNOSTIC_CODES.dataWindowPropertyPathUnresolved), 'No debe inventar un diagnóstico de path cuando el root no es defendible.');
+  });
+
   test('validateSemantics avisa cuando Retrieve no respeta la aridad de argumentos del .srd enlazado', () => {
     const dataWindowDocument = TextDocument.create(
       'file:///d_sales_orders.srd',

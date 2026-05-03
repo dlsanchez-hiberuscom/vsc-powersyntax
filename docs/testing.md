@@ -74,6 +74,7 @@ Deben cubrir como mínimo:
 La matriz mínima actual de smoke real con `vscode-test` debe cubrir activación genérica, PFC Solution y PFC Workspace.
 Además, la smoke de formatting debe cubrir el provider manual y `formatOnSave` sobre un documento PowerBuilder real.
 La smoke de PFC Solution debe incluir además una muestra determinista de clases reales abierta en secuencia, pidiendo `Document Symbols`, para detectar caídas del LSP en rutas de persistencia/cache al abrir corpus legacy.
+La smoke de code actions debe cubrir además un quick fix seguro real desde Problems/CodeAction sobre un diagnóstico efectivamente publicado por el servidor.
 
 ## 4.2 Unit tests
 **Objetivo:** validar lógica aislada, pura y reutilizable.
@@ -110,6 +111,7 @@ Estado actual relevante:
 - `test/server/unit/documentSymbolsReconciliation.test.ts`, junto con `documentSymbols.test.ts`, fija el reporte de reconciliación parser/snapshot/LSP y sus reason codes antes de publicar el outline.
 - `test/server/unit/memoryBudgets.test.ts`, junto con `runtimeHealth.test.ts` y `statusBarPresentation.test.ts`, fija el reporte unificado de budgets de memoria y su vigilancia visible.
 - `test/server/unit/publicApi.test.ts`, `semanticWorkspaceSnapshot.test.ts` y `settingsGovernance.test.ts` fijan ya el contrato público v2, el bridge/snapshot versionado y la gobernanza de settings/perfiles sin dejar drift contractual.
+- `test/server/unit/publicApi.test.ts`, `supportBundle.test.ts` y la smoke focal `test/smoke/extension.test.ts` fijan además el `taskExecutionCatalog` versionado, la simulación declarativa de dry-run y su exposición por el tool `contract` antes de cualquier rail agent-ready write-enabled.
 - `test/server/unit/diagnosticsExplainabilityPanelModel.test.ts`, `frameworkKnowledgePacks.test.ts`, `semanticWorkspaceManifest.test.ts` y `safeBatchRefactorPlan.test.ts` cubren explainability UX, knowledge packs curados y planificación batch read-only reutilizando el backbone existente.
 
 Regla:
@@ -159,7 +161,7 @@ Estado actual:
 - `test/server/unit/workspace.test.ts`, `test/server/unit/semanticWorkspaceManifest.test.ts`, `test/server/unit/objectExplorerModel.test.ts`, `test/server/unit/watchedFileIntake.test.ts` y la smoke focal del Object Explorer ya cubren el modo `pbl-only`, el graph legacy read-only de `.pbl` y su proyección en manifest/UX visible.
 - `test/server/unit/impactAnalysis.test.ts` ya cubre el impact analyzer read-only sobre references, descendientes, events, DataWindows y build targets sin abrir edición automática.
 - `test/server/unit/safeEditPlan.test.ts` ya cubre el safe edit plan read-only con archivos, riesgos, tests, docs a revisar y bloqueos honestos sin tocar código; `specDrivenPblUpdate.test.ts` fija además que la automatización write-enabled solo entra cuando ese plan admite el cambio explícito y `specDrivenPblUpdateBatch.test.ts` que la coordinación bulk respeta `stopOnError` sin duplicar el rail ORCA.
-- `test/server/unit/diagnostics.test.ts`, `diagnosticsExtra.test.ts`, `codeActions.test.ts`, `obsolete.test.ts` y `obsoleteDetectorSanity.test.ts` fijan el contrato estable de `diagnostic.code`, la compatibilidad legacy por `source` y el consumo correcto del quick-fix SD7 sin parseos ad hoc del Problems Panel.
+- `test/server/unit/diagnostics.test.ts`, `diagnosticsExtra.test.ts`, `diagnosticsObsoleteIntegration.test.ts`, `codeActions.test.ts`, `obsolete.test.ts`, `obsoleteDetectorSanity.test.ts` y la smoke focal `test/smoke/code-actions.extension.test.ts` fijan el contrato estable de `diagnostic.code`, la publicación real de `SD7` en Problems, el catálogo versionado de quick fixes y el bloqueo por preflight/`sourceOrigin`/dynamic strings sin parseos ad hoc del Problems Panel.
 - `test/server/unit/projectHealthDashboard.test.ts`, `statusBarPresentation.test.ts` y la smoke focal en `test/smoke/extension.test.ts` fijan el dashboard read-only de salud del proyecto, su integración en tooltip/status menu y la ejecución visible del comando cliente sin abrir un segundo motor de health.
 - `test/server/unit/objectExplorerModel.test.ts`, `semanticWorkspaceManifest.test.ts` y la smoke focal en `test/smoke/extension.test.ts` fijan el Object Explorer read-only, el contrato enriquecido del manifest por objeto y el foco visible sobre el archivo activo sin RPCs por nodo.
 - `test/server/unit/semanticReproPack.test.ts` y `test/smoke/semantic-repro-pack.extension.test.ts` fijan el bundle reproducible de bugs semánticos a partir del editor activo y las surfaces read-only ya cerradas, incluyendo manifest, snapshots JSON y copias de archivos relevantes.
@@ -301,6 +303,12 @@ Tras las olas 133-172, el baseline mínimo del repositorio queda en:
 - `npm run test:unit`
 - `npm test`
 
+Para el carril moderno/legacy cuando se toque documentación operativa o troubleshooting, el baseline recomendable es:
+
+- `npm run build:test`
+- `npm run test:smoke -- --grep "PBAutoBuild|ORCA legacy"`
+- `npm run release:verify` si también cambia documentación de release o empaquetado.
+
 Evidencia reciente registrada:
 
 - la evidencia cuantitativa debe regenerarse desde una ejecución reciente y no fijarse aquí como número estático;
@@ -318,7 +326,38 @@ Mínimo:
 - medición antes/después,
 - y performance test o benchmark reproducible.
 
-### 7.7 Cambio solo documental
+### 7.7 Cambio en documentación operativa de build y ORCA
+Mínimo:
+- revisar que `README.md`, `docs/developer-workflows.md` y `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` citan comandos, settings, env vars y artefactos reales del producto;
+- comprobar contra `package.json` que los comandos/settings visibles siguen existiendo y conservan el naming documentado;
+- ejecutar `npm run build:test` si la documentación toca troubleshooting visible, release lane o rutas de artefactos que el usuario debe poder reproducir.
+
+### 7.8 Cambio en support bundle / diagnostics export
+Mínimo:
+- ejecutar `npm run build:test` para validar wiring de comando, tipos y tests del bundle;
+- ejecutar `npx mocha --ui tdd out/test/server/unit/supportBundle.test.js` para fijar esquema y redacción;
+- ejecutar `npm run test:smoke -- --grep "support-bundle-extension"` para validar el comando real en host de VS Code.
+
+### 7.9 Cambio en compactación/retención de caché semántica
+Mínimo:
+- ejecutar `npm run build:test` para validar wiring de `showStats`, health y comando de mantenimiento;
+- ejecutar `npx mocha --ui tdd out/test/server/unit/cacheStore.test.js out/test/server/unit/cachePersistence.test.js out/test/server/unit/runtimeHealth.test.js`;
+- ejecutar `npx mocha --ui tdd --timeout 30000 out/test/server/performance/indexer.perf.test.js --grep "Cold start|Warm start"` para confirmar que warm/cold siguen dentro del carril esperado.
+
+### 7.10 Cambio en advanced code metrics / reporting read-only
+Mínimo:
+- ejecutar `npm run build:test` para validar wiring de contrato público, comando y tipos;
+- ejecutar `npx mocha --ui tdd out/test/server/unit/powerBuilderCodeMetrics.test.js out/test/server/unit/publicApi.test.js`;
+- ejecutar `npx vscode-test --label smoke --grep "la extensión se activa en menos de 500ms"` para validar el comando/API real en el host de VS Code.
+
+### 7.11 Cambio en technical debt / modernization report read-only
+Mínimo:
+- ejecutar `npm run build:test` para validar contrato público, servidor, comando y tool bridge;
+- ejecutar `npx mocha --ui tdd out/test/server/unit/powerBuilderTechnicalDebtReport.test.js out/test/server/unit/publicApi.test.js`;
+- ejecutar `npm run test:unit` cuando el cambio toque scoring/evidencias compartidas entre diagnósticos, `sourceOrigin`, build y API pública;
+- ejecutar `npx vscode-test --label smoke --grep "la extensión se activa en menos de 500ms"` para validar API/tool/comando en host real.
+
+### 7.12 Cambio solo documental
 No requiere test técnico, pero sí revisión de coherencia.
 
 ---

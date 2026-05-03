@@ -526,4 +526,57 @@ suite('unit/semanticQueryService', () => {
       hasAmbiguity: false
     });
   });
+
+  test('resolveTargetEntityDetailed marca ambigüedad cuando el fallback global devuelve varios winners cross-project', () => {
+    kb.upsertDocument('file:///proj_a/n_conflict.sru', [
+      {
+        id: 'n_conflict',
+        name: 'n_conflict',
+        kind: EntityKind.Type,
+        uri: 'file:///proj_a/n_conflict.sru',
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'solution-source',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+    kb.upsertDocument('file:///proj_b/n_conflict.sru', [
+      {
+        id: 'n_conflict',
+        name: 'n_conflict',
+        kind: EntityKind.Type,
+        uri: 'file:///proj_b/n_conflict.sru',
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'solution-source',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'n_conflict' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      { line: 20, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.reasonCodes[0], 'global-fallback');
+    assert.equal(resolved.targets.length, 2);
+    const trace = getLastTrace();
+    assert.equal(trace?.resolution?.targetCount, 2);
+    assert.equal(trace?.resolution?.hasAmbiguity, true);
+  });
 });

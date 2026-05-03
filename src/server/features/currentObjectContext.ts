@@ -7,6 +7,7 @@ import { buildDiagnosticsForDocument } from './diagnostics';
 import { resolveAncestorDescriptor } from './ancestorDescriptor';
 import { buildHierarchyInspection } from './hierarchyInspection';
 import { buildObjectInfo } from './objectInfo';
+import { inferPowerBuilderObjectKindFromUri } from './powerBuilderObjectKind';
 import { createDocumentQueryContext } from './queryContext';
 import {
   collectDataObjectBindings,
@@ -534,7 +535,7 @@ export function buildCurrentObjectContext(
       ...(objectInfo.sectionKind ? { sectionKind: objectInfo.sectionKind } : {}),
       ...(objectInfo.library ? { library: objectInfo.library } : {}),
       ...(objectInfo.project ? { project: objectInfo.project } : {}),
-      ...(currentObject?.kind ? { objectKind: currentObject.kind } : {}),
+      objectKind: inferPowerBuilderObjectKindFromUri(currentObject?.uri ?? objectInfo.uri),
       sourceOrigin: currentObject?.lineage?.sourceOrigin ?? pickSourceOrigin(document.uri, options.workspaceState),
       readiness: snapshot.readiness,
     },

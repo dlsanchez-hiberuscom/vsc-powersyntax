@@ -60,11 +60,54 @@ interface AppendJournalInput {
   documents?: SemanticCacheDocumentRecord[];
 }
 
+export interface SemanticCacheRetentionPolicy {
+  version: 2;
+  staleWorkspaceTtlMs: number;
+  maxJournalEntries: number;
+  maxJournalBytes: number;
+  maxWorkspaceBytes: number;
+}
+
+export interface SemanticCacheWorkspaceMaintenanceSnapshot {
+  workspaceKey: string;
+  totalBytes: number;
+  checkpointBytes: number;
+  journalBytes: number;
+  servingSnapshotBytes: number;
+  partitionBytes: number;
+  partitionCount: number;
+  journalEntries: number;
+  lastModifiedAt: number;
+}
+
+export interface SemanticCacheMaintenanceSnapshot {
+  policy: SemanticCacheRetentionPolicy;
+  currentWorkspace: SemanticCacheWorkspaceMaintenanceSnapshot;
+  staleWorkspaces: SemanticCacheWorkspaceMaintenanceSnapshot[];
+  maintenanceRecommended: boolean;
+  needsCompaction: boolean;
+}
+
+export interface SemanticCacheMaintenanceResult extends SemanticCacheMaintenanceSnapshot {
+  compacted: boolean;
+  restoreValidated: boolean;
+  prunedWorkspaceKeys: string[];
+}
+
+const DEFAULT_CACHE_RETENTION_POLICY: SemanticCacheRetentionPolicy = {
+  version: 2,
+  staleWorkspaceTtlMs: 1000 * 60 * 60 * 24 * 14,
+  maxJournalEntries: 24,
+  maxJournalBytes: 1024 * 128,
+  maxWorkspaceBytes: 1024 * 1024 * 32
+};
+
 export interface SemanticCacheStore {
   readonly storageUri: string;
   readonly checkpointUri: string;
   readonly journalUri: string;
   readonly workspaceKey: string;
+  readonly retentionPolicy: SemanticCacheRetentionPolicy;
   load(expectedMetadata: Partial<SemanticCacheCheckpointMetadata>): Promise<CacheRestoreResult>;
   persistCheckpoint(checkpoint: SemanticCacheCheckpoint): Promise<void>;
   loadServingCacheSnapshot<T>(): Promise<ServingCacheEntry<T>[]>;
@@ -75,6 +118,11 @@ export interface SemanticCacheStore {
     metadata: Partial<SemanticCacheCheckpointMetadata>
   ): Promise<void>;
   appendJournalMutation(entry: AppendJournalInput): Promise<void>;
+  inspectMaintenance(now?: number): Promise<SemanticCacheMaintenanceSnapshot>;
+  runMaintenance(
+    expectedMetadata: Partial<SemanticCacheCheckpointMetadata>,
+    now?: number
+  ): Promise<SemanticCacheMaintenanceResult>;
   clear(): Promise<void>;
 }
 
@@ -98,6 +146,81 @@ async function tryReadJson<T>(fs: IFileSystem, uri: string): Promise<{ ok: true;
 
 async function tryWriteJson(fs: IFileSystem, uri: string, payload: unknown): Promise<void> {
   await fs.writeFile(uri, JSON.stringify(payload, null, 2));
+}
+
+async function tryReadJournalEntries(fs: IFileSystem, uri: string): Promise<SemanticCacheJournalEntry[]> {
+  const read = await tryReadJson<SemanticCacheJournalEntry[]>(fs, uri);
+  if (!read.ok || !Array.isArray(read.value)) {
+    return [];
+  }
+
+  return read.value
+    .filter((entry) => entry.schemaVersion === CACHE_SCHEMA_VERSION)
+    .sort((left, right) => left.sequence - right.sequence);
+}
+
+async function readSize(fs: IFileSystem, uri: string): Promise<number> {
+  return (await fs.stat(uri))?.size ?? 0;
+}
+
+async function measureTree(fs: IFileSystem, uri: string): Promise<{ totalBytes: number; lastModifiedAt: number; directoryCount: number }> {
+  const stat = await fs.stat(uri);
+  if (!stat) {
+    return { totalBytes: 0, lastModifiedAt: 0, directoryCount: 0 };
+  }
+
+  if (stat.isFile) {
+    return {
+      totalBytes: stat.size,
+      lastModifiedAt: stat.mtime,
+      directoryCount: 0
+    };
+  }
+
+  let totalBytes = 0;
+  let lastModifiedAt = stat.mtime;
+  let directoryCount = 1;
+
+  for (const [name, entry] of await fs.readDirectory(uri)) {
+    if (entry.isDirectory) {
+      const measuredChild = await measureTree(fs, joinUri(uri, encodeURIComponent(name)));
+      totalBytes += measuredChild.totalBytes;
+      lastModifiedAt = Math.max(lastModifiedAt, measuredChild.lastModifiedAt);
+      directoryCount += measuredChild.directoryCount;
+      continue;
+    }
+
+    totalBytes += entry.size;
+    lastModifiedAt = Math.max(lastModifiedAt, entry.mtime);
+  }
+
+  return { totalBytes, lastModifiedAt, directoryCount };
+}
+
+async function buildWorkspaceMaintenanceSnapshot(
+  fs: IFileSystem,
+  rootUri: string,
+  workspaceKey: string
+): Promise<SemanticCacheWorkspaceMaintenanceSnapshot> {
+  const checkpointBytes = await readSize(fs, joinUri(rootUri, CHECKPOINT_FILE));
+  const journalBytes = await readSize(fs, joinUri(rootUri, JOURNAL_FILE));
+  const servingSnapshotBytes = await readSize(fs, joinUri(rootUri, SERVING_SNAPSHOT_FILE));
+  const partitionManifestBytes = await readSize(fs, joinUri(rootUri, PARTITIONS_MANIFEST_FILE));
+  const projectTree = await measureTree(fs, joinUri(rootUri, PROJECTS_DIR));
+  const tree = await measureTree(fs, rootUri);
+  const journalEntries = (await tryReadJournalEntries(fs, joinUri(rootUri, JOURNAL_FILE))).length;
+
+  return {
+    workspaceKey,
+    totalBytes: tree.totalBytes,
+    checkpointBytes,
+    journalBytes,
+    servingSnapshotBytes,
+    partitionBytes: partitionManifestBytes + projectTree.totalBytes,
+    partitionCount: Math.max(0, projectTree.directoryCount - 1),
+    journalEntries,
+    lastModifiedAt: tree.lastModifiedAt,
+  };
 }
 
 export function buildWorkspaceCacheKey(workspaceFolders: string[]): string {
@@ -256,6 +379,38 @@ export function createSemanticCacheStore(
   const projectJournalEntries = new Map<string, SemanticCacheJournalEntry[]>();
   const projectNextSequences = new Map<string, number>();
 
+  async function listStaleWorkspaceSnapshots(now: number): Promise<SemanticCacheWorkspaceMaintenanceSnapshot[]> {
+    await fs.createDirectory(baseStorageUri);
+    const entries = await fs.readDirectory(baseStorageUri);
+    const staleSnapshots: SemanticCacheWorkspaceMaintenanceSnapshot[] = [];
+
+    for (const [entryName, entry] of entries) {
+      if (!entry.isDirectory || entryName === workspaceKey) {
+        continue;
+      }
+
+      const entryUri = joinUri(baseStorageUri, encodeURIComponent(entryName));
+      const snapshot = await buildWorkspaceMaintenanceSnapshot(fs, entryUri, entryName);
+      if (snapshot.lastModifiedAt <= 0) {
+        continue;
+      }
+
+      if (now - snapshot.lastModifiedAt >= DEFAULT_CACHE_RETENTION_POLICY.staleWorkspaceTtlMs) {
+        staleSnapshots.push(snapshot);
+      }
+    }
+
+    return staleSnapshots.sort((left, right) => left.lastModifiedAt - right.lastModifiedAt);
+  }
+
+  async function pruneStaleWorkspaceSnapshots(now: number): Promise<string[]> {
+    const staleSnapshots = await listStaleWorkspaceSnapshots(now);
+    for (const snapshot of staleSnapshots) {
+      await fs.deletePath(joinUri(baseStorageUri, snapshot.workspaceKey));
+    }
+    return staleSnapshots.map((snapshot) => snapshot.workspaceKey);
+  }
+
   async function writeJournalEntry(
     journalTargetUri: string,
     entries: SemanticCacheJournalEntry[],
@@ -283,7 +438,9 @@ export function createSemanticCacheStore(
     checkpointUri,
     journalUri,
     workspaceKey,
+    retentionPolicy: DEFAULT_CACHE_RETENTION_POLICY,
     async load(expectedMetadata: Partial<SemanticCacheCheckpointMetadata>): Promise<CacheRestoreResult> {
+      await pruneStaleWorkspaceSnapshots(Date.now());
       await fs.createDirectory(storageUri);
 
       const checkpointRead = await tryReadJson<SemanticCacheCheckpoint>(fs, checkpointUri);
@@ -383,6 +540,7 @@ export function createSemanticCacheStore(
       );
     },
     async persistCheckpoint(checkpoint: SemanticCacheCheckpoint): Promise<void> {
+      await pruneStaleWorkspaceSnapshots(Date.now());
       await fs.createDirectory(storageUri);
 
       const partitioned = partitionCheckpointDocuments(checkpoint.documents, projectModel);
@@ -496,6 +654,52 @@ export function createSemanticCacheStore(
         projectJournalEntries.set(projectEntry.projectKey, currentEntries);
         projectNextSequences.set(projectEntry.projectKey, nextPartitionSequence);
       }
+    },
+    async inspectMaintenance(now = Date.now()): Promise<SemanticCacheMaintenanceSnapshot> {
+      await fs.createDirectory(storageUri);
+      const currentWorkspace = await buildWorkspaceMaintenanceSnapshot(fs, storageUri, workspaceKey);
+      const staleWorkspaces = await listStaleWorkspaceSnapshots(now);
+      const needsCompaction = currentWorkspace.journalEntries > DEFAULT_CACHE_RETENTION_POLICY.maxJournalEntries
+        || currentWorkspace.journalBytes > DEFAULT_CACHE_RETENTION_POLICY.maxJournalBytes;
+
+      return {
+        policy: DEFAULT_CACHE_RETENTION_POLICY,
+        currentWorkspace,
+        staleWorkspaces,
+        needsCompaction,
+        maintenanceRecommended: needsCompaction
+          || staleWorkspaces.length > 0
+          || currentWorkspace.totalBytes > DEFAULT_CACHE_RETENTION_POLICY.maxWorkspaceBytes,
+      };
+    },
+    async runMaintenance(
+      expectedMetadata: Partial<SemanticCacheCheckpointMetadata>,
+      now = Date.now()
+    ): Promise<SemanticCacheMaintenanceResult> {
+      const prunedWorkspaceKeys = await pruneStaleWorkspaceSnapshots(now);
+      const before = await this.inspectMaintenance(now);
+      let compacted = false;
+      let restoreValidated = true;
+
+      if (before.needsCompaction) {
+        const restored = await this.load(expectedMetadata);
+        if (restored.decision.action === 'reuse') {
+          await this.persistCheckpoint(restored.checkpoint);
+          const validation = await this.load(expectedMetadata);
+          compacted = true;
+          restoreValidated = validation.decision.action === 'reuse';
+        } else {
+          restoreValidated = false;
+        }
+      }
+
+      const after = await this.inspectMaintenance(now);
+      return {
+        ...after,
+        compacted,
+        restoreValidated,
+        prunedWorkspaceKeys,
+      };
     },
     async clear(): Promise<void> {
       journalEntries = [];

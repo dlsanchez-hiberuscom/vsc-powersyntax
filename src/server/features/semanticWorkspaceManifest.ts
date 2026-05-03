@@ -5,6 +5,7 @@ import {
 } from '../../shared/publicApi';
 import { queryApiSymbols } from './workspaceSymbols';
 import type { DiagnosticsSnapshot } from './diagnosticsSnapshot';
+import { inferPowerBuilderObjectKindFromUri } from './powerBuilderObjectKind';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
@@ -17,20 +18,6 @@ const DEFAULT_MAX_OBJECTS = 200;
 const DEFAULT_MAX_SYMBOLS = 400;
 const MAX_OBJECTS = 1000;
 const MAX_SYMBOLS = 2000;
-
-function inferObjectKindFromUri(uri: string): ApiSemanticWorkspaceManifestObject['objectKind'] {
-  const normalizedUri = uri.toLowerCase();
-  if (normalizedUri.endsWith('.sra')) return 'application';
-  if (normalizedUri.endsWith('.srw')) return 'window';
-  if (normalizedUri.endsWith('.sru')) return 'userobject';
-  if (normalizedUri.endsWith('.srm')) return 'menu';
-  if (normalizedUri.endsWith('.srd')) return 'datawindow';
-  if (normalizedUri.endsWith('.srf')) return 'function';
-  if (normalizedUri.endsWith('.srs')) return 'structure';
-  if (normalizedUri.endsWith('.srp')) return 'pipeline';
-  if (normalizedUri.endsWith('.srq')) return 'query';
-  return 'unknown';
-}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -84,7 +71,7 @@ export function buildSemanticWorkspaceManifest(
       ...(entity.baseTypeName ? { baseType: entity.baseTypeName } : {}),
       ...(projectContext?.projectUri ? { projectUri: projectContext.projectUri } : {}),
       ...(library ? { library } : {}),
-      objectKind: inferObjectKindFromUri(entity.uri),
+      objectKind: inferPowerBuilderObjectKindFromUri(entity.uri),
       ...(snapshot?.readiness ? { readiness: snapshot.readiness } : {}),
       ...(entity.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
     };

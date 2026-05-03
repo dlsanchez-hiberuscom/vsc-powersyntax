@@ -20,9 +20,17 @@ suite('unit/codeActions (B036)', () => {
     const edit = actions[0].edit?.changes?.['file:///x']?.[0];
     assert.equal(edit?.newText, 'DoEvents');
     assert.deepEqual(actions[0].data, {
+      actionId: 'obsolete-function-replacement',
+      catalogVersion: '2.0.0',
       evidence: 'diagnostic:SD7',
       confidence: 'high',
-      safeEdit: 'single-range-replacement'
+      requiredConfidence: 'high',
+      safeEdit: 'single-range-replacement',
+      preview: {
+        kind: 'single-range-replacement',
+        original: 'Yield',
+        replacement: 'DoEvents'
+      }
     });
   });
 
@@ -58,5 +66,59 @@ suite('unit/codeActions (B036)', () => {
     };
 
     assert.equal(provideCodeActions('file:///x', 'Yield()\n', [d]).length, 0);
+  });
+
+  test('bloquea la acción cuando el preflight rechaza el reemplazo', () => {
+    const d = {
+      severity: DiagnosticSeverity.Warning,
+      range: Range.create(0, 0, 0, 5),
+      message: "'Yield' está marcada como obsoleta. Sugerencia: if.",
+      source: 'PowerScript:SD7',
+      code: DIAGNOSTIC_CODES.sd7ObsoleteFunction
+    };
+
+    const actions = provideCodeActions('file:///x', 'Yield()\n', [d], {
+      sourceOrigin: 'solution-source'
+    });
+
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0].disabled?.reason, "'if' es una palabra reservada.");
+    assert.equal(actions[0].edit, undefined);
+  });
+
+  test('bloquea la acción cuando el sourceOrigin es dudoso', () => {
+    const d = {
+      severity: DiagnosticSeverity.Warning,
+      range: Range.create(0, 0, 0, 5),
+      message: "'Yield' está marcada como obsoleta. Sugerencia: DoEvents.",
+      source: 'PowerScript:SD7',
+      code: DIAGNOSTIC_CODES.sd7ObsoleteFunction
+    };
+
+    const actions = provideCodeActions('file:///x', 'Yield()\n', [d], {
+      sourceOrigin: 'orca-staging'
+    });
+
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0].disabled?.reason, 'El sourceOrigin del documento no es canónico para aplicar quick fixes.');
+    assert.equal(actions[0].edit, undefined);
+  });
+
+  test('bloquea la acción cuando detecta strings dinámicos del mismo identificador', () => {
+    const d = {
+      severity: DiagnosticSeverity.Warning,
+      range: Range.create(1, 0, 1, 5),
+      message: "'Yield' está marcada como obsoleta. Sugerencia: DoEvents.",
+      source: 'PowerScript:SD7',
+      code: DIAGNOSTIC_CODES.sd7ObsoleteFunction
+    };
+
+    const actions = provideCodeActions('file:///x', 'PostEvent("Yield")\nYield()\n', [d], {
+      sourceOrigin: 'pbl-folder-source'
+    });
+
+    assert.equal(actions.length, 1);
+    assert.match(actions[0].disabled?.reason ?? '', /string dinámic/i);
+    assert.equal(actions[0].edit, undefined);
   });
 });

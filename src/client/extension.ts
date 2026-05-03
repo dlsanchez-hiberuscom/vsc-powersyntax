@@ -27,8 +27,24 @@ import {
   type ApiReadOnlyToolBridgeDescriptor,
   type ApiReadOnlyToolCallRequest,
   type ApiReadOnlyToolCallResult,
+  type ApiCrossProjectSymbolConflicts,
+  type ApiCrossProjectSymbolConflictsRequest,
+  type ApiBuildProfileMatrix,
+  type ApiBuildProfileMatrixRequest,
+  type ApiWorkspaceMigrationAssistant,
+  type ApiWorkspaceMigrationAssistantRequest,
+  type ApiDataWindowSqlLineage,
+  type ApiDataWindowSqlLineageRequest,
+  type ApiPowerBuilderDependencyGraph,
+  type ApiPowerBuilderDependencyGraphRequest,
+  type ApiPowerBuilderCodeMetrics,
+  type ApiPowerBuilderCodeMetricsRequest,
+  type ApiPowerBuilderTechnicalDebtReport,
+  type ApiPowerBuilderTechnicalDebtReportRequest,
   type ApiSemanticWorkspaceSnapshotExportRequest,
   type ApiSemanticWorkspaceSnapshotExportResult,
+  type ApiSemanticWorkspaceSnapshotDiff,
+  type ApiSemanticWorkspaceSnapshotDiffRequest,
   type ApiSemanticWorkspaceSnapshotImportRequest,
   type ApiSemanticWorkspaceSnapshotImportResult,
   type ApiCurrentObjectContext,
@@ -51,6 +67,7 @@ import {
   getReadOnlyToolBridgeDescriptor,
   isApiVersionCompatible,
   type ApiCurrentObjectAncestor,
+  type ApiSemanticCacheMaintenanceResult,
   type ApiSymbol,
   type ApiQuerySymbolsRequest,
   type ApiServerStats,
@@ -88,6 +105,10 @@ import {
   suggestPbAutoBuildCiHelperDirectoryName
 } from './build/pbAutoBuildCiHelper';
 import {
+  buildPbAutoBuildProfileMatrix,
+  type PbAutoBuildProfileInventoryEntry,
+} from './build/pbAutoBuildProfileMatrix';
+import {
   buildSemanticReproPackBundle,
   suggestSemanticReproDirectoryName,
   type SemanticReproCapturedFile,
@@ -95,7 +116,12 @@ import {
   type SemanticReproMissingFile,
 } from './repro/semanticReproPack';
 import {
+  buildSupportBundle,
+  suggestSupportBundleDirectoryName,
+} from './support/supportBundle';
+import {
   buildSemanticWorkspaceSnapshot,
+  diffSemanticWorkspaceSnapshots,
   importSemanticWorkspaceSnapshot as parseSemanticWorkspaceSnapshot,
 } from './semanticWorkspaceSnapshot';
 import {
@@ -151,6 +177,19 @@ interface SemanticReproPackExportResult {
   includedFiles: number;
   missingFiles: number;
 }
+
+interface SupportBundleCommandOptions {
+  destinationUri?: string;
+  workspaceFolderUri?: string;
+}
+
+interface SupportBundleExportResult {
+  bundleUri: string;
+  manifestUri: string;
+  fileCount: number;
+}
+
+interface SemanticCacheMaintenanceCommandResult extends ApiSemanticCacheMaintenanceResult {}
 
 export async function activate(context: vscode.ExtensionContext): Promise<VscPowerSyntaxApi | undefined> {
   const activationStart = performance.now();
@@ -459,6 +498,48 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openCrossProjectSymbolConflicts', async () => {
+      await openCrossProjectSymbolConflicts();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openWorkspaceMigrationAssistant', async () => {
+      await openWorkspaceMigrationAssistant();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openBuildProfileMatrix', async () => {
+      await openBuildProfileMatrix();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openDependencyGraph', async () => {
+      await openPowerBuilderDependencyGraph();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openCodeMetrics', async () => {
+      await openPowerBuilderCodeMetrics();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openTechnicalDebtReport', async () => {
+      await openPowerBuilderTechnicalDebtReport();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.openDataWindowSqlLineage', async () => {
+      await openDataWindowSqlLineage();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('vscPowerSyntax.showStatusStats', async () => {
       const stats = await fetchRuntimeStatusStats();
       if (stats) {
@@ -566,6 +647,18 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.exportSupportBundle', async (options?: SupportBundleCommandOptions) => {
+      return exportSupportBundle(options);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vscPowerSyntax.runSemanticCacheMaintenance', async () => {
+      await runSemanticCacheMaintenance();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('vscPowerSyntax.showSettingsGovernance', async () => {
       await showSettingsGovernance();
     })
@@ -589,6 +682,23 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
           label: '$(dashboard) Abrir dashboard de salud',
           description: stats?.health?.summary ?? 'Vista read-only sobre salud, manifest y build del workspace',
           command: 'vscPowerSyntax.openProjectHealthDashboard'
+        },
+        {
+          label: '$(graph) Abrir grafo de dependencias',
+          description: vscode.window.activeTextEditor?.document
+            ? `${path.basename(vscode.window.activeTextEditor.document.uri.fsPath || vscode.window.activeTextEditor.document.uri.path)} · Mermaid read-only del objeto activo`
+            : 'Visualiza el vecindario inmediato de dependencias del objeto o archivo activo',
+          command: 'vscPowerSyntax.openDependencyGraph'
+        },
+        {
+          label: '$(pulse) Abrir métricas de código',
+          description: 'Reporte read-only con complejidad aproximada, SQL, DataWindow, dependencias externas y footprint build/ORCA',
+          command: 'vscPowerSyntax.openCodeMetrics'
+        },
+        {
+          label: '$(search) Abrir deuda técnica y modernización',
+          description: 'Hotspots priorizados y recomendaciones read-only sobre legacy, SQL dinámico, sourceOrigin y riesgos ORCA/PBL',
+          command: 'vscPowerSyntax.openTechnicalDebtReport'
         },
         {
           label: '$(pulse) Ver salud del runtime',
@@ -633,6 +743,18 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
             ? `${path.basename(vscode.window.activeTextEditor.document.uri.fsPath || vscode.window.activeTextEditor.document.uri.path)} · bundle en tools/semantic-repros`
             : 'Captura contexto, impacto, plan seguro y archivos relacionados del editor activo',
           command: 'vscPowerSyntax.exportSemanticReproPack'
+        },
+        {
+          label: '$(archive) Exportar support bundle offline',
+          description: 'Exporta estado saneado del runtime, diagnostics, caches, build/ORCA y contrato API sin código bruto por defecto',
+          command: 'vscPowerSyntax.exportSupportBundle'
+        },
+        {
+          label: '$(database) Ejecutar mantenimiento de cache semántica',
+          description: stats?.persistence?.maintenance?.maintenanceRecommended
+            ? 'Compacta journals grandes y limpia workspaces persistidos obsoletos'
+            : 'Verifica compactación/retención v2 y limpia workspaces obsoletos si hace falta',
+          command: 'vscPowerSyntax.runSemanticCacheMaintenance'
         },
         {
           label: '$(settings-gear) Ver gobernanza de settings',
@@ -898,6 +1020,55 @@ function createPublicApi(): VscPowerSyntaxApi {
               ...(typeof args.limit === 'number' ? { limit: args.limit } : {}),
             }),
           };
+        case 'cross-project-symbol-conflicts':
+          return {
+            tool: 'cross-project-symbol-conflicts',
+            mode: 'read-only',
+            schema: 'ApiCrossProjectSymbolConflicts',
+            payload: await api.getCrossProjectSymbolConflicts(args as ApiCrossProjectSymbolConflictsRequest),
+          };
+        case 'workspace-migration-assistant':
+          return {
+            tool: 'workspace-migration-assistant',
+            mode: 'read-only',
+            schema: 'ApiWorkspaceMigrationAssistant',
+            payload: await api.getWorkspaceMigrationAssistant(args as ApiWorkspaceMigrationAssistantRequest),
+          };
+        case 'build-profile-matrix':
+          return {
+            tool: 'build-profile-matrix',
+            mode: 'read-only',
+            schema: 'ApiBuildProfileMatrix',
+            payload: await api.getBuildProfileMatrix(args as ApiBuildProfileMatrixRequest),
+          };
+        case 'dependency-graph':
+          return {
+            tool: 'dependency-graph',
+            mode: 'read-only',
+            schema: 'ApiPowerBuilderDependencyGraph',
+            payload: await api.getPowerBuilderDependencyGraph(args as unknown as ApiPowerBuilderDependencyGraphRequest),
+          };
+        case 'code-metrics':
+          return {
+            tool: 'code-metrics',
+            mode: 'read-only',
+            schema: 'ApiPowerBuilderCodeMetrics',
+            payload: await api.getPowerBuilderCodeMetrics(args as ApiPowerBuilderCodeMetricsRequest),
+          };
+        case 'technical-debt-report':
+          return {
+            tool: 'technical-debt-report',
+            mode: 'read-only',
+            schema: 'ApiPowerBuilderTechnicalDebtReport',
+            payload: await api.getPowerBuilderTechnicalDebtReport(args as ApiPowerBuilderTechnicalDebtReportRequest),
+          };
+        case 'datawindow-sql-lineage':
+          return {
+            tool: 'datawindow-sql-lineage',
+            mode: 'read-only',
+            schema: 'ApiDataWindowSqlLineage',
+            payload: await api.getDataWindowSqlLineage(args as unknown as ApiDataWindowSqlLineageRequest),
+          };
         case 'current-object-context':
           return {
             tool: 'current-object-context',
@@ -925,6 +1096,13 @@ function createPublicApi(): VscPowerSyntaxApi {
             mode: 'read-only',
             schema: 'ApiSafeBatchRefactorPlan',
             payload: await api.generateSafeBatchRefactorPlan(args as unknown as ApiSafeBatchRefactorPlanRequest),
+          };
+        case 'semantic-snapshot-diff':
+          return {
+            tool: 'semantic-snapshot-diff',
+            mode: 'read-only',
+            schema: 'ApiSemanticWorkspaceSnapshotDiff',
+            payload: await api.diffSemanticWorkspaceSnapshots(args as unknown as ApiSemanticWorkspaceSnapshotDiffRequest),
           };
         case 'semantic-workspace-manifest':
           return {
@@ -1001,6 +1179,13 @@ function createPublicApi(): VscPowerSyntaxApi {
         reason: 'La importación requiere sourceUri, serializedSnapshot o snapshot.',
       };
     },
+    async diffSemanticWorkspaceSnapshots(request: ApiSemanticWorkspaceSnapshotDiffRequest): Promise<ApiSemanticWorkspaceSnapshotDiff> {
+      if (!request?.previous || !request?.next) {
+        throw new Error('El diff semántico requiere snapshots previous y next.');
+      }
+
+      return diffSemanticWorkspaceSnapshots(request);
+    },
     async getServerStats(): Promise<ApiServerStats> {
       return clonePlainData((await fetchRuntimeStatusStats()) ?? {});
     },
@@ -1010,6 +1195,73 @@ function createPublicApi(): VscPowerSyntaxApi {
         ? Math.max(0, Math.trunc(request.limit))
         : Number.POSITIVE_INFINITY;
       return executeServerCommand<ApiSymbol[]>('powerbuilder.querySymbols', [query, limit]);
+    },
+    async getCrossProjectSymbolConflicts(request: ApiCrossProjectSymbolConflictsRequest = {}): Promise<ApiCrossProjectSymbolConflicts> {
+      return executeServerCommand<ApiCrossProjectSymbolConflicts>('powerbuilder.crossProjectSymbolConflicts', [
+        request.symbolName,
+        request.maxConflicts,
+        request.maxCandidatesPerConflict,
+      ]);
+    },
+    async getWorkspaceMigrationAssistant(request: ApiWorkspaceMigrationAssistantRequest = {}): Promise<ApiWorkspaceMigrationAssistant> {
+      return executeServerCommand<ApiWorkspaceMigrationAssistant>('powerbuilder.workspaceMigrationAssistant', [
+        request.preferredTargetMode,
+        request.maxRecommendations,
+      ]);
+    },
+    async getBuildProfileMatrix(request: ApiBuildProfileMatrixRequest = {}): Promise<ApiBuildProfileMatrix> {
+      const stats = await fetchRuntimeStatusStats();
+      const inventory = await fetchPbAutoBuildBuildFileInventory();
+      return buildPbAutoBuildProfileMatrix({
+        inventory,
+        buildTooling: stats?.buildTooling,
+        preferredBuildFileUri: stats?.buildProfile?.buildFileUri,
+        maxProfiles: request.maxProfiles,
+      });
+    },
+    async getPowerBuilderDependencyGraph(request: ApiPowerBuilderDependencyGraphRequest = {}): Promise<ApiPowerBuilderDependencyGraph> {
+      const editor = vscode.window.activeTextEditor;
+      const uri = request.uri ?? editor?.document.uri.toString();
+      if (!uri) {
+        throw new Error('No hay un editor activo para construir el grafo de dependencias.');
+      }
+
+      return executeServerCommand<ApiPowerBuilderDependencyGraph>('powerbuilder.dependencyGraph', [
+        uri,
+        request.objectName,
+        request.maxDependencies,
+        request.maxDependents,
+      ]);
+    },
+    async getPowerBuilderCodeMetrics(request: ApiPowerBuilderCodeMetricsRequest = {}): Promise<ApiPowerBuilderCodeMetrics> {
+      return executeServerCommand<ApiPowerBuilderCodeMetrics>('powerbuilder.codeMetrics', [
+        request.maxObjects,
+      ]);
+    },
+    async getPowerBuilderTechnicalDebtReport(request: ApiPowerBuilderTechnicalDebtReportRequest = {}): Promise<ApiPowerBuilderTechnicalDebtReport> {
+      return executeServerCommand<ApiPowerBuilderTechnicalDebtReport>('powerbuilder.technicalDebtReport', [
+        request.maxObjects,
+        request.maxHotspots,
+        request.maxRecommendations,
+      ]);
+    },
+    async getDataWindowSqlLineage(request: ApiDataWindowSqlLineageRequest = {}): Promise<ApiDataWindowSqlLineage> {
+      const editor = vscode.window.activeTextEditor;
+      const uri = request.uri ?? editor?.document.uri.toString();
+      if (!uri && !request.dataObjectName) {
+        throw new Error('No hay un editor activo ni un DataObject explícito para construir el lineage SQL.');
+      }
+
+      const line = typeof request.line === 'number'
+        ? Math.max(0, Math.trunc(request.line))
+        : editor?.selection.active.line;
+
+      return executeServerCommand<ApiDataWindowSqlLineage>('powerbuilder.dataWindowSqlLineage', [
+        uri,
+        line,
+        request.dataObjectName,
+        request.maxDepth,
+      ]);
     },
     async getCurrentObjectContext(request: ApiCurrentObjectContextRequest = {}): Promise<ApiCurrentObjectContext> {
       const editor = vscode.window.activeTextEditor;
@@ -2011,6 +2263,95 @@ async function exportSemanticReproPack(options?: SemanticReproPackCommandOptions
   };
 }
 
+async function exportSupportBundle(options?: SupportBundleCommandOptions): Promise<SupportBundleExportResult | undefined> {
+  const workspaceFolder = resolveSupportBundleWorkspaceFolder(options);
+  if (!workspaceFolder) {
+    void vscode.window.showErrorMessage('PowerSyntax: no hay un workspace disponible para exportar el support bundle.');
+    return undefined;
+  }
+
+  const activeEditor = vscode.window.activeTextEditor;
+  const activeWorkspaceRelativePath = activeEditor && vscode.workspace.getWorkspaceFolder(activeEditor.document.uri)?.uri.toString() === workspaceFolder.uri.toString()
+    ? resolveWorkspaceRelativePath(workspaceFolder, activeEditor.document.uri)
+    : undefined;
+  const workspaceManifest = await publicApiSingleton.getSemanticWorkspaceManifest({
+    maxObjects: 120,
+    maxSymbols: 240,
+  });
+  const serverStats = await publicApiSingleton.getServerStats();
+  const configuration = vscode.workspace.getConfiguration();
+  const selectedProfile = vscode.workspace.getConfiguration('vscPowerSyntax').get<string>('profile');
+  const settingsValues = buildSupportBundleSettingsSnapshot(configuration, selectedProfile);
+  const settingsGovernance = buildSettingsGovernanceReport(settingsValues, selectedProfile);
+
+  const generatedAt = new Date().toISOString();
+  const workspaceLabel = workspaceFolder.name || path.basename(workspaceFolder.uri.fsPath || workspaceFolder.uri.path);
+  const destinationUri = resolveSupportBundleDestinationUri(workspaceFolder, generatedAt, workspaceLabel, options?.destinationUri);
+  const bundle = buildSupportBundle({
+    workspaceRootPath: workspaceFolder.uri.fsPath,
+    bundleRootPath: destinationUri.fsPath,
+    workspaceLabel,
+    ...(activeEditor ? { activeUri: activeEditor.document.uri.toString() } : {}),
+    ...(activeWorkspaceRelativePath ? { activeWorkspaceRelativePath } : {}),
+    workspaceManifest,
+    serverStats,
+    publicContract: publicApiSingleton.getPublicContract(),
+    readOnlyToolBridge: publicApiSingleton.getReadOnlyToolBridge(),
+    settingsGovernance,
+    settingsValues,
+    generatedAt,
+  });
+
+  await writeSemanticReproPackBundle(destinationUri, bundle.files);
+
+  outputChannel?.show(true);
+  outputChannel?.appendLine(`[SupportBundle] Support bundle exportado en ${destinationUri.fsPath}.`);
+  for (const file of bundle.files) {
+    outputChannel?.appendLine(`[SupportBundle]   - ${bundle.supportBundleWorkspaceRelativePath}/${file.relativePath}`);
+  }
+
+  void vscode.window.showInformationMessage(
+    `Support bundle exportado en ${bundle.supportBundleWorkspaceRelativePath}.`
+  );
+
+  return {
+    bundleUri: destinationUri.toString(),
+    manifestUri: joinUriPath(destinationUri, 'manifest.json').toString(),
+    fileCount: bundle.files.length,
+  };
+}
+
+async function runSemanticCacheMaintenance(): Promise<SemanticCacheMaintenanceCommandResult | undefined> {
+  try {
+    const result = await executeServerCommand<SemanticCacheMaintenanceCommandResult>('powerbuilder.runSemanticCacheMaintenance');
+    const refreshedStats = await fetchRuntimeStatusStats();
+    if (refreshedStats) {
+      lastStatusStats = refreshedStats;
+      if (statusBarItem) {
+        renderProgress(statusBarItem, lastProgressNotification, refreshedStats);
+      }
+    }
+
+    outputChannel?.show(true);
+    outputChannel?.appendLine(
+      `[CACHE] maintenance compacted=${result.compacted ? 'yes' : 'no'} restoreValidated=${result.restoreValidated ? 'yes' : 'no'} pruned=${result.prunedWorkspaceKeys.length} journalEntries=${result.currentWorkspace.journalEntries}`
+    );
+
+    const summary = [
+      result.compacted ? 'journal compactado' : 'sin compactación necesaria',
+      result.prunedWorkspaceKeys.length > 0 ? `${result.prunedWorkspaceKeys.length} workspace caches obsoletas limpiadas` : 'sin workspaces obsoletos',
+      result.restoreValidated ? 'restore validado' : 'restore no validado'
+    ].join(' · ');
+
+    void vscode.window.showInformationMessage(`PowerSyntax: mantenimiento de cache semántica completado. ${summary}`);
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo ejecutar el mantenimiento de cache semántica: ${message}`);
+    return undefined;
+  }
+}
+
 async function showSettingsGovernance(): Promise<void> {
   const report = buildCurrentSettingsGovernanceReport();
   const rendered = renderSettingsGovernanceReport(report);
@@ -2093,6 +2434,22 @@ function renderSettingsGovernanceReport(report: PowerSyntaxSettingsGovernanceRep
   return lines.join('\n');
 }
 
+function buildSupportBundleSettingsSnapshot(
+  configuration: vscode.WorkspaceConfiguration,
+  selectedProfile: string | undefined,
+): Record<string, unknown> {
+  const keys = [
+    'vscPowerSyntax.profile',
+    ...getGovernedSettingKeys(),
+    'vscPowerSyntax.build.pbAutoBuildPath',
+    'vscPowerSyntax.legacy.orcaPath',
+    'vscPowerSyntax.legacy.orcaSessionDll',
+  ];
+  const values = Object.fromEntries(keys.map((key) => [key, configuration.get(key)]));
+  values['vscPowerSyntax.profile'] = selectedProfile;
+  return values;
+}
+
 function getStoredPbAutoBuildProfile(): PbAutoBuildBuildFileOption | undefined {
   return extensionContextRef?.workspaceState.get<PbAutoBuildBuildFileOption>(LAST_PBAUTOBUILD_PROFILE_KEY);
 }
@@ -2111,6 +2468,11 @@ async function persistPbAutoBuildProfile(profile?: PbAutoBuildBuildFileOption): 
 async function fetchPbAutoBuildBuildFileOptions(): Promise<PbAutoBuildBuildFileOption[]> {
   const options = await executeServerCommand<PbAutoBuildBuildFileOption[]>('powerbuilder.listPbAutoBuildBuildFiles');
   return Array.isArray(options) ? options : [];
+}
+
+async function fetchPbAutoBuildBuildFileInventory(): Promise<PbAutoBuildProfileInventoryEntry[]> {
+  const inventory = await executeServerCommand<PbAutoBuildProfileInventoryEntry[]>('powerbuilder.listPbAutoBuildBuildInventory');
+  return Array.isArray(inventory) ? inventory : [];
 }
 
 async function writePbAutoBuildCiHelperBundle(
@@ -2158,6 +2520,38 @@ function resolveSemanticReproDestinationUri(
   const timestampSegment = generatedAt.slice(0, 19).replace(/[:T]/g, '-');
   const directoryName = `${suggestSemanticReproDirectoryName(focusLabel)}-${timestampSegment}`;
   return vscode.Uri.joinPath(workspaceFolder.uri, 'tools', 'semantic-repros', directoryName);
+}
+
+function resolveSupportBundleDestinationUri(
+  workspaceFolder: vscode.WorkspaceFolder,
+  generatedAt: string,
+  workspaceLabel: string,
+  overrideDestinationUri?: string
+): vscode.Uri {
+  if (overrideDestinationUri) {
+    return vscode.Uri.parse(overrideDestinationUri);
+  }
+
+  const timestampSegment = generatedAt.slice(0, 19).replace(/[:T]/g, '-');
+  const directoryName = `${suggestSupportBundleDirectoryName(workspaceLabel)}-${timestampSegment}`;
+  return vscode.Uri.joinPath(workspaceFolder.uri, 'tools', 'support-bundles', directoryName);
+}
+
+function resolveSupportBundleWorkspaceFolder(options?: SupportBundleCommandOptions): vscode.WorkspaceFolder | undefined {
+  if (options?.workspaceFolderUri) {
+    const explicitUri = vscode.Uri.parse(options.workspaceFolderUri);
+    return vscode.workspace.getWorkspaceFolder(explicitUri)
+      ?? vscode.workspace.workspaceFolders?.find((folder) => folder.uri.toString() === explicitUri.toString());
+  }
+
+  const activeEditorFolder = vscode.window.activeTextEditor
+    ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
+    : undefined;
+  if (activeEditorFolder) {
+    return activeEditorFolder;
+  }
+
+  return vscode.workspace.workspaceFolders?.[0];
 }
 
 async function collectSemanticReproFiles(
@@ -2416,4 +2810,528 @@ async function openProjectHealthDashboard(): Promise<void> {
     preview: false,
     viewColumn: vscode.ViewColumn.Beside,
   });
+}
+
+function buildPowerBuilderDependencyGraphMarkdown(graph: ApiPowerBuilderDependencyGraph): string {
+  if (!graph.available) {
+    return [
+      '# PowerBuilder Dependency Graph',
+      '',
+      `No disponible: ${graph.reason ?? 'sin detalle'}`,
+    ].join('\n');
+  }
+
+  const nodeIndex = new Map(graph.nodes.map((node) => [node.id, node]));
+  const lines = [
+    '# PowerBuilder Dependency Graph',
+    '',
+    `- Foco: ${graph.focus?.objectName ?? 'desconocido'}`,
+    graph.focus?.uri ? `- URI: ${graph.focus.uri}` : undefined,
+    graph.focus?.projectUri ? `- Proyecto: ${graph.focus.projectUri}` : undefined,
+    graph.focus?.library ? `- Librería: ${graph.focus.library}` : undefined,
+    graph.focus?.baseType ? `- Ancestro inmediato: ${graph.focus.baseType}` : undefined,
+    `- Resumen: nodos=${graph.summary.nodeCount}, aristas=${graph.summary.edgeCount}, dependencias=${graph.summary.dependencyCount}, dependientes=${graph.summary.dependentCount}, no resueltas=${graph.summary.unresolvedDependencyCount}, ambiguas=${graph.summary.ambiguousDependencyCount}`,
+    '',
+    '## Mermaid',
+    '',
+    '```mermaid',
+    graph.mermaidFlowchart,
+    '```',
+    '',
+    '## Aristas',
+    '',
+    ...graph.edges.map((edge) => {
+      const source = nodeIndex.get(edge.sourceId)?.label ?? edge.sourceId;
+      const target = nodeIndex.get(edge.targetId)?.label ?? edge.targetId;
+      return `- ${source} --${edge.relation}--> ${target} (${edge.reason})`;
+    }),
+  ].filter((line): line is string => typeof line === 'string');
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildPowerBuilderCodeMetricsMarkdown(metrics: ApiPowerBuilderCodeMetrics): string {
+  const hotspots = [...metrics.objects]
+    .sort((left, right) =>
+      right.metrics.approximateComplexity - left.metrics.approximateComplexity
+      || right.metrics.diagnostics - left.metrics.diagnostics
+      || right.metrics.externalDependencies - left.metrics.externalDependencies
+      || left.name.localeCompare(right.name)
+    )
+    .slice(0, 40);
+
+  const lines = [
+    '# PowerBuilder Code Metrics',
+    '',
+    `- Generado: ${new Date(metrics.generatedAt).toISOString()}`,
+    `- Resumen: proyectos=${metrics.summary.totalProjects}, librerías=${metrics.summary.totalLibraries}, objetos=${metrics.summary.totalObjects}, funciones=${metrics.summary.totalFunctions}, eventos=${metrics.summary.totalEvents}, SQL=${metrics.summary.totalEmbeddedSqlStatements}, DataWindows=${metrics.summary.totalLinkedDataWindows}, externas=${metrics.summary.totalExternalDependencies}, lifecycleWarnings=${metrics.summary.totalLifecycleWarnings}, diagnostics=${metrics.summary.totalDiagnostics}`,
+    `- Build footprint: total=${metrics.footprint.build.total}, usables=${metrics.footprint.build.usable}, inválidos=${metrics.footprint.build.invalid}, ambiguos=${metrics.footprint.build.ambiguous}`,
+    `- ORCA footprint: stagedFiles=${metrics.footprint.orca.stagedFiles}, libraryAliases=${metrics.footprint.orca.libraryAliases}`,
+    '',
+    '## Diagnostics By Area',
+    '',
+    ...(metrics.diagnostics.byArea.length > 0
+      ? metrics.diagnostics.byArea.map((entry) => `- ${entry.area}: ${entry.total}`)
+      : ['- Estado: sin diagnósticos agregados.']),
+    '',
+    '## Hotspots',
+    '',
+    ...(hotspots.length > 0
+      ? hotspots.map((objectEntry) => [
+        `- ${objectEntry.name}${objectEntry.objectKind ? ` [${objectEntry.objectKind}]` : ''}`,
+        `  funciones=${objectEntry.metrics.functions}, eventos=${objectEntry.metrics.events}, complejidad≈${objectEntry.metrics.approximateComplexity}, SQL=${objectEntry.metrics.embeddedSqlStatements}, DataWindows=${objectEntry.metrics.linkedDataWindows}, externas=${objectEntry.metrics.externalDependencies}, lifecycle=${objectEntry.metrics.lifecycleWarnings}, diagnostics=${objectEntry.metrics.diagnostics}`,
+        objectEntry.projectUri ? `  proyecto=${objectEntry.projectUri}` : undefined,
+        objectEntry.library ? `  librería=${objectEntry.library}` : undefined,
+        objectEntry.sourceOrigin ? `  sourceOrigin=${objectEntry.sourceOrigin}` : undefined,
+      ].filter((line): line is string => typeof line === 'string').join('\n'))
+      : ['- Estado: sin objetos indexados.']),
+  ];
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildPowerBuilderTechnicalDebtReportMarkdown(report: ApiPowerBuilderTechnicalDebtReport): string {
+  const lines = [
+    '# PowerBuilder Technical Debt Report',
+    '',
+    `- Generado: ${new Date(report.generatedAt).toISOString()}`,
+    `- Resumen: hotspots=${report.summary.totalHotspots}, recomendaciones=${report.summary.totalRecommendations}, obsolete=${report.summary.obsoleteFindings}, dynamicSql=${report.summary.dynamicSqlFindings}, externas=${report.summary.externalDependencyFindings}, datawindow=${report.summary.dataWindowRiskFindings}, complejos=${report.summary.complexObjectFindings}, sourceOrigin=${report.summary.sourceOriginRiskFindings}, legacyWorkspace=${report.summary.legacyWorkspaceRiskFindings}`,
+    '',
+    '## Hotspots',
+    '',
+    ...(report.hotspots.length > 0
+      ? report.hotspots.map((entry) => [
+        `- ${entry.name}${entry.objectKind ? ` [${entry.objectKind}]` : ''} | prioridad=${entry.priority} | confidence=${entry.confidence}`,
+        `  categorías=${entry.categories.join(', ')}`,
+        `  métricas: complejidad≈${entry.metrics.approximateComplexity}, diagnostics=${entry.metrics.diagnostics}, externas=${entry.metrics.externalDependencies}, DataWindows=${entry.metrics.linkedDataWindows}, SQL dinámico=${entry.metrics.dynamicSqlStatements}, obsolete=${entry.metrics.obsoleteDiagnostics}`,
+        entry.projectUri ? `  proyecto=${entry.projectUri}` : undefined,
+        entry.library ? `  librería=${entry.library}` : undefined,
+        entry.sourceOrigin ? `  sourceOrigin=${entry.sourceOrigin}` : undefined,
+        entry.evidence.length > 0 ? `  evidencia=${entry.evidence.join(', ')}` : undefined,
+        entry.recommendations.length > 0 ? `  recomendaciones=${entry.recommendations.join(' | ')}` : undefined,
+      ].filter((line): line is string => typeof line === 'string').join('\n'))
+      : ['- Estado: sin hotspots priorizados.']),
+    '',
+    '## Recommendations',
+    '',
+    ...(report.recommendations.length > 0
+      ? report.recommendations.map((entry) => [
+        `- [${entry.priority}/${entry.confidence}] ${entry.title} (${entry.category})`,
+        `  ${entry.detail}`,
+        entry.evidence.length > 0 ? `  evidencia=${entry.evidence.join(', ')}` : undefined,
+        entry.actions.length > 0 ? `  acciones=${entry.actions.join(' | ')}` : undefined,
+      ].filter((line): line is string => typeof line === 'string').join('\n'))
+      : ['- Estado: sin recomendaciones activas.']),
+  ];
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildCrossProjectSymbolConflictsMarkdown(conflicts: ApiCrossProjectSymbolConflicts): string {
+  if (!conflicts.available) {
+    return [
+      '# Cross-Project Symbol Conflicts',
+      '',
+      `No disponible: ${conflicts.reason ?? 'sin detalle'}`,
+    ].join('\n');
+  }
+
+  if (conflicts.conflicts.length === 0) {
+    return [
+      '# Cross-Project Symbol Conflicts',
+      '',
+      '- Estado: sin conflictos detectados',
+      `- Resumen: conflictos=${conflicts.summary.totalConflictCount}, candidatos=${conflicts.summary.totalCandidateCount}`,
+    ].join('\n');
+  }
+
+  const lines = [
+    '# Cross-Project Symbol Conflicts',
+    '',
+    `- Resumen: conflictos=${conflicts.summary.totalConflictCount}, devueltos=${conflicts.summary.returnedConflictCount}, candidatos=${conflicts.summary.totalCandidateCount}, cross-project=${conflicts.summary.crossProjectConflictCount}, cross-library=${conflicts.summary.crossLibraryConflictCount}, truncado=${conflicts.summary.truncated ? 'sí' : 'no'}`,
+    '',
+  ];
+
+  for (const conflict of conflicts.conflicts) {
+    lines.push(`## ${conflict.symbolName} (${conflict.kind})`);
+    lines.push('');
+    lines.push(`- Clave semántica: ${conflict.symbolKey}`);
+    lines.push(`- Scope: ${conflict.scope}`);
+    lines.push(`- Resumen: candidatos=${conflict.candidateCount}, proyectos=${conflict.projectCount}, librerías=${conflict.libraryCount}`);
+    if (conflict.ownerName) {
+      lines.push(`- Owner: ${conflict.ownerName}`);
+    }
+    if (conflict.parameterCount !== undefined) {
+      lines.push(`- Aridad: ${conflict.parameterCount}`);
+    }
+    if (conflict.sourceOrigins.length > 0) {
+      lines.push(`- Source origins: ${conflict.sourceOrigins.join(', ')}`);
+    }
+    if (conflict.evidence.length > 0) {
+      lines.push(`- Evidencia: ${conflict.evidence.join(', ')}`);
+    }
+    if (conflict.truncatedCandidates) {
+      lines.push('- Candidatos: lista truncada por request');
+    }
+    lines.push('');
+    lines.push('### Candidates');
+    lines.push('');
+    for (const candidate of conflict.candidates) {
+      lines.push(`- ${candidate.name} @ ${candidate.uri}${candidate.projectUri ? ` | proyecto=${candidate.projectUri}` : ''}${candidate.library ? ` | librería=${candidate.library}` : ''}${candidate.sourceOrigin ? ` | origen=${candidate.sourceOrigin}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildWorkspaceMigrationAssistantMarkdown(assistant: ApiWorkspaceMigrationAssistant): string {
+  if (!assistant.available) {
+    return [
+      '# Workspace Migration Assistant',
+      '',
+      `No disponible: ${assistant.reason ?? 'sin detalle'}`,
+    ].join('\n');
+  }
+
+  const lines = [
+    '# Workspace Migration Assistant',
+    '',
+    `- Modo actual: ${assistant.currentMode}`,
+    assistant.targetMode ? `- Modo objetivo sugerido: ${assistant.targetMode}` : undefined,
+    `- Resumen: archivos=${assistant.summary.sourceFileCount}, proyectos=${assistant.summary.projectCount}, buildFiles=${assistant.summary.buildFilesTotal}, buildFilesUsables=${assistant.summary.usableBuildFiles}, legacyLibraries=${assistant.summary.hasLegacyLibraries ? 'sí' : 'no'}, mixedMarkers=${assistant.summary.hasMixedMarkers ? 'sí' : 'no'}, orcaAliases=${assistant.summary.hasOrcaAliases ? 'sí' : 'no'}`,
+    '',
+  ].filter((line): line is string => typeof line === 'string');
+
+  if (assistant.recommendations.length === 0) {
+    lines.push('- Estado: sin recomendaciones pendientes.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  for (const recommendation of assistant.recommendations) {
+    lines.push(`## ${recommendation.title}`);
+    lines.push('');
+    lines.push(`- Prioridad: ${recommendation.priority}`);
+    lines.push(`- Categoría: ${recommendation.category}`);
+    lines.push(`- Detalle: ${recommendation.detail}`);
+    if (recommendation.evidence.length > 0) {
+      lines.push(`- Evidencia: ${recommendation.evidence.join(', ')}`);
+    }
+    lines.push('');
+    lines.push('### Actions');
+    lines.push('');
+    for (const action of recommendation.actions) {
+      lines.push(`- ${action}`);
+    }
+    lines.push('');
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildBuildProfileMatrixMarkdown(matrix: ApiBuildProfileMatrix): string {
+  const lines = [
+    '# Build Profile Matrix',
+    '',
+    `- Resumen: perfiles=${matrix.summary.totalProfiles}, usables=${matrix.summary.usableProfiles}, ambiguos=${matrix.summary.ambiguousProfiles}, inválidos=${matrix.summary.invalidProfiles}, ejecutables=${matrix.summary.runnableProfiles}, tooling=${matrix.summary.toolingStatus}, health=${matrix.summary.healthState}`,
+    matrix.summary.preferredProfileUri ? `- Último profile recordado: ${matrix.summary.preferredProfileUri}` : undefined,
+    matrix.tooling?.detail ? `- Tooling: ${matrix.tooling.detail}` : undefined,
+    `- Build health: ${matrix.health.summary}`,
+    '',
+  ].filter((line): line is string => typeof line === 'string');
+
+  if (matrix.findings.length > 0) {
+    lines.push('## Findings');
+    lines.push('');
+    for (const finding of matrix.findings) {
+      lines.push(`- [${finding.severity}] ${finding.message}${finding.detail ? ` (${finding.detail})` : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (matrix.profiles.length === 0) {
+    lines.push('- Estado: sin build profiles detectados.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  for (const profile of matrix.profiles) {
+    lines.push(`## ${profile.label}`);
+    lines.push('');
+    lines.push(`- URI: ${profile.buildFileUri}`);
+    lines.push(`- Estado: ${profile.status}`);
+    lines.push(`- Validación: ${profile.validationState} · ${profile.validationMessage}`);
+    lines.push(`- Ejecutable: ${profile.canRun ? 'sí' : 'no'}`);
+    lines.push(`- Último usado: ${profile.isLastUsed ? 'sí' : 'no'}`);
+    if (profile.representedProjectUri) {
+      lines.push(`- Proyecto representado: ${profile.representedProjectUri}`);
+    }
+    if (profile.reasonCode) {
+      lines.push(`- Reason code: ${profile.reasonCode}`);
+    }
+    if (profile.detail) {
+      lines.push(`- Detalle: ${profile.detail}`);
+    }
+    lines.push('');
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function formatDataWindowSqlLineageNode(node: ApiDataWindowSqlLineage['lineage'], depth = 0): string[] {
+  if (!node) {
+    return [];
+  }
+
+  const indent = '  '.repeat(depth);
+  const lines = [
+    `${indent}- ${node.dataObject} [${node.relation}] (${node.state}${node.via ? ` via ${node.via}` : ''})`
+  ];
+  if (node.statement) {
+    lines.push(`${indent}  SQL: ${node.statement}`);
+  }
+  if (node.sqlReferences.length > 0) {
+    lines.push(`${indent}  Referencias: ${node.sqlReferences.map((reference) => reference.rawText).join(', ')}`);
+  }
+  for (const child of node.children) {
+    lines.push(...formatDataWindowSqlLineageNode(child, depth + 1));
+  }
+  return lines;
+}
+
+function buildDataWindowSqlLineageMarkdown(lineage: ApiDataWindowSqlLineage): string {
+  if (!lineage.available) {
+    return [
+      '# DataWindow SQL Lineage',
+      '',
+      '- Estado: no disponible',
+      lineage.reason ? `- Motivo: ${lineage.reason}` : undefined,
+      lineage.source.kind ? `- Source kind: ${lineage.source.kind}` : undefined,
+      lineage.source.dataObject ? `- DataObject: ${lineage.source.dataObject}` : undefined,
+      lineage.source.targetName ? `- Target control: ${lineage.source.targetName}` : undefined,
+      lineage.source.uri ? `- URI: ${lineage.source.uri}` : undefined,
+    ].filter((line): line is string => typeof line === 'string').join('\n');
+  }
+
+  const lines = [
+    '# DataWindow SQL Lineage',
+    '',
+    `- DataObject raíz: ${lineage.source.dataObject ?? lineage.lineage?.dataObject ?? 'desconocido'}`,
+    `- Source kind: ${lineage.source.kind}`,
+    lineage.source.targetName ? `- Target control: ${lineage.source.targetName}` : undefined,
+    lineage.source.uri ? `- URI: ${lineage.source.uri}` : undefined,
+    `- Resumen: nodos=${lineage.summary.totalNodes}, sentencias=${lineage.summary.totalStatements}, referencias=${lineage.summary.totalSqlReferences}, enlaces no resueltos=${lineage.summary.unresolvedLinks}, profundidad recortada=${lineage.summary.maxDepthReached ? 'sí' : 'no'}`,
+    '',
+    '## Tree',
+    '',
+    ...formatDataWindowSqlLineageNode(lineage.lineage),
+  ].filter((line): line is string => typeof line === 'string');
+
+  return `${lines.join('\n')}\n`;
+}
+
+async function openPowerBuilderDependencyGraph(): Promise<void> {
+  let graph: ApiPowerBuilderDependencyGraph;
+  try {
+    graph = await publicApiSingleton.getPowerBuilderDependencyGraph({
+      maxDependencies: 16,
+      maxDependents: 16,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo construir el grafo de dependencias: ${message}`);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content: buildPowerBuilderDependencyGraphMarkdown(graph),
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  try {
+    await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
+  } catch {
+    // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
+}
+
+async function openPowerBuilderCodeMetrics(): Promise<void> {
+  let metrics: ApiPowerBuilderCodeMetrics;
+  try {
+    metrics = await publicApiSingleton.getPowerBuilderCodeMetrics({
+      maxObjects: 400,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo construir el reporte de métricas de código: ${message}`);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content: buildPowerBuilderCodeMetricsMarkdown(metrics),
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  try {
+    await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
+  } catch {
+    // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
+}
+
+async function openPowerBuilderTechnicalDebtReport(): Promise<void> {
+  let report: ApiPowerBuilderTechnicalDebtReport;
+  try {
+    report = await publicApiSingleton.getPowerBuilderTechnicalDebtReport({
+      maxObjects: 400,
+      maxHotspots: 24,
+      maxRecommendations: 12,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo construir el informe técnico de deuda: ${message}`);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content: buildPowerBuilderTechnicalDebtReportMarkdown(report),
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  try {
+    await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
+  } catch {
+    // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
+}
+
+async function openCrossProjectSymbolConflicts(): Promise<void> {
+  let conflicts: ApiCrossProjectSymbolConflicts;
+  try {
+    conflicts = await publicApiSingleton.getCrossProjectSymbolConflicts({
+      maxConflicts: 24,
+      maxCandidatesPerConflict: 8,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo analizar conflictos cross-project: ${message}`);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content: buildCrossProjectSymbolConflictsMarkdown(conflicts),
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  try {
+    await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
+  } catch {
+    // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
+}
+
+async function openWorkspaceMigrationAssistant(): Promise<void> {
+  let assistant: ApiWorkspaceMigrationAssistant;
+  try {
+    assistant = await publicApiSingleton.getWorkspaceMigrationAssistant({
+      maxRecommendations: 12,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo construir el asistente de migración: ${message}`);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content: buildWorkspaceMigrationAssistantMarkdown(assistant),
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  try {
+    await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
+  } catch {
+    // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
+}
+
+async function openBuildProfileMatrix(): Promise<void> {
+  let matrix: ApiBuildProfileMatrix;
+  try {
+    matrix = await publicApiSingleton.getBuildProfileMatrix({
+      maxProfiles: 24,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo construir la matriz de perfiles de build: ${message}`);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content: buildBuildProfileMatrixMarkdown(matrix),
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  try {
+    await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
+  } catch {
+    // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
+}
+
+async function openDataWindowSqlLineage(): Promise<void> {
+  let lineage: ApiDataWindowSqlLineage;
+  try {
+    lineage = await publicApiSingleton.getDataWindowSqlLineage({
+      maxDepth: 4,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo construir el lineage SQL del DataWindow: ${message}`);
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content: buildDataWindowSqlLineageMarkdown(lineage),
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  try {
+    await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
+  } catch {
+    // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
 }

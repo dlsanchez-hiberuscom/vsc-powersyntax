@@ -62,6 +62,12 @@ IDs emitidos hoy:
 - `native-dependency` — external function/subroutine sin implementación interna navegable.
 - `missing-super-*`, `missing-trigger-*`, `unresolved-*` — familia actual de warnings lifecycle emitidos en `diagnostic.code`.
 
+Consumidores cerrados sobre este contrato:
+
+- `technical-debt-report` reutiliza `diagnostic.code` como evidencia (`SD7`, familia DataWindow, `native-dependency`, lifecycle/sourceOrigin ya publicados) y no define IDs nuevos;
+- el framework v2 de code actions consume también `diagnostic.code` estable y solo habilita quick fixes cuando el catálogo versionado, el preflight, el `sourceOrigin` y los guards de dynamic strings permiten un cambio defendible;
+- cualquier ampliación futura del reporte que necesite una señal diagnóstica nueva debe abrir una spec/rule propia antes de mezclarse con este catálogo.
+
 Regla: cualquier renombrado futuro hacia `PB-*` requiere compatibilidad explícita o alias y una spec propia; no cambiar IDs diagnósticos emitidos como edición documental aislada.
 
 ## PB-STRUCT-001 — Forward type does not match global type

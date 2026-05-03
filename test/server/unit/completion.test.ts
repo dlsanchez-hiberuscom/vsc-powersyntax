@@ -28,7 +28,7 @@ suite('unit/completion', () => {
     const doc = TextDocument.create(uri, 'powerbuilder', 1, content);
     const analysis = analyzeDocument(doc);
     cache.set(uri, { version: 1, symbols: [], facts: analysis.semanticFacts, scopes: analysis.scopes });
-    kb.upsertDocument(uri, analysis.semanticFacts, analysis.scopes);
+    kb.upsertDocument(uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
     return doc;
   }
 
@@ -237,5 +237,55 @@ end subroutine
     const items = provideCompletion(doc, Position.create(lineIndex, 5), kb, systemCatalog, graph);
 
     assert.equal(items?.filter((item) => String(item.label).startsWith('zz_cap_')).length, 200);
+  });
+
+  test('debe ofrecer completion segura dentro de Modify para una ruta DataWindow resoluble', () => {
+    setupDocument('file:///d_parent_completion.srd', [
+      '$PBExportHeader$d_parent_completion.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=char(10) update=yes name=state_id dbname="emp.state_id" dddw.name="d_states_completion") retrieve="SELECT parent_id, state_id FROM parent")',
+    ].join('\r\n'));
+    setupDocument('file:///d_states_completion.srd', [
+      '$PBExportHeader$d_states_completion.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT state_id, state_name FROM states")',
+    ].join('\r\n'));
+    const doc = setupDocument('file:///w_dw_completion.srw', [
+      'global type w_dw_completion from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent_completion"',
+      '  dw_parent.Modify("state_id.")',
+      'end event',
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('state_id.'));
+    const character = lines[lineIndex].indexOf('state_id.') + 'state_id.'.length;
+    const items = provideCompletion(doc, Position.create(lineIndex, character), kb, systemCatalog, graph);
+
+    assert.ok(items, 'Esperaba completion DataWindow dentro de Modify sobre una ruta resoluble.');
+    assert.ok(items?.some((item) => item.label === 'DataWindow'), 'Debe sugerir la continuación hacia el child DataWindow.');
+    assert.ok(items?.some((item) => item.label === 'dddw'), 'Debe sugerir la metadata dddw del column child.');
+
+    const docNested = setupDocument('file:///w_dw_completion_nested.srw', [
+      'global type w_dw_completion_nested from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent_completion"',
+      '  dw_parent.Modify("state_id.dddw.")',
+      'end event',
+    ].join('\r\n'));
+
+    const nestedLines = docNested.getText().split(/\r?\n/);
+    const nestedLineIndex = nestedLines.findIndex((line) => line.includes('state_id.dddw.'));
+    const nestedCharacter = nestedLines[nestedLineIndex].indexOf('state_id.dddw.') + 'state_id.dddw.'.length;
+    const nestedItems = provideCompletion(docNested, Position.create(nestedLineIndex, nestedCharacter), kb, systemCatalog, graph);
+
+    assert.ok(nestedItems?.some((item) => item.label === 'name'), 'Debe sugerir la propiedad dddw.name del column child cuando el prefijo ya entra en dddw.');
   });
 });

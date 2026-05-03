@@ -114,6 +114,7 @@ suite('unit/currentObjectContext (B217)', () => {
 
     assert.equal(context.available, true);
     assert.equal(context.objectInfo?.globalType, 'w_context');
+    assert.equal(context.objectInfo?.objectKind, 'window');
     assert.equal(context.objectInfo?.library, 'file:///proj/lib_app.pbl');
     assert.equal(context.objectInfo?.project, 'file:///proj/app.pbt');
     assert.equal(context.objectInfo?.sourceOrigin, 'pbl-folder-source');
@@ -155,6 +156,7 @@ suite('unit/currentObjectContext (B217)', () => {
     );
 
     assert.equal(context.available, true);
+  assert.equal(context.objectInfo?.objectKind, 'userobject');
     assert.deepEqual(context.ancestorChain?.map((entry) => entry.name), ['crypterobject', 'powerobject']);
     assert.equal(context.ancestorChain?.[0]?.isSystemType, true);
     assert.equal(context.ancestorChain?.[1]?.isSystemType, true);

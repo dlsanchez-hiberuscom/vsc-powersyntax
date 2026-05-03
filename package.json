@@ -220,6 +220,11 @@
         "category": "VSC PowerSyntax"
       },
       {
+        "command": "vscPowerSyntax.openDataWindowSqlLineage",
+        "title": "PowerSyntax: Abrir DataWindow SQL Lineage",
+        "category": "VSC PowerSyntax"
+      },
+      {
         "command": "vscPowerSyntax.openStatusMenu",
         "title": "PowerSyntax: Abrir Menú de Estado",
         "category": "VSC PowerSyntax"
@@ -237,6 +242,36 @@
       {
         "command": "vscPowerSyntax.openProjectHealthDashboard",
         "title": "PowerSyntax: Abrir Dashboard de Salud del Proyecto",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openCrossProjectSymbolConflicts",
+        "title": "PowerSyntax: Abrir Analizador de Conflictos Cross-Project",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openWorkspaceMigrationAssistant",
+        "title": "PowerSyntax: Abrir Asistente de Migración de Workspace",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openBuildProfileMatrix",
+        "title": "PowerSyntax: Abrir Matriz de Perfiles de Build",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openDependencyGraph",
+        "title": "PowerSyntax: Abrir Grafo de Dependencias PowerBuilder",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openCodeMetrics",
+        "title": "PowerSyntax: Abrir Métricas Avanzadas de Código PowerBuilder",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openTechnicalDebtReport",
+        "title": "PowerSyntax: Abrir Informe Técnico de Deuda y Modernización PowerBuilder",
         "category": "VSC PowerSyntax"
       },
       {
@@ -352,6 +387,16 @@
       {
         "command": "vscPowerSyntax.exportSemanticReproPack",
         "title": "PowerSyntax: Exportar Repro Pack Semántico",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.exportSupportBundle",
+        "title": "PowerSyntax: Exportar Support Bundle Offline",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.runSemanticCacheMaintenance",
+        "title": "PowerSyntax: Ejecutar Mantenimiento de Cache Semántica",
         "category": "VSC PowerSyntax"
       },
       {

@@ -198,7 +198,10 @@ Se vigila:
 - tiempo de resume,
 - mejora warm vs cold,
 - tasa de reutilización útil,
-- coste de invalidación tras reapertura.
+- coste de invalidación tras reapertura,
+- bytes persistidos por workspace y journal,
+- deriva de `workspaceKey` obsoletos,
+- y que la compactación/limpieza ocurra fuera del hot path o bajo comando explícito.
 
 ### 7.5 Memoria
 Se vigila:

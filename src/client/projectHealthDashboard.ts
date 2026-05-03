@@ -9,7 +9,7 @@ import {
   formatStatusBarSummary,
   type RuntimeStatusStats,
 } from './statusBarPresentation';
-import { formatOrcaStatusInline } from './build/orcaDetection';
+import { formatOrcaPackagingPolicyInline, formatOrcaStatusInline } from './build/orcaDetection';
 
 function pushBullet(lines: string[], label: string, value?: string): void {
   if (!value) {
@@ -185,6 +185,7 @@ export function buildProjectHealthDashboardMarkdown(
   pushBullet(lines, 'Estado', stats?.buildHealth ? `${stats.buildHealth.state} · ${stats.buildHealth.summary}` : undefined);
   pushBullet(lines, 'Runner', stats?.buildRunner ? `${stats.buildRunner.state}${stats.buildRunner.buildFileUri ? ` · ${stats.buildRunner.buildFileUri}` : ''}` : undefined);
   pushBullet(lines, 'ORCA capability', stats?.orcaTooling ? `${stats.orcaTooling.status} · ${stats.orcaTooling.detail}` : 'sin datos');
+  pushBullet(lines, 'ORCA packaging', formatOrcaPackagingPolicyInline(stats?.orcaTooling));
   pushBullet(lines, 'ORCA runner', stats?.orcaRunner ? `${stats.orcaRunner.state}${stats.orcaRunner.scriptUri ? ` · ${stats.orcaRunner.scriptUri}` : ''}` : undefined);
 
   const runtimeFindings = formatFindingList(stats?.health?.findings, 6);

@@ -9,6 +9,7 @@ import type { HotContextCache } from '../knowledge/HotContextCache';
 import { Entity, EntityKind } from '../knowledge/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
+import { providePowerScriptDataWindowPropertyCompletion } from './dataWindowPropertyPaths';
 import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
 
 const MAX_GLOBAL_COMPLETION_ENTITIES = 200;
@@ -48,6 +49,11 @@ export function provideCompletion(
   const snapshot = getDocumentAnalysis(document).snapshot;
   const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
   
+  const dataWindowCompletion = providePowerScriptDataWindowPropertyCompletion(document, position, kb);
+  if (dataWindowCompletion) {
+    return dataWindowCompletion;
+  }
+
   const mask = snapshot.maskedText.masks[position.line];
   
   // If the character before the cursor is a comment or string, we should probably not show completions

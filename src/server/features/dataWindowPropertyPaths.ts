@@ -1,4 +1,4 @@
-import { Hover, Location, MarkupKind, Position, Range } from 'vscode-languageserver/node';
+import { CompletionItem, CompletionItemKind, Hover, Location, MarkupKind, Position, Range } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
@@ -31,6 +31,75 @@ interface DataWindowModelTarget {
   dataObjectName: string;
   uri: string;
   model: DataWindowModel;
+}
+
+export interface PowerScriptDataWindowPropertyInspection {
+  invocation: {
+    targetName: string;
+    mode: DataWindowPropertyInvocation['mode'];
+    path: string;
+    pathRange: DataWindowRange;
+  };
+  resolved: ResolvedDataWindowProperty | null;
+}
+
+interface DataWindowCompletionSuggestion {
+  label: string;
+  kind: CompletionItemKind;
+  detail: string;
+}
+
+export function providePowerScriptDataWindowPropertyCompletion(
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+): CompletionItem[] | null {
+  const invocation = findDataWindowPropertyInvocation(document, position);
+  if (!invocation) {
+    return null;
+  }
+
+  const cache = new Map<string, DataWindowModelTarget | null>();
+  const root = resolveRootDataWindowTarget(document, position, kb, invocation, cache);
+  if (!root) {
+    return null;
+  }
+
+  const prefixLength = Math.max(0, Math.min(invocation.path.length, position.character - invocation.pathRange.start.character));
+  const typedPath = invocation.path.slice(0, prefixLength).replace(/\s*\.\s*/g, '.');
+  const suggestions = collectCompletionSuggestions(typedPath, root, kb, cache);
+  if (suggestions.length === 0) {
+    return null;
+  }
+
+  return suggestions.map((suggestion) => ({
+    label: suggestion.label,
+    kind: suggestion.kind,
+    detail: suggestion.detail,
+    sortText: `0_dw_${suggestion.label.toLowerCase()}`,
+  }));
+}
+
+export function inspectPowerScriptDataWindowProperty(
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+): PowerScriptDataWindowPropertyInspection | null {
+  const invocation = findDataWindowPropertyInvocation(document, position);
+  if (!invocation) {
+    return null;
+  }
+
+  const cache = new Map<string, DataWindowModelTarget | null>();
+  const root = resolveRootDataWindowTarget(document, position, kb, invocation, cache);
+  if (!root) {
+    return null;
+  }
+
+  return {
+    invocation,
+    resolved: resolvePropertyPath(invocation.path, root, kb, cache, []),
+  };
 }
 
 export function providePowerScriptDataWindowPropertyDefinition(
@@ -95,18 +164,156 @@ function resolvePowerScriptDataWindowProperty(
   kb: KnowledgeBase,
   invocation: DataWindowPropertyInvocation,
 ): ResolvedDataWindowProperty | null {
-  const boundDataObject = findNearestDataObjectLiteralBinding(document, invocation.targetName, position.line);
-  if (!boundDataObject) {
-    return null;
-  }
-
   const cache = new Map<string, DataWindowModelTarget | null>();
-  const root = resolveSingleDataWindowTarget(boundDataObject, kb, cache);
+  const root = resolveRootDataWindowTarget(document, position, kb, invocation, cache);
   if (!root) {
     return null;
   }
 
   return resolvePropertyPath(invocation.path, root, kb, cache, []);
+}
+
+function resolveRootDataWindowTarget(
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+  invocation: DataWindowPropertyInvocation,
+  cache: Map<string, DataWindowModelTarget | null>,
+): DataWindowModelTarget | null {
+  const boundDataObject = findNearestDataObjectLiteralBinding(document, invocation.targetName, position.line);
+  if (!boundDataObject) {
+    return null;
+  }
+  return resolveSingleDataWindowTarget(boundDataObject, kb, cache);
+}
+
+function collectCompletionSuggestions(
+  typedPath: string,
+  current: DataWindowModelTarget,
+  kb: KnowledgeBase,
+  cache: Map<string, DataWindowModelTarget | null>,
+): DataWindowCompletionSuggestion[] {
+  const normalizedTypedPath = typedPath.trim();
+  const endsWithDot = normalizedTypedPath.endsWith('.');
+  const separatorIndex = endsWithDot
+    ? normalizedTypedPath.length - 1
+    : normalizedTypedPath.lastIndexOf('.');
+  const parentPath = separatorIndex >= 0
+    ? normalizedTypedPath.slice(0, separatorIndex)
+    : '';
+  const segmentPrefix = separatorIndex >= 0
+    ? normalizedTypedPath.slice(separatorIndex + 1)
+    : normalizedTypedPath;
+  const candidates = resolveCompletionCandidates(parentPath, current, kb, cache);
+  const lowerPrefix = segmentPrefix.toLowerCase();
+
+  return candidates.filter((candidate) => candidate.label.toLowerCase().startsWith(lowerPrefix));
+}
+
+function resolveCompletionCandidates(
+  path: string,
+  current: DataWindowModelTarget,
+  kb: KnowledgeBase,
+  cache: Map<string, DataWindowModelTarget | null>,
+): DataWindowCompletionSuggestion[] {
+  const normalizedPath = path.trim().replace(/\s*\.\s*/g, '.');
+  const lowerPath = normalizedPath.toLowerCase();
+
+  if (!normalizedPath) {
+    return uniqueCompletionSuggestions([
+      ...current.model.reports.map((report) => ({
+        label: report.name,
+        kind: CompletionItemKind.Field,
+        detail: 'Report child DataWindow',
+      })),
+      ...current.model.tableColumns.map((column) => ({
+        label: column.name,
+        kind: CompletionItemKind.Field,
+        detail: column.dddwName ? 'DataWindow column with dropdown child' : 'DataWindow column',
+      })),
+      {
+        label: 'DataWindow',
+        kind: CompletionItemKind.Class,
+        detail: 'Root DataWindow property namespace',
+      },
+    ]);
+  }
+
+  if (lowerPath === 'datawindow') {
+    return [
+      { label: 'DataObject', kind: CompletionItemKind.Property, detail: 'Bound DataObject name' },
+      { label: 'Table', kind: CompletionItemKind.Property, detail: 'DataWindow table metadata' },
+    ];
+  }
+
+  if (lowerPath === 'datawindow.table') {
+    return [
+      { label: 'Select', kind: CompletionItemKind.Property, detail: 'Retrieve SQL statement' },
+    ];
+  }
+
+  if (!normalizedPath.includes('.')) {
+    const report = current.model.reports.find((entry) => entry.name.toLowerCase() === lowerPath);
+    if (report?.dataObject) {
+      return [
+        { label: 'DataWindow', kind: CompletionItemKind.Class, detail: 'Child DataWindow property namespace' },
+      ];
+    }
+
+    const tableColumn = current.model.tableColumns.find((entry) => entry.name.toLowerCase() === lowerPath);
+    if (!tableColumn?.dddwName) {
+      return [];
+    }
+
+    return [
+      { label: 'DataWindow', kind: CompletionItemKind.Class, detail: 'Dropdown child DataWindow property namespace' },
+      { label: 'dddw', kind: CompletionItemKind.Property, detail: 'Dropdown definition metadata' },
+    ];
+  }
+
+  const separatorIndex = normalizedPath.indexOf('.');
+  const head = normalizedPath.slice(0, separatorIndex);
+  const tail = normalizedPath.slice(separatorIndex + 1);
+  const lowerTail = tail.toLowerCase();
+
+  const report = current.model.reports.find((entry) => entry.name.toLowerCase() === head.toLowerCase());
+  if (report?.dataObject) {
+    const child = resolveSingleDataWindowTarget(report.dataObject, kb, cache);
+    if (!child) {
+      return [];
+    }
+    return resolveCompletionCandidates(tail, child, kb, cache);
+  }
+
+  const tableColumn = current.model.tableColumns.find((entry) => entry.name.toLowerCase() === head.toLowerCase());
+  if (!tableColumn?.dddwName) {
+    return [];
+  }
+
+  if (lowerTail === 'dddw') {
+    return [
+      { label: 'name', kind: CompletionItemKind.Property, detail: 'Dropdown DataWindow target name' },
+    ];
+  }
+
+  const child = resolveSingleDataWindowTarget(tableColumn.dddwName, kb, cache);
+  if (!child) {
+    return [];
+  }
+
+  return resolveCompletionCandidates(tail, child, kb, cache);
+}
+
+function uniqueCompletionSuggestions(suggestions: DataWindowCompletionSuggestion[]): DataWindowCompletionSuggestion[] {
+  const seen = new Set<string>();
+  return suggestions.filter((suggestion) => {
+    const key = suggestion.label.toLowerCase();
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 function resolvePropertyPath(

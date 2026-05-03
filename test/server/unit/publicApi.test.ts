@@ -4,7 +4,9 @@ import {
   PUBLIC_API_VERSION,
   getPublicApiContractDescriptor,
   getReadOnlyToolBridgeDescriptor,
+  getTaskExecutionContractCatalog,
   isApiVersionCompatible,
+  simulateTaskExecutionDryRun,
   toApiSymbol,
 } from '../../../src/shared/publicApi';
 
@@ -25,13 +27,46 @@ suite('unit/publicApi (B109)', () => {
       'applySpecDrivenPblUpdate',
       'applySpecDrivenPblUpdateBatch'
     ]);
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('diffSemanticWorkspaceSnapshots'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('getCrossProjectSymbolConflicts'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('getBuildProfileMatrix'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('getPowerBuilderCodeMetrics'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('getPowerBuilderTechnicalDebtReport'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('getDataWindowSqlLineage'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('getPowerBuilderDependencyGraph'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('getWorkspaceMigrationAssistant'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('invokeReadOnlyTool'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('exportSemanticWorkspaceSnapshot'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('cross-project-symbol-conflicts'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('build-profile-matrix'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('code-metrics'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('technical-debt-report'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('datawindow-sql-lineage'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('dependency-graph'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('semantic-workspace-manifest'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('semantic-snapshot-diff'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('workspace-migration-assistant'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getPublicContract'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'getBuildProfileMatrix' && method.command === 'powerbuilder.buildProfileMatrix'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderCodeMetrics' && method.command === 'powerbuilder.codeMetrics'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderTechnicalDebtReport' && method.command === 'powerbuilder.technicalDebtReport'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'getCrossProjectSymbolConflicts' && method.command === 'powerbuilder.crossProjectSymbolConflicts'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'getDataWindowSqlLineage' && method.command === 'powerbuilder.dataWindowSqlLineage'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderDependencyGraph' && method.command === 'powerbuilder.dependencyGraph'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getSemanticWorkspaceManifest' && method.command === 'powerbuilder.semanticWorkspaceManifest'));
-    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPublicContractDescriptor' && schema.version === '2.2.0'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'getWorkspaceMigrationAssistant' && method.command === 'powerbuilder.workspaceMigrationAssistant'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'diffSemanticWorkspaceSnapshots' && method.responseSchema === 'ApiSemanticWorkspaceSnapshotDiff'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPublicContractDescriptor' && schema.version === PUBLIC_API_VERSION));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiTaskExecutionContractCatalog' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiBuildProfileMatrix' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiCrossProjectSymbolConflicts' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiDataWindowSqlLineage' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPowerBuilderCodeMetrics' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPowerBuilderTechnicalDebtReport' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPowerBuilderDependencyGraph' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiSemanticWorkspaceSnapshot' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiSemanticWorkspaceSnapshotDiff' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiWorkspaceMigrationAssistant' && schema.version === '1.0.0'));
   });
 
   test('descriptor contractual devuelve copias defensivas', () => {
@@ -50,8 +85,49 @@ suite('unit/publicApi (B109)', () => {
     assert.equal(bridge.schemaVersion, '1.0.0');
     assert.equal(bridge.apiVersion, PUBLIC_API_VERSION);
     assert.ok(bridge.tools.some((tool) => tool.name === 'contract' && tool.responseSchema === 'ApiPublicContractDescriptor'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'build-profile-matrix' && tool.responseSchema === 'ApiBuildProfileMatrix'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'code-metrics' && tool.responseSchema === 'ApiPowerBuilderCodeMetrics'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'technical-debt-report' && tool.responseSchema === 'ApiPowerBuilderTechnicalDebtReport'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'cross-project-symbol-conflicts' && tool.responseSchema === 'ApiCrossProjectSymbolConflicts'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'current-object-context' && tool.usesActiveEditorFallback));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'datawindow-sql-lineage' && tool.responseSchema === 'ApiDataWindowSqlLineage'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'dependency-graph' && tool.responseSchema === 'ApiPowerBuilderDependencyGraph'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'semantic-snapshot-diff' && tool.responseSchema === 'ApiSemanticWorkspaceSnapshotDiff'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'semantic-workspace-manifest' && tool.command === 'powerbuilder.semanticWorkspaceManifest'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'workspace-migration-assistant' && tool.responseSchema === 'ApiWorkspaceMigrationAssistant'));
+  });
+
+  test('descriptor contractual v2 expone task execution contracts versionados', () => {
+    const descriptor = getPublicApiContractDescriptor();
+    const catalog = getTaskExecutionContractCatalog();
+
+    assert.equal(catalog.schemaVersion, '1.0.0');
+    assert.equal(catalog.apiVersion, PUBLIC_API_VERSION);
+    assert.deepEqual(descriptor.taskExecutionCatalog, catalog);
+    assert.deepEqual(
+      descriptor.taskExecutionCatalog.contracts.map((contract) => contract.id),
+      ['spec-driven-pbl-update', 'spec-driven-pbl-update-batch']
+    );
+
+    const single = descriptor.taskExecutionCatalog.contracts.find((contract) => contract.id === 'spec-driven-pbl-update');
+    assert.equal(single?.method, 'applySpecDrivenPblUpdate');
+    assert.equal(single?.dryRun.method, 'generateSafeEditPlan');
+    assert.ok(single?.validationRequired.includes('safe-edit-plan'));
+    assert.ok(single?.receipts.includes('journalUri'));
+    assert.ok(single?.handoff.some((entry) => entry.includes('docs/spec-driven-development.md')));
+  });
+
+  test('simula dry-run de task execution sin ejecutar writes', () => {
+    const single = simulateTaskExecutionDryRun('spec-driven-pbl-update');
+    assert.equal(single.strategy, 'single-read-only-companion');
+    assert.equal(single.steps[0]?.method, 'generateSafeEditPlan');
+    assert.equal(single.steps[0]?.simulatedCalls, 1);
+
+    const batch = simulateTaskExecutionDryRun('spec-driven-pbl-update-batch', { requestCount: 3 });
+    assert.equal(batch.strategy, 'repeat-read-only-companion-per-item');
+    assert.equal(batch.steps[0]?.method, 'generateSafeEditPlan');
+    assert.equal(batch.steps[0]?.simulatedCalls, 3);
+    assert.match(batch.steps[0]?.description ?? '', /per-item/i);
   });
 
   test('major igual ⇒ compatible', () => {

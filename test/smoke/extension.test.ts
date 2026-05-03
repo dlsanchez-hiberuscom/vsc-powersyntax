@@ -9,7 +9,7 @@ import {
 
 suite('smoke/extension', () => {
   test('la extensión se activa en menos de 500ms', async function () {
-    this.timeout(10000);
+    this.timeout(15000);
     const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(ext, 'La extensión debería estar presente');
     const wasActiveBefore = ext.isActive;
@@ -30,18 +30,41 @@ suite('smoke/extension', () => {
     assert.deepEqual(api!.getPublicContract(), api!.contract);
     assert.equal(api!.getReadOnlyToolBridge().apiVersion, PUBLIC_API_VERSION);
     assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'server-stats'));
+    assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update'));
+    assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update-batch'));
     assert.equal(typeof api!.getServerStats, 'function');
     assert.equal(typeof api!.getPublicContract, 'function');
     assert.equal(typeof api!.getReadOnlyToolBridge, 'function');
     assert.equal(typeof api!.invokeReadOnlyTool, 'function');
     assert.equal(typeof api!.querySymbols, 'function');
+    assert.equal(typeof api!.getCrossProjectSymbolConflicts, 'function');
+    assert.equal(typeof api!.getBuildProfileMatrix, 'function');
+    assert.equal(typeof api!.getPowerBuilderCodeMetrics, 'function');
+    assert.equal(typeof api!.getPowerBuilderTechnicalDebtReport, 'function');
+    assert.equal(typeof api!.getDataWindowSqlLineage, 'function');
+    assert.equal(typeof api!.getPowerBuilderDependencyGraph, 'function');
     assert.equal(typeof api!.getCurrentObjectContext, 'function');
+    assert.equal(typeof api!.getWorkspaceMigrationAssistant, 'function');
 
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('vscPowerSyntax.showSettingsGovernance'));
     assert.ok(commands.includes('vscPowerSyntax.applySettingsProfile'));
+    assert.ok(commands.includes('vscPowerSyntax.openCrossProjectSymbolConflicts'));
+    assert.ok(commands.includes('vscPowerSyntax.openBuildProfileMatrix'));
+    assert.ok(commands.includes('vscPowerSyntax.openCodeMetrics'));
+    assert.ok(commands.includes('vscPowerSyntax.openTechnicalDebtReport'));
+    assert.ok(commands.includes('vscPowerSyntax.openDataWindowSqlLineage'));
+    assert.ok(commands.includes('vscPowerSyntax.openDependencyGraph'));
+    assert.ok(commands.includes('vscPowerSyntax.openWorkspaceMigrationAssistant'));
     assert.ok(commands.includes('vscPowerSyntax.focusDiagnosticsExplainabilityPanel'));
     assert.ok(commands.includes('vscPowerSyntax.refreshDiagnosticsExplainabilityPanel'));
+
+    const contractToolResult = await api!.invokeReadOnlyTool({ tool: 'contract' });
+    assert.equal(contractToolResult.schema, 'ApiPublicContractDescriptor');
+    assert.equal(
+      (contractToolResult.payload as { taskExecutionCatalog?: { contracts?: Array<{ id?: string }> } }).taskExecutionCatalog?.contracts?.some((contract) => contract.id === 'spec-driven-pbl-update'),
+      true
+    );
 
     if (!wasActiveBefore) {
       const stats = await api!.getServerStats();
@@ -74,6 +97,160 @@ suite('smoke/extension', () => {
       assert.equal(manifestToolResult.schema, 'ApiSemanticWorkspaceManifest');
       assert.equal((manifestToolResult.payload as { schemaVersion?: string }).schemaVersion, '1.0.0');
 
+      const dependencyGraph = await api!.getPowerBuilderDependencyGraph({
+        uri: contextDocument.uri.toString(),
+        maxDependencies: 8,
+        maxDependents: 8,
+      });
+      assert.equal(dependencyGraph.available, true);
+      assert.equal(dependencyGraph.scope, 'immediate-neighborhood');
+      assert.ok(dependencyGraph.nodes.some((node) => node.kind === 'focus-object'));
+      assert.match(dependencyGraph.mermaidFlowchart, /flowchart LR/);
+
+      const dependencyGraphToolResult = await api!.invokeReadOnlyTool({
+        tool: 'dependency-graph',
+        args: {
+          uri: contextDocument.uri.toString(),
+          maxDependencies: 8,
+          maxDependents: 8,
+        },
+      });
+      assert.equal(dependencyGraphToolResult.schema, 'ApiPowerBuilderDependencyGraph');
+      assert.equal((dependencyGraphToolResult.payload as { available?: boolean }).available, true);
+
+      const crossProjectConflicts = await api!.getCrossProjectSymbolConflicts({
+        symbolName: 'missing_cross_project_smoke_probe',
+      });
+      assert.equal(crossProjectConflicts.available, false);
+
+      const crossProjectConflictsToolResult = await api!.invokeReadOnlyTool({
+        tool: 'cross-project-symbol-conflicts',
+        args: {
+          symbolName: 'missing_cross_project_smoke_probe',
+        },
+      });
+      assert.equal(crossProjectConflictsToolResult.schema, 'ApiCrossProjectSymbolConflicts');
+      assert.equal((crossProjectConflictsToolResult.payload as { available?: boolean }).available, false);
+
+      const workspaceMigrationAssistant = await api!.getWorkspaceMigrationAssistant({
+        preferredTargetMode: 'solution',
+        maxRecommendations: 4,
+      });
+      assert.equal(typeof workspaceMigrationAssistant.available, 'boolean');
+      assert.ok(typeof workspaceMigrationAssistant.currentMode === 'string');
+      if (!workspaceMigrationAssistant.available) {
+        assert.ok((workspaceMigrationAssistant.reason ?? '').length > 0);
+      }
+
+      const workspaceMigrationAssistantToolResult = await api!.invokeReadOnlyTool({
+        tool: 'workspace-migration-assistant',
+        args: {
+          preferredTargetMode: 'solution',
+          maxRecommendations: 4,
+        },
+      });
+      assert.equal(workspaceMigrationAssistantToolResult.schema, 'ApiWorkspaceMigrationAssistant');
+      assert.equal(typeof (workspaceMigrationAssistantToolResult.payload as { available?: unknown }).available, 'boolean');
+
+      const buildProfileMatrix = await api!.getBuildProfileMatrix({
+        maxProfiles: 8,
+      });
+      assert.equal(buildProfileMatrix.available, true);
+      assert.equal(buildProfileMatrix.schemaVersion, '1.0.0');
+      assert.ok(typeof buildProfileMatrix.summary.totalProfiles === 'number');
+
+      const buildProfileMatrixToolResult = await api!.invokeReadOnlyTool({
+        tool: 'build-profile-matrix',
+        args: {
+          maxProfiles: 8,
+        },
+      });
+      assert.equal(buildProfileMatrixToolResult.schema, 'ApiBuildProfileMatrix');
+      assert.equal((buildProfileMatrixToolResult.payload as { available?: boolean }).available, true);
+
+      const codeMetrics = await api!.getPowerBuilderCodeMetrics({
+        maxObjects: 16,
+      });
+      assert.equal(codeMetrics.schemaVersion, '1.0.0');
+      assert.ok(typeof codeMetrics.summary.totalObjects === 'number');
+
+      const codeMetricsToolResult = await api!.invokeReadOnlyTool({
+        tool: 'code-metrics',
+        args: {
+          maxObjects: 16,
+        },
+      });
+      assert.equal(codeMetricsToolResult.schema, 'ApiPowerBuilderCodeMetrics');
+      assert.equal((codeMetricsToolResult.payload as { schemaVersion?: string }).schemaVersion, '1.0.0');
+
+      const technicalDebtReport = await api!.getPowerBuilderTechnicalDebtReport({
+        maxObjects: 16,
+        maxHotspots: 8,
+        maxRecommendations: 8,
+      });
+      assert.equal(technicalDebtReport.schemaVersion, '1.0.0');
+      assert.ok(typeof technicalDebtReport.summary.totalRecommendations === 'number');
+
+      const technicalDebtToolResult = await api!.invokeReadOnlyTool({
+        tool: 'technical-debt-report',
+        args: {
+          maxObjects: 16,
+          maxHotspots: 8,
+          maxRecommendations: 8,
+        },
+      });
+      assert.equal(technicalDebtToolResult.schema, 'ApiPowerBuilderTechnicalDebtReport');
+      assert.equal((technicalDebtToolResult.payload as { schemaVersion?: string }).schemaVersion, '1.0.0');
+
+      const dataWindowSqlLineage = await api!.getDataWindowSqlLineage({
+        dataObjectName: 'd_missing_smoke_probe',
+      });
+      assert.equal(dataWindowSqlLineage.available, false);
+
+      const dataWindowSqlLineageToolResult = await api!.invokeReadOnlyTool({
+        tool: 'datawindow-sql-lineage',
+        args: {
+          dataObjectName: 'd_missing_smoke_probe',
+        },
+      });
+      assert.equal(dataWindowSqlLineageToolResult.schema, 'ApiDataWindowSqlLineage');
+      assert.equal((dataWindowSqlLineageToolResult.payload as { available?: boolean }).available, false);
+
+      await vscode.window.showTextDocument(contextDocument, { preview: false });
+      await vscode.commands.executeCommand('vscPowerSyntax.openDependencyGraph');
+      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Dependency Graph/);
+
+      await vscode.window.showTextDocument(contextDocument, { preview: false });
+      await vscode.commands.executeCommand('vscPowerSyntax.openCrossProjectSymbolConflicts');
+      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Cross-Project Symbol Conflicts/);
+
+      await vscode.window.showTextDocument(contextDocument, { preview: false });
+      await vscode.commands.executeCommand('vscPowerSyntax.openWorkspaceMigrationAssistant');
+      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Workspace Migration Assistant/);
+
+      await vscode.window.showTextDocument(contextDocument, { preview: false });
+      await vscode.commands.executeCommand('vscPowerSyntax.openBuildProfileMatrix');
+      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Build Profile Matrix/);
+
+      await vscode.window.showTextDocument(contextDocument, { preview: false });
+      await vscode.commands.executeCommand('vscPowerSyntax.openCodeMetrics');
+      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Code Metrics/);
+
+      await vscode.window.showTextDocument(contextDocument, { preview: false });
+      await vscode.commands.executeCommand('vscPowerSyntax.openTechnicalDebtReport');
+      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Technical Debt Report/);
+
+      await vscode.window.showTextDocument(contextDocument, { preview: false });
+      await vscode.commands.executeCommand('vscPowerSyntax.openDataWindowSqlLineage');
+      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /DataWindow SQL Lineage/);
+
       const exportedSnapshot = await api!.exportSemanticWorkspaceSnapshot({
         maxObjects: 16,
         maxSymbols: 16,
@@ -86,6 +263,50 @@ suite('smoke/extension', () => {
       });
       assert.equal(importedSnapshot.valid, true);
       assert.equal(importedSnapshot.summary?.projectCount, exportedSnapshot.snapshot.summary.projectCount);
+
+      const nextSnapshot = JSON.parse(JSON.stringify(exportedSnapshot.snapshot));
+      nextSnapshot.generatedAt = '2026-05-03T00:10:00.000Z';
+      nextSnapshot.workspaceManifest.objects.push({
+        name: 'n_diff_probe',
+        uri: 'file:///diff/n_diff_probe.sru',
+        objectKind: 'userobject',
+        sourceOrigin: 'workspace-file',
+      });
+      nextSnapshot.workspaceManifest.exportedSymbols.push({
+        name: 'of_probe',
+        kind: 'Function',
+        uri: 'file:///diff/n_diff_probe.sru',
+        line: 1,
+        character: 0,
+      });
+      nextSnapshot.workspaceManifest.readiness.state = 'indexing';
+      nextSnapshot.workspaceManifest.sourceOriginSummary['workspace-file'] = 1;
+      nextSnapshot.summary.objectCount += 1;
+      nextSnapshot.summary.exportedSymbolCount += 1;
+      nextSnapshot.summary.readinessState = 'indexing';
+
+      const snapshotDiff = await api!.diffSemanticWorkspaceSnapshots({
+        previous: exportedSnapshot.snapshot,
+        next: nextSnapshot,
+        maxObjectChanges: 8,
+        maxSymbolChanges: 8,
+      });
+      assert.equal(snapshotDiff.changed, true);
+      assert.equal(snapshotDiff.summary.objects.added, 1);
+      assert.equal(snapshotDiff.summary.exportedSymbols.added, 1);
+      assert.equal(snapshotDiff.readiness.changed, true);
+
+      const diffToolResult = await api!.invokeReadOnlyTool({
+        tool: 'semantic-snapshot-diff',
+        args: {
+          previous: exportedSnapshot.snapshot,
+          next: nextSnapshot,
+          maxObjectChanges: 8,
+          maxSymbolChanges: 8,
+        },
+      });
+      assert.equal(diffToolResult.schema, 'ApiSemanticWorkspaceSnapshotDiff');
+      assert.equal((diffToolResult.payload as { summary?: { objects?: { added?: number } } }).summary?.objects?.added, 1);
     }
 
     // El presupuesto de cold start es 500ms, pero las pruebas de CI/test host
@@ -174,6 +395,8 @@ suite('smoke/extension', () => {
     const stats = await api!.getServerStats();
     assert.equal(stats.orcaTooling?.status, 'available');
     assert.equal(stats.orcaTooling?.source, 'config');
+    assert.equal(stats.orcaTooling?.packagingPolicy?.exposure, 'not-exposed');
+    assert.equal(stats.orcaTooling?.packagingPolicy?.requiresFeatureFlag, true);
     assert.equal(stats.orcaRunner?.state, 'succeeded');
 
     await vscode.workspace.getConfiguration('vscPowerSyntax').update('legacy.orcaPath', '', vscode.ConfigurationTarget.Workspace);

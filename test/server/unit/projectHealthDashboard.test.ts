@@ -71,6 +71,12 @@ suite('unit/projectHealthDashboard (B216)', () => {
       executablePath: 'C:/orca.exe',
       capabilities: ['legacy-script-runner'],
       detail: 'ORCA disponible vía configuración.',
+      packagingPolicy: {
+        exposure: 'not-exposed',
+        requiresFeatureFlag: true,
+        supportedArtifacts: ['exe', 'pbd', 'dll'],
+        detail: 'Packaging ORCA de EXE/PBD/DLL no está expuesto; requiere un feature flag dedicado y queda fuera del carril PBAutoBuild.',
+      },
     },
     orcaRunner: {
       state: 'idle',
@@ -136,6 +142,7 @@ suite('unit/projectHealthDashboard (B216)', () => {
     assert.match(dashboard, /## Build/);
     assert.match(dashboard, /Build files: 2 total · 1 utilizables · 1 inválidos · 0 ambiguos/);
     assert.match(dashboard, /ORCA capability: available · ORCA disponible vía configuración\./);
+    assert.match(dashboard, /ORCA packaging: off · Packaging ORCA de EXE\/PBD\/DLL no está expuesto/);
     assert.match(dashboard, /## Findings runtime/);
     assert.match(dashboard, /WARNING \[project-model\] 1 huérfanos/);
     assert.match(dashboard, /## Reporte de salud del runtime/);

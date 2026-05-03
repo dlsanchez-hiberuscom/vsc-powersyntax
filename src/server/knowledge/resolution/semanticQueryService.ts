@@ -672,7 +672,7 @@ export function resolveTargetEntityDetailed(
     invocationRisk: result.invocationRisk,
     evidenceKinds: evidence.map((entry) => entry.kind),
     targetCount: result.targets.length,
-    hasAmbiguity: result.distanceAmbiguity !== null
+    hasAmbiguity: result.targets.length > 1
   });
 
   return {

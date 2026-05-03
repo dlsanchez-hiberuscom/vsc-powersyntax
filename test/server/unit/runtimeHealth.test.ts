@@ -29,7 +29,53 @@ suite('unit/runtimeHealth (B176)', () => {
           }
         ]
       },
-      persistence: { workspaceKey: 'wk', restoreState: 'rebuilt', restoreReason: 'invalid-checkpoint-payload' },
+      persistence: {
+        workspaceKey: 'wk',
+        restoreState: 'rebuilt',
+        restoreReason: 'invalid-checkpoint-payload',
+        policy: {
+          version: 2,
+          staleWorkspaceTtlMs: 1000,
+          maxJournalEntries: 24,
+          maxJournalBytes: 1024,
+          maxWorkspaceBytes: 2048
+        },
+        maintenance: {
+          policy: {
+            version: 2,
+            staleWorkspaceTtlMs: 1000,
+            maxJournalEntries: 24,
+            maxJournalBytes: 1024,
+            maxWorkspaceBytes: 2048
+          },
+          currentWorkspace: {
+            workspaceKey: 'wk',
+            totalBytes: 4096,
+            checkpointBytes: 1024,
+            journalBytes: 2048,
+            servingSnapshotBytes: 256,
+            partitionBytes: 768,
+            partitionCount: 1,
+            journalEntries: 30,
+            lastModifiedAt: Date.now()
+          },
+          staleWorkspaces: [
+            {
+              workspaceKey: 'old',
+              totalBytes: 256,
+              checkpointBytes: 128,
+              journalBytes: 64,
+              servingSnapshotBytes: 0,
+              partitionBytes: 64,
+              partitionCount: 0,
+              journalEntries: 1,
+              lastModifiedAt: Date.now() - 5000
+            }
+          ],
+          maintenanceRecommended: true,
+          needsCompaction: true
+        }
+      },
       lastQueryTrace: { label: 'definition', confidence: 'low', hasAmbiguity: true }
     });
 
@@ -40,6 +86,9 @@ suite('unit/runtimeHealth (B176)', () => {
     assert.ok(report.findings.some((finding) => finding.code === 'analysis-cache-capacity-near-limit'));
     assert.ok(report.findings.some((finding) => finding.code === 'memory-knowledge-near-limit'));
     assert.ok(report.findings.some((finding) => finding.code === 'serving-cache-low-hit-ratio'));
+    assert.ok(report.findings.some((finding) => finding.code === 'persistence-stale-workspaces'));
+    assert.ok(report.findings.some((finding) => finding.code === 'persistence-compaction-recommended'));
+    assert.ok(report.findings.some((finding) => finding.code === 'persistence-disk-budget-exceeded'));
     assert.ok(report.findings.some((finding) => finding.code === 'query-ambiguity'));
   });
 
