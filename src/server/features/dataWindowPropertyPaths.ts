@@ -21,7 +21,7 @@ interface DataWindowPropertyInvocation {
 }
 
 interface ResolvedDataWindowProperty {
-  kind: 'dataobject' | 'table-select' | 'dddw-name';
+  kind: 'dataobject' | 'syntax' | 'table-select' | 'dddw-name';
   path: string;
   breadcrumbs: string[];
   targetDataObject?: string;
@@ -129,6 +129,10 @@ function getCanonicalDataWindowPropertyPath(
 ): string | null {
   if (resolved.kind === 'dataobject') {
     return 'DataWindow.DataObject';
+  }
+
+  if (resolved.kind === 'syntax') {
+    return 'DataWindow.Syntax';
   }
 
   if (resolved.kind === 'table-select') {
@@ -422,6 +426,17 @@ function resolvePropertyPath(
 ): ResolvedDataWindowProperty | null {
   const normalizedPath = path.trim();
   const lowerPath = normalizedPath.toLowerCase();
+
+  if (lowerPath === 'datawindow.syntax' && lookupDataWindowPropertyEntry('DataWindow.Syntax')) {
+    return {
+      kind: 'syntax',
+      path: fullPath,
+      breadcrumbs,
+      targetDataObject: current.dataObjectName,
+      targetUri: current.uri,
+      targetRange: current.model.rootSelectionRange,
+    };
+  }
 
   if (lowerPath === 'datawindow.dataobject' && lookupDataWindowPropertyEntry('DataWindow.DataObject')) {
     return {

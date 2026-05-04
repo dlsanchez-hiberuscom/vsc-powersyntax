@@ -566,6 +566,51 @@ suite('unit/definition', () => {
     }
   });
 
+  test('provideDefinition navega Describe(DataWindow.Syntax) al root del DataWindow enlazado', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_customer_syntax.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_customer_syntax.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(retrieve="SELECT id FROM customer")',
+      ].join('\r\n')
+    );
+
+    const analysis = analyzeFreshDocument(dataWindowDocument);
+    localKb.upsertDocument(dataWindowDocument.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+
+    const document = TextDocument.create(
+      'file:///w_probe_syntax_definition.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_probe_syntax_definition from window',
+        '  datawindow dw_customer',
+        'end type',
+        '',
+        'event open();',
+        '  dw_customer.DataObject = "d_customer_syntax"',
+        '  dw_customer.Describe("DataWindow.Syntax")',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const lineIndex = document.getText().split(/\r?\n/).findIndex((line) => line.includes('DataWindow.Syntax'));
+    const loc = provideDefinition(document, Position.create(lineIndex, 25), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, 'file:///d_customer_syntax.srd');
+      assert.equal(loc.range.start.line, 0);
+    }
+  });
+
   test('provideDefinition navega GetChild(state_id, dwc_state) al DataWindow hijo verificado', () => {
     const localKb = new KnowledgeBase();
     const localGraph = new InheritanceGraph(localKb);

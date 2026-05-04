@@ -35,6 +35,12 @@ export const PB_MANUAL_CORE_DATAWINDOW_PROPERTIES = defineDataWindowPropertyEntr
         signature: 'DataWindow',
     },
     {
+        name: 'DataWindow.Syntax',
+        category: 'Metadatos',
+        summary: 'Sintaxis serializada completa del DataWindow enlazado.',
+        signature: 'DataWindow.Syntax',
+    },
+    {
         name: 'DataWindow.DataObject',
         category: 'Metadatos',
         summary: 'Nombre del DataObject actualmente enlazado al control o DataStore.',
