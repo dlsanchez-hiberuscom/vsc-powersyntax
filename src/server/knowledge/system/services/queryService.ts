@@ -405,6 +405,10 @@ export function listSystemDataWindowFunctions(): readonly PbSystemSymbolEntry[] 
     return getEntriesForDomain('datawindow-functions');
 }
 
+export function listSystemDataWindowExpressionFunctions(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('datawindow-expression-functions');
+}
+
 export function listSystemObjectEvents(): readonly PbSystemSymbolEntry[] {
     return getEntriesForDomain('system-events');
 }
@@ -444,6 +448,10 @@ export function resolveSystemObjectFunctionForOwner(
 
 export function resolveSystemDataWindowFunction(name: string): PbSystemSymbolEntry | undefined {
     return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('datawindow-functions', name));
+}
+
+export function resolveSystemDataWindowExpressionFunction(name: string): PbSystemSymbolEntry | undefined {
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('datawindow-expression-functions', name));
 }
 
 export function resolveSystemDataWindowFunctionForOwner(

@@ -2,36 +2,36 @@
 
 ## 1. Foco activo
 
-`B320 — DataWindow expression/property official catalog`
+`B327 — DataWindow constants and property path catalog`
 
-Estado actual: `B381` queda cerrada. El repositorio ya dispone de una surface read-only compacta para preparar tareas IA reales sin concatenar llamadas manualmente: `ai-task-context-bundle` existe como tool/API/comando contractual, reutiliza las surfaces ya cerradas y degrada de forma honesta bajo budget bajo o foco incompleto.
+Estado actual: `B320` queda cerrada. El runtime ya publica `datawindow-properties` y `datawindow-expression-functions` como dominios de catálogo diferenciados, ambos limitados a contexto DataWindow defendible y sin mezclar expresiones/paths con PowerScript general.
 
-La evidencia vigente que deja `B381` es:
+La evidencia vigente que deja `B320` es:
 
-- `src/shared/publicApi.ts` publica `ApiAiTaskContextBundleRequest`, `ApiAiTaskContextBundle`, el tool `ai-task-context-bundle`, el método `getAiTaskContextBundle()` y la versión `2.18.0` del contrato público;
-- `src/client/aiTaskContextBundle.ts` concentra el builder puro del bundle con prioridades por `intent`, estimación conservadora de tokens, `omissions` explícitas y degradación a bundle mínimo cuando el budget es extremo;
-- `src/client/extension.ts` y `src/client/commandRegistration.ts` cablean el método público, el tool bridge y el comando `powerbuilder.exportAiTaskContextBundle`, componiendo `workspace-check`, `object-check`, `currentObjectContext`, `safeEditPlan`, `dependencyGraph`, `explain-diagnostic` y `explain-system-symbol` sin abrir un motor semántico paralelo;
-- `test/server/unit/aiTaskContextBundle.test.ts`, `test/server/unit/publicApi.test.ts` y la smoke focal de `test/smoke/extension.test.ts` fijan intents `bug-fix/refactor/catalog-work`, foco ausente, truncado real y wiring del método/tool/comando.
+- `src/server/knowledge/system/manual/datawindow/dataWindowProperties.ts` y `dataWindowExpressionFunctions.ts` publican el subconjunto oficial/curado de property paths (`DataWindow.*`, `dddw`, `dddw.name`) y la lista oficial de funciones de expresión tomada de la referencia Appeon 2025, con namespaces `datawindow` y `datawindow-expression` separados;
+- `src/server/knowledge/system/manual/index.ts`, `src/server/knowledge/system/services/queryService.ts` y `src/server/knowledge/system/SystemCatalog.ts` indexan ambos dominios dentro de `manual-core` sin scans globales ni un registry paralelo;
+- `src/server/features/dataWindowPropertyPaths.ts` reconsume `datawindow-properties` para completion/hover/definition/diagnostics de `Describe/Modify/Object` y `src/server/features/completion.ts` consume `datawindow-expression-functions` sólo dentro de expresiones `.srd`;
+- `test/server/unit/systemCatalog.test.ts`, `completion.test.ts`, `hover.test.ts`, `definition.test.ts` y `diagnostics.test.ts` fijan el lookup `CurrentRow`/`Sum`, el subconjunto `DataWindow.Table.Select`/`dddw.name` y la ausencia de serving fuera de contexto defendible.
 
-Con el rail IA compacto ya estabilizado (`workspace-check`, `object-check`, `explain-diagnostic`, `explain-system-symbol`, `ai-task-context-bundle`), el siguiente cuello de botella vuelve a ser de conocimiento DataWindow oficial y no de orquestación.
+Con `B320` ya cerrado, el siguiente cuello de botella vuelve a ser ampliar el catálogo reutilizable de constantes y property paths DataWindow sin duplicar listas locales en consumers.
 
 ---
 
 ## 2. Por qué es prioritario
 
-`B320` vuelve a ser el siguiente paso natural porque:
+`B327` pasa a ser el siguiente paso natural porque:
 
-- el carril read-only para IA ya puede pedir contexto compacto sin reabrir surfaces cerradas;
-- el mayor hueco semántico visible ahora está en catálogo oficial de expresiones/propiedades DataWindow, no en empaquetado contextual;
-- `B320` desbloquea mejoras posteriores en hover, completado, diagnostics y explainability sobre un sublenguaje que sigue teniendo cobertura desigual.
+- `B320` ya dejó el catálogo base de expresiones y propiedades oficiales servido por el runtime;
+- el hueco que queda ahora es extender ese backbone con constantes y property paths adicionales reutilizables por `Describe/Modify/Object` sin volver a hardcodes;
+- `B327` puede apoyarse ya en índices y consumers reales cerrados en `B320`, sin reabrir decisiones de arquitectura ni de source-of-truth.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- profundizar en el catálogo oficial de expresiones y propiedades DataWindow sin mezclarlo con PowerScript general;
-- reforzar parsing/serving/pruebas DataWindow sobre conocimiento oficial y fixtures reales ya existentes;
-- reutilizar el rail IA recién cerrado sólo como consumidor del conocimiento nuevo, no como excusa para reabrir B381.
+- ampliar constantes y property paths DataWindow reutilizables sobre el catálogo ya oficializado en `B320`;
+- reforzar consumers DataWindow existentes con ese mismo source-of-truth sin abrir listas locales paralelas;
+- seguir usando el backbone actual (`DataWindowModel` + `SystemCatalog`) en vez de introducir un segundo rail semántico DataWindow.
 
 ---
 
@@ -39,29 +39,29 @@ Con el rail IA compacto ya estabilizado (`workspace-check`, `object-check`, `exp
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B381` salvo drift real del contrato `ai-task-context-bundle`, sus tests o su wiring;
-- volver a mover orquestación IA dentro del core semántico o del hot path interactivo;
-- duplicar catálogo DataWindow en prompts, clientes o bridges paralelos en vez de servirlo desde el runtime existente;
-- introducir writes o heurísticas opacas dentro del carril read-only recién estabilizado.
+- reabrir `B320` salvo drift real en los dominios `datawindow-properties` o `datawindow-expression-functions` ya cerrados;
+- duplicar constants/property paths DataWindow en providers o tests en vez de consumir el catálogo ya publicado;
+- mezclar expresiones o paths DataWindow con lookup global PowerScript fuera de contexto defendible;
+- abrir un parser DataWindow alternativo o un segundo rail de serving para constants/property paths.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- el catálogo DataWindow oficial cubre expresiones/propiedades priorizadas con contratos y fixtures defendibles;
-- la semántica nueva alimenta surfaces existentes sin abrir un segundo rail DataWindow ad hoc;
+- el catálogo DataWindow oficial cubre constantes y property paths priorizados con contratos y fixtures defendibles;
+- la semántica nueva sigue alimentando surfaces existentes sin abrir un segundo rail DataWindow ad hoc;
 - `architecture`, `testing`, `developer-workflows`, `backlog`, `done-log`, `current-focus` y el context pack IA quedan alineados con el nuevo estado real.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B320` — DataWindow expression/property official catalog.
-2. `B327` — DataWindow constants and property path catalog.
-3. `B342` — Extract proven symbol heuristics from plugin_old.
+1. `B327` — DataWindow constants and property path catalog.
+2. `B342` — Extract proven symbol heuristics from plugin_old.
+3. `B329` — Catalog-driven semantic tokens integration.
 
 ---
 
 ## 7. Regla final
 
-`B320` debe ampliar conocimiento oficial DataWindow sin volver a abrir el problema de empaquetado IA ya resuelto por `B381`.
+`B327` debe extender el backbone catalog-driven DataWindow recién cerrado por `B320` sin volver a listas hardcodeadas ni a un segundo rail semántico.

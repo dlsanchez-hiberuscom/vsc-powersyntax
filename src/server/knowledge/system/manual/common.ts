@@ -93,6 +93,26 @@ export function dataWindowEvent(args: ManualSymbolArgs): PbSystemSymbolEntry {
     }, DATAWINDOW_REFERENCE, DATAWINDOW_REFERENCE_URL);
 }
 
+export function dataWindowProperty(args: ManualSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        kind: 'property',
+        namespace: 'datawindow',
+        invocation: 'member',
+        domain: 'datawindow-properties',
+    }, DATAWINDOW_REFERENCE, DATAWINDOW_REFERENCE_URL);
+}
+
+export function dataWindowExpressionFunction(args: ManualSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        kind: 'callable',
+        namespace: 'datawindow-expression',
+        invocation: 'global',
+        domain: 'datawindow-expression-functions',
+    }, DATAWINDOW_REFERENCE, DATAWINDOW_REFERENCE_URL);
+}
+
 export function statement(args: Omit<ManualSymbolArgs, 'ownerTypes'>): PbSystemSymbolEntry {
     return defineManualEntry({
         ...args,

@@ -1,9 +1,13 @@
 import { PbSystemSymbolDatasetSlice, PbSystemSymbolEntry } from '../types';
 import {
+    PB_MANUAL_CORE_DATAWINDOW_EXPRESSION_FUNCTIONS,
+    PB_MANUAL_CORE_DATAWINDOW_EXPRESSION_FUNCTION_CATEGORIES,
     PB_MANUAL_CORE_DATAWINDOW_EVENTS,
     PB_MANUAL_CORE_DATAWINDOW_EVENT_CATEGORIES,
     PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS,
     PB_MANUAL_CORE_DATAWINDOW_FUNCTION_CATEGORIES,
+    PB_MANUAL_CORE_DATAWINDOW_PROPERTIES,
+    PB_MANUAL_CORE_DATAWINDOW_PROPERTY_CATEGORIES,
 } from './datawindow';
 import {
     PB_MANUAL_CORE_DATATYPES,
@@ -106,6 +110,20 @@ export const PB_MANUAL_CORE_DATASET_SLICES: readonly PbSystemSymbolDatasetSlice[
         entries: PB_MANUAL_CORE_DATAWINDOW_EVENTS,
         allowedCategories: PB_MANUAL_CORE_DATAWINDOW_EVENT_CATEGORIES,
         allowedOwnerTypes: PB_MANUAL_CORE_OWNER_TYPE_GROUPS.dataWindowEvent,
+        requireSourceUrl: true,
+    },
+    {
+        dataset: 'manual-core',
+        domain: 'datawindow-expression-functions',
+        entries: PB_MANUAL_CORE_DATAWINDOW_EXPRESSION_FUNCTIONS,
+        allowedCategories: PB_MANUAL_CORE_DATAWINDOW_EXPRESSION_FUNCTION_CATEGORIES,
+        requireSourceUrl: true,
+    },
+    {
+        dataset: 'manual-core',
+        domain: 'datawindow-properties',
+        entries: PB_MANUAL_CORE_DATAWINDOW_PROPERTIES,
+        allowedCategories: PB_MANUAL_CORE_DATAWINDOW_PROPERTY_CATEGORIES,
         requireSourceUrl: true,
     },
     {

@@ -97,6 +97,7 @@ El plugin debe poder:
 - seguir child DataWindows por `report(name=... dataobject=...)` y dropdowns `dddw.name` sin mezclar `.srd` con PowerScript normal;
 - proyectar un lineage SQL read-only que encadene `retrieve` raíz, report children y dropdown children resolubles desde bindings reales o desde el `.srd` activo;
 - ofrecer completion segura y diagnósticos conservadores sobre property paths DataWindow reconocibles, sin abrir completion genérica dentro de strings arbitrarios;
+- completar además funciones oficiales de expresión DataWindow dentro de `.srd` (`CurrentRow`, `If`, `Sum`, etc.) desde el dominio `datawindow-expression-functions`, sin mezclar ese vocabulario con PowerScript general fuera de expresiones defendibles;
 - detectar `Retrieve`/`Update`;
 - degradar si el DataObject es dinámico.
 

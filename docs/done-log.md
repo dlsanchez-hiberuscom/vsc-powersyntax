@@ -25,6 +25,30 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.139 B320. DataWindow expression/property official catalog — **Cerrada (knowledge/datawindow 2026-05)**
+
+**Objetivo:** integrar funciones oficiales de expresiones DataWindow y property paths oficiales/curados en el catálogo v2, manteniéndolos separados de PowerScript general y sirviéndolos sólo cuando el contexto DataWindow es defendible.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/datawindow/dataWindowProperties.ts` publica el subconjunto inicial de `datawindow-properties` ya fijado por comportamiento observable (`DataWindow`, `DataWindow.DataObject`, `DataWindow.Table`, `DataWindow.Table.Select`, `dddw`, `dddw.name`) y `src/server/features/dataWindowPropertyPaths.ts` reconsume ese dominio para completion/hover/definition/diagnostics sobre `Describe/Modify/Object`;
+- `src/server/knowledge/system/manual/datawindow/dataWindowExpressionFunctions.ts` publica la lista oficial de `datawindow-expression-functions` a partir de la referencia Appeon 2025, con namespace `datawindow-expression`, source URLs oficiales y separación explícita respecto a PowerScript general;
+- `src/server/knowledge/system/manual/index.ts`, `src/server/knowledge/system/services/queryService.ts` y `src/server/knowledge/system/SystemCatalog.ts` indexan y exponen ambos dominios dentro de `manual-core` sin scans globales ni registries paralelos;
+- `src/server/features/completion.ts` consume `datawindow-expression-functions` sólo en expresiones `.srd`, mientras `specs/387-datawindow-expression-property-catalog/` deja la traza SDD mínima de `B320` ya cerrada.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "systemCatalog"`
+- `npm run build:test ; npx vscode-test --label unit --grep "debe ofrecer completion segura dentro de Modify para una ruta DataWindow resoluble" ; npx vscode-test --label unit --grep "provideHover resuelve Describe\(DataWindow.Table.Select\) usando el DataObject enlazado" ; npx vscode-test --label unit --grep "provideDefinition navega Modify\(state_id.dddw.name\) al DataWindow hijo verificado" ; npx vscode-test --label unit --grep "validateSemantics avisa cuando una ruta DataWindow completa no es resoluble sobre un root ya enlazado"`
+- `npm run build:test ; npx vscode-test --label unit --grep "datawindow-expression-functions publica el catálogo oficial y separa CurrentRow de PowerScript general" ; npx vscode-test --label unit --grep "debe ofrecer completion segura dentro de expresiones DataWindow en .srd"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.138 B381. AI task context bundle orchestration tool — **Cerrada (AI supportability/context orchestration 2026-05)**
 
 **Objetivo:** añadir una surface read-only compacta que orqueste contexto IA local sobre las surfaces ya cerradas (`workspace-check`, `object-check`, `currentObjectContext`, `safeEditPlan`, `dependencyGraph`, `explain-diagnostic`, `explain-system-symbol`) con budget explícito y `omissions` honestas.

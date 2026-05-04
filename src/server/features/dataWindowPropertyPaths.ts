@@ -2,6 +2,9 @@ import { CompletionItem, CompletionItemKind, Hover, Location, MarkupKind, Positi
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { normalizeSystemSymbolName } from '../knowledge/system/normalization';
+import { PB_SYSTEM_SYMBOL_REGISTRY } from '../knowledge/system/registry/registry';
+import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { findNearestDataObjectLiteralBinding, resolveDataWindowDefinitionTargets } from './dataWindowBindingModel';
 import {
   buildDataWindowModelFromSnapshot,
@@ -47,6 +50,96 @@ interface DataWindowCompletionSuggestion {
   label: string;
   kind: CompletionItemKind;
   detail: string;
+}
+
+const DATAWINDOW_PROPERTIES_DOMAIN = 'datawindow-properties';
+const DATAWINDOW_PROPERTY_ENTRIES = PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomain.get(DATAWINDOW_PROPERTIES_DOMAIN) ?? [];
+
+function buildCompositeKey(left: string, right: string): string {
+  return `${left}\u0000${right}`;
+}
+
+function lookupDataWindowPropertyEntry(path: string): PbSystemSymbolEntry | undefined {
+  const normalizedPath = normalizeSystemSymbolName(path);
+  if (!normalizedPath) {
+    return undefined;
+  }
+
+  return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomainAndLookupKey.get(
+    buildCompositeKey(DATAWINDOW_PROPERTIES_DOMAIN, normalizedPath),
+  )?.[0];
+}
+
+function toDataWindowCompletionSuggestion(
+  entry: PbSystemSymbolEntry,
+  label: string,
+  kind: CompletionItemKind,
+): DataWindowCompletionSuggestion {
+  return {
+    label,
+    kind,
+    detail: entry.summary,
+  };
+}
+
+function collectCatalogChildSuggestions(
+  parentPath: string,
+  kind: CompletionItemKind,
+): DataWindowCompletionSuggestion[] {
+  const normalizedParentPath = normalizeSystemSymbolName(parentPath);
+  if (!normalizedParentPath) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const suggestions: DataWindowCompletionSuggestion[] = [];
+
+  for (const entry of DATAWINDOW_PROPERTY_ENTRIES) {
+    if (entry.normalizedName === normalizedParentPath) {
+      continue;
+    }
+
+    if (!entry.normalizedName.startsWith(`${normalizedParentPath}.`)) {
+      continue;
+    }
+
+    const suffix = entry.name.slice(parentPath.length + 1);
+    const separatorIndex = suffix.indexOf('.');
+    const childSegment = separatorIndex >= 0 ? suffix.slice(0, separatorIndex) : suffix;
+    const childKey = childSegment.toLowerCase();
+
+    if (!childSegment || seen.has(childKey)) {
+      continue;
+    }
+
+    const childEntry = lookupDataWindowPropertyEntry(`${parentPath}.${childSegment}`);
+    if (!childEntry) {
+      continue;
+    }
+
+    seen.add(childKey);
+    suggestions.push(toDataWindowCompletionSuggestion(childEntry, childSegment, kind));
+  }
+
+  return suggestions;
+}
+
+function getCanonicalDataWindowPropertyPath(
+  resolved: ResolvedDataWindowProperty,
+): string | null {
+  if (resolved.kind === 'dataobject') {
+    return 'DataWindow.DataObject';
+  }
+
+  if (resolved.kind === 'table-select') {
+    return 'DataWindow.Table.Select';
+  }
+
+  if (resolved.kind === 'dddw-name') {
+    return 'dddw.name';
+  }
+
+  return null;
 }
 
 export function providePowerScriptDataWindowPropertyCompletion(
@@ -135,13 +228,15 @@ export function providePowerScriptDataWindowPropertyHover(
     return null;
   }
 
+  const canonicalPath = getCanonicalDataWindowPropertyPath(resolved);
+  const catalogEntry = canonicalPath ? lookupDataWindowPropertyEntry(canonicalPath) : undefined;
+
   const lines: Array<string | undefined> = [
     `**${resolved.path}**`,
-    resolved.kind === 'table-select'
-      ? 'Propiedad avanzada DataWindow'
-      : resolved.kind === 'dddw-name'
+    catalogEntry?.summary
+      ?? (resolved.kind === 'dddw-name'
         ? 'Relacion child DataWindow verificada'
-        : 'Propiedad avanzada DataWindow',
+        : 'Propiedad avanzada DataWindow'),
     resolved.breadcrumbs.length > 0 ? `Ruta: \`${resolved.breadcrumbs.join(' > ')}\`` : undefined,
     resolved.targetDataObject ? `DataObject destino: \`${resolved.targetDataObject}\`` : undefined,
     resolved.statement ? '```sql' : undefined,
@@ -220,6 +315,7 @@ function resolveCompletionCandidates(
   const lowerPath = normalizedPath.toLowerCase();
 
   if (!normalizedPath) {
+    const rootDataWindowProperty = lookupDataWindowPropertyEntry('DataWindow');
     return uniqueCompletionSuggestions([
       ...current.model.reports.map((report) => ({
         label: report.name,
@@ -231,25 +327,18 @@ function resolveCompletionCandidates(
         kind: CompletionItemKind.Field,
         detail: column.dddwName ? 'DataWindow column with dropdown child' : 'DataWindow column',
       })),
-      {
-        label: 'DataWindow',
-        kind: CompletionItemKind.Class,
-        detail: 'Root DataWindow property namespace',
-      },
+      ...(rootDataWindowProperty
+        ? [toDataWindowCompletionSuggestion(rootDataWindowProperty, 'DataWindow', CompletionItemKind.Class)]
+        : []),
     ]);
   }
 
   if (lowerPath === 'datawindow') {
-    return [
-      { label: 'DataObject', kind: CompletionItemKind.Property, detail: 'Bound DataObject name' },
-      { label: 'Table', kind: CompletionItemKind.Property, detail: 'DataWindow table metadata' },
-    ];
+    return collectCatalogChildSuggestions('DataWindow', CompletionItemKind.Property);
   }
 
   if (lowerPath === 'datawindow.table') {
-    return [
-      { label: 'Select', kind: CompletionItemKind.Property, detail: 'Retrieve SQL statement' },
-    ];
+    return collectCatalogChildSuggestions('DataWindow.Table', CompletionItemKind.Property);
   }
 
   if (!normalizedPath.includes('.')) {
@@ -265,10 +354,19 @@ function resolveCompletionCandidates(
       return [];
     }
 
-    return [
-      { label: 'DataWindow', kind: CompletionItemKind.Class, detail: 'Dropdown child DataWindow property namespace' },
-      { label: 'dddw', kind: CompletionItemKind.Property, detail: 'Dropdown definition metadata' },
-    ];
+    const columnSuggestions: DataWindowCompletionSuggestion[] = [];
+    const dataWindowEntry = lookupDataWindowPropertyEntry('DataWindow');
+    const dddwEntry = lookupDataWindowPropertyEntry('dddw');
+
+    if (dataWindowEntry) {
+      columnSuggestions.push(toDataWindowCompletionSuggestion(dataWindowEntry, 'DataWindow', CompletionItemKind.Class));
+    }
+
+    if (dddwEntry) {
+      columnSuggestions.push(toDataWindowCompletionSuggestion(dddwEntry, 'dddw', CompletionItemKind.Property));
+    }
+
+    return columnSuggestions;
   }
 
   const separatorIndex = normalizedPath.indexOf('.');
@@ -291,9 +389,7 @@ function resolveCompletionCandidates(
   }
 
   if (lowerTail === 'dddw') {
-    return [
-      { label: 'name', kind: CompletionItemKind.Property, detail: 'Dropdown DataWindow target name' },
-    ];
+    return collectCatalogChildSuggestions('dddw', CompletionItemKind.Property);
   }
 
   const child = resolveSingleDataWindowTarget(tableColumn.dddwName, kb, cache);
@@ -327,7 +423,7 @@ function resolvePropertyPath(
   const normalizedPath = path.trim();
   const lowerPath = normalizedPath.toLowerCase();
 
-  if (lowerPath === 'datawindow.dataobject') {
+  if (lowerPath === 'datawindow.dataobject' && lookupDataWindowPropertyEntry('DataWindow.DataObject')) {
     return {
       kind: 'dataobject',
       path: fullPath,
@@ -338,7 +434,7 @@ function resolvePropertyPath(
     };
   }
 
-  if (lowerPath === 'datawindow.table.select') {
+  if (lowerPath === 'datawindow.table.select' && lookupDataWindowPropertyEntry('DataWindow.Table.Select')) {
     if (!current.model.retrieve) {
       return null;
     }
@@ -382,7 +478,7 @@ function resolvePropertyPath(
     return null;
   }
 
-  if (tail.toLowerCase() === 'dddw.name') {
+  if (tail.toLowerCase() === 'dddw.name' && lookupDataWindowPropertyEntry('dddw.name')) {
     return {
       kind: 'dddw-name',
       path: fullPath,

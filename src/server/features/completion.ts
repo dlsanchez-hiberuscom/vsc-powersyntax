@@ -61,7 +61,7 @@ export function provideCompletion(
   const snapshot = getDocumentAnalysis(document).snapshot;
   const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
 
-  const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(document, position);
+  const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(document, position, systemCatalog, documentationLocale);
   if (dataWindowExpressionCompletion) {
     return dataWindowExpressionCompletion;
   }
@@ -272,6 +272,8 @@ export function provideCompletion(
 function provideDataWindowExpressionCompletion(
   document: TextDocument,
   position: Position,
+  systemCatalog: SystemCatalog,
+  documentationLocale: DocumentationLocale,
 ): CompletionItem[] | null {
   const model = buildDataWindowModel(document);
   if (!model) {
@@ -300,6 +302,15 @@ function provideDataWindowExpressionCompletion(
   const seen = new Set<string>();
   const items: CompletionItem[] = [];
 
+  appendCatalogCompletionItems(
+    items,
+    seen,
+    systemCatalog.listDataWindowExpressionFunctions(),
+    prefix,
+    '0_dw_expr_function_',
+    documentationLocale,
+  );
+
   for (const column of model.tableColumns) {
     const normalized = column.name.toLowerCase();
     if (prefix && !normalized.startsWith(prefix)) {
@@ -314,7 +325,7 @@ function provideDataWindowExpressionCompletion(
       label: column.name,
       kind: CompletionItemKind.Variable,
       detail: column.type ? `DataWindow column · ${column.type}` : 'DataWindow column',
-      sortText: `0_dw_column_${normalized}`,
+      sortText: `1_dw_column_${normalized}`,
     });
   }
 
@@ -332,7 +343,7 @@ function provideDataWindowExpressionCompletion(
       label: control.name,
       kind: CompletionItemKind.Field,
       detail: `DataWindow control · ${control.controlType}`,
-      sortText: `1_dw_control_${normalized}`,
+      sortText: `2_dw_control_${normalized}`,
     });
   }
 

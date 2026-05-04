@@ -536,6 +536,23 @@ end subroutine
     const visibleItems = provideCompletion(doc, Position.create(visibleLine, visibleCharacter), kb, systemCatalog, graph);
 
     assert.ok(visibleItems?.some((item) => item.label === 'cc_total'), 'Debe sugerir controles nombrados dentro de valores dinámicos con ~t.');
+
+    const docFunction = setupDocument('file:///d_expression_function_completion.srd', [
+      '$PBExportHeader$d_expression_function_completion.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=decimal(18,2) update=yes name=amount dbname="emp.amount") retrieve="SELECT amount FROM emp")',
+      'compute(band=detail name=cc_sum expression="Su")',
+    ].join('\r\n'));
+
+    const functionLines = docFunction.getText().split(/\r?\n/);
+    const functionLine = functionLines.findIndex((line) => line.includes('expression="Su"'));
+    const functionCharacter = functionLines[functionLine].indexOf('Su') + 'Su'.length;
+    const functionItems = provideCompletion(docFunction, Position.create(functionLine, functionCharacter), kb, systemCatalog, graph);
+    const sumItem = functionItems?.find((item) => item.label === 'Sum');
+
+    assert.ok(sumItem, 'Debe sugerir funciones oficiales de expresión DataWindow dentro de expression=');
+    assert.match(String(sumItem?.detail), /DataWindow/i);
   });
 
   test('localiza la documentación de completion sin duplicar items por locale', () => {

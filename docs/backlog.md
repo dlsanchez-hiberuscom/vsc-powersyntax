@@ -295,17 +295,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Validación esperada:** docs lifecycle tests.
 - **Docs afectadas:** `docs/spec-driven-development.md`, `docs/backlog.md`, `docs/done-log.md`.
 
-## B320 — DataWindow expression/property official catalog
-- **Estado:** Open
-- **Track:** knowledge / datawindow
-- **Prioridad:** Media
-- **Depende de:** B318, B289
-- **Objetivo:** integrar funciones de expresiones de DataWindow y propiedades de objetos DW en el catálogo v2.
-- **Razón técnica:** DataWindow sigue siendo sublenguaje propio; sus expresiones, propiedades y paths no deben mezclarse con PowerScript normal ni servirse desde scans globales.
-- **Criterios de cierre verificables:** dominios `datawindow-expression-functions` y `datawindow-properties` poblados con provenance oficial/curada, namespace `datawindow-expression` o `datawindow`, lookups indexados y consumers limitados a contexto DataWindow defendible.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/rules-catalog.md`, `docs/testing.md`.
-- **Validación esperada:** tests DataWindow de hover/completion/diagnostics/property paths, negativos fuera de DataWindow y smoke real sobre `.srd`.
-
 ## B321 — Generated catalog domain enrichment v2
 - **Estado:** Superseded
 - **Track:** knowledge / catalog
@@ -1018,10 +1007,10 @@ npm run test:unit -- --grep "registry|datasets|merge"
 03. B342 — Extract proven symbol heuristics from plugin_old
 04. B344 — DataWindow binding edge cases from plugin_old
 05. B354 — Server runtime orchestration decomposition
+06. B292 — PowerBuilder preprocessor / conditional patterns investigation
 
 ## Siguiente fase 
 
-06. B292 — PowerBuilder preprocessor / conditional patterns investigation
 07. B301 — Agent context budget enforcement
 08. B299 — Agent execution dry-run contract
 09. B300 — Agent validation receipt

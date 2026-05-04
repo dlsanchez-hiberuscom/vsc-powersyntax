@@ -8,6 +8,7 @@ import {
   isKnownSystemOwnerType,
   listSystemSymbolsByDomain,
   listSystemDataWindowEvents,
+  listSystemDataWindowExpressionFunctions,
   listSystemDataWindowFunctions,
   listValuesForEnumeratedType,
   listSystemEvents,
@@ -20,6 +21,7 @@ import {
   listSystemSymbolsByKind,
   listSystemSymbolsByNamespace,
   resolveSystemDataWindowEvent,
+  resolveSystemDataWindowExpressionFunction,
   resolveSystemDataWindowFunction,
   resolveSystemDataWindowFunctionForOwner,
   resolveSystemEventForOwner,
@@ -82,6 +84,7 @@ export class SystemCatalog {
   listGlobalFunctions(): readonly PbSystemSymbolEntry[] { return listSystemGlobalFunctions(); }
   listObjectFunctions(): readonly PbSystemSymbolEntry[] { return listSystemObjectFunctions(); }
   listDataWindowFunctions(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowFunctions(); }
+  listDataWindowExpressionFunctions(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowExpressionFunctions(); }
   listObjectEvents(): readonly PbSystemSymbolEntry[] { return listSystemObjectEvents(); }
   listDataWindowEvents(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowEvents(); }
   listEvents(): readonly PbSystemSymbolEntry[] { return listSystemEvents(); }
@@ -110,6 +113,9 @@ export class SystemCatalog {
   }
   resolveDataWindowFunction(name: string): PbSystemSymbolEntry | undefined {
     return resolveSystemDataWindowFunction(name);
+  }
+  resolveDataWindowExpressionFunction(name: string): PbSystemSymbolEntry | undefined {
+    return resolveSystemDataWindowExpressionFunction(name);
   }
   resolveObjectEvent(name: string): PbSystemSymbolEntry | undefined {
     return resolveSystemObjectEvent(name);

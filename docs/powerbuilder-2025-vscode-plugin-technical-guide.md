@@ -692,7 +692,7 @@ Reglas:
 
 ```text
 - no cambiar IDs, kind, domain ni namespace generados existentes sin spec de compatibilidad;
-- DataWindow expression/property catalog sigue separado de PowerScript normal;
+- DataWindow expression/property catalog vive en dominios separados (`datawindow-expression-functions`, `datawindow-properties`) y sigue aislado de PowerScript normal;
 - completion debe filtrar por prefijo, deduplicar y respetar prioridad de símbolos locales/proyecto;
 - hover puede explicar símbolos de lenguaje como fallback, sin romper callable/event hover;
 - diagnostics solo deben consumir hechos de catálogo con confidence suficiente.
@@ -720,6 +720,7 @@ Estado auditado 2026-05-03:
 - `B325` queda ya cerrada: `systemGlobals.ts` publica `valueType`, `risk` y firmas tipadas para `SQLCA`, `SQLSA`, `SQLDA`, `Error` y `Message`; `semanticQueryService.ts` y `signatureHelp.ts` consumen ya esa metadata catalog-driven en lugar de hardcodes por nombre.
 - `B365` queda ya cerrada: `buildIndexes.ts` publica `byDomainAndLookupKey`, `byKindAndLookupKey`, `byEnumValueOf` y `byOwnerTypeAndDomain` como buckets compuestos readonly, `queryService.ts` expone queries indexadas y owner-scoped sobre esos buckets, y `resolveLanguageSymbol()` usa una prioridad explícita (`reserved-word -> keyword -> pronoun -> datatype -> system-type -> enumerated-type -> system-global -> enumerated-value -> operator -> property -> constant`) sin depender del orden accidental del registry.
 - `B330` queda ya cerrada: `completion.ts` consume `reserved-words`, `pronouns`, `system-globals`, `enumerated-types` y `enumerated-values` sólo en la rama contextual sin qualifier, con deduplicación case-insensitive y prioridad menor que símbolos locales/proyecto, evitando mezclar esos dominios en member contexts irrelevantes.
+- `B320` queda ya cerrado: `manual/datawindow/` publica `datawindow-properties` y `datawindow-expression-functions` con provenance oficial/curada, `dataWindowPropertyPaths.ts` reconsume `DataWindow.*`/`dddw.*` desde el catálogo y `completion.ts` ofrece funciones de expresión oficiales sólo dentro de `.srd`, manteniendo namespace `datawindow` / `datawindow-expression` separado de PowerScript general.
 - `B323` queda ya cerrada: `officialCoverage.generated.ts` deja `datatypes` y `system-object-datatypes` en cobertura oficial completa, `generated.generated.ts` materializa los system types oficiales faltantes y `generatedBuiltinTypes.generated.ts` mantiene `PB_BUILTIN_TYPES` alineado con aliases críticos como `UnsignedInt` y con tipos oficiales relevantes como `SMTPClient`, `WindowObject`, `PDFAction`, `SyncParm` y `PowerServerResult`.
 - `B366` queda ya cerrada: el scraper oficial extrae ya `returnType/returnDocumentation`, parámetros por firma incluso cuando Appeon los publica como tabla anónima bajo `Syntax`, `eventId/eventIds`, metadata estructural de reserved words y overlays ricos para `system-object-datatypes`; `PDFDocumentProperties` publica `baseType = PDFModel` con `properties/functions/events`, `AddItemArray` queda con parámetros estructurados reales y `queryService.ts` prioriza ese overlay oficial enriquecido cuando resuelve tipos runtime.
 - `B370` queda ya cerrada: el mismo rail oficial queda congelado en snapshots compactos offline (`ApplyTheme`, `AddItemArray`, `SetItemDate`, `OLEActivate`, `BeginDrag`, `DragDrop`, `PDFDocumentProperties` y reserved words), `catalogGeneratorScript.test.ts` compara esos casos contra JSON compacto sin red y el extractor publica ya `usageNotes` cuando la referencia oficial de Appeon incluye sección `Usage`, dejando cualquier drift del layout oficial localizado por fixture antes de abrir `B367`.
@@ -898,6 +899,7 @@ Estado actual del repo:
 - `B291` queda ya cerrada: `sqlRegions` publica anchors SQL embebidos con `confidence` y `transactionTarget` defendible hacia current object context, code metrics, debt report y support bundle, sin abrir un parser SQL general ni IDs diagnósticos nuevos;
 - `GetChild()` queda restringido a DataWindow control y DataStore; `DataWindowChild` no debe ofrecerlo ni explicarlo por fallback cuando el owner ya está resuelto;
 - ese slice avanzado cubre `report(name=... dataobject=...)`, `column.dddw.name`, property paths `Describe/Modify(...DataWindow.Table.Select)`, acceso directo `dw.Object.<control|column|property>` y `GetChild()` cuando el binding `DataObject` literal y la cadena child son deterministas.
+- `B320` cierra además el primer catálogo oficial reutilizable de ese sublenguaje: `datawindow-properties` sirve `DataWindow.DataObject`, `DataWindow.Table.Select` y `dddw.name` a `Describe/Modify/Object`, mientras `datawindow-expression-functions` sirve `CurrentRow`, `If`, `Sum` y el resto del vocabulario oficial Appeon sólo dentro de expresiones `.srd`.
 
 Phase 2: bindings
   - DataObject assignments

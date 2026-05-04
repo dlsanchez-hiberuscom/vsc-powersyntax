@@ -92,6 +92,42 @@ suite('unit/systemCatalog', () => {
     }
   });
 
+  test('listByDomain publica el subconjunto inicial de datawindow-properties', () => {
+    const properties = catalog.listByDomain('datawindow-properties');
+    assert.ok(properties.length >= 6, `datawindow-properties=${properties.length}`);
+
+    const propertyNames = new Set(properties.map((entry) => entry.name));
+    assert.ok(propertyNames.has('DataWindow'));
+    assert.ok(propertyNames.has('DataWindow.DataObject'));
+    assert.ok(propertyNames.has('DataWindow.Table.Select'));
+    assert.ok(propertyNames.has('dddw.name'));
+
+    for (const entry of properties) {
+      assert.equal(entry.kind, 'property');
+      assert.equal(entry.domain, 'datawindow-properties');
+      assert.equal(entry.namespace, 'datawindow');
+    }
+  });
+
+  test('findByDomainAndLookupKey resuelve DataWindow.Table.Select y dddw.name', () => {
+    const selectEntries = catalog.findByDomainAndLookupKey('datawindow-properties', 'DataWindow.Table.Select');
+    const dddwEntries = catalog.findByDomainAndLookupKey('datawindow-properties', 'dddw.name');
+
+    assert.ok(selectEntries.some((entry) => entry.name === 'DataWindow.Table.Select'));
+    assert.ok(dddwEntries.some((entry) => entry.name === 'dddw.name'));
+  });
+
+  test('datawindow-expression-functions publica el catálogo oficial y separa CurrentRow de PowerScript general', () => {
+    const expressionFunctions = catalog.listDataWindowExpressionFunctions();
+    const currentRow = catalog.resolveDataWindowExpressionFunction('CurrentRow');
+
+    assert.ok(expressionFunctions.length >= 100, `datawindow-expression-functions=${expressionFunctions.length}`);
+    assert.ok(currentRow);
+    assert.equal(currentRow?.domain, 'datawindow-expression-functions');
+    assert.equal(currentRow?.namespace, 'datawindow-expression');
+    assert.match(currentRow?.summary ?? '', /expresión DataWindow/i);
+  });
+
   test('isKnownOwnerType reconoce ancestros nativos y raíces runtime como crypterobject/powerobject', () => {
     assert.equal(catalog.isKnownOwnerType('crypterobject'), true);
     assert.equal(catalog.isKnownOwnerType('CrypterObject'), true);
