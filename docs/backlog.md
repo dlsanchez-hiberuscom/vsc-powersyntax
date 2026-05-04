@@ -1009,171 +1009,24 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 # L5.2 — Enumerated Catalog / DataWindow Knowledge
 
-## B381 — AI task context bundle orchestration tool
-- **Estado:** Open
-- **Track:** AI supportability / context orchestration / token budget
-- **Prioridad:** Media-Alta
-- **Depende de:** B376, B377, B379, B380
-- **Objetivo:** añadir una tool/API read-only que genere un paquete compacto de contexto para una tarea IA concreta, combinando object-check, current-object-context, safe-edit-plan, dependency-graph y explain diagnostics/symbols según límites de tokens.
-- **Razón técnica:** aunque existen tools focales, una IA sigue necesitando orquestar varias llamadas para preparar una tarea. Un bundle compacto evita repetir contexto, reduce tokens y estandariza la entrada antes de modificar código.
-
-### Alcance incluido
-
-- Añadir read-only tool:
-
-```ts
-| 'ai-task-context-bundle'
-```
-
-- Añadir método público:
-
-```ts
-getAiTaskContextBundle(request: ApiAiTaskContextBundleRequest): Promise<ApiAiTaskContextBundle>;
-```
-
-- Añadir comando opcional:
-
-```txt
-PowerBuilder: Export AI Task Context Bundle
-powerbuilder.exportAiTaskContextBundle
-```
-
-### Request
-
-```ts
-export type ApiAiTaskIntent =
-  | 'bug-fix'
-  | 'refactor'
-  | 'add-feature'
-  | 'diagnose'
-  | 'catalog-work'
-  | 'documentation-update'
-  | 'unknown';
-
-export interface ApiAiTaskContextBundleRequest {
-  intent?: ApiAiTaskIntent;
-  uri?: string;
-  objectName?: string;
-  line?: number;
-  character?: number;
-  includeWorkspaceCheck?: boolean;
-  includeObjectCheck?: boolean;
-  includeSafeEditPlan?: boolean;
-  includeDependencyGraph?: boolean;
-  includeDiagnosticsExplanation?: boolean;
-  includeSystemSymbolExplanations?: boolean;
-  maxTokensHint?: number;
-  maxDiagnostics?: number;
-  maxSymbols?: number;
-  maxFiles?: number;
-}
-```
-
-### Bundle
-
-```ts
-export interface ApiAiTaskContextBundle {
-  schemaVersion: '1.0.0';
-  generatedAt: string;
-  apiVersion: string;
-
-  available: boolean;
-  reason?: string;
-
-  intent: ApiAiTaskIntent;
-  tokenBudget: {
-    maxTokensHint?: number;
-    estimatedTokens?: number;
-    truncated: boolean;
-  };
-
-  focus: {
-    uri?: string;
-    objectName?: string;
-    line?: number;
-    character?: number;
-  };
-
-  summary: string;
-  rules: string[];
-  context: {
-    workspaceCheck?: ApiWorkspaceCheckReport;
-    objectCheck?: ApiObjectCheckReport;
-    currentObjectContext?: ApiCurrentObjectContext;
-    safeEditPlan?: ApiSafeEditPlan;
-    dependencyGraph?: ApiPowerBuilderDependencyGraph;
-    diagnosticExplanations?: ApiExplainDiagnosticReport[];
-    systemSymbolExplanations?: ApiExplainSystemSymbolReport[];
-  };
-
-  recommendedWorkflow: string[];
-  validationCommands: string[];
-  docsToReview: string[];
-  omissions: string[];
-}
-```
-
-### Reglas estrictas
-
-- Read-only.
-- No modificar archivos.
-- No ejecutar ORCA/build.
-- No incluir código completo salvo excerpts pequeños necesarios.
-- No incluir generated/manual completo.
-- Respetar `maxTokensHint` de forma conservadora.
-- Registrar en `omissions` todo lo omitido por límite.
-- Preferir summaries y reports estructurados sobre texto largo.
-- Usar active editor fallback solo si no se pasa foco explícito.
-
-### Criterios de cierre verificables
-
-- `ApiReadOnlyToolName` incluye `ai-task-context-bundle`.
-- `READ_ONLY_TOOL_DESCRIPTORS` incluye `ai-task-context-bundle`.
-- `VscPowerSyntaxApi` expone `getAiTaskContextBundle`.
-- El contrato público incluye schemas nuevos.
-- El bundle puede generarse para active editor.
-- El bundle puede generarse para `uri/objectName` explícito.
-- El bundle respeta límites y marca truncado.
-- El bundle no incluye catálogos completos.
-- Tests cubren intent `bug-fix`, `refactor`, `catalog-work`, foco ausente y truncado.
-
-### Docs afectadas
-
-- `docs/ai-orchestrator.md`
-- `docs/ai-strategy.md`
-- `docs/developer-workflows.md`
-- `docs/testing.md`
-- `docs/backlog.md`
-- `docs/current-focus.md`
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|readOnlyTool"
-```
-
----
-
 # 6. Current execution focus recomendado
 
 ## Fase activa 
 
-01. B381 — AI task context bundle orchestration
-02. B320 — DataWindow expression/property official catalog
-03. B327 — DataWindow constants and property path catalog
-04. B342 — Extract proven symbol heuristics from plugin_old
-05. B344 — DataWindow binding edge cases from plugin_old
+01. B320 — DataWindow expression/property official catalog
+02. B327 — DataWindow constants and property path catalog
+03. B342 — Extract proven symbol heuristics from plugin_old
+04. B344 — DataWindow binding edge cases from plugin_old
+05. B354 — Server runtime orchestration decomposition
 
 ## Siguiente fase 
 
-07. B354 — Server runtime orchestration decomposition
-10. B292 — PowerBuilder preprocessor / conditional patterns investigation
-11. B301 — Agent context budget enforcement
-12. B299 — Agent execution dry-run contract
-13. B300 — Agent validation receipt
-14. B302 — Agent-safe documentation updater policy
-15. B303 — Agent task replay from repro/support bundle
+06. B292 — PowerBuilder preprocessor / conditional patterns investigation
+07. B301 — Agent context budget enforcement
+08. B299 — Agent execution dry-run contract
+09. B300 — Agent validation receipt
+10. B302 — Agent-safe documentation updater policy
+11. B303 — Agent task replay from repro/support bundle
 
 ## No abrir todavía salvo necesidad real
 

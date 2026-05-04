@@ -4,7 +4,7 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.17.0';
+export const PUBLIC_API_VERSION = '2.18.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
@@ -14,6 +14,7 @@ export type ApiReadOnlyToolName =
   | 'object-check'
   | 'explain-diagnostic'
   | 'explain-system-symbol'
+  | 'ai-task-context-bundle'
   | 'query-symbols'
   | 'cross-project-symbol-conflicts'
   | 'workspace-migration-assistant'
@@ -772,6 +773,73 @@ export interface ApiExplainSystemSymbolReport {
   recommendedActions: string[];
 }
 
+export type ApiAiTaskIntent =
+  | 'bug-fix'
+  | 'refactor'
+  | 'add-feature'
+  | 'diagnose'
+  | 'catalog-work'
+  | 'documentation-update'
+  | 'unknown';
+
+export interface ApiAiTaskContextBundleRequest {
+  intent?: ApiAiTaskIntent;
+  uri?: string;
+  objectName?: string;
+  line?: number;
+  character?: number;
+  includeWorkspaceCheck?: boolean;
+  includeObjectCheck?: boolean;
+  includeSafeEditPlan?: boolean;
+  includeDependencyGraph?: boolean;
+  includeDiagnosticsExplanation?: boolean;
+  includeSystemSymbolExplanations?: boolean;
+  maxTokensHint?: number;
+  maxDiagnostics?: number;
+  maxSymbols?: number;
+  maxFiles?: number;
+}
+
+export interface ApiAiTaskContextBundle {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+
+  intent: ApiAiTaskIntent;
+  tokenBudget: {
+    maxTokensHint?: number;
+    estimatedTokens?: number;
+    truncated: boolean;
+  };
+
+  focus: {
+    uri?: string;
+    objectName?: string;
+    line?: number;
+    character?: number;
+  };
+
+  summary: string;
+  rules: string[];
+  context: {
+    workspaceCheck?: ApiWorkspaceCheckReport;
+    objectCheck?: ApiObjectCheckReport;
+    currentObjectContext?: ApiCurrentObjectContext;
+    safeEditPlan?: ApiSafeEditPlan;
+    dependencyGraph?: ApiPowerBuilderDependencyGraph;
+    diagnosticExplanations?: ApiExplainDiagnosticReport[];
+    systemSymbolExplanations?: ApiExplainSystemSymbolReport[];
+  };
+
+  recommendedWorkflow: string[];
+  validationCommands: string[];
+  docsToReview: string[];
+  omissions: string[];
+}
+
 const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
   {
     name: 'contract',
@@ -809,6 +877,14 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
     command: 'powerbuilder.explainSystemSymbol',
     requestSchema: 'ApiExplainSystemSymbolRequest',
     responseSchema: 'ApiExplainSystemSymbolReport',
+    usesActiveEditorFallback: true,
+  },
+  {
+    name: 'ai-task-context-bundle',
+    description: 'Orquesta un bundle read-only compacto para una tarea IA combinando checks, contexto, explainability y planning ya publicados.',
+    command: 'powerbuilder.exportAiTaskContextBundle',
+    requestSchema: 'ApiAiTaskContextBundleRequest',
+    responseSchema: 'ApiAiTaskContextBundle',
     usesActiveEditorFallback: true,
   },
   {
@@ -1421,6 +1497,14 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     responseSchema: 'ApiExplainSystemSymbolReport',
   },
   {
+    name: 'getAiTaskContextBundle',
+    command: 'powerbuilder.exportAiTaskContextBundle',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiAiTaskContextBundleRequest',
+    responseSchema: 'ApiAiTaskContextBundle',
+  },
+  {
     name: 'querySymbols',
     command: 'powerbuilder.querySymbols',
     access: 'read-only',
@@ -1569,6 +1653,8 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiExplainDiagnosticReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiExplainSystemSymbolRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiExplainSystemSymbolReport', version: '1.0.0', kind: 'response' },
+  { name: 'ApiAiTaskContextBundleRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiAiTaskContextBundle', version: '1.0.0', kind: 'response' },
   { name: 'ApiQuerySymbolsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflictsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflicts', version: '1.0.0', kind: 'response' },
@@ -2545,6 +2631,7 @@ export interface VscPowerSyntaxApi {
   checkObject(request?: ApiObjectCheckRequest): Promise<ApiObjectCheckReport>;
   explainDiagnostic(request?: ApiExplainDiagnosticRequest): Promise<ApiExplainDiagnosticReport>;
   explainSystemSymbol(request?: ApiExplainSystemSymbolRequest): Promise<ApiExplainSystemSymbolReport>;
+  getAiTaskContextBundle(request?: ApiAiTaskContextBundleRequest): Promise<ApiAiTaskContextBundle>;
   querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
   getCrossProjectSymbolConflicts(request?: ApiCrossProjectSymbolConflictsRequest): Promise<ApiCrossProjectSymbolConflicts>;
   getWorkspaceMigrationAssistant(request?: ApiWorkspaceMigrationAssistantRequest): Promise<ApiWorkspaceMigrationAssistant>;

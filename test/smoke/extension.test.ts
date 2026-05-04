@@ -584,6 +584,69 @@ suite('smoke/extension', () => {
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Explain System Symbol/);
   });
 
+  test('ai task context bundle expone metodo, tool read-only y comando oculto', async function () {
+    this.timeout(30000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+    assert.equal(typeof api!.getAiTaskContextBundle, 'function');
+    assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'ai-task-context-bundle'));
+
+    const contextDocument = await vscode.workspace.openTextDocument({
+      language: 'powerbuilder',
+      content: 'MessageBox("Hola", "Mundo")',
+    });
+    const editor = await vscode.window.showTextDocument(contextDocument, { preview: false });
+    editor.selection = new vscode.Selection(0, 3, 0, 3);
+
+    const bundle = await withStepTimeout(
+      'getAiTaskContextBundle(api)',
+      api!.getAiTaskContextBundle({
+        intent: 'bug-fix',
+        includeDiagnosticsExplanation: false,
+        includeSystemSymbolExplanations: true,
+        maxTokensHint: 800,
+      }),
+      10000,
+    );
+    assert.equal(bundle.available, true);
+    assert.equal(bundle.intent, 'bug-fix');
+    assert.ok(bundle.context.currentObjectContext || bundle.context.objectCheck);
+
+    const toolResult = await withStepTimeout(
+      'invokeReadOnlyTool(ai-task-context-bundle)',
+      api!.invokeReadOnlyTool({
+        tool: 'ai-task-context-bundle',
+        args: {
+          intent: 'catalog-work',
+          objectName: 'Abs',
+          includeSystemSymbolExplanations: true,
+          maxTokensHint: 800,
+        },
+      }),
+      10000,
+    );
+    assert.equal(toolResult.mode, 'read-only');
+    assert.equal(toolResult.schema, 'ApiAiTaskContextBundle');
+    assert.equal((toolResult.payload as { available?: boolean }).available, true);
+
+    const commandResult = await withStepTimeout(
+      'executeCommand(powerbuilder.exportAiTaskContextBundle)',
+      vscode.commands.executeCommand('powerbuilder.exportAiTaskContextBundle', {
+        intent: 'catalog-work',
+        objectName: 'Abs',
+        includeSystemSymbolExplanations: true,
+        maxTokensHint: 800,
+      }),
+      10000,
+    ) as { available?: boolean; intent?: string };
+    assert.equal(commandResult.available, true);
+    assert.equal(commandResult.intent, 'catalog-work');
+  });
+
   test('el runtime self-test se ejecuta como comando read-only', async function () {
     this.timeout(15000);
 

@@ -24,6 +24,8 @@ import {
 } from '../shared/powerbuilderFiles';
 import {
   type ApiPublicContractDescriptor,
+  type ApiAiTaskContextBundle,
+  type ApiAiTaskContextBundleRequest,
   type ApiReadOnlyToolBridgeDescriptor,
   type ApiReadOnlyToolCallRequest,
   type ApiReadOnlyToolCallResult,
@@ -140,6 +142,11 @@ import {
   type PowerSyntaxSettingsGovernanceReport,
 } from './settingsGovernance';
 import { registerClientCommands } from './commandRegistration';
+import {
+  buildAiTaskContextBundle,
+  buildUnavailableAiTaskContextBundle,
+  normalizeAiTaskContextBundleRequest,
+} from './aiTaskContextBundle';
 import {
   buildObjectCheckMarkdown,
   buildObjectCheckReport,
@@ -509,6 +516,7 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
     runObjectCheck: async (request?: unknown) => runObjectCheck(request as ApiObjectCheckRequest | undefined),
     openExplainDiagnostic,
     runExplainDiagnostic: async (request?: unknown) => runExplainDiagnostic(request as ApiExplainDiagnosticRequest | undefined),
+    runAiTaskContextBundle: async (request?: unknown) => runAiTaskContextBundle(request as ApiAiTaskContextBundleRequest | undefined),
     openExplainSystemSymbol,
     openCrossProjectSymbolConflicts,
     openWorkspaceMigrationAssistant,
@@ -772,6 +780,13 @@ function createPublicApi(): VscPowerSyntaxApi {
             mode: 'read-only',
             schema: 'ApiExplainSystemSymbolReport',
             payload: await api.explainSystemSymbol(args as ApiExplainSystemSymbolRequest),
+          };
+        case 'ai-task-context-bundle':
+          return {
+            tool: 'ai-task-context-bundle',
+            mode: 'read-only',
+            schema: 'ApiAiTaskContextBundle',
+            payload: await api.getAiTaskContextBundle(args as ApiAiTaskContextBundleRequest),
           };
         case 'query-symbols':
           return {
@@ -1216,6 +1231,188 @@ function createPublicApi(): VscPowerSyntaxApi {
           ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
         },
       ]);
+    },
+    async getAiTaskContextBundle(request: ApiAiTaskContextBundleRequest = {}): Promise<ApiAiTaskContextBundle> {
+      const normalized = normalizeAiTaskContextBundleRequest(request);
+      const resolvedSource = resolveAiTaskContextBundleSource(request);
+
+      if (!resolvedSource.uri && !resolvedSource.objectName) {
+        return buildUnavailableAiTaskContextBundle(
+          'No se pudo resolver un foco explicito para preparar el bundle IA.',
+          request,
+        );
+      }
+
+      let workspaceCheck: ApiWorkspaceCheckReport | undefined;
+      let objectCheck: ApiObjectCheckReport | undefined;
+      let currentObjectContext: ApiCurrentObjectContext | undefined;
+      let safeEditPlan: ApiSafeEditPlan | undefined;
+      let dependencyGraph: ApiPowerBuilderDependencyGraph | undefined;
+      let diagnosticExplanations: ApiExplainDiagnosticReport[] | undefined;
+      let systemSymbolExplanations: ApiExplainSystemSymbolReport[] | undefined;
+      const sectionWork: Promise<void>[] = [];
+
+      if (normalized.includeWorkspaceCheck) {
+        sectionWork.push((async () => {
+          try {
+            workspaceCheck = clonePlainData(await api.checkWorkspace({
+              mode: 'quick',
+              maxDiagnostics: normalized.maxDiagnostics,
+              maxFiles: normalized.maxFiles,
+            }));
+          } catch {
+            workspaceCheck = undefined;
+          }
+        })());
+      }
+
+      if (normalized.includeObjectCheck) {
+        sectionWork.push((async () => {
+          try {
+            objectCheck = clonePlainData(await api.checkObject({
+              ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
+              ...(resolvedSource.objectName ? { objectName: resolvedSource.objectName } : {}),
+              ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+              ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+              includeDependencyGraph: false,
+              includeSafeEditPlan: false,
+              includeImpactAnalysis: false,
+              maxDiagnostics: normalized.maxDiagnostics,
+              maxReferences: Math.max(8, normalized.maxFiles * 4),
+              maxDependencyNodes: Math.max(4, normalized.maxFiles * 2),
+            }));
+          } catch {
+            objectCheck = undefined;
+          }
+        })());
+      }
+
+      if (resolvedSource.uri) {
+        sectionWork.push((async () => {
+          try {
+            currentObjectContext = clonePlainData(await api.getCurrentObjectContext({
+              uri: resolvedSource.uri,
+              ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+              ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+              maxExcerptLines: 24,
+              maxReferencedSymbols: Math.max(8, normalized.maxFiles * 4),
+            }));
+          } catch {
+            currentObjectContext = undefined;
+          }
+        })());
+      }
+
+      if (normalized.includeSafeEditPlan && resolvedSource.uri) {
+        sectionWork.push((async () => {
+          try {
+            safeEditPlan = clonePlainData(await api.generateSafeEditPlan({
+              uri: resolvedSource.uri,
+              ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+              ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+              maxSafeReferences: Math.max(8, normalized.maxFiles * 4),
+            }));
+          } catch {
+            safeEditPlan = undefined;
+          }
+        })());
+      }
+
+      if (normalized.includeDependencyGraph && (resolvedSource.uri || resolvedSource.objectName)) {
+        sectionWork.push((async () => {
+          try {
+            dependencyGraph = clonePlainData(await api.getPowerBuilderDependencyGraph({
+              ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
+              ...(resolvedSource.objectName ? { objectName: resolvedSource.objectName } : {}),
+              maxDependencies: Math.max(4, normalized.maxFiles * 2),
+              maxDependents: Math.max(4, normalized.maxFiles * 2),
+            }));
+          } catch {
+            dependencyGraph = undefined;
+          }
+        })());
+      }
+
+      if (normalized.includeDiagnosticsExplanation && resolvedSource.uri) {
+        sectionWork.push((async () => {
+          try {
+            const diagnosticsUri = resolvedSource.uri;
+            if (!diagnosticsUri) {
+              diagnosticExplanations = undefined;
+              return;
+            }
+
+            const diagnostics = vscode.languages.getDiagnostics(vscode.Uri.parse(diagnosticsUri))
+              .slice(0, normalized.maxDiagnostics);
+            diagnosticExplanations = await Promise.all(diagnostics.map(async (diagnostic) => {
+              const normalizedCode = typeof diagnostic.code === 'object' && diagnostic.code
+                ? diagnostic.code.value
+                : diagnostic.code;
+              return clonePlainData(await api.explainDiagnostic({
+              uri: diagnosticsUri,
+              line: diagnostic.range.start.line,
+              character: diagnostic.range.start.character,
+              code: getDiagnosticCode({ code: normalizedCode, source: diagnostic.source }),
+              includeObjectContext: false,
+              includeSafeFixPlan: normalized.includeSafeEditPlan,
+              maxEvidence: Math.max(4, normalized.maxFiles * 2),
+            }));
+            }));
+          } catch {
+            diagnosticExplanations = undefined;
+          }
+        })());
+      }
+
+      if (normalized.includeSystemSymbolExplanations) {
+        sectionWork.push((async () => {
+          try {
+            const symbolReport = clonePlainData(await api.explainSystemSymbol({
+              ...(request.objectName?.trim()
+                ? { name: request.objectName.trim() }
+                : resolvedSource.uri
+                ? {
+                  uri: resolvedSource.uri,
+                  ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+                  ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+                }
+                : resolvedSource.objectName
+                  ? { name: resolvedSource.objectName }
+                  : {}),
+              includeSignatures: true,
+              includeParameters: true,
+              includeEnumValues: true,
+              includeProvenance: true,
+              includeConflicts: true,
+              maxCandidates: normalized.maxSymbols,
+              maxSignatures: Math.max(2, normalized.maxSymbols),
+              maxEnumValues: Math.max(4, normalized.maxSymbols * 2),
+            }));
+            systemSymbolExplanations = symbolReport.available ? [symbolReport] : undefined;
+          } catch {
+            systemSymbolExplanations = undefined;
+          }
+        })());
+      }
+
+      await Promise.all(sectionWork);
+
+      return buildAiTaskContextBundle({
+        request: {
+          ...request,
+          ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
+          ...(resolvedSource.objectName ? { objectName: resolvedSource.objectName } : {}),
+          ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+          ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+        },
+        workspaceCheck,
+        objectCheck,
+        currentObjectContext,
+        safeEditPlan,
+        dependencyGraph,
+        diagnosticExplanations,
+        systemSymbolExplanations,
+      });
     },
     async querySymbols(request: ApiQuerySymbolsRequest) {
       const query = request.query ?? '';
@@ -3315,6 +3512,10 @@ async function runExplainSystemSymbol(request: ApiExplainSystemSymbolRequest = {
   return publicApiSingleton.explainSystemSymbol(request);
 }
 
+async function runAiTaskContextBundle(request: ApiAiTaskContextBundleRequest = {}): Promise<ApiAiTaskContextBundle> {
+  return publicApiSingleton.getAiTaskContextBundle(request);
+}
+
 async function openCurrentObjectCheck(): Promise<void> {
   let report: ApiObjectCheckReport;
   try {
@@ -3436,6 +3637,58 @@ function resolveExplainSystemSymbolSource(request: ApiExplainSystemSymbolRequest
 
   if (request.name?.trim()) {
     return {};
+  }
+
+  if (!editor) {
+    return {};
+  }
+
+  return {
+    uri: editor.document.uri.toString(),
+    line: editor.selection.active.line,
+    character: editor.selection.active.character,
+  };
+}
+
+function resolveAiTaskContextBundleSource(request: ApiAiTaskContextBundleRequest): {
+  uri?: string;
+  objectName?: string;
+  line?: number;
+  character?: number;
+} {
+  const editor = vscode.window.activeTextEditor;
+
+  if (request.uri) {
+    return {
+      uri: request.uri,
+      ...(request.objectName?.trim() ? { objectName: request.objectName.trim() } : {}),
+      ...(typeof request.line === 'number'
+        ? { line: Math.max(0, Math.trunc(request.line)) }
+        : editor?.document.uri.toString() === request.uri
+          ? { line: editor.selection.active.line }
+          : {}),
+      ...(typeof request.character === 'number'
+        ? { character: Math.max(0, Math.trunc(request.character)) }
+        : editor?.document.uri.toString() === request.uri
+          ? { character: editor.selection.active.character }
+          : {}),
+    };
+  }
+
+  if (request.objectName?.trim()) {
+    return {
+      objectName: request.objectName.trim(),
+      ...(typeof request.line === 'number' ? { line: Math.max(0, Math.trunc(request.line)) } : {}),
+      ...(typeof request.character === 'number' ? { character: Math.max(0, Math.trunc(request.character)) } : {}),
+    };
+  }
+
+  if ((typeof request.line === 'number' || typeof request.character === 'number') && editor) {
+    return {
+      uri: editor.document.uri.toString(),
+      ...(typeof request.line === 'number' ? { line: Math.max(0, Math.trunc(request.line)) } : { line: editor.selection.active.line }),
+      ...(typeof request.character === 'number' ? { character: Math.max(0, Math.trunc(request.character)) } : { character: editor.selection.active.character }),
+    };
   }
 
   if (!editor) {

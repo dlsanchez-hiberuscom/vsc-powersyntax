@@ -50,6 +50,7 @@ export interface ClientCommandRegistrationDependencies {
   runObjectCheck(request?: unknown): unknown;
   openExplainDiagnostic(): unknown;
   runExplainDiagnostic(request?: unknown): unknown;
+  runAiTaskContextBundle(request?: unknown): unknown;
   openExplainSystemSymbol(): unknown;
   openCrossProjectSymbolConflicts(): unknown;
   openWorkspaceMigrationAssistant(): unknown;
@@ -195,6 +196,10 @@ function buildReportCommands(
     {
       id: 'powerbuilder.explainDiagnostic',
       handler: (request?: unknown) => dependencies.runExplainDiagnostic(request),
+    },
+    {
+      id: 'powerbuilder.exportAiTaskContextBundle',
+      handler: (request?: unknown) => dependencies.runAiTaskContextBundle(request),
     },
     {
       id: 'vscPowerSyntax.openWorkspaceCheck',

@@ -65,6 +65,8 @@ Si la pregunta es todavía más local y gira alrededor de un diagnostic concreto
 
 Si la duda gira alrededor de un símbolo del lenguaje o del catálogo runtime, debe poder ejecutar además `PowerSyntax: Explain System Symbol at Cursor`, `explainSystemSymbol()` o el tool read-only `explain-system-symbol` para obtener summary, signatures, enum info, provenance y fallback localizado sin cargar el catálogo completo.
 
+Si la tarea IA ya combina troubleshooting, verificación de foco y preparación de cambio, debe poder pedir además `getAiTaskContextBundle()`, el tool `ai-task-context-bundle` o el comando de automatización `powerbuilder.exportAiTaskContextBundle` para recibir un bundle compacto con `object-check`, `currentObjectContext`, `safeEditPlan`, `dependencyGraph` y explainability puntual bajo budget explícito, en vez de concatenar llamadas y contexto masivo a mano.
+
 ---
 
 ## 4. Workflow 3 — Navegar herencia

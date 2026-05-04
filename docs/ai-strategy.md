@@ -47,6 +47,7 @@ VS Code ofrece una API nativa para que las extensiones expongan herramientas y p
 - Registrar un **Chat Participant** (`@powerbuilder`) que permita hacer preguntas sobre el proyecto PB abierto.
 - Exponer **Tools** que la IA pueda invocar para consultar símbolos, relaciones, diagnósticos y estructura del proyecto.
 - Participar en el flujo de **Agent mode** de VS Code proporcionando contexto PowerBuilder cuando la IA lo solicite.
+- Encapsular primero el contexto en surfaces compactas read-only (`workspace-check`, `object-check`, `explain-diagnostic`, `explain-system-symbol`, `ai-task-context-bundle`) con budgets explícitos y `omissions` honestas antes de abrir prompts o participants más ricos.
 
 **Ventajas:** integración nativa con el ecosistema VS Code/Copilot, sin infraestructura adicional.
 

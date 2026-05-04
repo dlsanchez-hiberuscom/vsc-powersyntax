@@ -25,6 +25,32 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.138 B381. AI task context bundle orchestration tool — **Cerrada (AI supportability/context orchestration 2026-05)**
+
+**Objetivo:** añadir una surface read-only compacta que orqueste contexto IA local sobre las surfaces ya cerradas (`workspace-check`, `object-check`, `currentObjectContext`, `safeEditPlan`, `dependencyGraph`, `explain-diagnostic`, `explain-system-symbol`) con budget explícito y `omissions` honestas.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` publica `ApiAiTaskContextBundleRequest`, `ApiAiTaskContextBundle`, el tool `ai-task-context-bundle`, el método público `getAiTaskContextBundle()` y la versión `2.18.0` del contrato para el bridge read-only y la API pública;
+- `src/client/aiTaskContextBundle.ts` introduce el builder puro del bundle con defaults por `intent`, estimate conservador de tokens, prioridades de secciones, truncado explícito y degradación a bundle mínimo cuando el presupuesto es extremo;
+- `src/client/extension.ts` y `src/client/commandRegistration.ts` cablean el método público, el tool bridge y el comando `powerbuilder.exportAiTaskContextBundle`, componiendo surfaces read-only existentes sin abrir un motor semántico paralelo ni mover datasets completos al prompt;
+- `specs/386-ai-task-context-bundle/` deja la traza SDD mínima de `B381` con `spec.md`, `plan.md` y `tasks.md` ya cerradas.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "aiTaskContextBundle"`
+- `npm run test:unit -- --grep "aiTaskContextBundle|publicApi"`
+- `npm run test:smoke -- --grep "ai task context bundle expone metodo, tool read-only y comando oculto"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-strategy.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.137 B380. Explain system symbol and catalog lookup tool for AI — **Cerrada (catalog/AI supportability 2026-05)**
 
 **Objetivo:** añadir una surface read-only compacta para explicar símbolos del catálogo PowerBuilder con signatures, ownerTypes, provenance y localización opcional sin cargar `generated/manual/localization` completos al prompt ni mover serving al cliente.
