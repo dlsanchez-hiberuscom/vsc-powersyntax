@@ -7,6 +7,11 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  # Opt-in para validar ya el runtime Node 24 de las GitHub Actions JavaScript.
+  # No cambia el Node.js del proyecto, que sigue siendo 22 en setup-node.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   performance-budget-gate:
     runs-on: windows-latest
@@ -26,7 +31,30 @@ jobs:
         run: npm ci
 
       - name: Run performance budget gate
-        run: npm run test:performance:gate
+        shell: pwsh
+        run: |
+          npm run test:performance:gate
+          $exitCode = $LASTEXITCODE
+
+          "PERF_GATE_EXIT_CODE=$exitCode" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          if ($exitCode -ne 0) {
+            Write-Host "Performance budget gate failed with exit code $exitCode. Artifact upload will still be attempted."
+          } else {
+            Write-Host "Performance budget gate completed successfully."
+          }
+
+          exit 0
+
+      - name: List performance artifacts
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path ".\artifacts\performance") {
+            Get-ChildItem ".\artifacts\performance" -Recurse | Format-Table FullName, Length
+          } else {
+            Write-Host "No artifacts/performance directory found."
+          }
 
       - name: Upload performance gate artifact
         if: always()
@@ -34,4 +62,23 @@ jobs:
         with:
           name: performance-budget-gate
           path: artifacts/performance/performance-budget-gate.json
-          if-no-files-found: error
+          if-no-files-found: warn
+
+      - name: Evaluate performance budget gate result
+        if: always()
+        shell: pwsh
+        run: |
+          $artifactPath = ".\artifacts\performance\performance-budget-gate.json"
+          $exitCode = [int]("${{ env.PERF_GATE_EXIT_CODE }}")
+
+          if ($exitCode -eq 0 -and !(Test-Path $artifactPath)) {
+            Write-Error "Performance budget gate passed but did not generate required artifact: $artifactPath"
+            exit 1
+          }
+
+          if ($exitCode -ne 0) {
+            Write-Error "Performance budget gate failed with exit code $exitCode"
+            exit $exitCode
+          }
+
+          Write-Host "Performance budget gate passed and artifact exists."
