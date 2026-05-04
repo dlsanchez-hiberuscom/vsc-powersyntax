@@ -25,6 +25,27 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.141 B342. Extract proven symbol heuristics from plugin_old — **Cerrada (plugin_old migration/semantics 2026-05)**
+
+**Objetivo:** revisar heurísticas probadas de `plugin_old` sin crear un motor paralelo y absorber sólo las que puedan vivir sobre `KnowledgeBase`, snapshots y query service actuales.
+
+**Resultado registrado:**
+- `docs/plugin-old-migration-opportunities.md` deja una matriz explícita por heurística: `linked editing` queda absorbido, `folding` / `inlay hints` / resúmenes extra de `code lens` quedan como parciales aprovechables y los edge cases DataWindow `child/report/column occurrences` pasan a ser el foco residual de `B344`;
+- `src/server/features/linkedEditing.ts` publica linked editing seguro para `Local` y `Argumento`, reutilizando `queryContext` + `references` sobre el documento activo y exigiendo resolución semántica única antes de devolver rangos editables;
+- `src/server/handlers/featureHandlers.ts`, `lifecycleHandlers.ts` y `server.ts` cablean `linkedEditingRangeProvider` dentro del servidor actual usando los mismos readiness/confidence gates que rename/references, sin provider host cliente ni índices heredados de `plugin_old`;
+- `specs/389-plugin-old-symbol-heuristics/` queda cerrada y deja el siguiente frente real acotado a `B344`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(linkedEditing|architectureImports)"` — `unit/linkedEditing` verde; `unit/architectureImports` sigue fallando por el hotspot preexistente de `src/client/extension.ts`, no tocado por `B342`.
+
+**Documentación alineada:**
+- `docs/plugin-old-migration-opportunities.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.140 B327. DataWindow constants and property path catalog — **Cerrada (knowledge/datawindow 2026-05)**
 
 **Objetivo:** catalogar constantes, property paths y nombres de propiedades DataWindow reutilizables por `Describe/Modify/Object`, manteniéndolos separados del parser PowerScript y sirviéndolos sólo con contexto DataWindow defendible.

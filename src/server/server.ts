@@ -95,6 +95,7 @@ import {
   registerDefinitionHandler,
   registerDocumentSymbolHandler,
   registerHoverHandler,
+  registerLinkedEditingHandler,
   registerRenameHandlers,
   registerReferencesHandler,
   registerSemanticTokensHandler,
@@ -871,9 +872,11 @@ registerShutdownHandler({
 });
 
 // ---------------------------------------------------------------------------
-// Funcionalidades — Code Actions / Code Lens / Rename / Custom commands
+// Funcionalidades — Linked Editing / Code Actions / Code Lens / Rename / Custom commands
 // (Specs 103-107). Conectan los providers ya implementados al LSP.
 // ---------------------------------------------------------------------------
+
+registerLinkedEditingHandler(featureHandlerContext);
 
 registerCodeActionHandler(featureHandlerContext);
 

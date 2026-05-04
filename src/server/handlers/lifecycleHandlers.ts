@@ -170,6 +170,7 @@ export function registerInitializeHandler(context: InitializeHandlerContext): vo
           legend: getSemanticTokensLegend(),
           full: true
         },
+        linkedEditingRangeProvider: true,
         codeActionProvider: {
           codeActionKinds: [CodeActionKind.QuickFix]
         },

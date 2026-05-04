@@ -9,6 +9,7 @@ import {
 import { provideReferenceCodeLenses, type CodeLensSymbol } from '../features/codeLensReferences';
 import { provideDefinition } from '../features/definition';
 import { provideHover } from '../features/hover';
+import { provideLinkedEditingRanges } from '../features/linkedEditing';
 import { provideReferences, type ReferenceSource } from '../features/references';
 import { provideRename } from '../features/rename';
 import { provideSignatureHelp } from '../features/signatureHelp';
@@ -662,6 +663,63 @@ export function registerRenameHandlers(context: FeatureHandlerContext): void {
       return null;
     }
     return rename.edit;
+  });
+}
+
+export function registerLinkedEditingHandler(context: FeatureHandlerContext): void {
+  const {
+    connection,
+    documents,
+    knowledgeBase,
+    inheritanceGraph,
+    hotContextCache,
+    buildRuntimeProgressReadiness,
+    isLatencyPressureHigh,
+    recordInteractiveLatency,
+    isSemanticallyServedDocument,
+  } = context;
+
+  connection.languages.onLinkedEditingRange((params) => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) return null;
+    if (!isSemanticallyServedDocument(document)) return null;
+
+    try {
+      hotContextCache.setActive(document.uri, knowledgeBase.version);
+      const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'linked-editing');
+      const readiness = resolveServingReadiness({
+        feature: 'rename',
+        consumerLabel: 'linkedEditing',
+        snapshot: buildRuntimeProgressReadiness(document.uri),
+        blockedResult: null,
+        context: {
+          latencyOverloaded: isLatencyPressureHigh(),
+          resolutionConfidence: queryContext.resolutionConfidence,
+        },
+      });
+      if (readiness.blocked) {
+        connection.console.warn(readiness.warningMessage);
+        return readiness.blockedResult;
+      }
+
+      const { result, elapsedMs } = measureMs(() =>
+        provideLinkedEditingRanges(
+          document,
+          params.position,
+          knowledgeBase,
+          inheritanceGraph,
+          hotContextCache,
+          queryContext,
+        )
+      );
+      recordInteractiveLatency('linkedEditing', elapsedMs);
+      connection.console.log(formatTiming('linkedEditing', elapsedMs));
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      connection.console.error(`[ERROR] linkedEditing: ${message}`);
+      return null;
+    }
   });
 }
 

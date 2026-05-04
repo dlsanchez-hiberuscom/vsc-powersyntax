@@ -336,17 +336,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Docs afectadas:** `docs/developer-workflows.md`, `docs/architecture.md`.
 - **Validación esperada:** tests de build/ORCA surfaces y architectureImports.
 
-## B342 — Extract proven symbol heuristics from plugin_old
-- **Estado:** Open
-- **Track:** plugin_old migration / semantics
-- **Prioridad:** Media
-- **Depende de:** B281, B283
-- **Objetivo:** revisar heurísticas probadas de `plugin_old` sin crear un motor paralelo.
-- **Razón técnica:** la auditoría confirmó valor potencial en linked editing, inlay hints, folding, callable counts y edge cases DataWindow; completion scoring y core semántico base ya están absorbidos o superados.
-- **Criterios de cierre verificables:** matriz `already implemented / partial / valuable gap / obsolete / unsafe` actualizada, mejoras adaptadas a `KnowledgeBase`/snapshots/query service y tests proporcionales.
-- **Docs afectadas:** `docs/plugin-old-migration-opportunities.md`, `docs/testing.md`.
-- **Validación esperada:** tests focales de la heurística migrada y architectureImports.
-
 ## B344 — DataWindow binding edge cases from plugin_old
 - **Estado:** Open
 - **Track:** DataWindow / plugin_old migration
@@ -991,21 +980,20 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ## Fase activa 
 
-01. B342 — Extract proven symbol heuristics from plugin_old
-02. B344 — DataWindow binding edge cases from plugin_old
-03. B354 — Server runtime orchestration decomposition
-04. B292 — PowerBuilder preprocessor / conditional patterns investigation
-05. B301 — Agent context budget enforcement
-06. B299 — Agent execution dry-run contract
-07. B300 — Agent validation receipt
-08. B302 — Agent-safe documentation updater policy
-09. B303 — Agent task replay from repro/support bundle
-10. B311 — Transaction and DataWindow update flow analyzer
-11. B312 — SQL dynamic risk taxonomy v2
-12. B310 — Object lifecycle risk report v2
-13. B308 — PBNI/PBX dependency insight v2
-14. B306 — HTTPClient/REST/JSON usage analyzer
-15. B307 — WebBrowser/WebView2 usage analyzer
+01. B344 — DataWindow binding edge cases from plugin_old
+02. B354 — Server runtime orchestration decomposition
+03. B292 — PowerBuilder preprocessor / conditional patterns investigation
+04. B301 — Agent context budget enforcement
+05. B299 — Agent execution dry-run contract
+06. B300 — Agent validation receipt
+07. B302 — Agent-safe documentation updater policy
+08. B303 — Agent task replay from repro/support bundle
+09. B311 — Transaction and DataWindow update flow analyzer
+10. B312 — SQL dynamic risk taxonomy v2
+11. B310 — Object lifecycle risk report v2
+12. B308 — PBNI/PBX dependency insight v2
+13. B306 — HTTPClient/REST/JSON usage analyzer
+14. B307 — WebBrowser/WebView2 usage analyzer
 
 ## Siguiente fase 
 

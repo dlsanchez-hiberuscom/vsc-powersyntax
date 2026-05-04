@@ -144,13 +144,14 @@ Cuando una spec mencione `plugin_old`:
 
 ---
 
-## 6. Auditoría 2026-05-03
+## 6. Auditoría 2026-05-04
 
 Clasificación vigente tras revisar `plugin_old` frente a la arquitectura actual:
 
 - **Ya implementado mejor:** core semántico, snapshots, KnowledgeBase, sourceOrigin, scoring base de completion, DataWindow safe mode inicial, ORCA staging moderno y guards de rename/references.
-- **Implementación parcial aprovechable:** folding, linked editing, inlay hints, callable/code lens counts, advanced semantic tokens y algunos casos DataWindow child/report/column occurrences.
-- **Valuable gaps registrados:** B342 para heurísticas probadas y B344 para edge cases DataWindow; cualquier migración debe entrar como fixture/regla sobre el backbone actual.
+- **Ya absorbido por B342:** linked editing para `Local` y `Argumento` vive ahora en el servidor LSP nuevo sobre `queryContext` + `references`, limitado al documento activo y a resolución semántica única; no existe provider host ni índice paralelo heredado.
+- **Implementación parcial aprovechable:** folding estructural/comentarios, inlay hints owner-aware para parámetros, resúmenes extra de callable/code lens por herencia y advanced semantic tokens.
+- **Valuable gaps registrados:** `B344` concentra ahora los edge cases DataWindow `child/report/column occurrences`; cualquier migración debe entrar como fixture/regla sobre `DataWindowModel`, bindings y resolvers actuales.
 - **No portar:** provider host cliente, singleton indexes sin versionado, symbol keys sin sourceOrigin, ORCA directo y cualquier lógica que reconstruya semántica fuera de `KnowledgeBase`/snapshots/query service.
 
-La sesión actual no porta código legacy; solo registra gaps y aplica un refactor server-side propio (`CodeLensResultCache`) sin tomar implementación antigua.
+La sesión actual sigue sin portar código legacy masivo: sólo extrae la heurística de linked editing sobre el backbone nuevo y deja el resto clasificado para slices posteriores.
