@@ -35,6 +35,8 @@ import {
   type ApiObjectCheckRequest,
   type ApiExplainDiagnosticReport,
   type ApiExplainDiagnosticRequest,
+  type ApiExplainSystemSymbolReport,
+  type ApiExplainSystemSymbolRequest,
   type ApiWorkspaceCheckCatalogSummary,
   type ApiWorkspaceCheckReport,
   type ApiWorkspaceCheckRequest,
@@ -153,6 +155,7 @@ import {
   type ExplainDiagnosticCandidateInput,
   type ExplainDiagnosticCandidateData,
 } from './explainDiagnosticReport';
+import { buildExplainSystemSymbolMarkdown } from './explainSystemSymbolReport';
 import {
   buildUnavailableWorkspaceCheckReport,
   buildWorkspaceCheckMarkdown,
@@ -290,7 +293,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     return publicApiSingleton;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-
     channel.appendLine(
       `[VSC PowerSyntax] ERROR al iniciar el cliente LSP: ${message}`
     );
@@ -507,6 +509,7 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
     runObjectCheck: async (request?: unknown) => runObjectCheck(request as ApiObjectCheckRequest | undefined),
     openExplainDiagnostic,
     runExplainDiagnostic: async (request?: unknown) => runExplainDiagnostic(request as ApiExplainDiagnosticRequest | undefined),
+    openExplainSystemSymbol,
     openCrossProjectSymbolConflicts,
     openWorkspaceMigrationAssistant,
     openBuildProfileMatrix,
@@ -762,6 +765,13 @@ function createPublicApi(): VscPowerSyntaxApi {
             mode: 'read-only',
             schema: 'ApiExplainDiagnosticReport',
             payload: await api.explainDiagnostic(args as ApiExplainDiagnosticRequest),
+          };
+        case 'explain-system-symbol':
+          return {
+            tool: 'explain-system-symbol',
+            mode: 'read-only',
+            schema: 'ApiExplainSystemSymbolReport',
+            payload: await api.explainSystemSymbol(args as ApiExplainSystemSymbolRequest),
           };
         case 'query-symbols':
           return {
@@ -1194,6 +1204,18 @@ function createPublicApi(): VscPowerSyntaxApi {
         objectContext,
         safeEditPlan,
       });
+    },
+    async explainSystemSymbol(request: ApiExplainSystemSymbolRequest = {}): Promise<ApiExplainSystemSymbolReport> {
+      const resolvedSource = resolveExplainSystemSymbolSource(request);
+
+      return executeServerCommand<ApiExplainSystemSymbolReport>('powerbuilder.explainSystemSymbol', [
+        {
+          ...request,
+          ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
+          ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+          ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+        },
+      ]);
     },
     async querySymbols(request: ApiQuerySymbolsRequest) {
       const query = request.query ?? '';
@@ -3289,6 +3311,10 @@ async function runExplainDiagnostic(request: ApiExplainDiagnosticRequest = {}): 
   return publicApiSingleton.explainDiagnostic(request);
 }
 
+async function runExplainSystemSymbol(request: ApiExplainSystemSymbolRequest = {}): Promise<ApiExplainSystemSymbolReport> {
+  return publicApiSingleton.explainSystemSymbol(request);
+}
+
 async function openCurrentObjectCheck(): Promise<void> {
   let report: ApiObjectCheckReport;
   try {
@@ -3351,6 +3377,76 @@ async function openExplainDiagnostic(): Promise<void> {
   }
 
   await openMarkdownReportDocument(buildExplainDiagnosticMarkdown(report));
+}
+
+async function openExplainSystemSymbol(): Promise<void> {
+  let report: ApiExplainSystemSymbolReport;
+  try {
+    report = await runExplainSystemSymbol({
+      includeSignatures: true,
+      includeParameters: true,
+      includeEnumValues: true,
+      includeProvenance: true,
+      includeConflicts: true,
+      maxCandidates: 6,
+      maxSignatures: 4,
+      maxEnumValues: 12,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo explicar el simbolo del catalogo: ${message}`);
+    return;
+  }
+
+  await openMarkdownReportDocument(buildExplainSystemSymbolMarkdown(report));
+}
+
+function resolveExplainSystemSymbolSource(request: ApiExplainSystemSymbolRequest): {
+  uri?: string;
+  line?: number;
+  character?: number;
+} {
+  const editor = vscode.window.activeTextEditor;
+
+  if (request.uri) {
+    const normalizedLine = typeof request.line === 'number'
+      ? Math.max(0, Math.trunc(request.line))
+      : editor?.document.uri.toString() === request.uri
+        ? editor.selection.active.line
+        : undefined;
+    const normalizedCharacter = typeof request.character === 'number'
+      ? Math.max(0, Math.trunc(request.character))
+      : editor?.document.uri.toString() === request.uri
+        ? editor.selection.active.character
+        : undefined;
+    return {
+      uri: request.uri,
+      ...(typeof normalizedLine === 'number' ? { line: normalizedLine } : {}),
+      ...(typeof normalizedCharacter === 'number' ? { character: normalizedCharacter } : {}),
+    };
+  }
+
+  if ((typeof request.line === 'number' || typeof request.character === 'number') && editor) {
+    return {
+      uri: editor.document.uri.toString(),
+      ...(typeof request.line === 'number' ? { line: Math.max(0, Math.trunc(request.line)) } : { line: editor.selection.active.line }),
+      ...(typeof request.character === 'number' ? { character: Math.max(0, Math.trunc(request.character)) } : { character: editor.selection.active.character }),
+    };
+  }
+
+  if (request.name?.trim()) {
+    return {};
+  }
+
+  if (!editor) {
+    return {};
+  }
+
+  return {
+    uri: editor.document.uri.toString(),
+    line: editor.selection.active.line,
+    character: editor.selection.active.character,
+  };
 }
 
 function resolveExplainDiagnosticSource(request: ApiExplainDiagnosticRequest): {

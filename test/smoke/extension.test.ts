@@ -527,6 +527,63 @@ suite('smoke/extension', () => {
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Explain Diagnostic/);
   });
 
+  test('explain system symbol expone tool read-only y reporte markdown', async function () {
+    this.timeout(30000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+    assert.equal(typeof api!.explainSystemSymbol, 'function');
+    assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'explain-system-symbol'));
+
+    const contextDocument = await vscode.workspace.openTextDocument({
+      language: 'powerbuilder',
+      content: 'MessageBox("Hola", "Mundo")',
+    });
+    const editor = await vscode.window.showTextDocument(contextDocument, { preview: false });
+    editor.selection = new vscode.Selection(0, 3, 0, 3);
+
+    const explainSystemSymbol = await withStepTimeout(
+      'explainSystemSymbol(api)',
+      api!.explainSystemSymbol({
+        includeSignatures: true,
+        includeProvenance: true,
+      }),
+      10000,
+    );
+    assert.equal(explainSystemSymbol.available, true);
+    assert.equal(explainSystemSymbol.resolution.state, 'resolved');
+    assert.equal(explainSystemSymbol.symbol?.name, 'MessageBox');
+
+    const explainSystemSymbolToolResult = await withStepTimeout(
+      'invokeReadOnlyTool(explain-system-symbol)',
+      api!.invokeReadOnlyTool({
+        tool: 'explain-system-symbol',
+        args: {
+          name: 'Abs',
+          locale: 'es',
+          includeSignatures: true,
+        },
+      }),
+      10000,
+    );
+    assert.equal(explainSystemSymbolToolResult.mode, 'read-only');
+    assert.equal(explainSystemSymbolToolResult.schema, 'ApiExplainSystemSymbolReport');
+    assert.equal((explainSystemSymbolToolResult.payload as { available?: boolean }).available, true);
+
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+    editor.selection = new vscode.Selection(0, 3, 0, 3);
+    await withStepTimeout(
+      'executeCommand(vscPowerSyntax.openExplainSystemSymbol)',
+      vscode.commands.executeCommand('vscPowerSyntax.openExplainSystemSymbol'),
+      10000,
+    );
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Explain System Symbol/);
+  });
+
   test('el runtime self-test se ejecuta como comando read-only', async function () {
     this.timeout(15000);
 

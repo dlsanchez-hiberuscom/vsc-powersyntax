@@ -63,6 +63,8 @@ Además, cuando haga falta un veredicto corto y accionable para esa unidad, el u
 
 Si la pregunta es todavía más local y gira alrededor de un diagnostic concreto ya publicado, debe poder ejecutar además `PowerSyntax: Explain Diagnostic at Cursor`, `explainDiagnostic()` o el tool read-only `explain-diagnostic` para obtener una explicación compacta con `diagnostic.code`, `reasonCode`, evidencia mínima y safe fix sugerido cuando el runtime ya lo pueda defender.
 
+Si la duda gira alrededor de un símbolo del lenguaje o del catálogo runtime, debe poder ejecutar además `PowerSyntax: Explain System Symbol at Cursor`, `explainSystemSymbol()` o el tool read-only `explain-system-symbol` para obtener summary, signatures, enum info, provenance y fallback localizado sin cargar el catálogo completo.
+
 ---
 
 ## 4. Workflow 3 — Navegar herencia

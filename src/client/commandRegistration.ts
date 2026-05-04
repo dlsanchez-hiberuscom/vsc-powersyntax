@@ -50,6 +50,7 @@ export interface ClientCommandRegistrationDependencies {
   runObjectCheck(request?: unknown): unknown;
   openExplainDiagnostic(): unknown;
   runExplainDiagnostic(request?: unknown): unknown;
+  openExplainSystemSymbol(): unknown;
   openCrossProjectSymbolConflicts(): unknown;
   openWorkspaceMigrationAssistant(): unknown;
   openBuildProfileMatrix(): unknown;
@@ -210,6 +211,10 @@ function buildReportCommands(
     {
       id: 'vscPowerSyntax.openExplainDiagnostic',
       handler: () => dependencies.openExplainDiagnostic(),
+    },
+    {
+      id: 'vscPowerSyntax.openExplainSystemSymbol',
+      handler: () => dependencies.openExplainSystemSymbol(),
     },
     {
       id: 'vscPowerSyntax.openProjectHealthDashboard',

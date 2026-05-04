@@ -60,6 +60,7 @@ Owner docs: `docs/architecture.md`, `docs/localization.md`, `docs/rules-catalog.
 - Comprobacion amplia read-only: `workspace-check`, `checkWorkspace()`, comando `PowerSyntax: Check Workspace`.
 - Comprobacion local read-only: `object-check`, `checkObject()`, comandos `PowerSyntax: Check Current Object` y `PowerSyntax: Check Object...`.
 - Comprobacion puntual de diagnostics: `explain-diagnostic`, `explainDiagnostic()`, comando `PowerSyntax: Explain Diagnostic at Cursor`.
+- Comprobacion puntual de simbolos del lenguaje: `explain-system-symbol`, `explainSystemSymbol()`, comando `PowerSyntax: Explain System Symbol at Cursor`.
 - Baseline comun:
   - `npm run build:test`
   - `npm run test:unit -- --grep "docs|ai-context|context-budget|documentation"`
@@ -93,8 +94,8 @@ Owner docs: `docs/ai-orchestrator.md`, `docs/spec-driven-development.md`, `AGENT
 
 ## Active focus
 
-- Foco actual tras cerrar B379: `B380 — Explain system symbol and catalog lookup tool for AI`.
-- Siguiente foco natural despues de B380: `B381 — AI task context bundle orchestration`.
+- Foco actual tras cerrar B380: `B381 — AI task context bundle orchestration`.
+- Evidencia nueva ya disponible para B381: `workspace-check`, `object-check`, `explain-diagnostic` y `explain-system-symbol`.
 - La autoridad del foco vivo siempre es `docs/current-focus.md`, no este resumen.
 
 ## Documentation ownership

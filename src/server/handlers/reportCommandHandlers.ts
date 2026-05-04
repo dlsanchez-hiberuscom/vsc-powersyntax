@@ -1,4 +1,5 @@
 import type {
+  ApiExplainSystemSymbolRequest,
   ApiSafeBatchRefactorPlanRequest,
   ApiSafeEditPlan,
   ApiSpecDrivenPblUpdateBatchRequest,
@@ -19,6 +20,7 @@ import { applySpecDrivenPblUpdate, applySpecDrivenPblUpdateBatch } from '../buil
 import { buildCrossProjectSymbolConflicts } from '../features/crossProjectSymbolConflicts';
 import { buildCurrentObjectContext } from '../features/currentObjectContext';
 import { buildDataWindowSqlLineage } from '../features/dataWindowSqlLineage';
+import { buildExplainSystemSymbolReport } from '../features/explainSystemSymbol';
 import { buildPowerBuilderDependencyGraph } from '../features/dependencyGraph';
 import { decideFeatureReadiness } from '../features/featureReadiness';
 import { buildHierarchyInspection } from '../features/hierarchyInspection';
@@ -518,6 +520,33 @@ export async function tryHandleReportCommand(
           },
           workspaceState,
         ))
+      };
+    }
+    case 'powerbuilder.explainSystemSymbol': {
+      const [requestArg] = params.arguments ?? [];
+      const request = typeof requestArg === 'object' && requestArg !== null
+        ? requestArg as ApiExplainSystemSymbolRequest
+        : undefined;
+      const requestUri = typeof request?.uri === 'string' ? request.uri : undefined;
+      const effectiveUri = requestUri
+        ?? ((typeof request?.line === 'number' || typeof request?.character === 'number') ? getActiveDocumentUri() ?? undefined : undefined);
+      const document = effectiveUri ? await loadTextDocument(context, effectiveUri) ?? undefined : undefined;
+
+      return {
+        handled: true,
+        result: await runNearContextWorkload('explain-system-symbol', () => buildExplainSystemSymbolReport(
+          effectiveUri && effectiveUri !== requestUri
+            ? {
+              ...(request ?? {}),
+              uri: effectiveUri,
+            }
+            : request,
+          {
+            systemCatalog,
+            document,
+            knowledgeBase,
+          },
+        )),
       };
     }
     case 'powerbuilder.dependencyGraph': {

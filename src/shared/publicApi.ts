@@ -4,7 +4,7 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.16.0';
+export const PUBLIC_API_VERSION = '2.17.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
@@ -13,6 +13,7 @@ export type ApiReadOnlyToolName =
   | 'workspace-check'
   | 'object-check'
   | 'explain-diagnostic'
+  | 'explain-system-symbol'
   | 'query-symbols'
   | 'cross-project-symbol-conflicts'
   | 'workspace-migration-assistant'
@@ -680,6 +681,97 @@ export interface ApiExplainDiagnosticReport {
   recommendedActions: string[];
 }
 
+export interface ApiExplainSystemSymbolRequest {
+  name?: string;
+  uri?: string;
+  line?: number;
+  character?: number;
+  ownerType?: string;
+  domain?: string;
+  kind?: string;
+  locale?: 'en' | 'es';
+  includeSignatures?: boolean;
+  includeParameters?: boolean;
+  includeEnumValues?: boolean;
+  includeProvenance?: boolean;
+  includeConflicts?: boolean;
+  maxCandidates?: number;
+  maxSignatures?: number;
+  maxEnumValues?: number;
+}
+
+export interface ApiExplainSystemSymbolReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+  query: ApiExplainSystemSymbolRequest;
+
+  resolution: {
+    state: 'resolved' | 'ambiguous' | 'unresolved';
+    candidateCount: number;
+    selectedId?: string;
+    confidence: 'high' | 'medium' | 'low';
+  };
+
+  symbol?: {
+    id?: string;
+    name: string;
+    normalizedName?: string;
+    domain?: string;
+    kind?: string;
+    category?: string;
+    ownerTypes?: readonly string[];
+    appliesTo?: readonly string[];
+    summary?: string;
+    documentation?: string;
+    obsolete?: boolean;
+    obsoleteMessage?: string;
+    replacement?: string;
+    risk?: string;
+    sourceUrl?: string;
+    authority?: 'official' | 'curated' | 'generated' | 'project' | 'workspace' | 'custom';
+  };
+
+  signatures?: Array<{
+    label: string;
+    returnType?: string;
+    parameters?: Array<{
+      name: string;
+      type?: string;
+      documentation?: string;
+    }>;
+  }>;
+
+  enumInfo?: {
+    enumValueOf?: string;
+    enumValues?: readonly string[];
+    enumNumericValue?: number;
+    enumValueMeaning?: string;
+  };
+
+  candidates?: Array<{
+    id?: string;
+    name: string;
+    domain?: string;
+    kind?: string;
+    ownerTypes?: readonly string[];
+    summary?: string;
+    sourceUrl?: string;
+  }>;
+
+  findings: Array<{
+    code: string;
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    detail?: string;
+  }>;
+
+  recommendedActions: string[];
+}
+
 const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
   {
     name: 'contract',
@@ -709,6 +801,14 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
     command: 'powerbuilder.explainDiagnostic',
     requestSchema: 'ApiExplainDiagnosticRequest',
     responseSchema: 'ApiExplainDiagnosticReport',
+    usesActiveEditorFallback: true,
+  },
+  {
+    name: 'explain-system-symbol',
+    description: 'Explica un simbolo del catalogo del runtime con signatures, enum values, provenance y localizacion opcional.',
+    command: 'powerbuilder.explainSystemSymbol',
+    requestSchema: 'ApiExplainSystemSymbolRequest',
+    responseSchema: 'ApiExplainSystemSymbolReport',
     usesActiveEditorFallback: true,
   },
   {
@@ -1313,6 +1413,14 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     responseSchema: 'ApiExplainDiagnosticReport',
   },
   {
+    name: 'explainSystemSymbol',
+    command: 'powerbuilder.explainSystemSymbol',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiExplainSystemSymbolRequest',
+    responseSchema: 'ApiExplainSystemSymbolReport',
+  },
+  {
     name: 'querySymbols',
     command: 'powerbuilder.querySymbols',
     access: 'read-only',
@@ -1459,6 +1567,8 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiObjectCheckReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiExplainDiagnosticRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiExplainDiagnosticReport', version: '1.0.0', kind: 'response' },
+  { name: 'ApiExplainSystemSymbolRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiExplainSystemSymbolReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiQuerySymbolsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflictsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflicts', version: '1.0.0', kind: 'response' },
@@ -2434,6 +2544,7 @@ export interface VscPowerSyntaxApi {
   checkWorkspace(request?: ApiWorkspaceCheckRequest): Promise<ApiWorkspaceCheckReport>;
   checkObject(request?: ApiObjectCheckRequest): Promise<ApiObjectCheckReport>;
   explainDiagnostic(request?: ApiExplainDiagnosticRequest): Promise<ApiExplainDiagnosticReport>;
+  explainSystemSymbol(request?: ApiExplainSystemSymbolRequest): Promise<ApiExplainSystemSymbolReport>;
   querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
   getCrossProjectSymbolConflicts(request?: ApiCrossProjectSymbolConflictsRequest): Promise<ApiCrossProjectSymbolConflicts>;
   getWorkspaceMigrationAssistant(request?: ApiWorkspaceMigrationAssistantRequest): Promise<ApiWorkspaceMigrationAssistant>;

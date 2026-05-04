@@ -35,6 +35,7 @@ export const SERVER_EXECUTE_COMMANDS = [
   'powerbuilder.analyzeImpact',
   'powerbuilder.safeEditPlan',
   'powerbuilder.safeBatchRefactorPlan',
+  'powerbuilder.explainSystemSymbol',
   'powerbuilder.applySpecDrivenPblUpdate',
   'powerbuilder.applySpecDrivenPblUpdateBatch',
   'powerbuilder.semanticWorkspaceManifest',

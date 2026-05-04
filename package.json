@@ -265,6 +265,11 @@
         "category": "VSC PowerSyntax"
       },
       {
+        "command": "vscPowerSyntax.openExplainSystemSymbol",
+        "title": "PowerSyntax: Explain System Symbol at Cursor",
+        "category": "VSC PowerSyntax"
+      },
+      {
         "command": "vscPowerSyntax.openCrossProjectSymbolConflicts",
         "title": "PowerSyntax: Abrir Analizador de Conflictos Cross-Project",
         "category": "VSC PowerSyntax"

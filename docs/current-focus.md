@@ -2,36 +2,36 @@
 
 ## 1. Foco activo
 
-`B380 — Explain system symbol and catalog lookup tool for AI`
+`B381 — AI task context bundle orchestration tool`
 
-Estado actual: `B379` queda cerrada. El repositorio ya dispone de una surface read-only compacta para explicar diagnostics concretos sin releer archivos enteros: `explain-diagnostic` existe como tool/API/comando contractual y reutiliza el carril explainability existente en cliente sobre diagnostics ya publicados.
+Estado actual: `B380` queda cerrada. El repositorio ya dispone de una surface read-only compacta para explicar símbolos del catálogo sin cargar datasets enteros: `explain-system-symbol` existe como tool/API/comando contractual y reutiliza `SystemCatalog` + localization server-side con degradación honesta y fallback localizado.
 
-La evidencia vigente que deja `B379` es:
+La evidencia vigente que deja `B380` es:
 
-- `src/shared/publicApi.ts` publica `ApiExplainDiagnosticRequest`, `ApiExplainDiagnosticReport`, el tool `explain-diagnostic`, el método `explainDiagnostic()` y la versión `2.16.0` del contrato público;
-- `src/client/explainDiagnosticReport.ts` concentra la selección determinista del diagnostic objetivo, la explicación por `diagnostic.code`, la evidencia mínima y el safe fix read-only cuando el runtime ya lo puede defender;
-- `src/client/extension.ts`, `src/client/commandRegistration.ts`, `src/client/diagnosticsExplainabilityPanelModel.ts` y `package.json` cablean el método público, el dispatch read-only, el comando `powerbuilder.explainDiagnostic` y la UX `PowerSyntax: Explain Diagnostic at Cursor` sin abrir un segundo motor de diagnostics;
-- `test/server/unit/explainDiagnosticReport.test.ts`, `test/server/unit/publicApi.test.ts`, `test/server/unit/diagnosticsExplainabilityPanelModel.test.ts` y la smoke focal de `test/smoke/extension.test.ts` fijan contrato, wiring y reuse del rail explainability.
+- `src/shared/publicApi.ts` publica `ApiExplainSystemSymbolRequest`, `ApiExplainSystemSymbolReport`, el tool `explain-system-symbol`, el método `explainSystemSymbol()` y la versión `2.17.0` del contrato público;
+- `src/server/features/explainSystemSymbol.ts` concentra el lookup read-only sobre `SystemCatalog`, colapsa duplicados manual/generated por familia semántica, resuelve `resolved|ambiguous|unresolved` y aplica fallback `es -> en` mediante localization ya publicada;
+- `src/server/handlers/reportCommandHandlers.ts`, `src/server/handlers/lifecycleHandlers.ts`, `src/client/extension.ts`, `src/client/commandRegistration.ts` y `package.json` cablean el comando `powerbuilder.explainSystemSymbol`, el bridge read-only y la UX `PowerSyntax: Explain System Symbol at Cursor` sin mover el catálogo al cliente ni abrir un serving paralelo;
+- `test/server/unit/explainSystemSymbol.test.ts`, `test/server/unit/publicApi.test.ts` y la smoke focal de `test/smoke/extension.test.ts` fijan contrato, fallback por cursor/locale y wiring real del tool/comando.
 
-Con ese carril explicativo ya cerrado, el siguiente cuello de botella pasa a ser explicar símbolos del catálogo PowerBuilder sin arrastrar datasets completos al prompt.
+Con `workspace-check`, `object-check`, `explain-diagnostic` y `explain-system-symbol` ya cerrados, el siguiente cuello de botella pasa a ser orquestar esas surfaces en un bundle compacto y estable para tareas IA reales.
 
 ---
 
 ## 2. Por qué es prioritario
 
-Con `B379` cerrada, ya existe un resumen compacto para diagnostics. Ahora falta el equivalente para conocimiento de lenguaje:
+`B381` es el siguiente paso natural porque ya existen piezas compactas, pero todavía no existe un empaquetado controlado para tareas IA completas:
 
-- `B380` debe permitir que una IA o usuario explique un símbolo del catálogo con signatures, ownerTypes, provenance y localización opcional sin cargar `generated/manual/localization` completos;
-- `B381` depende de tener tanto explicación de diagnostics como explicación de símbolos antes de empaquetar un context bundle IA realmente útil;
-- el repositorio ya tiene `system catalog`, localization y consumers estables, pero aún falta una surface read-only específica y compacta para lookup guiado de símbolos PowerBuilder.
+- `B381` depende de `B376`, `B377`, `B379` y `B380`, y esas cuatro surfaces ya están cerradas y validadas;
+- hoy una IA todavía tiene que orquestar varias llamadas por separado para preparar una tarea local de cambio, revisión o troubleshooting;
+- un bundle compacto permite fijar límites de tokens, orden de prioridad, trazabilidad y fallback sin reabrir el catálogo ni duplicar lógica de serving.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- añadir el tool read-only `explain-system-symbol`, su comando `powerbuilder.explainSystemSymbol` y el método público `explainSystemSymbol()`;
-- reutilizar `system catalog`, localization, enums, ownerTypes y provenance ya publicados, sin duplicar lógica ni pasar el catálogo completo al cliente o al prompt;
-- mantener el flujo en modo explicativo/read-only, sin writes y sin introducir un carril paralelo de serving catalog-driven.
+- añadir el tool read-only `ai-task-context-bundle` y su método público `getAiTaskContextBundle()` o equivalente contractual que termine definiendo la spec activa;
+- reutilizar únicamente surfaces ya cerradas (`workspace-check`, `object-check`, `explain-diagnostic`, `explain-system-symbol`, `dependency-graph`, `safe-edit-plan`, `current-object-context`) con límites explícitos de budget y prioridad;
+- mantener el bundle en modo read-only, serializable y compacto, sin scans globales implícitos ni recomposición semántica fuera del runtime existente.
 
 ---
 
@@ -39,19 +39,19 @@ Con `B379` cerrada, ya existe un resumen compacto para diagnostics. Ahora falta 
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B379` salvo drift real del contrato `explain-diagnostic`, sus tests o su wiring;
-- mover lógica de catálogo al cliente o reimplementar serving fuera del pipeline knowledge/runtime existente;
-- introducir writes, fixes automáticos o materialización masiva de datasets para responder una consulta puntual;
-- duplicar documentación de catálogo/localización fuera de `docs/architecture.md`, `docs/rules-catalog.md` y la guía técnica propietaria.
+- reabrir `B380` salvo drift real del contrato `explain-system-symbol`, sus tests o su wiring;
+- mover orquestación IA dentro del core semántico o del hot path interactivo;
+- duplicar reports existentes en un bundle ad hoc que ignore `taskExecutionCatalog`, budgets o contratos públicos ya cerrados;
+- introducir writes, edición implícita o selección automática de targets fuera de surfaces read-only ya defendibles.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- existe `explain-system-symbol` como tool/API/comando read-only contractual;
-- el report resuelve o degrada honestamente símbolos del catálogo con `resolution.state`, candidates, provenance y documentación opcional localizada;
-- el lookup reutiliza `generated/manual/localization` ya publicados sin scans globales ni bundles gigantes al prompt;
-- `architecture`, `testing`, `developer-workflows`, `backlog`, `done-log`, `current-focus` y el context pack IA quedan alineados con el contrato nuevo.
+- existe un bundle read-only contractual para tareas IA concretas con límites de tamaño y selección explícita de secciones;
+- el bundle reutiliza surfaces ya publicadas en vez de recalcular contexto o cargar datasets completos;
+- el resultado distingue claramente disponibilidad, truncado, findings y acciones recomendadas;
+- `architecture`, `testing`, `developer-workflows`, `ai-orchestrator`, `backlog`, `done-log`, `current-focus` y el context pack IA quedan alineados con el contrato nuevo.
 
 ---
 
@@ -65,4 +65,4 @@ No abrir salvo regresión demostrable:
 
 ## 7. Regla final
 
-`B380` debe construir sobre el `system catalog`, localization y contratos read-only ya cerrados. No toca exportar datasets enteros ni duplicar serving: toca explicar mejor, con menos tokens y con provenance clara, lo que el runtime ya sabe del lenguaje.
+`B381` debe orquestar, no reinventar. El bundle IA tiene que construirse sobre surfaces compactas ya validadas y budgets explícitos, sin duplicar semántica ni convertir el cliente o el prompt en un mirror del runtime.
