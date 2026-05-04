@@ -134,6 +134,16 @@ Estado operativo tras `B282`:
 - `references` puede degradar a declaraciones o devolver vacío si se piden solo usos textuales con riesgo dinámico;
 - ninguna regla diagnóstica nueva debe inventarse solo para materializar este riesgo: la señal vive como metadata de query/impact/edit, no como warning agresivo por defecto.
 
+## 4.2 Contrato vigente de localización documental del catálogo
+
+Estado operativo tras `B371`:
+
+- la localización del system catalog se limita a campos documentales visibles (`summary`, `documentation`, `usageNotes`, `limitations`, `obsoleteMessage`, `returnDocumentation`, `parameter.documentation`, `eventReturnCodes.meaning` y `category` solo si es UX-visible);
+- `name`, `id`, `lookupKeys`, `normalizedName`, `ownerTypes`, `domain`, `kind`, `namespace`, `invocation`, `signatures.label`, nombres reales de funciones/eventos, datatypes, enum values y `sourceUrl` no se traducen nunca;
+- los overlays localizados se resuelven por `targetId` o `targetKey` estable contra la entry canónica del bucket runtime, respetando la policy `generated-primary-with-manual-overlays` ya fijada por `B369`;
+- `buildCatalogConsistencyReport().localization` publica `locales` y `orphanOverlays`, de modo que un overlay sin target resoluble o con drift contractual se detecta como problema de gobernanza del catálogo antes de llegar a hover/completion/signatureHelp;
+- los IDs diagnósticos, `reason codes`, severidades y gates de readiness/confidence no cambian por locale: la localización afecta solo presentación/documentación visible, no el contrato semántico de reglas.
+
 ## PB-SYM-001 — Unresolved symbol
 
 - **Estado:** draft

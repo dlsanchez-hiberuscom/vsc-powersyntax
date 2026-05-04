@@ -8,8 +8,10 @@ import {
   PB_GENERATED_COMPLETENESS,
   PB_GENERATED_COMPLETENESS_MODE,
 } from './generated/generatedCompleteness.generated';
+import { getSystemSymbolLocalizationCatalogReport } from './localization';
 import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
 import type {
+  PbCatalogLocale,
   PbSystemManualOverlayMode,
   PbSystemSymbolDataset,
   PbSystemSymbolDomain,
@@ -18,6 +20,10 @@ import type {
   PbSystemSymbolProvenanceAuthority,
   PbSystemSymbolProvenanceKind,
 } from './types';
+import type {
+  PbSystemSymbolLocalizationLocaleSummary,
+  PbSystemSymbolLocalizationOrphan,
+} from './localization';
 
 export interface CatalogDomainProvenanceSummary {
   entryCount: number;
@@ -116,6 +122,11 @@ export interface CatalogAdoptionDecisionReport {
   };
 }
 
+export interface CatalogLocalizationAudit {
+  locales: Partial<Record<PbCatalogLocale, PbSystemSymbolLocalizationLocaleSummary>>;
+  orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
+}
+
 export interface CatalogReport {
   total: number;
   duplicateIds: string[];
@@ -129,6 +140,7 @@ export interface CatalogReport {
   kindCounts: Record<PbSystemSymbolKind, number>;
   provenance: CatalogProvenanceAudit;
   adoption: CatalogAdoptionDecisionReport;
+  localization: CatalogLocalizationAudit;
 }
 
 type MutableCatalogDomainProvenanceSummary = {
@@ -480,6 +492,7 @@ function buildDomainRecommendedPolicy(
 
 export function buildCatalogConsistencyReport(): CatalogReport {
   const entries = PB_SYSTEM_SYMBOL_REGISTRY.entries;
+  const localization = getSystemSymbolLocalizationCatalogReport();
   const seen = new Map<string, number>();
   const entryById = new Map<string, PbSystemSymbolEntry>();
   const logicalBuckets = new Map<string, PbSystemSymbolEntry[]>();
@@ -768,5 +781,6 @@ export function buildCatalogConsistencyReport(): CatalogReport {
         rationale: adoptionRationale,
       },
     },
+    localization,
   };
 }

@@ -9,6 +9,7 @@ suite('unit/catalogConsistency (B132)', () => {
     assert.equal(r.emptyName.length, 0);
     assert.equal(r.invalidEnumeratedTypeNames.length, 0);
     assert.equal(r.manualGeneratedOverlapsWithoutOverlay.length, 0, `manual/generated sin overlay: ${r.manualGeneratedOverlapsWithoutOverlay.slice(0, 3).join(',')}`);
+    assert.equal(r.localization.orphanOverlays.length, 0, `localization orphans: ${r.localization.orphanOverlays.slice(0, 3).map(item => item.reason).join(',')}`);
   });
 
   test('domain counts suman al total', () => {
@@ -23,6 +24,7 @@ suite('unit/catalogConsistency (B132)', () => {
     assert.ok((r.datasetCounts['generated'] ?? 0) > 0);
     assert.ok((r.manualOverlayModes.gap ?? 0) > 0);
     assert.ok((r.manualOverlayModes.enrichment ?? 0) > 0);
+    assert.ok((r.localization.locales.es?.overlayCount ?? 0) > 0);
     assert.equal(r.adoption.summary.recommendedPolicy, 'generated-primary-with-manual-overlays');
     assert.equal(r.adoption.summary.officialDomainsWithGaps.length, 0);
   });

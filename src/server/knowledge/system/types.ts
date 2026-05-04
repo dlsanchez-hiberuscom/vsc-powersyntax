@@ -100,6 +100,47 @@ export interface PbSystemManualOverlay {
     reviewedBy?: string;
 }
 
+export type PbCatalogLocale = 'en' | 'es';
+
+export interface PbLocalizedText {
+    readonly summary?: string;
+    readonly documentation?: string;
+    readonly usageNotes?: readonly string[];
+    readonly limitations?: readonly string[];
+    readonly obsoleteMessage?: string;
+    readonly returnDocumentation?: string;
+    readonly category?: string;
+}
+
+export interface PbLocalizedParameterDocumentation {
+    readonly signatureLabel: string;
+    readonly parameterName: string;
+    readonly documentation: string;
+}
+
+export interface PbLocalizedEventReturnCodeDocumentation {
+    readonly value: string;
+    readonly meaning: string;
+}
+
+export type PbSystemSymbolLocalizationTargetKey = Readonly<PbSystemManualOverlayTargetKey>;
+
+export type PbSystemSymbolLocalizationOverlaySource =
+    | 'manual-curated'
+    | 'machine-assisted-reviewed'
+    | 'generated-assisted';
+
+export interface PbSystemSymbolLocalizationOverlay {
+    readonly targetId?: string;
+    readonly targetKey?: PbSystemSymbolLocalizationTargetKey;
+    readonly locale: PbCatalogLocale;
+    readonly text?: PbLocalizedText;
+    readonly parameters?: readonly PbLocalizedParameterDocumentation[];
+    readonly eventReturnCodes?: readonly PbLocalizedEventReturnCodeDocumentation[];
+    readonly reviewed?: boolean;
+    readonly source?: PbSystemSymbolLocalizationOverlaySource;
+}
+
 export interface PbSystemSymbolSignatureParameter {
     label: string;
     documentation?: string;

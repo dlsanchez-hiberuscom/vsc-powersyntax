@@ -25,6 +25,27 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.130 B371. Catalog localization model and immutable overlay contract — **Cerrada (knowledge/catalog localization base 2026-05)**
+
+**Objetivo:** fijar un modelo ligero e inmutable de localización documental para el system catalog sin duplicar símbolos por idioma, sin mutar el texto oficial de `generated` y dejando trazable cualquier drift del rail localizado.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/types.ts` y `src/server/knowledge/system/localization/types.ts` publican el contrato de overlays localizados (`PbCatalogLocale`, `PbLocalizedText`, documentación de parámetros y return codes, `targetId/targetKey`, `reviewed/source`) y acotan explícitamente qué campos pueden traducirse y cuáles nunca deben tocar la identidad semántica;
+- `src/server/knowledge/system/localization/localizationResolver.ts`, junto con `src/server/knowledge/system/localization/es/`, introduce un índice español parcial y un resolvedor memoizado que enlaza overlays por `targetId` o `targetKey` contra la entry canónica del bucket runtime, alineado con la policy `generated-primary-with-manual-overlays` y sin merges globales por idioma;
+- `src/server/knowledge/system/consistency.ts` añade `localization` al audit del catálogo para publicar `locales` y `orphanOverlays`, de modo que cualquier overlay sin target resoluble quede visible como problema de gobernanza antes de llegar a hover/completion/signatureHelp;
+- `test/server/unit/catalogLocalization.test.ts` y `test/server/unit/catalogConsistency.test.ts`, apoyados por `catalogAdoptionDecision` y `systemCatalogQueryHardening`, fijan la preservación del summary oficial en inglés, la ausencia de huérfanos en el rail `es` inicial y la resolución estable por `targetId/targetKey`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization|catalogConsistency|catalogAdoptionDecision|systemCatalogQueryHardening"`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
 ## 1.129 B377. Current object/class check command and AI-readable validation report — **Cerrada (workflow/object-level validation 2026-05)**
 
 **Objetivo:** añadir un chequeo consolidado del objeto actual o resuelto por nombre como tool/API/comando read-only para que usuario y agentes puedan decidir cambios locales con una sola llamada defendible.

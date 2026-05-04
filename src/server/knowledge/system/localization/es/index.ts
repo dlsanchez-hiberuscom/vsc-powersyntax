@@ -1,0 +1,14 @@
+import type { PbSystemSymbolLocalizationOverlay } from '../types';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_DATATYPES } from './generatedDatatypeLocalization';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_ENUMS } from './generatedEnumLocalization';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_EVENTS } from './generatedEventLocalization';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS } from './generatedFunctionLocalization';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_STATEMENTS } from './generatedStatementLocalization';
+
+export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES = [
+  ...PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS,
+  ...PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_EVENTS,
+  ...PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_DATATYPES,
+  ...PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_STATEMENTS,
+  ...PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_ENUMS,
+] as const satisfies readonly PbSystemSymbolLocalizationOverlay[];
