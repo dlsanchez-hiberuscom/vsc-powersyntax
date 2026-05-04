@@ -4,6 +4,10 @@
  * @module knowledge/system/consistency
  */
 
+import {
+  PB_GENERATED_COMPLETENESS,
+  PB_GENERATED_COMPLETENESS_MODE,
+} from './generated/generatedCompleteness.generated';
 import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
 import type {
   PbSystemManualOverlayMode,
@@ -41,18 +45,90 @@ export interface CatalogProvenanceAudit {
   domainSummaries: Partial<Record<PbSystemSymbolDomain, CatalogDomainProvenanceSummary>>;
 }
 
+export interface CatalogCoverageMetric {
+  covered: number;
+  total: number;
+  ratio: number;
+}
+
+export interface CatalogDatasetAdoptionMetrics {
+  entryCount: number;
+  signatureQuality: CatalogCoverageMetric;
+  appliesToQuality: CatalogCoverageMetric;
+  ownerTypesQuality: CatalogCoverageMetric;
+  obsoleteDetectionQuality: CatalogCoverageMetric;
+  eventIdCoverage: CatalogCoverageMetric;
+  returnTypeCoverage: CatalogCoverageMetric;
+  parameterDocsCoverage: CatalogCoverageMetric;
+  hoverUsefulness: CatalogCoverageMetric;
+  signatureHelpUsefulness: CatalogCoverageMetric;
+}
+
+export type CatalogAdoptionRecommendedPolicy =
+  | 'generated-primary-with-manual-overlays'
+  | 'manual-primary'
+  | 'hybrid-by-domain';
+
+export interface CatalogDomainAdoptionReport {
+  domain: PbSystemSymbolDomain;
+  officialCount: number;
+  generatedCount: number;
+  manualCount: number;
+  duplicateCount: number;
+  gapCount: number;
+  overrideCount: number;
+  enrichmentCount: number;
+  candidateCount: number;
+  scraperErrorCount: number;
+  maintenanceCost: number;
+  generated: CatalogDatasetAdoptionMetrics;
+  manual: CatalogDatasetAdoptionMetrics;
+  officialCoverage?: {
+    measurement: string;
+    coveredCount: number;
+    missingCount: number;
+  };
+  recommendedPolicy: CatalogAdoptionRecommendedPolicy;
+  rationale: readonly string[];
+}
+
+export interface CatalogAdoptionDecisionReport {
+  completenessMode: string;
+  officialDomains: readonly PbSystemSymbolDomain[];
+  manualOnlyDomains: readonly PbSystemSymbolDomain[];
+  domains: Partial<Record<PbSystemSymbolDomain, CatalogDomainAdoptionReport>>;
+  summary: {
+    officialCount: number;
+    generatedCount: number;
+    manualCount: number;
+    duplicateCount: number;
+    gapCount: number;
+    overrideCount: number;
+    enrichmentCount: number;
+    candidateCount: number;
+    scraperErrorCount: number;
+    maintenanceCost: number;
+    generated: CatalogDatasetAdoptionMetrics;
+    manual: CatalogDatasetAdoptionMetrics;
+    officialDomainsWithGaps: readonly PbSystemSymbolDomain[];
+    recommendedPolicy: CatalogAdoptionRecommendedPolicy;
+    rationale: readonly string[];
+  };
+}
+
 export interface CatalogReport {
   total: number;
   duplicateIds: string[];
-  missingSignatures: string[]; // ids
-  emptyName: string[]; // ids
-  invalidEnumeratedTypeNames: string[]; // ids
-  manualGeneratedOverlapsWithoutOverlay: string[]; // logical keys
+  missingSignatures: string[];
+  emptyName: string[];
+  invalidEnumeratedTypeNames: string[];
+  manualGeneratedOverlapsWithoutOverlay: string[];
   manualOverlayModes: Partial<Record<PbSystemManualOverlayMode, number>>;
   domainCounts: Record<PbSystemSymbolDomain, number>;
   datasetCounts: Partial<Record<PbSystemSymbolDataset, number>>;
   kindCounts: Record<PbSystemSymbolKind, number>;
   provenance: CatalogProvenanceAudit;
+  adoption: CatalogAdoptionDecisionReport;
 }
 
 type MutableCatalogDomainProvenanceSummary = {
@@ -66,6 +142,35 @@ type MutableCatalogDomainProvenanceSummary = {
   missingSourceUrlCount: number;
   missingVersionCount: number;
 };
+
+type CatalogDatasetAdoptionAccumulator = {
+  entryCount: number;
+  signatureCovered: number;
+  signatureTotal: number;
+  appliesToCovered: number;
+  appliesToTotal: number;
+  ownerTypesCovered: number;
+  ownerTypesTotal: number;
+  obsoleteCovered: number;
+  obsoleteTotal: number;
+  eventIdCovered: number;
+  eventIdTotal: number;
+  returnTypeCovered: number;
+  returnTypeTotal: number;
+  parameterDocsCovered: number;
+  parameterDocsTotal: number;
+  hoverCovered: number;
+  hoverTotal: number;
+  signatureHelpCovered: number;
+  signatureHelpTotal: number;
+};
+
+type GeneratedCompletenessDomain = keyof typeof PB_GENERATED_COMPLETENESS;
+type GeneratedCompletenessEntry = (typeof PB_GENERATED_COMPLETENESS)[GeneratedCompletenessDomain];
+
+const CALLABLE_KINDS = new Set<PbSystemSymbolKind>(['callable', 'event', 'statement']);
+const APPLIES_TO_KINDS = new Set<PbSystemSymbolKind>(['callable', 'event', 'statement', 'datatype', 'system-type', 'enumerated-type']);
+const GENERATED_COMPLETENESS_BY_DOMAIN = PB_GENERATED_COMPLETENESS as Partial<Record<PbSystemSymbolDomain, GeneratedCompletenessEntry>>;
 
 function incrementCount(
   counts: Record<string, number>,
@@ -148,7 +253,9 @@ function getOrCreateDomainSummary(
   return created;
 }
 
-function buildLogicalOverlapKey(entry: Pick<PbSystemSymbolEntry, 'domain' | 'kind' | 'namespace' | 'invocation' | 'enumValueOf' | 'normalizedName' | 'normalizedOwnerTypes'>): string {
+function buildLogicalOverlapKey(
+  entry: Pick<PbSystemSymbolEntry, 'domain' | 'kind' | 'namespace' | 'invocation' | 'enumValueOf' | 'normalizedName' | 'normalizedOwnerTypes'>,
+): string {
   return [
     entry.domain,
     entry.kind,
@@ -160,9 +267,221 @@ function buildLogicalOverlapKey(entry: Pick<PbSystemSymbolEntry, 'domain' | 'kin
   ].join('|');
 }
 
+function buildCoverageMetric(covered: number, total: number): CatalogCoverageMetric {
+  return {
+    covered,
+    total,
+    ratio: total === 0 ? 1 : covered / total,
+  };
+}
+
+function createAdoptionAccumulator(): CatalogDatasetAdoptionAccumulator {
+  return {
+    entryCount: 0,
+    signatureCovered: 0,
+    signatureTotal: 0,
+    appliesToCovered: 0,
+    appliesToTotal: 0,
+    ownerTypesCovered: 0,
+    ownerTypesTotal: 0,
+    obsoleteCovered: 0,
+    obsoleteTotal: 0,
+    eventIdCovered: 0,
+    eventIdTotal: 0,
+    returnTypeCovered: 0,
+    returnTypeTotal: 0,
+    parameterDocsCovered: 0,
+    parameterDocsTotal: 0,
+    hoverCovered: 0,
+    hoverTotal: 0,
+    signatureHelpCovered: 0,
+    signatureHelpTotal: 0,
+  };
+}
+
+function hasReturnType(entry: PbSystemSymbolEntry): boolean {
+  if (entry.returnType?.trim()) {
+    return true;
+  }
+
+  return entry.signatures.some(signature => Boolean(signature.returnType?.trim()));
+}
+
+function countSignatureParameters(entry: PbSystemSymbolEntry): { total: number; documented: number } {
+  let total = 0;
+  let documented = 0;
+
+  for (const signature of entry.signatures) {
+    for (const parameter of signature.parameters ?? []) {
+      total += 1;
+      if (parameter.documentation?.trim()) {
+        documented += 1;
+      }
+    }
+  }
+
+  return { total, documented };
+}
+
+function hasHoverMetadata(entry: PbSystemSymbolEntry): boolean {
+  const hasText = Boolean(entry.documentation?.trim() || entry.summary.trim());
+
+  if (!hasText) {
+    return false;
+  }
+
+  if (!CALLABLE_KINDS.has(entry.kind)) {
+    return true;
+  }
+
+  return entry.signatures.length > 0;
+}
+
+function observeAdoptionMetrics(
+  accumulator: CatalogDatasetAdoptionAccumulator,
+  entry: PbSystemSymbolEntry,
+): void {
+  accumulator.entryCount += 1;
+  accumulator.hoverTotal += 1;
+  if (hasHoverMetadata(entry)) {
+    accumulator.hoverCovered += 1;
+  }
+
+  if (CALLABLE_KINDS.has(entry.kind)) {
+    accumulator.signatureTotal += 1;
+    if (entry.signatures.length > 0) {
+      accumulator.signatureCovered += 1;
+    }
+
+    accumulator.returnTypeTotal += 1;
+    if (hasReturnType(entry)) {
+      accumulator.returnTypeCovered += 1;
+    }
+
+    accumulator.signatureHelpTotal += 1;
+    if (entry.signatures.length > 0 && (hasReturnType(entry) || entry.signatures.some(signature => (signature.parameters?.length ?? 0) > 0))) {
+      accumulator.signatureHelpCovered += 1;
+    }
+
+    const parameterCounts = countSignatureParameters(entry);
+    accumulator.parameterDocsTotal += parameterCounts.total;
+    accumulator.parameterDocsCovered += parameterCounts.documented;
+  }
+
+  if (APPLIES_TO_KINDS.has(entry.kind)) {
+    accumulator.appliesToTotal += 1;
+    if ((entry.appliesTo?.length ?? 0) > 0) {
+      accumulator.appliesToCovered += 1;
+    }
+  }
+
+  if (entry.invocation === 'member' || entry.kind === 'event' || entry.domain === 'system-object-datatypes') {
+    accumulator.ownerTypesTotal += 1;
+    if ((entry.ownerTypes?.length ?? 0) > 0) {
+      accumulator.ownerTypesCovered += 1;
+    }
+  }
+
+  if (entry.obsolete) {
+    accumulator.obsoleteTotal += 1;
+    if (Boolean(entry.obsoleteMessage?.trim() || entry.replacement?.trim() || entry.risk === 'deprecated')) {
+      accumulator.obsoleteCovered += 1;
+    }
+  }
+
+  if (entry.kind === 'event') {
+    accumulator.eventIdTotal += 1;
+    if (Boolean(entry.eventId?.trim() || (entry.eventIds?.length ?? 0) > 0)) {
+      accumulator.eventIdCovered += 1;
+    }
+  }
+}
+
+function finalizeAdoptionMetrics(
+  entries: readonly PbSystemSymbolEntry[],
+): CatalogDatasetAdoptionMetrics {
+  const accumulator = createAdoptionAccumulator();
+
+  for (const entry of entries) {
+    observeAdoptionMetrics(accumulator, entry);
+  }
+
+  return {
+    entryCount: accumulator.entryCount,
+    signatureQuality: buildCoverageMetric(accumulator.signatureCovered, accumulator.signatureTotal),
+    appliesToQuality: buildCoverageMetric(accumulator.appliesToCovered, accumulator.appliesToTotal),
+    ownerTypesQuality: buildCoverageMetric(accumulator.ownerTypesCovered, accumulator.ownerTypesTotal),
+    obsoleteDetectionQuality: buildCoverageMetric(accumulator.obsoleteCovered, accumulator.obsoleteTotal),
+    eventIdCoverage: buildCoverageMetric(accumulator.eventIdCovered, accumulator.eventIdTotal),
+    returnTypeCoverage: buildCoverageMetric(accumulator.returnTypeCovered, accumulator.returnTypeTotal),
+    parameterDocsCoverage: buildCoverageMetric(accumulator.parameterDocsCovered, accumulator.parameterDocsTotal),
+    hoverUsefulness: buildCoverageMetric(accumulator.hoverCovered, accumulator.hoverTotal),
+    signatureHelpUsefulness: buildCoverageMetric(accumulator.signatureHelpCovered, accumulator.signatureHelpTotal),
+  };
+}
+
+function countOverlayModes(
+  entries: readonly PbSystemSymbolEntry[],
+): Record<PbSystemManualOverlayMode, number> {
+  const counts: Record<PbSystemManualOverlayMode, number> = {
+    gap: 0,
+    enrichment: 0,
+    override: 0,
+    candidate: 0,
+  };
+
+  for (const entry of entries) {
+    if (entry.dataset !== 'manual-core' || !entry.manualOverlay) {
+      continue;
+    }
+
+    counts[entry.manualOverlay.mode] += 1;
+  }
+
+  return counts;
+}
+
+function countLogicalDuplicatesInDomain(
+  domain: PbSystemSymbolDomain,
+  logicalBuckets: ReadonlyMap<string, readonly PbSystemSymbolEntry[]>,
+): number {
+  let count = 0;
+
+  for (const bucket of logicalBuckets.values()) {
+    if (bucket.length === 0 || bucket[0].domain !== domain) {
+      continue;
+    }
+
+    const hasManual = bucket.some(entry => entry.dataset === 'manual-core');
+    const hasGenerated = bucket.some(entry => entry.dataset === 'generated');
+    if (hasManual && hasGenerated) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+function buildDomainRecommendedPolicy(
+  generatedCount: number,
+  manualCount: number,
+  officialCoverage: CatalogDomainAdoptionReport['officialCoverage'],
+): CatalogAdoptionRecommendedPolicy {
+  if (generatedCount === 0 && manualCount > 0) {
+    return 'manual-primary';
+  }
+
+  if (officialCoverage && officialCoverage.missingCount > 0) {
+    return 'hybrid-by-domain';
+  }
+
+  return 'generated-primary-with-manual-overlays';
+}
+
 export function buildCatalogConsistencyReport(): CatalogReport {
   const entries = PB_SYSTEM_SYMBOL_REGISTRY.entries;
   const seen = new Map<string, number>();
+  const entryById = new Map<string, PbSystemSymbolEntry>();
   const logicalBuckets = new Map<string, PbSystemSymbolEntry[]>();
   const missingSignatures: string[] = [];
   const emptyName: string[] = [];
@@ -183,70 +502,83 @@ export function buildCatalogConsistencyReport(): CatalogReport {
   let withVersion = 0;
   let withGeneratedAt = 0;
 
-  for (const e of entries) {
-    seen.set(e.id, (seen.get(e.id) ?? 0) + 1);
-    const logicalKey = buildLogicalOverlapKey(e);
+  for (const entry of entries) {
+    entryById.set(entry.id, entry);
+    seen.set(entry.id, (seen.get(entry.id) ?? 0) + 1);
+
+    const logicalKey = buildLogicalOverlapKey(entry);
     const logicalBucket = logicalBuckets.get(logicalKey) ?? [];
-    logicalBucket.push(e);
+    logicalBucket.push(entry);
     logicalBuckets.set(logicalKey, logicalBucket);
-    if (!e.signatures || e.signatures.length === 0) missingSignatures.push(e.id);
-    if (!e.name || !e.name.trim()) emptyName.push(e.id);
-    if (e.kind === 'enumerated-type' && e.name.endsWith('!')) invalidEnumeratedTypeNames.push(e.id);
-    if (e.dataset === 'manual-core' && e.manualOverlay) {
-      incrementCount(manualOverlayModes, e.manualOverlay.mode);
+
+    if (entry.signatures.length === 0) {
+      missingSignatures.push(entry.id);
     }
-    domainCounts[e.domain] = (domainCounts[e.domain] ?? 0) + 1;
-    datasetCounts[e.dataset] = (datasetCounts[e.dataset] ?? 0) + 1;
-    kindCounts[e.kind] = (kindCounts[e.kind] ?? 0) + 1;
-
-    incrementCount(provenanceByKind, e.provenance.kind);
-    incrementCount(provenanceByAuthority, e.provenance.authority);
-
-    if (e.provenance.kind !== expectedProvenanceKind(e.dataset)) {
-      datasetKindMismatch.push(e.id);
+    if (!entry.name.trim()) {
+      emptyName.push(entry.id);
+    }
+    if (entry.kind === 'enumerated-type' && entry.name.endsWith('!')) {
+      invalidEnumeratedTypeNames.push(entry.id);
+    }
+    if (entry.dataset === 'manual-core' && entry.manualOverlay) {
+      incrementCount(manualOverlayModes, entry.manualOverlay.mode);
     }
 
-    if (e.provenance.authority !== expectedProvenanceAuthority(e.dataset)) {
-      datasetAuthorityMismatch.push(e.id);
+    domainCounts[entry.domain] = (domainCounts[entry.domain] ?? 0) + 1;
+    datasetCounts[entry.dataset] = (datasetCounts[entry.dataset] ?? 0) + 1;
+    kindCounts[entry.kind] = (kindCounts[entry.kind] ?? 0) + 1;
+
+    incrementCount(provenanceByKind, entry.provenance.kind);
+    incrementCount(provenanceByAuthority, entry.provenance.authority);
+
+    if (entry.provenance.kind !== expectedProvenanceKind(entry.dataset)) {
+      datasetKindMismatch.push(entry.id);
+    }
+    if (entry.provenance.authority !== expectedProvenanceAuthority(entry.dataset)) {
+      datasetAuthorityMismatch.push(entry.id);
     }
 
-    const domainSummary = getOrCreateDomainSummary(domainSummaries, e.domain);
+    const domainSummary = getOrCreateDomainSummary(domainSummaries, entry.domain);
     domainSummary.entryCount += 1;
-    domainSummary.datasets.add(e.dataset);
-    domainSummary.authorities.add(e.provenance.authority);
-    domainSummary.kinds.add(e.provenance.kind);
+    domainSummary.datasets.add(entry.dataset);
+    domainSummary.authorities.add(entry.provenance.authority);
+    domainSummary.kinds.add(entry.provenance.kind);
 
-    const source = e.provenance.source.trim();
+    const source = entry.provenance.source.trim();
     if (source) {
       domainSummary.sources.add(source);
     } else {
       domainSummary.missingSourceCount += 1;
-      missingSource.push(e.id);
+      missingSource.push(entry.id);
     }
 
-    const version = e.provenance.version?.trim();
+    const version = entry.provenance.version?.trim();
     if (version) {
       withVersion += 1;
       domainSummary.versions.add(version);
-    } else if (e.provenance.authority === 'official' || e.provenance.authority === 'curated') {
+    } else if (entry.provenance.authority === 'official' || entry.provenance.authority === 'curated') {
       domainSummary.missingVersionCount += 1;
-      missingVersion.push(e.id);
+      missingVersion.push(entry.id);
     }
 
-    if (e.provenance.generatedAt?.trim()) {
+    if (entry.provenance.generatedAt?.trim()) {
       withGeneratedAt += 1;
-    } else if (e.provenance.kind === 'generated') {
-      missingGeneratedAtForGenerated.push(e.id);
+    } else if (entry.provenance.kind === 'generated') {
+      missingGeneratedAtForGenerated.push(entry.id);
     }
 
-    if (e.provenance.authority === 'official' && !e.provenance.sourceUrl?.trim()) {
+    if (entry.provenance.authority === 'official' && !entry.provenance.sourceUrl?.trim()) {
       domainSummary.missingSourceUrlCount += 1;
-      missingSourceUrlForOfficial.push(e.id);
+      missingSourceUrlForOfficial.push(entry.id);
     }
   }
 
   const duplicateIds: string[] = [];
-  for (const [id, n] of seen) if (n > 1) duplicateIds.push(id);
+  for (const [id, occurrences] of seen) {
+    if (occurrences > 1) {
+      duplicateIds.push(id);
+    }
+  }
 
   const manualGeneratedOverlapsWithoutOverlay: string[] = [];
   for (const [logicalKey, bucket] of logicalBuckets) {
@@ -258,11 +590,121 @@ export function buildCatalogConsistencyReport(): CatalogReport {
     }
 
     const manualEntriesWithoutOverlay = bucket.filter(entry => entry.dataset === 'manual-core' && !entry.manualOverlay);
-
     if (manualEntriesWithoutOverlay.length > 0) {
       manualGeneratedOverlapsWithoutOverlay.push(logicalKey);
     }
   }
+
+  const generatedScraperIssueIds = new Set<string>();
+  for (const id of datasetAuthorityMismatch) {
+    if (entryById.get(id)?.dataset === 'generated') {
+      generatedScraperIssueIds.add(id);
+    }
+  }
+  for (const id of datasetKindMismatch) {
+    if (entryById.get(id)?.dataset === 'generated') {
+      generatedScraperIssueIds.add(id);
+    }
+  }
+  for (const id of missingSourceUrlForOfficial) {
+    generatedScraperIssueIds.add(id);
+  }
+  for (const id of missingVersion) {
+    if (entryById.get(id)?.dataset === 'generated') {
+      generatedScraperIssueIds.add(id);
+    }
+  }
+  for (const id of missingGeneratedAtForGenerated) {
+    generatedScraperIssueIds.add(id);
+  }
+
+  const allDomains = new Set<PbSystemSymbolDomain>();
+  for (const domain of Object.keys(domainCounts) as PbSystemSymbolDomain[]) {
+    allDomains.add(domain);
+  }
+  for (const domain of Object.keys(GENERATED_COMPLETENESS_BY_DOMAIN) as PbSystemSymbolDomain[]) {
+    allDomains.add(domain);
+  }
+
+  const adoptionDomains: Partial<Record<PbSystemSymbolDomain, CatalogDomainAdoptionReport>> = {};
+  const manualOnlyDomains: PbSystemSymbolDomain[] = [];
+  const officialDomains = Object.keys(GENERATED_COMPLETENESS_BY_DOMAIN)
+    .sort((left, right) => left.localeCompare(right)) as PbSystemSymbolDomain[];
+
+  for (const domain of Array.from(allDomains).sort((left, right) => left.localeCompare(right))) {
+    const domainEntries = entries.filter(entry => entry.domain === domain);
+    const domainGeneratedEntries = domainEntries.filter(entry => entry.dataset === 'generated');
+    const domainManualEntries = domainEntries.filter(entry => entry.dataset === 'manual-core');
+    const overlayCounts = countOverlayModes(domainManualEntries);
+    const completenessEntry = GENERATED_COMPLETENESS_BY_DOMAIN[domain];
+    const officialCoverage = completenessEntry
+      ? {
+          measurement: completenessEntry.measurement,
+          coveredCount: completenessEntry.coveredCount,
+          missingCount: completenessEntry.missingCount,
+        }
+      : undefined;
+    const recommendedPolicy = buildDomainRecommendedPolicy(
+      domainGeneratedEntries.length,
+      domainManualEntries.length,
+      officialCoverage,
+    );
+    const maintenanceCost = domainManualEntries.length
+      + overlayCounts.gap
+      + overlayCounts.enrichment
+      + (overlayCounts.override * 2)
+      + overlayCounts.candidate;
+    const rationale: string[] = [];
+
+    if (officialCoverage && officialCoverage.missingCount === 0) {
+      rationale.push('generated completeness mantiene missingCount = 0 en este dominio.');
+    }
+    if (domainGeneratedEntries.length === 0 && domainManualEntries.length > 0) {
+      rationale.push('no existe rail official generated para este dominio, así que manual-core sigue siendo la base operativa.');
+      manualOnlyDomains.push(domain);
+    }
+    if (overlayCounts.gap > 0 || overlayCounts.enrichment > 0 || overlayCounts.override > 0) {
+      rationale.push(`manualOverlay clasifica ${overlayCounts.gap} gaps, ${overlayCounts.enrichment} enrichments y ${overlayCounts.override} overrides en este dominio.`);
+    }
+
+    adoptionDomains[domain] = {
+      domain,
+      officialCount: completenessEntry?.officialCount ?? domainGeneratedEntries.length,
+      generatedCount: domainGeneratedEntries.length,
+      manualCount: domainManualEntries.length,
+      duplicateCount: countLogicalDuplicatesInDomain(domain, logicalBuckets),
+      gapCount: overlayCounts.gap,
+      overrideCount: overlayCounts.override,
+      enrichmentCount: overlayCounts.enrichment,
+      candidateCount: overlayCounts.candidate,
+      scraperErrorCount: domainGeneratedEntries.filter(entry => generatedScraperIssueIds.has(entry.id)).length,
+      maintenanceCost,
+      generated: finalizeAdoptionMetrics(domainGeneratedEntries),
+      manual: finalizeAdoptionMetrics(domainManualEntries),
+      officialCoverage,
+      recommendedPolicy,
+      rationale,
+    };
+  }
+
+  const allGeneratedEntries = entries.filter(entry => entry.dataset === 'generated');
+  const allManualEntries = entries.filter(entry => entry.dataset === 'manual-core');
+  const officialDomainsWithGaps = officialDomains.filter(domain => (GENERATED_COMPLETENESS_BY_DOMAIN[domain]?.missingCount ?? 0) > 0);
+  const adoptionRationale: string[] = [];
+
+  if (officialDomainsWithGaps.length === 0) {
+    adoptionRationale.push('generated mantiene missingCount = 0 en todos los dominios oficiales medidos.');
+  }
+  if (manualGeneratedOverlapsWithoutOverlay.length === 0) {
+    adoptionRationale.push('todos los overlaps lógicos manual/generated quedan clasificados con manualOverlay.');
+  }
+  if (manualOnlyDomains.length > 0) {
+    adoptionRationale.push(`los dominios sin rail oficial siguen siendo manual-primary: ${manualOnlyDomains.join(', ')}.`);
+  }
+
+  const adoptionRecommendedPolicy: CatalogAdoptionRecommendedPolicy = officialDomainsWithGaps.length === 0
+    ? 'generated-primary-with-manual-overlays'
+    : 'hybrid-by-domain';
 
   const finalizedDomainSummaries: Partial<Record<PbSystemSymbolDomain, CatalogDomainProvenanceSummary>> = {};
   for (const [domain, summary] of Object.entries(domainSummaries)) {
@@ -302,6 +744,29 @@ export function buildCatalogConsistencyReport(): CatalogReport {
       missingVersion,
       missingGeneratedAtForGenerated,
       domainSummaries: finalizedDomainSummaries,
+    },
+    adoption: {
+      completenessMode: PB_GENERATED_COMPLETENESS_MODE,
+      officialDomains,
+      manualOnlyDomains: manualOnlyDomains.sort((left, right) => left.localeCompare(right)),
+      domains: adoptionDomains,
+      summary: {
+        officialCount: officialDomains.reduce((sum, domain) => sum + (GENERATED_COMPLETENESS_BY_DOMAIN[domain]?.officialCount ?? 0), 0),
+        generatedCount: allGeneratedEntries.length,
+        manualCount: allManualEntries.length,
+        duplicateCount: Array.from(logicalBuckets.values()).filter(bucket => bucket.some(entry => entry.dataset === 'manual-core') && bucket.some(entry => entry.dataset === 'generated')).length,
+        gapCount: manualOverlayModes.gap ?? 0,
+        overrideCount: manualOverlayModes.override ?? 0,
+        enrichmentCount: manualOverlayModes.enrichment ?? 0,
+        candidateCount: manualOverlayModes.candidate ?? 0,
+        scraperErrorCount: generatedScraperIssueIds.size,
+        maintenanceCost: allManualEntries.length + (manualOverlayModes.gap ?? 0) + (manualOverlayModes.enrichment ?? 0) + ((manualOverlayModes.override ?? 0) * 2) + (manualOverlayModes.candidate ?? 0),
+        generated: finalizeAdoptionMetrics(allGeneratedEntries),
+        manual: finalizeAdoptionMetrics(allManualEntries),
+        officialDomainsWithGaps,
+        recommendedPolicy: adoptionRecommendedPolicy,
+        rationale: adoptionRationale,
+      },
     },
   };
 }

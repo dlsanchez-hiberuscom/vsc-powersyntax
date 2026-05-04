@@ -2,37 +2,37 @@
 
 ## 1. Foco activo
 
-`B369 — Generated-vs-manual catalog adoption decision gate`
+`B376 — Workspace check command and AI-readable validation report`
 
-Estado actual: `B368` queda cerrada. La taxonomía `manualOverlay` ya existe en el modelo del catálogo (`gap`, `enrichment`, `override`, `candidate`), `registry.ts` clasifica automáticamente las entradas `manual-core` que conviven con `generated`, `catalogConsistency` falla si detecta overlaps manual/generated sin política y `queryService.ts` aplica ya una merge policy provisional en el hot path.
+Estado actual: `B369` queda cerrada. El system catalog ya no depende de una preferencia implícita por orden físico: `generated` es la base oficial de los dominios medidos, `manual-core` queda gobernado por overlays explícitos y la decisión arquitectónica queda ratificada en `docs/adr/ADR-0001-system-catalog-source-of-truth.md`.
 
-La evidencia vigente que deja `B368` es:
+La evidencia vigente que deja `B369` es:
 
-- `types.ts`, `normalization.ts` y `manual/common.ts` materializan `manualOverlay` como contrato estable de entry, con `targetId/targetKey`, `reason`, `evidence`, `sourceUrl` y `reviewedBy` normalizados;
-- `registry.ts` deja de depender del orden físico para clasificar la capa curada: los manuales con counterpart lógico `generated` pasan por defecto a `enrichment`, los que no lo tienen quedan como `gap` y casos explícitos como `Clipboard` quedan marcados como `override`;
-- `queryService.ts` deja explícita la policy provisional de serving: `override` manual gana, `enrichment` se fusiona sobre base `generated` y `candidate` no entra en el hot path de listas/resolución;
-- `systemCatalogQueryHardening.test.ts`, `catalogV2.test.ts`, `catalogConsistency.test.ts` y `catalogProvenanceAudit.test.ts` siguen en verde con esa policy ya ejecutable.
+- `buildCatalogConsistencyReport().adoption` publica ya el reporte comparativo `generated` vs `manual` con métricas por dominio y summary global;
+- el summary actual fija `officialCount = 6601`, `generatedCount = 2146`, `manualCount = 1039`, `duplicateCount = 695`, `gapCount = 343`, `overrideCount = 1`, `enrichmentCount = 695` y `scraperErrorCount = 0`;
+- `generated` gana de forma clara en cobertura estructural relevante para serving oficial (`eventIdCoverage`, `returnTypeCoverage`, `ownerTypesQuality`, `appliesToQuality`, `signatureHelpUsefulness`) y mantiene `officialDomainsWithGaps = []`;
+- la única excepción aceptada queda explicitada: `datawindow-events`, `operators`, `pronouns` y `system-globals` siguen siendo `manual-primary` mientras no exista rail oficial equivalente.
 
-Con el catálogo oficial completo (`B367`) y la gobernanza curada explícita (`B368`), el siguiente cuello de botella ya no es técnico sino decisional: ahora toca cerrar `B369` con métricas y ADR sobre la adopción definitiva `generated` vs `manual` por dominio.
+Con la decisión del source-of-truth ya fijada, el siguiente cuello de botella vuelve a ser operativo y de workflow: toca dar a usuario y agentes un chequeo reproducible, AI-readable y workspace-scoped del estado real del proyecto.
 
 ---
 
 ## 2. Por qué es prioritario
 
-Con `B368` cerrada, el riesgo principal del bloque cambia otra vez de sitio:
+Con `B369` cerrada, ya no falta una política de catálogo; falta observabilidad ejecutable para el workspace activo:
 
-- `B369` debe convertir la policy provisional actual en una decisión arquitectónica explícita y trazable;
-- la cadena de localización (`B371-B375`) ya tiene delimitada la frontera entre autoridad oficial, overlay técnico y candidate, pero necesita una decisión de adopción runtime antes de crecer sobre ese contrato;
-- el runtime ya no compite silenciosamente por orden físico, así que la siguiente iteración debe decidir si la policy provisional pasa a ser definitiva, se ajusta por dominio o se reemplaza por una variante híbrida sustentada por métricas.
+- `B376` debe convertir la validación read-only del workspace en un comando corto, confiable y legible por humanos y agentes;
+- la cadena de localización (`B371-B375`) ya no está bloqueada por governance del catálogo, pero sigue sin desplazar la necesidad inmediata de un workflow de validación consumible por IA;
+- una vez fijado el source-of-truth, el mayor riesgo pasa a ser operar sobre workspaces reales sin una surface compacta y accionable de checks, readiness y hallazgos.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- medir generated vs manual por dominio con counts, overlaps, gaps, enrichments, overrides y utilidad real para hover/signatureHelp/completion;
-- redactar el ADR de source-of-truth del system catalog con contexto, evidencia, decisión, consecuencias y rollback;
-- endurecer la evidencia de `B369` sin reabrir la taxonomía ya cerrada de `B368` salvo regresión demostrable;
-- mantener verdes `systemCatalogQueryHardening`, `catalogV2`, `catalogConsistency` y `catalogProvenanceAudit` mientras se formaliza la decisión.
+- diseñar y cerrar un comando `workspace check` read-only con salida Markdown/JSON o equivalente AI-readable;
+- reutilizar surfaces existentes de health, manifest, readiness, routing, diagnostics, build snapshots y runtime self-test en vez de abrir otro motor paralelo;
+- dejar el resultado lo bastante compacto para humanos, pero lo bastante estructurado para agentes y tooling;
+- mantener la validación reproducible y fuera del hot path interactivo.
 
 ---
 
@@ -40,29 +40,29 @@ Con `B368` cerrada, el riesgo principal del bloque cambia otra vez de sitio:
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B367` o `B368` salvo drift real del generador, duplicados lógicos nuevos o serving inconsistente frente a la policy provisional ya fijada;
-- empezar localización (`B371-B375`) antes de congelar la decisión arquitectónica de `B369`;
-- convertir candidates en autoridad runtime o en diagnósticos agresivos sin evidencia y sin pasar por la decision gate.
+- reabrir `B367`, `B368` o `B369` salvo drift real del generador, de la policy de overlays o de la decision gate;
+- ampliar localización (`B371-B375`) antes de dejar cerrado el carril de validación AI-readable del workspace;
+- mezclar el `workspace check` con edición automática o con flows write-enabled fuera de un dry-run explícito.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- existe reporte comparativo real `generated` vs `manual` por dominio y por clase de overlay;
-- existe ADR de source-of-truth del system catalog con decisión y plan de migración;
-- la merge policy definitiva queda documentada y cubierta por tests;
-- `architecture`, `testing`, `backlog`, `done-log` y documentación técnica quedan alineados con la decisión resultante.
+- existe un comando read-only de `workspace check` ejecutable desde el producto;
+- el resultado resume readiness, salud, routing, diagnosticos y bloqueos relevantes sin depender de leer logs completos;
+- la salida es consumible por IA y por humanos sin perder trazabilidad;
+- `testing`, `architecture`, `developer-workflows`, `backlog`, `done-log` y `current-focus` quedan alineados.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B376` — Workspace check command and AI-readable validation report.
-2. `B377` — Current object/class check command and AI-readable validation report.
-3. `B371` — Catalog localization model and immutable overlay contract.
+1. `B377` — Current object/class check command and AI-readable validation report.
+2. `B371` — Catalog localization model and immutable overlay contract.
+3. `B372` — DocumentationService locale-aware lazy resolver.
 
 ---
 
 ## 7. Regla final
 
-`B369` ya no puede esconderse detrás de overlaps implícitos. `B367` dejó `generated` completo y `B368` dejó `manual` gobernado como overlay explícito; ahora toca decidir con evidencia qué política de adopción runtime queda como contrato arquitectónico del catálogo.
+`B376` debe aprovechar el runtime y las surfaces ya cerradas. No toca reinventar checks ni serializar medio workspace: toca componer una validación clara, corta y AI-readable sobre el estado real del proyecto activo.

@@ -23,5 +23,7 @@ suite('unit/catalogConsistency (B132)', () => {
     assert.ok((r.datasetCounts['generated'] ?? 0) > 0);
     assert.ok((r.manualOverlayModes.gap ?? 0) > 0);
     assert.ok((r.manualOverlayModes.enrichment ?? 0) > 0);
+    assert.equal(r.adoption.summary.recommendedPolicy, 'generated-primary-with-manual-overlays');
+    assert.equal(r.adoption.summary.officialDomainsWithGaps.length, 0);
   });
 });
