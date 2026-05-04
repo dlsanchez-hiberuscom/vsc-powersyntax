@@ -25,6 +25,32 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.134 B375. Generated localization compatibility with regenerated catalog IDs — **Cerrada (localization/generated compatibility 2026-05)**
+
+**Objetivo:** garantizar que los overlays localizados sobreviven a regeneraciones del catálogo `generated` cuando la identidad semántica sigue siendo recuperable por `targetKey`, y que el drift residual quede visible y migrable fuera del hot path.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/localization/localizationResolver.ts` deja de tratar un `targetId` obsoleto como huérfano automático cuando `targetKey` todavía resuelve un target canónico único, recupera la overlay sobre ese target y publica el caso como `recoveredTargetIds` en lugar de esconderlo o romper serving silenciosamente;
+- `src/server/knowledge/system/localization/types.ts`, `index.ts` y `src/server/knowledge/system/consistency.ts` exponen ya `recoveredTargetIds` dentro del audit de `localization`, de forma que el drift recuperable y el drift irrecuperable queden diferenciados contractualmente;
+- `scripts/generate_catalog_localization_report.cjs` muestra `recoveredTargetIds` en el snapshot JSON/Markdown y `scripts/migrate_catalog_localization_target_ids.cjs`, expuesto por `npm run migrate:catalog-localization-target-ids`, deja un plan/aplicación offline para reconciliar `targetId` fuente cuando el fallback por `targetKey` ya ha recuperado la identidad nueva;
+- `docs/localization.md` fija la policy operativa: `targetId` para entries estables, `targetKey` para recuperación y authoring sobre dominios/generated en evolución, y ambos cuando se quiera drift explícito más ruta segura de migración.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"`
+- `npm run report:catalog-localization`
+- `npm run migrate:catalog-localization-target-ids`
+
+**Documentación alineada:**
+- `README.md`
+- `docs/localization.md`
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/done-log.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
 ## 1.133 B374. Spanish catalog localization authoring workflow and coverage gate — **Cerrada (localization/authoring workflow 2026-05)**
 
 **Objetivo:** convertir el rail español de localización documental en un workflow gobernable: cobertura por dominio, detección de overlays incompletos o mal anclados y guía explícita para ampliar traducciones sin drift ni regresiones en producto visible.

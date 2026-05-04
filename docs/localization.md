@@ -21,6 +21,7 @@ Regla: el rail localizado solo toca documentación visible. Nunca traduce `name`
 
 ```bash
 npm run report:catalog-localization
+npm run migrate:catalog-localization-target-ids
 ```
 
 Este comando recompila el servidor, ejecuta el audit vivo del catálogo y deja un snapshot determinista con:
@@ -29,7 +30,14 @@ Este comando recompila el servidor, ejecuta el audit vivo del catálogo y deja u
 - cobertura por dominio (`localizedTargetCount`, `reviewedTargetCount`, ratios sobre targets canónicos);
 - overlays incompletos (`missingFields`);
 - anchors técnicos inválidos (`invalidParameterTargets`);
+- targetIds recuperados por `targetKey` (`recoveredTargetIds`);
 - overlays huérfanos.
+
+El migrador funciona en modo dry-run por defecto. Para aplicar reemplazos sobre los overlays fuente:
+
+```bash
+npm run migrate:catalog-localization-target-ids -- --write
+```
 
 ---
 
@@ -38,14 +46,16 @@ Este comando recompila el servidor, ejecuta el audit vivo del catálogo y deja u
 1. Ejecutar `npm run report:catalog-localization` y elegir el siguiente dominio según cobertura y prioridad.
 2. Añadir overlays en `src/server/knowledge/system/localization/es/` siguiendo el archivo del dominio correspondiente.
 3. Mantener siempre nombres reales, `signatureLabel` y `parameterName` en inglés/original, tal como aparecen en la entry base.
-4. Rerun:
+4. Si la entry viene de `generated` o puede mover `ownerTypes`/IDs al regenerar, añadir también `targetKey` como ancla de recuperación.
+5. Rerun:
 
 ```bash
 npm run test:unit -- --grep "catalogLocalization|catalogConsistency"
 npm run report:catalog-localization
+npm run migrate:catalog-localization-target-ids
 ```
 
-5. Solo marcar `reviewed: true` cuando el overlay ya no aparezca como `incomplete` ni como `invalidParameterTarget`, y siga sin generar huérfanos.
+6. Solo marcar `reviewed: true` cuando el overlay ya no aparezca como `incomplete`, `invalidParameterTarget`, `recoveredTargetId` pendiente de reconciliación, ni siga generando huérfanos.
 
 ---
 
@@ -80,14 +90,24 @@ npm run report:catalog-localization
 - `orphanOverlays`: el target ya no resuelve por `targetId`/`targetKey`.
 - `incompleteOverlays`: faltan campos documentales que sí existen en la entry base (`summary`, `documentation`, `usageNotes`, `obsoleteMessage`, `returnDocumentation`, `parameterDocumentation`).
 - `invalidParameterTargets`: el overlay intentó usar un `signatureLabel` o `parameterName` que no coincide con la firma real del símbolo; suele significar que alguien tradujo un anchor técnico o lo copió mal.
+- `recoveredTargetIds`: el `targetId` fuente ya no existe, pero `targetKey` todavía recupera un target canónico válido. El serving no se rompe, pero el overlay debería reconciliar su `targetId` con el migrador offline.
 
 ---
 
-## 8. Validación mínima
+## 8. Cuándo usar `targetId` y cuándo `targetKey`
+
+- `targetId`: usar cuando la entry ya está consolidada y el ID es estable dentro del catálogo actual.
+- `targetKey`: usar cuando la entry procede de `generated` o de un bucket lógico cuyo `targetId` puede moverse con regeneraciones futuras.
+- ambos: usar `targetId` + `targetKey` cuando quieres drift explícito y recuperación automática. Si el reporte publica `recoveredTargetIds`, ejecutar el migrador y volver a dejar el source reconciliado.
+
+---
+
+## 9. Validación mínima
 
 ```bash
 npm run test:unit -- --grep "catalogLocalization|catalogConsistency"
 npm run report:catalog-localization
+npm run migrate:catalog-localization-target-ids
 ```
 
 Si además el cambio toca consumers visibles o locale runtime, sumar las validaciones de `B373`.

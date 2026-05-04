@@ -2,36 +2,36 @@
 
 ## 1. Foco activo
 
-`B375 — Generated localization compatibility with regenerated catalog IDs`
+`B378 — AI PowerBuilder context pack and token budget contract`
 
-Estado actual: `B374` queda cerrada. El rail `localization/` ya publica cobertura por dominio, overlays incompletos e intentos de traducir anchors técnicos (`signatureLabel`/`parameterName`) dentro de `buildCatalogConsistencyReport().localization`; además, `npm run report:catalog-localization` serializa un snapshot determinista en `artifacts/catalog/` y `docs/localization.md` fija el workflow incremental para authoring español.
+Estado actual: `B375` queda cerrada. El rail `localization/` ya recupera overlays cuando un `targetId` queda obsoleto pero `targetKey` sigue resolviendo la identidad canónica, publica esos casos como `recoveredTargetIds` en el audit y deja un migrador offline para reconciliar los IDs fuente sin meter heurísticas en hot path.
 
-La evidencia vigente que deja `B374` es:
+La evidencia vigente que deja `B375` es:
 
-- `src/server/knowledge/system/localization/localizationResolver.ts` y `types.ts` publican ya `domainCoverage`, `incompleteOverlays` e `invalidParameterTargets`, calculados sobre targets canónicos por dominio y sin reabrir el hot path interactivo;
-- `src/server/knowledge/system/consistency.ts` integra ese audit ampliado bajo `buildCatalogConsistencyReport().localization`, de modo que authoring roto o anchors técnicos traducidos fallen como gobernanza de catálogo antes de llegar a hover/completion/signatureHelp;
-- `scripts/generate_catalog_localization_report.cjs`, `package.json` y `artifacts/catalog/catalogLocalizationReport.generated.{json,md}` dejan disponible un workflow determinista de snapshot para cobertura/localización revisada por dominio;
-- `test/server/unit/catalogLocalization.test.ts` y `catalogConsistency.test.ts` fijan cobertura por dominio, ausencia de issues en el baseline real y detección sintética de overlays incompletos o parámetros/signatures mal anclados.
+- `src/server/knowledge/system/localization/localizationResolver.ts` deja de tratar un `targetId` envejecido como huérfano automático cuando `targetKey` sigue resolviendo un target canónico único, pero mantiene esa recuperación como evidencia explícita (`recoveredTargetIds`) y no como magia silenciosa en el runtime;
+- `src/server/knowledge/system/consistency.ts`, `localization/types.ts` y `localization/index.ts` publican ese drift recuperable dentro del audit contractual junto a `orphanOverlays`, `incompleteOverlays` e `invalidParameterTargets`;
+- `scripts/generate_catalog_localization_report.cjs` y `scripts/migrate_catalog_localization_target_ids.cjs`, expuestos por `npm run report:catalog-localization` y `npm run migrate:catalog-localization-target-ids`, dejan snapshot y migración offline explícita del source localizado;
+- `test/server/unit/catalogLocalization.test.ts` fija ya un fixture sintético de `targetId` obsoleto recuperado por `targetKey`, mientras `catalogConsistency.test.ts` exige `0 recoveredTargetIds` en el baseline vivo para que no quede drift latente.
 
-Con authoring y coverage ya visibles, el siguiente cuello de botella pasa a ser de compatibilidad con regeneración: toca abrir `B375` para garantizar que un cambio de IDs en `generated` no rompa silenciosamente overlays ya revisados y deje una ruta clara de migración/recuperación.
+Con la cadena B371-B375 ya cerrada, el siguiente cuello de botella pasa a ser de contexto operativo para IA: toca abrir `B378` para condensar arquitectura, reglas PowerBuilder, validación y ownership documental en un pack breve, estable y versionable que no obligue a cargar medio repositorio en cada tarea asistida.
 
 ---
 
 ## 2. Por qué es prioritario
 
-Con `B374` cerrada, la cobertura existe; ahora hay que blindar la estabilidad de esos overlays ante regeneraciones del catálogo:
+Con `B375` cerrada, la localización visible y su gobernanza ya están resueltas; ahora falta reducir el coste de contexto para automatización/IA:
 
-- `B375` debe garantizar que una regeneración de `generated` no deje overlays válidos pero invisibles por drift de `targetId`, ni obligue a reparaciones manuales ciegas tras cada refresh del catálogo oficial;
-- el nuevo reporte de `B374` ya detecta authoring incompleto o anchors técnicos traducidos, así que el riesgo dominante restante es compatibilidad/migración de identidad entre generaciones del catálogo;
-- si no se cierra ahora, el rail español puede empezar a acumular cobertura revisada sobre IDs frágiles antes de tener una policy de supervivencia explícita.
+- `B378` debe bajar tokens y ruido operativo para agentes sin duplicar documentos propietarios ni perder exactitud sobre foco, arquitectura y reglas del proyecto;
+- la base documental ya es rica, pero sigue demasiado dispersa para prompts cortos y tareas IA repetitivas;
+- si no se fija ahora, cada automatización seguirá cargando contexto excesivo y mezclando reglas canónicas con resúmenes ad hoc de peor calidad.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- añadir fixtures/tests que simulen cambio de IDs en `generated` y prueben recuperación o fallo honesto por `targetKey`;
-- reforzar el reporte para distinguir drift recuperable frente a overlays realmente rotos;
-- documentar la regla operativa `targetId` vs `targetKey`, más cualquier script o rutina segura de migración fuera del hot path.
+- crear `docs/ai-context/powerbuilder-plugin-context.md` como context pack compacto y estable;
+- enlazar desde ese pack a arquitectura, reglas PowerBuilder, SQL/DataWindow, validación, foco activo y ownership documental sin duplicar contenido largo;
+- añadir el mínimo guard documental necesario para que el pack siga referenciado y alineado cuando cambie el foco.
 
 ---
 
@@ -39,30 +39,30 @@ Con `B374` cerrada, la cobertura existe; ahora hay que blindar la estabilidad de
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B374` salvo regressión real del reporte, del workflow de artifacts o del gate sobre anchors técnicos;
-- ampliar locales nuevos o abrir una tanda masiva de traducciones antes de fijar la compatibilidad con regeneración;
-- tocar consumers visibles o remezclar serving/documentation locale en el runtime interactivo;
-- resolver migraciones en hot path, con scans por request o con heurísticas no preindexadas.
+- reabrir `B375` salvo regressión real del fallback por `targetKey`, del audit `recoveredTargetIds` o del migrador offline;
+- duplicar documentación larga o arrastrar datasets `generated/manual` completos dentro del context pack;
+- abrir features runtime nuevas, tooling write-enabled o claims de producto fuera del alcance documental de `B378`;
+- inventar reglas PowerBuilder no presentes en la documentación propietaria vigente.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- una regeneración de `generated` no rompe silenciosamente overlays revisados;
-- existe fixture que demuestra recuperación por `targetKey` o fallo claro cuando la identidad ya no es recuperable;
-- la policy `targetId` vs `targetKey` y la ruta de migración quedan documentadas;
-- `testing`, `architecture`, `backlog`, `done-log` y `current-focus` quedan alineados.
+- existe `docs/ai-context/powerbuilder-plugin-context.md`;
+- el pack recoge arquitectura, reglas críticas, comandos de validación, do-not-do y foco activo sin duplicar documentos largos;
+- el pack enlaza a documentos propietarios en vez de sustituirlos;
+- `ai-strategy`, `ai-orchestrator`, `developer-workflows`, `spec-driven-development`, `backlog`, `done-log` y `current-focus` quedan alineados.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B378` — AI PowerBuilder context pack and token budget contract.
-2. `B379` — Explain diagnostic tool and suggested safe fix contract.
-3. `B380` — Explain system symbol and catalog lookup tool for AI.
+1. `B379` — Explain diagnostic tool and suggested safe fix contract.
+2. `B380` — Explain system symbol and catalog lookup tool for AI.
+3. `B381` — AI task context bundle orchestration tool.
 
 ---
 
 ## 7. Regla final
 
-`B375` debe construir sobre `B371 + B372 + B373 + B374`. No toca reabrir serving ni authoring visible: toca blindar identidad/migración de overlays frente a regeneración del catálogo sin sacrificar trazabilidad ni meter coste en hot path.
+`B378` debe construir sobre el estado ya cerrado del plugin. No toca reabrir runtime ni catálogo: toca empaquetar contexto estable, breve y accionable para IA sin duplicar documentación propietaria ni rebajar el listón técnico del repositorio.

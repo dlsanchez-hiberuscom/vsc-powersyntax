@@ -83,12 +83,22 @@ export interface PbSystemSymbolLocalizationInvalidParameterTarget {
   readonly parameterName: string;
 }
 
+export interface PbSystemSymbolLocalizationRecoveredTargetId {
+  readonly locale: PbCatalogLocale;
+  readonly previousTargetId: string;
+  readonly targetEntryId: string;
+  readonly targetName: string;
+  readonly domain: PbSystemSymbolDomain;
+  readonly targetKey?: PbSystemSymbolLocalizationTargetKey;
+}
+
 export interface PbSystemSymbolLocalizationIndex {
   readonly locales: ReadonlyMap<PbCatalogLocale, ReadonlyMap<string, PbResolvedSystemSymbolLocalizationOverlay>>;
   readonly localeSummaries: Partial<Record<PbCatalogLocale, PbSystemSymbolLocalizationLocaleSummary>>;
   readonly domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolDomain, PbSystemSymbolLocalizationDomainCoverage>>>>;
   readonly incompleteOverlays: readonly PbSystemSymbolLocalizationIncompleteOverlay[];
   readonly invalidParameterTargets: readonly PbSystemSymbolLocalizationInvalidParameterTarget[];
+  readonly recoveredTargetIds: readonly PbSystemSymbolLocalizationRecoveredTargetId[];
   readonly overlayCount: number;
   readonly orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
 }
@@ -98,5 +108,6 @@ export interface PbSystemSymbolLocalizationCatalogReport {
   readonly domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolDomain, PbSystemSymbolLocalizationDomainCoverage>>>>;
   readonly incompleteOverlays: readonly PbSystemSymbolLocalizationIncompleteOverlay[];
   readonly invalidParameterTargets: readonly PbSystemSymbolLocalizationInvalidParameterTarget[];
+  readonly recoveredTargetIds: readonly PbSystemSymbolLocalizationRecoveredTargetId[];
   readonly orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
 }

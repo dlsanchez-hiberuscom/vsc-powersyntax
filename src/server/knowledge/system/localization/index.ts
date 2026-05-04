@@ -32,6 +32,7 @@ export type {
   PbLocalizedParameterDocumentation,
   PbSystemSymbolLocalizationMissingField,
   PbLocalizedText,
+  PbSystemSymbolLocalizationRecoveredTargetId,
   PbResolvedSystemSymbolLocalizationOverlay,
   PbSystemSymbolLocalizationCatalogReport,
   PbSystemSymbolLocalizationIndex,

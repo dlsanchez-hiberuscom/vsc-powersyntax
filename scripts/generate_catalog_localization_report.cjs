@@ -60,6 +60,17 @@ function buildMarkdownReport(report) {
   }
   lines.push('');
 
+  lines.push('## Recovered targetIds');
+  lines.push('');
+  if ((report.recoveredTargetIds?.length ?? 0) === 0) {
+    lines.push('- none');
+  } else {
+    for (const recovery of report.recoveredTargetIds) {
+      lines.push(`- ${recovery.locale} :: ${recovery.domain} :: ${recovery.targetName} :: ${recovery.previousTargetId} -> ${recovery.targetEntryId}`);
+    }
+  }
+  lines.push('');
+
   lines.push('## Orphan overlays');
   lines.push('');
   if ((report.orphanOverlays?.length ?? 0) === 0) {
@@ -103,6 +114,7 @@ async function main() {
   console.log(`  locales: ${Object.keys(localization.locales ?? {}).join(', ') || 'ninguna'}`);
   console.log(`  incompleteOverlays: ${localization.incompleteOverlays.length}`);
   console.log(`  invalidParameterTargets: ${localization.invalidParameterTargets.length}`);
+  console.log(`  recoveredTargetIds: ${localization.recoveredTargetIds.length}`);
   console.log(`  orphanOverlays: ${localization.orphanOverlays.length}`);
 }
 

@@ -26,6 +26,7 @@ import type {
   PbSystemSymbolLocalizationIncompleteOverlay,
   PbSystemSymbolLocalizationInvalidParameterTarget,
   PbSystemSymbolLocalizationOrphan,
+  PbSystemSymbolLocalizationRecoveredTargetId,
 } from './localization';
 
 export interface CatalogDomainProvenanceSummary {
@@ -130,6 +131,7 @@ export interface CatalogLocalizationAudit {
   domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolDomain, PbSystemSymbolLocalizationDomainCoverage>>>>;
   incompleteOverlays: readonly PbSystemSymbolLocalizationIncompleteOverlay[];
   invalidParameterTargets: readonly PbSystemSymbolLocalizationInvalidParameterTarget[];
+  recoveredTargetIds: readonly PbSystemSymbolLocalizationRecoveredTargetId[];
   orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
 }
 

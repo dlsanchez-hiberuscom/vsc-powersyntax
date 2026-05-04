@@ -15,6 +15,7 @@ import type {
   PbSystemSymbolLocalizationOrphan,
   PbSystemSymbolLocalizationOrphanReason,
   PbSystemSymbolLocalizationOverlay,
+  PbSystemSymbolLocalizationRecoveredTargetId,
   PbSystemSymbolLocalizationTargetKey,
 } from './types';
 
@@ -363,6 +364,16 @@ function buildInvalidParameterTargetSortKey(issue: PbSystemSymbolLocalizationInv
   ].join('|');
 }
 
+function buildRecoveredTargetIdSortKey(recovery: PbSystemSymbolLocalizationRecoveredTargetId): string {
+  return [
+    recovery.locale,
+    recovery.domain,
+    recovery.targetName,
+    recovery.previousTargetId,
+    recovery.targetEntryId,
+  ].join('|');
+}
+
 function finalizeDomainCoverage(
   coverageByDomain: Partial<Record<PbSystemSymbolEntry['domain'], MutableDomainCoverage>>,
   totalTargetCountsByDomain: ReadonlyMap<PbSystemSymbolEntry['domain'], number>,
@@ -423,6 +434,7 @@ function resolveOverlayTargetId(
   targetEntryId?: string;
   orphanReason?: PbSystemSymbolLocalizationOrphanReason;
   normalizedTargetId?: string;
+  recoveredTargetEntryId?: string;
 } {
   const normalizedTargetId = overlay.targetId?.trim() || undefined;
   const lookupKey = overlay.targetKey ? buildTargetKeyLookupKey(overlay.targetKey) : undefined;
@@ -430,10 +442,6 @@ function resolveOverlayTargetId(
 
   if (!normalizedTargetId && !overlay.targetKey) {
     return { orphanReason: 'missing-target' };
-  }
-
-  if (normalizedTargetId && !entryById.has(normalizedTargetId)) {
-    return { orphanReason: 'missing-target-id', normalizedTargetId };
   }
 
   if (overlay.targetKey && !lookupKey) {
@@ -449,6 +457,24 @@ function resolveOverlayTargetId(
     }
 
     return { targetEntryId: targetIdsFromKey[0] };
+  }
+
+  if (!entryById.has(normalizedTargetId)) {
+    if (!overlay.targetKey) {
+      return { orphanReason: 'missing-target-id', normalizedTargetId };
+    }
+    if (targetIdsFromKey.length === 0) {
+      return { orphanReason: 'missing-target-id', normalizedTargetId };
+    }
+    if (targetIdsFromKey.length > 1) {
+      return { orphanReason: 'ambiguous-target-key', normalizedTargetId };
+    }
+
+    return {
+      targetEntryId: targetIdsFromKey[0],
+      normalizedTargetId,
+      recoveredTargetEntryId: targetIdsFromKey[0],
+    };
   }
 
   if (!overlay.targetKey) {
@@ -481,6 +507,7 @@ export function buildSystemSymbolLocalizationIndex(
   const domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolEntry['domain'], MutableDomainCoverage>>>> = {};
   const incompleteOverlays: PbSystemSymbolLocalizationIncompleteOverlay[] = [];
   const invalidParameterTargets: PbSystemSymbolLocalizationInvalidParameterTarget[] = [];
+  const recoveredTargetIds: PbSystemSymbolLocalizationRecoveredTargetId[] = [];
   const orphanOverlays: PbSystemSymbolLocalizationOrphan[] = [];
 
   for (const overlay of overlays) {
@@ -496,7 +523,7 @@ export function buildSystemSymbolLocalizationIndex(
       summary.reviewedCount += 1;
     }
 
-    const { targetEntryId, orphanReason, normalizedTargetId } = resolveOverlayTargetId(
+    const { targetEntryId, orphanReason, normalizedTargetId, recoveredTargetEntryId } = resolveOverlayTargetId(
       overlay,
       entryById,
       entryIdsByTargetKey,
@@ -516,6 +543,17 @@ export function buildSystemSymbolLocalizationIndex(
       orphanOverlays.push(buildOrphan(overlay, 'missing-target-id', normalizedTargetId));
       localeSummaries[overlay.locale] = summary;
       continue;
+    }
+
+    if (normalizedTargetId && recoveredTargetEntryId && recoveredTargetEntryId !== normalizedTargetId) {
+      recoveredTargetIds.push({
+        locale: overlay.locale,
+        previousTargetId: normalizedTargetId,
+        targetEntryId: targetEntry.id,
+        targetName: targetEntry.name,
+        domain: targetEntry.domain,
+        targetKey: overlay.targetKey,
+      });
     }
 
     const localeMap = localeMaps.get(overlay.locale) ?? new Map<string, PbResolvedSystemSymbolLocalizationOverlay>();
@@ -573,6 +611,7 @@ export function buildSystemSymbolLocalizationIndex(
     domainCoverage: finalizedDomainCoverage,
     incompleteOverlays: incompleteOverlays.sort((left, right) => buildIncompleteOverlaySortKey(left).localeCompare(buildIncompleteOverlaySortKey(right))),
     invalidParameterTargets: invalidParameterTargets.sort((left, right) => buildInvalidParameterTargetSortKey(left).localeCompare(buildInvalidParameterTargetSortKey(right))),
+    recoveredTargetIds: recoveredTargetIds.sort((left, right) => buildRecoveredTargetIdSortKey(left).localeCompare(buildRecoveredTargetIdSortKey(right))),
     overlayCount: overlays.length,
     orphanOverlays: orphanOverlays.sort((left, right) => buildOrphanSortKey(left).localeCompare(buildOrphanSortKey(right))),
   };
@@ -620,6 +659,7 @@ export function getSystemSymbolLocalizationCatalogReport(): PbSystemSymbolLocali
     domainCoverage: index.domainCoverage,
     incompleteOverlays: index.incompleteOverlays,
     invalidParameterTargets: index.invalidParameterTargets,
+    recoveredTargetIds: index.recoveredTargetIds,
     orphanOverlays: index.orphanOverlays,
   };
 }

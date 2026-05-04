@@ -28,6 +28,7 @@ suite('unit/catalogLocalization (B371)', () => {
     assert.ok((report.domainCoverage.es?.['global-functions']?.localizedTargetCount ?? 0) >= 3);
     assert.equal(report.incompleteOverlays.length, 0);
     assert.equal(report.invalidParameterTargets.length, 0);
+    assert.equal(report.recoveredTargetIds.length, 0);
     assert.equal(report.orphanOverlays.length, 0);
   });
 
@@ -117,5 +118,45 @@ suite('unit/catalogLocalization (B371)', () => {
     assert.equal(index.invalidParameterTargets.length, 1);
     assert.equal(index.invalidParameterTargets[0]?.parameterName, 'numero');
     assert.equal(index.invalidParameterTargets[0]?.signatureLabel, 'Abs ( numero )');
+  });
+
+  test('resolver recupera overlays cuando targetId queda obsoleto pero targetKey sigue resolviendo', () => {
+    const absEntry = PB_SYSTEM_SYMBOL_REGISTRY.entries.find(
+      entry => entry.dataset === 'generated' && entry.domain === 'global-functions' && entry.name === 'Abs',
+    );
+    assert.ok(absEntry);
+
+    const overlays: readonly PbSystemSymbolLocalizationOverlay[] = [
+      {
+        locale: 'es',
+        targetId: `${absEntry!.id}:stale`,
+        targetKey: {
+          domain: 'global-functions',
+          kind: 'callable',
+          namespace: 'powerscript',
+          invocation: 'global',
+          name: 'Abs',
+        },
+        text: {
+          summary: 'Calcula el valor absoluto de un numero.',
+          returnDocumentation: 'Devuelve el valor absoluto.',
+        },
+        parameters: [
+          {
+            signatureLabel: 'Abs ( n )',
+            parameterName: 'n',
+            documentation: 'Numero del que quieres obtener el valor absoluto.',
+          },
+        ],
+      },
+    ];
+
+    const index = buildSystemSymbolLocalizationIndex(PB_SYSTEM_SYMBOL_REGISTRY.entries, overlays);
+
+    assert.equal(index.orphanOverlays.length, 0);
+    assert.equal(index.recoveredTargetIds.length, 1);
+    assert.equal(index.recoveredTargetIds[0]?.previousTargetId, `${absEntry!.id}:stale`);
+    assert.equal(index.recoveredTargetIds[0]?.targetEntryId, absEntry!.id);
+    assert.equal(index.locales.get('es')?.get(absEntry!.id)?.text?.summary, 'Calcula el valor absoluto de un numero.');
   });
 });

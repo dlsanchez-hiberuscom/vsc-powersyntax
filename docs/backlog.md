@@ -1007,10 +1007,11 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ---
 
+## B375 — Generated localization compatibility with regenerated catalog IDs
 - **Estado:** Open
 - **Track:** localization / generated compatibility / catalog governance
 - **Prioridad:** Media-Alta
-- **Depende de:** B371, B367, B374
+- **Depende de:** B371, B367
 - **Objetivo:** garantizar que los overlays de localización sobreviven a regeneraciones del catálogo o fallan con mensajes claros cuando cambian IDs o claves de destino.
 - **Razón técnica:** si la localización se enlaza por `entry.id`, una mejora del generated puede cambiar IDs si cambian domain/kind/namespace/invocation/name/ownerTypes. El sistema debe detectar esos cambios y ofrecer una ruta de migración segura.
 
@@ -1694,11 +1695,11 @@ npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|rea
 
 ## Fase activa 
 
-01. B375 — Generated localization compatibility with regenerated catalog IDs
-02. B378 — AI PowerBuilder context pack and token budget contract
-03. B379 — Explain diagnostic tool and suggested safe fix contract
-04. B380 — Explain system symbol and catalog lookup tool for AI
-05. B381 — AI task context bundle orchestration tool
+01. B374 — Spanish catalog localization authoring workflow and coverage gate
+02. B375 — Generated localization compatibility with regenerated catalog IDs
+03. B378 — AI PowerBuilder context pack and token budget contract
+04. B379 — Explain diagnostic tool and suggested safe fix contract
+05. B380 — Explain system symbol and catalog lookup tool for AI
 
 ## Siguiente fase 
 
