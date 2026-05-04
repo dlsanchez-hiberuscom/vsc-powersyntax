@@ -25,6 +25,27 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.128 B376. Workspace check command and AI-readable validation report — **Cerrada (workflow/read-only validation 2026-05)**
+
+**Objetivo:** añadir un chequeo consolidado del workspace como tool/API/comando read-only para que usuario y agentes puedan responder con una sola llamada qué errores, bloqueos y señales relevantes publica ya el plugin.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` publica `workspace-check`, `checkWorkspace()`, `powerbuilder.checkWorkspace` y los schemas `ApiWorkspaceCheckRequest`, `ApiWorkspaceCheckFinding`, `ApiWorkspaceCheckCatalogSummary` y `ApiWorkspaceCheckReport` como contrato estable del bridge read-only y de la API pública;
+- `src/client/workspaceCheckReport.ts` introduce el builder puro del reporte con modos `quick/full/catalog/diagnostics`, findings AI-readable, truncado honesto, acciones recomendadas y render Markdown `# Workspace Check` para producto y handoff de agentes;
+- `src/client/extension.ts`, `src/client/commandRegistration.ts` y `package.json` cablean el método público, el tool dispatch, el comando `vscPowerSyntax.openWorkspaceCheck` y la composición read-only sobre surfaces existentes, paralelizando secciones opcionales y evitando bloquear la apertura del preview Markdown;
+- `src/server/features/workspaceCheckCatalogSummary.ts`, `src/server/handlers/reportCommandHandlers.ts` y `src/server/handlers/lifecycleHandlers.ts` añaden un summary ligero y memoizado del system catalog para el hot path del check, sin reutilizar el reporte completo de adopción de `B369`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "publicApi|workspaceCheckReport"`
+- `npm run test:smoke -- --grep "workspace check expone tool read-only y reporte markdown"`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+
 ## 1.127 B369. Generated-vs-manual catalog adoption decision gate — **Cerrada (knowledge/source-of-truth decision 2026-05)**
 
 **Objetivo:** decidir con métricas reales si el source-of-truth operativo del system catalog debía quedar en `generated`, en `manual-core` o en un híbrido por dominio antes de seguir ampliando localización y consumers.

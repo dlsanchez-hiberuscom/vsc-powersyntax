@@ -4,12 +4,13 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.13.0';
+export const PUBLIC_API_VERSION = '2.14.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
   | 'contract'
   | 'server-stats'
+  | 'workspace-check'
   | 'query-symbols'
   | 'cross-project-symbol-conflicts'
   | 'workspace-migration-assistant'
@@ -421,11 +422,111 @@ export interface ApiBuildProfileMatrix {
   profiles: ApiBuildProfileMatrixProfile[];
 }
 
+export type ApiWorkspaceCheckMode = 'quick' | 'full' | 'catalog' | 'diagnostics';
+
+export interface ApiWorkspaceCheckRequest {
+  mode?: ApiWorkspaceCheckMode;
+  includeDiagnostics?: boolean;
+  includeCatalog?: boolean;
+  includeHealth?: boolean;
+  includeBuildProfiles?: boolean;
+  includeTechnicalDebt?: boolean;
+  includeCodeMetrics?: boolean;
+  includeManifest?: boolean;
+  maxDiagnostics?: number;
+  maxFiles?: number;
+  maxFindings?: number;
+}
+
+export interface ApiWorkspaceCheckFinding {
+  code: string;
+  severity: 'info' | 'warning' | 'error';
+  area:
+    | 'readiness'
+    | 'indexing'
+    | 'diagnostics'
+    | 'catalog'
+    | 'semantic'
+    | 'datawindow'
+    | 'build'
+    | 'health'
+    | 'performance'
+    | 'localization'
+    | 'unknown';
+  message: string;
+  detail?: string;
+  uri?: string;
+  line?: number;
+  character?: number;
+  evidence?: string[];
+  suggestedAction?: string;
+}
+
+export interface ApiWorkspaceCheckCatalogSummary {
+  available: boolean;
+  totalEntries?: number;
+  duplicates?: number;
+  missingSignatures?: number;
+  invalidEnumTypes?: number;
+  orphanEnumValues?: number;
+  orphanLocalizationOverlays?: number;
+  generatedManualConflicts?: number;
+  consistencyStatus: 'passed' | 'warning' | 'failed' | 'unknown';
+}
+
+export interface ApiWorkspaceCheckSummary {
+  projectCount: number;
+  objectCount: number;
+  exportedSymbolCount: number;
+  diagnostics: {
+    error: number;
+    warning: number;
+    info: number;
+    hint: number;
+  };
+  healthStatus?: 'healthy' | 'warning' | 'error';
+  readinessState?: string;
+  catalogIssues: number;
+  blockingFindings: number;
+  warningFindings: number;
+  generatedFromCache?: boolean;
+  truncated: boolean;
+}
+
+export interface ApiWorkspaceCheckReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+  mode: ApiWorkspaceCheckMode;
+  status: 'passed' | 'warning' | 'failed';
+  available: boolean;
+  reason?: string;
+  summary: ApiWorkspaceCheckSummary;
+  readiness?: ApiServerStats['readiness'];
+  health?: ApiRuntimeHealthReport;
+  diagnostics?: ApiDiagnosticsSnapshot;
+  catalog?: ApiWorkspaceCheckCatalogSummary;
+  manifest?: ApiSemanticWorkspaceManifest;
+  codeMetrics?: ApiPowerBuilderCodeMetrics;
+  technicalDebt?: ApiPowerBuilderTechnicalDebtReport;
+  buildProfiles?: ApiBuildProfileMatrix;
+  findings: ApiWorkspaceCheckFinding[];
+  recommendedActions: string[];
+}
+
 const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
   {
     name: 'contract',
     description: 'Devuelve el descriptor contractual endurecido de la API pública exportada.',
     responseSchema: 'ApiPublicContractDescriptor',
+    usesActiveEditorFallback: false,
+  },
+  {
+    name: 'workspace-check',
+    description: 'Ejecuta una comprobacion read-only consolidada del workspace usando discovery, indexing, diagnostics, health, catalogo y senales semanticas ya disponibles.',
+    command: 'powerbuilder.checkWorkspace',
+    requestSchema: 'ApiWorkspaceCheckRequest',
+    responseSchema: 'ApiWorkspaceCheckReport',
     usesActiveEditorFallback: false,
   },
   {
@@ -1006,6 +1107,14 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     responseSchema: 'ApiServerStats',
   },
   {
+    name: 'checkWorkspace',
+    command: 'powerbuilder.checkWorkspace',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiWorkspaceCheckRequest',
+    responseSchema: 'ApiWorkspaceCheckReport',
+  },
+  {
     name: 'querySymbols',
     command: 'powerbuilder.querySymbols',
     access: 'read-only',
@@ -1141,6 +1250,11 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiSemanticWorkspaceSnapshotImportResult', version: '1.0.0', kind: 'response' },
   { name: 'ApiSemanticWorkspaceSnapshotDiffRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiSemanticWorkspaceSnapshotDiff', version: '1.0.0', kind: 'response' },
+  { name: 'ApiWorkspaceCheckRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiWorkspaceCheckFinding', version: '1.0.0', kind: 'response' },
+  { name: 'ApiWorkspaceCheckCatalogSummary', version: '1.0.0', kind: 'response' },
+  { name: 'ApiWorkspaceCheckSummary', version: '1.0.0', kind: 'response' },
+  { name: 'ApiWorkspaceCheckReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiQuerySymbolsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflictsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflicts', version: '1.0.0', kind: 'response' },
@@ -2113,6 +2227,7 @@ export interface VscPowerSyntaxApi {
   importSemanticWorkspaceSnapshot(request: ApiSemanticWorkspaceSnapshotImportRequest): Promise<ApiSemanticWorkspaceSnapshotImportResult>;
   diffSemanticWorkspaceSnapshots(request: ApiSemanticWorkspaceSnapshotDiffRequest): Promise<ApiSemanticWorkspaceSnapshotDiff>;
   getServerStats(): Promise<ApiServerStats>;
+  checkWorkspace(request?: ApiWorkspaceCheckRequest): Promise<ApiWorkspaceCheckReport>;
   querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
   getCrossProjectSymbolConflicts(request?: ApiCrossProjectSymbolConflictsRequest): Promise<ApiCrossProjectSymbolConflicts>;
   getWorkspaceMigrationAssistant(request?: ApiWorkspaceMigrationAssistantRequest): Promise<ApiWorkspaceMigrationAssistant>;

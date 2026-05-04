@@ -43,6 +43,8 @@ export interface ClientCommandRegistrationDependencies {
   clearObjectExplorerFocus(): unknown;
   openObjectExplorerObject(target?: ObjectExplorerTarget): unknown;
   openProjectHealthDashboard(): unknown;
+  openWorkspaceCheck(): unknown;
+  runWorkspaceCheck(request?: unknown): unknown;
   openCrossProjectSymbolConflicts(): unknown;
   openWorkspaceMigrationAssistant(): unknown;
   openBuildProfileMatrix(): unknown;
@@ -172,6 +174,14 @@ function buildReportCommands(
   dependencies: ClientCommandRegistrationDependencies,
 ): readonly ClientCommandRegistration[] {
   return [
+    {
+      id: 'powerbuilder.checkWorkspace',
+      handler: (request?: unknown) => dependencies.runWorkspaceCheck(request),
+    },
+    {
+      id: 'vscPowerSyntax.openWorkspaceCheck',
+      handler: () => dependencies.openWorkspaceCheck(),
+    },
     {
       id: 'vscPowerSyntax.openProjectHealthDashboard',
       handler: () => dependencies.openProjectHealthDashboard(),

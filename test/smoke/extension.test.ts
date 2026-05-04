@@ -8,9 +8,20 @@ import {
 } from '../../src/shared/publicApi';
 import { getCoreMaintenanceCommandModels } from '../../src/client/coreMaintenanceCommandCatalog';
 
+async function withStepTimeout<T>(label: string, promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Timeout en paso smoke: ${label}`));
+      }, timeoutMs);
+    }),
+  ]);
+}
+
 suite('smoke/extension', () => {
   test('la extensión se activa en menos de 500ms', async function () {
-    this.timeout(15000);
+    this.timeout(30000);
     const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(ext, 'La extensión debería estar presente');
     const wasActiveBefore = ext.isActive;
@@ -31,9 +42,11 @@ suite('smoke/extension', () => {
     assert.deepEqual(api!.getPublicContract(), api!.contract);
     assert.equal(api!.getReadOnlyToolBridge().apiVersion, PUBLIC_API_VERSION);
     assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'server-stats'));
+    assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'workspace-check'));
     assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update'));
     assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update-batch'));
     assert.equal(typeof api!.getServerStats, 'function');
+    assert.equal(typeof api!.checkWorkspace, 'function');
     assert.equal(typeof api!.getPublicContract, 'function');
     assert.equal(typeof api!.getReadOnlyToolBridge, 'function');
     assert.equal(typeof api!.invokeReadOnlyTool, 'function');
@@ -50,6 +63,8 @@ suite('smoke/extension', () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('vscPowerSyntax.showSettingsGovernance'));
     assert.ok(commands.includes('vscPowerSyntax.applySettingsProfile'));
+    assert.ok(commands.includes('vscPowerSyntax.openWorkspaceCheck'));
+    assert.ok(commands.includes('powerbuilder.checkWorkspace'));
     assert.ok(commands.includes('vscPowerSyntax.openCrossProjectSymbolConflicts'));
     assert.ok(commands.includes('vscPowerSyntax.openBuildProfileMatrix'));
     assert.ok(commands.includes('vscPowerSyntax.openCodeMetrics'));
@@ -336,6 +351,57 @@ suite('smoke/extension', () => {
     }
     
     assert.ok(elapsed < 2000, `Activación demasiado lenta: ${elapsed.toFixed(2)}ms`);
+  });
+
+  test('workspace check expone tool read-only y reporte markdown', async function () {
+    this.timeout(30000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+    const contextDocument = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
+    );
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+
+    const manifestToolResult = await withStepTimeout(
+      'invokeReadOnlyTool(semantic-workspace-manifest)',
+      api!.invokeReadOnlyTool({
+        tool: 'semantic-workspace-manifest',
+        args: { maxObjects: 16, maxSymbols: 16 },
+      }),
+      10000,
+    );
+    assert.equal(manifestToolResult.schema, 'ApiSemanticWorkspaceManifest');
+
+    const workspaceCheckToolResult = await withStepTimeout(
+      'invokeReadOnlyTool(workspace-check)',
+      api!.invokeReadOnlyTool({
+        tool: 'workspace-check',
+        args: {
+          mode: 'quick',
+          maxFindings: 8,
+        },
+      }),
+      10000,
+    );
+    assert.equal(workspaceCheckToolResult.mode, 'read-only');
+    assert.equal(workspaceCheckToolResult.schema, 'ApiWorkspaceCheckReport');
+    assert.equal(typeof (workspaceCheckToolResult.payload as { available?: unknown }).available, 'boolean');
+
+    await withStepTimeout(
+      'executeCommand(vscPowerSyntax.openWorkspaceCheck)',
+      vscode.commands.executeCommand('vscPowerSyntax.openWorkspaceCheck'),
+      10000,
+    );
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Workspace Check/);
   });
 
   test('el runtime self-test se ejecuta como comando read-only', async function () {

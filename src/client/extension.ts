@@ -31,6 +31,9 @@ import {
   type ApiCrossProjectSymbolConflictsRequest,
   type ApiBuildProfileMatrix,
   type ApiBuildProfileMatrixRequest,
+  type ApiWorkspaceCheckCatalogSummary,
+  type ApiWorkspaceCheckReport,
+  type ApiWorkspaceCheckRequest,
   type ApiWorkspaceMigrationAssistant,
   type ApiWorkspaceMigrationAssistantRequest,
   type ApiDataWindowSqlLineage,
@@ -130,6 +133,12 @@ import {
   type PowerSyntaxSettingsGovernanceReport,
 } from './settingsGovernance';
 import { registerClientCommands } from './commandRegistration';
+import {
+  buildUnavailableWorkspaceCheckReport,
+  buildWorkspaceCheckMarkdown,
+  buildWorkspaceCheckReport,
+  normalizeWorkspaceCheckRequest,
+} from './workspaceCheckReport';
 import {
   type PbAutoBuildCancelResult as PbAutoBuildCancelResultProtocol,
   type PbAutoBuildBuildFileOption,
@@ -471,6 +480,8 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
       await ensureObjectExplorerController().openObject(target);
     },
     openProjectHealthDashboard,
+    openWorkspaceCheck,
+    runWorkspaceCheck: async (request?: unknown) => runWorkspaceCheck(request as ApiWorkspaceCheckRequest | undefined),
     openCrossProjectSymbolConflicts,
     openWorkspaceMigrationAssistant,
     openBuildProfileMatrix,
@@ -703,6 +714,13 @@ function createPublicApi(): VscPowerSyntaxApi {
             schema: 'ApiServerStats',
             payload: await api.getServerStats(),
           };
+        case 'workspace-check':
+          return {
+            tool: 'workspace-check',
+            mode: 'read-only',
+            schema: 'ApiWorkspaceCheckReport',
+            payload: await api.checkWorkspace(args as ApiWorkspaceCheckRequest),
+          };
         case 'query-symbols':
           return {
             tool: 'query-symbols',
@@ -881,6 +899,104 @@ function createPublicApi(): VscPowerSyntaxApi {
     },
     async getServerStats(): Promise<ApiServerStats> {
       return clonePlainData((await fetchRuntimeStatusStats()) ?? {});
+    },
+    async checkWorkspace(request: ApiWorkspaceCheckRequest = {}): Promise<ApiWorkspaceCheckReport> {
+      if ((vscode.workspace.workspaceFolders?.length ?? 0) === 0) {
+        return buildUnavailableWorkspaceCheckReport('No hay ningun workspace abierto.', request);
+      }
+
+      const normalized = normalizeWorkspaceCheckRequest(request);
+      let serverStats: ApiServerStats;
+      try {
+        serverStats = clonePlainData(await api.getServerStats());
+      } catch (error) {
+        return buildUnavailableWorkspaceCheckReport(
+          error instanceof Error ? error.message : String(error),
+          request,
+        );
+      }
+
+      let manifest: ApiSemanticWorkspaceManifest | undefined;
+      let catalog: ApiWorkspaceCheckCatalogSummary | undefined;
+      let codeMetrics: ApiPowerBuilderCodeMetrics | undefined;
+      let technicalDebt: ApiPowerBuilderTechnicalDebtReport | undefined;
+      let buildProfiles: ApiBuildProfileMatrix | undefined;
+      const sectionErrors: Partial<Record<'manifest' | 'catalog' | 'buildProfiles' | 'codeMetrics' | 'technicalDebt', string>> = {};
+      const sectionWork: Promise<void>[] = [];
+
+      if (normalized.includeManifest) {
+        sectionWork.push((async () => {
+          try {
+            manifest = clonePlainData(await api.getSemanticWorkspaceManifest({
+              maxObjects: Math.max(48, normalized.maxFiles * 12),
+              maxSymbols: Math.max(96, normalized.maxFiles * 20),
+            }));
+          } catch (error) {
+            sectionErrors.manifest = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      if (normalized.includeCatalog) {
+        sectionWork.push((async () => {
+          try {
+            catalog = await executeServerCommand<ApiWorkspaceCheckCatalogSummary>('powerbuilder.workspaceCheckCatalogSummary', []);
+          } catch (error) {
+            sectionErrors.catalog = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      if (normalized.includeCodeMetrics) {
+        sectionWork.push((async () => {
+          try {
+            codeMetrics = await api.getPowerBuilderCodeMetrics({
+              maxObjects: Math.max(24, normalized.maxFiles * 6),
+            });
+          } catch (error) {
+            sectionErrors.codeMetrics = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      if (normalized.includeTechnicalDebt) {
+        sectionWork.push((async () => {
+          try {
+            technicalDebt = await api.getPowerBuilderTechnicalDebtReport({
+              maxObjects: Math.max(24, normalized.maxFiles * 6),
+              maxHotspots: Math.max(8, normalized.maxFiles),
+              maxRecommendations: Math.max(8, normalized.maxFiles),
+            });
+          } catch (error) {
+            sectionErrors.technicalDebt = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      if (normalized.includeBuildProfiles) {
+        sectionWork.push((async () => {
+          try {
+            buildProfiles = await api.getBuildProfileMatrix({
+              maxProfiles: Math.max(8, normalized.maxFiles),
+            });
+          } catch (error) {
+            sectionErrors.buildProfiles = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      await Promise.all(sectionWork);
+
+      return buildWorkspaceCheckReport({
+        request,
+        serverStats,
+        manifest,
+        catalog,
+        codeMetrics,
+        technicalDebt,
+        buildProfiles,
+        sectionErrors,
+      });
     },
     async querySymbols(request: ApiQuerySymbolsRequest) {
       const query = request.query ?? '';
@@ -2869,6 +2985,43 @@ async function openProjectHealthDashboard(): Promise<void> {
     preview: false,
     viewColumn: vscode.ViewColumn.Beside,
   });
+}
+
+async function runWorkspaceCheck(request: ApiWorkspaceCheckRequest = {}): Promise<ApiWorkspaceCheckReport> {
+  return publicApiSingleton.checkWorkspace(request);
+}
+
+async function openWorkspaceCheck(): Promise<void> {
+  let report: ApiWorkspaceCheckReport;
+  try {
+    report = await runWorkspaceCheck({
+      mode: 'quick',
+      maxFiles: 12,
+      maxFindings: 24,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo ejecutar el workspace check: ${message}`);
+    return;
+  }
+
+  const content = buildWorkspaceCheckMarkdown(report);
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content,
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  void vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri).then(
+    undefined,
+    () => {
+      // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+    },
+  );
 }
 
 async function openMarkdownReportDocument(content: string): Promise<string> {

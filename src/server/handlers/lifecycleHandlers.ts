@@ -20,6 +20,7 @@ import type { SemanticCacheCheckpointMetadata } from '../cache/cacheSchema';
 
 export const SERVER_EXECUTE_COMMANDS = [
   'powerbuilder.showStats',
+  'powerbuilder.workspaceCheckCatalogSummary',
   'powerbuilder.objectInfo',
   'powerbuilder.inspectHierarchy',
   'powerbuilder.querySymbols',

@@ -245,6 +245,11 @@
         "category": "VSC PowerSyntax"
       },
       {
+        "command": "vscPowerSyntax.openWorkspaceCheck",
+        "title": "PowerSyntax: Check Workspace",
+        "category": "VSC PowerSyntax"
+      },
+      {
         "command": "vscPowerSyntax.openCrossProjectSymbolConflicts",
         "title": "PowerSyntax: Abrir Analizador de Conflictos Cross-Project",
         "category": "VSC PowerSyntax"

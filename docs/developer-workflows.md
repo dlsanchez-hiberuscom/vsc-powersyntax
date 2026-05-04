@@ -364,16 +364,16 @@ El maintainer o agente quiere inspeccionar o sanear el runtime sin abrir debuggi
 Flujo:
 
 1. abrir `PowerSyntax: Abrir Menú de Estado` o ejecutar directamente el comando del síntoma principal;
-2. usar `PowerSyntax: Exportar Health Report`, `Ejecutar Runtime Self-Test`, `Mostrar Memory Budgets`, `Mostrar Estado de Indexación`, `Mostrar Project Routing` o `Mostrar Conflictos de sourceOrigin` para inspección read-only del runtime;
+2. usar `PowerSyntax: Exportar Health Report`, `Check Workspace`, `Ejecutar Runtime Self-Test`, `Mostrar Memory Budgets`, `Mostrar Estado de Indexación`, `Mostrar Project Routing` o `Mostrar Conflictos de sourceOrigin` para inspección read-only del runtime;
 3. ejecutar `PowerSyntax: Validar Cache Persistente` antes de tocar persistencia y usar `PowerSyntax: Ejecutar Mantenimiento de Cache Semántica` solo cuando la retención/journal lo recomienden;
 4. reservar `PowerSyntax: Limpiar Cache Semántica` y `PowerSyntax: Rebuild Workspace Index` para limpieza explícita del estado persistido o relanzado del runtime, siempre tras confirmación modal.
 
 Reglas:
 
-- `export health report`, `run runtime self-test`, `show memory budgets`, `show indexing state`, `show project routing`, `show sourceOrigin conflicts`, `validate persistent cache` y `export support bundle` son read-only;
+- `workspace check`, `export health report`, `run runtime self-test`, `show memory budgets`, `show indexing state`, `show project routing`, `show sourceOrigin conflicts`, `validate persistent cache` y `export support bundle` son read-only;
 - `clear semantic cache` y `rebuild workspace index` son comandos confirmables y no deben dispararse en background ni sin acción explícita del usuario;
 - el pack reutiliza `showStats`, dashboard, manifest, `currentObjectContext`, conflictos cross-project y `cacheStore`, sin abrir un segundo motor de observabilidad;
-- `runtime self-test`, `health report` y `support bundle` son complementarios: el primero ofrece un chequeo rápido del runtime, el segundo congela dashboard/score enterprise/stats/manifest para inspección rápida y el tercero añade snapshot offline con redacción explícita por perfil.
+- `workspace check`, `runtime self-test`, `health report` y `support bundle` son complementarios: el primero responde de forma estructurada si el workspace está listo para cerrar trabajo, el segundo ofrece un chequeo rápido del runtime, el tercero congela dashboard/score enterprise/stats/manifest para inspección rápida y el cuarto añade snapshot offline con redacción explícita por perfil.
 
 ---
 

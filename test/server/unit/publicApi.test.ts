@@ -59,6 +59,7 @@ suite('unit/publicApi (B109)', () => {
       'applySpecDrivenPblUpdateBatch'
     ]);
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('diffSemanticWorkspaceSnapshots'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('checkWorkspace'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getCrossProjectSymbolConflicts'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getBuildProfileMatrix'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getPowerBuilderCodeMetrics'));
@@ -69,6 +70,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('invokeReadOnlyTool'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('exportSemanticWorkspaceSnapshot'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('cross-project-symbol-conflicts'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('workspace-check'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('build-profile-matrix'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('code-metrics'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('technical-debt-report'));
@@ -79,6 +81,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.capabilities.readOnlyTools.includes('workspace-migration-assistant'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getPublicContract'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getBuildProfileMatrix' && method.command === 'powerbuilder.buildProfileMatrix'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'checkWorkspace' && method.command === 'powerbuilder.checkWorkspace'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderCodeMetrics' && method.command === 'powerbuilder.codeMetrics'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderTechnicalDebtReport' && method.command === 'powerbuilder.technicalDebtReport'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getCrossProjectSymbolConflicts' && method.command === 'powerbuilder.crossProjectSymbolConflicts'));
@@ -90,6 +93,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPublicContractDescriptor' && schema.version === PUBLIC_API_VERSION));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiTaskExecutionContractCatalog' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiBuildProfileMatrix' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiWorkspaceCheckReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiCrossProjectSymbolConflicts' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiDataWindowSqlLineage' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPowerBuilderCodeMetrics' && schema.version === '1.0.0'));
@@ -116,6 +120,7 @@ suite('unit/publicApi (B109)', () => {
     assert.equal(bridge.schemaVersion, '1.0.0');
     assert.equal(bridge.apiVersion, PUBLIC_API_VERSION);
     assert.ok(bridge.tools.some((tool) => tool.name === 'contract' && tool.responseSchema === 'ApiPublicContractDescriptor'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'workspace-check' && tool.responseSchema === 'ApiWorkspaceCheckReport'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'build-profile-matrix' && tool.responseSchema === 'ApiBuildProfileMatrix'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'code-metrics' && tool.responseSchema === 'ApiPowerBuilderCodeMetrics'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'technical-debt-report' && tool.responseSchema === 'ApiPowerBuilderTechnicalDebtReport'));

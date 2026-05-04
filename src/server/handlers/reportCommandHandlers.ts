@@ -26,6 +26,7 @@ import { buildImpactAnalysis } from '../features/impactAnalysis';
 import { buildObjectInfo } from '../features/objectInfo';
 import { buildPowerBuilderCodeMetrics } from '../features/powerBuilderCodeMetrics';
 import { buildPowerBuilderTechnicalDebtReport } from '../features/powerBuilderTechnicalDebtReport';
+import { buildWorkspaceCheckCatalogSummary } from '../features/workspaceCheckCatalogSummary';
 import { buildSafeBatchRefactorPlan } from '../features/safeBatchRefactorPlan';
 import { buildSafeEditPlan } from '../features/safeEditPlan';
 import { buildWorkspaceMigrationAssistant } from '../features/workspaceMigrationAssistant';
@@ -494,6 +495,12 @@ export async function tryHandleReportCommand(
           knowledgeBase,
           workspaceState,
         ))
+      };
+    }
+    case 'powerbuilder.workspaceCheckCatalogSummary': {
+      return {
+        handled: true,
+        result: await runExportReportingWorkload('workspace-check-catalog', () => buildWorkspaceCheckCatalogSummary())
       };
     }
     case 'powerbuilder.workspaceMigrationAssistant': {
