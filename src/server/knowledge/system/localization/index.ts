@@ -11,6 +11,12 @@ export {
   type SystemSymbolDocumentationService,
 } from './documentationService';
 export {
+  DEFAULT_DOCUMENTATION_LOCALE_SETTING,
+  resolveDocumentationLocale,
+  sanitizeDocumentationLocaleSetting,
+  type DocumentationLocaleSetting,
+} from './documentationLocale';
+export {
   buildSystemSymbolLocalizationIndex,
   getSystemSymbolLocalizationCatalogReport,
   getSystemSymbolLocalizationIndex,

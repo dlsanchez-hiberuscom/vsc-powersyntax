@@ -25,6 +25,29 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.132 B373. Localized catalog consumers for hover, completion and signatureHelp — **Cerrada (language services/localized consumers 2026-05)**
+
+**Objetivo:** hacer visible el rail de localización documental en producto real, integrando `DocumentationService` en hover, completion y signatureHelp sin traducir identidad semántica, sin duplicar lógica por consumer y sin introducir coste interactivo apreciable.
+
+**Resultado registrado:**
+- `src/server/features/hover.ts`, `completion.ts` y `signatureHelp.ts` consumen ya `DocumentationService` con locale explícita, conservan títulos, labels y firmas originales, y limitan la localización a `summary/documentation/usageNotes/obsoleteMessage/return docs/parameter docs` en la capa visible del consumer;
+- `src/server/knowledge/system/localization/documentationLocale.ts`, `localizationResolver.ts` y `documentationService.ts` fijan `auto|en|es`, fallback `auto -> locale de VS Code -> en`, alias canónicos manual/generated para overlays por sibling del mismo bucket lógico y fallback O(1) por nombre de parámetro único cuando la firma visible no coincide exactamente con el `signatureLabel` del overlay;
+- `src/client/extension.ts`, `src/server/handlers/lifecycleHandlers.ts`, `src/server/handlers/featureHandlers.ts`, `src/server/server.ts`, `src/shared/types.ts` y `package.json` publican y cablean la setting `vscPowerSyntax.languageServices.documentationLocale`, sincronizan la configuración al servidor y segregan `ServingCache` por locale efectiva para hover/completion/signatureHelp;
+- `test/server/unit/documentationLocale.test.ts`, junto con nuevas pruebas focales en `hover.test.ts`, `completion.test.ts` y `signatureHelp.test.ts`, fija rendering localizado visible, fallback de locale, ausencia de duplicados por idioma y mantenimiento del guard de hot path.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "documentationLocale|localiza"`
+- `npm run test:unit -- --grep "hotPathAllocationBudget"`
+
+**Documentación alineada:**
+- `README.md`
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
 ## 1.131 B372. DocumentationService locale-aware lazy resolver — **Cerrada (knowledge/localized documentation serving 2026-05)**
 
 **Objetivo:** crear una capa de serving documental locale-aware, reutilizable y barata que resuelva textos visibles del system catalog sobre una entry ya resuelta, con fallback seguro `es -> en` y sin scans globales ni merges por idioma en startup.

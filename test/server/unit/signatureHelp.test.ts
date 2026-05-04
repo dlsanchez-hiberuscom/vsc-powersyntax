@@ -47,6 +47,18 @@ suite('unit/signatureHelp', () => {
     assert.strictEqual(result.activeParameter, 1);
   });
 
+  test('localiza la ayuda de firma del catalogo con retorno y parametros localizados', () => {
+    const doc = setupDocument('file:///test_signature_locale.srw', 'integer li_value\nli_value = Abs(');
+
+    const pos = Position.create(1, 15);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph, undefined, 'es');
+
+    assert.ok(result);
+    assert.strictEqual(result.signatures.length > 0, true);
+    assert.match(String(result.signatures[0].documentation), /Devuelve el mismo tipo de dato/i);
+    assert.match(String(result.signatures[0].parameters?.[0].documentation), /Numero del que quieres obtener el valor absoluto/i);
+  });
+
   test('proyecta documentación enum para parámetros de sistema inferidos desde la firma', () => {
     const doc = setupDocument('file:///test_signature_enum.sru', `
 global type test_signature_enum from nonvisualobject

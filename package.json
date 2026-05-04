@@ -578,6 +578,16 @@
           "default": true,
           "description": "Mostrar el indicador de progreso de indexación en la barra de estado."
         },
+        "vscPowerSyntax.languageServices.documentationLocale": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "es"
+          ],
+          "default": "auto",
+          "description": "Locale de la documentación visible en hover, completion y signatureHelp. auto usa el idioma de VS Code cuando sea compatible y cae a inglés en el resto."
+        },
         "vscPowerSyntax.build.pbAutoBuildPath": {
           "type": "string",
           "default": "",

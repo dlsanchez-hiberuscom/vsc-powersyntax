@@ -11,6 +11,15 @@ import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { systemProvenanceToLineage } from '../knowledge/system/normalization';
 import type { HotContextCache } from '../knowledge/HotContextCache';
+import {
+  getDisplayDocumentation,
+  getDisplayObsoleteMessage,
+  getDisplayParameterDocumentation,
+  getDisplayReturnDocumentation,
+  getDisplaySummary,
+  getDisplayUsageNotes,
+  type DocumentationLocale,
+} from '../knowledge/system/localization';
 import { EntityKind } from '../knowledge/types';
 import { provideDataWindowLegacyHover } from './dataWindowLegacySafeMode';
 import { providePowerScriptDataWindowPropertyHover } from './dataWindowPropertyPaths';
@@ -115,7 +124,8 @@ export function provideHover(
   kb: KnowledgeBase,
   catalog: SystemCatalog,
   graph: InheritanceGraph,
-  hotContext?: HotContextCache
+  hotContext?: HotContextCache,
+  documentationLocale: DocumentationLocale = 'en'
 ): Hover | null {
   const dataWindowHover = provideDataWindowLegacyHover(document, position)
     ?? providePowerScriptDataWindowPropertyHover(document, position, kb);
@@ -168,7 +178,7 @@ export function provideHover(
     return {
       contents: {
         kind: MarkupKind.Markdown,
-        value: buildSystemSymbolMarkdown(symbol, catalog)
+        value: buildSystemSymbolMarkdown(symbol, catalog, documentationLocale)
       }
     };
   }
@@ -179,7 +189,7 @@ export function provideHover(
     return {
       contents: {
         kind: MarkupKind.Markdown,
-        value: buildLanguageSymbolMarkdown(langSymbol, catalog)
+        value: buildLanguageSymbolMarkdown(langSymbol, catalog, documentationLocale)
       }
     };
   }
@@ -190,9 +200,18 @@ export function provideHover(
 /**
  * Formatea un PbSystemSymbolEntry como un Markdown rico con firmas, resumen y enlaces.
  */
-function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry, catalog: SystemCatalog): string {
+function buildSystemSymbolMarkdown(
+  symbol: PbSystemSymbolEntry,
+  catalog: SystemCatalog,
+  documentationLocale: DocumentationLocale,
+): string {
   const lines: string[] = [];
   const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
+  const displaySummary = getDisplaySummary(symbol, documentationLocale);
+  const displayDocumentation = getDisplayDocumentation(symbol, documentationLocale);
+  const displayObsoleteMessage = getDisplayObsoleteMessage(symbol, documentationLocale);
+  const displayUsageNotes = getDisplayUsageNotes(symbol, documentationLocale);
+  const displayReturnDocumentation = getDisplayReturnDocumentation(symbol, documentationLocale);
 
   // Firma principal (tomamos la primera, a futuro se podría mostrar que hay N sobrecargas)
   if (symbol.signatures && symbol.signatures.length > 0) {
@@ -205,15 +224,20 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry, catalog: SystemC
   lines.push('---');
   
   if (symbol.obsolete) {
-    lines.push(`**⚠️ OBSOLETO:** ${symbol.obsoleteMessage || 'Evita usar esta función.'}`);
+    lines.push(`**⚠️ OBSOLETO:** ${displayObsoleteMessage || 'Evita usar esta función.'}`);
     if (symbol.replacement) {
       lines.push(`> *Usa \`${symbol.replacement}\` en su lugar.*`);
     }
     lines.push('');
   }
 
-  if (symbol.summary) {
-    lines.push(symbol.summary);
+  if (displaySummary) {
+    lines.push(displaySummary);
+  }
+
+  if (displayDocumentation) {
+    lines.push('');
+    lines.push(displayDocumentation);
   }
 
   if (symbol.risk) {
@@ -227,8 +251,27 @@ function buildSystemSymbolMarkdown(symbol: PbSystemSymbolEntry, catalog: SystemC
       lines.push('');
       lines.push('**Parámetros:**');
       for (const p of mainSig.parameters) {
-        lines.push(`* \`${p.label}\`${p.documentation ? `: ${p.documentation}` : ''}`);
+        const parameterDocumentation = getDisplayParameterDocumentation(
+          symbol,
+          mainSig.label,
+          p.label,
+          documentationLocale,
+        ) ?? p.documentation;
+        lines.push(`* \`${p.label}\`${parameterDocumentation ? `: ${parameterDocumentation}` : ''}`);
       }
+    }
+  }
+
+  if (displayReturnDocumentation) {
+    lines.push('');
+    lines.push(`**Retorno:** ${displayReturnDocumentation}`);
+  }
+
+  if (displayUsageNotes.length > 0) {
+    lines.push('');
+    lines.push('**Notas de uso:**');
+    for (const usageNote of displayUsageNotes) {
+      lines.push(`* ${usageNote}`);
     }
   }
   
@@ -302,7 +345,11 @@ function collectEffectiveEnumeratedTypeValues(
   return Array.from(values);
 }
 
-function buildLanguageSymbolMarkdown(symbol: PbSystemSymbolEntry, catalog: SystemCatalog): string {
+function buildLanguageSymbolMarkdown(
+  symbol: PbSystemSymbolEntry,
+  catalog: SystemCatalog,
+  documentationLocale: DocumentationLocale,
+): string {
   const kindLabels: Record<string, string> = {
     'keyword': '🔤 Palabra clave',
     'reserved-word': '🔒 Palabra reservada',
@@ -319,20 +366,22 @@ function buildLanguageSymbolMarkdown(symbol: PbSystemSymbolEntry, catalog: Syste
 
   const lines: string[] = [];
   const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
+  const displaySummary = getDisplaySummary(symbol, documentationLocale);
+  const displayDocumentation = getDisplayDocumentation(symbol, documentationLocale);
   lines.push(`\`\`\`powerbuilder\n${symbol.name}\n\`\`\``);
   lines.push('---');
   lines.push(kindLabels[symbol.kind] ?? `📋 ${symbol.kind}`);
-  if (symbol.summary) {
+  if (displaySummary) {
     lines.push('');
-    lines.push(symbol.summary);
+    lines.push(displaySummary);
   }
   if (symbol.category) {
     lines.push('');
     lines.push(`**Categoría:** ${symbol.category}`);
   }
-  if (symbol.documentation) {
+  if (displayDocumentation) {
     lines.push('');
-    lines.push(symbol.documentation);
+    lines.push(displayDocumentation);
   }
   if (symbol.kind === 'enumerated-type' && effectiveEnumValues.length > 0) {
     lines.push('');

@@ -17,14 +17,22 @@ export interface VscPowerSyntaxTraceSettings {
   server: ServerTraceLevel;
 }
 
+export interface VscPowerSyntaxLanguageServicesSettings {
+  documentationLocale: 'auto' | 'en' | 'es';
+}
+
 export interface VscPowerSyntaxSettings {
   diagnostics: VscPowerSyntaxDiagnosticsSettings;
+  languageServices: VscPowerSyntaxLanguageServicesSettings;
   trace: VscPowerSyntaxTraceSettings;
 }
 
 export const DEFAULT_SETTINGS: VscPowerSyntaxSettings = {
   diagnostics: {
     enable: true
+  },
+  languageServices: {
+    documentationLocale: 'auto'
   },
   trace: {
     server: 'off'

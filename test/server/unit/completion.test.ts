@@ -537,4 +537,29 @@ end subroutine
 
     assert.ok(visibleItems?.some((item) => item.label === 'cc_total'), 'Debe sugerir controles nombrados dentro de valores dinámicos con ~t.');
   });
+
+  test('localiza la documentación de completion sin duplicar items por locale', () => {
+    const doc = setupDocument('file:///test_completion_locale.sru', `
+global type test_completion_locale from nonvisualobject
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  Mes
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'Mes');
+    const items = provideCompletion(doc, Position.create(lineIndex, 5), kb, systemCatalog, graph, undefined, undefined, 'es');
+
+    assert.ok(items);
+    const messageBoxItems = items.filter((item) => item.label === 'MessageBox');
+    assert.strictEqual(messageBoxItems.length, 1);
+    assert.match(String(messageBoxItems[0].documentation), /interacciones bloqueantes/i);
+    assert.notStrictEqual(messageBoxItems[0].detail, messageBoxItems[0].documentation);
+  });
 });

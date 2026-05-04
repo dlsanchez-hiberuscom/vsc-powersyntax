@@ -109,6 +109,20 @@ suite('unit/hover', () => {
     assert.ok(value.includes('*Confianza:* direct'), 'Debe incluir confianza derivada');
   });
 
+  test('provideHover localiza summary, documentation y parametros del catalogo visible', () => {
+    const doc = TextDocument.create('file:///test_hover_locale.sru', 'powerbuilder', 1, '  MessageBox("Hola", "Mundo")  ');
+
+    const hover = provideHover(doc, Position.create(0, 5), kb, catalog, graph, undefined, 'es');
+
+    assert.ok(hover, 'Hover no debería ser null');
+    const value = (hover?.contents as any).value as string;
+    assert.match(value, /cuadro de mensaje del sistema/i);
+    assert.match(value, /interacciones bloqueantes/i);
+    assert.match(value, /Titulo visible en la barra/i);
+    assert.match(value, /Devuelve el boton seleccionado/i);
+    assert.match(value, /Evita usarlo en rutas de cambio de foco sensibles/i);
+  });
+
   test('provideHover resuelve system types modernos del catálogo runtime', () => {
     const doc = setupAnalyzedDocument('file:///n_http_hover.sru', [
       'forward',

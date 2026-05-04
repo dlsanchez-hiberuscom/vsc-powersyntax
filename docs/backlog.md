@@ -1007,93 +1007,6 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ---
 
-## B373 — Localized catalog consumers for hover, completion and signatureHelp
-- **Estado:** Open
-- **Track:** language services / localization / UX
-- **Prioridad:** Alta
-- **Depende de:** B372
-- **Objetivo:** integrar la documentación localizada en hover, completion y signatureHelp sin cambiar la identidad semántica de los símbolos ni introducir coste adicional significativo.
-- **Razón técnica:** la localización solo aporta valor si aparece en las superficies visibles del usuario. La integración debe hacerse en los renderers/consumers, no en el registry ni en la resolución semántica.
-
-### Alcance incluido
-
-- Integrar `documentationService` en hover.
-- Integrar `documentationService` en completion item detail/documentation.
-- Integrar `documentationService` en signatureHelp para documentación de parámetros y retorno.
-- Preparar diagnostics para mensajes localizados si ya existe infraestructura de reason codes.
-- Añadir configuración de locale si no existe.
-- Mantener signatures originales sin traducir.
-- Mantener nombres de símbolos originales.
-
-### Configuración objetivo
-
-Usar una de estas opciones, según arquitectura existente:
-
-```ts
-powerbuilder.catalog.documentationLocale: 'auto' | 'en' | 'es'
-```
-
-o:
-
-```ts
-powerbuilder.languageServices.documentationLocale: 'auto' | 'en' | 'es'
-```
-
-Reglas:
-
-```txt
-auto → usar idioma de VS Code si disponible, si no es/en fallback definido
-en → usar texto original
-es → usar overlay español si existe
-```
-
-### Reglas de render
-
-- Hover:
-  - título/nombre original.
-  - firma original.
-  - summary/documentation localizados.
-  - sourceUrl oficial si aplica.
-- Completion:
-  - label original.
-  - detail original o técnico.
-  - documentation localizada.
-- SignatureHelp:
-  - signature label original.
-  - parameter docs localizados si existen.
-  - return docs localizados si existen.
-- Diagnostics:
-  - mantener reason codes estables.
-  - mensaje localizado solo como presentación.
-
-### Criterios de cierre verificables
-
-- Hover de una función generated muestra español si hay overlay.
-- Hover de una función sin overlay cae a inglés.
-- Completion no duplica items por idioma.
-- SignatureHelp mantiene firmas originales y localiza descripciones.
-- La configuración de locale funciona y tiene fallback.
-- No se alteran tests de resolución semántica.
-- No se introducen scans por token ni por completion item.
-
-### Docs afectadas
-
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `docs/testing.md`
-- `docs/performance-budget.md`
-- `README.md` si se documenta la setting pública.
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "hover|completion|signatureHelp|localization|documentationService"
-npm run test:unit -- --grep "catalog|systemCatalog|queryService"
-npm run test:unit -- --grep "hotPath|performance|allocation"
-```
-
----
-
 ## B374 — Spanish catalog localization authoring workflow and coverage gate
 - **Estado:** Open
 - **Track:** localization / docs governance / catalog quality
@@ -1873,11 +1786,11 @@ npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|rea
 
 ## Fase activa 
 
-01. B373 — Localized catalog consumers for hover, completion and signatureHelp
-02. B374 — Spanish catalog localization authoring workflow and coverage gate
-03. B375 — Generated localization compatibility with regenerated catalog IDs
-04. B378 — AI PowerBuilder context pack and token budget contract
-05. B379 — Explain diagnostic tool and suggested safe fix contract
+01. B374 — Spanish catalog localization authoring workflow and coverage gate
+02. B375 — Generated localization compatibility with regenerated catalog IDs
+03. B378 — AI PowerBuilder context pack and token budget contract
+04. B379 — Explain diagnostic tool and suggested safe fix contract
+05. B380 — Explain system symbol and catalog lookup tool for AI
 
 ## Siguiente fase — Localización española de alto rendimiento y datawindow
 

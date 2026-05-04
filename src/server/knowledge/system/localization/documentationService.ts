@@ -26,6 +26,11 @@ type LocalizationOverlayResolver = (
   locale: DocumentationLocale,
 ) => PbResolvedSystemSymbolLocalizationOverlay | undefined;
 
+type ParameterDocumentationIndex = {
+  bySignatureAndName: ReadonlyMap<string, string>;
+  byName: ReadonlyMap<string, string>;
+};
+
 const EMPTY_USAGE_NOTES: readonly string[] = [];
 
 function normalizeLookupText(value?: string): string | undefined {
@@ -68,8 +73,10 @@ function buildEntryParameterDocumentationIndex(
 
 function buildOverlayParameterDocumentationIndex(
   overlay: PbResolvedSystemSymbolLocalizationOverlay,
-): ReadonlyMap<string, string> {
+): ParameterDocumentationIndex {
   const parameterDocumentation = new Map<string, string>();
+  const parameterDocumentationByName = new Map<string, string>();
+  const duplicateParameterNames = new Set<string>();
 
   for (const parameter of overlay.parameters ?? []) {
     const lookupKey = buildParameterDocumentationLookupKey(
@@ -81,16 +88,36 @@ function buildOverlayParameterDocumentationIndex(
     }
 
     parameterDocumentation.set(lookupKey, parameter.documentation);
+
+    const normalizedParameterName = normalizeLookupText(parameter.parameterName);
+    if (!normalizedParameterName) {
+      continue;
+    }
+
+    if (duplicateParameterNames.has(normalizedParameterName)) {
+      continue;
+    }
+
+    if (parameterDocumentationByName.has(normalizedParameterName)) {
+      parameterDocumentationByName.delete(normalizedParameterName);
+      duplicateParameterNames.add(normalizedParameterName);
+      continue;
+    }
+
+    parameterDocumentationByName.set(normalizedParameterName, parameter.documentation);
   }
 
-  return parameterDocumentation;
+  return {
+    bySignatureAndName: parameterDocumentation,
+    byName: parameterDocumentationByName,
+  };
 }
 
 export function createDocumentationService(
   resolveOverlay: LocalizationOverlayResolver,
 ): SystemSymbolDocumentationService {
   const entryParameterDocumentationIndex = new WeakMap<PbSystemSymbolEntry, ReadonlyMap<string, string>>();
-  const overlayParameterDocumentationIndex = new WeakMap<PbResolvedSystemSymbolLocalizationOverlay, ReadonlyMap<string, string>>();
+  const overlayParameterDocumentationIndex = new WeakMap<PbResolvedSystemSymbolLocalizationOverlay, ParameterDocumentationIndex>();
 
   function getPreferredOverlay(
     entry: PbSystemSymbolEntry,
@@ -135,12 +162,14 @@ export function createDocumentationService(
 
     const cached = overlayParameterDocumentationIndex.get(overlay);
     if (cached) {
-      return cached.get(lookupKey);
+      return cached.bySignatureAndName.get(lookupKey)
+        ?? cached.byName.get(normalizeLookupText(parameterName) ?? '');
     }
 
     const built = buildOverlayParameterDocumentationIndex(overlay);
     overlayParameterDocumentationIndex.set(overlay, built);
-    return built.get(lookupKey);
+    return built.bySignatureAndName.get(lookupKey)
+      ?? built.byName.get(normalizeLookupText(parameterName) ?? '');
   }
 
   return {

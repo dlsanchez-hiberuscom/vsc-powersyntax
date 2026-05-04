@@ -118,6 +118,31 @@ function buildEntryIdsByTargetKey(entries: readonly PbSystemSymbolEntry[]): Map<
   return entryIdsByTargetKey;
 }
 
+function buildCanonicalEntryIdAliases(entries: readonly PbSystemSymbolEntry[]): ReadonlyMap<string, string> {
+  const buckets = new Map<string, PbSystemSymbolEntry[]>();
+
+  for (const entry of entries) {
+    const lookupKey = buildEntryTargetLookupKey(entry);
+    const bucket = buckets.get(lookupKey) ?? [];
+    bucket.push(entry);
+    buckets.set(lookupKey, bucket);
+  }
+
+  const canonicalEntryIdByEntryId = new Map<string, string>();
+  for (const bucket of buckets.values()) {
+    const canonicalTargetEntryId = selectCanonicalTargetEntryId(bucket);
+    if (!canonicalTargetEntryId) {
+      continue;
+    }
+
+    for (const entry of bucket) {
+      canonicalEntryIdByEntryId.set(entry.id, canonicalTargetEntryId);
+    }
+  }
+
+  return canonicalEntryIdByEntryId;
+}
+
 function buildOrphan(
   overlay: PbSystemSymbolLocalizationOverlay,
   reason: PbSystemSymbolLocalizationOrphanReason,
@@ -264,6 +289,7 @@ export function buildSystemSymbolLocalizationIndex(
 }
 
 let cachedSystemSymbolLocalizationIndex: PbSystemSymbolLocalizationIndex | undefined;
+let cachedCanonicalEntryIdAliases: ReadonlyMap<string, string> | undefined;
 
 export function getSystemSymbolLocalizationIndex(): PbSystemSymbolLocalizationIndex {
   if (!cachedSystemSymbolLocalizationIndex) {
@@ -271,6 +297,7 @@ export function getSystemSymbolLocalizationIndex(): PbSystemSymbolLocalizationIn
       PB_SYSTEM_SYMBOL_REGISTRY.entries,
       SYSTEM_SYMBOL_LOCALIZATION_OVERLAYS,
     );
+    cachedCanonicalEntryIdAliases = buildCanonicalEntryIdAliases(PB_SYSTEM_SYMBOL_REGISTRY.entries);
   }
 
   return cachedSystemSymbolLocalizationIndex;
@@ -280,7 +307,19 @@ export function getSystemSymbolLocalizationOverlay(
   entryId: string,
   locale: PbCatalogLocale,
 ): PbResolvedSystemSymbolLocalizationOverlay | undefined {
-  return getSystemSymbolLocalizationIndex().locales.get(locale)?.get(entryId);
+  const index = getSystemSymbolLocalizationIndex();
+  const localeMap = index.locales.get(locale);
+  if (!localeMap) {
+    return undefined;
+  }
+
+  const directOverlay = localeMap.get(entryId);
+  if (directOverlay) {
+    return directOverlay;
+  }
+
+  const canonicalEntryId = cachedCanonicalEntryIdAliases?.get(entryId);
+  return canonicalEntryId ? localeMap.get(canonicalEntryId) : undefined;
 }
 
 export function getSystemSymbolLocalizationCatalogReport(): PbSystemSymbolLocalizationCatalogReport {

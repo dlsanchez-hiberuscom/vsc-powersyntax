@@ -16,6 +16,7 @@ import { NodeFileSystem } from '../system/fileSystem';
 import { DocumentCache } from '../knowledge/DocumentCache';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { ServingCache } from '../knowledge/ServingCache';
+import { sanitizeDocumentationLocaleSetting, type DocumentationLocaleSetting } from '../knowledge/system/localization';
 import type { SemanticCacheCheckpointMetadata } from '../cache/cacheSchema';
 
 export const SERVER_EXECUTE_COMMANDS = [
@@ -59,6 +60,33 @@ export interface InitializeHandlerContext {
   buildOrcaJournal: BuildOrcaJournalStore;
   setWorkspaceFolders(folders: string[]): void;
   setCacheStorageUri(uri: string | null): void;
+  setDocumentationLocaleSetting(setting: DocumentationLocaleSetting): void;
+  setUiLocale(locale: string | null): void;
+}
+
+type InitializeOptions = {
+  cacheStorageUri?: string;
+  documentationLocale?: unknown;
+  uiLocale?: string;
+};
+
+type DidChangeConfigurationPayload = {
+  settings?: {
+    vscPowerSyntax?: {
+      languageServices?: {
+        documentationLocale?: unknown;
+      };
+    };
+    languageServices?: {
+      documentationLocale?: unknown;
+    };
+  };
+};
+
+function readDocumentationLocaleSetting(change: DidChangeConfigurationPayload['settings']): DocumentationLocaleSetting {
+  const rawValue = change?.vscPowerSyntax?.languageServices?.documentationLocale
+    ?? change?.languageServices?.documentationLocale;
+  return sanitizeDocumentationLocaleSetting(rawValue);
 }
 
 type RuntimeProgressReadinessSnapshot = {
@@ -102,6 +130,8 @@ export function registerInitializeHandler(context: InitializeHandlerContext): vo
     buildOrcaJournal,
     setWorkspaceFolders,
     setCacheStorageUri,
+    setDocumentationLocaleSetting,
+    setUiLocale,
   } = context;
 
   connection.onInitialize((params: InitializeParams): InitializeResult => {
@@ -112,8 +142,14 @@ export function registerInitializeHandler(context: InitializeHandlerContext): vo
     setWorkspaceFolders(workspaceFolders);
     buildOrcaJournal.configure(workspaceFolders);
 
-    const initOptions = params.initializationOptions as { cacheStorageUri?: string } | undefined;
+    const initOptions = params.initializationOptions as InitializeOptions | undefined;
     setCacheStorageUri(typeof initOptions?.cacheStorageUri === 'string' ? initOptions.cacheStorageUri : null);
+    setDocumentationLocaleSetting(sanitizeDocumentationLocaleSetting(initOptions?.documentationLocale));
+    setUiLocale(typeof initOptions?.uiLocale === 'string' ? initOptions.uiLocale : null);
+
+    connection.onDidChangeConfiguration((change: DidChangeConfigurationPayload) => {
+      setDocumentationLocaleSetting(readDocumentationLocaleSetting(change.settings));
+    });
 
     return {
       capabilities: {

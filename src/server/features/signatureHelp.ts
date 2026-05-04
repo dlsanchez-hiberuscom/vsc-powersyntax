@@ -10,6 +10,13 @@ import { InvocationContext } from '../utils/invocationContext';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { resolveSystemGlobal } from '../knowledge/system/services/queryService';
+import {
+  getDisplayDocumentation,
+  getDisplayParameterDocumentation,
+  getDisplayReturnDocumentation,
+  getDisplaySummary,
+  type DocumentationLocale,
+} from '../knowledge/system/localization';
 import { CharType } from '../utils/comments';
 import { resolveDocumentQualifierType } from './queryContext';
 import {
@@ -17,7 +24,7 @@ import {
   findNearestDataObjectLiteralBinding,
   resolveDataWindowRetrieveArguments,
 } from './dataWindowBindingModel';
-import type { PbSystemSymbolSignature } from '../knowledge/system/types';
+import type { PbSystemSymbolEntry, PbSystemSymbolSignature } from '../knowledge/system/types';
 
 export function provideSignatureHelp(
   document: TextDocument,
@@ -25,7 +32,8 @@ export function provideSignatureHelp(
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
   graph: InheritanceGraph,
-  hotContext?: HotContextCache
+  hotContext?: HotContextCache,
+  documentationLocale: DocumentationLocale = 'en'
 ): SignatureHelp | null {
   const result = extractSignatureContext(document, position);
   if (!result) {
@@ -71,14 +79,14 @@ export function provideSignatureHelp(
     // seremos un poco más permisivos si es una función de sistema
     const signatures: SignatureInformation[] = [];
     
-    for (const sysTarget of sysTargets) {
+    for (const sysTarget of prioritizeDocumentationTargets(sysTargets)) {
       if (sysTarget.signatures && sysTarget.signatures.length > 0) {
         for (const sig of sysTarget.signatures) {
-          const parameters = buildSystemSignatureParameters(systemCatalog, sig);
+          const parameters = buildSystemSignatureParameters(systemCatalog, sysTarget, sig, documentationLocale);
 
           signatures.push(SignatureInformation.create(
             sig.label,
-            sig.documentation || sysTarget.summary,
+            buildSystemSignatureDocumentation(sysTarget, sig, documentationLocale),
             ...parameters
           ));
         }
@@ -86,7 +94,7 @@ export function provideSignatureHelp(
         // Fallback si no hay array signatures explícito
         signatures.push(SignatureInformation.create(
           sysTarget.name,
-          sysTarget.summary
+          getDisplaySummary(sysTarget, documentationLocale)
         ));
       }
     }
@@ -146,6 +154,26 @@ export function provideSignatureHelp(
   }
 
   return null;
+}
+
+function prioritizeDocumentationTargets(entries: readonly PbSystemSymbolEntry[]): readonly PbSystemSymbolEntry[] {
+  return [...entries].sort((left, right) => getDocumentationPriority(left) - getDocumentationPriority(right));
+}
+
+function getDocumentationPriority(entry: PbSystemSymbolEntry): number {
+  if (entry.manualOverlay?.mode === 'candidate') {
+    return 3;
+  }
+
+  if (entry.dataset === 'manual-core' && entry.manualOverlay?.mode === 'override') {
+    return 0;
+  }
+
+  if (entry.dataset === 'generated') {
+    return 1;
+  }
+
+  return 2;
 }
 
 function buildLinkedDataWindowRetrieveSignature(
@@ -294,24 +322,65 @@ export function extractSignatureContext(document: TextDocument, position: Positi
 
 function buildSystemSignatureParameters(
   systemCatalog: SystemCatalog,
+  entry: PbSystemSymbolEntry,
   signature: PbSystemSymbolSignature,
+  documentationLocale: DocumentationLocale,
 ): ParameterInformation[] {
   const entries: Array<{ label: string; documentation?: string }> = signature.parameters?.length
     ? signature.parameters.map((parameter) => ({
         label: parameter.label,
-        documentation: parameter.documentation,
+        documentation: getDisplayParameterDocumentation(
+          entry,
+          signature.label,
+          parameter.label,
+          documentationLocale,
+        ) ?? parameter.documentation,
       }))
-    : listSignatureParameterLabels(signature.label).map((label) => ({ label }));
+    : listSignatureParameterLabels(signature.label).map((label) => ({
+        label,
+        documentation: getDisplayParameterDocumentation(entry, signature.label, label, documentationLocale),
+      }));
 
   return entries.map((parameter) =>
     ParameterInformation.create(
       parameter.label,
-      parameter.documentation ?? buildEnumParameterDocumentation(systemCatalog, parameter.label),
+      parameter.documentation ?? buildEnumParameterDocumentation(systemCatalog, parameter.label, documentationLocale),
     ),
   );
 }
 
-function buildEnumParameterDocumentation(systemCatalog: SystemCatalog, parameterLabel: string): string | undefined {
+function buildSystemSignatureDocumentation(
+  entry: PbSystemSymbolEntry,
+  signature: PbSystemSymbolSignature,
+  documentationLocale: DocumentationLocale,
+): string | undefined {
+  const segments: string[] = [];
+  const displayDocumentation = getDisplayDocumentation(entry, documentationLocale);
+  const displaySummary = getDisplaySummary(entry, documentationLocale);
+  const displayReturnDocumentation = getDisplayReturnDocumentation(entry, documentationLocale);
+
+  if (displayDocumentation) {
+    segments.push(displayDocumentation);
+  } else if (displaySummary) {
+    segments.push(displaySummary);
+  }
+
+  if (signature.documentation && !segments.includes(signature.documentation)) {
+    segments.push(signature.documentation);
+  }
+
+  if (displayReturnDocumentation) {
+    segments.push(`${documentationLocale === 'es' ? 'Retorno' : 'Return'}: ${displayReturnDocumentation}`);
+  }
+
+  return segments.length > 0 ? segments.join('\n\n') : undefined;
+}
+
+function buildEnumParameterDocumentation(
+  systemCatalog: SystemCatalog,
+  parameterLabel: string,
+  documentationLocale: DocumentationLocale,
+): string | undefined {
   const enumTypeName = resolveExpectedEnumTypeForParameterLabel(systemCatalog, parameterLabel);
   if (!enumTypeName) {
     return undefined;
@@ -324,7 +393,8 @@ function buildEnumParameterDocumentation(systemCatalog: SystemCatalog, parameter
 
   const values = systemCatalog.listEnumeratedValuesForType(enumType.name).map((entry) => entry.name);
   const valuesText = values.length > 0 ? ` Valores: ${values.join(', ')}.` : '';
-  return `Tipo esperado: ${enumType.name}.${valuesText}${enumType.documentation ? ` ${enumType.documentation}` : ''}`.trim();
+  const displayDocumentation = getDisplayDocumentation(enumType, documentationLocale) ?? enumType.documentation;
+  return `Tipo esperado: ${enumType.name}.${valuesText}${displayDocumentation ? ` ${displayDocumentation}` : ''}`.trim();
 }
 
 export function listSignatureParameterLabels(signatureLabel: string): readonly string[] {

@@ -603,6 +603,7 @@ function buildClientRuntime(
     ],
     outputChannel: channel,
     synchronize: {
+      configurationSection: 'vscPowerSyntax',
       fileEvents: [
         vscode.workspace.createFileSystemWatcher(POWERBUILDER_PROJECT_MARKER_GLOB),
         vscode.workspace.createFileSystemWatcher(POWERBUILDER_SOURCE_GLOB),
@@ -610,6 +611,8 @@ function buildClientRuntime(
       ]
     },
     initializationOptions: {
+      documentationLocale: vscode.workspace.getConfiguration('vscPowerSyntax').get<string>('languageServices.documentationLocale', 'auto'),
+      uiLocale: vscode.env.language,
       cacheStorageUri: (context.storageUri ?? context.globalStorageUri)?.toString()
     }
   };

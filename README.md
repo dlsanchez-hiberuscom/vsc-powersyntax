@@ -10,6 +10,7 @@ Plugin profesional de **Visual Studio Code** para **PowerBuilder 2025** y **Powe
 - **Go to Definition**
 - **Completion** contextual
 - **Signature Help**
+- **Documentación localizada configurable** en hover, completion y signatureHelp con `vscPowerSyntax.languageServices.documentationLocale = auto|en|es`
 - **Formatter conservador configurable** para scripts PowerBuilder soportados
 - **Inspección jerárquica activa** desde comando
 - **API pública mínima versionada** para herramientas y otras extensiones
@@ -118,6 +119,10 @@ Este plugin sigue unas reglas claras:
 ## Activación
 
 La extensión se activa de forma perezosa cuando realmente se necesita, para mantener un impacto mínimo en el arranque de VS Code.
+
+## Configuración útil
+
+- `vscPowerSyntax.languageServices.documentationLocale`: controla el idioma de la documentación visible en hover, completion y signatureHelp. `auto` usa el idioma actual de VS Code cuando sea compatible y cae a inglés; `en` fuerza el texto original; `es` usa el overlay español cuando existe.
 
 ## Release y marketplace
 

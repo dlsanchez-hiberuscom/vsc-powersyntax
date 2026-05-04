@@ -77,6 +77,12 @@ import { Entity, EntityKind } from './knowledge/types';
 import { ServingCache, makeKey as makeServingKey } from './knowledge/ServingCache';
 import { getLastTrace, subscribeTraceSnapshots } from './knowledge/queryTrace';
 import { SystemCatalog } from './knowledge/system/SystemCatalog';
+import {
+  DEFAULT_DOCUMENTATION_LOCALE_SETTING,
+  resolveDocumentationLocale,
+  type DocumentationLocale,
+  type DocumentationLocaleSetting,
+} from './knowledge/system/localization';
 import { getFileIndexState, getIndexerStatus, indexWorkspace } from './indexer/workspaceIndexer';
 import { createFileWatcherDebouncer } from './system/fileWatcherDebouncer';
 import { applyWatchedFileEvents } from './workspace/watchedFileIntake';
@@ -161,7 +167,13 @@ let lastHealthJournalSignature = '';
 let lastMemoryPressureReliefReason: string | null = null;
 let lastMemoryPressureSampleAt = 0;
 let lastMemoryPressurePolicy: RuntimeMemoryPressurePolicy | null = null;
+let documentationLocaleSetting: DocumentationLocaleSetting = DEFAULT_DOCUMENTATION_LOCALE_SETTING;
+let uiLocale: string | null = null;
 const MEMORY_PRESSURE_SAMPLE_TTL_MS = 200;
+
+function getDocumentationLocale(): DocumentationLocale {
+  return resolveDocumentationLocale(documentationLocaleSetting, uiLocale);
+}
 
 type DefinitionCacheEntry = {
   result: ReturnType<typeof provideDefinition>;
@@ -687,6 +699,12 @@ registerInitializeHandler({
   setCacheStorageUri: (uri: string | null) => {
     cacheStorageUri = uri;
   },
+  setDocumentationLocaleSetting: (setting) => {
+    documentationLocaleSetting = setting;
+  },
+  setUiLocale: (locale) => {
+    uiLocale = locale;
+  },
 });
 
 registerInitializedHandler({
@@ -738,6 +756,7 @@ const featureHandlerContext = {
   hotContextCache,
   servingCache,
   serverStartTime,
+  getDocumentationLocale,
   isSemanticallyServedDocument,
   buildRuntimeProgressReadiness,
   ensureRuntimeMemoryPressureRelief,

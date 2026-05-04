@@ -6,6 +6,11 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
+import {
+  getDisplayDocumentation,
+  getDisplaySummary,
+  type DocumentationLocale,
+} from '../knowledge/system/localization';
 import { Entity, EntityKind } from '../knowledge/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
@@ -50,7 +55,8 @@ export function provideCompletion(
   systemCatalog: SystemCatalog,
   graph: InheritanceGraph,
   hotContext?: HotContextCache,
-  kbVersion?: number
+  kbVersion?: number,
+  documentationLocale: DocumentationLocale = 'en'
 ): CompletionItem[] | null {
   const snapshot = getDocumentAnalysis(document).snapshot;
   const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
@@ -86,6 +92,7 @@ export function provideCompletion(
         enumAssignmentContext.propertyName,
         ownerType,
         enumAssignmentContext.identifierPrefix,
+        documentationLocale,
       );
       if (enumValueItems.length > 0) {
         return enumValueItems;
@@ -99,6 +106,7 @@ export function provideCompletion(
     kb,
     systemCatalog,
     trailingIdentifierPrefix,
+    documentationLocale,
   );
   if (enumArgumentItems.length > 0) {
     return enumArgumentItems;
@@ -154,7 +162,7 @@ export function provideCompletion(
         if (seen.has(sys.name.toLowerCase())) continue;
         seen.add(sys.name.toLowerCase());
 
-        items.push(createSystemCompletionItem(sys, '1_member_'));
+        items.push(createSystemCompletionItem(sys, '1_member_', documentationLocale));
       }
 
       for (const sys of systemCatalog.listEventsForOwner([varType])) {
@@ -162,7 +170,7 @@ export function provideCompletion(
         if (seen.has(sys.name.toLowerCase())) continue;
         seen.add(sys.name.toLowerCase());
 
-        items.push(createSystemCompletionItem(sys, '1_member_'));
+        items.push(createSystemCompletionItem(sys, '1_member_', documentationLocale));
       }
     }
   } else {
@@ -202,13 +210,7 @@ export function provideCompletion(
       if (seen.has(sys.name.toLowerCase())) continue;
       seen.add(sys.name.toLowerCase());
 
-      items.push({
-        label: sys.name,
-        kind: sys.kind === 'callable' ? CompletionItemKind.Function : CompletionItemKind.Keyword,
-        detail: sys.summary,
-        documentation: sys.summary, // Can be improved
-        sortText: '2_global_' + sys.name.toLowerCase()
-      });
+      items.push(createSystemCompletionItem(sys, '2_global_', documentationLocale));
     }
 
     for (const sys of systemCatalog.listStatements()) {
@@ -216,13 +218,7 @@ export function provideCompletion(
       if (seen.has(sys.name.toLowerCase())) continue;
       seen.add(sys.name.toLowerCase());
 
-      items.push({
-        label: sys.name,
-        kind: CompletionItemKind.Keyword,
-        detail: sys.summary,
-        documentation: sys.summary,
-        sortText: '2_global_' + sys.name.toLowerCase()
-      });
+      items.push(createSystemCompletionItem(sys, '2_global_', documentationLocale));
     }
 
     for (const entity of kb.queryEntities({
@@ -244,29 +240,29 @@ export function provideCompletion(
 
     // 4. Keywords and datatypes from catalog v2 (only if prefix matches)
     if (identifierPrefix.length >= 2) {
-      appendCatalogCompletionItems(items, seen, systemCatalog.listReservedWords(), identifierPrefix, '3_reserved_');
+      appendCatalogCompletionItems(items, seen, systemCatalog.listReservedWords(), identifierPrefix, '3_reserved_', documentationLocale);
       for (const kw of systemCatalog.listKeywords()) {
         if (!kw.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(kw.name.toLowerCase())) continue;
         seen.add(kw.name.toLowerCase());
-        items.push({ label: kw.name, kind: CompletionItemKind.Keyword, detail: kw.summary, sortText: '3_keyword_' + kw.name.toLowerCase() });
+        items.push(createSystemCompletionItem(kw, '3_keyword_', documentationLocale));
       }
-      appendCatalogCompletionItems(items, seen, systemCatalog.listPronouns(), identifierPrefix, '3_pronoun_');
+      appendCatalogCompletionItems(items, seen, systemCatalog.listPronouns(), identifierPrefix, '3_pronoun_', documentationLocale);
       for (const dt of systemCatalog.listDatatypes()) {
         if (!dt.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(dt.name.toLowerCase())) continue;
         seen.add(dt.name.toLowerCase());
-        items.push({ label: dt.name, kind: CompletionItemKind.TypeParameter, detail: dt.summary, sortText: '3_keyword_' + dt.name.toLowerCase() });
+        items.push(createSystemCompletionItem(dt, '3_keyword_', documentationLocale));
       }
       for (const st of systemCatalog.listSystemTypes()) {
         if (!st.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(st.name.toLowerCase())) continue;
         seen.add(st.name.toLowerCase());
-        items.push({ label: st.name, kind: CompletionItemKind.Class, detail: st.summary, sortText: '3_keyword_' + st.name.toLowerCase() });
+        items.push(createSystemCompletionItem(st, '3_keyword_', documentationLocale));
       }
-      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedTypes(), identifierPrefix, '3_enumerated_type_');
-      appendCatalogCompletionItems(items, seen, systemCatalog.listSystemGlobals(), identifierPrefix, '3_system_global_');
-      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, '3_enumerated_value_');
+      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedTypes(), identifierPrefix, '3_enumerated_type_', documentationLocale);
+      appendCatalogCompletionItems(items, seen, systemCatalog.listSystemGlobals(), identifierPrefix, '3_system_global_', documentationLocale);
+      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, '3_enumerated_value_', documentationLocale);
     }
   }
 
@@ -392,18 +388,23 @@ function appendCatalogCompletionItems(
   seen: Set<string>,
   entries: readonly PbSystemSymbolEntry[],
   identifierPrefix: string,
-  sortPrefix: string
+  sortPrefix: string,
+  documentationLocale: DocumentationLocale,
 ): void {
   for (const entry of entries) {
     const normalizedName = entry.name.toLowerCase();
     if (!normalizedName.startsWith(identifierPrefix)) continue;
     if (seen.has(normalizedName)) continue;
     seen.add(normalizedName);
-    items.push(createSystemCompletionItem(entry, sortPrefix));
+    items.push(createSystemCompletionItem(entry, sortPrefix, documentationLocale));
   }
 }
 
-function createSystemCompletionItem(entry: PbSystemSymbolEntry, sortPrefix: string): CompletionItem {
+function createSystemCompletionItem(
+  entry: PbSystemSymbolEntry,
+  sortPrefix: string,
+  documentationLocale: DocumentationLocale,
+): CompletionItem {
   let kind: CompletionItemKind;
   switch (entry.kind) {
     case 'event':
@@ -442,7 +443,7 @@ function createSystemCompletionItem(entry: PbSystemSymbolEntry, sortPrefix: stri
     label: entry.name,
     kind,
     detail: entry.summary,
-    documentation: entry.summary,
+    documentation: getDisplayDocumentation(entry, documentationLocale) ?? getDisplaySummary(entry, documentationLocale),
     insertTextFormat: InsertTextFormat.PlainText,
     sortText: sortPrefix + entry.name.toLowerCase()
   };
@@ -454,6 +455,7 @@ function createEnumeratedValueCompletionItemsForType(
   propertyName: string,
   ownerType: string,
   identifierPrefix: string,
+  documentationLocale: DocumentationLocale,
 ): CompletionItem[] {
   const items: CompletionItem[] = [];
   const seen = new Set<string>();
@@ -465,6 +467,7 @@ function createEnumeratedValueCompletionItemsForType(
     ),
     identifierPrefix,
     '0_enum_value_context_',
+    documentationLocale,
   );
   return items;
 }
@@ -475,6 +478,7 @@ function createEnumeratedValueCompletionItemsForCallArgument(
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
   identifierPrefix: string,
+  documentationLocale: DocumentationLocale = 'en',
 ): CompletionItem[] {
   const enumTypeName = resolveExpectedEnumTypeForCallArgumentAtPosition(document, position, kb, systemCatalog);
   if (!enumTypeName) {
@@ -489,6 +493,7 @@ function createEnumeratedValueCompletionItemsForCallArgument(
     systemCatalog.listEnumeratedValuesForType(enumTypeName),
     identifierPrefix,
     '0_enum_value_context_',
+    documentationLocale,
   );
   return items;
 }

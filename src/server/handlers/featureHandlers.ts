@@ -27,6 +27,7 @@ import { HotContextCache } from '../knowledge/HotContextCache';
 import { ServingCache, makeKey as makeServingKey } from '../knowledge/ServingCache';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import type { DocumentationLocale } from '../knowledge/system/localization';
 import { Entity, EntityKind } from '../knowledge/types';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -49,6 +50,7 @@ export interface FeatureHandlerContext {
   hotContextCache: HotContextCache;
   servingCache: ServingCache;
   serverStartTime: number;
+  getDocumentationLocale(): DocumentationLocale;
   isSemanticallyServedDocument(document: TextDocument): boolean;
   buildRuntimeProgressReadiness(activeUriOverride?: string | null): RuntimeProgressReadinessSnapshot;
   ensureRuntimeMemoryPressureRelief(): unknown;
@@ -177,6 +179,7 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
     servingCache,
     firstInvocation,
     serverStartTime,
+    getDocumentationLocale,
     buildRuntimeProgressReadiness,
     ensureRuntimeMemoryPressureRelief,
     isLatencyPressureHigh,
@@ -199,6 +202,7 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
         id: `hover-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
+          const documentationLocale = getDocumentationLocale();
           const readinessDecision = decideFeatureReadiness('hover', buildRuntimeProgressReadiness(document.uri), {
             latencyOverloaded: isLatencyPressureHigh()
           });
@@ -208,7 +212,8 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
             uri: document.uri,
             line: params.position.line,
             character: params.position.character,
-            kbVersion: knowledgeBase.version
+            kbVersion: knowledgeBase.version,
+            extra: documentationLocale,
           });
 
           ensureRuntimeMemoryPressureRelief();
@@ -222,7 +227,7 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
             return null;
           }
 
-          const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache));
+          const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, documentationLocale));
           recordInteractiveLatency('hover', elapsedMs);
 
           if (firstInvocation.isFirst('hover')) {
@@ -255,6 +260,7 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
     servingCache,
     firstInvocation,
     serverStartTime,
+    getDocumentationLocale,
     buildRuntimeProgressReadiness,
     ensureRuntimeMemoryPressureRelief,
     isLatencyPressureHigh,
@@ -277,13 +283,15 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
         id: `signatureHelp-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
+          const documentationLocale = getDocumentationLocale();
           hotContextCache.setActive(document.uri, knowledgeBase.version);
           const cacheKey = makeServingKey({
             feature: 'signatureHelp',
             uri: document.uri,
             line: params.position.line,
             character: params.position.character,
-            kbVersion: knowledgeBase.version
+            kbVersion: knowledgeBase.version,
+            extra: documentationLocale,
           });
           const readiness = resolveServingReadiness({
             feature: 'signature-help',
@@ -309,7 +317,7 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
             return readiness.blockedResult;
           }
 
-          const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache));
+          const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, documentationLocale));
           recordInteractiveLatency('signatureHelp', elapsedMs);
 
           if (firstInvocation.isFirst('signatureHelp')) {
@@ -342,6 +350,7 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
     servingCache,
     firstInvocation,
     serverStartTime,
+    getDocumentationLocale,
     buildRuntimeProgressReadiness,
     ensureRuntimeMemoryPressureRelief,
     isLatencyPressureHigh,
@@ -367,6 +376,7 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
           const readinessDecision = decideFeatureReadiness('completion', buildRuntimeProgressReadiness(document.uri), {
             latencyOverloaded: isLatencyPressureHigh()
           });
+          const documentationLocale = getDocumentationLocale();
           hotContextCache.setActive(document.uri, knowledgeBase.version);
           const cacheKey = makeServingKey({
             feature: 'completion',
@@ -374,7 +384,7 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
             line: params.position.line,
             character: params.position.character,
             kbVersion: knowledgeBase.version,
-            extra: `${params.context?.triggerKind ?? ''}|${params.context?.triggerCharacter ?? ''}`
+            extra: `${params.context?.triggerKind ?? ''}|${params.context?.triggerCharacter ?? ''}|${documentationLocale}`
           });
           ensureRuntimeMemoryPressureRelief();
           const cached = servingCache.get(cacheKey);
@@ -387,7 +397,7 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
             return null;
           }
 
-          const { result, elapsedMs } = measureMs(() => provideCompletion(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, knowledgeBase.version));
+          const { result, elapsedMs } = measureMs(() => provideCompletion(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, knowledgeBase.version, documentationLocale));
           recordInteractiveLatency('completion', elapsedMs);
 
           if (firstInvocation.isFirst('completion')) {
