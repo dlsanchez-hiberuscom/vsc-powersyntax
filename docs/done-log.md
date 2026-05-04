@@ -25,6 +25,76 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.172 AUDIT-04 — PowerBuilder semantic core correctness audit — **Cerrada (hardening / semantics / PowerBuilder core 2026-05)**
+
+**Objetivo:** validar que el core semántico modela correctamente símbolos PowerBuilder reales: objetos, funciones, eventos, scopes, prototypes, implementations, inheritance, overrides, dynamic calls, external functions, sourceOrigin, queryTrace y consumers.
+
+**Resultado registrado:**
+- Alineación total con el orden de resolución oficial de Appeon: `Local/Argumento (0) → Compartida (1) → Global (2) → Instancia (3)`.
+- Implementado soporte para el operador de forzado global `::` y los cualificadores explícitos `This.` y `Parent.`.
+- Reforzada la resolución semántica con filtrado de `access rights` (`public`, `protected`, `private`) en todos los niveles (qualified y unqualified) usando el modelo de visibilidad existente.
+- Unificada la tabla `VARIABLE_SCOPE_PRIORITY` en un módulo canónico `src/server/knowledge/scopePriority.ts` compartido por `semanticQueryService` e `InheritanceGraph`.
+- Sincronizada la lógica de autocompletado para respetar la prioridad de scopes mediante `sortText` (`0_local`, `1_shared`, `2_global`, `3_instance`) e inclusión de variables globales del KB.
+- Resolución de `Parent.` alineada con el owner lógico (`containerName`), cubriendo casos de controles en ventanas.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "scope|variable|shadow|global|instance|shared|local|parent|This"`
+- Suite completa de tests unitarios passing (102 tests).
+- Verificación de desambiguación mediante tests negativos de shadowing.
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/backlog.md`
+- `docs/done-log.md`
+- `docs/current-focus.md`
+
+## 1.171 AUDIT-06 — Catalog generated/manual/localization governance audit — **Cerrada (hardening / catalog governance 2026-05)**
+
+**Objetivo:** validar cumplimiento de `ADR-0001`, sin reabrir la decisión `generated-primary-with-manual-overlays`.
+
+**Resultado registrado:**
+- `generated` sigue siendo la fuente oficial reproducible y `manual` aporta gaps, enrichments, overrides y candidates sin desestabilizar la precedencia.
+- `localization` opera estrictamente como un overlay documental (con fallbacks a inglés) y previene exitosamente la sobreescritura o traducción de identificadores o signatures del runtime.
+- el motor de merge `applyCatalogMergePolicy` filtra eficientemente `candidates`, protegiendo el hot path; el bug de cobertura en el gate de B335 originado por este filtrado se ha derivado a refactor posterior.
+- se añadieron tickets al backlog derivado para fortalecer la automatización en CI y refinar reportes de dominios temporales, manteniendo limpia la fase actual.
+- el reporte de consistencia corrió sin detectar conflictos estructurales, duplicidades inválidas o signatures vacías.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalog|generated|manual|overlay|override|enrichment|gap|candidate|consistency"`
+- `npm run test:unit -- --grep "registry|datasets|merge|duplicates|localization|provenance|officialCoverage|generatedCompleteness"`
+- `npm run report:catalog-consistency`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/backlog.md`
+- `docs/done-log.md`
+
+## 1.170 AUDIT-02 — Public API, AI tools and command consistency audit — **Cerrada (hardening / public API / AI tooling 2026-05)**
+
+**Objetivo:** comprobar y corregir la coherencia entre API pública, read-only tool bridge, comandos UI, schemas, command registration, mappings para IA, documentación, duplicidades y posibles fusiones/refactorizaciones internas.
+
+**Resultado registrado:**
+- mapeo funcional alineado entre `publicApi.ts`, `commandRegistration.ts` y comandos de UI;
+- detectado y documentado comando huérfano `powerbuilder.checkObject` como `AUDIT-02-DERIVED-001` (completado) eliminando la redundancia;
+- documentados los findings de refactorización en `docs/backlog.md` para evitar debt arquitectónico futuro;
+- validación de test suite completa confirmando la solidez del bridge sin regresiones.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm test`
+
+**Documentación alineada:**
+- `docs/developer-workflows.md`
+- `docs/architecture.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/backlog.md`
+- `docs/done-log.md`
+
 ## 1.169 B335. Catalog ADR-0001 compliance dashboard and consistency gate — **Cerrada (catalog governance 2026-05)**
 
 **Objetivo:** publicar un dashboard/gate reproducible que valide el cumplimiento de `ADR-0001` sobre el catálogo real, sin reabrir la decisión `generated-primary-with-manual-overlays` ni mover el audit al hot path interactivo.

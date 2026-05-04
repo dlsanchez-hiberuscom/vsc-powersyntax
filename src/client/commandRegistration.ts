@@ -192,10 +192,6 @@ function buildReportCommands(
       handler: (request?: unknown) => dependencies.runObjectCheck(request),
     },
     {
-      id: 'powerbuilder.checkObject',
-      handler: (request?: unknown) => dependencies.runObjectCheck(request),
-    },
-    {
       id: 'powerbuilder.explainDiagnostic',
       handler: (request?: unknown) => dependencies.runExplainDiagnostic(request),
     },

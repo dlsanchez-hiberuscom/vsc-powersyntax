@@ -272,12 +272,12 @@ export function getInvocationContext(lines: string[], position: TextPosition): I
   }
 
   if (qStart < 0) {
-    return { identifier, ...(argumentDetails ?? {}) };
+    return { identifier, separator, ...(argumentDetails ?? {}) };
   }
 
   const qualifierSpan = findPowerBuilderIdentifierSpan(lineText, qStart);
   if (!qualifierSpan) {
-    return { identifier, ...(argumentDetails ?? {}) };
+    return { identifier, separator, ...(argumentDetails ?? {}) };
   }
 
   const qualifier = qualifierSpan.word;

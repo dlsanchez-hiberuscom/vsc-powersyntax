@@ -3,6 +3,7 @@ import { buildCallableSignatureFamilyKey, isCallableEntity } from '../callSignat
 import { getNativeAncestorChain } from '../system/nativeAncestors';
 import { Entity, EntityKind } from '../types';
 import { isAccessibleFrom } from '../visibility';
+import { getVariableScopePriority } from '../scopePriority';
 
 export interface MemberClosureEntry {
   entity: Entity;
@@ -13,13 +14,7 @@ export interface MemberClosureEntry {
   overriddenByCurrentType: boolean;
 }
 
-const VARIABLE_SCOPE_PRIORITY = new Map<NonNullable<Entity['scope']>, number>([
-  ['Compartida', 0],
-  ['Global', 1],
-  ['Instancia', 2],
-  ['Argumento', 3],
-  ['Local', 4],
-]);
+
 
 function compareMemberPriority(left: MemberClosureEntry, right: MemberClosureEntry): number {
   if (left.distance !== right.distance) {
@@ -27,8 +22,8 @@ function compareMemberPriority(left: MemberClosureEntry, right: MemberClosureEnt
   }
 
   if (left.entity.kind === EntityKind.Variable && right.entity.kind === EntityKind.Variable) {
-    const leftPriority = VARIABLE_SCOPE_PRIORITY.get(left.entity.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
-    const rightPriority = VARIABLE_SCOPE_PRIORITY.get(right.entity.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
+    const leftPriority = getVariableScopePriority(left.entity.scope);
+    const rightPriority = getVariableScopePriority(right.entity.scope);
     if (leftPriority !== rightPriority) {
       return leftPriority - rightPriority;
     }

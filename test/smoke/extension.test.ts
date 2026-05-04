@@ -84,7 +84,6 @@ suite('smoke/extension', () => {
     assert.ok(commands.includes('vscPowerSyntax.openExplainDiagnostic'));
     assert.ok(commands.includes('powerbuilder.checkWorkspace'));
     assert.ok(commands.includes('powerbuilder.checkCurrentObject'));
-    assert.ok(commands.includes('powerbuilder.checkObject'));
     assert.ok(commands.includes('powerbuilder.explainDiagnostic'));
     assert.ok(commands.includes('vscPowerSyntax.openCrossProjectSymbolConflicts'));
     assert.ok(commands.includes('vscPowerSyntax.openBuildProfileMatrix'));

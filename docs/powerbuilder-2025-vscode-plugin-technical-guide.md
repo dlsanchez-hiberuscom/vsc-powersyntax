@@ -572,8 +572,9 @@ Reglas:
 - global oculta instance.
 - instance debe calificarse cuando queda oculta.
 - global oculto puede accederse con ::globalName.
-- instance oculto debe accederse con object.instanceVariable.
+- instance oculto debe accederse con This.instanceVariable o Parent.instanceVariable (en controles).
 - rename debe bloquearse si cambia la resolución efectiva.
+- el motor de resolución debe seguir estrictamente este orden para evitar inconsistencias entre Hover, Completion y Diagnostics.
 ```
 
 ---

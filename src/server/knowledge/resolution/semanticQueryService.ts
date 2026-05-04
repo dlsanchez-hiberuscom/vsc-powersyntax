@@ -7,6 +7,7 @@ import { Entity, EntityKind, ScopeKind, type EntityLineageConfidence, type Scope
 import { resolveSystemGlobal } from '../system/services/queryService';
 import { compareSourceOriginPriority, type SourceOrigin } from '../../../shared/sourceOrigin';
 import { normalizeUri } from '../../system/uriUtils';
+import { isAccessibleFrom } from '../visibility';
 import { annotateLastTraceResolution, recordTraceStep, type TraceStep, withTrace } from '../queryTrace';
 
 export type QueryReasonCode =
@@ -57,13 +58,7 @@ export interface QueryEvidence {
   inheritedFrom?: string;
 }
 
-const VARIABLE_SCOPE_PRIORITY = new Map<NonNullable<Entity['scope']>, number>([
-  ['Local', 0],
-  ['Compartida', 1],
-  ['Global', 2],
-  ['Instancia', 3],
-  ['Argumento', 4],
-]);
+import { getVariableScopePriority } from '../scopePriority';
 
 export interface DistanceDiscardEvidence {
   kind: 'discarded-distance';
@@ -606,8 +601,8 @@ function compareEntitiesBySourcePriority(left: Entity, right: Entity): number {
   }
 
   if (left.kind === EntityKind.Variable && right.kind === EntityKind.Variable) {
-    const leftPriority = VARIABLE_SCOPE_PRIORITY.get(left.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
-    const rightPriority = VARIABLE_SCOPE_PRIORITY.get(right.scope ?? 'Instancia') ?? Number.MAX_SAFE_INTEGER;
+    const leftPriority = getVariableScopePriority(left.scope);
+    const rightPriority = getVariableScopePriority(right.scope);
     if (leftPriority !== rightPriority) {
       return leftPriority - rightPriority;
     }
@@ -784,7 +779,11 @@ export function resolveTargetEntityDetailed(
       if (resolvedQualifierType) {
         if (qualifierLower === 'super' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
-          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase())
+            .filter(member => isAccessibleFrom(member, {
+              contextOwner: currentMainObject.name,
+              isDescendant: (child, ancestor) => graph.getTypeDistance(child, ancestor) !== Number.POSITIVE_INFINITY
+            }));
           const hardened = hardenCallableCandidates(candidatePool, context);
           candidatePool = hardened.candidates;
           signatureDiscards.push(...hardened.discarded);
@@ -793,9 +792,14 @@ export function resolveTargetEntityDetailed(
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
           if (possibleTargets.length > 0) reasonCodes.push('super-hierarchy');
+          recordTraceStep('targets:super-hierarchy', { count: possibleTargets.length });
         } else if (qualifierLower === 'ancestor' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
-          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase())
+            .filter(member => isAccessibleFrom(member, {
+              contextOwner: currentMainObject.name,
+              isDescendant: (child, ancestor) => graph.getTypeDistance(child, ancestor) !== Number.POSITIVE_INFINITY
+            }));
           const hardened = hardenCallableCandidates(candidatePool, context);
           candidatePool = hardened.candidates;
           signatureDiscards.push(...hardened.discarded);
@@ -804,20 +808,11 @@ export function resolveTargetEntityDetailed(
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
           if (possibleTargets.length > 0) reasonCodes.push('ancestor-hierarchy');
-        } else if (qualifierLower === 'parent' && currentMainObject?.containerName) {
-          const members = getMembersForType(currentMainObject.containerName, currentUri, kb, graph, options.hotContext);
-          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-          const hardened = hardenCallableCandidates(candidatePool, context);
-          candidatePool = hardened.candidates;
-          signatureDiscards.push(...hardened.discarded);
-          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.containerName, graph, currentUri);
-          possibleTargets = ranked.winners;
-          distanceDiscards = ranked.discarded;
-          distanceAmbiguity = ranked.ambiguity;
-          if (possibleTargets.length > 0) reasonCodes.push('parent-hierarchy');
+          recordTraceStep('targets:ancestor-hierarchy', { count: possibleTargets.length });
         } else if (qualifierLower === 'this' && currentMainObject) {
           const members = getMembersForType(currentMainObject.name, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          // 'this' is always accessible, so no need to filter isAccessibleFrom(contextOwner: currentMainObject.name)
           const hardened = hardenCallableCandidates(candidatePool, context);
           candidatePool = hardened.candidates;
           signatureDiscards.push(...hardened.discarded);
@@ -826,9 +821,30 @@ export function resolveTargetEntityDetailed(
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
           if (possibleTargets.length > 0) reasonCodes.push('member-hierarchy');
-        } else {
+          recordTraceStep('targets:member-hierarchy', { count: possibleTargets.length });
+        } else if (qualifierLower === 'parent' && currentMainObject?.containerName) {
+          const members = getMembersForType(currentMainObject.containerName, currentUri, kb, graph, options.hotContext);
+          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase())
+            .filter(member => isAccessibleFrom(member, {
+              contextOwner: currentMainObject.name,
+              isDescendant: (child, ancestor) => graph.getTypeDistance(child, ancestor) !== Number.POSITIVE_INFINITY
+            }));
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.containerName, graph, currentUri);
+          possibleTargets = ranked.winners;
+          distanceDiscards = ranked.discarded;
+          distanceAmbiguity = ranked.ambiguity;
+          if (possibleTargets.length > 0) reasonCodes.push('parent-hierarchy');
+          recordTraceStep('targets:parent-hierarchy', { count: possibleTargets.length });
+        } else if (resolvedQualifierType) {
           const members = getMembersForType(resolvedQualifierType, currentUri, kb, graph, options.hotContext);
-          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
+          candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase())
+            .filter(member => isAccessibleFrom(member, {
+              contextOwner: currentMainObject?.name ?? null,
+              isDescendant: (child, ancestor) => graph.getTypeDistance(child, ancestor) !== Number.POSITIVE_INFINITY
+            }));
           const hardened = hardenCallableCandidates(candidatePool, context);
           candidatePool = hardened.candidates;
           signatureDiscards.push(...hardened.discarded);
@@ -837,6 +853,7 @@ export function resolveTargetEntityDetailed(
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
           if (possibleTargets.length > 0) reasonCodes.push('qualifier-type');
+          recordTraceStep('targets:qualifier-type', { count: possibleTargets.length });
         }
         if (candidatePool.length === 0) {
           contextDiscards.push({
@@ -853,6 +870,19 @@ export function resolveTargetEntityDetailed(
           stage: 'qualifier',
           reason: 'qualifier-unresolved',
           qualifier
+        });
+      }
+    } else if (context.separator === '::') {
+      candidatePool = kb.findAllDefinitions(identifier).filter((e) => e.scope === 'Global' || e.kind !== EntityKind.Variable);
+      const hardened = hardenCallableCandidates(candidatePool, context);
+      candidatePool = hardened.candidates;
+      signatureDiscards.push(...hardened.discarded);
+      possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
+      if (possibleTargets.length > 0) {
+        reasonCodes.push('global-fallback');
+        recordTraceStep('targets:global-fallback', {
+          count: possibleTargets.length,
+          candidateCount: candidatePool.length
         });
       }
     } else {
@@ -879,34 +909,100 @@ export function resolveTargetEntityDetailed(
         }
       }
 
+      let instanceCandidates: Entity[] = [];
       if (currentMainObject) {
         const members = getMembersForType(currentMainObject.name, currentUri, kb, graph, options.hotContext);
-        candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase());
-        if (candidatePool.length > 0) {
+        instanceCandidates = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase())
+          .filter((member) =>
+            isAccessibleFrom(member, {
+              contextOwner: currentMainObject.name,
+              isDescendant: (child, ancestor) => graph.getTypeDistance(child, ancestor) !== Number.POSITIVE_INFINITY
+            })
+          );
+      }
+
+      const globalCandidates = kb.findAllDefinitions(identifier);
+      const isCall = context.argumentCount !== undefined;
+
+      if (isCall) {
+        if (instanceCandidates.length > 0) {
+          candidatePool = instanceCandidates;
           const hardened = hardenCallableCandidates(candidatePool, context);
           candidatePool = hardened.candidates;
           signatureDiscards.push(...hardened.discarded);
-          const ranked = rankTargetsByDistance(candidatePool, currentMainObject.name, graph, currentUri);
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject!.name, graph, currentUri);
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
-          reasonCodes.push('member-hierarchy');
-          recordTraceStep('targets:member-hierarchy', { count: possibleTargets.length });
+          if (possibleTargets.length > 0) {
+            reasonCodes.push('member-hierarchy');
+            recordTraceStep('targets:member-hierarchy', { count: possibleTargets.length });
+          }
         }
-      }
 
-      if (possibleTargets.length === 0) {
-        candidatePool = kb.findAllDefinitions(identifier);
-        const hardened = hardenCallableCandidates(candidatePool, context);
-        candidatePool = hardened.candidates;
-        signatureDiscards.push(...hardened.discarded);
-        possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
-        if (possibleTargets.length > 0) {
-          reasonCodes.push('global-fallback');
-          recordTraceStep('targets:global-fallback', {
-            count: possibleTargets.length,
-            candidateCount: candidatePool.length
-          });
+        if (possibleTargets.length === 0 && globalCandidates.length > 0) {
+          candidatePool = globalCandidates;
+          const hardened = hardenCallableCandidates(candidatePool, context);
+          candidatePool = hardened.candidates;
+          signatureDiscards.push(...hardened.discarded);
+          possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
+          if (possibleTargets.length > 0) {
+            reasonCodes.push('global-fallback');
+            recordTraceStep('targets:global-fallback', {
+              count: possibleTargets.length,
+              candidateCount: candidatePool.length
+            });
+          }
+        }
+      } else {
+        const sharedVars = globalCandidates.filter((e) => e.kind === EntityKind.Variable && e.scope === 'Compartida');
+        const globalVars = globalCandidates.filter((e) => e.kind === EntityKind.Variable && e.scope === 'Global');
+        const instanceVars = instanceCandidates.filter((e) => e.kind === EntityKind.Variable);
+
+        if (sharedVars.length > 0) {
+          candidatePool = sharedVars;
+          possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
+          if (possibleTargets.length > 0) {
+            reasonCodes.push('global-fallback');
+            recordTraceStep('targets:global-fallback', { count: possibleTargets.length });
+          }
+        } else if (globalVars.length > 0) {
+          candidatePool = globalVars;
+          possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
+          if (possibleTargets.length > 0) {
+            reasonCodes.push('global-fallback');
+            recordTraceStep('targets:global-fallback', { count: possibleTargets.length });
+          }
+        } else if (instanceVars.length > 0) {
+          candidatePool = instanceVars;
+          const ranked = rankTargetsByDistance(candidatePool, currentMainObject!.name, graph, currentUri);
+          possibleTargets = ranked.winners;
+          distanceDiscards = ranked.discarded;
+          distanceAmbiguity = ranked.ambiguity;
+          if (possibleTargets.length > 0) {
+            reasonCodes.push('member-hierarchy');
+            recordTraceStep('targets:member-hierarchy', { count: possibleTargets.length });
+          }
+        } else {
+          if (instanceCandidates.length > 0) {
+            candidatePool = instanceCandidates;
+            const ranked = rankTargetsByDistance(candidatePool, currentMainObject!.name, graph, currentUri);
+            possibleTargets = ranked.winners;
+            distanceDiscards = ranked.discarded;
+            distanceAmbiguity = ranked.ambiguity;
+            if (possibleTargets.length > 0) {
+              reasonCodes.push('member-hierarchy');
+              recordTraceStep('targets:member-hierarchy', { count: possibleTargets.length });
+            }
+          }
+          if (possibleTargets.length === 0 && globalCandidates.length > 0) {
+            candidatePool = globalCandidates;
+            possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri);
+            if (possibleTargets.length > 0) {
+              reasonCodes.push('global-fallback');
+              recordTraceStep('targets:global-fallback', { count: possibleTargets.length });
+            }
+          }
         }
       }
     }

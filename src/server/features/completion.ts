@@ -200,11 +200,12 @@ export function provideCompletion(
         if (seen.has(m.name.toLowerCase())) continue;
         seen.add(m.name.toLowerCase());
         
-        items.push(createCompletionItem(m, '1_member_'));
+        const priority = m.scope === 'Compartida' ? '1_shared_' : '3_instance_';
+        items.push(createCompletionItem(m, priority));
       }
     }
 
-    // 3. Global and System functions
+    // 3. Global and System symbols
     for (const sys of systemCatalog.listGlobalFunctions()) {
       if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
       if (seen.has(sys.name.toLowerCase())) continue;
@@ -225,13 +226,11 @@ export function provideCompletion(
       limit: MAX_GLOBAL_COMPLETION_ENTITIES,
       include: (entity) => {
         const isGlobalCandidate = entity.kind === EntityKind.Type
-          || (entity.kind === EntityKind.Function && !entity.containerName);
+          || (entity.kind === EntityKind.Function && !entity.containerName)
+          || (entity.kind === EntityKind.Variable && entity.scope === 'Global');
         return isGlobalCandidate && entity.name.toLowerCase().startsWith(identifierPrefix);
       }
     })) {
-      // Only include global entities that are types or global functions
-      // Actually, we index local functions as EntityKind.Function, but they are bounded to a file/type.
-      // A truly global function might just have no containerName.
       if (seen.has(entity.name.toLowerCase())) continue;
       seen.add(entity.name.toLowerCase());
 
