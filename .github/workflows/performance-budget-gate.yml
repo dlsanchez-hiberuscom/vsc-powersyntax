@@ -8,8 +8,6 @@ on:
   workflow_dispatch:
 
 env:
-  # Opt-in para validar ya el runtime Node 24 de las GitHub Actions JavaScript.
-  # No cambia el Node.js del proyecto, que sigue siendo 22 en setup-node.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -70,6 +68,15 @@ jobs:
         run: |
           $artifactPath = ".\artifacts\performance\performance-budget-gate.json"
           $exitCode = [int]("${{ env.PERF_GATE_EXIT_CODE }}")
+
+          Write-Host "Performance gate exit code: $exitCode"
+
+          if (Test-Path $artifactPath) {
+            Write-Host "Performance budget artifact content:"
+            Get-Content $artifactPath
+          } else {
+            Write-Host "Performance budget artifact not found at: $artifactPath"
+          }
 
           if ($exitCode -eq 0 -and !(Test-Path $artifactPath)) {
             Write-Error "Performance budget gate passed but did not generate required artifact: $artifactPath"
