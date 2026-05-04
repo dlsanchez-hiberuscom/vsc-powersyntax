@@ -20,7 +20,7 @@ import { createDocumentQueryContext, resolveDocumentQualifierType } from './quer
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import {
   matchesEnumeratedPropertyContext,
-  resolveExpectedEnumTypeForCallArgumentAtPosition,
+  resolveExpectedEnumContextForCallArgumentAtPosition,
 } from './enumeratedContext';
 
 const MAX_GLOBAL_COMPLETION_ENTITIES = getQueryConsumerPolicy('completion').resultCap;
@@ -444,7 +444,9 @@ function createSystemCompletionItem(
       kind = CompletionItemKind.Property;
       break;
     case 'constant':
-      kind = CompletionItemKind.Constant;
+      kind = entry.enumValueOf
+        ? CompletionItemKind.EnumMember
+        : (entry.enumValues?.length ? CompletionItemKind.Enum : CompletionItemKind.Constant);
       break;
     default:
       kind = CompletionItemKind.Keyword;
@@ -491,17 +493,24 @@ function createEnumeratedValueCompletionItemsForCallArgument(
   identifierPrefix: string,
   documentationLocale: DocumentationLocale = 'en',
 ): CompletionItem[] {
-  const enumTypeName = resolveExpectedEnumTypeForCallArgumentAtPosition(document, position, kb, systemCatalog);
-  if (!enumTypeName) {
+  const enumContext = resolveExpectedEnumContextForCallArgumentAtPosition(document, position, kb, systemCatalog);
+  if (!enumContext) {
     return [];
   }
+
+  const scopedEntries = enumContext.dataWindowContext
+    ? systemCatalog.listDataWindowConstantValuesForType(enumContext.enumTypeName)
+    : systemCatalog.listEnumeratedValuesForType(enumContext.enumTypeName);
+  const sourceEntries = enumContext.dataWindowContext && scopedEntries.length === 0
+    ? systemCatalog.listEnumeratedValuesForType(enumContext.enumTypeName)
+    : scopedEntries;
 
   const items: CompletionItem[] = [];
   const seen = new Set<string>();
   appendCatalogCompletionItems(
     items,
     seen,
-    systemCatalog.listEnumeratedValuesForType(enumTypeName),
+    sourceEntries,
     identifierPrefix,
     '0_enum_value_context_',
     documentationLocale,

@@ -110,6 +110,28 @@ suite('unit/systemCatalog', () => {
     }
   });
 
+  test('datawindow-constants proyecta tipos y valores oficiales DataWindow sin contaminar enums genéricos', () => {
+    const constants = catalog.listDataWindowConstants();
+    const dwBuffer = catalog.resolveDataWindowConstant('DWBuffer');
+    const dwBufferValues = catalog.listDataWindowConstantValuesForType('DWBuffer');
+
+    assert.ok(constants.length > 0, 'datawindow-constants no debería quedar vacío.');
+    assert.ok(dwBuffer, 'Debe exponer el tipo DWBuffer dentro de datawindow-constants.');
+    assert.equal(dwBuffer?.domain, 'datawindow-constants');
+    assert.equal(dwBuffer?.kind, 'constant');
+    assert.equal(dwBuffer?.namespace, 'datawindow');
+
+    assert.deepStrictEqual(
+      [...dwBufferValues.map((entry) => entry.name)].sort(),
+      ['Delete!', 'Filter!', 'Primary!'],
+    );
+    assert.ok(!dwBufferValues.some((entry) => entry.name === 'FromBeginning!'));
+    assert.deepStrictEqual(
+      [...catalog.listEnumeratedValuesForType('DWBuffer').map((entry) => entry.name)].sort(),
+      ['Delete!', 'Filter!', 'Primary!'],
+    );
+  });
+
   test('findByDomainAndLookupKey resuelve DataWindow.Table.Select y dddw.name', () => {
     const selectEntries = catalog.findByDomainAndLookupKey('datawindow-properties', 'DataWindow.Table.Select');
     const dddwEntries = catalog.findByDomainAndLookupKey('datawindow-properties', 'dddw.name');

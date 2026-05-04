@@ -2,44 +2,35 @@
 
 ## 1. Foco activo
 
-`B327 — DataWindow constants and property path catalog`
+`B342 — Extract proven symbol heuristics from plugin_old`
 
-Estado actual: `B320` queda cerrada y `B327` ya abrió la spec `388-datawindow-constants-and-property-path-catalog` con una primera slice publicada en `main`: `DataWindow.Syntax` ya forma parte de `datawindow-properties` y `Describe("DataWindow.Syntax")` navega de forma segura al root del `.srd` enlazado.
+Estado actual: `B327` queda cerrada. La spec `388-datawindow-constants-and-property-path-catalog` deja ya `datawindow-constants` publicado como dominio `generated` derivado del rail oficial de enumerados DataWindow, `datawindow-properties` reforzado con el contrato raíz `DataWindow.T -> Table` y los consumers existentes (`completion`, `signatureHelp`, `Describe/Modify/Object`) reusando esos dominios sin hardcodes nuevos.
 
-La evidencia vigente que deja `B320` es:
+La evidencia cerrada que deja `B327` es:
 
-- `src/server/knowledge/system/manual/datawindow/dataWindowProperties.ts` y `dataWindowExpressionFunctions.ts` publican el subconjunto oficial/curado de property paths (`DataWindow.*`, `dddw`, `dddw.name`) y la lista oficial de funciones de expresión tomada de la referencia Appeon 2025, con namespaces `datawindow` y `datawindow-expression` separados;
-- `src/server/knowledge/system/manual/index.ts`, `src/server/knowledge/system/services/queryService.ts` y `src/server/knowledge/system/SystemCatalog.ts` indexan ambos dominios dentro de `manual-core` sin scans globales ni un registry paralelo;
-- `src/server/features/dataWindowPropertyPaths.ts` reconsume `datawindow-properties` para completion/hover/definition/diagnostics de `Describe/Modify/Object` y `src/server/features/completion.ts` consume `datawindow-expression-functions` sólo dentro de expresiones `.srd`;
-- `test/server/unit/systemCatalog.test.ts`, `completion.test.ts`, `hover.test.ts`, `definition.test.ts` y `diagnostics.test.ts` fijan el lookup `CurrentRow`/`Sum`, el subconjunto `DataWindow.Table.Select`/`dddw.name` y la ausencia de serving fuera de contexto defendible.
-
-Con `B320` ya cerrado, el siguiente cuello de botella vuelve a ser ampliar el catálogo reutilizable de constantes y property paths DataWindow sin duplicar listas locales en consumers.
-
-La evidencia nueva que deja la primera slice de `B327` es:
-
-- `src/server/knowledge/system/manual/datawindow/dataWindowProperties.ts` incorpora `DataWindow.Syntax` dentro de `datawindow-properties` como property path catalogado;
-- `src/server/features/dataWindowPropertyPaths.ts` lo resuelve sobre `rootSelectionRange` del `DataWindowModel` ya existente, sin abrir un parser paralelo ni reconstruir semántica fuera del pipeline vigente;
-- `test/server/unit/systemCatalog.test.ts` y `definition.test.ts` fijan tanto el lookup catalog-driven como la navegación segura desde `Describe("DataWindow.Syntax")` al `.srd` enlazado;
-- la siguiente decisión técnica de `B327` ya no es cómo servir `DataWindow.Syntax`, sino cómo materializar `datawindow-constants` sin duplicar los enumerados DataWindow oficiales (`DWBuffer`, `Primary!`, `Delete!`, `Filter!`) que ya existen en el catálogo general.
+- `src/server/knowledge/system/generated/dataWindowConstants.generated.ts` proyecta tipos y valores oficiales de la referencia DataWindow sobre el dominio `datawindow-constants` sin abrir una segunda fuente de verdad ni duplicar el vocabulario PowerScript global;
+- `src/server/knowledge/system/services/queryService.ts` y `src/server/knowledge/system/SystemCatalog.ts` publican queries owner-scoped (`listDataWindowConstants*`) y mantienen `listValuesForEnumeratedType()` aislado del dominio nuevo, preservando el orden visible ya fijado por el rail enumerado general;
+- `src/server/features/completion.ts` y `signatureHelp.ts` consumen `datawindow-constants` sólo para argumentos member-scoped DataWindow (`RowsMove`, `Retrieve`, `Update`), mientras `dataWindowPropertyPaths.ts` mantiene el serving catalog-driven de `Describe/Modify/Object` y congela el prefijo raíz `DataWindow.T`;
+- `test/server/unit/systemCatalog.test.ts`, `completion.test.ts` y `signatureHelp.test.ts` fijan la ausencia de contaminación del dominio `enumerated-values`, el serving DataWindow-scoped de `DWBuffer`/`Primary!` y el root completion `Modify("DataWindow.T")`.
 
 ---
 
 ## 2. Por qué es prioritario
 
-`B327` pasa a ser el siguiente paso natural porque:
+`B342` pasa a ser el siguiente foco natural porque:
 
-- `B320` ya dejó el catálogo base de expresiones y propiedades oficiales servido por el runtime;
-- el hueco que queda ahora es extender ese backbone con constantes y property paths adicionales reutilizables por `Describe/Modify/Object` sin volver a hardcodes;
-- `B327` puede apoyarse ya en índices y consumers reales cerrados en `B320`, sin reabrir decisiones de arquitectura ni de source-of-truth.
+- `B344` depende explícitamente de `B342`, así que no conviene abrir edge cases DataWindow de `plugin_old` antes de auditar qué heurísticas siguen siendo valiosas, cuáles ya viven en el repo y cuáles serían unsafe hoy;
+- el cierre de `B327` deja la base DataWindow más estable, de modo que la siguiente extracción desde `plugin_old` puede centrarse en heurísticas probadas y no en más infraestructura de catálogo;
+- `plugin_old` aún contiene valor potencial en linked editing, inlay hints, folding y otras heurísticas de símbolos, pero sólo debe entrar como matriz auditada más adaptación al backbone actual (`KnowledgeBase`, snapshots, query service), nunca como provider paralelo.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- ampliar constantes y property paths DataWindow reutilizables sobre el catálogo ya oficializado en `B320`;
-- decidir si `datawindow-constants` debe ser un dominio DataWindow-scoped sobre enumerados ya existentes o un dataset separado con consumer propio y falsable;
-- reforzar consumers DataWindow existentes con ese mismo source-of-truth sin abrir listas locales paralelas;
-- seguir usando el backbone actual (`DataWindowModel` + `SystemCatalog`) en vez de introducir un segundo rail semántico DataWindow.
+- actualizar la matriz `already implemented / partial / valuable gap / obsolete / unsafe` contra `plugin_old` con evidencia real por heurística;
+- adaptar como máximo la primera heurística demostrablemente valiosa al runtime actual, reutilizando `KnowledgeBase`, snapshots y queries existentes;
+- reforzar tests focales y `docs/plugin-old-migration-opportunities.md` sin arrastrar providers cliente completos del plugin legacy;
+- preparar el camino de `B344` dejando explícito qué edge cases DataWindow siguen pendientes y cuáles ya quedaron absorbidos por `B287`, `B320` y `B327`.
 
 ---
 
@@ -47,29 +38,29 @@ La evidencia nueva que deja la primera slice de `B327` es:
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B320` salvo drift real en los dominios `datawindow-properties` o `datawindow-expression-functions` ya cerrados;
-- duplicar constants/property paths DataWindow en providers o tests en vez de consumir el catálogo ya publicado;
-- mezclar expresiones o paths DataWindow con lookup global PowerScript fuera de contexto defendible;
-- abrir un parser DataWindow alternativo o un segundo rail de serving para constants/property paths.
+- reabrir `B327` salvo drift real en `datawindow-constants` o `datawindow-properties` ya cerrados;
+- portar heurísticas o providers de `plugin_old` de forma literal en vez de extraer reglas o fixtures adaptadas;
+- abrir `B344` antes de cerrar la auditoría base de `B342`, salvo bloqueo real y documentado;
+- introducir un segundo motor semántico o un rail cliente específico para conocimiento heredado de `plugin_old`.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- el catálogo DataWindow oficial cubre constantes y property paths priorizados con contratos y fixtures defendibles;
-- la semántica nueva sigue alimentando surfaces existentes sin abrir un segundo rail DataWindow ad hoc;
-- `architecture`, `testing`, `developer-workflows`, `backlog`, `done-log`, `current-focus` y el context pack IA quedan alineados con el nuevo estado real.
+- la matriz de `plugin_old` queda actualizada y defendible con clasificación `already implemented / partial / valuable gap / obsolete / unsafe`;
+- al menos una heurística probada se adapta al backbone actual sin abrir providers paralelos ni scans globales en hot path;
+- `plugin-old-migration-opportunities`, `testing`, `backlog`, `done-log` y `current-focus` quedan alineados con el estado real del corte.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B327` — DataWindow constants and property path catalog.
-2. `B342` — Extract proven symbol heuristics from plugin_old.
-3. `B329` — Catalog-driven semantic tokens integration.
+1. `B342` — Extract proven symbol heuristics from plugin_old.
+2. `B344` — DataWindow binding edge cases from plugin_old.
+3. `B354` — Server runtime orchestration decomposition.
 
 ---
 
 ## 7. Regla final
 
-`B327` debe extender el backbone catalog-driven DataWindow recién cerrado por `B320` sin volver a listas hardcodeadas ni a un segundo rail semántico.
+`plugin_old` sólo puede alimentar heurísticas, fixtures y evidencia. Ningún slice nuevo debe reintroducir su arquitectura ni crear un motor paralelo al backbone actual del runtime.

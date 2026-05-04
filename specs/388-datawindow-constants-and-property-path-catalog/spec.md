@@ -2,7 +2,7 @@
 
 ## Estado
 
-- in-progress
+- done
 
 ## Relacion backlog
 
@@ -23,3 +23,13 @@ Catalogar constantes, property paths y nombres de propiedades DataWindow reutili
 - reparsear `.srd` como PowerScript;
 - mezclar constantes o property paths DataWindow con el vocabulario PowerScript global;
 - cerrar ítems posteriores de semantic tokens o explainability en la misma slice.
+
+## Resultado de cierre
+
+- `datawindow-constants` queda materializado como dominio `generated` derivado del rail oficial de `enumerated-types` / `enumerated-values` con source URLs `datawindow_reference`, sin introducir una segunda fuente de verdad ni duplicar el catálogo global;
+- `queryService.ts` y `SystemCatalog.ts` exponen queries owner-scoped para ese dominio, mantienen `listValuesForEnumeratedType()` aislado del dominio nuevo y reutilizan el orden visible ya fijado por el rail enumerado general;
+- `completion.ts` y `signatureHelp.ts` consumen `datawindow-constants` solo en contextos member-scoped DataWindow (`RowsMove`, `Retrieve`, `Update`, etc.), mientras `Describe/Modify/Object` siguen reconsumiendo `datawindow-properties` y fijan el root completion `DataWindow.T -> Table` junto al slice previo `DataWindow.Syntax`.
+
+## Validación de cierre
+
+- `npm run test:unit -- --grep "unit/(systemCatalog|completion|signatureHelp)"`

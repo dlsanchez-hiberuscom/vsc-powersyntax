@@ -409,6 +409,10 @@ export function listSystemDataWindowExpressionFunctions(): readonly PbSystemSymb
     return getEntriesForDomain('datawindow-expression-functions');
 }
 
+export function listSystemDataWindowConstants(): readonly PbSystemSymbolEntry[] {
+    return getEntriesForDomain('datawindow-constants');
+}
+
 export function listSystemObjectEvents(): readonly PbSystemSymbolEntry[] {
     return getEntriesForDomain('system-events');
 }
@@ -452,6 +456,10 @@ export function resolveSystemDataWindowFunction(name: string): PbSystemSymbolEnt
 
 export function resolveSystemDataWindowExpressionFunction(name: string): PbSystemSymbolEntry | undefined {
     return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('datawindow-expression-functions', name));
+}
+
+export function resolveSystemDataWindowConstant(name: string): PbSystemSymbolEntry | undefined {
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('datawindow-constants', name));
 }
 
 export function resolveSystemDataWindowFunctionForOwner(
@@ -607,6 +615,36 @@ export function listSystemGlobals(): readonly PbSystemSymbolEntry[] {
     return getEntriesForDomain('system-globals');
 }
 
+export function listDataWindowConstantValuesForType(typeName: string): readonly PbSystemSymbolEntry[] {
+    const normalizedTypeName = normalizeSystemSymbolName(typeName);
+
+    if (!normalizedTypeName) {
+        return [];
+    }
+
+    const entries = listSystemDataWindowConstants()
+        .filter(entry => normalizeSystemSymbolName(entry.enumValueOf) === normalizedTypeName);
+    const orderedNames = listValuesForEnumeratedType(typeName)
+        .map(entry => entry.normalizedName);
+
+    if (orderedNames.length === 0) {
+        return entries;
+    }
+
+    const order = new Map(orderedNames.map((name, index) => [name, index]));
+
+    return [...entries].sort((left, right) => {
+        const leftOrder = order.get(left.normalizedName) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = order.get(right.normalizedName) ?? Number.MAX_SAFE_INTEGER;
+
+        if (leftOrder !== rightOrder) {
+            return leftOrder - rightOrder;
+        }
+
+        return left.name.localeCompare(right.name);
+    });
+}
+
 export function resolveKeyword(name: string): PbSystemSymbolEntry | undefined {
     return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('keywords', name));
 }
@@ -648,7 +686,10 @@ export function listValuesForEnumeratedType(typeName: string): readonly PbSystem
         return [];
     }
 
-    return applyCatalogMergePolicy(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byEnumValueOf.get(normalizedTypeName) ?? []);
+    return applyCatalogMergePolicy(
+        (PB_SYSTEM_SYMBOL_REGISTRY.indexes.byEnumValueOf.get(normalizedTypeName) ?? [])
+            .filter(entry => entry.domain === 'enumerated-values'),
+    );
 }
 
 export function resolveEnumValueForExpectedType(

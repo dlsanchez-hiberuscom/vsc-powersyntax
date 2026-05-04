@@ -11,6 +11,7 @@ import {
 } from '../generated/generated.generated';
 import { PB_GENERATED_ENUMERATED_TYPES } from '../generated/enumeratedTypes.generated';
 import { PB_GENERATED_ENUMERATED_VALUES } from '../generated/enumeratedValues.generated';
+import { PB_GENERATED_DATAWINDOW_CONSTANTS } from '../generated/dataWindowConstants.generated';
 import {
     PB_GENERATED_DATAWINDOW_FUNCTION_OWNER_TYPES,
     PB_GENERATED_OBJECT_OWNER_TYPES,
@@ -65,6 +66,11 @@ export const PB_SYSTEM_SYMBOL_DATASET_SLICES: readonly PbSystemSymbolDatasetSlic
         dataset: 'generated',
         domain: 'enumerated-values',
         entries: PB_GENERATED_ENUMERATED_VALUES,
+    },
+    {
+        dataset: 'generated',
+        domain: 'datawindow-constants',
+        entries: PB_GENERATED_DATAWINDOW_CONSTANTS,
     },
     {
         dataset: 'generated',

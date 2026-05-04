@@ -344,7 +344,7 @@ function buildSystemSignatureParameters(
   return entries.map((parameter) =>
     ParameterInformation.create(
       parameter.label,
-      parameter.documentation ?? buildEnumParameterDocumentation(systemCatalog, parameter.label, documentationLocale),
+      parameter.documentation ?? buildEnumParameterDocumentation(systemCatalog, entry, parameter.label, documentationLocale),
     ),
   );
 }
@@ -378,6 +378,7 @@ function buildSystemSignatureDocumentation(
 
 function buildEnumParameterDocumentation(
   systemCatalog: SystemCatalog,
+  entry: PbSystemSymbolEntry,
   parameterLabel: string,
   documentationLocale: DocumentationLocale,
 ): string | undefined {
@@ -386,13 +387,23 @@ function buildEnumParameterDocumentation(
     return undefined;
   }
 
-  const enumType = systemCatalog.resolveEnumeratedType(enumTypeName);
+  const preferDataWindowConstants = entry.domain === 'datawindow-functions';
+  const enumType = preferDataWindowConstants
+    ? (systemCatalog.resolveDataWindowConstant(enumTypeName) ?? systemCatalog.resolveEnumeratedType(enumTypeName))
+    : systemCatalog.resolveEnumeratedType(enumTypeName);
   if (!enumType) {
     return undefined;
   }
 
-  const values = systemCatalog.listEnumeratedValuesForType(enumType.name).map((entry) => entry.name);
-  const valuesText = values.length > 0 ? ` Valores: ${values.join(', ')}.` : '';
+  const preferredValues = preferDataWindowConstants
+    ? systemCatalog.listDataWindowConstantValuesForType(enumType.name)
+    : systemCatalog.listEnumeratedValuesForType(enumType.name);
+  const effectiveValues = preferredValues.length > 0
+    ? preferredValues
+    : systemCatalog.listEnumeratedValuesForType(enumType.name);
+  const valuesText = effectiveValues.length > 0
+    ? ` Valores: ${effectiveValues.map((value) => value.name).join(', ')}.`
+    : '';
   const displayDocumentation = getDisplayDocumentation(enumType, documentationLocale) ?? enumType.documentation;
   return `Tipo esperado: ${enumType.name}.${valuesText}${displayDocumentation ? ` ${displayDocumentation}` : ''}`.trim();
 }

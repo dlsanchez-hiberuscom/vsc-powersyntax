@@ -11,6 +11,11 @@ import {
   resolveExpectedEnumTypeForParameterLabel,
 } from './signatureHelp';
 
+export interface ExpectedEnumCallArgumentContext {
+  enumTypeName: string;
+  dataWindowContext: boolean;
+}
+
 export function matchesEnumeratedPropertyContext(
   entry: PbSystemSymbolEntry,
   propertyName: string,
@@ -39,6 +44,15 @@ export function resolveExpectedEnumTypeForCallArgumentAtPosition(
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
 ): string | null {
+  return resolveExpectedEnumContextForCallArgumentAtPosition(document, position, kb, systemCatalog)?.enumTypeName ?? null;
+}
+
+export function resolveExpectedEnumContextForCallArgumentAtPosition(
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog,
+): ExpectedEnumCallArgumentContext | null {
   const signatureContext = extractSignatureContext(document, position);
   if (!signatureContext) {
     return null;
@@ -52,7 +66,15 @@ export function resolveExpectedEnumTypeForCallArgumentAtPosition(
     kb,
     systemCatalog,
   );
-  return resolveExpectedEnumTypeForCallArgument(systemCatalog, systemTargets, signatureContext.activeParameter);
+  const enumTypeName = resolveExpectedEnumTypeForCallArgument(systemCatalog, systemTargets, signatureContext.activeParameter);
+  if (!enumTypeName) {
+    return null;
+  }
+
+  return {
+    enumTypeName,
+    dataWindowContext: systemTargets.some((target) => target.domain === 'datawindow-functions'),
+  };
 }
 
 function resolveSystemTargetsForCallArgument(

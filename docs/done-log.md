@@ -25,6 +25,28 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.140 B327. DataWindow constants and property path catalog — **Cerrada (knowledge/datawindow 2026-05)**
+
+**Objetivo:** catalogar constantes, property paths y nombres de propiedades DataWindow reutilizables por `Describe/Modify/Object`, manteniéndolos separados del parser PowerScript y sirviéndolos sólo con contexto DataWindow defendible.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/generated/dataWindowConstants.generated.ts` proyecta el subconjunto oficial DataWindow de `enumerated-types` / `enumerated-values` sobre el dominio `datawindow-constants`, manteniendo `dataset = generated`, provenance oficial y source URLs `datawindow_reference` sin abrir una segunda fuente de verdad;
+- `src/server/knowledge/system/services/queryService.ts` y `src/server/knowledge/system/SystemCatalog.ts` publican queries owner-scoped para `datawindow-constants`, preservan `listValuesForEnumeratedType()` libre de contaminación entre dominios y reutilizan el orden visible ya fijado por el rail enumerado general para `DWBuffer` y análogos;
+- `src/server/features/completion.ts` y `signatureHelp.ts` consumen `datawindow-constants` sólo en contextos member-scoped DataWindow, mientras overrides curados de `FileSeek`, `RowsMove`, `Retrieve` y `Update` mantienen la firma corta usada por surfaces interactivas y `dataWindowPropertyPaths.ts` fija además el root completion `Modify("DataWindow.T") -> Table` junto al slice previo `DataWindow.Syntax`;
+- `specs/388-datawindow-constants-and-property-path-catalog/` queda cerrada con tasks completas y sin abrir un rail semántico paralelo a `DataWindowModel` + `SystemCatalog`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(systemCatalog|completion|signatureHelp)"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.139 B320. DataWindow expression/property official catalog — **Cerrada (knowledge/datawindow 2026-05)**
 
 **Objetivo:** integrar funciones oficiales de expresiones DataWindow y property paths oficiales/curados en el catálogo v2, manteniéndolos separados de PowerScript general y sirviéndolos sólo cuando el contexto DataWindow es defendible.

@@ -7,9 +7,11 @@ import {
   getSystemCatalogSize,
   isKnownSystemOwnerType,
   listSystemSymbolsByDomain,
+  listSystemDataWindowConstants,
   listSystemDataWindowEvents,
   listSystemDataWindowExpressionFunctions,
   listSystemDataWindowFunctions,
+  listDataWindowConstantValuesForType,
   listValuesForEnumeratedType,
   listSystemEvents,
   listSystemGlobalFunctions,
@@ -21,6 +23,7 @@ import {
   listSystemSymbolsByKind,
   listSystemSymbolsByNamespace,
   resolveSystemDataWindowEvent,
+  resolveSystemDataWindowConstant,
   resolveSystemDataWindowExpressionFunction,
   resolveSystemDataWindowFunction,
   resolveSystemDataWindowFunctionForOwner,
@@ -85,6 +88,7 @@ export class SystemCatalog {
   listObjectFunctions(): readonly PbSystemSymbolEntry[] { return listSystemObjectFunctions(); }
   listDataWindowFunctions(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowFunctions(); }
   listDataWindowExpressionFunctions(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowExpressionFunctions(); }
+  listDataWindowConstants(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowConstants(); }
   listObjectEvents(): readonly PbSystemSymbolEntry[] { return listSystemObjectEvents(); }
   listDataWindowEvents(): readonly PbSystemSymbolEntry[] { return listSystemDataWindowEvents(); }
   listEvents(): readonly PbSystemSymbolEntry[] { return listSystemEvents(); }
@@ -116,6 +120,9 @@ export class SystemCatalog {
   }
   resolveDataWindowExpressionFunction(name: string): PbSystemSymbolEntry | undefined {
     return resolveSystemDataWindowExpressionFunction(name);
+  }
+  resolveDataWindowConstant(name: string): PbSystemSymbolEntry | undefined {
+    return resolveSystemDataWindowConstant(name);
   }
   resolveObjectEvent(name: string): PbSystemSymbolEntry | undefined {
     return resolveSystemObjectEvent(name);
@@ -177,6 +184,9 @@ export class SystemCatalog {
   resolvePronoun(name: string): PbSystemSymbolEntry | undefined { return resolvePronoun(name); }
   resolveLanguageSymbol(name: string): PbSystemSymbolEntry | undefined { return resolveLanguageSymbol(name); }
   listEnumeratedValuesForType(typeName: string): readonly PbSystemSymbolEntry[] { return listValuesForEnumeratedType(typeName); }
+  listDataWindowConstantValuesForType(typeName: string): readonly PbSystemSymbolEntry[] {
+    return listDataWindowConstantValuesForType(typeName);
+  }
   resolveEnumeratedValueForType(valueName: string, typeName: string): PbSystemSymbolEntry | undefined {
     return resolveEnumValueForExpectedType(valueName, typeName);
   }

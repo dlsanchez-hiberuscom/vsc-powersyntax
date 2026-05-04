@@ -77,7 +77,7 @@ Nota de catálogo 2026-05-03:
 - no se habilitan diagnósticos agresivos de unknown keyword/operator/enum por el hecho de existir dominios `keywords`, `operators`, `enumerated-types` o `enumerated-values`;
 - el cierre de `B359` amplía la cobertura curada de `system-object-datatypes` runtime/nonvisual e integration moderna (`manual/runtime` + `manual/integration`), pero esa ampliación no introduce por sí sola reglas diagnósticas nuevas: hover/completion/signatureHelp consumen el catálogo enriquecido antes que diagnostics agresivos;
 - el cierre de `B360` normaliza el modelo `enumerated-type` / `enumerated-value`, pero esa separación no autoriza diagnósticos especulativos de membership: diagnostics solo puede usar valores enumerados cuando el tipo esperado sea explícito y la confidence lo sostenga;
-- DataWindow expression/property catalog queda separado en B320/B327 y no debe producir warnings fuera de contexto DataWindow defendible.
+- DataWindow expression/property/constants catalog queda separado en B320/B327 y no debe producir warnings ni serving agresivo fuera de contexto DataWindow defendible.
 
 Regla: cualquier renombrado futuro hacia `PB-*` requiere compatibilidad explícita o alias y una spec propia; no cambiar IDs diagnósticos emitidos como edición documental aislada.
 

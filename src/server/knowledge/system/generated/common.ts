@@ -266,3 +266,16 @@ export function generatedEnumeratedValue(args: GeneratedLanguageSymbolArgs): PbS
         domain: 'enumerated-values',
     }, reference.source, reference.defaultSourceUrl);
 }
+
+export function generatedDataWindowConstant(args: GeneratedLanguageSymbolArgs): PbSystemSymbolEntry {
+    const reference = resolveGeneratedReferenceFromSourceUrl(args.sourceUrl);
+
+    return defineGeneratedEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'constant',
+        namespace: 'datawindow',
+        invocation: 'global',
+        domain: 'datawindow-constants',
+    }, reference.source, reference.defaultSourceUrl);
+}

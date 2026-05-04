@@ -512,6 +512,33 @@ end subroutine
     assert.ok(nestedItems?.some((item) => item.label === 'name'), 'Debe sugerir la propiedad dddw.name del column child cuando el prefijo ya entra en dddw.');
   });
 
+  test('debe ofrecer completion raiz DataWindow dentro de Modify con prefijo parcial', () => {
+    setupDocument('file:///d_parent_completion_root.srd', [
+      '$PBExportHeader$d_parent_completion_root.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT parent_id FROM parent")',
+    ].join('\r\n'));
+    const doc = setupDocument('file:///w_dw_completion_root.srw', [
+      'global type w_dw_completion_root from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent_completion_root"',
+      '  dw_parent.Modify("DataWindow.T")',
+      'end event',
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('DataWindow.T'));
+    const character = lines[lineIndex].indexOf('DataWindow.T') + 'DataWindow.T'.length;
+    const items = provideCompletion(doc, Position.create(lineIndex, character), kb, systemCatalog, graph);
+
+    assert.ok(items, 'Esperaba completion DataWindow raíz para prefijo DataWindow.T dentro de Modify.');
+    assert.ok(items?.some((item) => item.label === 'Table'), 'Debe sugerir el child Table bajo DataWindow.');
+    assert.ok(!items?.some((item) => item.label === 'Syntax'), 'No debe abrir siblings fuera del prefijo actual DataWindow.T.');
+  });
+
   test('debe ofrecer completion segura dentro de expresiones DataWindow en .srd', () => {
     const doc = setupDocument('file:///d_expression_completion.srd', [
       '$PBExportHeader$d_expression_completion.srd',

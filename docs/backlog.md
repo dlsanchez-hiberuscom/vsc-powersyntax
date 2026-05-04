@@ -303,17 +303,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Motivo:** el enriquecimiento del catálogo generated queda absorbido por `B366 — Official Appeon scraper bugfixes and structural enrichment v2` y `B367 — Generated catalog as complete official source v2`.
 - **Acción:** no abrir esta spec como trabajo independiente salvo que aparezca una necesidad concreta no cubierta por B366/B367.
 
-## B327 — DataWindow constants and property path catalog
-- **Estado:** Open
-- **Track:** knowledge / datawindow
-- **Prioridad:** Media-Alta
-- **Depende de:** B287, B320
-- **Objetivo:** catalogar constantes, property paths y nombres de propiedades DataWindow reutilizables por Describe/Modify/Object.
-- **Razón técnica:** hoy existen resolvers seguros de property paths, pero la lista oficial/curada no vive aún como catálogo versionado reusable.
-- **Criterios de cierre verificables:** dominios `datawindow-constants` y `datawindow-properties` poblados, separados del parser PowerScript y consumidos solo con contexto DataWindow.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/rules-catalog.md`.
-- **Validación esperada:** property path tests, negativos dinámicos y smoke `.srd` real.
-
 ## B329 — Catalog-driven semantic tokens integration
 - **Estado:** Open
 - **Track:** semantic tokens / catalog
@@ -1002,20 +991,26 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ## Fase activa 
 
-01. B320 — DataWindow expression/property official catalog
-02. B327 — DataWindow constants and property path catalog
-03. B342 — Extract proven symbol heuristics from plugin_old
-04. B344 — DataWindow binding edge cases from plugin_old
-05. B354 — Server runtime orchestration decomposition
-06. B292 — PowerBuilder preprocessor / conditional patterns investigation
+01. B342 — Extract proven symbol heuristics from plugin_old
+02. B344 — DataWindow binding edge cases from plugin_old
+03. B354 — Server runtime orchestration decomposition
+04. B292 — PowerBuilder preprocessor / conditional patterns investigation
+05. B301 — Agent context budget enforcement
+06. B299 — Agent execution dry-run contract
+07. B300 — Agent validation receipt
+08. B302 — Agent-safe documentation updater policy
+09. B303 — Agent task replay from repro/support bundle
+10. B311 — Transaction and DataWindow update flow analyzer
+11. B312 — SQL dynamic risk taxonomy v2
+12. B310 — Object lifecycle risk report v2
+13. B308 — PBNI/PBX dependency insight v2
+14. B306 — HTTPClient/REST/JSON usage analyzer
+15. B307 — WebBrowser/WebView2 usage analyzer
 
 ## Siguiente fase 
 
-07. B301 — Agent context budget enforcement
-08. B299 — Agent execution dry-run contract
-09. B300 — Agent validation receipt
-10. B302 — Agent-safe documentation updater policy
-11. B303 — Agent task replay from repro/support bundle
+- Sin cola separada por ahora: el orden recomendado inmediato queda ya concentrado en la lista de `Fase activa` tras el cierre de `B327`.
+
 
 ## No abrir todavía salvo necesidad real
 
@@ -1033,5 +1028,4 @@ npm run test:unit -- --grep "registry|datasets|merge"
 - Mantener DataWindow como sublenguaje propio y evitar cualquier parser DataWindow como PowerScript normal.
 - Mantener ORCA fuera del hot path y detrás de policy/feature flags cuando implique write-enabled o packaging.
 - Formalizar en docs la matriz de soporte final tras `B293`.
-- Añadir checks de drift documental tras `B316-B317` para evitar backlog/done-log desalineados.
 - Mantener la política de localización como overlay de documentación, nunca como duplicación de entries por idioma.
