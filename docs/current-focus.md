@@ -4,7 +4,7 @@
 
 `B327 — DataWindow constants and property path catalog`
 
-Estado actual: `B320` queda cerrada. El runtime ya publica `datawindow-properties` y `datawindow-expression-functions` como dominios de catálogo diferenciados, ambos limitados a contexto DataWindow defendible y sin mezclar expresiones/paths con PowerScript general.
+Estado actual: `B320` queda cerrada y `B327` ya abrió la spec `388-datawindow-constants-and-property-path-catalog` con una primera slice publicada en `main`: `DataWindow.Syntax` ya forma parte de `datawindow-properties` y `Describe("DataWindow.Syntax")` navega de forma segura al root del `.srd` enlazado.
 
 La evidencia vigente que deja `B320` es:
 
@@ -14,6 +14,13 @@ La evidencia vigente que deja `B320` es:
 - `test/server/unit/systemCatalog.test.ts`, `completion.test.ts`, `hover.test.ts`, `definition.test.ts` y `diagnostics.test.ts` fijan el lookup `CurrentRow`/`Sum`, el subconjunto `DataWindow.Table.Select`/`dddw.name` y la ausencia de serving fuera de contexto defendible.
 
 Con `B320` ya cerrado, el siguiente cuello de botella vuelve a ser ampliar el catálogo reutilizable de constantes y property paths DataWindow sin duplicar listas locales en consumers.
+
+La evidencia nueva que deja la primera slice de `B327` es:
+
+- `src/server/knowledge/system/manual/datawindow/dataWindowProperties.ts` incorpora `DataWindow.Syntax` dentro de `datawindow-properties` como property path catalogado;
+- `src/server/features/dataWindowPropertyPaths.ts` lo resuelve sobre `rootSelectionRange` del `DataWindowModel` ya existente, sin abrir un parser paralelo ni reconstruir semántica fuera del pipeline vigente;
+- `test/server/unit/systemCatalog.test.ts` y `definition.test.ts` fijan tanto el lookup catalog-driven como la navegación segura desde `Describe("DataWindow.Syntax")` al `.srd` enlazado;
+- la siguiente decisión técnica de `B327` ya no es cómo servir `DataWindow.Syntax`, sino cómo materializar `datawindow-constants` sin duplicar los enumerados DataWindow oficiales (`DWBuffer`, `Primary!`, `Delete!`, `Filter!`) que ya existen en el catálogo general.
 
 ---
 
@@ -30,6 +37,7 @@ Con `B320` ya cerrado, el siguiente cuello de botella vuelve a ser ampliar el ca
 ## 3. Trabajo permitido ahora
 
 - ampliar constantes y property paths DataWindow reutilizables sobre el catálogo ya oficializado en `B320`;
+- decidir si `datawindow-constants` debe ser un dominio DataWindow-scoped sobre enumerados ya existentes o un dataset separado con consumer propio y falsable;
 - reforzar consumers DataWindow existentes con ese mismo source-of-truth sin abrir listas locales paralelas;
 - seguir usando el backbone actual (`DataWindowModel` + `SystemCatalog`) en vez de introducir un segundo rail semántico DataWindow.
 
