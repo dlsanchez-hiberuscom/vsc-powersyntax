@@ -25,6 +25,27 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.129 B377. Current object/class check command and AI-readable validation report — **Cerrada (workflow/object-level validation 2026-05)**
+
+**Objetivo:** añadir un chequeo consolidado del objeto actual o resuelto por nombre como tool/API/comando read-only para que usuario y agentes puedan decidir cambios locales con una sola llamada defendible.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` publica `object-check`, `checkObject()`, `powerbuilder.checkCurrentObject` y los schemas `ApiObjectCheckRequest`, `ApiObjectCheckFinding`, `ApiObjectCheckSummary` y `ApiObjectCheckReport` como contrato estable del bridge read-only y la API pública;
+- `src/client/objectCheckReport.ts` compone el reporte local del objeto sobre `currentObjectContext`, `dependencyGraph`, `impactAnalysis` y `safeEditPlan`, con source resolution por editor/URI/nombre, findings AI-readable, truncado honesto y Markdown `# Object Check`;
+- `src/client/extension.ts`, `src/client/commandRegistration.ts` y `package.json` cablean el método público, el tool dispatch y los comandos `vscPowerSyntax.openCurrentObjectCheck` / `vscPowerSyntax.openObjectCheck`, manteniendo el slice completamente read-only y sin abrir un motor semántico paralelo;
+- `test/server/unit/objectCheckReport.test.ts`, `test/server/unit/publicApi.test.ts` y `test/smoke/extension.test.ts` fijan objeto sano, diagnostics bloqueantes, dependencias ambiguas, bindings DataWindow missing, SQL `EXECUTE` y el wiring real del tool/comando Markdown.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "publicApi|objectCheckReport"`
+- `npm run test:smoke -- --grep "object check expone tool read-only y reporte markdown"`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+
 ## 1.128 B376. Workspace check command and AI-readable validation report — **Cerrada (workflow/read-only validation 2026-05)**
 
 **Objetivo:** añadir un chequeo consolidado del workspace como tool/API/comando read-only para que usuario y agentes puedan responder con una sola llamada qué errores, bloqueos y señales relevantes publica ya el plugin.

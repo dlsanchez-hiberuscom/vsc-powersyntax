@@ -59,6 +59,8 @@ El plugin debe mostrar, mediante el Current Object Context Panel read-only:
 - sourceOrigin;
 - diagnostics relevantes.
 
+Además, cuando haga falta un veredicto corto y accionable para esa unidad, el usuario o agente debe poder ejecutar `PowerSyntax: Check Current Object`, `PowerSyntax: Check Object...`, `checkObject()` o el tool read-only `object-check` para resumir diagnostics, herencia, dependencias, bindings DataWindow, SQL embebido y safe-edit signals sin releer todo el workspace.
+
 ---
 
 ## 4. Workflow 3 — Navegar herencia

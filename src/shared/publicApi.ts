@@ -4,13 +4,14 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.14.0';
+export const PUBLIC_API_VERSION = '2.15.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
   | 'contract'
   | 'server-stats'
   | 'workspace-check'
+  | 'object-check'
   | 'query-symbols'
   | 'cross-project-symbol-conflicts'
   | 'workspace-migration-assistant'
@@ -514,6 +515,96 @@ export interface ApiWorkspaceCheckReport {
   recommendedActions: string[];
 }
 
+export interface ApiObjectCheckRequest {
+  uri?: string;
+  objectName?: string;
+  line?: number;
+  character?: number;
+  includeDiagnostics?: boolean;
+  includeContext?: boolean;
+  includeDependencyGraph?: boolean;
+  includeImpactAnalysis?: boolean;
+  includeSafeEditPlan?: boolean;
+  includeDataWindowBindings?: boolean;
+  includeEmbeddedSql?: boolean;
+  includeLifecycle?: boolean;
+  maxDiagnostics?: number;
+  maxReferences?: number;
+  maxDependencyNodes?: number;
+  maxFindings?: number;
+}
+
+export interface ApiObjectCheckFinding {
+  code: string;
+  severity: 'info' | 'warning' | 'error';
+  area:
+    | 'parser'
+    | 'diagnostics'
+    | 'semantic'
+    | 'inheritance'
+    | 'override'
+    | 'lifecycle'
+    | 'datawindow'
+    | 'sql'
+    | 'dependency'
+    | 'safe-edit'
+    | 'health'
+    | 'unknown';
+  message: string;
+  detail?: string;
+  uri?: string;
+  line?: number;
+  character?: number;
+  evidence?: string[];
+  suggestedAction?: string;
+}
+
+export interface ApiObjectCheckSummary {
+  objectName?: string;
+  objectKind?: string;
+  uri?: string;
+  diagnostics: {
+    error: number;
+    warning: number;
+    info: number;
+    hint: number;
+  };
+  dependencyCount: number;
+  dependentCount: number;
+  unresolvedDependencyCount: number;
+  ambiguousDependencyCount: number;
+  dataWindowBindingCount: number;
+  unresolvedDataWindowBindingCount: number;
+  embeddedSqlCount: number;
+  dynamicSqlRiskCount: number;
+  blockingFindings: number;
+  warningFindings: number;
+  truncated: boolean;
+}
+
+export interface ApiObjectCheckReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+  available: boolean;
+  reason?: string;
+  status: 'passed' | 'warning' | 'failed';
+  source: {
+    kind: 'active-editor' | 'uri' | 'object-name';
+    uri?: string;
+    objectName?: string;
+    line?: number;
+    character?: number;
+  };
+  summary: ApiObjectCheckSummary;
+  objectContext?: ApiCurrentObjectContext;
+  dependencyGraph?: ApiPowerBuilderDependencyGraph;
+  impactAnalysis?: ApiImpactAnalysis;
+  safeEditPlan?: ApiSafeEditPlan;
+  findings: ApiObjectCheckFinding[];
+  recommendedActions: string[];
+}
+
 const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
   {
     name: 'contract',
@@ -528,6 +619,14 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
     requestSchema: 'ApiWorkspaceCheckRequest',
     responseSchema: 'ApiWorkspaceCheckReport',
     usesActiveEditorFallback: false,
+  },
+  {
+    name: 'object-check',
+    description: 'Ejecuta una comprobacion read-only de un objeto PowerBuilder usando contexto semantico, diagnostics, dependencias y safe-edit signals ya disponibles.',
+    command: 'powerbuilder.checkCurrentObject',
+    requestSchema: 'ApiObjectCheckRequest',
+    responseSchema: 'ApiObjectCheckReport',
+    usesActiveEditorFallback: true,
   },
   {
     name: 'server-stats',
@@ -1115,6 +1214,14 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     responseSchema: 'ApiWorkspaceCheckReport',
   },
   {
+    name: 'checkObject',
+    command: 'powerbuilder.checkCurrentObject',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiObjectCheckRequest',
+    responseSchema: 'ApiObjectCheckReport',
+  },
+  {
     name: 'querySymbols',
     command: 'powerbuilder.querySymbols',
     access: 'read-only',
@@ -1255,6 +1362,10 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiWorkspaceCheckCatalogSummary', version: '1.0.0', kind: 'response' },
   { name: 'ApiWorkspaceCheckSummary', version: '1.0.0', kind: 'response' },
   { name: 'ApiWorkspaceCheckReport', version: '1.0.0', kind: 'response' },
+  { name: 'ApiObjectCheckRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiObjectCheckFinding', version: '1.0.0', kind: 'response' },
+  { name: 'ApiObjectCheckSummary', version: '1.0.0', kind: 'response' },
+  { name: 'ApiObjectCheckReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiQuerySymbolsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflictsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflicts', version: '1.0.0', kind: 'response' },
@@ -2228,6 +2339,7 @@ export interface VscPowerSyntaxApi {
   diffSemanticWorkspaceSnapshots(request: ApiSemanticWorkspaceSnapshotDiffRequest): Promise<ApiSemanticWorkspaceSnapshotDiff>;
   getServerStats(): Promise<ApiServerStats>;
   checkWorkspace(request?: ApiWorkspaceCheckRequest): Promise<ApiWorkspaceCheckReport>;
+  checkObject(request?: ApiObjectCheckRequest): Promise<ApiObjectCheckReport>;
   querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
   getCrossProjectSymbolConflicts(request?: ApiCrossProjectSymbolConflictsRequest): Promise<ApiCrossProjectSymbolConflicts>;
   getWorkspaceMigrationAssistant(request?: ApiWorkspaceMigrationAssistantRequest): Promise<ApiWorkspaceMigrationAssistant>;

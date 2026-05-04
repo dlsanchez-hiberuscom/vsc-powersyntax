@@ -250,6 +250,16 @@
         "category": "VSC PowerSyntax"
       },
       {
+        "command": "vscPowerSyntax.openCurrentObjectCheck",
+        "title": "PowerSyntax: Check Current Object",
+        "category": "VSC PowerSyntax"
+      },
+      {
+        "command": "vscPowerSyntax.openObjectCheck",
+        "title": "PowerSyntax: Check Object...",
+        "category": "VSC PowerSyntax"
+      },
+      {
         "command": "vscPowerSyntax.openCrossProjectSymbolConflicts",
         "title": "PowerSyntax: Abrir Analizador de Conflictos Cross-Project",
         "category": "VSC PowerSyntax"

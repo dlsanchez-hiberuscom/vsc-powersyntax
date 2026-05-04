@@ -31,6 +31,8 @@ import {
   type ApiCrossProjectSymbolConflictsRequest,
   type ApiBuildProfileMatrix,
   type ApiBuildProfileMatrixRequest,
+  type ApiObjectCheckReport,
+  type ApiObjectCheckRequest,
   type ApiWorkspaceCheckCatalogSummary,
   type ApiWorkspaceCheckReport,
   type ApiWorkspaceCheckRequest,
@@ -133,6 +135,12 @@ import {
   type PowerSyntaxSettingsGovernanceReport,
 } from './settingsGovernance';
 import { registerClientCommands } from './commandRegistration';
+import {
+  buildObjectCheckMarkdown,
+  buildObjectCheckReport,
+  buildUnavailableObjectCheckReport,
+  normalizeObjectCheckRequest,
+} from './objectCheckReport';
 import {
   buildUnavailableWorkspaceCheckReport,
   buildWorkspaceCheckMarkdown,
@@ -482,6 +490,9 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
     openProjectHealthDashboard,
     openWorkspaceCheck,
     runWorkspaceCheck: async (request?: unknown) => runWorkspaceCheck(request as ApiWorkspaceCheckRequest | undefined),
+    openCurrentObjectCheck,
+    openObjectCheck,
+    runObjectCheck: async (request?: unknown) => runObjectCheck(request as ApiObjectCheckRequest | undefined),
     openCrossProjectSymbolConflicts,
     openWorkspaceMigrationAssistant,
     openBuildProfileMatrix,
@@ -720,6 +731,13 @@ function createPublicApi(): VscPowerSyntaxApi {
             mode: 'read-only',
             schema: 'ApiWorkspaceCheckReport',
             payload: await api.checkWorkspace(args as ApiWorkspaceCheckRequest),
+          };
+        case 'object-check':
+          return {
+            tool: 'object-check',
+            mode: 'read-only',
+            schema: 'ApiObjectCheckReport',
+            payload: await api.checkObject(args as ApiObjectCheckRequest),
           };
         case 'query-symbols':
           return {
@@ -995,6 +1013,97 @@ function createPublicApi(): VscPowerSyntaxApi {
         codeMetrics,
         technicalDebt,
         buildProfiles,
+        sectionErrors,
+      });
+    },
+    async checkObject(request: ApiObjectCheckRequest = {}): Promise<ApiObjectCheckReport> {
+      const normalized = normalizeObjectCheckRequest(request);
+      const resolvedSource = await resolveObjectCheckSource(api, request, normalized.maxReferences);
+      if (!resolvedSource.uri) {
+        return buildUnavailableObjectCheckReport(
+          resolvedSource.reason ?? 'No se pudo resolver el objeto solicitado.',
+          resolvedSource.source,
+          request,
+        );
+      }
+
+      let objectContext: ApiCurrentObjectContext;
+      try {
+        objectContext = clonePlainData(await api.getCurrentObjectContext({
+          uri: resolvedSource.uri,
+          line: resolvedSource.line,
+          character: resolvedSource.character,
+          maxExcerptLines: 24,
+          maxReferencedSymbols: normalized.maxReferences,
+        }));
+      } catch (error) {
+        return buildUnavailableObjectCheckReport(
+          error instanceof Error ? error.message : String(error),
+          resolvedSource.source,
+          request,
+        );
+      }
+
+      let dependencyGraph: ApiPowerBuilderDependencyGraph | undefined;
+      let impactAnalysis: ApiImpactAnalysis | undefined;
+      let safeEditPlan: ApiSafeEditPlan | undefined;
+      const sectionErrors: Partial<Record<'dependencyGraph' | 'impactAnalysis' | 'safeEditPlan', string>> = {};
+      const sectionWork: Promise<void>[] = [];
+
+      if (normalized.includeDependencyGraph) {
+        sectionWork.push((async () => {
+          try {
+            dependencyGraph = await api.getPowerBuilderDependencyGraph({
+              uri: resolvedSource.uri,
+              objectName: resolvedSource.objectName,
+              maxDependencies: normalized.maxDependencyNodes,
+              maxDependents: normalized.maxDependencyNodes,
+            });
+          } catch (error) {
+            sectionErrors.dependencyGraph = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      if (normalized.includeImpactAnalysis) {
+        sectionWork.push((async () => {
+          try {
+            impactAnalysis = await api.analyzeImpact({
+              uri: resolvedSource.uri,
+              line: resolvedSource.line,
+              character: resolvedSource.character,
+              maxSafeReferences: normalized.maxReferences,
+            });
+          } catch (error) {
+            sectionErrors.impactAnalysis = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      if (normalized.includeSafeEditPlan) {
+        sectionWork.push((async () => {
+          try {
+            safeEditPlan = await api.generateSafeEditPlan({
+              uri: resolvedSource.uri,
+              line: resolvedSource.line,
+              character: resolvedSource.character,
+              maxSafeReferences: normalized.maxReferences,
+            });
+          } catch (error) {
+            sectionErrors.safeEditPlan = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      await Promise.all(sectionWork);
+
+      return buildObjectCheckReport({
+        request,
+        source: resolvedSource.source,
+        objectContext,
+        dependencyGraph,
+        impactAnalysis,
+        safeEditPlan,
         sectionErrors,
       });
     },
@@ -2987,8 +3096,151 @@ async function openProjectHealthDashboard(): Promise<void> {
   });
 }
 
+async function resolveObjectCheckSource(
+  api: VscPowerSyntaxApi,
+  request: ApiObjectCheckRequest,
+  maxReferences: number,
+): Promise<{
+  source: ApiObjectCheckReport['source'];
+  uri?: string;
+  objectName?: string;
+  line?: number;
+  character?: number;
+  reason?: string;
+}> {
+  if (request.uri) {
+    return {
+      source: {
+        kind: 'uri',
+        uri: request.uri,
+        ...(request.objectName ? { objectName: request.objectName } : {}),
+        ...(typeof request.line === 'number' ? { line: Math.max(0, Math.trunc(request.line)) } : {}),
+        ...(typeof request.character === 'number' ? { character: Math.max(0, Math.trunc(request.character)) } : {}),
+      },
+      uri: request.uri,
+      objectName: request.objectName,
+      line: typeof request.line === 'number' ? Math.max(0, Math.trunc(request.line)) : 0,
+      character: typeof request.character === 'number' ? Math.max(0, Math.trunc(request.character)) : 0,
+    };
+  }
+
+  if (request.objectName) {
+    const requestedName = request.objectName.trim();
+    const matches = await api.querySymbols({
+      query: requestedName,
+      limit: Math.max(8, maxReferences),
+    });
+    const exactMatches = matches.filter((symbol) => symbol.name.localeCompare(requestedName, undefined, { sensitivity: 'accent' }) === 0 || symbol.name.toLowerCase() === requestedName.toLowerCase());
+    const uniqueByUri = new Map<string, ApiSymbol>();
+    for (const match of exactMatches) {
+      if (!uniqueByUri.has(match.uri)) {
+        uniqueByUri.set(match.uri, match);
+      }
+    }
+
+    if (uniqueByUri.size === 1) {
+      const resolved = Array.from(uniqueByUri.values())[0]!;
+      return {
+        source: {
+          kind: 'object-name',
+          objectName: requestedName,
+          uri: resolved.uri,
+          line: resolved.line,
+          character: resolved.character,
+        },
+        uri: resolved.uri,
+        objectName: requestedName,
+        line: resolved.line,
+        character: resolved.character,
+      };
+    }
+
+    return {
+      source: {
+        kind: 'object-name',
+        objectName: requestedName,
+      },
+      reason: uniqueByUri.size === 0
+        ? `No se encontro un objeto resoluble para ${requestedName}.`
+        : `El nombre ${requestedName} resuelve de forma ambigua a ${uniqueByUri.size} ubicaciones.`,
+    };
+  }
+
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return {
+      source: {
+        kind: 'active-editor',
+      },
+      reason: 'No hay un editor activo para resolver el objeto actual.',
+    };
+  }
+
+  return {
+    source: {
+      kind: 'active-editor',
+      uri: editor.document.uri.toString(),
+      line: editor.selection.active.line,
+      character: editor.selection.active.character,
+    },
+    uri: editor.document.uri.toString(),
+    line: editor.selection.active.line,
+    character: editor.selection.active.character,
+  };
+}
+
 async function runWorkspaceCheck(request: ApiWorkspaceCheckRequest = {}): Promise<ApiWorkspaceCheckReport> {
   return publicApiSingleton.checkWorkspace(request);
+}
+
+async function runObjectCheck(request: ApiObjectCheckRequest = {}): Promise<ApiObjectCheckReport> {
+  return publicApiSingleton.checkObject(request);
+}
+
+async function openCurrentObjectCheck(): Promise<void> {
+  let report: ApiObjectCheckReport;
+  try {
+    report = await runObjectCheck({
+      maxDiagnostics: 12,
+      maxDependencyNodes: 12,
+      maxFindings: 24,
+      includeImpactAnalysis: false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo ejecutar el object check: ${message}`);
+    return;
+  }
+
+  await openMarkdownReportDocument(buildObjectCheckMarkdown(report));
+}
+
+async function openObjectCheck(): Promise<void> {
+  const objectName = await vscode.window.showInputBox({
+    prompt: 'Nombre del objeto PowerBuilder a comprobar',
+    placeHolder: 'w_main o nvo_customer_service',
+    ignoreFocusOut: true,
+  });
+  if (!objectName?.trim()) {
+    return;
+  }
+
+  let report: ApiObjectCheckReport;
+  try {
+    report = await runObjectCheck({
+      objectName: objectName.trim(),
+      maxDiagnostics: 12,
+      maxDependencyNodes: 12,
+      maxFindings: 24,
+      includeImpactAnalysis: false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo ejecutar el object check: ${message}`);
+    return;
+  }
+
+  await openMarkdownReportDocument(buildObjectCheckMarkdown(report));
 }
 
 async function openWorkspaceCheck(): Promise<void> {

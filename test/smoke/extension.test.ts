@@ -43,10 +43,12 @@ suite('smoke/extension', () => {
     assert.equal(api!.getReadOnlyToolBridge().apiVersion, PUBLIC_API_VERSION);
     assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'server-stats'));
     assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'workspace-check'));
+    assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'object-check'));
     assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update'));
     assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update-batch'));
     assert.equal(typeof api!.getServerStats, 'function');
     assert.equal(typeof api!.checkWorkspace, 'function');
+    assert.equal(typeof api!.checkObject, 'function');
     assert.equal(typeof api!.getPublicContract, 'function');
     assert.equal(typeof api!.getReadOnlyToolBridge, 'function');
     assert.equal(typeof api!.invokeReadOnlyTool, 'function');
@@ -64,7 +66,11 @@ suite('smoke/extension', () => {
     assert.ok(commands.includes('vscPowerSyntax.showSettingsGovernance'));
     assert.ok(commands.includes('vscPowerSyntax.applySettingsProfile'));
     assert.ok(commands.includes('vscPowerSyntax.openWorkspaceCheck'));
+    assert.ok(commands.includes('vscPowerSyntax.openCurrentObjectCheck'));
+    assert.ok(commands.includes('vscPowerSyntax.openObjectCheck'));
     assert.ok(commands.includes('powerbuilder.checkWorkspace'));
+    assert.ok(commands.includes('powerbuilder.checkCurrentObject'));
+    assert.ok(commands.includes('powerbuilder.checkObject'));
     assert.ok(commands.includes('vscPowerSyntax.openCrossProjectSymbolConflicts'));
     assert.ok(commands.includes('vscPowerSyntax.openBuildProfileMatrix'));
     assert.ok(commands.includes('vscPowerSyntax.openCodeMetrics'));
@@ -402,6 +408,61 @@ suite('smoke/extension', () => {
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Workspace Check/);
+  });
+
+  test('object check expone tool read-only y reporte markdown', async function () {
+    this.timeout(30000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+    const contextDocument = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
+    );
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+
+    const currentObjectContext = await withStepTimeout(
+      'getCurrentObjectContext(object-check warm-up)',
+      api!.getCurrentObjectContext({
+        uri: contextDocument.uri.toString(),
+        line: 12,
+        character: 28,
+      }),
+      10000,
+    );
+    assert.equal(currentObjectContext.available, true);
+
+    const objectCheckToolResult = await withStepTimeout(
+      'invokeReadOnlyTool(object-check)',
+      api!.invokeReadOnlyTool({
+        tool: 'object-check',
+        args: {
+          uri: contextDocument.uri.toString(),
+          line: 12,
+          character: 28,
+          maxFindings: 8,
+        },
+      }),
+      10000,
+    );
+    assert.equal(objectCheckToolResult.mode, 'read-only');
+    assert.equal(objectCheckToolResult.schema, 'ApiObjectCheckReport');
+    assert.equal(typeof (objectCheckToolResult.payload as { available?: unknown }).available, 'boolean');
+
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+    await withStepTimeout(
+      'executeCommand(vscPowerSyntax.openCurrentObjectCheck)',
+      vscode.commands.executeCommand('vscPowerSyntax.openCurrentObjectCheck'),
+      10000,
+    );
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Object Check/);
   });
 
   test('el runtime self-test se ejecuta como comando read-only', async function () {

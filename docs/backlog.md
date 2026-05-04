@@ -1,5 +1,489 @@
 # Backlog — Plugin PowerBuilder 2025 para VS Code
 
+**Documento técnico asociado:**
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+---
+
+## 0. Meta maestra
+
+> **El plugin debe descubrir e indexar muy rápido sin bloquear.**
+
+Toda spec nueva debe respetar esta meta. Si una mejora aumenta complejidad pero no mejora velocidad percibida, estabilidad, seguridad semántica, entendimiento real de PowerBuilder o utilidad profesional, no debe priorizarse sobre el core.
+
+---
+
+## 1. Cómo debe usar este backlog una IA
+
+- Ejecutar por orden de prioridad global.
+- No abrir ítems si sus dependencias no están cerradas, salvo trabajo preparatorio claro.
+- Crear sub-specs solo cuando vaya a implementarse el ítem.
+- No cerrar si falta código real, tests/validación suficiente, documentación alineada y actualización de roadmap/current-focus si aplica.
+- Si un ítem crece demasiado, dividir en sub-specs, no duplicar ítems padre.
+- Registrar deuda nueva en **Backlog derivado**.
+- Tratar `plugin_old` como guía, dataset y referencia de patrones probados, no como código a portar por inercia.
+- Las dependencias hacia ítems `Done` se consideran ya satisfechas y quedan solo como trazabilidad histórica.
+- No sacrificar la meta maestra por features secundarias.
+- `generated` debe representar la fuente oficial reproducible; `manual/curated` solo debe contener gaps, enrichments, overrides o candidates con política explícita.
+- La localización no debe duplicar símbolos ni traducir nombres reales de PowerBuilder. Debe aplicarse como overlay de documentación en consumers, con fallback al texto oficial.
+
+### 1.1. Checklist final para agentes Copilot
+
+Before closing any spec from this document, perform this checklist:
+
+```txt
+1. Re-read changed code.
+2. Verify no generated/manual ID changed unless the spec explicitly authorizes a breaking change.
+3. Verify no full-catalog scans were introduced in hot paths.
+4. Verify registry/datasets imports remain stable and not slice-exploded.
+5. Verify manual/common.ts contains factories/helpers only.
+6. Verify consistency report catches new structural errors.
+7. Verify docs/backlog/current-focus/roadmap are aligned.
+8. Verify tests are green.
+9. Verify done-log is updated only for fully closed specs.
+10. If real corpora are required but absent, document honest skip paths and do not fake results.
+```
+
+---
+
+## 2. Estados oficiales
+
+- **Open:** sin slice activa de cierre.
+- **Partial:** implementación parcial o primer corte operativo, pero faltan criterios de cierre.
+- **Ready for closure:** código y tests básicos existen; falta revisión final, documentación o validación ampliada.
+- **Blocked:** no puede avanzar por dependencia, entorno o decisión explícita.
+- **Done:** código, tests, documentación y validación cerrados; vive en `done-log.md`, no en backlog activo.
+- **Superseded:** ítem absorbido por otra spec activa o cerrada; no debe ejecutarse de forma independiente.
+
+Un ítem `Partial` debe incluir, siempre que sea posible:
+
+```md
+**Pendiente exacto:**
+- ...
+```
+---
+
+# 3. Backlog activo
+
+---
+
+# L2.6 — Semantic Precision v2
+
+## B284 — Semantic query explain plan
+- **Estado:** Open
+- **Track:** query diagnostics
+- **Prioridad:** Media-Alta
+- **Depende de:** B157, B163, B280
+- **Objetivo:** exportar un explain plan legible de una resolución semántica.
+- **Cierre:** plan con fases, candidatos, descartes, winner, confidence, sourceOrigin y coste aproximado.
+- **Validación esperada:** unit de plan + command/API/tool.
+- **Docs afectadas:** `docs/developer-workflows.md`, `docs/architecture.md`.
+
+## B286 — Framework knowledge pack conflict policy
+- **Estado:** Open
+- **Track:** knowledge packs / governance
+- **Prioridad:** Media
+- **Depende de:** B248, B255, B279
+- **Objetivo:** definir cómo conviven knowledge packs con símbolos reales del workspace.
+- **Cierre:** source real gana, packs degradan, evidence visible y configuración clara.
+- **Validación esperada:** PFC/OrderEntry + cross-project conflicts.
+- **Docs afectadas:** `docs/architecture.md`, `docs/developer-workflows.md`.
+
+---
+
+# L4.6 — PowerBuilder / DataWindow Advanced Reliability
+
+## B292 — PowerBuilder preprocessor / conditional patterns investigation
+- **Estado:** Open
+- **Track:** parser research
+- **Prioridad:** Media
+- **Depende de:** B272
+- **Objetivo:** investigar patrones condicionales/preprocesador si aparecen en corpus reales.
+- **Cierre:** decisión documentada: soporte, degradación o descarte explícito.
+- **Validación esperada:** research + fixtures si aplica.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
+
+---
+
+# L4.7 — Enterprise Supportability / Operability
+
+## B298 — Extension upgrade compatibility checker
+- **Estado:** Open
+- **Track:** upgrade / compatibility
+- **Prioridad:** Media
+- **Depende de:** B269, B294
+- **Objetivo:** detectar problemas al actualizar versión de extensión.
+- **Cierre:** revisa cache schema, settings antiguas, snapshots, API version, workspace artifacts y recomienda acciones.
+- **Validación esperada:** fixtures de versiones antiguas + migration warnings.
+- **Docs afectadas:** `docs/architecture.md`, `docs/developer-workflows.md`.
+
+---
+
+# L4.8 — Agent Automation Safety / Governance
+
+## B299 — Agent execution dry-run contract
+- **Estado:** Open
+- **Track:** AI automation safety
+- **Prioridad:** Alta
+- **Depende de:** B263, B249, B262
+- **Objetivo:** exigir dry-run previo para tareas IA write-enabled.
+- **Cierre:** contrato con plan, impacto, archivos, tests, docs y bloqueos antes de tocar código.
+- **Validación esperada:** dry-run schema + tool bridge.
+- **Docs afectadas:** `docs/ai-orchestrator.md`, `docs/spec-driven-development.md`.
+
+## B300 — Agent validation receipt
+- **Estado:** Open
+- **Track:** SDD / AI governance
+- **Prioridad:** Alta
+- **Depende de:** B263, B299
+- **Objetivo:** generar recibo de validación tras ejecutar una tarea.
+- **Cierre:** incluye comandos, resultados, docs tocadas, specs afectadas, riesgos y next focus.
+- **Validación esperada:** receipt schema + docs updater workflow.
+- **Docs afectadas:** `docs/spec-driven-development.md`, `docs/ai-orchestrator.md`.
+
+## B301 — Agent context budget enforcement
+- **Estado:** Open
+- **Track:** AI tooling / performance
+- **Prioridad:** Media-Alta
+- **Depende de:** B242, B263, B266
+- **Objetivo:** limitar payloads y contexto para agentes.
+- **Cierre:** tools/API aplican límites, resumen, paginación y reason codes por truncado.
+- **Validación esperada:** tool bridge tests + large workspace payload caps.
+- **Docs afectadas:** `docs/ai-strategy.md`, `docs/architecture.md`.
+
+## B302 — Agent-safe documentation updater policy
+- **Estado:** Open
+- **Track:** docs automation
+- **Prioridad:** Media
+- **Depende de:** B201, B233, B263
+- **Objetivo:** evitar que agentes dupliquen docs o actualicen documentos no propietarios.
+- **Cierre:** policy de ownership aplicada en prompts/tools y auditada por checks documentales.
+- **Validación esperada:** docs audit + prompt tests si existen.
+- **Docs afectadas:** `docs/ai-orchestrator.md`, `docs/ai-agents-catalog.md`, `docs/spec-driven-development.md`.
+
+## B303 — Agent task replay from repro/support bundle
+- **Estado:** Open
+- **Track:** AI supportability
+- **Prioridad:** Media
+- **Depende de:** B175, B258, B263, B299
+- **Objetivo:** permitir que un agente reproduzca una incidencia usando support/repro bundle.
+- **Cierre:** replay read-only con comandos sugeridos, contexto mínimo y sin requerir repo completo.
+- **Validación esperada:** replay contract + sample bundle.
+- **Docs afectadas:** `docs/developer-workflows.md`, `docs/ai-orchestrator.md`.
+
+---
+
+# L7 — Modern PowerBuilder ecosystem intelligence
+
+## B306 — HTTPClient/REST/JSON usage analyzer
+- **Estado:** Open
+- **Track:** modern PB APIs / modernization
+- **Prioridad:** Media
+- **Depende de:** B260, B261, B282
+- **Objetivo:** detectar usos de HTTPClient, REST/JSON y patrones de integración moderna para metrics/debt report.
+- **Cierre:** reporta endpoints/patrones sin exponer secretos y con redaction por defecto.
+- **Validación esperada:** fixtures PowerScript con HTTPClient/JSONParser.
+- **Docs afectadas:** `docs/rules-catalog.md`, `docs/developer-workflows.md`.
+
+## B307 — WebBrowser/WebView2 usage analyzer
+- **Estado:** Open
+- **Track:** modern UI / modernization
+- **Prioridad:** Media
+- **Depende de:** B260, B261, B282
+- **Objetivo:** detectar patrones WebBrowser/WebView2 relevantes en código PowerBuilder y clasificarlos como modernización/interop.
+- **Cierre:** metrics/debt report refleja riesgos de interop, navegación, scripting y dependencias externas sin analizar contenido web.
+- **Validación esperada:** fixtures y report snapshots.
+- **Docs afectadas:** `docs/developer-workflows.md`, `docs/rules-catalog.md`.
+
+## B308 — PBNI/PBX dependency insight v2
+- **Estado:** Open
+- **Track:** native dependencies
+- **Prioridad:** Media-Alta
+- **Depende de:** B207, B260, B261
+- **Objetivo:** profundizar en dependencias PBX/PBNI/DLL externas para reports, health y support bundle.
+- **Cierre:** external dependencies report distingue dll/pbx/unknown, alias, consumers, riesgo y build/ORCA impact.
+- **Validación esperada:** externalFunctions tests + report tests.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
+
+## B309 — Source control artifact awareness
+- **Estado:** Open
+- **Track:** workspace hygiene / source control
+- **Prioridad:** Media
+- **Depende de:** B256, B293
+- **Objetivo:** reconocer artefactos Git/SVN/SCC relevantes para evitar indexar ruido y mejorar migration assistant.
+- **Cierre:** discovery/workspace assistant explican qué se ignora, qué afecta build y qué debe versionarse.
+- **Validación esperada:** fixtures con `.git`, SVN folders y export artifacts.
+- **Docs afectadas:** `docs/developer-workflows.md`.
+
+## B310 — Object lifecycle risk report v2
+- **Estado:** Open
+- **Track:** PowerBuilder lifecycle / diagnostics
+- **Prioridad:** Media
+- **Depende de:** B213, B260, B261
+- **Objetivo:** elevar lifecycle create/destroy/constructor/destructor a reportes de riesgo y modernization.
+- **Cierre:** reporta objetos con missing-super, missing-trigger, unresolved hooks y riesgo por ancestor flow.
+- **Validación esperada:** diagnostics + metrics/debt report.
+- **Docs afectadas:** `docs/rules-catalog.md`.
+
+## B311 — Transaction and DataWindow update flow analyzer
+- **Estado:** Open
+- **Track:** transaction semantics / reports
+- **Prioridad:** Media-Alta
+- **Depende de:** B211, B212, B253, B260, B261
+- **Objetivo:** analizar flujos `SetTransObject/SetTrans/Retrieve/Update` y DataWindow update readiness.
+- **Cierre:** metrics/debt report identifica DataWindows sin transaction clara, bindings dinámicos y retrieve/update inconsistentes.
+- **Validación esperada:** diagnostics + report tests.
+- **Docs afectadas:** `docs/rules-catalog.md`, `docs/developer-workflows.md`.
+
+## B312 — SQL dynamic risk taxonomy v2
+- **Estado:** Open
+- **Track:** SQL / risk model
+- **Prioridad:** Media-Alta
+- **Depende de:** B090, B208, B211, B291
+- **Objetivo:** clasificar riesgo de SQL embebido/dinámico para diagnostics, debt report y safe edit plan.
+- **Cierre:** taxonomy con reason codes y confidence; no intenta parsear SQL dinámico no defendible.
+- **Validación esperada:** sqlRegions, dynamicStringReferences y reports.
+- **Docs afectadas:** `docs/rules-catalog.md`.
+
+## B313 — Workspace artifact cleanup advisor
+- **Estado:** Open
+- **Track:** workspace hygiene / supportability
+- **Prioridad:** Baja-Media
+- **Depende de:** B256, B258, B293
+- **Objetivo:** sugerir limpieza no destructiva de artefactos locales, staging, logs y caches del workspace.
+- **Cierre:** advisor read-only con comandos manuales y sin borrar por defecto.
+- **Validación esperada:** workspace assistant/support bundle tests.
+- **Docs afectadas:** `docs/developer-workflows.md`.
+
+## B314 — Build/ORCA failure classification v2
+- **Estado:** Open
+- **Track:** build / troubleshooting
+- **Prioridad:** Media
+- **Depende de:** B184, B187, B197, B198, B257
+- **Objetivo:** clasificar fallos de build/ORCA para troubleshooting y support bundle.
+- **Cierre:** reason codes comunes para missing tool, invalid env, compile errors, stale staging, source conflict y packaging disabled.
+- **Validación esperada:** build log parser, ORCA runner, support bundle.
+- **Docs afectadas:** `docs/developer-workflows.md`, `docs/rules-catalog.md`.
+
+## B315 — Extension package self-verification v2
+- **Estado:** Open
+- **Track:** release / package quality
+- **Prioridad:** Media
+- **Depende de:** B250, B297, B298
+- **Objetivo:** reforzar verificación del VSIX empaquetado con self-test y smoke de instalación.
+- **Cierre:** release verify ejecuta activation, commands, LSP handshake, settings defaults y API descriptor desde VSIX.
+- **Validación esperada:** package:vsix + release:verify.
+- **Docs afectadas:** `docs/testing.md`, `README.md`.
+
+## B316 — Documentation drift detector
+- **Estado:** Open
+- **Track:** docs governance / SDD
+- **Prioridad:** Media-Alta
+- **Depende de:** B201, B233, B302
+- **Objetivo:** detectar drift entre backlog, done-log, specs, roadmap, current-focus y código visible.
+- **Cierre:** check local que marca items Done activos, specs sin docs, docs duplicadas y foco inconsistente.
+- **Validación esperada:** docs audit command/test.
+- **Docs afectadas:** `docs/spec-driven-development.md`, `docs/ai-orchestrator.md`.
+
+## B317 — Backlog lifecycle automation guard
+- **Estado:** Open
+- **Track:** SDD / backlog governance
+- **Prioridad:** Media
+- **Depende de:** B316
+- **Objetivo:** proteger transiciones Open/Partial/Done y movimiento backlog ↔ done-log.
+- **Cierre:** guard valida que todo Done tenga entrada done-log, validación, docs y que no permanezca en backlog activo.
+- **Validación esperada:** docs lifecycle tests.
+- **Docs afectadas:** `docs/spec-driven-development.md`, `docs/backlog.md`, `docs/done-log.md`.
+
+## B320 — DataWindow expression/property official catalog
+- **Estado:** Open
+- **Track:** knowledge / datawindow
+- **Prioridad:** Media
+- **Depende de:** B318, B289
+- **Objetivo:** integrar funciones de expresiones de DataWindow y propiedades de objetos DW en el catálogo v2.
+- **Razón técnica:** DataWindow sigue siendo sublenguaje propio; sus expresiones, propiedades y paths no deben mezclarse con PowerScript normal ni servirse desde scans globales.
+- **Criterios de cierre verificables:** dominios `datawindow-expression-functions` y `datawindow-properties` poblados con provenance oficial/curada, namespace `datawindow-expression` o `datawindow`, lookups indexados y consumers limitados a contexto DataWindow defendible.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/rules-catalog.md`, `docs/testing.md`.
+- **Validación esperada:** tests DataWindow de hover/completion/diagnostics/property paths, negativos fuera de DataWindow y smoke real sobre `.srd`.
+
+## B321 — Generated catalog domain enrichment v2
+- **Estado:** Superseded
+- **Track:** knowledge / catalog
+- **Prioridad:** Media
+- **Superseded by:** B366, B367
+- **Motivo:** el enriquecimiento del catálogo generated queda absorbido por `B366 — Official Appeon scraper bugfixes and structural enrichment v2` y `B367 — Generated catalog as complete official source v2`.
+- **Acción:** no abrir esta spec como trabajo independiente salvo que aparezca una necesidad concreta no cubierta por B366/B367.
+
+## B327 — DataWindow constants and property path catalog
+- **Estado:** Open
+- **Track:** knowledge / datawindow
+- **Prioridad:** Media-Alta
+- **Depende de:** B287, B320
+- **Objetivo:** catalogar constantes, property paths y nombres de propiedades DataWindow reutilizables por Describe/Modify/Object.
+- **Razón técnica:** hoy existen resolvers seguros de property paths, pero la lista oficial/curada no vive aún como catálogo versionado reusable.
+- **Criterios de cierre verificables:** dominios `datawindow-constants` y `datawindow-properties` poblados, separados del parser PowerScript y consumidos solo con contexto DataWindow.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/rules-catalog.md`.
+- **Validación esperada:** property path tests, negativos dinámicos y smoke `.srd` real.
+
+## B329 — Catalog-driven semantic tokens integration
+- **Estado:** Open
+- **Track:** semantic tokens / catalog
+- **Prioridad:** Media
+- **Depende de:** B318, B324
+- **Objetivo:** consumir metadata del catálogo para tokens seguros sin lookup caro por token.
+- **Razón técnica:** semantic tokens existe, pero la auditoría no confirmó integración catalog-driven completa; cualquier ampliación debe usar caché/bounds y preservar tokens actuales.
+- **Criterios de cierre verificables:** categorías nuevas testeadas, modifiers compatibles y ausencia de full catalog scans por token.
+- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
+- **Validación esperada:** `semanticTokens.test.ts`, `hotPathAllocationBudget.test.ts`, performance focal si aumenta clasificación.
+
+## B335 — Catalog coverage dashboard and consistency gate
+- **Estado:** Open
+- **Track:** catalog governance
+- **Prioridad:** Media
+- **Depende de:** B367, B339
+- **Objetivo:** publicar una vista/gate de cobertura por dominio, kind, dataset y provenance.
+- **Razón técnica:** `buildCatalogConsistencyReport()` ya expone counts y audit reproducible de provenance/authority por dominio, pero `officialCoverage.generated.ts` debe alinearse con el nuevo generated oficial completo y con la política generated/manual.
+- **Criterios de cierre verificables:** reporte reproducible con kindCounts/domainCounts/datasetCounts/provenance, umbrales documentados y fallo claro ante drift.
+- **Docs afectadas:** `docs/testing.md`, `docs/performance-budget.md`.
+- **Validación esperada:** tests de consistency/gate y artifact de cobertura local.
+
+## B340 — ORCA/PBAutoBuild tooling vocabulary catalog
+- **Estado:** Open
+- **Track:** tooling catalog
+- **Prioridad:** Baja-Media
+- **Depende de:** B293, B319
+- **Objetivo:** modelar vocabulario de tooling PowerBuilder fuera del hot path semántico.
+- **Razón técnica:** `powerbuilder-tooling` existe como namespace, pero ORCA/PBAutoBuild no deben contaminar resolución PowerScript ni DataWindow.
+- **Criterios de cierre verificables:** dominio `tooling-symbols` poblado solo para docs/health/build surfaces, sin consumo por query semántica interactiva.
+- **Docs afectadas:** `docs/developer-workflows.md`, `docs/architecture.md`.
+- **Validación esperada:** tests de build/ORCA surfaces y architectureImports.
+
+## B342 — Extract proven symbol heuristics from plugin_old
+- **Estado:** Open
+- **Track:** plugin_old migration / semantics
+- **Prioridad:** Media
+- **Depende de:** B281, B283
+- **Objetivo:** revisar heurísticas probadas de `plugin_old` sin crear un motor paralelo.
+- **Razón técnica:** la auditoría confirmó valor potencial en linked editing, inlay hints, folding, callable counts y edge cases DataWindow; completion scoring y core semántico base ya están absorbidos o superados.
+- **Criterios de cierre verificables:** matriz `already implemented / partial / valuable gap / obsolete / unsafe` actualizada, mejoras adaptadas a `KnowledgeBase`/snapshots/query service y tests proporcionales.
+- **Docs afectadas:** `docs/plugin-old-migration-opportunities.md`, `docs/testing.md`.
+- **Validación esperada:** tests focales de la heurística migrada y architectureImports.
+
+## B344 — DataWindow binding edge cases from plugin_old
+- **Estado:** Open
+- **Track:** DataWindow / plugin_old migration
+- **Prioridad:** Media-Alta
+- **Depende de:** B287, B342
+- **Objetivo:** extraer casos probados de bindings DataWindow/child/report/dddw desde `plugin_old` como fixtures o reglas nuevas.
+- **Razón técnica:** `plugin_old` contiene lógica rica de child links y column occurrences; debe migrarse como conocimiento/test, no como provider cliente acoplado.
+- **Criterios de cierre verificables:** fixtures representativos, resolvers actuales extendidos sin parsear DataWindow como PowerScript y degradación honesta para bindings dinámicos.
+- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/plugin-old-migration-opportunities.md`.
+- **Validación esperada:** DataWindow unit/golden tests y smoke real `.srd`.
+
+## B354 — Server runtime orchestration decomposition
+- **Estado:** Open
+- **Track:** runtime architecture
+- **Prioridad:** Alta
+- **Depende de:** B267, B274
+- **Trazabilidad:** B347
+- **Objetivo:** separar orquestación runtime de LSP wiring sin cambiar scheduling/backpressure/memory policies.
+- **Razón técnica:** `server.ts` aún administra scheduler, readiness, memory pressure, serving cache, persistence y journals en el mismo archivo de handlers.
+- **Criterios de cierre verificables:** policies siguen centralizadas, stats/health/status conservan payloads, build/legacy no entran al hot path y PFC/OrderEntry no muestran loops ni crashes.
+- **Docs afectadas:** `docs/architecture.md`, `docs/performance-budget.md`, `docs/testing.md`.
+- **Validación esperada:** scheduler/backpressure/memory/runtimeHealth/statusBar tests, performance gate y real-corpus smoke.
+
+---
+
+# L5.1 — Official Generated Catalog / Source-of-truth / Localization
+
+## B366 — Official Appeon scraper bugfixes and structural enrichment v2
+- **Estado:** Open
+- **Track:** knowledge / generator / official catalog
+- **Prioridad:** Alta
+- **Depende de:** B357, B365, B339
+- **Objetivo:** corregir fallos actuales del scraper oficial de Appeon y extraer la máxima estructura semántica aprovechable desde la documentación oficial: `appliesTo` real, múltiples syntaxes separadas, argumentos estructurados, return values, obsolete/deprecated, event IDs, return codes, usage notes, object metadata, reserved word metadata y enums.
+- **Razón técnica:** el generated actual ya extrae nombres, summaries, signatures, appliesTo, ownerTypes y sourceUrl, pero todavía pierde información oficial útil y tiene algunos fallos estructurales. Las páginas oficiales contienen secciones reutilizables como `Description`, `Syntax`, `Argument`, `Return value`, `Usage`, `Event ID`, `Return Values`, `Properties`, `Events` y `Functions`.
+
+### Relación con enumerated datatypes
+
+- B366 prepara infraestructura general de scraping estructural.
+- La cobertura oficial completa de `enumerated-types` y `enumerated-values` quedó cerrada en B361 (`specs/375-official-enumerated-datatype-extractor-and-coverage-rail`).
+- B366 no debe reabrir B361 ni sustituir su rail específico de enumerados.
+
+### Fallos actuales que debe corregir
+
+1. **`Applies to` contaminado por links internos**
+   - Fallo observado: `extractAppliesToLabels()` prioriza `<a>` antes que párrafos/tablas.
+   - Riesgo: captura enlaces como `SetItem` en vez del `Applies to` real.
+   - Caso obligatorio: `SetItemDate` no debe generar `appliesTo: ["SetItem"]`; si la página oficial indica Web DataWindow server component, no debe clasificarse como DataWindow/DataStore normal.
+
+2. **Múltiples syntaxes concatenadas en una sola firma**
+   - Fallo observado: se normaliza todo el `<pre>` antes de dividir líneas.
+   - Caso obligatorio: `OLEActivate` debe generar dos signatures separadas, una con `integer column` y otra con `string column`.
+
+3. **Obsolete/deprecated insuficiente**
+   - Fallo observado: solo se detecta `obsolete` en el título.
+   - Debe detectar también `Obsolete method`, `Obsolete function`, `should not be used`, `will be removed`, `obsolete values`.
+   - Debe extraer `obsoleteMessage`, `replacement` y `risk: 'deprecated'`.
+   - Caso obligatorio: `SetItemDate` debe marcarse como obsolete y deprecated.
+
+4. **Faltan return values**
+   - Fallo observado: no se extrae la sección `Return value`.
+   - Casos obligatorios:
+     - `ApplyTheme` debe extraer `returnType: "Integer"` y descripción de retorno.
+     - `AddItemArray` debe extraer `returnType: "Long"` y descripción de retorno.
+
+5. **Faltan argumentos estructurados**
+   - Fallo observado: los parámetros solo viven como texto dentro de `signature.label`.
+   - Caso obligatorio: `AddItemArray` debe extraer `ParentItemHandle`, `ParentItemPath` y `Key` con documentación.
+
+6. **Faltan Event IDs**
+   - Fallo observado: eventos como `BeginDrag` solo generan firma.
+   - Caso obligatorio: `BeginDrag` debe extraer `pbm_lvnbegindrag` para `ListView` y `pbm_tvnbegindrag` para `TreeView`.
+
+7. **Faltan syntax groups en eventos**
+   - Fallo observado: se pierden grupos tipo `Syntax 1`, `Syntax 2`, `Syntax 3`.
+   - Caso obligatorio: `DragDrop` debe conservar grupos para `ListBox/PictureListBox/ListView/Tab`, `TreeView` y `windows and other controls`.
+
+8. **Summaries genéricos en system object datatypes**
+   - Fallo observado: summaries como `Official documented PowerBuilder system object/control datatype X`.
+   - Caso obligatorio: `PDFDocumentProperties` debe extraer summary específico, `baseType: "PDFModel"` y propiedades principales como `Application`, `Author`, `Keywords`, `Subject`, `Title`.
+
+9. **Reserved words con `*` pierden metadata estructural**
+   - Fallo observado: `canBeFunctionName` solo acaba en summary textual.
+   - Debe producir `reservedWordCanBeFunctionName: true` e `identifierPolicy: 'allowed-as-function-name'`.
+
+10. **Generated actual mezcla scraping, coverage, rendering y heurísticas**
+    - Debe dividirse el script en módulos.
+    - El entrypoint debe orquestar; las reglas deben vivir en módulos separados.
+
+### Información máxima a extraer por tipo de página
+
+#### PowerScript functions
+
+Extraer:
+
+```txt
+title
+canonicalName
+description
+documentation
+appliesTo
+ownerTypes
+syntaxGroups
+signatures
+parameters
+returnType
+returnDocumentation
+returnsNullOnNullArgument
+usageNotes
+limitations
+examplesAvailable
+seeAlso
+obsolete
+obsoleteMessage
+replacement
+risk
 sourceUrl
 ```
 
@@ -1006,875 +1490,6 @@ npm run test:unit -- --grep "localization|generated|ids|compatibility|consistenc
 
 # L5.2 — Enumerated Catalog / DataWindow Knowledge
 
-## B376 — Workspace check command and AI-readable validation report
-- **Estado:** Open
-- **Track:** developer workflow / diagnostics / AI supportability
-- **Prioridad:** Alta
-- **Depende de:** B335, B365
-- **Objetivo:** añadir una tool/API read-only consolidada para comprobar el workspace con las capacidades reales del plugin y devolver un informe estructurado apto para IA.
-- **Razón técnica:** la API actual expone piezas útiles (`server-stats`, `semantic-workspace-manifest`, `code-metrics`, `technical-debt-report`, `build-profile-matrix`, etc.), pero no existe un comando único equivalente a “compilar/checkear” desde la perspectiva del plugin. Una IA necesita una llamada única que responda: “¿qué errores detecta el plugin ahora mismo y puedo cerrar la spec?”.
-
----
-
-## Diagnóstico actual
-
-La API pública ya contiene muchas superficies read-only útiles:
-
-```txt
-server-stats
-semantic-workspace-manifest
-code-metrics
-technical-debt-report
-build-profile-matrix
-cross-project-symbol-conflicts
-datawindow-sql-lineage
-current-object-context
-impact-analysis
-safe-edit-plan
-safe-batch-refactor-plan
-```
-
-Pero falta una superficie consolidada tipo:
-
-```txt
-workspace-check
-checkWorkspace()
-powerbuilder.checkWorkspace
-```
-
-La nueva API no debe crear un motor paralelo; debe actuar como **orquestador read-only** de información ya disponible.
-
----
-
-## Alcance incluido
-
-### 1. Añadir read-only tool
-
-Añadir a `ApiReadOnlyToolName`:
-
-```ts
-| 'workspace-check'
-```
-
-Añadir descriptor:
-
-```ts
-{
-  name: 'workspace-check',
-  description: 'Ejecuta una comprobación read-only consolidada del workspace usando discovery, indexing, diagnostics, health, catálogo y señales semánticas ya disponibles.',
-  command: 'powerbuilder.checkWorkspace',
-  requestSchema: 'ApiWorkspaceCheckRequest',
-  responseSchema: 'ApiWorkspaceCheckReport',
-  usesActiveEditorFallback: false,
-}
-```
-
-### 2. Añadir comando VS Code
-
-```txt
-PowerBuilder: Check Workspace
-```
-
-Command ID:
-
-```txt
-powerbuilder.checkWorkspace
-```
-
-Opcional si encaja con la arquitectura existente:
-
-```txt
-PowerBuilder: Check Current File
-powerbuilder.checkCurrentFile
-```
-
-### 3. Añadir método público
-
-Añadir a `VscPowerSyntaxApi`:
-
-```ts
-checkWorkspace(request?: ApiWorkspaceCheckRequest): Promise<ApiWorkspaceCheckReport>;
-```
-
-Añadir a `PUBLIC_API_CONTRACT_METHODS`:
-
-```ts
-{
-  name: 'checkWorkspace',
-  command: 'powerbuilder.checkWorkspace',
-  access: 'read-only',
-  stability: 'stable',
-  requestSchema: 'ApiWorkspaceCheckRequest',
-  responseSchema: 'ApiWorkspaceCheckReport',
-}
-```
-
-### 4. Añadir schemas al contrato público
-
-Añadir a `PUBLIC_API_CONTRACT_SCHEMAS`:
-
-```ts
-{ name: 'ApiWorkspaceCheckRequest', version: '1.0.0', kind: 'request' },
-{ name: 'ApiWorkspaceCheckReport', version: '1.0.0', kind: 'response' },
-{ name: 'ApiWorkspaceCheckFinding', version: '1.0.0', kind: 'response' },
-{ name: 'ApiWorkspaceCheckCatalogSummary', version: '1.0.0', kind: 'response' },
-```
-
----
-
-## Modelo de API objetivo
-
-### Request
-
-```ts
-export type ApiWorkspaceCheckMode = 'quick' | 'full' | 'catalog' | 'diagnostics';
-
-export interface ApiWorkspaceCheckRequest {
-  mode?: ApiWorkspaceCheckMode;
-  includeDiagnostics?: boolean;
-  includeCatalog?: boolean;
-  includeHealth?: boolean;
-  includeBuildProfiles?: boolean;
-  includeTechnicalDebt?: boolean;
-  includeCodeMetrics?: boolean;
-  includeManifest?: boolean;
-  maxDiagnostics?: number;
-  maxFiles?: number;
-  maxFindings?: number;
-}
-```
-
-### Finding
-
-```ts
-export interface ApiWorkspaceCheckFinding {
-  code: string;
-  severity: 'info' | 'warning' | 'error';
-  area:
-    | 'readiness'
-    | 'indexing'
-    | 'diagnostics'
-    | 'catalog'
-    | 'semantic'
-    | 'datawindow'
-    | 'build'
-    | 'health'
-    | 'performance'
-    | 'localization'
-    | 'unknown';
-  message: string;
-  detail?: string;
-  uri?: string;
-  line?: number;
-  character?: number;
-  evidence?: string[];
-  suggestedAction?: string;
-}
-```
-
-### Catalog summary
-
-```ts
-export interface ApiWorkspaceCheckCatalogSummary {
-  available: boolean;
-  totalEntries?: number;
-  duplicates?: number;
-  missingSignatures?: number;
-  invalidEnumTypes?: number;
-  orphanEnumValues?: number;
-  orphanLocalizationOverlays?: number;
-  generatedManualConflicts?: number;
-  consistencyStatus: 'passed' | 'warning' | 'failed' | 'unknown';
-}
-```
-
-### Summary
-
-```ts
-export interface ApiWorkspaceCheckSummary {
-  projectCount: number;
-  objectCount: number;
-  exportedSymbolCount: number;
-
-  diagnostics: {
-    error: number;
-    warning: number;
-    info: number;
-    hint: number;
-  };
-
-  healthStatus?: 'healthy' | 'warning' | 'error';
-  readinessState?: string;
-
-  catalogIssues: number;
-  blockingFindings: number;
-  warningFindings: number;
-
-  generatedFromCache?: boolean;
-  truncated: boolean;
-}
-```
-
-### Report
-
-```ts
-export interface ApiWorkspaceCheckReport {
-  schemaVersion: '1.0.0';
-  generatedAt: string;
-  apiVersion: string;
-  mode: ApiWorkspaceCheckMode;
-  status: 'passed' | 'warning' | 'failed';
-  available: boolean;
-  reason?: string;
-
-  summary: ApiWorkspaceCheckSummary;
-
-  readiness?: ApiServerStats['readiness'];
-  health?: ApiRuntimeHealthReport;
-  diagnostics?: ApiDiagnosticsSnapshot;
-  catalog?: ApiWorkspaceCheckCatalogSummary;
-  manifest?: ApiSemanticWorkspaceManifest;
-  codeMetrics?: ApiPowerBuilderCodeMetrics;
-  technicalDebt?: ApiPowerBuilderTechnicalDebtReport;
-  buildProfiles?: ApiBuildProfileMatrix;
-
-  findings: ApiWorkspaceCheckFinding[];
-  recommendedActions: string[];
-}
-```
-
----
-
-## Composición interna esperada
-
-`workspace-check` debe componer datos ya existentes, sin duplicar motores:
-
-```txt
-1. getServerStats()
-2. getSemanticWorkspaceManifest()
-3. ApiServerStats.diagnostics
-4. ApiServerStats.health
-5. catalog consistency report si está disponible
-6. localization consistency si B371-B375 están implementadas
-7. getBuildProfileMatrix() solo en full o si includeBuildProfiles=true
-8. getPowerBuilderCodeMetrics() solo en full o si includeCodeMetrics=true
-9. getPowerBuilderTechnicalDebtReport() solo en full o si includeTechnicalDebt=true
-```
-
----
-
-## Reglas de estado
-
-### `failed`
-
-El reporte debe devolver `failed` si ocurre cualquiera de estas condiciones:
-
-```txt
-diagnostics.error > 0
-health.status === 'error'
-catalog consistency failed
-readiness blocked/error
-required index unavailable
-```
-
-### `warning`
-
-El reporte debe devolver `warning` si ocurre cualquiera de estas condiciones y no hay errores bloqueantes:
-
-```txt
-diagnostics.warning > 0
-health.status === 'warning'
-index degraded
-catalog warnings
-build profile invalid but not required
-localization orphan overlays warning
-```
-
-### `passed`
-
-El reporte debe devolver `passed` si:
-
-```txt
-no hay diagnostics error
-no hay health error
-no hay catalog failure
-no hay readiness blocked/error
-```
-
----
-
-## Reglas estrictas
-
-- La tool debe ser read-only.
-- No debe modificar archivos.
-- No debe borrar caches.
-- No debe ejecutar ORCA/build por defecto.
-- No debe hacer full scans si hay índices/caches válidos.
-- No debe bloquear VS Code.
-- No debe inventar resultados si un subsistema no está disponible.
-- Si falta información, debe devolver `available: false` o `reason` claro para esa sección.
-- Debe respetar límites de contexto (`maxDiagnostics`, `maxFiles`, `maxFindings`).
-- Debe marcar `truncated: true` cuando recorte información.
-
----
-
-## Salidas recomendadas
-
-### API / tool
-
-La salida primaria debe ser JSON estructurado:
-
-```txt
-ApiWorkspaceCheckReport
-```
-
-### Command Palette
-
-El comando `PowerBuilder: Check Workspace` puede mostrar:
-
-```txt
-passed / warning / failed
-número de errores
-número de warnings
-readiness
-health
-acciones recomendadas
-```
-
-### Export opcional
-
-Si encaja con la arquitectura existente, puede exportar:
-
-```txt
-test/results/pb-check/latest.json
-test/results/pb-check/latest.md
-test/results/pb-check/latest.diagnostics.json
-```
-
-Este export debe ser explícito, no automático si no existe una política de artifacts.
-
----
-
-## Ejemplo de salida esperada
-
-```json
-{
-  "schemaVersion": "1.0.0",
-  "generatedAt": "2026-05-03T21:45:00.000Z",
-  "apiVersion": "2.14.0",
-  "mode": "quick",
-  "status": "failed",
-  "available": true,
-  "summary": {
-    "projectCount": 3,
-    "objectCount": 1240,
-    "exportedSymbolCount": 98234,
-    "diagnostics": {
-      "error": 3,
-      "warning": 42,
-      "info": 18,
-      "hint": 0
-    },
-    "healthStatus": "warning",
-    "readinessState": "ready",
-    "catalogIssues": 1,
-    "blockingFindings": 3,
-    "warningFindings": 43,
-    "truncated": false
-  },
-  "findings": [
-    {
-      "code": "diagnostics.errors-present",
-      "severity": "error",
-      "area": "diagnostics",
-      "message": "El workspace contiene diagnostics de error.",
-      "suggestedAction": "Revisar diagnostics por archivo antes de cerrar la spec."
-    }
-  ],
-  "recommendedActions": [
-    "Corregir diagnostics de error.",
-    "Revisar catalog consistency report."
-  ]
-}
-```
-
----
-
-## Criterios de cierre verificables
-
-- `ApiReadOnlyToolName` incluye `workspace-check`.
-- `READ_ONLY_TOOL_DESCRIPTORS` incluye `workspace-check`.
-- `getReadOnlyToolBridgeDescriptor()` publica `workspace-check`.
-- `PUBLIC_API_CONTRACT_METHODS` incluye `checkWorkspace`.
-- `PUBLIC_API_CONTRACT_SCHEMAS` incluye los schemas nuevos.
-- `VscPowerSyntaxApi` expone `checkWorkspace`.
-- Existe command `powerbuilder.checkWorkspace`.
-- `ApiWorkspaceCheckReport.status` devuelve `passed`, `warning` o `failed`.
-- El reporte incluye diagnostics agregados.
-- El reporte incluye readiness y health.
-- El reporte incluye catalog consistency si está disponible.
-- La tool es read-only.
-- No se ejecuta ORCA/build por defecto.
-- Tests cubren workspace sano.
-- Tests cubren workspace con diagnostics.
-- Tests cubren catalog failure.
-- Tests cubren truncado por límites.
-- Docs explican que este comando es el equivalente “check/compile-like” del plugin para IA.
-
----
-
-## Docs afectadas
-
-- `docs/developer-workflows.md`
-- `docs/ai-orchestrator.md`
-- `docs/testing.md`
-- `docs/architecture.md`
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `README.md` si se expone en Command Palette.
-- `docs/backlog.md`
-- `docs/current-focus.md`
-
----
-
-## Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "workspace-check|publicApi|readOnlyTool|diagnostics|health|catalog"
-npm run test:unit -- --grep "contract|publicApi|toolBridge"
-```
----
-
-## B377 — Current object/class check command and AI-readable validation report
-- **Estado:** Open
-- **Track:** developer workflow / diagnostics / AI supportability
-- **Prioridad:** Alta
-- **Depende de:** B376, B365
-- **Objetivo:** añadir una tool/API read-only para comprobar una clase/objeto PowerBuilder completo usando el índice semántico, diagnostics, contexto del objeto, dependencias inmediatas, DataWindow bindings y safe-edit signals.
-- **Razón técnica:** una IA necesita poder validar una unidad concreta después de modificar o revisar una clase, ventana, userobject, menú, datastore, DataWindow o nonvisual object. `workspace-check` valida el workspace completo; esta spec valida una unidad focal sin obligar a analizar todo el workspace.
-
----
-
-## Alcance incluido
-
-### 1. Nueva read-only tool
-
-Añadir a `ApiReadOnlyToolName`:
-
-```ts
-| 'object-check'
-```
-
-Descriptor:
-
-```ts
-{
-  name: 'object-check',
-  description: 'Ejecuta una comprobación read-only de una clase/objeto PowerBuilder completo usando contexto semántico, diagnostics, dependencias, bindings DataWindow y health local.',
-  command: 'powerbuilder.checkCurrentObject',
-  requestSchema: 'ApiObjectCheckRequest',
-  responseSchema: 'ApiObjectCheckReport',
-  usesActiveEditorFallback: true,
-}
-```
-
----
-
-### 2. Comandos VS Code
-
-```txt
-PowerBuilder: Check Current Object
-PowerBuilder: Check Object...
-```
-
-Command IDs:
-
-```txt
-powerbuilder.checkCurrentObject
-powerbuilder.checkObject
-```
-
----
-
-### 3. Método público
-
-Añadir a `VscPowerSyntaxApi`:
-
-```ts
-checkObject(request?: ApiObjectCheckRequest): Promise<ApiObjectCheckReport>;
-```
-
-Añadir a `PUBLIC_API_CONTRACT_METHODS`:
-
-```ts
-{
-  name: 'checkObject',
-  command: 'powerbuilder.checkCurrentObject',
-  access: 'read-only',
-  stability: 'stable',
-  requestSchema: 'ApiObjectCheckRequest',
-  responseSchema: 'ApiObjectCheckReport',
-}
-```
-
----
-
-### 4. Añadir schemas al contrato público
-
-Añadir a `PUBLIC_API_CONTRACT_SCHEMAS`:
-
-```ts
-{ name: 'ApiObjectCheckRequest', version: '1.0.0', kind: 'request' },
-{ name: 'ApiObjectCheckReport', version: '1.0.0', kind: 'response' },
-{ name: 'ApiObjectCheckFinding', version: '1.0.0', kind: 'response' },
-{ name: 'ApiObjectCheckSummary', version: '1.0.0', kind: 'response' },
-```
-
----
-
-## Modelo de API objetivo
-
-### Request
-
-```ts
-export interface ApiObjectCheckRequest {
-  uri?: string;
-  objectName?: string;
-  line?: number;
-  character?: number;
-
-  includeDiagnostics?: boolean;
-  includeContext?: boolean;
-  includeDependencyGraph?: boolean;
-  includeImpactAnalysis?: boolean;
-  includeSafeEditPlan?: boolean;
-  includeDataWindowBindings?: boolean;
-  includeEmbeddedSql?: boolean;
-  includeLifecycle?: boolean;
-
-  maxDiagnostics?: number;
-  maxReferences?: number;
-  maxDependencyNodes?: number;
-  maxFindings?: number;
-}
-```
-
----
-
-### Finding
-
-```ts
-export interface ApiObjectCheckFinding {
-  code: string;
-  severity: 'info' | 'warning' | 'error';
-  area:
-    | 'parser'
-    | 'diagnostics'
-    | 'semantic'
-    | 'inheritance'
-    | 'override'
-    | 'lifecycle'
-    | 'datawindow'
-    | 'sql'
-    | 'dependency'
-    | 'safe-edit'
-    | 'health'
-    | 'unknown';
-
-  message: string;
-  detail?: string;
-  uri?: string;
-  line?: number;
-  character?: number;
-  evidence?: string[];
-  suggestedAction?: string;
-}
-```
-
----
-
-### Summary
-
-```ts
-export interface ApiObjectCheckSummary {
-  objectName?: string;
-  objectKind?: string;
-  uri?: string;
-
-  diagnostics: {
-    error: number;
-    warning: number;
-    info: number;
-    hint: number;
-  };
-
-  dependencyCount: number;
-  dependentCount: number;
-  unresolvedDependencyCount: number;
-  ambiguousDependencyCount: number;
-
-  dataWindowBindingCount: number;
-  unresolvedDataWindowBindingCount: number;
-
-  embeddedSqlCount: number;
-  dynamicSqlRiskCount: number;
-
-  blockingFindings: number;
-  warningFindings: number;
-
-  truncated: boolean;
-}
-```
-
----
-
-### Report
-
-```ts
-export interface ApiObjectCheckReport {
-  schemaVersion: '1.0.0';
-  generatedAt: string;
-  apiVersion: string;
-
-  available: boolean;
-  reason?: string;
-
-  status: 'passed' | 'warning' | 'failed';
-
-  source: {
-    kind: 'active-editor' | 'uri' | 'object-name';
-    uri?: string;
-    objectName?: string;
-    line?: number;
-    character?: number;
-  };
-
-  summary: ApiObjectCheckSummary;
-
-  objectContext?: ApiCurrentObjectContext;
-  dependencyGraph?: ApiPowerBuilderDependencyGraph;
-  impactAnalysis?: ApiImpactAnalysis;
-  safeEditPlan?: ApiSafeEditPlan;
-
-  findings: ApiObjectCheckFinding[];
-  recommendedActions: string[];
-}
-```
-
----
-
-## Composición interna esperada
-
-La tool debe reutilizar APIs existentes:
-
-```txt
-1. getCurrentObjectContext()
-2. getPowerBuilderDependencyGraph()
-3. analyzeImpact()
-4. generateSafeEditPlan()
-5. diagnostics del objeto/documento desde ApiCurrentObjectContext
-6. DataWindow bindings desde ApiCurrentObjectContext.dataWindowBindings
-7. embedded SQL anchors desde ApiCurrentObjectContext.embeddedSqlAnchors
-8. dependency graph summary
-```
-
-No debe crear un motor paralelo.
-
----
-
-## Reglas de estado
-
-### `failed`
-
-El reporte debe devolver `failed` si ocurre cualquiera de estas condiciones:
-
-```txt
-diagnostics.error > 0
-objectContext.available === false
-safeEditPlan.blocked === true, si includeSafeEditPlan=true
-unresolved critical inheritance/base object
-critical parser failure for the object
-```
-
-### `warning`
-
-El reporte debe devolver `warning` si ocurre cualquiera de estas condiciones y no hay errores bloqueantes:
-
-```txt
-diagnostics.warning > 0
-dependencyGraph has unresolved/ambiguous dependencies
-DataWindow bindings unresolved
-dynamic SQL risk detected
-safeEditPlan has high risks but not blocked
-```
-
-### `passed`
-
-El reporte debe devolver `passed` si:
-
-```txt
-objectContext available
-no diagnostics error
-no critical unresolved inheritance
-no blocking safe edit plan
-```
-
----
-
-## Reglas estrictas
-
-- La tool debe ser read-only.
-- No debe modificar archivos.
-- No debe ejecutar ORCA/build.
-- No debe hacer full workspace scan si el objeto ya está indexado.
-- Debe usar active editor fallback solo si no se pasa `uri/objectName`.
-- Si el objeto no está indexado, debe devolver `available: false` y `reason` claro.
-- Debe respetar límites `maxDiagnostics`, `maxReferences`, `maxDependencyNodes`, `maxFindings`.
-- Debe marcar `truncated: true` si recorta resultados.
-- No debe inventar resultados cuando una sección no esté disponible.
-- No debe bloquear VS Code.
-
----
-
-## Salidas recomendadas
-
-### API / tool
-
-La salida primaria debe ser JSON estructurado:
-
-```txt
-ApiObjectCheckReport
-```
-
-### Command Palette
-
-El comando `PowerBuilder: Check Current Object` puede mostrar:
-
-```txt
-passed / warning / failed
-nombre del objeto
-kind del objeto
-diagnostics agregados
-riesgos principales
-acciones recomendadas
-```
-
-### Export opcional
-
-Si encaja con la arquitectura existente, puede exportar explícitamente:
-
-```txt
-test/results/pb-check/current-object.latest.json
-test/results/pb-check/current-object.latest.md
-```
-
----
-
-## Ejemplo de salida esperada
-
-```json
-{
-  "schemaVersion": "1.0.0",
-  "generatedAt": "2026-05-03T22:30:00.000Z",
-  "apiVersion": "2.14.0",
-  "available": true,
-  "status": "warning",
-  "source": {
-    "kind": "active-editor",
-    "uri": "file:///workspace/app/w_customer.srw",
-    "objectName": "w_customer"
-  },
-  "summary": {
-    "objectName": "w_customer",
-    "objectKind": "window",
-    "uri": "file:///workspace/app/w_customer.srw",
-    "diagnostics": {
-      "error": 0,
-      "warning": 2,
-      "info": 1,
-      "hint": 0
-    },
-    "dependencyCount": 6,
-    "dependentCount": 3,
-    "unresolvedDependencyCount": 1,
-    "ambiguousDependencyCount": 0,
-    "dataWindowBindingCount": 2,
-    "unresolvedDataWindowBindingCount": 1,
-    "embeddedSqlCount": 1,
-    "dynamicSqlRiskCount": 0,
-    "blockingFindings": 0,
-    "warningFindings": 3,
-    "truncated": false
-  },
-  "findings": [
-    {
-      "code": "datawindow.binding.unresolved",
-      "severity": "warning",
-      "area": "datawindow",
-      "message": "Hay un binding DataWindow no resuelto en el objeto actual.",
-      "suggestedAction": "Revisar dataobject asignado y disponibilidad del .srd correspondiente."
-    }
-  ],
-  "recommendedActions": [
-    "Revisar el binding DataWindow no resuelto.",
-    "Revisar warnings antes de cerrar la spec."
-  ]
-}
-```
-
----
-
-## Criterios de cierre verificables
-
-- `ApiReadOnlyToolName` incluye `object-check`.
-- `READ_ONLY_TOOL_DESCRIPTORS` incluye `object-check`.
-- `getReadOnlyToolBridgeDescriptor()` publica `object-check`.
-- `PUBLIC_API_CONTRACT_METHODS` incluye `checkObject`.
-- `PUBLIC_API_CONTRACT_SCHEMAS` incluye los schemas nuevos.
-- `VscPowerSyntaxApi` expone `checkObject`.
-- Existe command `powerbuilder.checkCurrentObject`.
-- Usa active editor fallback correctamente.
-- Devuelve `passed`, `warning` o `failed`.
-- Incluye diagnostics del objeto.
-- Incluye contexto semántico del objeto.
-- Incluye dependency graph si se solicita.
-- Incluye impact analysis si se solicita.
-- Incluye safe edit plan si se solicita.
-- Incluye DataWindow bindings si existen.
-- Incluye embedded SQL anchors si existen.
-- No ejecuta ORCA/build.
-- Tests cubren objeto sano.
-- Tests cubren objeto con diagnostics.
-- Tests cubren objeto no resoluble.
-- Tests cubren objeto con DataWindow binding missing.
-- Tests cubren objeto con dependencia ambigua.
-- Tests cubren truncado por límites.
-
----
-
-## Docs afectadas
-
-- `docs/developer-workflows.md`
-- `docs/ai-orchestrator.md`
-- `docs/testing.md`
-- `docs/architecture.md`
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `README.md` si se expone en Command Palette.
-- `docs/backlog.md`
-- `docs/current-focus.md`
-
----
-
-## Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "object-check|currentObjectContext|dependencyGraph|safeEditPlan|diagnostics"
-npm run test:unit -- --grep "publicApi|readOnlyTool|toolBridge|contract"
-```
----
-
-
 ## B378 — AI PowerBuilder context pack and token budget contract
 - **Estado:** Open
 - **Track:** AI supportability / developer workflow / context budget
@@ -2509,13 +2124,13 @@ npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|rea
 
 ## Fase activa 
 
-01. B377 — Current object/class check command and AI-readable validation report
-02. B371 — Catalog localization model and immutable overlay contract
-03. B372 — DocumentationService locale-aware lazy resolver
-04. B373 — Localized catalog consumers for hover, completion and signatureHelp
-05. B374 — Spanish catalog localization authoring workflow and coverage gate
-06. B375 — Generated localization compatibility with regenerated catalog IDs
-07. B378 — AI PowerBuilder context pack and token budget contract
+01. B371 — Catalog localization model and immutable overlay contract
+02. B372 — DocumentationService locale-aware lazy resolver
+03. B373 — Localized catalog consumers for hover, completion and signatureHelp
+04. B374 — Spanish catalog localization authoring workflow and coverage gate
+05. B375 — Generated localization compatibility with regenerated catalog IDs
+06. B378 — AI PowerBuilder context pack and token budget contract
+07. B379 — Explain diagnostic tool and suggested safe fix contract
 
 ## Siguiente fase — Localización española de alto rendimiento y datawindow
 
