@@ -1,0 +1,18 @@
+<h2 class="title">ApplyTheme</h2>
+<p><span class="bold"><strong>Description</strong></span></p>
+<p>Applies a theme to the current application UI.</p>
+<p><span class="bold"><strong>Syntax</strong></span></p>
+<pre class="programlisting">Integer ApplyTheme ( String theme )</pre>
+<p><span class="bold"><strong>Arguments</strong></span></p>
+<table><tbody>
+<tr><th>Argument</th><th>Description</th></tr>
+<tr><td>theme</td><td>Theme path and name to apply to the current application.</td></tr>
+</tbody></table>
+<p><span class="bold"><strong>Return value</strong></span></p>
+<p>Integer. Returns 1 if it succeeds and -1 if it fails. If any argument's value is null, the method returns null.</p>
+<p><span class="bold"><strong>Usage</strong></span></p>
+<p>The ApplyTheme method should be called when all windows are closed.</p>
+<p>The applied theme affects windows and visual controls except Line and Picture.</p>
+<p>When Windows Classic is active, the application renders in the Windows Classic theme instead of the selected theme.</p>
+<p><span class="bold"><strong>Examples</strong></span></p>
+<p>ApplyTheme("Flat Design Blue")</p>

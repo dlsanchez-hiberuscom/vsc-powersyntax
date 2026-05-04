@@ -31,6 +31,7 @@ type DataWindowFunctionDescriptor = {
     signature: string;
     appliesTo: readonly string[];
     ownerTypes: readonly string[];
+    manualOverlay?: PbSystemSymbolEntry['manualOverlay'];
 };
 
 const PB_MANUAL_CORE_DATAWINDOW_CONTROL_AND_STORE_OWNER_TYPES = [
@@ -66,6 +67,7 @@ function defineDataWindowFunctionEntries(
         signatures: [{ label: descriptor.signature }],
         appliesTo: descriptor.appliesTo,
         ownerTypes: descriptor.ownerTypes,
+        manualOverlay: descriptor.manualOverlay,
         sourceUrl: `https://docs.appeon.com/pb2025/datawindow_reference/dwmeth_${descriptor.name}.html`,
     }));
 }
@@ -466,6 +468,23 @@ const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS_MF_07E = defineDataWindowFunctionEntri
         signature: 'Clipboard()',
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_GRAPH_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_GRAPH_OWNER_TYPES,
+        manualOverlay: {
+            mode: 'override',
+            reason: 'Mantiene la cobertura curada de DataStore mientras la entrada oficial generada actual solo publica el caso DataWindow control.',
+            evidence: [
+                'generated:datawindow-functions:callable:datawindow:member:clipboard:datawindow',
+                'manual-core:datawindow-functions:callable:datawindow:member:clipboard:datastore+datawindow',
+            ],
+            reviewedBy: 'B368',
+            targetKey: {
+                domain: 'datawindow-functions',
+                kind: 'callable',
+                namespace: 'datawindow',
+                invocation: 'member',
+                name: 'Clipboard',
+                ownerTypes: ['datawindow'],
+            },
+        },
     },
     {
         name: 'DataCount',

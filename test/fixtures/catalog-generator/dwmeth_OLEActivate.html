@@ -1,0 +1,19 @@
+<h2 class="title">OLEActivate</h2>
+<p><span class="bold"><strong>Description</strong></span></p>
+<p>Activates Object Linking and Embedding (OLE) for the specified object and sends the specified command verb to the OLE server application.</p>
+<p><span class="bold"><strong>Applies to</strong></span></p>
+<p>DataWindow control, DataWindowChild object</p>
+<p><span class="bold"><strong>Syntax</strong></span></p>
+<pre class="programlisting">
+integer dwcontrol.OLEActivate ( long row, integer column, integer verb )
+integer dwcontrol.OLEActivate ( long row, string column, integer verb )
+</pre>
+<p><span class="bold"><strong>Arguments</strong></span></p>
+<table><tbody>
+<tr><th>Argument</th><th>Description</th></tr>
+<tr><td>row</td><td>A long identifying the row location of the Database Blob control in the DataWindow object.</td></tr>
+<tr><td>column</td><td>The column location of the Database Blob. Column can be a column number (integer) or a column name (string).</td></tr>
+<tr><td>verb</td><td>Usually 0, but the verb is dependent on the OLE server.</td></tr>
+</tbody></table>
+<p><span class="bold"><strong>Return value</strong></span></p>
+<p>Returns 1 if it succeeds and -1 if an error occurs. If any argument's value is null, OLEActivate returns null.</p>

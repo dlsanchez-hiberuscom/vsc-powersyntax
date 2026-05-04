@@ -145,7 +145,9 @@ Hoy el runtime ya dispone de:
 
 Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm test` y, cuando toque latencia o presión sostenida, también `npm run test:performance`.
 
-La auditoría 2026-05-03 no cambia budgets numéricos; para descomposiciones mayores de `extension.ts` o `server.ts`, el cierre debe revalidar activación, smoke real y PFC/STD mediante B356.
+La auditoría 2026-05-03 no cambia budgets numéricos; para descomposiciones mayores de `extension.ts` o `server.ts`, el cierre debe revalidar activación, smoke real y PFC/STD mediante `npm run test:architecture:rapid`.
+
+Estado operativo tras `B346`: el wiring de comandos cliente ya vive en `src/client/commandRegistration.ts` y `Object Explorer`/`Current Object Context`/`Diagnostics Explainability` quedan bajo demanda; no se deben reintroducir `createTreeView(...)` eager ni materialización anticipada de API/UX read-only dentro de `activate()`.
 
 ---
 
@@ -186,6 +188,8 @@ La revisión actual del consumo/cobertura catalog-driven sobre corpora reales qu
 - `test/server/performance/catalogCorpusValidation.smoke.test.ts` congela cinco probes reales sobre `system-globals`, `global-functions` y `datawindow-functions`, y exige `0 misses / 0 ambigüedades / 0 budget violations` al revisar la ruta warm de `hover`, `completion` y `diagnostics`;
 - la smoke calienta una pasada no medida por probe para aislar la latencia servida del cold parse inicial, que ya sigue cubierto por `active-file.perf.test.ts` y el baseline general de archivo activo;
 - el cierre de `B363` añade consumers catalog-driven ligeros para enums: `signatureHelp` y `diagnostics` comparten `enumeratedContext.ts` sobre indices ya materializados del catálogo, y `semanticTokens` solo verifica tokens con sufijo `!` contra `SystemCatalog` sin scans globales por documento o por dominio;
+- `B329` amplía ese carril con un fast path catalog-driven para `keywords`, `reserved-words`, `datatypes`, `system-globals`, `pronouns` y `global-functions` cuando no hay qualifier: la clasificación sigue apoyándose en resolutores directos de `SystemCatalog`, evita scans completos o clones de catálogo por token y mantiene verde `test/server/unit/hotPathAllocationBudget.test.ts`;
+- `test/server/performance/enumCatalogCorpusValidation.smoke.test.ts` fija `B364`: tras indexar PFC Solution, STD_FC_OrderEntry y legacy PBL dump, el scan corpus-driven de valores con `!` completa en aproximadamente `3.35s` sobre PFC, `5.47s` sobre OrderEntry y `0.14s` sobre legacy, reporta `13068` ocurrencias (`1554` catalogadas, `5296` unknown, `6214` false positives, `4` out-of-context, `0` candidates) y deja esas familias para `B368/B370` sin meter el corpus en el hot path interactivo ni convertirlo en autoridad de catálogo;
 - cualquier cambio futuro de catálogo o de sus consumers reales debe revalidar esta smoke corpus-driven junto con `catalogV2.test.ts`, `completion.test.ts`, `hover.test.ts`, `semanticTokens.test.ts`, `signatureHelp.test.ts` y `diagnostics.test.ts` antes de tocar claims de cobertura.
 
 ---

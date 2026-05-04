@@ -9,6 +9,7 @@ import {
   resolveEnumeratedType,
   resolveEnumeratedValue,
   resolveEnumValueForExpectedType,
+  resolveSystemDataWindowFunction,
 } from '../../../src/server/knowledge/system/services/queryService';
 
 suite('unit/systemCatalogQueryHardening (B365)', () => {
@@ -60,5 +61,41 @@ suite('unit/systemCatalogQueryHardening (B365)', () => {
     assert.equal(resolveEnumValueForExpectedType('Text!', 'SaveAsType')?.name, 'Text!');
     assert.equal(resolveEnumValueForExpectedType('SaveAsType', 'SaveAsType'), undefined);
     assert.equal(resolveEnumValueForExpectedType('CSV', 'SaveAsType'), undefined);
+  });
+
+  test('manual overlay metadata hace explícita una colisión manual/generated sin cambiar el bucket runtime', () => {
+    const clipboardEntries = findEntriesByDomainAndLookupKey('datawindow-functions', 'clipboard');
+    const manualClipboard = clipboardEntries.find((entry) => entry.dataset === 'manual-core');
+    const generatedClipboard = clipboardEntries.find((entry) => entry.dataset === 'generated');
+
+    assert.ok(manualClipboard);
+    assert.ok(generatedClipboard);
+    assert.equal(manualClipboard?.manualOverlay?.mode, 'override');
+    assert.equal(manualClipboard?.manualOverlay?.targetKey?.name, 'Clipboard');
+    assert.ok((manualClipboard?.manualOverlay?.evidence.length ?? 0) >= 2);
+    assert.equal(clipboardEntries[0]?.dataset, 'manual-core');
+  });
+
+  test('registry clasifica por defecto overlaps como enrichment y ausencias como gap', () => {
+    const integerEntries = findEntriesByDomainAndLookupKey('datatypes', 'integer');
+    const seekTypeEntries = findEntriesByKindAndLookupKey('enumerated-type', 'seektype');
+    const manualInteger = integerEntries.find((entry) => entry.dataset === 'manual-core');
+    const manualSeekType = seekTypeEntries.find((entry) => entry.dataset === 'manual-core');
+
+    assert.equal(manualInteger?.manualOverlay?.mode, 'enrichment');
+    assert.equal(manualInteger?.manualOverlay?.targetKey?.name, 'Integer');
+    assert.equal(manualSeekType?.manualOverlay?.mode, 'gap');
+    assert.equal(manualSeekType?.manualOverlay?.targetKey, undefined);
+  });
+
+  test('query layer aplica la merge policy provisional de B368 en hot path', () => {
+    const datatypeEntries = listSystemSymbolsByDomain('datatypes').filter((entry) => entry.normalizedName === 'integer');
+    const clipboardBucket = findEntriesByDomainAndLookupKey('datawindow-functions', 'clipboard');
+
+    assert.equal(clipboardBucket.length, 2);
+    assert.equal(datatypeEntries.length, 1);
+    assert.equal(datatypeEntries[0]?.dataset, 'generated');
+    assert.equal(datatypeEntries[0]?.manualOverlay?.mode, 'enrichment');
+    assert.equal(resolveSystemDataWindowFunction('Clipboard')?.dataset, 'manual-core');
   });
 });

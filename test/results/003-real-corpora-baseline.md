@@ -42,6 +42,17 @@
 - **Ambigüedades:** `0`
 - **Budget violations:** `0`
 
-## 6. Conclusión
+## 6. Baseline enum corpus-driven sobre valores con `!`
 
-El baseline deja de apoyarse solo en fixtures pequeños. El presupuesto operativo del plugin ya está calibrado sobre corpus reales y la suite de regresión cubre activación, archivo activo, discovery, cold/warm index, corpus legacy exportado, un slot enterprise local sobre OrderEntry con smoke semántica reproducible y una baseline catalog-driven separada por dominio/surface para PFC, OrderEntry y legacy.
+- **Total detectado:** `13068`
+- **Catalogados:** `1554` (`724` oficiales, `830` curados)
+- **Unknown:** `5296`
+- **Candidates:** `0`
+- **False positives textuales:** `6214`
+- **Out-of-context:** `4`
+- **Duración de scan tras indexación:** PFC Solution `3354.59ms`, STD_FC_OrderEntry `5467.14ms`, legacy PBL dump `138.78ms`
+- **Familias encaminadas a `B368/B370`:** `contemporarymenu!`, `contemporarytoolbar!`, `HourGlass!`, `OK!`, `Information!`, `Exclamation!`, `ansi!`, `swiss!`, `Exclude!`
+
+## 7. Conclusión
+
+El baseline deja de apoyarse solo en fixtures pequeños. El presupuesto operativo del plugin ya está calibrado sobre corpus reales y la suite de regresión cubre activación, archivo activo, discovery, cold/warm index, corpus legacy exportado, un slot enterprise local sobre OrderEntry con smoke semántica reproducible, una baseline catalog-driven separada por dominio/surface para PFC, OrderEntry y legacy y ahora también un reporte corpus-driven específico para valores con `!` que distingue cobertura catalogada, ruido textual y gaps reales sin promocionarlos automáticamente al catálogo.

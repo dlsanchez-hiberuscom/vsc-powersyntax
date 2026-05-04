@@ -126,8 +126,10 @@ Estado operativo tras `B282`:
 
 - el contrato público usa `invocationRisk = safe | inherited | fallback | dynamic | external`;
 - `fallback` cubre resolución por fallback semántico, evidencia descartada o `sourceOrigin` no canónico de baja autoridad;
-- `dynamic` cubre strings dinámicos, bindings DataWindow dinámicos/ambiguos/missing, `orca-staging`/generated y patrones WebView/HTTP/DataWindow/eventos defendiblemente dinámicos;
+- `dynamic` cubre strings dinámicos, bindings DataWindow dinámicos/ambiguos/missing, `orca-staging`, catálogos transitorios no oficiales y patrones WebView/HTTP/DataWindow/eventos defendiblemente dinámicos; el dataset `generated` oficial del system catalog ya no entra aquí por sí solo tras `B367`;
 - `external` cubre dependencias nativas externas sin implementación interna segura;
+- la coexistencia `manual-core + generated` es una decisión de provenance/overlay del catálogo y no debe degradar por sí sola el riesgo de invocación cuando la entrada resuelta conserva autoridad oficial suficiente;
+- tras `B368`, el hot path del catálogo deja además explícita una policy provisional de serving: `override` manual gana, `enrichment` se fusiona sobre base `generated` y `candidate` no entra en resolución/listado interactivo; esa policy no autoriza por sí sola nuevos diagnósticos ni convierte candidates en autoridad runtime;
 - `rename`, `safeEditPlan` y code actions deben bloquear antes de editar cuando el riesgo sea `dynamic`, `fallback` o `external`;
 - `references` puede degradar a declaraciones o devolver vacío si se piden solo usos textuales con riesgo dinámico;
 - ninguna regla diagnóstica nueva debe inventarse solo para materializar este riesgo: la señal vive como metadata de query/impact/edit, no como warning agresivo por defecto.

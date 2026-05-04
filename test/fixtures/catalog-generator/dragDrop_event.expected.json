@@ -1,0 +1,127 @@
+[
+  {
+    "name": "DragDrop",
+    "title": "DragDrop — Syntax 1: For ListBox, PictureListBox, ListView, and Tab controls",
+    "appliesTo": [
+      "ListBox",
+      "PictureListBox",
+      "ListView",
+      "Tab"
+    ],
+    "eventId": "pbm_lbndragdrop",
+    "eventIds": [
+      {
+        "id": "pbm_lbndragdrop",
+        "ownerTypes": [
+          "listbox",
+          "picturelistbox"
+        ]
+      },
+      {
+        "id": "pbm_lvndragdrop",
+        "ownerTypes": [
+          "listview"
+        ]
+      },
+      {
+        "id": "pbm_tcndragdrop",
+        "ownerTypes": [
+          "tab"
+        ]
+      }
+    ],
+    "ownerTypes": [
+      "listbox",
+      "listview",
+      "picturelistbox",
+      "tab"
+    ],
+    "signatures": [
+      {
+        "label": "DragDrop(source, index)",
+        "parameters": [
+          {
+            "label": "source",
+            "documentation": "DragObject by value (a reference to the control being dragged)"
+          },
+          {
+            "label": "index",
+            "documentation": "Integer by value (the index of the target ListView item)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "DragDrop",
+    "title": "DragDrop — Syntax 2: For TreeView controls",
+    "appliesTo": [
+      "TreeView"
+    ],
+    "eventId": "pbm_tvndragdrop",
+    "ownerTypes": [
+      "treeview"
+    ],
+    "signatures": [
+      {
+        "label": "DragDrop(source, handle)",
+        "parameters": [
+          {
+            "label": "source",
+            "documentation": "DragObject by value (a reference to the control being dragged)"
+          },
+          {
+            "label": "handle",
+            "documentation": "Long by value (the handle of the target TreeView item)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "DragDrop",
+    "title": "DragDrop — Syntax 3: For CheckBox and CommandButton controls",
+    "appliesTo": [
+      "CheckBox",
+      "CommandButton"
+    ],
+    "eventId": "pbm_cbndragdrop",
+    "eventIds": [
+      {
+        "id": "pbm_cbndragdrop",
+        "ownerTypes": [
+          "checkbox"
+        ]
+      },
+      {
+        "id": "pbm_bnndragdrop",
+        "ownerTypes": [
+          "commandbutton"
+        ]
+      }
+    ],
+    "ownerTypes": [
+      "checkbox",
+      "commandbutton"
+    ],
+    "signatures": [
+      {
+        "label": "DragDrop(source, xpos, ypos)",
+        "parameters": [
+          {
+            "label": "source",
+            "documentation": "DragObject by value (a reference to the control being dragged)"
+          },
+          {
+            "label": "xpos",
+            "documentation": "Integer by value (the horizontal drop coordinate)"
+          },
+          {
+            "label": "ypos",
+            "documentation": "Integer by value (the vertical drop coordinate)"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,14 +1,17 @@
 import * as assert from 'assert/strict';
+import * as childProcess from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
+const WORKSPACE_ROOT = path.resolve(REPO_ROOT, '..');
 const SERVER_ROOT = path.join(REPO_ROOT, 'src', 'server');
 const CLIENT_ROOT = path.join(REPO_ROOT, 'src', 'client');
 const SHARED_ROOT = path.join(REPO_ROOT, 'src', 'shared');
 const HOT_PATH_FEATURE_PATTERN = /src\/server\/features\/(completion|definition|diagnostics|documentSymbols|hover|queryContext|references|referenceSourcePool|rename|semanticTokens|signatureHelp|workspaceSymbols)\.ts$/;
+const ARCHITECTURE_HOTSPOT_GUARD = path.join(WORKSPACE_ROOT, 'tools', 'run-architecture-hotspot-guard.mjs');
 
-suite('unit/architectureImports (B228, B277)', () => {
+suite('unit/architectureImports (B228, B277, B353)', () => {
   test('knowledge, parsing y utils puros no importan vscode ni vscode-languageserver', async () => {
     const offenders = await collectViolations([
       path.join(SERVER_ROOT, 'knowledge'),
@@ -91,6 +94,54 @@ suite('unit/architectureImports (B228, B277)', () => {
     });
 
     assert.deepEqual(offenders, []);
+  });
+
+  test('hotspots TS permanecen dentro de budgets explicitos y los catalog slices quedan allowlisted', () => {
+    const result = childProcess.spawnSync(process.execPath, [ARCHITECTURE_HOTSPOT_GUARD, '--json'], {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    });
+
+    assert.equal(
+      result.status,
+      0,
+      `El guard de hotspots de arquitectura falló.\nSTDOUT:\n${result.stdout ?? ''}\nSTDERR:\n${result.stderr ?? ''}`,
+    );
+
+    const report = JSON.parse(result.stdout) as {
+      status: string;
+      summary: {
+        totalHotspots: number;
+        allowlistedHotspots: number;
+        failingHotspots: number;
+      };
+      hotspots: Array<{
+        path: string;
+        allowlisted: boolean;
+        metrics: {
+          lines: number;
+          imports: number;
+          topLevelDeclarations: number;
+        };
+        violations: unknown[];
+      }>;
+    };
+
+    assert.equal(report.status, 'passed');
+    assert.equal(report.summary.failingHotspots, 0);
+    assert.ok(report.summary.totalHotspots >= 8, 'El reporte debe cubrir los hotspots críticos y la allowlist de catálogo.');
+    assert.ok(report.summary.allowlistedHotspots >= 5, 'El reporte debe distinguir la allowlist generated/manual.');
+
+    const extensionHotspot = report.hotspots.find((entry) => entry.path === 'src/client/extension.ts');
+    assert.ok(extensionHotspot, 'El reporte debe incluir src/client/extension.ts.');
+    assert.equal(extensionHotspot?.allowlisted, false);
+    assert.ok((extensionHotspot?.metrics.lines ?? 0) >= 3000, 'extension.ts debe seguir trazado como hotspot real.');
+    assert.equal(extensionHotspot?.violations.length, 0);
+
+    const generatedHotspot = report.hotspots.find((entry) => entry.path === 'src/server/knowledge/system/generated/generated.generated.ts');
+    assert.ok(generatedHotspot, 'El reporte debe incluir el slice generated principal.');
+    assert.equal(generatedHotspot?.allowlisted, true);
+    assert.equal(generatedHotspot?.violations.length, 0);
   });
 });
 

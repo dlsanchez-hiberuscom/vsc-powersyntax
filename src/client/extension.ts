@@ -75,11 +75,8 @@ import {
   type VscPowerSyntaxApi,
 } from '../shared/publicApi';
 import {
-  buildStatusHealthReport,
-  buildStatusStatsReport,
   buildStatusTooltipMarkdown,
   enrichRuntimeStatusStats,
-  formatPbAutoBuildRunInline,
   formatStatusBarSummary,
   type RuntimeStatusStats,
 } from './statusBarPresentation';
@@ -94,12 +91,10 @@ import {
 } from './diagnosticsExplainabilityPanel';
 import {
   createOrcaDetector,
-  formatOrcaStatusInline,
   type OrcaDetector,
 } from './build/orcaDetection';
 import {
   createPbAutoBuildDetector,
-  formatPbAutoBuildStatusInline,
   type PbAutoBuildCapabilitySnapshot,
   type PbAutoBuildDetector,
 } from './build/pbAutoBuildDetection';
@@ -134,6 +129,7 @@ import {
   type PowerSyntaxProfileId,
   type PowerSyntaxSettingsGovernanceReport,
 } from './settingsGovernance';
+import { registerClientCommands } from './commandRegistration';
 import {
   type PbAutoBuildCancelResult as PbAutoBuildCancelResultProtocol,
   type PbAutoBuildBuildFileOption,
@@ -166,10 +162,28 @@ let objectExplorerController: PowerBuilderObjectExplorerController | undefined;
 let currentObjectContextPanelController: CurrentObjectContextPanelController | undefined;
 let diagnosticsExplainabilityPanelController: DiagnosticsExplainabilityPanelController | undefined;
 let extensionContextRef: vscode.ExtensionContext | undefined;
-const publicApiSingleton = createPublicApi();
+let publicApiInstance: VscPowerSyntaxApi | undefined;
+const publicApiSingleton = createLazyPublicApi();
 const LAST_PBAUTOBUILD_PROFILE_KEY = 'pbAutoBuild.lastProfile';
 const MAX_SEMANTIC_REPRO_FILES = 20;
 const CLIENT_STOP_TIMEOUT_MS = 5000;
+
+function createLazyPublicApi(): VscPowerSyntaxApi {
+  return new Proxy({} as VscPowerSyntaxApi, {
+    get(_target, property, _receiver) {
+      const api = getOrCreatePublicApi();
+      const value = Reflect.get(api, property, api);
+      return typeof value === 'function' ? value.bind(api) : value;
+    },
+  });
+}
+
+function getOrCreatePublicApi(): VscPowerSyntaxApi {
+  if (!publicApiInstance) {
+    publicApiInstance = createPublicApi();
+  }
+  return publicApiInstance;
+}
 
 interface SemanticReproPackCommandOptions {
   destinationUri?: string;
@@ -310,6 +324,51 @@ async function stopClient(): Promise<void> {
   }
 }
 
+function ensureObjectExplorerController(): PowerBuilderObjectExplorerController {
+  if (!objectExplorerController) {
+    if (!extensionContextRef) {
+      throw new Error('No hay contexto de extensión disponible para inicializar Object Explorer.');
+    }
+
+    objectExplorerController = new PowerBuilderObjectExplorerController(() => publicApiSingleton.getSemanticWorkspaceManifest({
+      maxObjects: 1000,
+      maxSymbols: 400,
+    }));
+    extensionContextRef.subscriptions.push(objectExplorerController);
+  }
+
+  return objectExplorerController;
+}
+
+function ensureCurrentObjectContextPanelController(): CurrentObjectContextPanelController {
+  if (!currentObjectContextPanelController) {
+    if (!extensionContextRef) {
+      throw new Error('No hay contexto de extensión disponible para inicializar Current Object Context.');
+    }
+
+    currentObjectContextPanelController = new CurrentObjectContextPanelController(() => publicApiSingleton.getCurrentObjectContext({
+      maxExcerptLines: 32,
+      maxReferencedSymbols: 24,
+    }));
+    extensionContextRef.subscriptions.push(currentObjectContextPanelController);
+  }
+
+  return currentObjectContextPanelController;
+}
+
+function ensureDiagnosticsExplainabilityPanelController(): DiagnosticsExplainabilityPanelController {
+  if (!diagnosticsExplainabilityPanelController) {
+    if (!extensionContextRef) {
+      throw new Error('No hay contexto de extensión disponible para inicializar Diagnostics Explainability.');
+    }
+
+    diagnosticsExplainabilityPanelController = new DiagnosticsExplainabilityPanelController(async () => collectExplainableDiagnosticsFromActiveEditor());
+    extensionContextRef.subscriptions.push(diagnosticsExplainabilityPanelController);
+  }
+
+  return diagnosticsExplainabilityPanelController;
+}
+
 function ensureHostInitialized(context: vscode.ExtensionContext): void {
   extensionContextRef = context;
 
@@ -320,21 +379,6 @@ function ensureHostInitialized(context: vscode.ExtensionContext): void {
 
   if (!hostInitialized) {
     context.subscriptions.push(...registerFormatting((request) => executeServerCommand('powerbuilder.formatDocument', [request])));
-
-    objectExplorerController = new PowerBuilderObjectExplorerController(() => publicApiSingleton.getSemanticWorkspaceManifest({
-      maxObjects: 1000,
-      maxSymbols: 400,
-    }));
-    context.subscriptions.push(objectExplorerController);
-
-    currentObjectContextPanelController = new CurrentObjectContextPanelController(() => publicApiSingleton.getCurrentObjectContext({
-      maxExcerptLines: 32,
-      maxReferencedSymbols: 24,
-    }));
-    context.subscriptions.push(currentObjectContextPanelController);
-
-    diagnosticsExplainabilityPanelController = new DiagnosticsExplainabilityPanelController(async () => collectExplainableDiagnosticsFromActiveEditor());
-    context.subscriptions.push(diagnosticsExplainabilityPanelController);
 
     pbAutoBuildDiagnostics = vscode.languages.createDiagnosticCollection('vscPowerSyntax-build');
     context.subscriptions.push(pbAutoBuildDiagnostics);
@@ -399,576 +443,79 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
     return;
   }
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.restartServer', async () => {
+  registerClientCommands(context, {
+    restartServer: async () => {
       outputChannel?.appendLine('[VSC PowerSyntax] Reiniciando servidor...');
       await restartClient(context);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.inspectHierarchy', async () => {
-      if (!client) {
-        vscode.window.showErrorMessage('El cliente LSP no está disponible.');
+    },
+    inspectHierarchy,
+    refreshCurrentObjectContextPanel: async () => {
+      await ensureCurrentObjectContextPanelController().refresh();
+    },
+    focusCurrentObjectContextPanel,
+    openCurrentObjectContextLocation,
+    refreshDiagnosticsExplainabilityPanel: async () => {
+      await ensureDiagnosticsExplainabilityPanelController().refresh();
+    },
+    focusDiagnosticsExplainabilityPanel,
+    openDiagnosticsExplainabilityLocation,
+    refreshObjectExplorer: async () => {
+      await ensureObjectExplorerController().refresh();
+    },
+    focusObjectExplorerOnCurrentProject,
+    focusObjectExplorerOnCurrentFile,
+    clearObjectExplorerFocus: async () => {
+      await ensureObjectExplorerController().clearFocus();
+    },
+    openObjectExplorerObject: async (target?: { uri?: string } | string) => {
+      await ensureObjectExplorerController().openObject(target);
+    },
+    openProjectHealthDashboard,
+    openCrossProjectSymbolConflicts,
+    openWorkspaceMigrationAssistant,
+    openBuildProfileMatrix,
+    openDependencyGraph: openPowerBuilderDependencyGraph,
+    openCodeMetrics: openPowerBuilderCodeMetrics,
+    openTechnicalDebtReport: openPowerBuilderTechnicalDebtReport,
+    openDataWindowSqlLineage,
+    runPbAutoBuild,
+    runLastPbAutoBuild,
+    runPbAutoBuildWithPicker,
+    cancelPbAutoBuild,
+    exportPbAutoBuildCiHelper,
+    runActiveOrcaScript,
+    cancelOrcaScript,
+    exportOrcaStaging,
+    importOrcaStaging,
+    regenerateOrcaLibraries: async () => runOrcaWriteOperation('regenerate'),
+    rebuildOrcaProject: async () => runOrcaWriteOperation('rebuild'),
+    exportSemanticReproPack: async (options?: unknown) => exportSemanticReproPack(options as SemanticReproPackCommandOptions | undefined),
+    exportSupportBundle: async (options?: unknown) => exportSupportBundle(options as SupportBundleCommandOptions | undefined),
+    exportHealthReport: async (options?: unknown) => exportHealthReport(options as HealthReportCommandOptions | undefined),
+    runRuntimeSelfTest,
+    showMemoryBudgets,
+    showIndexingState,
+    showProjectRouting,
+    showSourceOriginConflicts,
+    validatePersistentCache,
+    clearSemanticCache: async (options?: unknown) => clearSemanticCache(options as CoreMaintenanceConfirmationOptions | undefined),
+    rebuildWorkspaceIndex: async (options?: unknown) => rebuildWorkspaceIndex(options as CoreMaintenanceConfirmationOptions | undefined),
+    runSemanticCacheMaintenance,
+    showSettingsGovernance,
+    applySettingsProfile,
+    fetchRuntimeStatusStats,
+    updateStatusSnapshot: (stats) => {
+      if (!stats) {
         return;
       }
-
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        vscode.window.showInformationMessage('No hay un editor activo para inspeccionar.');
-        return;
+      lastStatusStats = stats;
+      if (statusBarItem) {
+        renderProgress(statusBarItem, lastProgressNotification, stats);
       }
-
-      const payload = await client.sendRequest('workspace/executeCommand', {
-        command: 'powerbuilder.inspectHierarchy',
-        arguments: [
-          editor.document.uri.toString(),
-          editor.selection.active.line,
-          editor.selection.active.character
-        ]
-      });
-
-      renderHierarchyInspection(payload);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.refreshCurrentObjectContextPanel', async () => {
-      await currentObjectContextPanelController?.refresh();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.focusCurrentObjectContextPanel', async () => {
-      const result = await currentObjectContextPanelController?.focusPanel();
-      if (!result) {
-        vscode.window.showInformationMessage('PowerSyntax: no hay contexto disponible para el objeto activo.');
-      }
-      return result;
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openCurrentObjectContextLocation', async (target?: { uri?: string; line?: number; character?: number }) => {
-      if (!target?.uri) {
-        return;
-      }
-      const locationTarget = {
-        uri: target.uri,
-        ...(typeof target.line === 'number' ? { line: target.line } : {}),
-        ...(typeof target.character === 'number' ? { character: target.character } : {}),
-      };
-      await currentObjectContextPanelController?.openLocation(locationTarget);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.refreshDiagnosticsExplainabilityPanel', async () => {
-      await diagnosticsExplainabilityPanelController?.refresh();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.focusDiagnosticsExplainabilityPanel', async () => {
-      const result = await diagnosticsExplainabilityPanelController?.focusPanel();
-      if (!result) {
-        vscode.window.showInformationMessage('PowerSyntax: no hay diagnostics explicables para el archivo activo.');
-      }
-      return result;
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openDiagnosticsExplainabilityLocation', async (target?: { uri?: string; line?: number; character?: number }) => {
-      if (!target?.uri) {
-        return;
-      }
-      const locationTarget = {
-        uri: target.uri,
-        ...(typeof target.line === 'number' ? { line: target.line } : {}),
-        ...(typeof target.character === 'number' ? { character: target.character } : {}),
-      };
-      await diagnosticsExplainabilityPanelController?.openLocation(locationTarget);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.refreshObjectExplorer', async () => {
-      await objectExplorerController?.refresh();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.focusObjectExplorerOnCurrentProject', async () => {
-      const result = await objectExplorerController?.focusCurrentProject();
-      if (!result) {
-        vscode.window.showInformationMessage('PowerSyntax: no se pudo resolver el proyecto activo para el Object Explorer.');
-      }
-      return result;
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.focusObjectExplorerOnCurrentFile', async () => {
-      const result = await objectExplorerController?.focusCurrentFile();
-      if (!result) {
-        vscode.window.showInformationMessage('PowerSyntax: no se pudo resolver el archivo activo en el Object Explorer.');
-      }
-      return result;
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.clearObjectExplorerFocus', async () => {
-      await objectExplorerController?.clearFocus();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openObjectExplorerObject', async (target?: { uri?: string } | string) => {
-      await objectExplorerController?.openObject(target);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openProjectHealthDashboard', async () => {
-      await openProjectHealthDashboard();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openCrossProjectSymbolConflicts', async () => {
-      await openCrossProjectSymbolConflicts();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openWorkspaceMigrationAssistant', async () => {
-      await openWorkspaceMigrationAssistant();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openBuildProfileMatrix', async () => {
-      await openBuildProfileMatrix();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openDependencyGraph', async () => {
-      await openPowerBuilderDependencyGraph();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openCodeMetrics', async () => {
-      await openPowerBuilderCodeMetrics();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openTechnicalDebtReport', async () => {
-      await openPowerBuilderTechnicalDebtReport();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openDataWindowSqlLineage', async () => {
-      await openDataWindowSqlLineage();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.showStatusStats', async () => {
-      const stats = await fetchRuntimeStatusStats();
-      if (stats) {
-        lastStatusStats = stats;
-        if (statusBarItem) {
-          renderProgress(statusBarItem, lastProgressNotification, stats);
-        }
-      }
-      outputChannel?.show(true);
-      outputChannel?.appendLine(buildStatusStatsReport(stats));
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.showStatusHealth', async () => {
-      const stats = await fetchRuntimeStatusStats();
-      if (stats) {
-        lastStatusStats = stats;
-        if (statusBarItem) {
-          renderProgress(statusBarItem, lastProgressNotification, stats);
-        }
-      }
-      const report = buildStatusHealthReport(lastProgressNotification, stats);
-      outputChannel?.show(true);
-      outputChannel?.appendLine(report);
-      void vscode.window.showInformationMessage('PowerSyntax: resumen de salud escrito en el canal de salida.', 'Abrir salida')
-        .then(selection => {
-          if (selection === 'Abrir salida') {
-            outputChannel?.show(true);
-          }
-        });
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.runPbAutoBuild', async () => {
-      await runPbAutoBuild();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.runLastPbAutoBuild', async () => {
-      await runLastPbAutoBuild();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.runPbAutoBuildWithPicker', async () => {
-      await runPbAutoBuildWithPicker();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.cancelPbAutoBuild', async () => {
-      await cancelPbAutoBuild();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.exportPbAutoBuildCiHelper', async () => {
-      await exportPbAutoBuildCiHelper();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.runActiveOrcaScript', async () => {
-      return runActiveOrcaScript();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.cancelOrcaScript', async () => {
-      return cancelOrcaScript();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.exportOrcaStaging', async () => {
-      return exportOrcaStaging();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.importOrcaStaging', async () => {
-      return importOrcaStaging();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.regenerateOrcaLibraries', async () => {
-      return runOrcaWriteOperation('regenerate');
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.rebuildOrcaProject', async () => {
-      return runOrcaWriteOperation('rebuild');
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.exportSemanticReproPack', async (options?: SemanticReproPackCommandOptions) => {
-      return exportSemanticReproPack(options);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.exportSupportBundle', async (options?: SupportBundleCommandOptions) => {
-      return exportSupportBundle(options);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.exportHealthReport', async (options?: HealthReportCommandOptions) => {
-      return exportHealthReport(options);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.runRuntimeSelfTest', async () => {
-      return runRuntimeSelfTest();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.showMemoryBudgets', async () => {
-      return showMemoryBudgets();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.showIndexingState', async () => {
-      return showIndexingState();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.showProjectRouting', async () => {
-      return showProjectRouting();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.showSourceOriginConflicts', async () => {
-      return showSourceOriginConflicts();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.validatePersistentCache', async () => {
-      return validatePersistentCache();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.clearSemanticCache', async (options?: CoreMaintenanceConfirmationOptions) => {
-      return clearSemanticCache(options);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.rebuildWorkspaceIndex', async (options?: CoreMaintenanceConfirmationOptions) => {
-      return rebuildWorkspaceIndex(options);
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.runSemanticCacheMaintenance', async () => {
-      await runSemanticCacheMaintenance();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.showSettingsGovernance', async () => {
-      await showSettingsGovernance();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.applySettingsProfile', async () => {
-      await applySettingsProfile();
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vscPowerSyntax.openStatusMenu', async () => {
-      const stats = await fetchRuntimeStatusStats();
-      if (stats) {
-        lastStatusStats = stats;
-      }
-
-      const selection = await vscode.window.showQuickPick([
-        {
-          label: '$(dashboard) Abrir dashboard de salud',
-          description: stats?.health?.summary ?? 'Vista read-only sobre salud, manifest y build del workspace',
-          command: 'vscPowerSyntax.openProjectHealthDashboard'
-        },
-        {
-          label: '$(graph) Abrir grafo de dependencias',
-          description: vscode.window.activeTextEditor?.document
-            ? `${path.basename(vscode.window.activeTextEditor.document.uri.fsPath || vscode.window.activeTextEditor.document.uri.path)} · Mermaid read-only del objeto activo`
-            : 'Visualiza el vecindario inmediato de dependencias del objeto o archivo activo',
-          command: 'vscPowerSyntax.openDependencyGraph'
-        },
-        {
-          label: '$(pulse) Abrir métricas de código',
-          description: 'Reporte read-only con complejidad aproximada, SQL, DataWindow, dependencias externas y footprint build/ORCA',
-          command: 'vscPowerSyntax.openCodeMetrics'
-        },
-        {
-          label: '$(search) Abrir deuda técnica y modernización',
-          description: 'Hotspots priorizados y recomendaciones read-only sobre legacy, SQL dinámico, sourceOrigin y riesgos ORCA/PBL',
-          command: 'vscPowerSyntax.openTechnicalDebtReport'
-        },
-        {
-          label: '$(pulse) Ver salud del runtime',
-          description: stats?.readiness?.state ?? 'sin datos',
-          command: 'vscPowerSyntax.showStatusHealth'
-        },
-        {
-          label: '$(graph) Ver stats del servidor',
-          description: stats?.projectStatus?.summary ?? 'resumen del estado actual',
-          command: 'vscPowerSyntax.showStatusStats'
-        },
-        {
-          label: '$(note) Exportar health report',
-          description: stats?.health?.summary ?? 'Exporta dashboard, stats y manifest del workspace activo',
-          command: 'vscPowerSyntax.exportHealthReport'
-        },
-        {
-          label: '$(checklist) Ejecutar runtime self-test',
-          description: 'Chequeo rápido de API, LSP, cache, project model, diagnósticos, build y ORCA',
-          command: 'vscPowerSyntax.runRuntimeSelfTest'
-        },
-        {
-          label: '$(flame) Ver memory budgets',
-          description: stats?.memory
-            ? `${stats.memory.status} · ${(stats.memory.layers?.length ?? 0)} capas con budget visible`
-            : 'Presupuesto global y capas de memoria del runtime',
-          command: 'vscPowerSyntax.showMemoryBudgets'
-        },
-        {
-          label: '$(sync) Ver estado de indexación',
-          description: stats?.indexer?.phase
-            ? `${stats.indexer.phase}${typeof stats.indexer.current === 'number' && typeof stats.indexer.total === 'number' ? ` · ${stats.indexer.current}/${stats.indexer.total}` : ''}`
-            : stats?.readiness?.state ?? 'Readiness e indexer del runtime',
-          command: 'vscPowerSyntax.showIndexingState'
-        },
-        {
-          label: '$(source-control) Ver project routing',
-          description: stats?.workspace?.activeProject?.name
-            ? `${stats.workspace.activeProject.name} · routing del archivo y topología activa`
-            : 'Routing del archivo activo y resumen de proyectos detectados',
-          command: 'vscPowerSyntax.showProjectRouting'
-        },
-        {
-          label: '$(warning) Ver conflictos de sourceOrigin',
-          description: 'Conflictos cross-project donde compiten varios sourceOrigin preferidos',
-          command: 'vscPowerSyntax.showSourceOriginConflicts'
-        },
-        {
-          label: stats?.buildRunner?.state === 'running' ? '$(debug-stop) Cancelar PBAutoBuild' : '$(tools) Ejecutar PBAutoBuild',
-          description: [
-            stats?.buildProfile?.label,
-            stats?.buildHealth?.summary,
-            formatPbAutoBuildStatusInline(stats?.buildTooling),
-            formatPbAutoBuildRunInline(stats?.buildRunner)
-          ].filter((part): part is string => Boolean(part)).join(' · ') || 'Usa el build file utilizable del proyecto activo',
-          command: stats?.buildRunner?.state === 'running' ? 'vscPowerSyntax.cancelPbAutoBuild' : 'vscPowerSyntax.runPbAutoBuild'
-        },
-        {
-          label: '$(history) Repetir último build frecuente',
-          description: stats?.buildProfile?.label ?? 'Usa el último build file ejecutado o te deja elegir uno utilizable',
-          command: 'vscPowerSyntax.runLastPbAutoBuild'
-        },
-        {
-          label: '$(list-selection) Elegir build file y ejecutar',
-          description: 'Muestra los build files PBAutoBuild utilizables y recuerda el elegido como último build',
-          command: 'vscPowerSyntax.runPbAutoBuildWithPicker'
-        },
-        {
-          label: '$(export) Exportar helper CI/CD',
-          description: stats?.buildProfile?.label
-            ? `${stats.buildProfile.label} · bundle neutral en tools/pbautobuild-ci`
-            : 'Genera scripts versionables para CI/CD desde un build file PBAutoBuild utilizable',
-          command: 'vscPowerSyntax.exportPbAutoBuildCiHelper'
-        },
-        {
-          label: '$(package) Exportar repro pack semántico',
-          description: vscode.window.activeTextEditor?.document
-            ? `${path.basename(vscode.window.activeTextEditor.document.uri.fsPath || vscode.window.activeTextEditor.document.uri.path)} · bundle en tools/semantic-repros`
-            : 'Captura contexto, impacto, plan seguro y archivos relacionados del editor activo',
-          command: 'vscPowerSyntax.exportSemanticReproPack'
-        },
-        {
-          label: '$(archive) Exportar support bundle offline',
-          description: 'Exporta estado saneado del runtime, diagnostics, caches, build/ORCA y contrato API sin código bruto por defecto',
-          command: 'vscPowerSyntax.exportSupportBundle'
-        },
-        {
-          label: '$(database) Ejecutar mantenimiento de cache semántica',
-          description: stats?.persistence?.maintenance?.maintenanceRecommended
-            ? 'Compacta journals grandes y limpia workspaces persistidos obsoletos'
-            : 'Verifica compactación/retención v2 y limpia workspaces obsoletos si hace falta',
-          command: 'vscPowerSyntax.runSemanticCacheMaintenance'
-        },
-        {
-          label: '$(verified) Validar cache persistente',
-          description: stats?.persistence?.checkpointUri
-            ? 'Comprueba si el checkpoint persistido actual puede reutilizarse sin rebuild'
-            : 'Verifica si existe un estado persistido reutilizable para este workspace',
-          command: 'vscPowerSyntax.validatePersistentCache'
-        },
-        {
-          label: '$(trash) Limpiar cache semántica',
-          description: 'Elimina checkpoint y journal persistidos del workspace activo (requiere confirmación)',
-          command: 'vscPowerSyntax.clearSemanticCache'
-        },
-        {
-          label: '$(debug-restart) Rebuild workspace index',
-          description: 'Reinicia el runtime y relanza discovery/indexación del workspace (requiere confirmación)',
-          command: 'vscPowerSyntax.rebuildWorkspaceIndex'
-        },
-        {
-          label: '$(settings-gear) Ver gobernanza de settings',
-          description: 'Resume el perfil activo y las divergencias de configuración respecto al contrato recomendado',
-          command: 'vscPowerSyntax.showSettingsGovernance'
-        },
-        {
-          label: '$(symbol-enum) Aplicar perfil de settings',
-          description: 'Aplica en el workspace uno de los perfiles gobernados del producto',
-          command: 'vscPowerSyntax.applySettingsProfile'
-        },
-        {
-          label: '$(comment-discussion) Abrir explainability de diagnostics',
-          description: 'Explica los diagnostics del archivo activo con código, causa probable y siguientes pasos',
-          command: 'vscPowerSyntax.focusDiagnosticsExplainabilityPanel'
-        },
-        {
-          label: stats?.orcaRunner?.state === 'running' ? '$(debug-stop) Cancelar ORCA legacy' : '$(tools) Ejecutar ORCA legacy',
-          description: [
-            formatOrcaStatusInline(stats?.orcaTooling),
-            stats?.orcaRunner?.state && stats.orcaRunner.state !== 'idle'
-              ? `${stats.orcaRunner.state}${stats.orcaRunner.detail ? ` · ${stats.orcaRunner.detail}` : ''}`
-              : undefined
-          ].filter((part): part is string => Boolean(part)).join(' · ') || 'Usa el script activo con un ejecutable ORCA válido',
-          command: stats?.orcaRunner?.state === 'running' ? 'vscPowerSyntax.cancelOrcaScript' : 'vscPowerSyntax.runActiveOrcaScript'
-        },
-        {
-          label: '$(archive) Exportar PBL legacy a ORCA staging',
-          description: 'Genera .vsc-powersyntax/orca-export/orca-staging y ejecuta un script pborca-compatible sobre las librerías legacy resueltas por el workspace',
-          command: 'vscPowerSyntax.exportOrcaStaging'
-        },
-        {
-          label: '$(cloud-upload) Importar ORCA staging a PBL legacy',
-          description: 'Ejecuta preflight, backup y script import-from-staging.orc sobre el último export ORCA persistido del workspace',
-          command: 'vscPowerSyntax.importOrcaStaging'
-        },
-        {
-          label: '$(sync) Regenerate librerías legacy vía ORCA',
-          description: 'Reutiliza el rail ORCA controlado para regenerar las librerías del último export persistido',
-          command: 'vscPowerSyntax.regenerateOrcaLibraries'
-        },
-        {
-          label: '$(tools) Rebuild proyecto legacy vía ORCA',
-          description: 'Ejecuta rebuild sobre el target/project legacy persistido por el último export válido',
-          command: 'vscPowerSyntax.rebuildOrcaProject'
-        },
-        {
-          label: '$(git-branch) Inspeccionar jerarquía activa',
-          description: 'Usa el editor activo para navegación jerárquica',
-          command: 'vscPowerSyntax.inspectHierarchy'
-        },
-        {
-          label: '$(debug-restart) Reiniciar servidor',
-          description: 'Reinicia el cliente y el servidor LSP',
-          command: 'vscPowerSyntax.restartServer'
-        }
-      ], {
-        title: 'VSC PowerSyntax',
-        placeHolder: stats?.projectStatus?.summary ?? 'Selecciona una acción de mantenimiento'
-      });
-
-      if (!selection) {
-        return;
-      }
-
-      await vscode.commands.executeCommand(selection.command);
-    })
-  );
+    },
+    getLastProgressNotification: () => lastProgressNotification,
+    getOutputChannel: () => outputChannel,
+  });
 
   commandsRegistered = true;
 }
@@ -1848,6 +1395,96 @@ function renderHierarchyInspection(payload: unknown): void {
       outputChannel?.appendLine(`  ${line}`);
     }
   }
+}
+
+async function inspectHierarchy(): Promise<void> {
+  if (!client) {
+    vscode.window.showErrorMessage('El cliente LSP no está disponible.');
+    return;
+  }
+
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showInformationMessage('No hay un editor activo para inspeccionar.');
+    return;
+  }
+
+  const payload = await client.sendRequest('workspace/executeCommand', {
+    command: 'powerbuilder.inspectHierarchy',
+    arguments: [
+      editor.document.uri.toString(),
+      editor.selection.active.line,
+      editor.selection.active.character,
+    ],
+  });
+
+  renderHierarchyInspection(payload);
+}
+
+async function focusCurrentObjectContextPanel(): Promise<unknown> {
+  const result = await ensureCurrentObjectContextPanelController().focusPanel();
+  if (!result) {
+    vscode.window.showInformationMessage('PowerSyntax: no hay contexto disponible para el objeto activo.');
+  }
+  return result;
+}
+
+async function openCurrentObjectContextLocation(target?: {
+  uri?: string;
+  line?: number;
+  character?: number;
+}): Promise<void> {
+  if (!target?.uri) {
+    return;
+  }
+
+  const locationTarget = {
+    uri: target.uri,
+    ...(typeof target.line === 'number' ? { line: target.line } : {}),
+    ...(typeof target.character === 'number' ? { character: target.character } : {}),
+  };
+  await ensureCurrentObjectContextPanelController().openLocation(locationTarget);
+}
+
+async function focusDiagnosticsExplainabilityPanel(): Promise<unknown> {
+  const result = await ensureDiagnosticsExplainabilityPanelController().focusPanel();
+  if (!result) {
+    vscode.window.showInformationMessage('PowerSyntax: no hay diagnostics explicables para el archivo activo.');
+  }
+  return result;
+}
+
+async function openDiagnosticsExplainabilityLocation(target?: {
+  uri?: string;
+  line?: number;
+  character?: number;
+}): Promise<void> {
+  if (!target?.uri) {
+    return;
+  }
+
+  const locationTarget = {
+    uri: target.uri,
+    ...(typeof target.line === 'number' ? { line: target.line } : {}),
+    ...(typeof target.character === 'number' ? { character: target.character } : {}),
+  };
+  await ensureDiagnosticsExplainabilityPanelController().openLocation(locationTarget);
+}
+
+async function focusObjectExplorerOnCurrentProject(): Promise<unknown> {
+  const result = await ensureObjectExplorerController().focusCurrentProject();
+  if (!result) {
+    vscode.window.showInformationMessage('PowerSyntax: no se pudo resolver el proyecto activo para el Object Explorer.');
+  }
+  return result;
+}
+
+async function focusObjectExplorerOnCurrentFile(): Promise<unknown> {
+  const result = await ensureObjectExplorerController().focusCurrentFile();
+  if (!result) {
+    vscode.window.showInformationMessage('PowerSyntax: no se pudo resolver el archivo activo en el Object Explorer.');
+  }
+  return result;
 }
 
 interface HierarchyTreeNodePayload {

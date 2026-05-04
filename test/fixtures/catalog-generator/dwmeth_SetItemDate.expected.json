@@ -1,0 +1,36 @@
+[
+  {
+    "name": "SetItemDate",
+    "appliesTo": [
+      "DataWindow control"
+    ],
+    "ownerTypes": [
+      "datawindow"
+    ],
+    "obsolete": true,
+    "obsoleteMessage": "Obsolete method SetItemDate is obsolete and should not be used, because the Web DataWindow technology is obsolete.",
+    "replacement": "SetItem",
+    "risk": "deprecated",
+    "returnType": "Short",
+    "signatures": [
+      {
+        "label": "short dwcontrol.SetItemDate ( long row, string column, string value )",
+        "parameters": [
+          {
+            "label": "row",
+            "documentation": "Row number."
+          },
+          {
+            "label": "column",
+            "documentation": "Column name."
+          },
+          {
+            "label": "value",
+            "documentation": "Date value."
+          }
+        ],
+        "returnType": "Short"
+      }
+    ]
+  }
+]

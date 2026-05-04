@@ -318,6 +318,28 @@ suite('unit/catalogV2 (B318)', () => {
     assert.equal(PB_BUILTIN_TYPES.has('jsonpackage'), true);
   });
 
+  test('v2: PDFDocumentProperties prioriza el overlay oficial enriquecido en resolución de tipos', () => {
+    const dt = catalog.resolveDatatype('PDFDocumentProperties');
+    const languageSymbol = catalog.resolveLanguageSymbol('PDFDocumentProperties');
+
+    assert.ok(dt, 'debe resolver PDFDocumentProperties');
+    assert.equal(dt?.kind, 'system-type');
+    assert.equal(dt?.baseType, 'PDFModel');
+    assert.ok(dt?.documentation, 'PDFDocumentProperties debe exponer documentación oficial');
+    assert.ok(dt?.properties?.includes('Application'), 'debe incluir propiedades oficiales');
+    assert.ok(dt?.properties?.includes('Author'), 'debe incluir propiedades PDF oficiales');
+    assert.ok(dt?.properties?.includes('Title'), 'debe incluir propiedades PDF oficiales');
+    assert.ok(dt?.functions?.includes('ClassName'), 'debe incluir funciones heredadas oficiales');
+    assert.ok(dt?.functions?.includes('TriggerEvent'), 'debe incluir funciones runtime oficiales');
+    assert.ok(dt?.events?.includes('Constructor'), 'debe incluir eventos oficiales');
+    assert.ok(dt?.events?.includes('Destructor'), 'debe incluir eventos oficiales');
+    assert.match(dt?.sourceUrl ?? '', /PDFDocumentProperties_object\.html/i);
+
+    assert.ok(languageSymbol, 'debe resolver también como language symbol');
+    assert.equal(languageSymbol?.id, dt?.id);
+    assert.equal(languageSymbol?.baseType, 'PDFModel');
+  });
+
   test('v2: alias oficial UnsignedInt resuelve hacia UnsignedInteger y vive en PB_BUILTIN_TYPES', () => {
     const dt = catalog.resolveDatatype('UnsignedInt');
     assert.ok(dt, 'debe resolver UnsignedInt');
@@ -342,6 +364,24 @@ suite('unit/catalogV2 (B318)', () => {
       assert.equal(dt?.kind, 'system-type');
       assert.equal(PB_BUILTIN_TYPES.has(typeName.toLowerCase()), true, `${typeName} debe vivir también en PB_BUILTIN_TYPES`);
     }
+  });
+
+  test('v2: AddItemArray expone parámetros estructurados oficiales en el catálogo runtime', () => {
+    const entry = catalog.resolveObjectFunction('AddItemArray');
+
+    assert.ok(entry, 'debe resolver AddItemArray');
+    assert.equal(entry?.kind, 'callable');
+    assert.equal(entry?.returnType, 'Long');
+    assert.equal(entry?.signatures.length, 4);
+    assert.deepEqual(
+      entry?.signatures.map((signature) => (signature.parameters ?? []).map((parameter) => parameter.label)),
+      [
+        ['ParentItemHandle'],
+        ['ParentItemHandle', 'Key'],
+        ['ParentItemPath'],
+        ['ParentItemPath', 'Key'],
+      ],
+    );
   });
 
   test('v2: resolveSystemGlobal("SQLCA") devuelve system-global SQLCA', () => {

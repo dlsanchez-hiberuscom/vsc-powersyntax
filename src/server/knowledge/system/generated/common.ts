@@ -45,12 +45,24 @@ type GeneratedSymbolArgs = {
     category: string;
     summary: string;
     signatures: readonly PbSystemSymbolSignature[];
+    returnType?: string;
+    returnDocumentation?: string;
+    usageNotes?: readonly string[];
+    baseType?: string;
+    properties?: readonly string[];
+    functions?: readonly string[];
+    events?: readonly string[];
     appliesTo?: readonly string[];
     ownerTypes?: readonly string[];
     obsolete?: boolean;
     obsoleteMessage?: string;
     replacement?: string;
+    eventId?: string;
+    eventIds?: PbSystemSymbolEntryDraft['eventIds'];
     lookupAliases?: readonly string[];
+    reservedWordCanBeFunctionName?: boolean;
+    identifierPolicy?: PbSystemSymbolEntryDraft['identifierPolicy'];
+    risk?: PbSystemSymbolEntryDraft['risk'];
     sourceUrl?: string;
 };
 
@@ -59,12 +71,19 @@ type GeneratedLanguageSymbolArgs = {
     category: string;
     summary: string;
     documentation?: string;
+    baseType?: string;
+    properties?: readonly string[];
+    functions?: readonly string[];
+    events?: readonly string[];
     lookupAliases?: readonly string[];
     signatures?: readonly PbSystemSymbolSignature[];
     sourceUrl?: string;
     obsolete?: boolean;
     obsoleteMessage?: string;
     replacement?: string;
+    reservedWordCanBeFunctionName?: boolean;
+    identifierPolicy?: PbSystemSymbolEntryDraft['identifierPolicy'];
+    risk?: PbSystemSymbolEntryDraft['risk'];
     enumValues?: readonly string[];
     enumValueOf?: string;
     enumNumericValue?: number;
@@ -197,6 +216,17 @@ export function generatedReservedWord(args: GeneratedLanguageSymbolArgs): PbSyst
         namespace: 'powerscript',
         invocation: 'global',
         domain: 'reserved-words',
+    }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function generatedDatatype(args: GeneratedLanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineGeneratedEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'datatype',
+        namespace: 'powerscript',
+        invocation: 'global',
+        domain: 'datatypes',
     }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
 }
 

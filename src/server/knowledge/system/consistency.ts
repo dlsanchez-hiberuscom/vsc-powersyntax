@@ -6,6 +6,7 @@
 
 import { PB_SYSTEM_SYMBOL_REGISTRY } from './registry/registry';
 import type {
+  PbSystemManualOverlayMode,
   PbSystemSymbolDataset,
   PbSystemSymbolDomain,
   PbSystemSymbolEntry,
@@ -46,6 +47,8 @@ export interface CatalogReport {
   missingSignatures: string[]; // ids
   emptyName: string[]; // ids
   invalidEnumeratedTypeNames: string[]; // ids
+  manualGeneratedOverlapsWithoutOverlay: string[]; // logical keys
+  manualOverlayModes: Partial<Record<PbSystemManualOverlayMode, number>>;
   domainCounts: Record<PbSystemSymbolDomain, number>;
   datasetCounts: Partial<Record<PbSystemSymbolDataset, number>>;
   kindCounts: Record<PbSystemSymbolKind, number>;
@@ -145,12 +148,26 @@ function getOrCreateDomainSummary(
   return created;
 }
 
+function buildLogicalOverlapKey(entry: Pick<PbSystemSymbolEntry, 'domain' | 'kind' | 'namespace' | 'invocation' | 'enumValueOf' | 'normalizedName' | 'normalizedOwnerTypes'>): string {
+  return [
+    entry.domain,
+    entry.kind,
+    entry.namespace,
+    entry.invocation,
+    entry.enumValueOf ?? '',
+    entry.normalizedName,
+    entry.normalizedOwnerTypes.join('+') || 'all',
+  ].join('|');
+}
+
 export function buildCatalogConsistencyReport(): CatalogReport {
   const entries = PB_SYSTEM_SYMBOL_REGISTRY.entries;
   const seen = new Map<string, number>();
+  const logicalBuckets = new Map<string, PbSystemSymbolEntry[]>();
   const missingSignatures: string[] = [];
   const emptyName: string[] = [];
   const invalidEnumeratedTypeNames: string[] = [];
+  const manualOverlayModes: Partial<Record<PbSystemManualOverlayMode, number>> = {};
   const domainCounts: Record<string, number> = {};
   const datasetCounts: Record<string, number> = {};
   const kindCounts: Record<string, number> = {};
@@ -168,9 +185,16 @@ export function buildCatalogConsistencyReport(): CatalogReport {
 
   for (const e of entries) {
     seen.set(e.id, (seen.get(e.id) ?? 0) + 1);
+    const logicalKey = buildLogicalOverlapKey(e);
+    const logicalBucket = logicalBuckets.get(logicalKey) ?? [];
+    logicalBucket.push(e);
+    logicalBuckets.set(logicalKey, logicalBucket);
     if (!e.signatures || e.signatures.length === 0) missingSignatures.push(e.id);
     if (!e.name || !e.name.trim()) emptyName.push(e.id);
     if (e.kind === 'enumerated-type' && e.name.endsWith('!')) invalidEnumeratedTypeNames.push(e.id);
+    if (e.dataset === 'manual-core' && e.manualOverlay) {
+      incrementCount(manualOverlayModes, e.manualOverlay.mode);
+    }
     domainCounts[e.domain] = (domainCounts[e.domain] ?? 0) + 1;
     datasetCounts[e.dataset] = (datasetCounts[e.dataset] ?? 0) + 1;
     kindCounts[e.kind] = (kindCounts[e.kind] ?? 0) + 1;
@@ -224,6 +248,22 @@ export function buildCatalogConsistencyReport(): CatalogReport {
   const duplicateIds: string[] = [];
   for (const [id, n] of seen) if (n > 1) duplicateIds.push(id);
 
+  const manualGeneratedOverlapsWithoutOverlay: string[] = [];
+  for (const [logicalKey, bucket] of logicalBuckets) {
+    const hasManual = bucket.some(entry => entry.dataset === 'manual-core');
+    const hasGenerated = bucket.some(entry => entry.dataset === 'generated');
+
+    if (!hasManual || !hasGenerated) {
+      continue;
+    }
+
+    const manualEntriesWithoutOverlay = bucket.filter(entry => entry.dataset === 'manual-core' && !entry.manualOverlay);
+
+    if (manualEntriesWithoutOverlay.length > 0) {
+      manualGeneratedOverlapsWithoutOverlay.push(logicalKey);
+    }
+  }
+
   const finalizedDomainSummaries: Partial<Record<PbSystemSymbolDomain, CatalogDomainProvenanceSummary>> = {};
   for (const [domain, summary] of Object.entries(domainSummaries)) {
     finalizedDomainSummaries[domain as PbSystemSymbolDomain] = {
@@ -245,6 +285,8 @@ export function buildCatalogConsistencyReport(): CatalogReport {
     missingSignatures,
     emptyName,
     invalidEnumeratedTypeNames,
+    manualGeneratedOverlapsWithoutOverlay: manualGeneratedOverlapsWithoutOverlay.sort((left, right) => left.localeCompare(right)),
+    manualOverlayModes,
     domainCounts: domainCounts as Record<PbSystemSymbolDomain, number>,
     datasetCounts: datasetCounts as Partial<Record<PbSystemSymbolDataset, number>>,
     kindCounts: kindCounts as Record<PbSystemSymbolKind, number>,

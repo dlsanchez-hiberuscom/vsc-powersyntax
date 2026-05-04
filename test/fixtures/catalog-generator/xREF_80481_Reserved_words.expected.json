@@ -1,0 +1,38 @@
+[
+  {
+    "name": "ALIAS",
+    "category": "Palabras reservadas",
+    "identifierPolicy": "reserved",
+    "reservedWordCanBeFunctionName": false,
+    "signatures": [
+      {
+        "label": "ALIAS"
+      }
+    ],
+    "summary": "Palabra reservada oficial de PowerScript."
+  },
+  {
+    "name": "AUTOINSTANTIATE",
+    "category": "Palabras reservadas",
+    "identifierPolicy": "reserved",
+    "reservedWordCanBeFunctionName": false,
+    "signatures": [
+      {
+        "label": "AUTOINSTANTIATE"
+      }
+    ],
+    "summary": "Palabra reservada oficial de PowerScript."
+  },
+  {
+    "name": "CLOSE",
+    "category": "Palabras reservadas",
+    "identifierPolicy": "allowed-as-function-name",
+    "reservedWordCanBeFunctionName": true,
+    "signatures": [
+      {
+        "label": "CLOSE"
+      }
+    ],
+    "summary": "Palabra reservada oficial de PowerScript. Puede usarse también como nombre de función."
+  }
+]

@@ -1,0 +1,46 @@
+[
+  {
+    "name": "BeginDrag",
+    "title": "BeginDrag — Syntax 1: For ListView controls",
+    "appliesTo": [
+      "ListView"
+    ],
+    "eventId": "pbm_lvnbegindrag",
+    "ownerTypes": [
+      "listview"
+    ],
+    "signatures": [
+      {
+        "label": "BeginDrag(index)",
+        "parameters": [
+          {
+            "label": "index",
+            "documentation": "Integer by value (the index of the ListView item being dragged)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "BeginDrag",
+    "title": "BeginDrag — Syntax 2: For TreeView controls",
+    "appliesTo": [
+      "TreeView"
+    ],
+    "eventId": "pbm_tvnbegindrag",
+    "ownerTypes": [
+      "treeview"
+    ],
+    "signatures": [
+      {
+        "label": "BeginDrag(handle)",
+        "parameters": [
+          {
+            "label": "handle",
+            "documentation": "Long by value (handle of the TreeView item being dragged)"
+          }
+        ]
+      }
+    ]
+  }
+]

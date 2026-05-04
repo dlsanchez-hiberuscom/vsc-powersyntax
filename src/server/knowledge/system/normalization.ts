@@ -167,6 +167,13 @@ export function finalizeSystemSymbolEntry(
         category: entry.category.trim(),
         summary: entry.summary.trim(),
         documentation: entry.documentation?.trim() || undefined,
+        returnType: entry.returnType?.trim() || undefined,
+        returnDocumentation: entry.returnDocumentation?.trim() || undefined,
+        usageNotes: entry.usageNotes?.map(value => value.trim()).filter(value => value.length > 0),
+        baseType: entry.baseType?.trim() || undefined,
+        properties: entry.properties?.map(value => value.trim()).filter(value => value.length > 0),
+        functions: entry.functions?.map(value => value.trim()).filter(value => value.length > 0),
+        events: entry.events?.map(value => value.trim()).filter(value => value.length > 0),
         source: entry.source.trim(),
         sourceUrl: entry.sourceUrl?.trim(),
         ownerTypes: normalizedOwnerTypes.length > 0 ? normalizedOwnerTypes : undefined,
@@ -176,7 +183,25 @@ export function finalizeSystemSymbolEntry(
         allowedOnOwners: entry.allowedOnOwners?.map(value => value.trim()).filter(value => value.length > 0),
         allowedOnProperties: entry.allowedOnProperties?.map(value => value.trim()).filter(value => value.length > 0),
         allowedInParameters: entry.allowedInParameters?.map(value => value.trim()).filter(value => value.length > 0),
+        eventId: entry.eventId?.trim() || undefined,
+        eventIds: entry.eventIds?.map(eventId => ({
+            id: eventId.id.trim(),
+            ownerTypes: eventId.ownerTypes?.map(value => value.trim()).filter(value => value.length > 0),
+        })).filter(eventId => eventId.id.length > 0),
         lookupAliases: normalizedLookupAliases.length > 0 ? normalizedLookupAliases : undefined,
+        manualOverlay: entry.manualOverlay ? {
+            targetId: entry.manualOverlay.targetId?.trim() || undefined,
+            targetKey: entry.manualOverlay.targetKey ? {
+                ...entry.manualOverlay.targetKey,
+                name: entry.manualOverlay.targetKey.name.trim(),
+                ownerTypes: normalizeOwnerTypeNames(entry.manualOverlay.targetKey.ownerTypes),
+            } : undefined,
+            mode: entry.manualOverlay.mode,
+            reason: entry.manualOverlay.reason.trim(),
+            evidence: entry.manualOverlay.evidence.map(value => value.trim()).filter(value => value.length > 0),
+            sourceUrl: entry.manualOverlay.sourceUrl?.trim() || undefined,
+            reviewedBy: entry.manualOverlay.reviewedBy?.trim() || undefined,
+        } : undefined,
     };
     const provenance = finalizeSystemSymbolProvenance(normalizedEntry);
 

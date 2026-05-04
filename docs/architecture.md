@@ -68,6 +68,19 @@ El cliente solo debe encargarse de:
 
 No debe contener análisis profundo ni semántica del lenguaje.
 
+Estado cliente vigente para ese principio:
+
+- `src/client/commandRegistration.ts` concentra ya el wiring declarativo de command IDs del producto en vez de mantenerlo mezclado con `activate()`;
+- `extension.ts` conserva lifecycle, bridge y handlers ligeros, mientras `powerbuilderObjectExplorer`, `powerbuilderCurrentObjectContext` y `powerbuilderDiagnosticsExplainability` se materializan bajo demanda mediante `ensure*Controller()` en lugar de crear `TreeView` eagerly durante la activación;
+- la API pública exportada sigue siendo versionada y estable, pero su materialización real deja de pagarse de forma eager antes de que exista un consumer efectivo.
+
+Guardrails estructurales vigentes para sostener ese principio:
+
+- `test/server/unit/architectureImports.test.ts` mantiene el firewall por capas entre `client`, `server`, `shared`, `knowledge/parsing/utils` y `build`;
+- `npm run test:architecture:metrics` complementa ese firewall con budgets explícitos para `src/client/extension.ts`, `src/server/server.ts` y `src/client/commandRegistration.ts`;
+- los slices generated/manual grandes del catálogo quedan allowlisted con budgets propios en `tools/run-architecture-hotspot-guard.mjs`, de modo que el crecimiento de source-of-truth no se confunda con drift del host cliente/servidor;
+- el runner deja `artifacts/performance/architecture-hotspot-guard.json` y emite warnings al llegar al `90%` del budget, pero no sustituye `npm run test:architecture:rapid` cuando un cambio toca runtime real o corpora PFC/STD.
+
 ### 4.2 Servidor como runtime principal del conocimiento
 
 El servidor LSP es responsable de:
@@ -214,6 +227,10 @@ El repositorio ya materializa un primer corte operativo de:
 - el catálogo enumerado ya deja `missingDocs = []` para `enumerated-types`: los tipos manual-core publicados (`Border`, `Alignment`, `WindowType`, `Encoding`, etc.) conservan `documentation`, `SeekType` vive como gap manual-curated explícito y tipos oficiales como `SecureProtocol` pueden seguir sin `enumValues` nominales cuando la evidencia oficial solo publica códigos enteros, siempre con explicación y owners trazables;
 - `registry/datasets.ts` publica esos slices `generated` junto al rail manual y `hover.ts` consume la unión efectiva `manual-core + generated` por `enumValueOf`, evitando que tipos como `WindowType` dependan solo de `symbol.enumValues` curados;
 - oficialización de `datatypes` y `system-object-datatypes` sobre ese mismo rail, extendiendo `generated.generated.ts` con tipos oficiales faltantes y `generatedBuiltinTypes.generated.ts` para alinear el fast-path del parser con las referencias oficiales sin acoplar el hot path al registry semántico;
+- `B366` endurece además el rail oficial sin abrir todavía el cambio de source-of-truth de `B367`: el scraper ya separa signatures reales, argumentos bajo `Syntax`, `returnType/returnDocumentation`, `eventId/eventIds`, metadata estructural de reserved words y overlays ricos para `system-object-datatypes` (`baseType`, `properties`, `functions`, `events`) incluso cuando el símbolo ya existe en `manual-core`, y `queryService.ts` prioriza ese overlay oficial enriquecido para `resolveDatatype()` y `resolveLanguageSymbol()` cuando aporta más estructura que la entrada curada base;
+- `B370` añade el siguiente firewall arquitectónico de ese rail oficial: `test/fixtures/catalog-generator/` congela snapshots compactos offline para `ApplyTheme`, `AddItemArray`, `SetItemDate`, `OLEActivate`, `BeginDrag`, `DragDrop`, `PDFDocumentProperties` y reserved words, `catalogGeneratorScript.test.ts` los compara contra JSON compacto sin red y el parser publica ya `usageNotes` cuando Appeon documenta explícitamente una sección `Usage`, de modo que futuros cambios del extractor quedan localizados por fixture antes de tocar `generated` como source-of-truth;
+- `B367` cierra ese cambio de source-of-truth: el generator oficial publica `generated` en modo `complete` por defecto, conserva `gap-fill` solo como compatibilidad, incorpora `datatypes` al dataset `generated`, materializa `generatedCompleteness.generated.ts` con cobertura oficial completa por dominio y fusiona overloads oficiales con la misma identidad lógica para que el registry runtime no reintroduzca `duplicateIds` al convivir `manual-core + generated`;
+- `B368` cierra la gobernanza inmediata de esa convivencia: `manualOverlay` pasa a ser contrato explícito del catálogo, `registry.ts` clasifica por defecto `gap/enrichment/override`, `buildCatalogConsistencyReport()` falla ante overlaps manual/generated sin policy y `queryService.ts` aplica una merge policy provisional del hot path donde `override` manual gana, `generated` sigue siendo la base oficial y los `enrichment` se fusionan sin crear entradas competidoras;
 - `logicalStatements` ya se derivan del stripper canónico (`stripCommentsSmart`) para no contaminar diagnostics ni bindings con comentarios, y el parser degrada a `global` los callables truncados que aparecen antes del primer `type` real, manteniendo rangos monotónicos en scopes duplicados `forward/implementation` bajo fuzzing determinista;
 - API pública v2 versionada, con descriptor contractual, inventario estable de metodos/schemas/tools y helpers de compatibilidad;
 - catálogo versionado de task execution contracts injertado en ese descriptor público y servido por el tool `contract`, describiendo inputs/outputs, dry-run, límites write-enabled, receipts y handoff SDD sin mover IA dentro del core;

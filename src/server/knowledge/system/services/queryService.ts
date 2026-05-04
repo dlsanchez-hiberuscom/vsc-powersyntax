@@ -103,6 +103,171 @@ function dedupeEntries(
     return result;
 }
 
+function buildCatalogPolicyKey(entry: Pick<PbSystemSymbolEntry, 'domain' | 'kind' | 'namespace' | 'invocation' | 'enumValueOf' | 'normalizedName' | 'normalizedOwnerTypes'>): string {
+    return [
+        entry.domain,
+        entry.kind,
+        entry.namespace,
+        entry.invocation,
+        entry.enumValueOf ?? '',
+        entry.normalizedName,
+        entry.normalizedOwnerTypes.join('+') || 'all',
+    ].join('|');
+}
+
+function mergeUniqueStringValues(left?: readonly string[], right?: readonly string[]): readonly string[] | undefined {
+    const merged = new Set<string>();
+
+    for (const value of [...(left ?? []), ...(right ?? [])]) {
+        if (value.trim()) {
+            merged.add(value);
+        }
+    }
+
+    return merged.size > 0 ? Array.from(merged) : undefined;
+}
+
+function mergeEnrichmentIntoBase(
+    baseEntry: PbSystemSymbolEntry,
+    enrichmentEntry: PbSystemSymbolEntry,
+): PbSystemSymbolEntry {
+    return {
+        ...baseEntry,
+        documentation: baseEntry.documentation ?? enrichmentEntry.documentation,
+        returnType: baseEntry.returnType ?? enrichmentEntry.returnType,
+        returnDocumentation: baseEntry.returnDocumentation ?? enrichmentEntry.returnDocumentation,
+        usageNotes: mergeUniqueStringValues(baseEntry.usageNotes, enrichmentEntry.usageNotes),
+        baseType: baseEntry.baseType ?? enrichmentEntry.baseType,
+        properties: mergeUniqueStringValues(baseEntry.properties, enrichmentEntry.properties),
+        functions: mergeUniqueStringValues(baseEntry.functions, enrichmentEntry.functions),
+        events: mergeUniqueStringValues(baseEntry.events, enrichmentEntry.events),
+        appliesTo: mergeUniqueStringValues(baseEntry.appliesTo, enrichmentEntry.appliesTo),
+        enumValues: mergeUniqueStringValues(baseEntry.enumValues, enrichmentEntry.enumValues),
+        allowedOnOwners: mergeUniqueStringValues(baseEntry.allowedOnOwners, enrichmentEntry.allowedOnOwners),
+        allowedOnProperties: mergeUniqueStringValues(baseEntry.allowedOnProperties, enrichmentEntry.allowedOnProperties),
+        allowedInParameters: mergeUniqueStringValues(baseEntry.allowedInParameters, enrichmentEntry.allowedInParameters),
+        lookupAliases: mergeUniqueStringValues(baseEntry.lookupAliases, enrichmentEntry.lookupAliases),
+        obsolete: baseEntry.obsolete || enrichmentEntry.obsolete,
+        obsoleteMessage: baseEntry.obsoleteMessage ?? enrichmentEntry.obsoleteMessage,
+        replacement: baseEntry.replacement ?? enrichmentEntry.replacement,
+        risk: baseEntry.risk ?? enrichmentEntry.risk,
+        manualOverlay: enrichmentEntry.manualOverlay ?? baseEntry.manualOverlay,
+    };
+}
+
+function applyCatalogMergePolicy(
+    entries: readonly PbSystemSymbolEntry[],
+): readonly PbSystemSymbolEntry[] {
+    const buckets = new Map<string, PbSystemSymbolEntry[]>();
+    const orderedKeys: string[] = [];
+
+    for (const entry of entries) {
+        const key = buildCatalogPolicyKey(entry);
+        const bucket = buckets.get(key);
+
+        if (bucket) {
+            bucket.push(entry);
+            continue;
+        }
+
+        buckets.set(key, [entry]);
+        orderedKeys.push(key);
+    }
+
+    const resolved: PbSystemSymbolEntry[] = [];
+
+    for (const key of orderedKeys) {
+        const bucket = buckets.get(key) ?? [];
+        const nonCandidateEntries = bucket.filter(entry => entry.manualOverlay?.mode !== 'candidate');
+
+        if (nonCandidateEntries.length === 0) {
+            continue;
+        }
+
+        const manualOverrides = nonCandidateEntries.filter(entry => entry.dataset === 'manual-core' && entry.manualOverlay?.mode === 'override');
+
+        if (manualOverrides.length > 0) {
+            resolved.push(manualOverrides[0]);
+            continue;
+        }
+
+        const generatedEntries = nonCandidateEntries.filter(entry => entry.dataset === 'generated');
+
+        if (generatedEntries.length > 0) {
+            let mergedEntry = generatedEntries[0];
+            const manualEnrichments = nonCandidateEntries.filter(entry => entry.dataset === 'manual-core' && entry.manualOverlay?.mode === 'enrichment');
+
+            for (const enrichmentEntry of manualEnrichments) {
+                mergedEntry = mergeEnrichmentIntoBase(mergedEntry, enrichmentEntry);
+            }
+
+            resolved.push(mergedEntry);
+            continue;
+        }
+
+        resolved.push(nonCandidateEntries[0]);
+    }
+
+    return resolved;
+}
+
+function selectCatalogPolicyEntry(
+    entries: readonly PbSystemSymbolEntry[],
+): PbSystemSymbolEntry | undefined {
+    return applyCatalogMergePolicy(entries)[0];
+}
+
+function getSystemTypeRichnessScore(entry: PbSystemSymbolEntry): number {
+    let score = 0;
+
+    if (entry.documentation?.trim()) {
+        score += 4;
+    }
+
+    if (entry.baseType?.trim()) {
+        score += 4;
+    }
+
+    if ((entry.properties?.length ?? 0) > 0) {
+        score += 3;
+    }
+
+    if ((entry.functions?.length ?? 0) > 0) {
+        score += 3;
+    }
+
+    if ((entry.events?.length ?? 0) > 0) {
+        score += 3;
+    }
+
+    return score;
+}
+
+function selectPreferredSystemTypeEntry(
+    entries: readonly PbSystemSymbolEntry[],
+): PbSystemSymbolEntry | undefined {
+    let preferredEntry: PbSystemSymbolEntry | undefined;
+    let preferredScore = -1;
+
+    for (const entry of entries) {
+        const score = getSystemTypeRichnessScore(entry);
+
+        if (!preferredEntry || score > preferredScore) {
+            preferredEntry = entry;
+            preferredScore = score;
+            continue;
+        }
+
+        if (score === preferredScore
+            && preferredEntry.dataset !== 'generated'
+            && entry.dataset === 'generated') {
+            preferredEntry = entry;
+        }
+    }
+
+    return preferredEntry;
+}
+
 function getDomainMatchPriority(
     entry: Pick<PbSystemSymbolEntry, 'domain'>,
     ownerTypeNames: readonly string[],
@@ -146,7 +311,7 @@ function sortEntriesByOwnerMatch(
 }
 
 function getEntriesForDomain(domain: PbSystemSymbolEntry['domain']): readonly PbSystemSymbolEntry[] {
-    return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomain.get(domain) ?? [];
+    return applyCatalogMergePolicy(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomain.get(domain) ?? []);
 }
 
 function collectEntriesForOwnerDomains(
@@ -159,11 +324,11 @@ function collectEntriesForOwnerDomains(
         return dedupeEntries(domains.flatMap(domain => getEntriesForDomain(domain)));
     }
 
-    return dedupeEntries(
+    return applyCatalogMergePolicy(dedupeEntries(
         normalizedOwnerTypeNames.flatMap(ownerType =>
             domains.flatMap(domain => lookupInOwnerTypeDomainIndex(ownerType, domain)),
         ),
-    );
+    ));
 }
 
 export function listSystemSymbolsByDomain(
@@ -260,46 +425,46 @@ export function listSystemStatements(): readonly PbSystemSymbolEntry[] {
 }
 
 export function resolveSystemGlobalFunction(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('global-functions', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('global-functions', name));
 }
 
 export function resolveSystemObjectFunction(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('object-functions', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('object-functions', name));
 }
 
 export function resolveSystemObjectFunctionForOwner(
     name: string,
     ownerTypeNames: readonly string[],
 ): PbSystemSymbolEntry | undefined {
-    return sortEntriesByOwnerMatch(
+    return selectCatalogPolicyEntry(sortEntriesByOwnerMatch(
         findEntriesByDomainAndLookupKey('object-functions', name),
         ownerTypeNames,
-    )[0];
+    ));
 }
 
 export function resolveSystemDataWindowFunction(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('datawindow-functions', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('datawindow-functions', name));
 }
 
 export function resolveSystemDataWindowFunctionForOwner(
     name: string,
     ownerTypeNames: readonly string[],
 ): PbSystemSymbolEntry | undefined {
-    return sortEntriesByOwnerMatch(
+    return selectCatalogPolicyEntry(sortEntriesByOwnerMatch(
         findEntriesByDomainAndLookupKey('datawindow-functions', name),
         ownerTypeNames,
-    )[0];
+    ));
 }
 
 export function findApplicableMembersForOwnerType(
     ownerTypeNames: readonly string[],
 ): readonly PbSystemSymbolEntry[] {
-    return dedupeEntries(
+    return applyCatalogMergePolicy(dedupeEntries(
         sortEntriesByOwnerMatch(
             collectEntriesForOwnerDomains(ownerTypeNames, MEMBER_FUNCTION_DOMAINS),
             ownerTypeNames,
         ),
-    );
+    ));
 }
 
 export function listSystemMemberFunctionsForOwner(
@@ -312,18 +477,18 @@ export function resolveSystemMemberFunctionForOwner(
     name: string,
     ownerTypeNames: readonly string[],
 ): PbSystemSymbolEntry | undefined {
-    return dedupeEntries(sortEntriesByOwnerMatch([
+    return selectCatalogPolicyEntry(dedupeEntries(sortEntriesByOwnerMatch([
         ...findEntriesByDomainAndLookupKey('object-functions', name),
         ...findEntriesByDomainAndLookupKey('datawindow-functions', name),
-    ], ownerTypeNames))[0];
+    ], ownerTypeNames)));
 }
 
 export function resolveSystemObjectEvent(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('system-events', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('system-events', name));
 }
 
 export function resolveSystemDataWindowEvent(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('datawindow-events', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('datawindow-events', name));
 }
 
 export function findApplicableEventsForOwnerType(
@@ -435,33 +600,37 @@ export function listSystemGlobals(): readonly PbSystemSymbolEntry[] {
 }
 
 export function resolveKeyword(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('keywords', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('keywords', name));
 }
 
 export function resolveReservedWord(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('reserved-words', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('reserved-words', name));
 }
 
 export function resolveDatatype(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByKindAndLookupKey('datatype', name)[0]
-        ?? findEntriesByKindAndLookupKey('system-type', name)[0]
-        ?? findEntriesByKindAndLookupKey('enumerated-type', name)[0];
+    const preferredSystemType = selectPreferredSystemTypeEntry(
+        findEntriesByKindAndLookupKey('system-type', name),
+    );
+
+    return selectCatalogPolicyEntry(findEntriesByKindAndLookupKey('datatype', name))
+        ?? preferredSystemType
+        ?? selectCatalogPolicyEntry(findEntriesByKindAndLookupKey('enumerated-type', name));
 }
 
 export function resolveEnumeratedType(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('enumerated-types', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('enumerated-types', name));
 }
 
 export function resolveEnumeratedValue(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('enumerated-values', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('enumerated-values', name));
 }
 
 export function resolveSystemGlobal(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('system-globals', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('system-globals', name));
 }
 
 export function resolvePronoun(name: string): PbSystemSymbolEntry | undefined {
-    return findEntriesByDomainAndLookupKey('pronouns', name)[0];
+    return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('pronouns', name));
 }
 
 export function listValuesForEnumeratedType(typeName: string): readonly PbSystemSymbolEntry[] {
@@ -471,7 +640,7 @@ export function listValuesForEnumeratedType(typeName: string): readonly PbSystem
         return [];
     }
 
-    return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byEnumValueOf.get(normalizedTypeName) ?? [];
+    return applyCatalogMergePolicy(PB_SYSTEM_SYMBOL_REGISTRY.indexes.byEnumValueOf.get(normalizedTypeName) ?? []);
 }
 
 export function resolveEnumValueForExpectedType(
@@ -495,7 +664,10 @@ export function resolveEnumValueForExpectedType(
  */
 export function resolveLanguageSymbol(name: string): PbSystemSymbolEntry | undefined {
     for (const kind of PB_LANGUAGE_SYMBOL_RESOLUTION_PRIORITY) {
-        const match = findEntriesByKindAndLookupKey(kind, name)[0];
+        const matches = findEntriesByKindAndLookupKey(kind, name);
+        const match = kind === 'system-type'
+            ? selectPreferredSystemTypeEntry(matches)
+            : selectCatalogPolicyEntry(matches);
 
         if (match) {
             return match;

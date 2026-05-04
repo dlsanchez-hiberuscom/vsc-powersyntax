@@ -1,5 +1,6 @@
 import {
     PB_GENERATED_DATAWINDOW_FUNCTIONS,
+    PB_GENERATED_DATATYPES,
     PB_GENERATED_EVENTS,
     PB_GENERATED_GLOBAL_FUNCTIONS,
     PB_GENERATED_KEYWORDS,
@@ -32,6 +33,11 @@ export const PB_SYSTEM_SYMBOL_DATASET_SLICES: readonly PbSystemSymbolDatasetSlic
         dataset: 'generated',
         domain: 'reserved-words',
         entries: PB_GENERATED_RESERVED_WORDS,
+    },
+    {
+        dataset: 'generated',
+        domain: 'datatypes',
+        entries: PB_GENERATED_DATATYPES,
     },
     {
         dataset: 'generated',

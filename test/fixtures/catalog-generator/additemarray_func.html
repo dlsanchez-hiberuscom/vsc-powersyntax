@@ -1,0 +1,20 @@
+<h2 class="title">AddItemArray</h2>
+<p><span class="bold"><strong>Description</strong></span></p>
+<p>Adds a child item of JsonArrayItem type in the JSON generator object.</p>
+<p><span class="bold"><strong>Applies to</strong></span></p>
+<p>JSONGenerator objects</p>
+<p><span class="bold"><strong>Syntax</strong></span></p>
+<pre class="programlisting">
+objectname.AddItemArray ( ParentItemHandle )
+objectname.AddItemArray ( ParentItemHandle, Key )
+objectname.AddItemArray ( ParentItemPath )
+objectname.AddItemArray ( ParentItemPath, Key )
+</pre>
+<table><tbody>
+<tr><td>objectname</td><td>The name of the JSONGenerator object in which you want to add an item.</td></tr>
+<tr><td>ParentItemHandle</td><td>A long whose value is the handle of the parent item of JsonArrayItem or JsonObjectItem type.</td></tr>
+<tr><td>ParentItemPath</td><td>A string whose value is the path of the parent item of JsonArrayItem or JsonObjectItem type.</td></tr>
+<tr><td>Key</td><td>A string whose value is the key of the child item.</td></tr>
+</tbody></table>
+<p><span class="bold"><strong>Return value</strong></span></p>
+<p>Long. Returns the handle of the new child item if it succeeds and -1 if an error occurs.</p>

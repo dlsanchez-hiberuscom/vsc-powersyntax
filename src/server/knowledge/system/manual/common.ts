@@ -1,5 +1,6 @@
 import { finalizeSystemSymbolEntry } from '../normalization';
 import {
+    PbSystemManualOverlay,
     PbSystemSymbolEntry,
     PbSystemSymbolEntryDraft,
     PbSystemSymbolSignature,
@@ -26,6 +27,7 @@ type ManualSymbolArgs = {
     lookupAliases?: readonly string[];
     sourceUrl?: string;
     risk?: 'safe' | 'dynamic' | 'deprecated' | 'legacy' | 'external';
+    manualOverlay?: PbSystemManualOverlay;
 };
 
 function defineManualEntry(
@@ -121,6 +123,7 @@ type LanguageSymbolArgs = {
     allowedInParameters?: readonly string[];
     valueType?: string;
     risk?: PbSystemSymbolEntry['risk'];
+    manualOverlay?: PbSystemManualOverlay;
 };
 
 export function languageKeyword(args: LanguageSymbolArgs): PbSystemSymbolEntry {

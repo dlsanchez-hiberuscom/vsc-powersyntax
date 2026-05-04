@@ -119,10 +119,12 @@ fixtures-local/
 
 ## Integración actual en el ciclo
 
+- `npm run test:architecture:rapid` compone el gate corto de refactors arquitectónicos sobre `smoke/pfc-workspace-extension`, `smoke/pfc-solution-extension` y las suites `performance/pfc-*` + `performance/orderentry*`, dejando evidencia JSON en `artifacts/performance/architecture-rapid-gate.json` y degradando a `passed-with-skips`/`skipped` cuando falten corpus locales;
 - `test/smoke/pfc-workspace.extension.test.ts` valida la extensión real sobre **PFC 2025 Workspace**;
 - `test/smoke/pfc-solution.extension.test.ts` valida la extensión real sobre **PFC 2025 Solution**;
 - `test/server/performance/pfc-workspace.smoke.test.ts` y `pfc-workspace.perf.test.ts` validan **PFC 2025 Workspace**;
 - `test/server/performance/pfc-solution.smoke.test.ts` mantiene smoke parser/symbols sobre **PFC 2025 Solution**;
+- `test/server/performance/enumCatalogCorpusValidation.smoke.test.ts` clasifica uso real de valores con `!` sobre **PFC Solution**, **STD_FC_OrderEntry** y **legacy PBL dump**, dejando el baseline actual `13068 total / 1554 catalogados / 5296 unknown / 6214 false positives / 4 out-of-context / 0 candidates` sin convertir esa evidencia en autoridad de catálogo;
 - `test/server/performance/legacy-pbl-dump.smoke.test.ts` introduce regresión básica sobre **legacy PBL dump**;
 - `test/server/performance/orderentry.perf.test.ts`, `orderentry.smoke.test.ts` y `orderentry.semantic.test.ts` fijan el slot enterprise local **STD_FC_OrderEntry** como baseline operativo de discovery/indexación, smoke semántica y topología real híbrida con ruido no fuente explícitamente ignorado.
 

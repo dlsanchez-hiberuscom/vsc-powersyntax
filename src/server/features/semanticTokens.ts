@@ -22,7 +22,8 @@ const TOKEN_TYPES = [
   'variable',
   'parameter',
   'event',
-  'enumMember'
+  'enumMember',
+  'keyword'
 ] as const;
 
 const TOKEN_MODIFIERS = [
@@ -50,7 +51,8 @@ const TYPE_INDEX = {
   variable: 5,
   parameter: 6,
   event: 7,
-  enumMember: 8
+  enumMember: 8,
+  keyword: 9
 };
 
 const MODIFIER_MASK = {
@@ -248,6 +250,17 @@ function emitUsages(
 
       // Check for qualifier to resolve member access
       const qualifier = extractQualifier(line, startChar);
+
+      const catalogToken = resolveCatalogToken(identifier, qualifier, systemCatalog);
+      if (catalogToken) {
+        tokens.push({
+          line: i,
+          char: startChar,
+          length: identifier.length,
+          ...catalogToken,
+        });
+        continue;
+      }
       
       // Si no hay cualificador, puede ser una variable de instancia, global, tipo, o función global.
       const targets = resolveTargetEntity(
@@ -296,6 +309,46 @@ function emitUsages(
       }
     }
   }
+}
+
+function resolveCatalogToken(
+  identifier: string,
+  qualifier: string | undefined,
+  systemCatalog: SystemCatalog,
+): Pick<TokenEntry, 'type' | 'mods'> | undefined {
+  if (qualifier) {
+    return undefined;
+  }
+
+  if (systemCatalog.resolveKeyword(identifier) || systemCatalog.resolveReservedWord(identifier)) {
+    return {
+      type: TYPE_INDEX.keyword,
+      mods: 0,
+    };
+  }
+
+  if (systemCatalog.resolveDatatype(identifier) || systemCatalog.resolveEnumeratedType(identifier)) {
+    return {
+      type: TYPE_INDEX.type,
+      mods: MODIFIER_MASK.defaultLibrary,
+    };
+  }
+
+  if (systemCatalog.resolveSystemGlobal(identifier) || systemCatalog.resolvePronoun(identifier)) {
+    return {
+      type: TYPE_INDEX.variable,
+      mods: MODIFIER_MASK.defaultLibrary | MODIFIER_MASK.global,
+    };
+  }
+
+  if (systemCatalog.resolveGlobalFunction(identifier)) {
+    return {
+      type: TYPE_INDEX.function,
+      mods: MODIFIER_MASK.defaultLibrary,
+    };
+  }
+
+  return undefined;
 }
 
 function getScopeAtLine(snapshot: SemanticDocumentSnapshot, line: number): Scope | undefined {

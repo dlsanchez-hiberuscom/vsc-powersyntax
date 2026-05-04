@@ -25,6 +25,173 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.126 B368. Manual curated overlays, gaps and overrides policy — **Cerrada (knowledge/manual overlay governance 2026-05)**
+
+**Objetivo:** redefinir `manual/` para que no compita silenciosamente con `generated`, sino que actúe como capa explícita de `gaps`, `enrichments`, `overrides` y `candidates` sobre el catálogo oficial ya completo.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/types.ts`, `normalization.ts` y `manual/common.ts` publican `manualOverlay` como metadata contractual de entry con `mode`, `targetId/targetKey`, `reason`, `evidence`, `sourceUrl` y `reviewedBy` normalizados;
+- `src/server/knowledge/system/registry/registry.ts` clasifica automáticamente `manual-core` frente a `generated`: los overlaps lógicos pasan por defecto a `enrichment`, las ausencias reales quedan como `gap` y los casos curados explícitos como `Clipboard` se publican como `override`;
+- `src/server/knowledge/system/consistency.ts` y `test/server/unit/catalogConsistency.test.ts` endurecen el catálogo contra overlaps manual/generated sin overlay explícito y publican contadores por `manualOverlay.mode` para que la gobernanza del rail curado sea auditable;
+- `src/server/knowledge/system/services/queryService.ts` hace explícita la merge policy provisional del hot path: `override` manual gana, `generated` sigue siendo la base cuando existe counterpart oficial y los `enrichment` se fusionan sobre esa base, mientras `candidate` queda fuera de las listas/resoluciones interactivas.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep systemCatalogQueryHardening`
+- `npm run test:unit -- --grep "catalogV2|catalogConsistency|catalogProvenanceAudit"`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+
+## 1.125 B367. Generated catalog as complete official source v2 — **Cerrada (knowledge/generated source-of-truth 2026-05)**
+
+**Objetivo:** convertir `generated` desde un dataset de huecos filtrado por `manual-core` a un catálogo official completo, medible y comparable por dominio antes de redefinir overlays manuales o decisiones de adopción runtime.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` publica ya `generated` en modo `complete` por defecto y deja `gap-fill` solo como compatibilidad explícita; `officialCoverage.generated.ts` pasa a ser comparativo y `generatedCompleteness.generated.ts` mide exclusivamente lo emitido por `generated`;
+- `src/server/knowledge/system/generated/generated.generated.ts` incorpora `PB_GENERATED_DATATYPES`, mantiene completos los dominios oficiales incluidos y fusiona overloads oficiales con identidad lógica repetida antes de materializar el dataset, evitando `duplicateIds` intradataset en runtime;
+- `src/server/knowledge/system/registry/datasets.ts` registra el nuevo slice `generated` de `datatypes`, mientras la medición de `object-functions` deja de contar la superficie específica de DataWindow que ya pertenece a `datawindow-functions`;
+- `generatedCompleteness.generated.ts` queda con `missingCount = 0` en `global-functions`, `object-functions`, `datawindow-functions`, `keywords`, `reserved-words`, `datatypes`, `enumerated-types`, `enumerated-values`, `system-object-datatypes`, `system-events` y `statements`.
+
+**Validación registrada:**
+- `node ./script/generate_official_function_catalog.cjs`
+- `npm run test:unit -- --grep catalogGeneratorScript`
+- `npm run test:unit -- --grep catalogV2`
+- `npm run test:unit -- --grep catalogConsistency`
+- `npm run test:unit -- --grep catalogProvenanceAudit`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+
+## 1.124 B370. Generated catalog regression fixtures and extraction quality gate — **Cerrada (knowledge/generator regression gate 2026-05)**
+
+**Objetivo:** congelar el layout crítico del scraper oficial en fixtures offline revisables para que cambios futuros del extractor no vuelvan a depender de HTML vivo ni reabran silenciosamente el baseline oficial de `B366`.
+
+**Resultado registrado:**
+- `test/fixtures/catalog-generator/` introduce ocho snapshots compactos `.html` + `.expected.json` para `ApplyTheme`, `AddItemArray`, `SetItemDate`, `OLEActivate`, `BeginDrag`, `DragDrop`, `PDFDocumentProperties` y `xREF_80481_Reserved_words`, dejando diffs localizados por caso y sin mirror completo de la documentación externa;
+- `test/server/unit/catalogGeneratorScript.test.ts` sube a `22 passing` y compara el output del extractor contra JSON compacto para `returnType/returnDocumentation`, `usageNotes`, signatures DW, `eventId/eventIds`, owner mappings, `baseType/properties/functions/events` e `identifierPolicy` de reserved words, todo sin tocar red;
+- `script/generate_official_function_catalog.cjs` publica ya `usageNotes` cuando la referencia oficial tiene sección `Usage`, y la regeneración real vuelve a materializar `generated.generated.ts` con el extractor endurecido sin romper el baseline runtime del catálogo;
+- `catalogV2`, `catalogConsistency` y `catalogProvenanceAudit` se revalidan tras la regeneración, dejando listo el siguiente cambio de source-of-truth de `B367` sobre un rail regresivo ya estabilizado.
+
+**Validación registrada:**
+- `node ./script/generate_official_function_catalog.cjs`
+- `npm run test:unit -- --grep catalogGeneratorScript`
+- `npm run test:unit -- --grep catalogV2`
+- `npm run test:unit -- --grep catalogConsistency`
+- `npm run test:unit -- --grep catalogProvenanceAudit`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+## 1.123 B366. Official Appeon scraper bugfixes and structural enrichment v2 — **Cerrada (knowledge/generator baseline 2026-05)**
+
+**Objetivo:** corregir fallos estructurales del scraper oficial de Appeon y subir el techo real del catálogo `generated` con metadata explotable para runtime/hover/completion sin vender todavía `generated` como source-of-truth completo.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` endurece el extractor oficial con reuse de tablas anónimas bajo `Syntax`, parsing de `returnType/returnDocumentation`, `eventId/eventIds`, metadata estructural de reserved words y headings `Properties/Events/Functions` compatibles con anchors inline del layout real de Appeon;
+- el rail `system-object-datatypes` ya publica overlays oficiales ricos incluso para tipos ya presentes en `manual-core`, incluyendo `baseType`, `properties`, `functions` y `events`; `src/server/knowledge/system/generated/generated.generated.ts` materializa de forma verificable casos como `PDFDocumentProperties` con `baseType: "PDFModel"`, propiedades `Application/Author/Keywords/Subject/Title`, funciones heredadas/runtime y eventos `Constructor/Destructor`;
+- `AddItemArray` queda ya publicado en el catálogo real con cuatro signatures y parámetros estructurados (`ParentItemHandle`, `ParentItemPath`, `Key`) más `returnType: "Long"` y documentación de retorno oficial;
+- `src/server/knowledge/system/services/queryService.ts` prioriza el overlay oficial enriquecido de `system-object-datatypes` en `resolveDatatype()` y `resolveLanguageSymbol()` cuando aporta más estructura que la entrada curada base, evitando que tipos runtime como `PDFDocumentProperties` sigan resolviendo sólo contra la versión manual mínima.
+
+**Validación registrada:**
+- `node ./script/generate_official_function_catalog.cjs`
+- `npm run test:unit -- --grep catalogGeneratorScript`
+- `npm run test:unit -- --grep "catalogV2|catalogConsistency|catalogProvenanceAudit"`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+## 1.122 B329. Catalog-driven semantic tokens integration — **Cerrada (spec 382, catalog-driven-semantic-tokens-fast-path 2026-05)**
+
+**Objetivo:** consumir metadata del catálogo en semantic tokens para colorear símbolos seguros del runtime sin depender siempre del lookup semántico general ni introducir trabajo caro por token.
+
+**Resultado registrado:**
+- `src/server/features/semanticTokens.ts` añade un fast path catalog-driven para `keywords`, `reserved-words`, `datatypes`, `enumerated-types`, `system-globals`, `pronouns` y `global-functions` mediante resolutores directos de `SystemCatalog` cuando no hay qualifier;
+- la leyenda pública incorpora `keyword` y mantiene `enumMember`, mientras los símbolos del default library siguen usando modifiers compatibles (`defaultLibrary`, `global`) sin clonar catálogos ni escanear dominios completos por token;
+- `test/server/unit/semanticTokens.test.ts` fija el caso catalog-driven con `IF`, `IsValid`, `SQLCA` y `This`, y `test/server/unit/hotPathAllocationBudget.test.ts` confirma que el hot path interactivo sigue sin serializar JSON ni clonar catálogos globales completos por inercia;
+- el foco operativo del bloque sube a `B366`, porque `B370`, `B367`, `B368` y la cadena de localización exigen primero metadata oficial enriquecida del scraper.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalog-driven"`
+- `npm run test:unit -- --grep "Semantic Tokens"`
+- `npm run test:unit -- --grep hotPathAllocationBudget`
+
+## 1.121 B353. Large-file regression guard and architecture metrics — **Cerrada (spec 381, architecture-hotspot-guard 2026-05)**
+
+**Objetivo:** añadir un guard reproducible de tamaño, imports y responsibility drift para los hotspots TypeScript del repo, separando los hosts críticos del cliente/servidor de los slices generated/manual grandes del catálogo.
+
+**Resultado registrado:**
+- `tools/run-architecture-hotspot-guard.mjs` publica el lane `npm run test:architecture:metrics`, genera `artifacts/performance/architecture-hotspot-guard.json` y mide `lines`, `imports` y `topLevelDeclarations` sobre `src/client/extension.ts`, `src/server/server.ts` y `src/client/commandRegistration.ts`;
+- el guard mantiene una allowlist explícita para `src/server/knowledge/system/generated/generated.generated.ts`, `src/server/knowledge/system/manual/core/objectFunctions.ts`, `src/server/knowledge/system/manual/datawindow/dataWindowFunctions.ts`, `src/server/knowledge/system/manual/language/enumerations/index.ts`, `src/server/knowledge/system/manual/core/globalFunctions.ts` y `src/server/knowledge/system/manual/core/systemEvents.ts`, con budgets propios y warnings a partir del `90%` del umbral;
+- `test/server/unit/architectureImports.test.ts` sigue fijando el firewall por capas y ahora ejecuta además el runner, dejando una única suite focal para imports + budgets de hotspots;
+- el baseline actual deja `9` hotspots trazados, `6` allowlisted, `0` failing hotspots y `4` warnings (`extension.ts`, `generated.generated.ts`, `objectFunctions.ts`, `dataWindowFunctions.ts`) sin abrir todavía una refactorización estructural masiva.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep architectureImports`
+- `npm run test:architecture:metrics`
+
+## 1.120 B364. Enum catalog real-corpus validation against PFC, STD and public PB repositories — **Cerrada (spec 380, enum-real-corpus-validation 2026-05)**
+
+**Objetivo:** validar el catálogo de enumerated types/values contra corpora reales PowerBuilder sin convertir PFC/STD/public dumps en autoridad de catálogo, separando valores catalogados, unknown, falsos positivos textuales y casos fuera de contexto.
+
+**Resultado registrado:**
+- `src/server/features/catalogCorpusValidation.ts` publica `collectEnumCatalogCorpusUsageObservations()` y `buildEnumCatalogCorpusUsageReport()` para escanear valores con `!` sobre texto enmascarado y clasificarlos como `official-known`, `curated-known`, `candidate`, `false-positive`, `out-of-context` o `unknown`;
+- `test/server/unit/catalogCorpusValidation.test.ts` fija el builder y la clasificación sintética, y `test/server/performance/enumCatalogCorpusValidation.smoke.test.ts` recorre PFC Solution, STD_FC_OrderEntry y legacy PBL dump con breakdown por corpus;
+- la evidencia real actual queda trazada en `13068` ocurrencias con `!`: `1554` catalogadas (`724` oficiales, `830` curadas), `5296` unknown, `6214` false positives, `4` out-of-context y `0` candidates;
+- no se añadió ningún unknown al catálogo. Las familias detectadas (`contemporarymenu!`, `contemporarytoolbar!`, `HourGlass!`, `OK!`, `Information!`, `Exclamation!`, `ansi!`, `swiss!`, `Exclude!`) quedan encaminadas a `B368/B370` como gaps/candidates/fixtures futuros.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogCorpusValidation"`
+- `npm run test:performance -- --grep "enumCatalogCorpusValidation|PFC/OrderEntry/legacy"`
+- `npm run test:unit -- --grep "enumerated|enum|catalog"`
+- `npm run test:performance -- --grep "PFC|OrderEntry|STD"`
+
+## 1.119 B356. PFC/STD rapid validation gate for architecture refactors — **Cerrada (spec 379, pfc-std-rapid-validation-gate 2026-05)**
+
+**Objetivo:** convertir las suites reales de PFC Workspace/Solution y STD_FC_OrderEntry en un gate corto, reproducible y documentado para refactors arquitectónicos, con skip honesto cuando los corpus no estén disponibles localmente.
+
+**Resultado registrado:**
+- `tools/run-architecture-rapid-gate.mjs` detecta disponibilidad de `fixtures-local/pfc/2025-Workspace`, `fixtures-local/pfc/2025-Solution` y `fixtures-local/STD_FC_OrderEntry`, recompila cliente/tests y ejecuta las suites smoke/performance reales ya existentes bajo greps controlados;
+- `package.json` publica el lane estable `npm run test:architecture:rapid` y el runner deja evidencia en `artifacts/performance/architecture-rapid-gate.json` con estados `passed`, `passed-with-skips` o `skipped`;
+- el gate reutiliza `smoke/pfc-workspace-extension`, `smoke/pfc-solution-extension`, `performance/pfc-workspace`, `performance/pfc-workspace-smoke`, `performance/pfc-solution-smoke`, `performance/orderentry`, `performance/orderentry-smoke` y `performance/orderentry-semantic`, sin duplicar suites ni helpers;
+- `docs/testing.md`, `docs/performance-budget.md`, `test/corpora/README.md`, backlog y current-focus quedan alineados para que `B364` vuelva a ser el foco funcional inmediato ya sin validación arquitectónica ad hoc.
+
+**Validación registrada:**
+- `npm run test:architecture:rapid`
+
+## 1.118 B346. Client activation and command registration boundaries — **Cerrada (spec 378, client command registration and lazy view activation 2026-05)**
+
+**Objetivo:** reducir `src/client/extension.ts` separando el wiring de comandos del cliente y quitando del hot path de activación superficies de UI que no deben materializarse eagerly, sin romper command IDs, API pública ni restart semantics.
+
+**Resultado registrado:**
+- `src/client/commandRegistration.ts` centraliza el registro de comandos por dominios (`core`, panels, reports, status, build/ORCA y support/maintenance), dejando `src/client/extension.ts` como host de lifecycle, bridge y handlers ligeros;
+- `src/client/extension.ts` mueve el wiring inline de jerarquía/paneles a helpers nombrados y pasa `PowerBuilderObjectExplorerController`, `CurrentObjectContextPanelController` y `DiagnosticsExplainabilityPanelController` a inicialización bajo demanda mediante `ensure*Controller()`;
+- la API pública exportada mantiene su contrato versionado pero deja de materializarse eagerly durante el cold start del módulo cliente;
+- `docs/architecture.md`, `docs/testing.md`, `docs/performance-budget.md`, `docs/current-focus.md` y el backlog canónico quedan alineados para que el siguiente cierre operativo pase a `B356` como gate previo a `B364`.
+
+**Validación registrada:**
+- `npm run compile`
+- `npm run test:unit -- --grep architectureImports`
+- `npm run test:smoke -- --grep "la extensión se activa en menos de 500ms"`
+- `npx vscode-test --label smoke --grep 'runtime self-test|settings governance|restartServer|PBAutoBuild|ORCA legacy|dashboard de salud|Object Explorer|Current Object Context'`
+
 ## 1.1 P0 — Base inmediata de descubrimiento, scheduling, contexto, visibilidad de estado y caché de serving
 
 ### B120. Discovery rápido no bloqueante del workspace — **Cerrada (spec 013)**

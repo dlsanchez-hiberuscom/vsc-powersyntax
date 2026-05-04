@@ -1,0 +1,24 @@
+[
+  {
+    "name": "ApplyTheme",
+    "returnDocumentation": "Integer. Returns 1 if it succeeds and -1 if it fails. If any argument's value is null, the method returns null.",
+    "returnType": "Integer",
+    "usageNotes": [
+      "The ApplyTheme method should be called when all windows are closed.",
+      "The applied theme affects windows and visual controls except Line and Picture.",
+      "When Windows Classic is active, the application renders in the Windows Classic theme instead of the selected theme."
+    ],
+    "signatures": [
+      {
+        "label": "Integer ApplyTheme ( String theme )",
+        "parameters": [
+          {
+            "label": "theme",
+            "documentation": "Theme path and name to apply to the current application."
+          }
+        ],
+        "returnType": "Integer"
+      }
+    ]
+  }
+]

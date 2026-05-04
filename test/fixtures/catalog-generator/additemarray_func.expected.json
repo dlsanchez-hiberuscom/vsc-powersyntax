@@ -1,0 +1,57 @@
+[
+  {
+    "name": "AddItemArray",
+    "returnDocumentation": "Long. Returns the handle of the new child item if it succeeds and -1 if an error occurs.",
+    "returnType": "Long",
+    "signatures": [
+      {
+        "label": "objectname.AddItemArray ( ParentItemHandle )",
+        "parameters": [
+          {
+            "label": "ParentItemHandle",
+            "documentation": "A long whose value is the handle of the parent item of JsonArrayItem or JsonObjectItem type."
+          }
+        ],
+        "returnType": "Long"
+      },
+      {
+        "label": "objectname.AddItemArray ( ParentItemHandle, Key )",
+        "parameters": [
+          {
+            "label": "ParentItemHandle",
+            "documentation": "A long whose value is the handle of the parent item of JsonArrayItem or JsonObjectItem type."
+          },
+          {
+            "label": "Key",
+            "documentation": "A string whose value is the key of the child item."
+          }
+        ],
+        "returnType": "Long"
+      },
+      {
+        "label": "objectname.AddItemArray ( ParentItemPath )",
+        "parameters": [
+          {
+            "label": "ParentItemPath",
+            "documentation": "A string whose value is the path of the parent item of JsonArrayItem or JsonObjectItem type."
+          }
+        ],
+        "returnType": "Long"
+      },
+      {
+        "label": "objectname.AddItemArray ( ParentItemPath, Key )",
+        "parameters": [
+          {
+            "label": "ParentItemPath",
+            "documentation": "A string whose value is the path of the parent item of JsonArrayItem or JsonObjectItem type."
+          },
+          {
+            "label": "Key",
+            "documentation": "A string whose value is the key of the child item."
+          }
+        ],
+        "returnType": "Long"
+      }
+    ]
+  }
+]

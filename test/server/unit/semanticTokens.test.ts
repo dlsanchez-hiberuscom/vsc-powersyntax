@@ -188,4 +188,85 @@ end function
     assert.ok(enumTokens.length >= 1, 'FromBeginning! should be colored');
     assert.equal(enumTokens[0].type, 'enumMember');
   });
+
+  test('Should color catalog-driven keywords, globals, pronouns and functions without resolver pesado', () => {
+    const code = [
+      'global type n_catalog_tokens from nonvisualobject',
+      'end type',
+      '',
+      'forward prototypes',
+      'public function integer of_test ()',
+      'end prototypes',
+      '',
+      'public function integer of_test ();',
+      '  if IsValid(SQLCA) then',
+      '    MessageBox("Hi", This)',
+      '  end if',
+      '  return 1',
+      'end function',
+    ].join('\n');
+
+    const document = TextDocument.create('file:///n_catalog_tokens.sru', 'powerbuilder', 1, code);
+    const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
+
+    const decoded: { line: number, char: number, len: number, type: string, mods: number }[] = [];
+    let currentLine = 0;
+    let currentChar = 0;
+
+    for (let i = 0; i < tokens.data.length; i += 5) {
+      const deltaLine = tokens.data[i];
+      const deltaChar = tokens.data[i + 1];
+      const len = tokens.data[i + 2];
+      const typeIdx = tokens.data[i + 3];
+      const mods = tokens.data[i + 4];
+
+      if (deltaLine > 0) {
+        currentLine += deltaLine;
+        currentChar = deltaChar;
+      } else {
+        currentChar += deltaChar;
+      }
+
+      decoded.push({
+        line: currentLine,
+        char: currentChar,
+        len,
+        type: legend.tokenTypes[typeIdx],
+        mods,
+      });
+    }
+
+    const lines = code.split(/\r?\n/);
+    const defaultLibraryMask = 1 << 2;
+    const globalMask = 1 << 5;
+
+    const ifTokens = decoded.filter((token) =>
+      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len).toLowerCase() === 'if'
+    );
+    assert.ok(ifTokens.length >= 1, 'if debe colorearse como keyword catalog-driven.');
+    assert.equal(ifTokens[0].type, 'keyword');
+
+    const isValidTokens = decoded.filter((token) =>
+      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'IsValid'
+    );
+    assert.ok(isValidTokens.length >= 1, 'IsValid debe colorearse como función del sistema.');
+    assert.equal(isValidTokens[0].type, 'function');
+    assert.ok((isValidTokens[0].mods & defaultLibraryMask) !== 0, 'IsValid debe marcarse como defaultLibrary.');
+
+    const sqlcaTokens = decoded.filter((token) =>
+      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'SQLCA'
+    );
+    assert.ok(sqlcaTokens.length >= 1, 'SQLCA debe colorearse como system global.');
+    assert.equal(sqlcaTokens[0].type, 'variable');
+    assert.ok((sqlcaTokens[0].mods & defaultLibraryMask) !== 0, 'SQLCA debe marcarse como defaultLibrary.');
+    assert.ok((sqlcaTokens[0].mods & globalMask) !== 0, 'SQLCA debe marcarse como global.');
+
+    const thisTokens = decoded.filter((token) =>
+      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'This'
+    );
+    assert.ok(thisTokens.length >= 1, 'This debe colorearse como pronoun del sistema.');
+    assert.equal(thisTokens[0].type, 'variable');
+    assert.ok((thisTokens[0].mods & defaultLibraryMask) !== 0, 'This debe marcarse como defaultLibrary.');
+    assert.ok((thisTokens[0].mods & globalMask) !== 0, 'This debe marcarse como global.');
+  });
 });

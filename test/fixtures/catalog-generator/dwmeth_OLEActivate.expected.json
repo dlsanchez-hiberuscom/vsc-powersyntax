@@ -1,0 +1,53 @@
+[
+  {
+    "name": "OLEActivate",
+    "appliesTo": [
+      "DataWindow control",
+      "DataWindowChild object"
+    ],
+    "ownerTypes": [
+      "datawindow",
+      "datawindowchild"
+    ],
+    "obsolete": false,
+    "returnType": "Integer",
+    "signatures": [
+      {
+        "label": "integer dwcontrol.OLEActivate ( long row, integer column, integer verb )",
+        "parameters": [
+          {
+            "label": "row",
+            "documentation": "A long identifying the row location of the Database Blob control in the DataWindow object."
+          },
+          {
+            "label": "column",
+            "documentation": "The column location of the Database Blob. Column can be a column number (integer) or a column name (string)."
+          },
+          {
+            "label": "verb",
+            "documentation": "Usually 0, but the verb is dependent on the OLE server."
+          }
+        ],
+        "returnType": "Integer"
+      },
+      {
+        "label": "integer dwcontrol.OLEActivate ( long row, string column, integer verb )",
+        "parameters": [
+          {
+            "label": "row",
+            "documentation": "A long identifying the row location of the Database Blob control in the DataWindow object."
+          },
+          {
+            "label": "column",
+            "documentation": "The column location of the Database Blob. Column can be a column number (integer) or a column name (string)."
+          },
+          {
+            "label": "verb",
+            "documentation": "Usually 0, but the verb is dependent on the OLE server."
+          }
+        ],
+        "returnType": "Integer"
+      }
+    ]
+  }
+]

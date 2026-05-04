@@ -31,6 +31,10 @@ const OUTPUT_OFFICIAL_COVERAGE_FILE = path.join(
     repoRoot,
     'src/server/knowledge/system/generated/officialCoverage.generated.ts',
 );
+const OUTPUT_GENERATED_COMPLETENESS_FILE = path.join(
+    repoRoot,
+    'src/server/knowledge/system/generated/generatedCompleteness.generated.ts',
+);
 const OUTPUT_ENUMERATED_TYPES_FILE = path.join(
     repoRoot,
     'src/server/knowledge/system/generated/enumeratedTypes.generated.ts',
@@ -55,6 +59,12 @@ const OUTPUT_PARSING_KEYWORD_LEXEMES_FILE = path.join(
     repoRoot,
     'src/server/parsing/generatedKeywordLexemes.generated.ts',
 );
+
+function resolveGenerationMode(rawValue) {
+    return String(rawValue ?? '').trim().toLowerCase() === 'gap-fill'
+        ? 'gap-fill'
+        : 'complete';
+}
 
 const POWERSCRIPT_BASE_URL = 'https://docs.appeon.com/pb2025/powerscript_reference/';
 const OBJECTS_AND_CONTROLS_BASE_URL = 'https://docs.appeon.com/pb2025/objects_and_controls/';
@@ -441,6 +451,33 @@ function extractDescription(html) {
     return description;
 }
 
+function extractSectionParagraphs(html, label, nextLabels) {
+    const sectionHtml = extractSectionHtml(html, label, nextLabels);
+
+    if (!sectionHtml) {
+        return [];
+    }
+
+    const paragraphs = [...sectionHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+        .map(match => normalizeWhitespace(stripTags(match[1])))
+        .filter(Boolean);
+
+    if (paragraphs.length > 0) {
+        return paragraphs;
+    }
+
+    const fallback = normalizeWhitespace(stripTags(sectionHtml));
+    return fallback ? [fallback] : [];
+}
+
+function extractUsageNotes(html) {
+    return extractSectionParagraphs(html, 'Usage', [
+        'Examples',
+        'Example',
+        'See also',
+    ]);
+}
+
 function splitAppliesToText(value) {
     const cleaned = normalizeWhitespace(
         value
@@ -468,6 +505,7 @@ function extractAppliesToLabels(html) {
     const linkTexts = [...html.matchAll(/<a [^>]*>([\s\S]*?)<\/a>/gi)]
         .map(match => normalizeWhitespace(stripTags(match[1])))
         .filter(Boolean);
+    const linkTextSet = new Set(linkTexts.map(text => normalizeLabel(text)));
 
     const paragraphTexts = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
         .map(match => normalizeWhitespace(stripTags(match[1])))
@@ -477,16 +515,61 @@ function extractAppliesToLabels(html) {
         .map(match => normalizeWhitespace(stripTags(match[1])))
         .filter(Boolean);
 
-    const sourceTexts = linkTexts.length > 0
-        ? linkTexts
-        : paragraphTexts.length > 0
-            ? paragraphTexts
-            : tableCellTexts;
+    const filteredParagraphTexts = paragraphTexts.filter(text => {
+        const normalized = normalizeLabel(text);
+        return !linkTextSet.has(normalized) || paragraphTexts.length === 1;
+    });
+    const filteredTableCellTexts = tableCellTexts.filter(text => {
+        const normalized = normalizeLabel(text);
+        return !linkTextSet.has(normalized) || tableCellTexts.length === 1;
+    });
+
+    const sourceTexts = filteredTableCellTexts.length > 0
+        ? filteredTableCellTexts
+        : filteredParagraphTexts.length > 0
+            ? filteredParagraphTexts
+            : linkTexts;
 
     return unique(
         sourceTexts
             .flatMap(splitAppliesToText)
             .filter(label => !SKIP_APPLIES_TO_LABELS.has(normalizeLabel(label))),
+    );
+}
+
+function extractSignatureLabels(sectionHtml) {
+    return unique(
+        [...sectionHtml.matchAll(/<pre class="programlisting">([\s\S]*?)<\/pre>/gi)]
+            .flatMap(match => {
+                const rawLines = stripTags(match[1])
+                    .split(/\r?\n/)
+                    .map(line => normalizeWhitespace(line))
+                    .filter(Boolean);
+                const labels = [];
+                let currentLabel = '';
+
+                for (const line of rawLines) {
+                    if (!currentLabel) {
+                        currentLabel = line;
+                        continue;
+                    }
+
+                    if (line.includes('(')) {
+                        labels.push(currentLabel);
+                        currentLabel = line;
+                        continue;
+                    }
+
+                    currentLabel = normalizeWhitespace(`${currentLabel} ${line}`);
+                }
+
+                if (currentLabel) {
+                    labels.push(currentLabel);
+                }
+
+                return labels;
+            })
+            .filter(label => Boolean(label) && label.includes('(')),
     );
 }
 
@@ -536,11 +619,7 @@ function normalizeTitleToCallableName(title) {
 
 function extractSignatureGroups(html, title) {
     const sectionHtml = extractSyntaxSectionHtml(html);
-    const signatureLabels = unique(
-        [...sectionHtml.matchAll(/<pre class="programlisting">([\s\S]*?)<\/pre>/gi)]
-            .map(match => normalizeWhitespace(stripTags(match[1])))
-            .filter(label => Boolean(label) && label.includes('(')),
-    );
+    const signatureLabels = extractSignatureLabels(sectionHtml);
 
     if (signatureLabels.length === 0) {
         return [];
@@ -898,14 +977,59 @@ function collectOfficialEnumeratedValueCoverage(entries, coverage) {
 }
 
 function extractArgumentNames(sectionHtml) {
-    const argumentsHtml = extractSectionHtml(sectionHtml, 'Arguments', [
+    return extractArgumentDetails(sectionHtml).map(argument => argument.label);
+}
+
+function extractAnonymousArgumentTableHtml(sectionHtml) {
+    const syntaxHtml = extractSectionHtml(sectionHtml, 'Syntax', [
+        'Arguments',
         'Applies to',
         'Return Values',
+        'Return value',
         'Usage',
         'Examples',
         'Example',
         'See also',
     ]);
+
+    if (!syntaxHtml) {
+        return '';
+    }
+
+    const expectedLabels = new Set(
+        extractSignatureLabels(syntaxHtml)
+            .flatMap(signatureLabel => extractSignatureParameterLabels(signatureLabel))
+            .map(label => normalizeSystemSymbolName(label)),
+    );
+
+    expectedLabels.add('objectname');
+
+    const tableMatch = syntaxHtml.match(/<table[\s\S]*?<\/table>/i);
+
+    if (!tableMatch) {
+        return '';
+    }
+
+    const tableRows = extractTableRows(tableMatch[0]);
+
+    if (tableRows.length === 0) {
+        return '';
+    }
+
+    const matchingRows = tableRows.filter(row => expectedLabels.has(normalizeSystemSymbolName(row[0])));
+    return matchingRows.length > 0 ? tableMatch[0] : '';
+}
+
+function extractArgumentDetails(sectionHtml) {
+    const argumentsHtml = extractSectionHtml(sectionHtml, 'Arguments', [
+        'Applies to',
+        'Return Values',
+        'Return value',
+        'Usage',
+        'Examples',
+        'Example',
+        'See also',
+    ]) || extractAnonymousArgumentTableHtml(sectionHtml);
 
     if (!argumentsHtml) {
         return [];
@@ -919,9 +1043,174 @@ function extractArgumentNames(sectionHtml) {
 
     return unique(
         extractTableRows(argumentsHtml)
-            .map(row => row[0])
-            .filter(value => Boolean(value) && !/^none$/i.test(value)),
+            .map(row => ({
+                documentation: row.slice(1).join(' ').trim() || undefined,
+                label: row[0],
+            }))
+            .filter(argument => Boolean(argument.label) && !/^none$/i.test(argument.label))
+            .map(argument => JSON.stringify(argument)),
+    ).map(argument => JSON.parse(argument));
+}
+
+function extractSignatureParameterLabels(signatureLabel) {
+    const match = signatureLabel.match(/\(([^)]*)\)/);
+
+    if (!match) {
+        return [];
+    }
+
+    return match[1]
+        .split(',')
+        .map(segment => normalizeWhitespace(segment))
+        .filter(Boolean)
+        .map(segment => segment.match(/([A-Za-z_][A-Za-z0-9_]*)\s*(?:=[^,]+)?$/)?.[1])
+        .filter(Boolean);
+}
+
+function attachSignatureParameters(signatures, argumentDetails) {
+    if (!Array.isArray(argumentDetails) || argumentDetails.length === 0) {
+        return signatures;
+    }
+
+    const documentationByLabel = new Map(
+        argumentDetails.map(argument => [normalizeSystemSymbolName(argument.label), argument.documentation]),
     );
+
+    return signatures.map(signature => {
+        const parameters = unique(extractSignatureParameterLabels(signature.label))
+            .map(label => ({
+                documentation: documentationByLabel.get(normalizeSystemSymbolName(label)),
+                label,
+            }));
+
+        if (parameters.length === 0) {
+            return signature;
+        }
+
+        return {
+            ...signature,
+            parameters,
+        };
+    });
+}
+
+function extractReturnSectionHtml(html) {
+    return extractSectionHtml(html, 'Return value', [
+        'Return Values',
+        'Usage',
+        'Examples',
+        'Example',
+        'See also',
+    ]) || extractSectionHtml(html, 'Return Values', [
+        'Usage',
+        'Examples',
+        'Example',
+        'See also',
+    ]);
+}
+
+function normalizeReturnType(value) {
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+
+    const normalized = normalizeWhitespace(value);
+
+    if (!normalized) {
+        return undefined;
+    }
+
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function extractReturnTypeFromSignatureLabel(signatureLabel) {
+    const match = normalizeWhitespace(signatureLabel).match(/^([A-Za-z_][A-Za-z0-9_]*)\s+[A-Za-z_][A-Za-z0-9_.]*\s*\(/);
+    return normalizeReturnType(match?.[1]);
+}
+
+function extractReturnTypeFromText(text) {
+    const patterns = [
+        /^(integer|long|short|string|boolean|blob|date|time|datetime|decimal|double|real|any|powerobject|windowobject)\b/i,
+        /\breturns?\s+an?\s+(integer|long|short|string|boolean|blob|date|time|datetime|decimal|double|real|any|powerobject|windowobject)\b/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = pattern.exec(text);
+
+        if (match?.[1]) {
+            return normalizeReturnType(match[1]);
+        }
+    }
+
+    return undefined;
+}
+
+function extractReturnMetadata(html, signatures) {
+    const returnText = normalizeWhitespace(stripTags(extractReturnSectionHtml(html)));
+    const fallbackReturnType = signatures
+        .map(signature => extractReturnTypeFromSignatureLabel(signature.label))
+        .find(Boolean);
+
+    return {
+        returnDocumentation: returnText || undefined,
+        returnType: extractReturnTypeFromText(returnText) ?? fallbackReturnType,
+    };
+}
+
+function attachSignatureReturnType(signatures, fallbackReturnType) {
+    return signatures.map(signature => ({
+        ...signature,
+        returnType: extractReturnTypeFromSignatureLabel(signature.label) ?? fallbackReturnType,
+    }));
+}
+
+const OBSOLETE_SIGNAL_PATTERNS = [
+    /\bobsolete method\b/i,
+    /\bobsolete function\b/i,
+    /\bobsolete event\b/i,
+    /\bobsolete values?\b/i,
+    /\bdeprecated\b/i,
+    /should not be used/i,
+    /will be removed/i,
+];
+
+function extractObsoleteMessage(text) {
+    const patterns = [
+        /((?:obsolete (?:method|function|event|values?)|deprecated)[^.?!]*[.?!])/i,
+        /([^.!?]*should not be used[^.!?]*[.?!])/i,
+        /([^.!?]*will be removed[^.!?]*[.?!])/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = pattern.exec(text);
+
+        if (match?.[1]) {
+            return normalizeWhitespace(match[1]);
+        }
+    }
+
+    return undefined;
+}
+
+function detectObsoleteMetadata(html, title, callableName) {
+    const flattenedText = normalizeWhitespace(stripTags(html));
+    const obsolete = /\bobsolete\b/i.test(title) || OBSOLETE_SIGNAL_PATTERNS.some(pattern => pattern.test(flattenedText));
+
+    if (!obsolete) {
+        return {
+            obsolete: false,
+            obsoleteMessage: undefined,
+            replacement: undefined,
+            risk: undefined,
+        };
+    }
+
+    return {
+        obsolete: true,
+        obsoleteMessage: extractObsoleteMessage(flattenedText) ?? 'Marcada como obsoleta en la referencia oficial de Appeon.',
+        replacement: extractReplacement(flattenedText, callableName),
+        risk: 'deprecated',
+    };
 }
 
 function extractEventOwnerLabels(sectionHtml) {
@@ -956,6 +1245,50 @@ function extractEventOwnerLabels(sectionHtml) {
             'See also',
         ]),
     );
+}
+
+function extractEventIdEntries(sectionHtml) {
+    const eventIdHtml = extractSectionHtml(sectionHtml, 'Event ID', [
+        'Applies to',
+        'Arguments',
+        'Return Values',
+        'Usage',
+        'Examples',
+        'Example',
+        'See also',
+    ]);
+
+    return extractTableRows(eventIdHtml)
+        .map(row => {
+            const id = normalizeWhitespace(row[0] ?? '');
+            const ownerInfo = parseAppliesToOwnerInfo(splitAppliesToText(row[1] ?? ''));
+
+            if (!id) {
+                return undefined;
+            }
+
+            return {
+                id,
+                ownerTypes: ownerInfo.ownerTypes.length > 0 ? ownerInfo.ownerTypes : undefined,
+            };
+        })
+        .filter(Boolean);
+}
+
+function buildEventIdMetadata(sectionHtml) {
+    const eventIds = extractEventIdEntries(sectionHtml);
+
+    if (eventIds.length === 0) {
+        return {
+            eventId: undefined,
+            eventIds: undefined,
+        };
+    }
+
+    return {
+        eventId: eventIds[0].id,
+        eventIds: eventIds.length > 1 ? eventIds : undefined,
+    };
 }
 
 function extractEventSections(html) {
@@ -1179,33 +1512,41 @@ function parsePowerScriptPage(html, pageUrl) {
     }
 
     const signatureGroups = extractSignatureGroups(html, title);
+    const argumentDetails = extractArgumentDetails(html);
 
     if (signatureGroups.length === 0) {
         return [];
     }
 
     const description = extractDescription(html);
+    const usageNotes = extractUsageNotes(html);
     const appliesToLabels = extractAppliesToLabels(
         extractSectionHtml(html, 'Applies to', ['Syntax', 'Return value', 'Examples', 'See also']),
     );
     const ownerInfo = parseAppliesToOwnerInfo(appliesToLabels);
-    const obsolete = /\bobsolete\b/i.test(title);
 
-    return signatureGroups.map(group => ({
+    return signatureGroups.map(group => {
+        const obsoleteMetadata = detectObsoleteMetadata(html, title, group.name);
+        const returnMetadata = extractReturnMetadata(html, group.signatures);
+        const signatures = attachSignatureReturnType(
+            attachSignatureParameters(group.signatures, argumentDetails),
+            returnMetadata.returnType,
+        );
+
+        return {
         appliesTo: ownerInfo.appliesTo,
         description,
         isGlobal: ownerInfo.appliesTo.length === 0,
         name: group.name,
-        obsolete,
-        obsoleteMessage: obsolete
-            ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
-            : undefined,
+        ...obsoleteMetadata,
         ownerInfo,
-        replacement: obsolete ? extractReplacement(html, group.name) : undefined,
-        signatures: group.signatures,
+        ...returnMetadata,
+        signatures,
         sourceUrl: pageUrl,
         title,
-    }));
+        usageNotes: usageNotes.length > 0 ? usageNotes : undefined,
+        };
+    });
 }
 
 function isLegacyWebDataWindowPage(title, description, signatureGroups) {
@@ -1239,6 +1580,7 @@ function parseDataWindowPage(html, pageUrl, chapterTitle) {
     }
 
     const signatureGroups = extractSignatureGroups(html, title);
+    const argumentDetails = extractArgumentDetails(html);
 
     if (signatureGroups.length === 0) {
         return [];
@@ -1296,22 +1638,26 @@ function parseDataWindowPage(html, pageUrl, chapterTitle) {
         return [];
     }
 
-    const obsolete = /\bobsolete\b/i.test(title);
+    return signatureGroups.map(group => {
+        const obsoleteMetadata = detectObsoleteMetadata(html, title, group.name);
+        const returnMetadata = extractReturnMetadata(html, group.signatures);
+        const signatures = attachSignatureReturnType(
+            attachSignatureParameters(group.signatures, argumentDetails),
+            returnMetadata.returnType,
+        );
 
-    return signatureGroups.map(group => ({
+        return {
         appliesTo: effectiveOwnerInfo.appliesTo,
         description,
         name: group.name,
-        obsolete,
-        obsoleteMessage: obsolete
-            ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
-            : undefined,
+        ...obsoleteMetadata,
         ownerInfo: effectiveOwnerInfo,
-        replacement: obsolete ? extractReplacement(html, group.name) : undefined,
-        signatures: group.signatures,
+        ...returnMetadata,
+        signatures,
         sourceUrl: pageUrl,
         title,
-    }));
+        };
+    });
 }
 
 function parsePowerScriptEventPage(html, pageUrl, options = {}) {
@@ -1322,11 +1668,19 @@ function parsePowerScriptEventPage(html, pageUrl, options = {}) {
     }
 
     const sections = extractEventSections(html);
-    const obsolete = options.obsolete === true || /\bobsolete\b/i.test(title);
-
     return sections.map(section => {
         const ownerLabels = extractEventOwnerLabels(section.html);
         const ownerInfo = parseAppliesToOwnerInfo(ownerLabels);
+        const argumentDetails = extractArgumentDetails(section.html);
+        const eventIdMetadata = buildEventIdMetadata(section.html);
+        const obsoleteMetadata = options.obsolete === true
+            ? {
+                obsolete: true,
+                obsoleteMessage: 'Marcada como obsoleta en la referencia oficial de Appeon.',
+                replacement: extractReplacement(`${html}\n${section.html}`, title),
+                risk: 'deprecated',
+            }
+            : detectObsoleteMetadata(`${html}\n${section.html}`, title, title);
         const signatures = [{
             label: `${title}(${extractArgumentNames(section.html).join(', ')})`.replace(/\(\)$/, '()'),
         }];
@@ -1340,13 +1694,10 @@ function parsePowerScriptEventPage(html, pageUrl, options = {}) {
             description: extractDescription(section.html) || extractDescription(html),
             isGlobal: false,
             name: title,
-            obsolete,
-            obsoleteMessage: obsolete
-                ? 'Marcada como obsoleta en la referencia oficial de Appeon.'
-                : undefined,
+            ...obsoleteMetadata,
+            ...eventIdMetadata,
             ownerInfo,
-            replacement: undefined,
-            signatures,
+            signatures: attachSignatureParameters(signatures, argumentDetails),
             sourceUrl: pageUrl,
             title: section.title ? `${title} — ${section.title}` : title,
         };
@@ -1420,6 +1771,122 @@ function parseOfficialSystemObjectDatatypeEntries(html) {
     }
 
     return entries;
+}
+
+function findTitledSectionIndex(html, labels, fromIndex = 0) {
+    let bestIndex = -1;
+
+    for (const label of labels) {
+        const expression = buildTitledSectionHeadingExpression(label);
+        const slice = html.slice(fromIndex);
+        const match = expression.exec(slice);
+
+        if (!match) {
+            continue;
+        }
+
+        const absoluteIndex = fromIndex + match.index;
+
+        if (bestIndex < 0 || absoluteIndex < bestIndex) {
+            bestIndex = absoluteIndex;
+        }
+    }
+
+    return bestIndex;
+}
+
+function buildTitledSectionHeadingExpression(label) {
+    return new RegExp(
+        `<h[34][^>]*class="title"[^>]*>(?:\\s|<[^>]+>)*${escapeRegExp(label)}(?:\\s|<[^>]+>)*<\/h[34]>`,
+        'i',
+    );
+}
+
+function extractTitledSectionHtml(html, label, nextLabels) {
+    const startExpression = buildTitledSectionHeadingExpression(label);
+    const startMatch = startExpression.exec(html);
+
+    if (!startMatch || typeof startMatch.index !== 'number') {
+        return '';
+    }
+
+    const startIndex = startMatch.index + startMatch[0].length;
+    const nextLabelIndex = findTitledSectionIndex(html, nextLabels, startIndex);
+    const pageEndIndex = findDocPageEndIndex(html, startIndex);
+    const endIndex = nextLabelIndex >= 0
+        ? pageEndIndex >= 0 ? Math.min(nextLabelIndex, pageEndIndex) : nextLabelIndex
+        : pageEndIndex;
+
+    return html.slice(startIndex, endIndex >= 0 ? endIndex : html.length);
+}
+
+function extractSystemTypeBaseType(...values) {
+    const patterns = [
+        /\bderived from\s+([A-Za-z_][A-Za-z0-9_]*)\b/i,
+        /\binherits(?: the [A-Za-z ]+)? from its parent,?\s*([A-Za-z_][A-Za-z0-9_]*)\b/i,
+        /\binherits from\s+([A-Za-z_][A-Za-z0-9_]*)\b/i,
+        /\bparent,\s*([A-Za-z_][A-Za-z0-9_]*)\b/i,
+    ];
+
+    for (const value of values) {
+        const normalizedValue = normalizeWhitespace(value);
+
+        if (!normalizedValue) {
+            continue;
+        }
+
+        for (const pattern of patterns) {
+            const match = normalizedValue.match(pattern);
+
+            if (match?.[1]) {
+                return match[1];
+            }
+        }
+    }
+
+    return undefined;
+}
+
+function extractSystemTypeMemberNames(sectionHtml) {
+    return unique(
+        extractTableRows(sectionHtml)
+            .map(row => normalizeWhitespace(row[0]))
+            .filter(Boolean),
+    );
+}
+
+function parseOfficialSystemObjectDatatypePage(html, entry) {
+    const title = sanitizeOfficialTitle(extractTitle(html));
+    const contentHtml = extractPrimaryContentHtml(html);
+    const firstSectionIndex = findTitledSectionIndex(contentHtml, ['Properties', 'Events', 'Functions']);
+    const descriptionHtml = firstSectionIndex >= 0
+        ? contentHtml.slice(0, firstSectionIndex)
+        : contentHtml;
+    const description = normalizeWhitespace(stripTags(descriptionHtml));
+    const propertiesHtml = extractTitledSectionHtml(contentHtml, 'Properties', ['Events', 'Functions']);
+    const eventsHtml = extractTitledSectionHtml(contentHtml, 'Events', ['Functions']);
+    const functionsHtml = extractTitledSectionHtml(contentHtml, 'Functions', []);
+    const properties = extractSystemTypeMemberNames(propertiesHtml);
+    const functions = extractSystemTypeMemberNames(functionsHtml);
+    const events = extractSystemTypeMemberNames(eventsHtml);
+    const pageName = title.replace(/\s+(object|control)\s*$/i, '').trim() || entry.name;
+    const baseType = extractSystemTypeBaseType(
+        description,
+        normalizeWhitespace(stripTags(propertiesHtml)),
+        normalizeWhitespace(stripTags(functionsHtml)),
+        normalizeWhitespace(stripTags(eventsHtml)),
+    );
+
+    return {
+        ...entry,
+        baseType,
+        documentation: description || undefined,
+        events: events.length > 0 ? events : undefined,
+        functions: functions.length > 0 ? functions : undefined,
+        name: pageName,
+        properties: properties.length > 0 ? properties : undefined,
+        summary: extractFirstSentence(description) || entry.summary,
+    };
 }
 
 function parseUndocumentedBaseClassEntries(html) {
@@ -1685,6 +2152,52 @@ function buildLookupCoverageSet(entries) {
     for (const entry of entries) {
         for (const lookupKey of entry.lookupKeys ?? []) {
             coverage.add(lookupKey);
+        }
+    }
+
+    return coverage;
+}
+
+function buildDraftLookupCoverageSet(entries) {
+    const coverage = new Set();
+
+    for (const entry of entries) {
+        const normalizedName = normalizeSystemSymbolName(entry.name);
+
+        if (normalizedName) {
+            coverage.add(normalizedName);
+        }
+
+        for (const alias of entry.lookupAliases ?? []) {
+            const normalizedAlias = normalizeSystemSymbolName(alias);
+
+            if (normalizedAlias) {
+                coverage.add(normalizedAlias);
+            }
+        }
+    }
+
+    return coverage;
+}
+
+function buildDraftCoverageMap(entries, domain) {
+    const coverage = new Map();
+
+    for (const entry of entries) {
+        registerCoverage(coverage, domain, entry.name, entry.ownerTypes ?? []);
+    }
+
+    return coverage;
+}
+
+function buildDraftEnumeratedValueCoverageSet(entries) {
+    const coverage = new Set();
+
+    for (const entry of entries) {
+        const coverageKey = buildEnumeratedValueCoverageKey(entry.enumValueOf, entry.name);
+
+        if (coverageKey) {
+            coverage.add(coverageKey);
         }
     }
 
@@ -2195,17 +2708,59 @@ function buildGeneratedKeywordEntry(entry, category) {
     };
 }
 
+function buildGeneratedDatatypeEntry(name) {
+    const normalizedName = normalizeSystemSymbolName(name);
+
+    return {
+        category: 'Datatype oficial',
+        name,
+        signatures: [{ label: name }],
+        sourceUrl: normalizedName === 'any' ? POWERSCRIPT_ANY_DATATYPE_URL : POWERSCRIPT_STANDARD_DATATYPES_URL,
+        summary: normalizedName === 'any'
+            ? 'Datatype oficial Any de PowerBuilder.'
+            : `Datatype oficial ${name} de PowerBuilder.`,
+    };
+}
+
 function buildGeneratedReservedWordEntry(entry) {
     const normalizedName = normalizeSystemSymbolName(entry.name);
     const label = entry.name.toUpperCase();
+    const identifierPolicy = entry.canBeFunctionName
+        ? 'allowed-as-function-name'
+        : OFFICIAL_LITERAL_RESERVED_WORDS.has(normalizedName)
+            ? 'literal'
+            : OFFICIAL_LOGICAL_RESERVED_WORDS.has(normalizedName)
+                ? 'operator'
+                : 'reserved';
 
     return {
         category: buildGeneratedReservedWordCategory(normalizedName),
+        identifierPolicy,
         name: label,
+        reservedWordCanBeFunctionName: entry.canBeFunctionName,
         signatures: [{ label }],
         sourceUrl: entry.sourceUrl,
         summary: buildGeneratedReservedWordSummary(normalizedName, entry.canBeFunctionName),
     };
+}
+
+function partitionObjectFunctionCoverageEntries(entries) {
+    return entries
+        .filter(entry => !entry.isGlobal)
+        .map(entry => {
+            if (entry.ownerInfo.ownerScope !== 'specific') {
+                return entry;
+            }
+
+            return {
+                ...entry,
+                ownerInfo: {
+                    ...entry.ownerInfo,
+                    ownerTypes: entry.ownerInfo.ownerTypes.filter(ownerType => !DATAWINDOW_OWNER_TYPES.has(ownerType)),
+                },
+            };
+        })
+        .filter(entry => entry.ownerInfo.ownerScope !== 'specific' || entry.ownerInfo.ownerTypes.length > 0);
 }
 
 function filterAppliesToLabels(ownerInfo, selectedOwnerTypes) {
@@ -2233,6 +2788,126 @@ function sortGeneratedEntries(entries) {
     });
 }
 
+function mergeTextValue(left, right) {
+    if (!left) {
+        return right;
+    }
+
+    if (!right || left === right) {
+        return left;
+    }
+
+    return `${left} ${right}`;
+}
+
+function mergeCompatibleValue(left, right) {
+    if (!left) {
+        return right;
+    }
+
+    if (!right || left === right) {
+        return left;
+    }
+
+    return undefined;
+}
+
+function mergeUniqueStringValues(left, right) {
+    const merged = unique([...(left ?? []), ...(right ?? [])]);
+    return merged.length > 0 ? merged : undefined;
+}
+
+function mergeUniqueStructuredValues(left, right) {
+    const merged = [];
+    const seen = new Set();
+
+    for (const value of [...(left ?? []), ...(right ?? [])]) {
+        const key = JSON.stringify(value);
+
+        if (seen.has(key)) {
+            continue;
+        }
+
+        seen.add(key);
+        merged.push(value);
+    }
+
+    return merged.length > 0 ? merged : undefined;
+}
+
+function buildGeneratedMergeKey(entry) {
+    const normalizedName = normalizeSystemSymbolName(entry.name) ?? entry.name.toLowerCase();
+    const ownerTypes = [...(entry.ownerTypes ?? [])].sort().join('+');
+    const enumValueOf = normalizeSystemSymbolName(entry.enumValueOf ?? '') ?? '';
+
+    return [
+        normalizedName,
+        ownerTypes,
+        enumValueOf,
+        entry.eventId ?? '',
+        entry.identifierPolicy ?? '',
+    ].join('|');
+}
+
+function mergeGeneratedEntries(entries) {
+    const byKey = new Map();
+
+    for (const entry of entries) {
+        const key = buildGeneratedMergeKey(entry);
+        const current = byKey.get(key);
+
+        if (!current) {
+            byKey.set(key, {
+                ...entry,
+                allowedInParameters: entry.allowedInParameters ? [...entry.allowedInParameters] : undefined,
+                allowedOnOwners: entry.allowedOnOwners ? [...entry.allowedOnOwners] : undefined,
+                allowedOnProperties: entry.allowedOnProperties ? [...entry.allowedOnProperties] : undefined,
+                appliesTo: entry.appliesTo ? [...entry.appliesTo] : undefined,
+                enumValues: entry.enumValues ? [...entry.enumValues] : undefined,
+                eventIds: entry.eventIds ? [...entry.eventIds] : undefined,
+                events: entry.events ? [...entry.events] : undefined,
+                functions: entry.functions ? [...entry.functions] : undefined,
+                lookupAliases: entry.lookupAliases ? [...entry.lookupAliases] : undefined,
+                ownerTypes: entry.ownerTypes ? [...entry.ownerTypes] : undefined,
+                properties: entry.properties ? [...entry.properties] : undefined,
+                signatures: entry.signatures ? [...entry.signatures] : undefined,
+                usageNotes: entry.usageNotes ? [...entry.usageNotes] : undefined,
+            });
+            continue;
+        }
+
+        current.summary = mergeTextValue(current.summary, entry.summary);
+        current.documentation = mergeTextValue(current.documentation, entry.documentation);
+        current.returnDocumentation = mergeTextValue(current.returnDocumentation, entry.returnDocumentation);
+        current.returnType = mergeCompatibleValue(current.returnType, entry.returnType);
+        current.baseType = mergeCompatibleValue(current.baseType, entry.baseType);
+        current.enumNumericValue = mergeCompatibleValue(current.enumNumericValue, entry.enumNumericValue);
+        current.enumValueMeaning = mergeTextValue(current.enumValueMeaning, entry.enumValueMeaning);
+        current.sourceUrl = current.sourceUrl ?? entry.sourceUrl;
+        current.obsolete = current.obsolete || entry.obsolete === true;
+        current.obsoleteMessage = mergeTextValue(current.obsoleteMessage, entry.obsoleteMessage);
+        current.replacement = current.replacement ?? entry.replacement;
+        current.reservedWordCanBeFunctionName = current.reservedWordCanBeFunctionName ?? entry.reservedWordCanBeFunctionName;
+        current.identifierPolicy = current.identifierPolicy ?? entry.identifierPolicy;
+        current.risk = current.risk ?? entry.risk;
+        current.appliesTo = mergeUniqueStringValues(current.appliesTo, entry.appliesTo);
+        current.ownerTypes = mergeUniqueStringValues(current.ownerTypes, entry.ownerTypes);
+        current.properties = mergeUniqueStringValues(current.properties, entry.properties);
+        current.functions = mergeUniqueStringValues(current.functions, entry.functions);
+        current.events = mergeUniqueStringValues(current.events, entry.events);
+        current.enumValues = mergeUniqueStringValues(current.enumValues, entry.enumValues);
+        current.allowedOnOwners = mergeUniqueStringValues(current.allowedOnOwners, entry.allowedOnOwners);
+        current.allowedOnProperties = mergeUniqueStringValues(current.allowedOnProperties, entry.allowedOnProperties);
+        current.allowedInParameters = mergeUniqueStringValues(current.allowedInParameters, entry.allowedInParameters);
+        current.lookupAliases = mergeUniqueStringValues(current.lookupAliases, entry.lookupAliases);
+        current.usageNotes = mergeUniqueStringValues(current.usageNotes, entry.usageNotes);
+        current.eventIds = mergeUniqueStructuredValues(current.eventIds, entry.eventIds);
+        current.signatures = mergeUniqueStructuredValues(current.signatures, entry.signatures);
+    }
+
+    return sortGeneratedEntries(Array.from(byKey.values()));
+}
+
 function renderString(value) {
     return JSON.stringify(value);
 }
@@ -2241,8 +2916,39 @@ function renderStringArray(values) {
     return `[${values.map(renderString).join(', ')}]`;
 }
 
+function renderSignatureParameters(parameters) {
+    return `[${parameters.map(parameter => {
+        const properties = [
+            `label: ${renderString(parameter.label)}`,
+            parameter.documentation ? `documentation: ${renderString(parameter.documentation)}` : undefined,
+        ].filter(Boolean);
+
+        return `{ ${properties.join(', ')} }`;
+    }).join(', ')}]`;
+}
+
+function renderEventIds(eventIds) {
+    return `[${eventIds.map(eventId => {
+        const properties = [
+            `id: ${renderString(eventId.id)}`,
+            eventId.ownerTypes?.length ? `ownerTypes: ${renderStringArray(eventId.ownerTypes)}` : undefined,
+        ].filter(Boolean);
+
+        return `{ ${properties.join(', ')} }`;
+    }).join(', ')}]`;
+}
+
 function renderSignatures(signatures) {
-    return `[${signatures.map(signature => `{ label: ${renderString(signature.label)} }`).join(', ')}]`;
+    return `[${signatures.map(signature => {
+        const properties = [
+            `label: ${renderString(signature.label)}`,
+            signature.documentation ? `documentation: ${renderString(signature.documentation)}` : undefined,
+            signature.parameters?.length ? `parameters: ${renderSignatureParameters(signature.parameters)}` : undefined,
+            signature.returnType ? `returnType: ${renderString(signature.returnType)}` : undefined,
+        ].filter(Boolean);
+
+        return `{ ${properties.join(', ')} }`;
+    }).join(', ')}]`;
 }
 
 function renderBuilderCall(builderName, entry) {
@@ -2252,6 +2958,13 @@ function renderBuilderCall(builderName, entry) {
         `summary: ${renderString(entry.summary)}`,
         `signatures: ${renderSignatures(entry.signatures)}`,
         entry.documentation ? `documentation: ${renderString(entry.documentation)}` : undefined,
+        entry.returnType ? `returnType: ${renderString(entry.returnType)}` : undefined,
+        entry.returnDocumentation ? `returnDocumentation: ${renderString(entry.returnDocumentation)}` : undefined,
+        entry.usageNotes?.length ? `usageNotes: ${renderStringArray(entry.usageNotes)}` : undefined,
+        entry.baseType ? `baseType: ${renderString(entry.baseType)}` : undefined,
+        entry.properties?.length ? `properties: ${renderStringArray(entry.properties)}` : undefined,
+        entry.functions?.length ? `functions: ${renderStringArray(entry.functions)}` : undefined,
+        entry.events?.length ? `events: ${renderStringArray(entry.events)}` : undefined,
         entry.appliesTo?.length ? `appliesTo: ${renderStringArray(entry.appliesTo)}` : undefined,
         entry.ownerTypes?.length ? `ownerTypes: ${renderStringArray(entry.ownerTypes)}` : undefined,
         entry.enumValues?.length ? `enumValues: ${renderStringArray(entry.enumValues)}` : undefined,
@@ -2265,17 +2978,24 @@ function renderBuilderCall(builderName, entry) {
         entry.obsolete ? 'obsolete: true' : undefined,
         entry.obsoleteMessage ? `obsoleteMessage: ${renderString(entry.obsoleteMessage)}` : undefined,
         entry.replacement ? `replacement: ${renderString(entry.replacement)}` : undefined,
+        entry.eventId ? `eventId: ${renderString(entry.eventId)}` : undefined,
+        entry.eventIds?.length ? `eventIds: ${renderEventIds(entry.eventIds)}` : undefined,
+        entry.reservedWordCanBeFunctionName !== undefined
+            ? `reservedWordCanBeFunctionName: ${entry.reservedWordCanBeFunctionName ? 'true' : 'false'}`
+            : undefined,
+        entry.identifierPolicy ? `identifierPolicy: ${renderString(entry.identifierPolicy)}` : undefined,
+        entry.risk ? `risk: ${renderString(entry.risk)}` : undefined,
         `sourceUrl: ${renderString(entry.sourceUrl)}`,
     ].filter(Boolean);
 
     return `    ${builderName}({ ${properties.join(', ')} }),`;
 }
 
-function renderCatalogFile(globalEntries, objectEntries, dataWindowEntries, systemTypeEntries, eventEntries, statementEntries) {
+function renderCatalogFile(globalEntries, objectEntries, dataTypeEntries, dataWindowEntries, systemTypeEntries, eventEntries, statementEntries) {
     const lines = [
         '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
         "import { PbSystemSymbolEntry } from '../types';",
-        "import { generatedDataWindowFunction, generatedEvent, generatedGlobalFunction, generatedKeyword, generatedObjectFunction, generatedReservedWord, generatedStatement, generatedSystemObjectDatatype } from './common';",
+        "import { generatedDataWindowFunction, generatedDatatype, generatedEvent, generatedGlobalFunction, generatedKeyword, generatedObjectFunction, generatedReservedWord, generatedStatement, generatedSystemObjectDatatype } from './common';",
         '',
         'export const PB_GENERATED_GLOBAL_FUNCTIONS: readonly PbSystemSymbolEntry[] = [',
         ...globalEntries.map(entry => renderBuilderCall('generatedGlobalFunction', entry)),
@@ -2287,6 +3007,10 @@ function renderCatalogFile(globalEntries, objectEntries, dataWindowEntries, syst
         '',
         'export const PB_GENERATED_RESERVED_WORDS: readonly PbSystemSymbolEntry[] = [',
         ...objectEntries.__reservedWords__.map(entry => renderBuilderCall('generatedReservedWord', entry)),
+        '];',
+        '',
+        'export const PB_GENERATED_DATATYPES: readonly PbSystemSymbolEntry[] = [',
+        ...dataTypeEntries.map(entry => renderBuilderCall('generatedDatatype', entry)),
         '];',
         '',
         'export const PB_GENERATED_OBJECT_FUNCTIONS: readonly PbSystemSymbolEntry[] = [',
@@ -2386,6 +3110,32 @@ function renderCoverageFile(exportName, coverageByDomain) {
 
 function renderOfficialCoverageFile(coverageByDomain) {
     return renderCoverageFile('PB_GENERATED_OFFICIAL_COVERAGE', coverageByDomain);
+}
+
+function renderGeneratedCompletenessFile(generationMode, coverageByDomain) {
+    const lines = [
+        '// Auto-generated from the official Appeon references by scripts/generate_official_function_catalog.cjs.',
+        `export const PB_GENERATED_COMPLETENESS_MODE = ${renderString(generationMode)};`,
+        '',
+        'export const PB_GENERATED_COMPLETENESS = {',
+    ];
+
+    for (const [domain, coverage] of Object.entries(coverageByDomain)) {
+        lines.push(`    ${renderString(domain)}: {`);
+        lines.push(`        measurement: ${renderString(coverage.measurement)},`);
+        lines.push(`        officialCount: ${coverage.officialCount},`);
+        lines.push(`        coveredCount: ${coverage.coveredCount},`);
+        lines.push(`        missingCount: ${coverage.missingCount},`);
+        if (coverage.missingUnits.length > 0) {
+            lines.push(`        missingUnits: ${renderStringArray(coverage.missingUnits)},`);
+        }
+        lines.push('    },');
+    }
+
+    lines.push('} as const;');
+    lines.push('');
+
+    return `${lines.join('\n')}\n`;
 }
 
 function renderEnumeratedCoverageFile(coverageByDomain) {
@@ -2631,15 +3381,21 @@ function buildGeneratedEntry(baseEntry, ownerTypes, appliesTo) {
     return {
         appliesTo,
         category: 'Referencia oficial',
+        eventId: baseEntry.eventId,
+        eventIds: baseEntry.eventIds,
         lookupAliases: baseEntry.lookupAliases,
         name: baseEntry.name,
         obsolete: baseEntry.obsolete,
         obsoleteMessage: baseEntry.obsoleteMessage,
         ownerTypes: ownerTypes.length > 0 ? ownerTypes : undefined,
         replacement: baseEntry.replacement,
+        returnDocumentation: baseEntry.returnDocumentation,
+        returnType: baseEntry.returnType,
+        risk: baseEntry.risk,
         signatures: baseEntry.signatures,
         sourceUrl: baseEntry.sourceUrl,
         summary: baseEntry.description || `Official generated coverage for ${baseEntry.name}.`,
+        usageNotes: baseEntry.usageNotes,
     };
 }
 
@@ -2681,6 +3437,10 @@ function buildGeneratedEnumeratedValueEntry(entry) {
 }
 
 async function main() {
+    const generationMode = resolveGenerationMode(process.env.PB_GENERATED_CATALOG_MODE);
+    const generateCompleteCatalog = generationMode === 'complete';
+
+    console.log(`Modo de generación oficial: ${generationMode}`);
     console.log('Descargando índice oficial de PowerScript Functions...');
     const powerScriptUrls = await loadPowerScriptLinks();
     console.log(`PowerScript Functions: ${powerScriptUrls.length} páginas candidatas.`);
@@ -2785,20 +3545,22 @@ async function main() {
         if (keywordCategory) {
             officialKeywordUnits.push(entry.name);
 
-            if (!keywordCoverage.has(normalizedName)) {
+            if (generateCompleteCatalog || !keywordCoverage.has(normalizedName)) {
                 generatedKeywordEntries.push(buildGeneratedKeywordEntry(entry, keywordCategory));
-                keywordCoverage.add(normalizedName);
             }
+
+            keywordCoverage.add(normalizedName);
 
             continue;
         }
 
         officialReservedWordUnits.push(entry.name);
 
-        if (!reservedWordCoverage.has(normalizedName)) {
+        if (generateCompleteCatalog || !reservedWordCoverage.has(normalizedName)) {
             generatedReservedWordEntries.push(buildGeneratedReservedWordEntry(entry));
-            reservedWordCoverage.add(normalizedName);
         }
+
+        reservedWordCoverage.add(normalizedName);
     }
 
     for (const entry of sortGeneratedEntries(parsedPowerScriptPages.filter(candidate => candidate.isGlobal))) {
@@ -2810,7 +3572,7 @@ async function main() {
 
         const coverageKey = `global-functions|${normalizedName}`;
 
-        if (globalCoverage.has(coverageKey)) {
+        if (!generateCompleteCatalog && globalCoverage.has(coverageKey)) {
             continue;
         }
 
@@ -2841,26 +3603,28 @@ async function main() {
             unknownPowerScriptAppliesToLabels.set(entry.sourceUrl, entry.ownerInfo.unknownLabels);
         }
 
-        const uncoveredOwnerTypes = getUncoveredOwnerTypes(
-            objectCoverage,
-            'object-functions',
-            entry.name,
-            entry.ownerTypes,
-            [],
-        );
+        const selectedOwnerTypes = generateCompleteCatalog
+            ? entry.ownerTypes
+            : getUncoveredOwnerTypes(
+                objectCoverage,
+                'object-functions',
+                entry.name,
+                entry.ownerTypes,
+                [],
+            );
 
-        if (uncoveredOwnerTypes.length === 0) {
+        if (selectedOwnerTypes.length === 0) {
             continue;
         }
 
         generatedObjectEntries.push(
             buildGeneratedEntry(
                 entry,
-                uncoveredOwnerTypes,
-                filterAppliesToLabels(entry.ownerInfo, uncoveredOwnerTypes),
+                selectedOwnerTypes,
+                filterAppliesToLabels(entry.ownerInfo, selectedOwnerTypes),
             ),
         );
-        registerCoverage(objectCoverage, 'object-functions', entry.name, uncoveredOwnerTypes);
+        registerCoverage(objectCoverage, 'object-functions', entry.name, selectedOwnerTypes);
     }
 
     for (const entry of sortGeneratedEntries(universalObjectCandidates)) {
@@ -2879,22 +3643,24 @@ async function main() {
                         : entry.ownerInfo.ownerScope === 'any-object-except-datawindowchild'
                             ? objectOwnerUniverse.filter(ownerType => ownerType !== 'datawindowchild')
                             : objectOwnerUniverse;
-        const uncoveredOwnerTypes = getUncoveredOwnerTypes(
-            objectCoverage,
-            'object-functions',
-            entry.name,
-            [],
-            fallbackUniverse,
-        );
+        const selectedOwnerTypes = generateCompleteCatalog
+            ? fallbackUniverse
+            : getUncoveredOwnerTypes(
+                objectCoverage,
+                'object-functions',
+                entry.name,
+                [],
+                fallbackUniverse,
+            );
 
-        if (uncoveredOwnerTypes.length === 0) {
+        if (selectedOwnerTypes.length === 0) {
             continue;
         }
 
         generatedObjectEntries.push(
-            buildGeneratedEntry(entry, uncoveredOwnerTypes, entry.ownerInfo.appliesTo),
+            buildGeneratedEntry(entry, selectedOwnerTypes, entry.ownerInfo.appliesTo),
         );
-        registerCoverage(objectCoverage, 'object-functions', entry.name, uncoveredOwnerTypes);
+        registerCoverage(objectCoverage, 'object-functions', entry.name, selectedOwnerTypes);
     }
 
     console.log('Descargando capítulos oficiales de métodos DataWindow...');
@@ -2934,7 +3700,21 @@ async function main() {
         const [name, sourceUrl, category, summary] = serialized.split('|');
         return { name, sourceUrl, category, summary };
     });
-    const officialSystemObjectDatatypeUnits = officialSystemObjectDatatypeEntries.map(entry => entry.name);
+    const hydratedSystemObjectDatatypeEntries = await mapConcurrent(officialSystemObjectDatatypeEntries, 8, async entry => {
+        if (entry.category !== 'Referencia oficial') {
+            return entry;
+        }
+
+        try {
+            return parseOfficialSystemObjectDatatypePage(await fetchText(entry.sourceUrl), entry);
+        } catch (error) {
+            console.warn(
+                `No se pudo hidratar ${entry.name} desde ${entry.sourceUrl}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            return entry;
+        }
+    });
+    const officialSystemObjectDatatypeUnits = hydratedSystemObjectDatatypeEntries.map(entry => entry.name);
 
     const parsedDataWindowPages = (await mapConcurrent(dataWindowPageReferences, 12, async reference => {
         const html = await fetchText(reference.url);
@@ -2953,19 +3733,36 @@ async function main() {
     ];
     const officialEnumeratedTypeUnits = collectOfficialEnumeratedTypeUnits(officialEnumeratedBundles);
     const officialEnumeratedValueUnits = collectOfficialEnumeratedValueUnits(officialEnumeratedBundles);
+    const objectFunctionCoverageEntries = partitionObjectFunctionCoverageEntries(parsedPowerScriptPages);
 
+    const generatedDatatypeEntries = [];
     const generatedDataWindowEntries = [];
     const generatedSystemTypeEntries = [];
     const unknownDataWindowAppliesToLabels = new Map();
 
-    for (const entry of officialSystemObjectDatatypeEntries) {
-        if (isCoverageUnitCovered(systemTypeCoverage, 'system-object-datatypes', entry.name)) {
+    for (const name of officialDatatypeUnits) {
+        const normalizedName = normalizeSystemSymbolName(name);
+
+        if (!normalizedName) {
             continue;
         }
 
+        if (generateCompleteCatalog || !datatypeCoverage.has(normalizedName)) {
+            generatedDatatypeEntries.push(buildGeneratedDatatypeEntry(name));
+        }
+
+        datatypeCoverage.add(normalizedName);
+    }
+
+    for (const entry of hydratedSystemObjectDatatypeEntries) {
         generatedSystemTypeEntries.push({
+            baseType: entry.baseType,
             category: entry.category,
+            documentation: entry.documentation,
+            events: entry.events,
+            functions: entry.functions,
             name: entry.name,
+            properties: entry.properties,
             signatures: [{ label: entry.name }],
             sourceUrl: entry.sourceUrl,
             summary: entry.summary,
@@ -2976,22 +3773,26 @@ async function main() {
     for (const entry of officialEnumeratedTypeUnits) {
         const normalizedName = normalizeSystemSymbolName(entry.name);
 
-        if (!normalizedName || enumeratedTypeCoverage.has(normalizedName)) {
+        if (!normalizedName) {
             continue;
         }
 
-        generatedEnumeratedTypeEntries.push(buildGeneratedEnumeratedTypeEntry(entry));
+        if (generateCompleteCatalog || !enumeratedTypeCoverage.has(normalizedName)) {
+            generatedEnumeratedTypeEntries.push(buildGeneratedEnumeratedTypeEntry(entry));
+        }
         enumeratedTypeCoverage.add(normalizedName);
     }
 
     for (const entry of officialEnumeratedValueUnits) {
         const coverageKey = buildEnumeratedValueCoverageKey(entry.enumValueOf, entry.name);
 
-        if (!coverageKey || enumeratedValueCoverage.has(coverageKey)) {
+        if (!coverageKey) {
             continue;
         }
 
-        generatedEnumeratedValueEntries.push(buildGeneratedEnumeratedValueEntry(entry));
+        if (generateCompleteCatalog || !enumeratedValueCoverage.has(coverageKey)) {
+            generatedEnumeratedValueEntries.push(buildGeneratedEnumeratedValueEntry(entry));
+        }
         enumeratedValueCoverage.add(coverageKey);
     }
 
@@ -3000,26 +3801,28 @@ async function main() {
             unknownDataWindowAppliesToLabels.set(entry.sourceUrl, entry.ownerInfo.unknownLabels);
         }
 
-        const uncoveredOwnerTypes = getUncoveredOwnerTypes(
-            dataWindowCoverage,
-            'datawindow-functions',
-            entry.name,
-            entry.ownerInfo.ownerTypes,
-            [],
-        );
+        const selectedOwnerTypes = generateCompleteCatalog
+            ? entry.ownerInfo.ownerTypes
+            : getUncoveredOwnerTypes(
+                dataWindowCoverage,
+                'datawindow-functions',
+                entry.name,
+                entry.ownerInfo.ownerTypes,
+                [],
+            );
 
-        if (uncoveredOwnerTypes.length === 0) {
+        if (selectedOwnerTypes.length === 0) {
             continue;
         }
 
         generatedDataWindowEntries.push(
             buildGeneratedEntry(
                 entry,
-                uncoveredOwnerTypes,
-                filterAppliesToLabels(entry.ownerInfo, uncoveredOwnerTypes),
+                selectedOwnerTypes,
+                filterAppliesToLabels(entry.ownerInfo, selectedOwnerTypes),
             ),
         );
-        registerCoverage(dataWindowCoverage, 'datawindow-functions', entry.name, uncoveredOwnerTypes);
+        registerCoverage(dataWindowCoverage, 'datawindow-functions', entry.name, selectedOwnerTypes);
     }
 
     const specificEventCandidates = parsedPowerScriptEventPages
@@ -3045,26 +3848,28 @@ async function main() {
             unknownPowerScriptEventOwnerLabels.set(entry.sourceUrl, entry.ownerInfo.unknownLabels);
         }
 
-        const uncoveredOwnerTypes = getUncoveredOwnerTypes(
-            systemEventCoverage,
-            'system-events',
-            entry.name,
-            entry.ownerTypes,
-            [],
-        );
+        const selectedOwnerTypes = generateCompleteCatalog
+            ? entry.ownerTypes
+            : getUncoveredOwnerTypes(
+                systemEventCoverage,
+                'system-events',
+                entry.name,
+                entry.ownerTypes,
+                [],
+            );
 
-        if (uncoveredOwnerTypes.length === 0) {
+        if (selectedOwnerTypes.length === 0) {
             continue;
         }
 
         generatedEventEntries.push(
             buildGeneratedEntry(
                 entry,
-                uncoveredOwnerTypes,
-                filterAppliesToLabels(entry.ownerInfo, uncoveredOwnerTypes),
+                selectedOwnerTypes,
+                filterAppliesToLabels(entry.ownerInfo, selectedOwnerTypes),
             ),
         );
-        registerCoverage(systemEventCoverage, 'system-events', entry.name, uncoveredOwnerTypes);
+        registerCoverage(systemEventCoverage, 'system-events', entry.name, selectedOwnerTypes);
     }
 
     for (const entry of sortGeneratedEntries(universalEventCandidates)) {
@@ -3083,24 +3888,26 @@ async function main() {
                         : entry.ownerInfo.ownerScope === 'any-object-except-datawindowchild'
                             ? objectOwnerUniverse.filter(ownerType => ownerType !== 'datawindowchild')
                             : objectOwnerUniverse;
-        const uncoveredOwnerTypes = getUncoveredOwnerTypes(
-            systemEventCoverage,
-            'system-events',
-            entry.name,
-            [],
-            fallbackUniverse,
-        );
+        const selectedOwnerTypes = generateCompleteCatalog
+            ? fallbackUniverse
+            : getUncoveredOwnerTypes(
+                systemEventCoverage,
+                'system-events',
+                entry.name,
+                [],
+                fallbackUniverse,
+            );
 
-        if (uncoveredOwnerTypes.length === 0) {
+        if (selectedOwnerTypes.length === 0) {
             continue;
         }
 
-        generatedEventEntries.push(buildGeneratedEntry(entry, uncoveredOwnerTypes, entry.ownerInfo.appliesTo));
-        registerCoverage(systemEventCoverage, 'system-events', entry.name, uncoveredOwnerTypes);
+        generatedEventEntries.push(buildGeneratedEntry(entry, selectedOwnerTypes, entry.ownerInfo.appliesTo));
+        registerCoverage(systemEventCoverage, 'system-events', entry.name, selectedOwnerTypes);
     }
 
     for (const entry of sortGeneratedEntries(parsedPowerScriptStatements)) {
-        const alreadyCovered = getUncoveredOwnerTypes(
+        const alreadyCovered = !generateCompleteCatalog && getUncoveredOwnerTypes(
             statementCoverage,
             'statements',
             entry.name,
@@ -3116,6 +3923,18 @@ async function main() {
         registerCoverage(statementCoverage, 'statements', entry.name, []);
     }
 
+    const mergedGeneratedGlobalEntries = mergeGeneratedEntries(generatedGlobalEntries);
+    const mergedGeneratedKeywordEntries = mergeGeneratedEntries(generatedKeywordEntries);
+    const mergedGeneratedReservedWordEntries = mergeGeneratedEntries(generatedReservedWordEntries);
+    const mergedGeneratedDatatypeEntries = mergeGeneratedEntries(generatedDatatypeEntries);
+    const mergedGeneratedObjectEntries = mergeGeneratedEntries(generatedObjectEntries);
+    const mergedGeneratedDataWindowEntries = mergeGeneratedEntries(generatedDataWindowEntries);
+    const mergedGeneratedSystemTypeEntries = mergeGeneratedEntries(generatedSystemTypeEntries);
+    const mergedGeneratedEventEntries = mergeGeneratedEntries(generatedEventEntries);
+    const mergedGeneratedStatementEntries = mergeGeneratedEntries(generatedStatementEntries);
+    const mergedGeneratedEnumeratedTypeEntries = mergeGeneratedEntries(generatedEnumeratedTypeEntries);
+    const mergedGeneratedEnumeratedValueEntries = mergeGeneratedEntries(generatedEnumeratedValueEntries);
+
     const generatedOfficialCoverageFile = renderOfficialCoverageFile({
         'global-functions': collectOfficialCoverageUnitKeys(
             'global-functions',
@@ -3127,7 +3946,7 @@ async function main() {
         ),
         'object-functions': collectOfficialCoverageUnitKeys(
             'object-functions',
-            parsedPowerScriptPages.filter(entry => !entry.isGlobal),
+            objectFunctionCoverageEntries,
             objectCoverage,
             'name-owner',
             objectOwnerUniverse,
@@ -3183,6 +4002,73 @@ async function main() {
             controlOwnerUniverse,
         ),
     });
+    const generatedCompletenessFile = renderGeneratedCompletenessFile(generationMode, {
+        'global-functions': collectOfficialCoverageUnitKeys(
+            'global-functions',
+            parsedPowerScriptPages.filter(entry => entry.isGlobal),
+            buildDraftCoverageMap(mergedGeneratedGlobalEntries, 'global-functions'),
+            'name',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+        'object-functions': collectOfficialCoverageUnitKeys(
+            'object-functions',
+            objectFunctionCoverageEntries,
+            buildDraftCoverageMap(mergedGeneratedObjectEntries, 'object-functions'),
+            'name-owner',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+        'datawindow-functions': collectOfficialCoverageUnitKeys(
+            'datawindow-functions',
+            parsedDataWindowPages,
+            buildDraftCoverageMap(mergedGeneratedDataWindowEntries, 'datawindow-functions'),
+            'name-owner',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+        keywords: collectOfficialLookupKeyCoverage(
+            officialKeywordUnits,
+            buildDraftLookupCoverageSet(mergedGeneratedKeywordEntries),
+        ),
+        'reserved-words': collectOfficialLookupKeyCoverage(
+            officialReservedWordUnits,
+            buildDraftLookupCoverageSet(mergedGeneratedReservedWordEntries),
+        ),
+        datatypes: collectOfficialLookupKeyCoverage(
+            officialDatatypeUnits,
+            buildDraftLookupCoverageSet(mergedGeneratedDatatypeEntries),
+        ),
+        'enumerated-types': collectOfficialLookupKeyCoverage(
+            officialEnumeratedTypeUnits.map(entry => entry.name),
+            buildDraftLookupCoverageSet(mergedGeneratedEnumeratedTypeEntries),
+        ),
+        'enumerated-values': collectOfficialEnumeratedValueCoverage(
+            officialEnumeratedValueUnits,
+            buildDraftEnumeratedValueCoverageSet(mergedGeneratedEnumeratedValueEntries),
+        ),
+        'system-object-datatypes': collectOfficialNameCoverage(
+            officialSystemObjectDatatypeUnits,
+            buildDraftCoverageMap(mergedGeneratedSystemTypeEntries, 'system-object-datatypes'),
+            'system-object-datatypes',
+        ),
+        'system-events': collectOfficialCoverageUnitKeys(
+            'system-events',
+            parsedPowerScriptEventPages,
+            buildDraftCoverageMap(mergedGeneratedEventEntries, 'system-events'),
+            'name-owner',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+        statements: collectOfficialCoverageUnitKeys(
+            'statements',
+            parsedPowerScriptStatements,
+            buildDraftCoverageMap(mergedGeneratedStatementEntries, 'statements'),
+            'name',
+            objectOwnerUniverse,
+            controlOwnerUniverse,
+        ),
+    });
 
     const generatedBuiltinTypesFile = renderBuiltInTypesFile(
         unique([
@@ -3201,10 +4087,10 @@ async function main() {
         ]).sort(),
     );
     const generatedEnumeratedTypesFile = renderEnumeratedTypesFile(
-        sortGeneratedEntries(generatedEnumeratedTypeEntries),
+        mergedGeneratedEnumeratedTypeEntries,
     );
     const generatedEnumeratedValuesFile = renderEnumeratedValuesFile(
-        sortGeneratedEntries(generatedEnumeratedValueEntries),
+        mergedGeneratedEnumeratedValueEntries,
     );
     const generatedEnumeratedCoverageFile = renderEnumeratedCoverageFile({
         'enumerated-types': collectOfficialLookupKeyCoverage(
@@ -3218,16 +4104,17 @@ async function main() {
     });
 
     const generatedCatalog = renderCatalogFile(
-        sortGeneratedEntries(generatedGlobalEntries),
+        mergedGeneratedGlobalEntries,
         {
-            __keywords__: sortGeneratedEntries(generatedKeywordEntries),
-            __reservedWords__: sortGeneratedEntries(generatedReservedWordEntries),
-            entries: sortGeneratedEntries(generatedObjectEntries),
+            __keywords__: mergedGeneratedKeywordEntries,
+            __reservedWords__: mergedGeneratedReservedWordEntries,
+            entries: mergedGeneratedObjectEntries,
         },
-        sortGeneratedEntries(generatedDataWindowEntries),
-        sortGeneratedEntries(generatedSystemTypeEntries),
-        sortGeneratedEntries(generatedEventEntries),
-        sortGeneratedEntries(generatedStatementEntries),
+        mergedGeneratedDatatypeEntries,
+        mergedGeneratedDataWindowEntries,
+        mergedGeneratedSystemTypeEntries,
+        mergedGeneratedEventEntries,
+        mergedGeneratedStatementEntries,
     );
     const generatedOwnerTypes = objectOwnerUniverse.filter(ownerType => !currentObjectOwnerUniverse.includes(ownerType));
     const generatedOwnerTypesFile = renderOwnerTypesFile(generatedOwnerTypes);
@@ -3249,6 +4136,7 @@ async function main() {
     await fs.writeFile(OUTPUT_OWNER_TYPES_FILE, generatedOwnerTypesFile, 'utf8');
     await fs.writeFile(OUTPUT_PROVENANCE_FILE, generatedProvenanceFile, 'utf8');
     await fs.writeFile(OUTPUT_OFFICIAL_COVERAGE_FILE, generatedOfficialCoverageFile, 'utf8');
+    await fs.writeFile(OUTPUT_GENERATED_COMPLETENESS_FILE, generatedCompletenessFile, 'utf8');
     await fs.writeFile(OUTPUT_ENUMERATED_TYPES_FILE, generatedEnumeratedTypesFile, 'utf8');
     await fs.writeFile(OUTPUT_ENUMERATED_VALUES_FILE, generatedEnumeratedValuesFile, 'utf8');
     await fs.writeFile(OUTPUT_ENUMERATED_COVERAGE_FILE, generatedEnumeratedCoverageFile, 'utf8');
@@ -3257,15 +4145,16 @@ async function main() {
     await fs.writeFile(OUTPUT_PARSING_KEYWORD_LEXEMES_FILE, generatedKeywordLexemesFile, 'utf8');
 
     console.log('Catálogo generated actualizado.');
-    console.log(`  Global functions generadas: ${generatedGlobalEntries.length}`);
-    console.log(`  Keywords generadas: ${generatedKeywordEntries.length}`);
-    console.log(`  Object functions generadas: ${generatedObjectEntries.length}`);
-    console.log(`  Enumerated types generados: ${generatedEnumeratedTypeEntries.length}`);
-    console.log(`  Enumerated values generados: ${generatedEnumeratedValueEntries.length}`);
-    console.log(`  Reserved words generadas: ${generatedReservedWordEntries.length}`);
-    console.log(`  DataWindow functions generadas: ${generatedDataWindowEntries.length}`);
-    console.log(`  System events generados: ${generatedEventEntries.length}`);
-    console.log(`  Statements generados: ${generatedStatementEntries.length}`);
+    console.log(`  Global functions generadas: ${mergedGeneratedGlobalEntries.length}`);
+    console.log(`  Keywords generadas: ${mergedGeneratedKeywordEntries.length}`);
+    console.log(`  Datatypes generados: ${mergedGeneratedDatatypeEntries.length}`);
+    console.log(`  Object functions generadas: ${mergedGeneratedObjectEntries.length}`);
+    console.log(`  Enumerated types generados: ${mergedGeneratedEnumeratedTypeEntries.length}`);
+    console.log(`  Enumerated values generados: ${mergedGeneratedEnumeratedValueEntries.length}`);
+    console.log(`  Reserved words generadas: ${mergedGeneratedReservedWordEntries.length}`);
+    console.log(`  DataWindow functions generadas: ${mergedGeneratedDataWindowEntries.length}`);
+    console.log(`  System events generados: ${mergedGeneratedEventEntries.length}`);
+    console.log(`  Statements generados: ${mergedGeneratedStatementEntries.length}`);
     console.log(`  Owner types extendidos: ${generatedOwnerTypes.length}`);
 
     if (unknownPowerScriptAppliesToLabels.size > 0) {
@@ -3296,7 +4185,21 @@ async function main() {
     }
 }
 
-main().catch(error => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-});
+module.exports = {
+    extractAppliesToLabels,
+    extractSignatureGroups,
+    parsePowerScriptPage,
+    parseDataWindowPage,
+    parsePowerScriptEventPage,
+    parseOfficialSystemObjectDatatypePage,
+    parsePowerScriptReservedWordPage,
+    buildGeneratedReservedWordEntry,
+    renderBuilderCall,
+};
+
+if (require.main === module) {
+    main().catch(error => {
+        console.error(error instanceof Error ? error.message : error);
+        process.exitCode = 1;
+    });
+}

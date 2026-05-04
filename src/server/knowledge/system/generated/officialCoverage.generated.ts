@@ -8,15 +8,14 @@ export const PB_GENERATED_OFFICIAL_COVERAGE = {
     },
     "object-functions": {
         measurement: "name-owner",
-        officialCount: 3944,
-        coveredCount: 3911,
-        missingCount: 33,
-        missingUnits: ["Clear:datawindow", "Clipboard:datastore", "Copy:datawindow", "CopyRTF:datastore", "CopyRTF:datawindow", "Cut:datawindow", "DataCount:datastore", "Find:datawindow", "FindNext:datawindow", "InsertDocument:datastore", "InsertDocument:datawindow", "LineCount:datawindow", "Paste:datawindow", "PasteRTF:datastore", "PasteRTF:datawindow", "Position:datawindow", "ReplaceText:datawindow", "SaveAs:datastore", "Scroll:datawindow", "ScrollNextRow:datawindow", "ScrollPriorPage:datawindow", "ScrollPriorRow:datawindow", "SelectText:datawindow", "SelectTextAll:datawindow", "SelectTextLine:datawindow", "SelectTextWord:datawindow", "SelectedLength:datawindow", "SelectedLine:datawindow", "SelectedStart:datawindow", "SelectedText:datawindow", "ShowHeadFoot:datawindow", "TextLine:datawindow", "Undo:datawindow"],
+        officialCount: 4443,
+        coveredCount: 4443,
+        missingCount: 0,
     },
     "datawindow-functions": {
         measurement: "name-owner",
-        officialCount: 435,
-        coveredCount: 435,
+        officialCount: 420,
+        coveredCount: 420,
         missingCount: 0,
     },
     "keywords": {
@@ -57,8 +56,8 @@ export const PB_GENERATED_OFFICIAL_COVERAGE = {
     },
     "system-events": {
         measurement: "name-owner",
-        officialCount: 810,
-        coveredCount: 810,
+        officialCount: 853,
+        coveredCount: 853,
         missingCount: 0,
     },
     "statements": {

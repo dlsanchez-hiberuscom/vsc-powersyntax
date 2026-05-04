@@ -707,6 +707,8 @@
     "test:unit": "npm run build:test && vscode-test --label unit",
     "test:integration": "npm run build:test && vscode-test --label integration",
     "test:performance": "npm run build:test && vscode-test --label performance",
+    "test:architecture:metrics": "node ./tools/run-architecture-hotspot-guard.mjs",
+    "test:architecture:rapid": "node ./tools/run-architecture-rapid-gate.mjs",
     "test:performance:gate": "node ./tools/run-performance-budget-gate.mjs",
     "test:performance:soak": "node ./tools/run-session-stability-soak.mjs",
     "package:vsix": "node -e \"require('fs').mkdirSync('.dist',{recursive:true})\" && vsce package --no-yarn --out ./.dist/vsc-powersyntax.vsix",

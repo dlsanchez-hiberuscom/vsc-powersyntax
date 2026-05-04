@@ -8,6 +8,7 @@ suite('unit/catalogConsistency (B132)', () => {
     assert.equal(r.missingSignatures.length, 0);
     assert.equal(r.emptyName.length, 0);
     assert.equal(r.invalidEnumeratedTypeNames.length, 0);
+    assert.equal(r.manualGeneratedOverlapsWithoutOverlay.length, 0, `manual/generated sin overlay: ${r.manualGeneratedOverlapsWithoutOverlay.slice(0, 3).join(',')}`);
   });
 
   test('domain counts suman al total', () => {
@@ -20,5 +21,7 @@ suite('unit/catalogConsistency (B132)', () => {
     const r = buildCatalogConsistencyReport();
     assert.ok((r.datasetCounts['manual-core'] ?? 0) > 0);
     assert.ok((r.datasetCounts['generated'] ?? 0) > 0);
+    assert.ok((r.manualOverlayModes.gap ?? 0) > 0);
+    assert.ok((r.manualOverlayModes.enrichment ?? 0) > 0);
   });
 });

@@ -79,6 +79,27 @@ export interface PbSystemSymbolProvenance {
     generatedAt?: string;
 }
 
+export type PbSystemManualOverlayMode = 'gap' | 'enrichment' | 'override' | 'candidate';
+
+export interface PbSystemManualOverlayTargetKey {
+    domain: PbSystemSymbolDomain;
+    kind: PbSystemSymbolKind;
+    namespace: PbSystemSymbolNamespace;
+    invocation: PbSystemSymbolInvocation;
+    name: string;
+    ownerTypes?: readonly string[];
+}
+
+export interface PbSystemManualOverlay {
+    targetId?: string;
+    targetKey?: PbSystemManualOverlayTargetKey;
+    mode: PbSystemManualOverlayMode;
+    reason: string;
+    evidence: readonly string[];
+    sourceUrl?: string;
+    reviewedBy?: string;
+}
+
 export interface PbSystemSymbolSignatureParameter {
     label: string;
     documentation?: string;
@@ -88,7 +109,15 @@ export interface PbSystemSymbolSignature {
     label: string;
     documentation?: string;
     parameters?: readonly PbSystemSymbolSignatureParameter[];
+    returnType?: string;
 }
+
+export interface PbSystemSymbolEventId {
+    id: string;
+    ownerTypes?: readonly string[];
+}
+
+export type PbSystemIdentifierPolicy = 'reserved' | 'allowed-as-function-name' | 'literal' | 'operator';
 
 export interface PbSystemSymbolEntryDraft {
     name: string;
@@ -99,6 +128,13 @@ export interface PbSystemSymbolEntryDraft {
     category: string;
     summary: string;
     documentation?: string;
+    returnType?: string;
+    returnDocumentation?: string;
+    usageNotes?: readonly string[];
+    baseType?: string;
+    properties?: readonly string[];
+    functions?: readonly string[];
+    events?: readonly string[];
     signatures: readonly PbSystemSymbolSignature[];
     dataset: PbSystemSymbolDataset;
     source: string;
@@ -115,8 +151,13 @@ export interface PbSystemSymbolEntryDraft {
     obsolete?: boolean;
     obsoleteMessage?: string;
     replacement?: string;
+    eventId?: string;
+    eventIds?: readonly PbSystemSymbolEventId[];
     lookupAliases?: readonly string[];
+    reservedWordCanBeFunctionName?: boolean;
+    identifierPolicy?: PbSystemIdentifierPolicy;
     provenance?: PbSystemSymbolProvenance;
+    manualOverlay?: PbSystemManualOverlay;
     syntax?: string;
     tokenType?: string;
     tokenModifiers?: readonly string[];
