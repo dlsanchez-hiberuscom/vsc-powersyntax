@@ -162,6 +162,7 @@ Regla operativa:
 Comprobaciones básicas:
 
 - `npm run build:test` para recompilar cliente/servidor antes de validar el wiring real.
+- `npm run report:catalog-localization` para regenerar el snapshot de cobertura e issues del rail español bajo `artifacts/catalog/` antes de ampliar traducciones.
 - `npm run release:verify` para repetir smoke, unit, integration, gate de rendimiento y VSIX.
 - dashboard, status bar y `PowerSyntax: Mostrar Stats del Runtime` para revisar `buildTooling`, `buildFiles`, `buildRunner`, `orcaTooling`, `orcaRunner` y `showStats.persistence.buildOrcaJournalUri`.
 - `PowerSyntax: Mostrar Gobernanza de Settings` y `PowerSyntax: Aplicar Perfil de Settings` para inspeccionar y normalizar el baseline del workspace con los perfiles `fast`, `balanced`, `deep-analysis`, `legacy-orca`, `ci-support` y `support-safe`.
@@ -202,6 +203,7 @@ Acción: ejecutar `npm run package:vsix`, `npm run package:vsix:list` y `npm run
 Si quieres más detalle técnico del proyecto, consulta:
 
 - `docs/architecture.md`
+- `docs/localization.md`
 - `docs/roadmap.md`
 - `docs/backlog.md`
 - `docs/current-focus.md`

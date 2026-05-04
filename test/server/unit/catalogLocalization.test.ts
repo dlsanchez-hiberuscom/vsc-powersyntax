@@ -25,6 +25,9 @@ suite('unit/catalogLocalization (B371)', () => {
     const report = getSystemSymbolLocalizationCatalogReport();
 
     assert.ok((report.locales.es?.overlayCount ?? 0) >= 3);
+    assert.ok((report.domainCoverage.es?.['global-functions']?.localizedTargetCount ?? 0) >= 3);
+    assert.equal(report.incompleteOverlays.length, 0);
+    assert.equal(report.invalidParameterTargets.length, 0);
     assert.equal(report.orphanOverlays.length, 0);
   });
 
@@ -61,5 +64,58 @@ suite('unit/catalogLocalization (B371)', () => {
     assert.equal(index.locales.get('es')?.get(absEntry!.id)?.text?.summary, 'Resumen de prueba por targetId.');
     assert.equal(index.orphanOverlays.length, 1);
     assert.equal(index.orphanOverlays[0]?.reason, 'missing-target-key');
+  });
+
+  test('resolver detecta overlays incompletos cuando faltan campos documentales presentes en el target', () => {
+    const absEntry = PB_SYSTEM_SYMBOL_REGISTRY.entries.find(entry => entry.domain === 'global-functions' && entry.name === 'Abs');
+    assert.ok(absEntry);
+
+    const overlays: readonly PbSystemSymbolLocalizationOverlay[] = [
+      {
+        locale: 'es',
+        targetId: absEntry!.id,
+        text: {
+          summary: 'Resumen parcial.',
+        },
+      },
+    ];
+
+    const index = buildSystemSymbolLocalizationIndex(PB_SYSTEM_SYMBOL_REGISTRY.entries, overlays);
+
+    assert.equal(index.incompleteOverlays.length, 1);
+    assert.deepEqual(index.incompleteOverlays[0]?.missingFields, [
+      'returnDocumentation',
+      'parameterDocumentation',
+    ]);
+  });
+
+  test('resolver detecta parametros localizados que intentan traducir nombres tecnicos o signatures', () => {
+    const absEntry = PB_SYSTEM_SYMBOL_REGISTRY.entries.find(entry => entry.domain === 'global-functions' && entry.name === 'Abs');
+    assert.ok(absEntry);
+
+    const overlays: readonly PbSystemSymbolLocalizationOverlay[] = [
+      {
+        locale: 'es',
+        targetId: absEntry!.id,
+        text: {
+          summary: 'Calcula el valor absoluto.',
+          documentation: 'Mantiene el nombre tecnico intacto.',
+          returnDocumentation: 'Devuelve el valor absoluto.',
+        },
+        parameters: [
+          {
+            signatureLabel: 'Abs ( numero )',
+            parameterName: 'numero',
+            documentation: 'Parametro mal anclado.',
+          },
+        ],
+      },
+    ];
+
+    const index = buildSystemSymbolLocalizationIndex(PB_SYSTEM_SYMBOL_REGISTRY.entries, overlays);
+
+    assert.equal(index.invalidParameterTargets.length, 1);
+    assert.equal(index.invalidParameterTargets[0]?.parameterName, 'numero');
+    assert.equal(index.invalidParameterTargets[0]?.signatureLabel, 'Abs ( numero )');
   });
 });

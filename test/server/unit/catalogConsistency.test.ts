@@ -9,6 +9,8 @@ suite('unit/catalogConsistency (B132)', () => {
     assert.equal(r.emptyName.length, 0);
     assert.equal(r.invalidEnumeratedTypeNames.length, 0);
     assert.equal(r.manualGeneratedOverlapsWithoutOverlay.length, 0, `manual/generated sin overlay: ${r.manualGeneratedOverlapsWithoutOverlay.slice(0, 3).join(',')}`);
+    assert.equal(r.localization.incompleteOverlays.length, 0, `localization incomplete: ${r.localization.incompleteOverlays.slice(0, 3).map(item => `${item.targetName}:${item.missingFields.join('+')}`).join(',')}`);
+    assert.equal(r.localization.invalidParameterTargets.length, 0, `localization invalid parameter targets: ${r.localization.invalidParameterTargets.slice(0, 3).map(item => `${item.targetName}:${item.parameterName}`).join(',')}`);
     assert.equal(r.localization.orphanOverlays.length, 0, `localization orphans: ${r.localization.orphanOverlays.slice(0, 3).map(item => item.reason).join(',')}`);
   });
 

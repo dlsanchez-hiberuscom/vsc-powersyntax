@@ -1007,98 +1007,6 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ---
 
-## B374 — Spanish catalog localization authoring workflow and coverage gate
-- **Estado:** Open
-- **Track:** localization / docs governance / catalog quality
-- **Prioridad:** Media-Alta
-- **Depende de:** B371, B372, B366, B367
-- **Relacionada con:** B369
-- **Objetivo:** crear un workflow mantenible para añadir traducciones españolas por tandas, medir cobertura y evitar drift entre generated y overlays localizados.
-- **Razón técnica:** traducir todo el catálogo de golpe es costoso y arriesgado. La localización debe poder crecer incrementalmente, con cobertura medible, validación de overlays huérfanos y prioridad por utilidad de usuario.
-
-### Alcance incluido
-
-- Crear comando/script de reporte de cobertura de localización.
-- Medir cobertura por dominio:
-  - global-functions
-  - object-functions
-  - datawindow-functions
-  - system-events
-  - statements
-  - datatypes
-  - system-object-datatypes
-  - enumerated-types
-  - enumerated-values
-- Detectar overlays huérfanos.
-- Detectar overlays incompletos.
-- Detectar traducciones que intentan cambiar nombres técnicos.
-- Definir prioridad de traducción incremental.
-- Documentar guía de estilo para traducciones españolas.
-
-### Orden recomendado de traducción
-
-```txt
-1. Functions/events más usados y visibles.
-2. DataWindow core.
-3. System object datatypes principales.
-4. Enumerated types/values.
-5. Statements y reserved words.
-6. Resto generated.
-```
-
-### Guía de estilo de traducción
-
-- Mantener nombres reales del lenguaje en inglés/original.
-- Traducir significado, no símbolos.
-- Usar español técnico claro y breve.
-- Evitar traducciones literales pobres si no ayudan al programador.
-- No inventar comportamiento no presente en la fuente oficial.
-- Si se añade explicación curada, marcar source como `manual-curated`.
-- Mantener `sourceUrl` oficial como trazabilidad.
-
-### Ejemplo esperado
-
-```ts
-export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES = {
-  'generated:global-functions:callable:powerscript:global:applytheme:all': {
-    locale: 'es',
-    text: {
-      summary: 'Aplica un tema a la interfaz de usuario de la aplicación actual.',
-      documentation: 'Debe llamarse cuando todas las ventanas estén cerradas para que el tema se aplique correctamente a ventanas y controles.',
-    },
-    reviewed: true,
-    source: 'manual-curated',
-  },
-} as const;
-```
-
-### Criterios de cierre verificables
-
-- Existe reporte de cobertura de localización.
-- El reporte detecta overlays huérfanos.
-- El reporte detecta overlays contra IDs inexistentes tras regenerar catálogo.
-- Existe guía de estilo documentada.
-- Existe primera tanda de localización española revisada.
-- Tests cubren que no se traducen nombres de símbolos ni signatures.
-- Docs explican cómo añadir nuevas traducciones.
-
-### Docs afectadas
-
-- `docs/rules-catalog.md`
-- `docs/testing.md`
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
-- `docs/localization.md` si se crea documento nuevo.
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "localization|coverage|catalog|consistency"
-```
-
----
-
-## B375 — Generated localization compatibility with regenerated catalog IDs
 - **Estado:** Open
 - **Track:** localization / generated compatibility / catalog governance
 - **Prioridad:** Media-Alta
@@ -1786,13 +1694,13 @@ npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|rea
 
 ## Fase activa 
 
-01. B374 — Spanish catalog localization authoring workflow and coverage gate
-02. B375 — Generated localization compatibility with regenerated catalog IDs
-03. B378 — AI PowerBuilder context pack and token budget contract
-04. B379 — Explain diagnostic tool and suggested safe fix contract
-05. B380 — Explain system symbol and catalog lookup tool for AI
+01. B375 — Generated localization compatibility with regenerated catalog IDs
+02. B378 — AI PowerBuilder context pack and token budget contract
+03. B379 — Explain diagnostic tool and suggested safe fix contract
+04. B380 — Explain system symbol and catalog lookup tool for AI
+05. B381 — AI task context bundle orchestration tool
 
-## Siguiente fase — Localización española de alto rendimiento y datawindow
+## Siguiente fase 
 
 01. B378 — AI PowerBuilder context pack and token budget contract
 02. B379 — Explain diagnostic tool and suggested safe fix contract

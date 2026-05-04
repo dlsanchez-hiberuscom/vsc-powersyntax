@@ -141,7 +141,7 @@ Estado operativo tras `B371`:
 - la localización del system catalog se limita a campos documentales visibles (`summary`, `documentation`, `usageNotes`, `limitations`, `obsoleteMessage`, `returnDocumentation`, `parameter.documentation`, `eventReturnCodes.meaning` y `category` solo si es UX-visible);
 - `name`, `id`, `lookupKeys`, `normalizedName`, `ownerTypes`, `domain`, `kind`, `namespace`, `invocation`, `signatures.label`, nombres reales de funciones/eventos, datatypes, enum values y `sourceUrl` no se traducen nunca;
 - los overlays localizados se resuelven por `targetId` o `targetKey` estable contra la entry canónica del bucket runtime, respetando la policy `generated-primary-with-manual-overlays` ya fijada por `B369`;
-- `buildCatalogConsistencyReport().localization` publica `locales` y `orphanOverlays`, de modo que un overlay sin target resoluble o con drift contractual se detecta como problema de gobernanza del catálogo antes de llegar a hover/completion/signatureHelp;
+- desde `B374`, `buildCatalogConsistencyReport().localization` publica además `domainCoverage`, `incompleteOverlays` e `invalidParameterTargets`, de modo que un overlay sin target resoluble, incompleto o con `signatureLabel`/`parameterName` traducidos se detecta como problema de gobernanza del catálogo antes de llegar a hover/completion/signatureHelp;
 - los IDs diagnósticos, `reason codes`, severidades y gates de readiness/confidence no cambian por locale: la localización afecta solo presentación/documentación visible, no el contrato semántico de reglas.
 
 ## PB-SYM-001 — Unresolved symbol

@@ -727,6 +727,7 @@
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
     "rebuild": "npm run clean && npm run compile",
     "build:test": "tsc -b && tsc -p tsconfig.test.json",
+    "report:catalog-localization": "npm run compile && node ./scripts/generate_catalog_localization_report.cjs",
     "test": "npm run build:test && vscode-test --label smoke --label unit --label integration",
     "test:smoke": "npm run build:test && vscode-test --label smoke",
     "test:unit": "npm run build:test && vscode-test --label unit",

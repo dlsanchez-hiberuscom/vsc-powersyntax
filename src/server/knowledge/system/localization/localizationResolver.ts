@@ -6,8 +6,12 @@ import type {
   PbCatalogLocale,
   PbResolvedSystemSymbolLocalizationOverlay,
   PbSystemSymbolLocalizationCatalogReport,
+  PbSystemSymbolLocalizationDomainCoverage,
+  PbSystemSymbolLocalizationIncompleteOverlay,
   PbSystemSymbolLocalizationIndex,
+  PbSystemSymbolLocalizationInvalidParameterTarget,
   PbSystemSymbolLocalizationLocaleSummary,
+  PbSystemSymbolLocalizationMissingField,
   PbSystemSymbolLocalizationOrphan,
   PbSystemSymbolLocalizationOrphanReason,
   PbSystemSymbolLocalizationOverlay,
@@ -24,6 +28,12 @@ type MutableLocaleSummary = {
   targetKeyCount: number;
   reviewedCount: number;
   orphanCount: number;
+};
+
+type MutableDomainCoverage = {
+  totalTargetCount: number;
+  localizedTargetIds: Set<string>;
+  reviewedTargetIds: Set<string>;
 };
 
 function createEmptyLocaleSummary(): MutableLocaleSummary {
@@ -43,6 +53,14 @@ function cloneLocaleSummary(summary: PbSystemSymbolLocalizationLocaleSummary): M
     targetKeyCount: summary.targetKeyCount,
     reviewedCount: summary.reviewedCount,
     orphanCount: summary.orphanCount,
+  };
+}
+
+function createDomainCoverage(totalTargetCount: number): MutableDomainCoverage {
+  return {
+    totalTargetCount,
+    localizedTargetIds: new Set<string>(),
+    reviewedTargetIds: new Set<string>(),
   };
 }
 
@@ -143,6 +161,232 @@ function buildCanonicalEntryIdAliases(entries: readonly PbSystemSymbolEntry[]): 
   return canonicalEntryIdByEntryId;
 }
 
+function buildCanonicalTargetCountsByDomain(entries: readonly PbSystemSymbolEntry[]): Map<PbSystemSymbolEntry['domain'], number> {
+  const buckets = new Map<string, PbSystemSymbolEntry[]>();
+
+  for (const entry of entries) {
+    const lookupKey = buildEntryTargetLookupKey(entry);
+    const bucket = buckets.get(lookupKey) ?? [];
+    bucket.push(entry);
+    buckets.set(lookupKey, bucket);
+  }
+
+  const countsByDomain = new Map<PbSystemSymbolEntry['domain'], number>();
+  for (const bucket of buckets.values()) {
+    const canonicalTargetEntryId = selectCanonicalTargetEntryId(bucket);
+    if (!canonicalTargetEntryId) {
+      continue;
+    }
+
+    const domain = bucket[0]?.domain;
+    if (!domain) {
+      continue;
+    }
+
+    countsByDomain.set(domain, (countsByDomain.get(domain) ?? 0) + 1);
+  }
+
+  return countsByDomain;
+}
+
+function normalizeLookupText(value?: string): string | undefined {
+  const normalized = value?.trim().toLowerCase();
+  return normalized ? normalized : undefined;
+}
+
+function hasNonEmptyText(value?: string): boolean {
+  return Boolean(value?.trim());
+}
+
+function hasNonEmptyList(values?: readonly string[]): boolean {
+  return Boolean(values?.some(value => value.trim()));
+}
+
+function buildDocumentedParameterTargets(entry: PbSystemSymbolEntry): ReadonlyMap<string, ReadonlySet<string>> {
+  const parametersBySignature = new Map<string, Set<string>>();
+
+  for (const signature of entry.signatures) {
+    const signatureKey = normalizeLookupText(signature.label);
+    if (!signatureKey) {
+      continue;
+    }
+
+    const documentedParameters = parametersBySignature.get(signatureKey) ?? new Set<string>();
+    for (const parameter of signature.parameters ?? []) {
+      if (!hasNonEmptyText(parameter.documentation)) {
+        continue;
+      }
+
+      const parameterKey = normalizeLookupText(parameter.label);
+      if (!parameterKey) {
+        continue;
+      }
+
+      documentedParameters.add(parameterKey);
+    }
+
+    if (documentedParameters.size > 0) {
+      parametersBySignature.set(signatureKey, documentedParameters);
+    }
+  }
+
+  return parametersBySignature;
+}
+
+function buildOverlayParameterTargets(overlay: PbSystemSymbolLocalizationOverlay): ReadonlyMap<string, ReadonlySet<string>> {
+  const parametersBySignature = new Map<string, Set<string>>();
+
+  for (const parameter of overlay.parameters ?? []) {
+    if (!hasNonEmptyText(parameter.documentation)) {
+      continue;
+    }
+
+    const signatureKey = normalizeLookupText(parameter.signatureLabel);
+    const parameterKey = normalizeLookupText(parameter.parameterName);
+    if (!signatureKey || !parameterKey) {
+      continue;
+    }
+
+    const documentedParameters = parametersBySignature.get(signatureKey) ?? new Set<string>();
+    documentedParameters.add(parameterKey);
+    parametersBySignature.set(signatureKey, documentedParameters);
+  }
+
+  return parametersBySignature;
+}
+
+function collectIncompleteFields(
+  entry: PbSystemSymbolEntry,
+  overlay: PbSystemSymbolLocalizationOverlay,
+): PbSystemSymbolLocalizationMissingField[] {
+  const missingFields: PbSystemSymbolLocalizationMissingField[] = [];
+
+  if (hasNonEmptyText(entry.summary) && !hasNonEmptyText(overlay.text?.summary)) {
+    missingFields.push('summary');
+  }
+  if (hasNonEmptyText(entry.documentation) && !hasNonEmptyText(overlay.text?.documentation)) {
+    missingFields.push('documentation');
+  }
+  if (hasNonEmptyText(entry.obsoleteMessage) && !hasNonEmptyText(overlay.text?.obsoleteMessage)) {
+    missingFields.push('obsoleteMessage');
+  }
+  if (hasNonEmptyText(entry.returnDocumentation) && !hasNonEmptyText(overlay.text?.returnDocumentation)) {
+    missingFields.push('returnDocumentation');
+  }
+  if (hasNonEmptyList(entry.usageNotes) && !hasNonEmptyList(overlay.text?.usageNotes)) {
+    missingFields.push('usageNotes');
+  }
+
+  const documentedParameterTargets = buildDocumentedParameterTargets(entry);
+  if (documentedParameterTargets.size > 0) {
+    const overlayParameterTargets = buildOverlayParameterTargets(overlay);
+    const missingParameterDocumentation = Array.from(documentedParameterTargets.entries()).some(
+      ([signatureKey, documentedParameters]) => {
+        const localizedParameters = overlayParameterTargets.get(signatureKey) ?? new Set<string>();
+        return Array.from(documentedParameters).some(parameterKey => !localizedParameters.has(parameterKey));
+      },
+    );
+
+    if (missingParameterDocumentation) {
+      missingFields.push('parameterDocumentation');
+    }
+  }
+
+  return missingFields;
+}
+
+function collectInvalidParameterTargets(
+  entry: PbSystemSymbolEntry,
+  overlay: PbSystemSymbolLocalizationOverlay,
+): PbSystemSymbolLocalizationInvalidParameterTarget[] {
+  if (!overlay.parameters || overlay.parameters.length === 0) {
+    return [];
+  }
+
+  const validParametersBySignature = new Map<string, Set<string>>();
+  for (const signature of entry.signatures) {
+    const signatureKey = normalizeLookupText(signature.label);
+    if (!signatureKey) {
+      continue;
+    }
+
+    const parameterNames = new Set<string>();
+    for (const parameter of signature.parameters ?? []) {
+      const parameterKey = normalizeLookupText(parameter.label);
+      if (parameterKey) {
+        parameterNames.add(parameterKey);
+      }
+    }
+
+    validParametersBySignature.set(signatureKey, parameterNames);
+  }
+
+  const issues: PbSystemSymbolLocalizationInvalidParameterTarget[] = [];
+  for (const parameter of overlay.parameters) {
+    const signatureKey = normalizeLookupText(parameter.signatureLabel);
+    const parameterKey = normalizeLookupText(parameter.parameterName);
+    const validParameters = signatureKey ? validParametersBySignature.get(signatureKey) : undefined;
+    if (!signatureKey || !parameterKey || !validParameters || !validParameters.has(parameterKey)) {
+      issues.push({
+        locale: overlay.locale,
+        targetEntryId: entry.id,
+        targetName: entry.name,
+        domain: entry.domain,
+        targetId: overlay.targetId,
+        targetKey: overlay.targetKey,
+        signatureLabel: parameter.signatureLabel,
+        parameterName: parameter.parameterName,
+      });
+    }
+  }
+
+  return issues;
+}
+
+function buildIncompleteOverlaySortKey(overlay: PbSystemSymbolLocalizationIncompleteOverlay): string {
+  return [
+    overlay.locale,
+    overlay.domain,
+    overlay.targetName,
+    overlay.targetEntryId,
+    overlay.missingFields.join('+'),
+  ].join('|');
+}
+
+function buildInvalidParameterTargetSortKey(issue: PbSystemSymbolLocalizationInvalidParameterTarget): string {
+  return [
+    issue.locale,
+    issue.domain,
+    issue.targetName,
+    issue.signatureLabel,
+    issue.parameterName,
+  ].join('|');
+}
+
+function finalizeDomainCoverage(
+  coverageByDomain: Partial<Record<PbSystemSymbolEntry['domain'], MutableDomainCoverage>>,
+  totalTargetCountsByDomain: ReadonlyMap<PbSystemSymbolEntry['domain'], number>,
+): Partial<Record<PbSystemSymbolEntry['domain'], PbSystemSymbolLocalizationDomainCoverage>> {
+  const finalized: Partial<Record<PbSystemSymbolEntry['domain'], PbSystemSymbolLocalizationDomainCoverage>> = {};
+
+  for (const [domain, totalTargetCount] of totalTargetCountsByDomain.entries()) {
+    const coverage = coverageByDomain[domain] ?? createDomainCoverage(totalTargetCount);
+    const localizedTargetCount = coverage.localizedTargetIds.size;
+    const reviewedTargetCount = coverage.reviewedTargetIds.size;
+
+    finalized[domain] = {
+      domain,
+      totalTargetCount,
+      localizedTargetCount,
+      reviewedTargetCount,
+      localizedRatio: totalTargetCount === 0 ? 1 : localizedTargetCount / totalTargetCount,
+      reviewedRatio: totalTargetCount === 0 ? 1 : reviewedTargetCount / totalTargetCount,
+    };
+  }
+
+  return finalized;
+}
+
 function buildOrphan(
   overlay: PbSystemSymbolLocalizationOverlay,
   reason: PbSystemSymbolLocalizationOrphanReason,
@@ -230,8 +474,13 @@ export function buildSystemSymbolLocalizationIndex(
 ): PbSystemSymbolLocalizationIndex {
   const entryById = new Map(entries.map(entry => [entry.id, entry]));
   const entryIdsByTargetKey = buildEntryIdsByTargetKey(entries);
+  const canonicalEntryIdAliases = buildCanonicalEntryIdAliases(entries);
+  const totalTargetCountsByDomain = buildCanonicalTargetCountsByDomain(entries);
   const localeMaps = new Map<PbCatalogLocale, Map<string, PbResolvedSystemSymbolLocalizationOverlay>>();
   const localeSummaries: Partial<Record<PbCatalogLocale, MutableLocaleSummary>> = {};
+  const domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolEntry['domain'], MutableDomainCoverage>>>> = {};
+  const incompleteOverlays: PbSystemSymbolLocalizationIncompleteOverlay[] = [];
+  const invalidParameterTargets: PbSystemSymbolLocalizationInvalidParameterTarget[] = [];
   const orphanOverlays: PbSystemSymbolLocalizationOrphan[] = [];
 
   for (const overlay of overlays) {
@@ -260,6 +509,15 @@ export function buildSystemSymbolLocalizationIndex(
       continue;
     }
 
+    const effectiveTargetEntryId = canonicalEntryIdAliases.get(targetEntryId) ?? targetEntryId;
+    const targetEntry = entryById.get(effectiveTargetEntryId) ?? entryById.get(targetEntryId);
+    if (!targetEntry) {
+      summary.orphanCount += 1;
+      orphanOverlays.push(buildOrphan(overlay, 'missing-target-id', normalizedTargetId));
+      localeSummaries[overlay.locale] = summary;
+      continue;
+    }
+
     const localeMap = localeMaps.get(overlay.locale) ?? new Map<string, PbResolvedSystemSymbolLocalizationOverlay>();
     localeMap.set(targetEntryId, {
       ...overlay,
@@ -267,6 +525,30 @@ export function buildSystemSymbolLocalizationIndex(
       targetId: normalizedTargetId ?? overlay.targetId,
     });
     localeMaps.set(overlay.locale, localeMap);
+
+    const localeCoverage = domainCoverage[overlay.locale] ?? {};
+    const targetCoverage = localeCoverage[targetEntry.domain] ?? createDomainCoverage(totalTargetCountsByDomain.get(targetEntry.domain) ?? 0);
+    targetCoverage.localizedTargetIds.add(targetEntry.id);
+    if (overlay.reviewed) {
+      targetCoverage.reviewedTargetIds.add(targetEntry.id);
+    }
+    localeCoverage[targetEntry.domain] = targetCoverage;
+    domainCoverage[overlay.locale] = localeCoverage;
+
+    const missingFields = collectIncompleteFields(targetEntry, overlay);
+    if (missingFields.length > 0) {
+      incompleteOverlays.push({
+        locale: overlay.locale,
+        targetEntryId: targetEntry.id,
+        targetName: targetEntry.name,
+        domain: targetEntry.domain,
+        targetId: normalizedTargetId ?? overlay.targetId,
+        targetKey: overlay.targetKey,
+        missingFields,
+      });
+    }
+
+    invalidParameterTargets.push(...collectInvalidParameterTargets(targetEntry, overlay));
     localeSummaries[overlay.locale] = summary;
   }
 
@@ -280,9 +562,17 @@ export function buildSystemSymbolLocalizationIndex(
     finalizedLocaleSummaries[locale] = cloneLocaleSummary(summary);
   }
 
+  const finalizedDomainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolEntry['domain'], PbSystemSymbolLocalizationDomainCoverage>>>> = {};
+  for (const locale of Object.keys(localeSummaries) as PbCatalogLocale[]) {
+    finalizedDomainCoverage[locale] = finalizeDomainCoverage(domainCoverage[locale] ?? {}, totalTargetCountsByDomain);
+  }
+
   return {
     locales: readonlyLocaleMaps,
     localeSummaries: finalizedLocaleSummaries,
+    domainCoverage: finalizedDomainCoverage,
+    incompleteOverlays: incompleteOverlays.sort((left, right) => buildIncompleteOverlaySortKey(left).localeCompare(buildIncompleteOverlaySortKey(right))),
+    invalidParameterTargets: invalidParameterTargets.sort((left, right) => buildInvalidParameterTargetSortKey(left).localeCompare(buildInvalidParameterTargetSortKey(right))),
     overlayCount: overlays.length,
     orphanOverlays: orphanOverlays.sort((left, right) => buildOrphanSortKey(left).localeCompare(buildOrphanSortKey(right))),
   };
@@ -327,6 +617,9 @@ export function getSystemSymbolLocalizationCatalogReport(): PbSystemSymbolLocali
 
   return {
     locales: index.localeSummaries,
+    domainCoverage: index.domainCoverage,
+    incompleteOverlays: index.incompleteOverlays,
+    invalidParameterTargets: index.invalidParameterTargets,
     orphanOverlays: index.orphanOverlays,
   };
 }

@@ -25,8 +25,12 @@ export {
 } from './localizationResolver';
 export type {
   PbCatalogLocale,
+  PbSystemSymbolLocalizationDomainCoverage,
   PbLocalizedEventReturnCodeDocumentation,
+  PbSystemSymbolLocalizationIncompleteOverlay,
+  PbSystemSymbolLocalizationInvalidParameterTarget,
   PbLocalizedParameterDocumentation,
+  PbSystemSymbolLocalizationMissingField,
   PbLocalizedText,
   PbResolvedSystemSymbolLocalizationOverlay,
   PbSystemSymbolLocalizationCatalogReport,

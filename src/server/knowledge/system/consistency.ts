@@ -22,6 +22,9 @@ import type {
 } from './types';
 import type {
   PbSystemSymbolLocalizationLocaleSummary,
+  PbSystemSymbolLocalizationDomainCoverage,
+  PbSystemSymbolLocalizationIncompleteOverlay,
+  PbSystemSymbolLocalizationInvalidParameterTarget,
   PbSystemSymbolLocalizationOrphan,
 } from './localization';
 
@@ -124,6 +127,9 @@ export interface CatalogAdoptionDecisionReport {
 
 export interface CatalogLocalizationAudit {
   locales: Partial<Record<PbCatalogLocale, PbSystemSymbolLocalizationLocaleSummary>>;
+  domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolDomain, PbSystemSymbolLocalizationDomainCoverage>>>>;
+  incompleteOverlays: readonly PbSystemSymbolLocalizationIncompleteOverlay[];
+  invalidParameterTargets: readonly PbSystemSymbolLocalizationInvalidParameterTarget[];
   orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
 }
 

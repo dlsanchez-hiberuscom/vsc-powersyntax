@@ -25,6 +25,31 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.133 B374. Spanish catalog localization authoring workflow and coverage gate — **Cerrada (localization/authoring workflow 2026-05)**
+
+**Objetivo:** convertir el rail español de localización documental en un workflow gobernable: cobertura por dominio, detección de overlays incompletos o mal anclados y guía explícita para ampliar traducciones sin drift ni regresiones en producto visible.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/localization/localizationResolver.ts`, `types.ts` e `index.ts` publican ya cobertura por dominio (`domainCoverage`), overlays incompletos (`missingFields`) e intentos de traducir anchors técnicos (`invalidParameterTargets`) sobre targets canónicos del catálogo, manteniendo el audit fuera del hot path de hover/completion/signatureHelp;
+- `src/server/knowledge/system/consistency.ts` incorpora ese audit ampliado dentro de `buildCatalogConsistencyReport().localization`, de modo que authoring roto o traducciones de `signatureLabel`/`parameterName` fallen como problema de gobernanza del catálogo antes de llegar a los consumers visibles;
+- `scripts/generate_catalog_localization_report.cjs`, `package.json` y `artifacts/catalog/catalogLocalizationReport.generated.{json,md}` dejan un workflow determinista para generar snapshots del estado `es` por dominio, reviewed coverage y issues pendientes;
+- `docs/localization.md` fija ya el orden incremental de traducción, la guía de estilo, la rutina de authoring y las salidas esperadas del reporte, apoyándose en la primera tanda revisada que ya vivía en `src/server/knowledge/system/localization/es/generatedFunctionLocalization.ts`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"`
+- `npm run report:catalog-localization`
+
+**Documentación alineada:**
+- `README.md`
+- `docs/localization.md`
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/done-log.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
 ## 1.132 B373. Localized catalog consumers for hover, completion and signatureHelp — **Cerrada (language services/localized consumers 2026-05)**
 
 **Objetivo:** hacer visible el rail de localización documental en producto real, integrando `DocumentationService` en hover, completion y signatureHelp sin traducir identidad semántica, sin duplicar lógica por consumer y sin introducir coste interactivo apreciable.
