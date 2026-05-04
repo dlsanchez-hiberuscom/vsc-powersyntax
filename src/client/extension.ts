@@ -33,6 +33,8 @@ import {
   type ApiBuildProfileMatrixRequest,
   type ApiObjectCheckReport,
   type ApiObjectCheckRequest,
+  type ApiExplainDiagnosticReport,
+  type ApiExplainDiagnosticRequest,
   type ApiWorkspaceCheckCatalogSummary,
   type ApiWorkspaceCheckReport,
   type ApiWorkspaceCheckRequest,
@@ -79,6 +81,7 @@ import {
   type ApiServerStats,
   type VscPowerSyntaxApi,
 } from '../shared/publicApi';
+import { getDiagnosticCode } from '../shared/diagnosticCodes';
 import {
   buildStatusTooltipMarkdown,
   enrichRuntimeStatusStats,
@@ -141,6 +144,15 @@ import {
   buildUnavailableObjectCheckReport,
   normalizeObjectCheckRequest,
 } from './objectCheckReport';
+import {
+  buildExplainDiagnosticMarkdown,
+  buildExplainDiagnosticReport,
+  buildUnavailableExplainDiagnosticReport,
+  normalizeExplainDiagnosticRequest,
+  pickExplainDiagnosticCandidate,
+  type ExplainDiagnosticCandidateInput,
+  type ExplainDiagnosticCandidateData,
+} from './explainDiagnosticReport';
 import {
   buildUnavailableWorkspaceCheckReport,
   buildWorkspaceCheckMarkdown,
@@ -493,6 +505,8 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
     openCurrentObjectCheck,
     openObjectCheck,
     runObjectCheck: async (request?: unknown) => runObjectCheck(request as ApiObjectCheckRequest | undefined),
+    openExplainDiagnostic,
+    runExplainDiagnostic: async (request?: unknown) => runExplainDiagnostic(request as ApiExplainDiagnosticRequest | undefined),
     openCrossProjectSymbolConflicts,
     openWorkspaceMigrationAssistant,
     openBuildProfileMatrix,
@@ -741,6 +755,13 @@ function createPublicApi(): VscPowerSyntaxApi {
             mode: 'read-only',
             schema: 'ApiObjectCheckReport',
             payload: await api.checkObject(args as ApiObjectCheckRequest),
+          };
+        case 'explain-diagnostic':
+          return {
+            tool: 'explain-diagnostic',
+            mode: 'read-only',
+            schema: 'ApiExplainDiagnosticReport',
+            payload: await api.explainDiagnostic(args as ApiExplainDiagnosticRequest),
           };
         case 'query-symbols':
           return {
@@ -1108,6 +1129,70 @@ function createPublicApi(): VscPowerSyntaxApi {
         impactAnalysis,
         safeEditPlan,
         sectionErrors,
+      });
+    },
+    async explainDiagnostic(request: ApiExplainDiagnosticRequest = {}): Promise<ApiExplainDiagnosticReport> {
+      const normalized = normalizeExplainDiagnosticRequest(request);
+      const resolvedSource = resolveExplainDiagnosticSource(request);
+      if (!resolvedSource.uri) {
+        return buildUnavailableExplainDiagnosticReport(
+          resolvedSource.reason ?? 'No se pudo resolver un diagnostic para explicar.',
+        );
+      }
+
+      let diagnostics: readonly vscode.Diagnostic[];
+      try {
+        diagnostics = vscode.languages.getDiagnostics(vscode.Uri.parse(resolvedSource.uri));
+      } catch (error) {
+        return buildUnavailableExplainDiagnosticReport(error instanceof Error ? error.message : String(error));
+      }
+
+      const candidates = diagnostics.map((diagnostic) => toExplainDiagnosticCandidate(resolvedSource.uri!, diagnostic));
+      const selection = pickExplainDiagnosticCandidate(candidates, {
+        ...request,
+        ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+        ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+      });
+
+      if (!selection.diagnostic) {
+        return buildUnavailableExplainDiagnosticReport(selection.reason ?? 'No se encontró un diagnostic defendible para la ubicación solicitada.');
+      }
+
+      let objectContext: ApiCurrentObjectContext | undefined;
+      let safeEditPlan: ApiSafeEditPlan | undefined;
+
+      if (normalized.includeObjectContext) {
+        try {
+          objectContext = clonePlainData(await api.getCurrentObjectContext({
+            uri: selection.diagnostic.uri,
+            line: selection.diagnostic.line,
+            character: selection.diagnostic.character,
+            maxExcerptLines: normalized.maxExcerptLines,
+            maxReferencedSymbols: Math.max(8, normalized.maxEvidence * 4),
+          }));
+        } catch {
+          objectContext = undefined;
+        }
+      }
+
+      if (normalized.includeSafeFixPlan) {
+        try {
+          safeEditPlan = await api.generateSafeEditPlan({
+            uri: selection.diagnostic.uri,
+            line: selection.diagnostic.line,
+            character: selection.diagnostic.character,
+            maxSafeReferences: Math.max(8, normalized.maxEvidence * 4),
+          });
+        } catch {
+          safeEditPlan = undefined;
+        }
+      }
+
+      return buildExplainDiagnosticReport({
+        request,
+        diagnostic: selection.diagnostic,
+        objectContext,
+        safeEditPlan,
       });
     },
     async querySymbols(request: ApiQuerySymbolsRequest) {
@@ -3200,6 +3285,10 @@ async function runObjectCheck(request: ApiObjectCheckRequest = {}): Promise<ApiO
   return publicApiSingleton.checkObject(request);
 }
 
+async function runExplainDiagnostic(request: ApiExplainDiagnosticRequest = {}): Promise<ApiExplainDiagnosticReport> {
+  return publicApiSingleton.explainDiagnostic(request);
+}
+
 async function openCurrentObjectCheck(): Promise<void> {
   let report: ApiObjectCheckReport;
   try {
@@ -3244,6 +3333,128 @@ async function openObjectCheck(): Promise<void> {
   }
 
   await openMarkdownReportDocument(buildObjectCheckMarkdown(report));
+}
+
+async function openExplainDiagnostic(): Promise<void> {
+  let report: ApiExplainDiagnosticReport;
+  try {
+    report = await runExplainDiagnostic({
+      includeObjectContext: true,
+      includeSafeFixPlan: true,
+      maxEvidence: 6,
+      maxExcerptLines: 10,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo explicar el diagnostic activo: ${message}`);
+    return;
+  }
+
+  await openMarkdownReportDocument(buildExplainDiagnosticMarkdown(report));
+}
+
+function resolveExplainDiagnosticSource(request: ApiExplainDiagnosticRequest): {
+  uri?: string;
+  line?: number;
+  character?: number;
+  reason?: string;
+} {
+  const editor = vscode.window.activeTextEditor;
+
+  if (request.uri) {
+    const normalizedLine = typeof request.line === 'number'
+      ? Math.max(0, Math.trunc(request.line))
+      : editor?.document.uri.toString() === request.uri
+        ? editor.selection.active.line
+        : undefined;
+    const normalizedCharacter = typeof request.character === 'number'
+      ? Math.max(0, Math.trunc(request.character))
+      : editor?.document.uri.toString() === request.uri
+        ? editor.selection.active.character
+        : undefined;
+    return {
+      uri: request.uri,
+      ...(typeof normalizedLine === 'number' ? { line: normalizedLine } : {}),
+      ...(typeof normalizedCharacter === 'number' ? { character: normalizedCharacter } : {}),
+    };
+  }
+
+  if (!editor) {
+    return {
+      reason: 'No hay editor activo para resolver el diagnostic actual.',
+    };
+  }
+
+  return {
+    uri: editor.document.uri.toString(),
+    line: typeof request.line === 'number' ? Math.max(0, Math.trunc(request.line)) : editor.selection.active.line,
+    character: typeof request.character === 'number' ? Math.max(0, Math.trunc(request.character)) : editor.selection.active.character,
+  };
+}
+
+function mapExplainDiagnosticSeverity(severity: vscode.DiagnosticSeverity): ExplainDiagnosticCandidateInput['severity'] {
+  switch (severity) {
+    case vscode.DiagnosticSeverity.Error:
+      return 'error';
+    case vscode.DiagnosticSeverity.Warning:
+      return 'warning';
+    case vscode.DiagnosticSeverity.Information:
+      return 'info';
+    case vscode.DiagnosticSeverity.Hint:
+      return 'hint';
+    default:
+      return 'info';
+  }
+}
+
+function toExplainDiagnosticCandidate(uri: string, diagnostic: vscode.Diagnostic): ExplainDiagnosticCandidateInput {
+  const normalizedCode = typeof diagnostic.code === 'object' && diagnostic.code ? diagnostic.code.value : diagnostic.code;
+  const code = getDiagnosticCode({ code: normalizedCode, source: diagnostic.source });
+  const rawData = (diagnostic as vscode.Diagnostic & { data?: unknown }).data;
+  const data = normalizeExplainDiagnosticData(rawData);
+
+  return {
+    uri,
+    message: diagnostic.message,
+    ...(code ? { code } : {}),
+    severity: mapExplainDiagnosticSeverity(diagnostic.severity),
+    line: diagnostic.range.start.line,
+    character: diagnostic.range.start.character,
+    endLine: diagnostic.range.end.line,
+    endCharacter: diagnostic.range.end.character,
+    ...(diagnostic.source ? { source: diagnostic.source } : {}),
+    ...(data ? { data } : {}),
+  };
+}
+
+function normalizeExplainDiagnosticData(rawData: unknown): ExplainDiagnosticCandidateData | undefined {
+  if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) {
+    return undefined;
+  }
+
+  const data = rawData as Record<string, unknown>;
+  const reasonCodes = Array.isArray(data.reasonCodes)
+    ? data.reasonCodes.filter((value): value is string => typeof value === 'string')
+    : undefined;
+  const evidenceKinds = Array.isArray(data.evidenceKinds)
+    ? data.evidenceKinds.filter((value): value is string => typeof value === 'string')
+    : undefined;
+  const confidence = data.confidence === 'high' || data.confidence === 'medium' || data.confidence === 'low'
+    ? data.confidence
+    : undefined;
+
+  const normalized: ExplainDiagnosticCandidateData = {
+    ...(confidence ? { confidence } : {}),
+    ...(reasonCodes?.length ? { reasonCodes } : {}),
+    ...(evidenceKinds?.length ? { evidenceKinds } : {}),
+    ...(typeof data.targetCount === 'number' ? { targetCount: data.targetCount } : {}),
+    ...(typeof data.candidateCount === 'number' ? { candidateCount: data.candidateCount } : {}),
+    ...(typeof data.hasAmbiguity === 'boolean' ? { hasAmbiguity: data.hasAmbiguity } : {}),
+    ...(typeof data.qualifier === 'string' ? { qualifier: data.qualifier } : {}),
+    ...(typeof data.ownerType === 'string' ? { ownerType: data.ownerType } : {}),
+  };
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 async function openWorkspaceCheck(): Promise<void> {

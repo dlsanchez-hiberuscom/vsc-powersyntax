@@ -4,7 +4,7 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.15.0';
+export const PUBLIC_API_VERSION = '2.16.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
@@ -12,6 +12,7 @@ export type ApiReadOnlyToolName =
   | 'server-stats'
   | 'workspace-check'
   | 'object-check'
+  | 'explain-diagnostic'
   | 'query-symbols'
   | 'cross-project-symbol-conflicts'
   | 'workspace-migration-assistant'
@@ -605,6 +606,80 @@ export interface ApiObjectCheckReport {
   recommendedActions: string[];
 }
 
+export interface ApiExplainDiagnosticRequest {
+  uri?: string;
+  line?: number;
+  character?: number;
+  code?: string;
+  diagnosticIndex?: number;
+  includeObjectContext?: boolean;
+  includeSafeFixPlan?: boolean;
+  maxEvidence?: number;
+  maxExcerptLines?: number;
+}
+
+export interface ApiExplainDiagnosticReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+
+  diagnostic?: {
+    code?: string;
+    message: string;
+    severity: 'error' | 'warning' | 'info' | 'hint';
+    uri: string;
+    line: number;
+    character: number;
+  };
+
+  explanation: {
+    summary: string;
+    reasonCode?: string;
+    area:
+      | 'parser'
+      | 'semantic'
+      | 'catalog'
+      | 'datawindow'
+      | 'sql'
+      | 'lifecycle'
+      | 'unused'
+      | 'shadowing'
+      | 'unknown';
+    confidence: 'high' | 'medium' | 'low';
+    whyItMatters?: string;
+  };
+
+  evidence: Array<{
+    kind: 'source-excerpt' | 'symbol' | 'scope' | 'catalog' | 'datawindow' | 'dependency' | 'rule';
+    label: string;
+    detail?: string;
+    uri?: string;
+    line?: number;
+    character?: number;
+  }>;
+
+  safeFix?: {
+    available: boolean;
+    kind?:
+      | 'remove-declaration'
+      | 'rename-symbol'
+      | 'add-reference'
+      | 'adjust-signature'
+      | 'replace-enum-value'
+      | 'update-datatype'
+      | 'manual-review';
+    confidence?: 'high' | 'medium' | 'low';
+    blocked?: boolean;
+    blockedReasons?: string[];
+    planSummary?: string;
+  };
+
+  recommendedActions: string[];
+}
+
 const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
   {
     name: 'contract',
@@ -626,6 +701,14 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
     command: 'powerbuilder.checkCurrentObject',
     requestSchema: 'ApiObjectCheckRequest',
     responseSchema: 'ApiObjectCheckReport',
+    usesActiveEditorFallback: true,
+  },
+  {
+    name: 'explain-diagnostic',
+    description: 'Explica un diagnostic PowerBuilder concreto con evidencia minima, reason code y safe fix read-only cuando exista.',
+    command: 'powerbuilder.explainDiagnostic',
+    requestSchema: 'ApiExplainDiagnosticRequest',
+    responseSchema: 'ApiExplainDiagnosticReport',
     usesActiveEditorFallback: true,
   },
   {
@@ -1222,6 +1305,14 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     responseSchema: 'ApiObjectCheckReport',
   },
   {
+    name: 'explainDiagnostic',
+    command: 'powerbuilder.explainDiagnostic',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiExplainDiagnosticRequest',
+    responseSchema: 'ApiExplainDiagnosticReport',
+  },
+  {
     name: 'querySymbols',
     command: 'powerbuilder.querySymbols',
     access: 'read-only',
@@ -1366,6 +1457,8 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiObjectCheckFinding', version: '1.0.0', kind: 'response' },
   { name: 'ApiObjectCheckSummary', version: '1.0.0', kind: 'response' },
   { name: 'ApiObjectCheckReport', version: '1.0.0', kind: 'response' },
+  { name: 'ApiExplainDiagnosticRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiExplainDiagnosticReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiQuerySymbolsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflictsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflicts', version: '1.0.0', kind: 'response' },
@@ -2340,6 +2433,7 @@ export interface VscPowerSyntaxApi {
   getServerStats(): Promise<ApiServerStats>;
   checkWorkspace(request?: ApiWorkspaceCheckRequest): Promise<ApiWorkspaceCheckReport>;
   checkObject(request?: ApiObjectCheckRequest): Promise<ApiObjectCheckReport>;
+  explainDiagnostic(request?: ApiExplainDiagnosticRequest): Promise<ApiExplainDiagnosticReport>;
   querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
   getCrossProjectSymbolConflicts(request?: ApiCrossProjectSymbolConflictsRequest): Promise<ApiCrossProjectSymbolConflicts>;
   getWorkspaceMigrationAssistant(request?: ApiWorkspaceMigrationAssistantRequest): Promise<ApiWorkspaceMigrationAssistant>;

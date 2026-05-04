@@ -61,6 +61,8 @@ El plugin debe mostrar, mediante el Current Object Context Panel read-only:
 
 Además, cuando haga falta un veredicto corto y accionable para esa unidad, el usuario o agente debe poder ejecutar `PowerSyntax: Check Current Object`, `PowerSyntax: Check Object...`, `checkObject()` o el tool read-only `object-check` para resumir diagnostics, herencia, dependencias, bindings DataWindow, SQL embebido y safe-edit signals sin releer todo el workspace.
 
+Si la pregunta es todavía más local y gira alrededor de un diagnostic concreto ya publicado, debe poder ejecutar además `PowerSyntax: Explain Diagnostic at Cursor`, `explainDiagnostic()` o el tool read-only `explain-diagnostic` para obtener una explicación compacta con `diagnostic.code`, `reasonCode`, evidencia mínima y safe fix sugerido cuando el runtime ya lo pueda defender.
+
 ---
 
 ## 4. Workflow 3 — Navegar herencia
@@ -149,6 +151,7 @@ Estado actual:
 - los diagnostics incluidos en ese contexto y en snapshots ya exponen `diagnostic.code` estable; tooling nuevo debe consumir ese campo y no parsear `source` como contrato primario.
 - la API pública v2 ya expone descriptor contractual, bridge read-only por tools, snapshot semántico exportable/importable, settings governance observable con perfiles `fast|balanced|deep-analysis|legacy-orca|ci-support|support-safe`, knowledge packs curados y safe batch refactor planning sin abrir un segundo motor en cliente.
 - el cliente ya expone además un Diagnostics Explainability Panel read-only sobre los diagnostics emitidos, reutilizando el mismo contrato estable de `diagnostic.code`.
+- el cliente y la API pública exponen ya `explain-diagnostic` como surface compacta read-only para troubleshooting guiado de un diagnostic individual sin releer archivos enteros ni reconstruir el contexto a mano.
 - `impactAnalysis`, `safeEditPlan`, `dependencyGraph` y code actions ya exponen `invocationRisk` uniforme para que la automatización diferencie llamadas seguras, heredadas, fallback, dinámicas o externas antes de proponer cambios.
 
 Automatización write-enabled solo debe llegar después de API estable, confidence gates y validación suficiente.

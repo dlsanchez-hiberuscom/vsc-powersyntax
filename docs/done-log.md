@@ -25,6 +25,33 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.136 B379. Explain diagnostic tool and suggested safe fix contract — **Cerrada (diagnostics/AI supportability 2026-05)**
+
+**Objetivo:** añadir una surface read-only compacta para explicar un diagnostic concreto con evidencia mínima, `reasonCode` y safe fix sugerido cuando el runtime ya lo pudiera defender, sin releer archivos completos ni abrir un segundo motor de diagnostics.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` publica `ApiExplainDiagnosticRequest`, `ApiExplainDiagnosticReport`, el tool `explain-diagnostic`, el método público `explainDiagnostic()` y la versión `2.16.0` del contrato para el bridge read-only y la API pública;
+- `src/client/explainDiagnosticReport.ts` introduce el builder puro del report con selección determinista por posición/código/`diagnosticIndex`, explicaciones compactas por `diagnostic.code`, evidencia mínima, Markdown `# Explain Diagnostic` y safe fix read-only derivado de `safeEditPlan` cuando aplica;
+- `src/client/extension.ts`, `src/client/commandRegistration.ts` y `package.json` cablean el dispatch `powerbuilder.explainDiagnostic`, el wrapper UX `vscPowerSyntax.openExplainDiagnostic` y la apertura Markdown sobre diagnostics ya publicados por VS Code, `currentObjectContext` y `safeEditPlan` sin abrir un carril semántico paralelo;
+- `src/client/diagnosticsExplainabilityPanelModel.ts` reutiliza ya `describeExplainableDiagnostic()` desde el builder nuevo, evitando duplicar heurística entre el panel explainability y la surface contractual nueva;
+- `specs/384-explain-diagnostic-contract/` deja la traza SDD mínima de `B379` con `spec.md`, `plan.md` y `tasks.md` ya cerradas.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "explainDiagnosticReport|diagnosticsExplainabilityPanelModel|publicApi"`
+- `npm run test:smoke -- --grep "explain diagnostic expone tool read-only y reporte markdown"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+- `docs/ai-orchestrator.md`
+- `docs/rules-catalog.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.135 B378. AI PowerBuilder context pack and token budget contract — **Cerrada (AI supportability/context budget 2026-05)**
 
 **Objetivo:** crear un context pack compacto, estable y versionado para que tareas IA sobre el plugin puedan arrancar con arquitectura, reglas PowerBuilder, validación y ownership documental sin arrastrar documentación masiva ni datasets completos al prompt.

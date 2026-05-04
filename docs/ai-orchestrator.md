@@ -37,6 +37,7 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 - Slices cerradas no cuentan como specs completas ni cierran épicas padre.
 - Toda tarea write-enabled debe partir del `taskExecutionCatalog` exportado por el producto; la documentación contextualiza, pero no sustituye el contrato publicado.
 - `docs/ai-context/powerbuilder-plugin-context.md` es el arranque corto recomendado para tareas IA; si no basta, se escala a documentación propietaria, no a resúmenes paralelos.
+- Para troubleshooting local, el orden preferido de surfaces compactas es `explain-diagnostic` → `object-check` → `workspace-check`, evitando pedir contexto masivo cuando el runtime ya publicó una ancla suficiente.
 
 ---
 

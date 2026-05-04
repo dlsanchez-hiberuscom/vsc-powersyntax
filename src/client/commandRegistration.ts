@@ -48,6 +48,8 @@ export interface ClientCommandRegistrationDependencies {
   openCurrentObjectCheck(): unknown;
   openObjectCheck(): unknown;
   runObjectCheck(request?: unknown): unknown;
+  openExplainDiagnostic(): unknown;
+  runExplainDiagnostic(request?: unknown): unknown;
   openCrossProjectSymbolConflicts(): unknown;
   openWorkspaceMigrationAssistant(): unknown;
   openBuildProfileMatrix(): unknown;
@@ -190,6 +192,10 @@ function buildReportCommands(
       handler: (request?: unknown) => dependencies.runObjectCheck(request),
     },
     {
+      id: 'powerbuilder.explainDiagnostic',
+      handler: (request?: unknown) => dependencies.runExplainDiagnostic(request),
+    },
+    {
       id: 'vscPowerSyntax.openWorkspaceCheck',
       handler: () => dependencies.openWorkspaceCheck(),
     },
@@ -200,6 +206,10 @@ function buildReportCommands(
     {
       id: 'vscPowerSyntax.openObjectCheck',
       handler: () => dependencies.openObjectCheck(),
+    },
+    {
+      id: 'vscPowerSyntax.openExplainDiagnostic',
+      handler: () => dependencies.openExplainDiagnostic(),
     },
     {
       id: 'vscPowerSyntax.openProjectHealthDashboard',

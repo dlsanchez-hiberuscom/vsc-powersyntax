@@ -44,11 +44,13 @@ suite('smoke/extension', () => {
     assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'server-stats'));
     assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'workspace-check'));
     assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'object-check'));
+    assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'explain-diagnostic'));
     assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update'));
     assert.ok(api!.contract.taskExecutionCatalog.contracts.some((contract) => contract.id === 'spec-driven-pbl-update-batch'));
     assert.equal(typeof api!.getServerStats, 'function');
     assert.equal(typeof api!.checkWorkspace, 'function');
     assert.equal(typeof api!.checkObject, 'function');
+    assert.equal(typeof api!.explainDiagnostic, 'function');
     assert.equal(typeof api!.getPublicContract, 'function');
     assert.equal(typeof api!.getReadOnlyToolBridge, 'function');
     assert.equal(typeof api!.invokeReadOnlyTool, 'function');
@@ -68,9 +70,11 @@ suite('smoke/extension', () => {
     assert.ok(commands.includes('vscPowerSyntax.openWorkspaceCheck'));
     assert.ok(commands.includes('vscPowerSyntax.openCurrentObjectCheck'));
     assert.ok(commands.includes('vscPowerSyntax.openObjectCheck'));
+    assert.ok(commands.includes('vscPowerSyntax.openExplainDiagnostic'));
     assert.ok(commands.includes('powerbuilder.checkWorkspace'));
     assert.ok(commands.includes('powerbuilder.checkCurrentObject'));
     assert.ok(commands.includes('powerbuilder.checkObject'));
+    assert.ok(commands.includes('powerbuilder.explainDiagnostic'));
     assert.ok(commands.includes('vscPowerSyntax.openCrossProjectSymbolConflicts'));
     assert.ok(commands.includes('vscPowerSyntax.openBuildProfileMatrix'));
     assert.ok(commands.includes('vscPowerSyntax.openCodeMetrics'));
@@ -463,6 +467,64 @@ suite('smoke/extension', () => {
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Object Check/);
+  });
+
+  test('explain diagnostic expone tool read-only y reporte markdown', async function () {
+    this.timeout(30000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+    const contextDocument = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
+    );
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+
+    const explainDiagnostic = await withStepTimeout(
+      'explainDiagnostic(api)',
+      api!.explainDiagnostic({
+        uri: contextDocument.uri.toString(),
+        line: 13,
+        character: 4,
+        includeObjectContext: true,
+        includeSafeFixPlan: true,
+      }),
+      10000,
+    );
+    assert.equal(typeof explainDiagnostic.available, 'boolean');
+    assert.ok(Array.isArray(explainDiagnostic.recommendedActions));
+
+    const explainDiagnosticToolResult = await withStepTimeout(
+      'invokeReadOnlyTool(explain-diagnostic)',
+      api!.invokeReadOnlyTool({
+        tool: 'explain-diagnostic',
+        args: {
+          uri: contextDocument.uri.toString(),
+          line: 13,
+          character: 4,
+          includeObjectContext: true,
+        },
+      }),
+      10000,
+    );
+    assert.equal(explainDiagnosticToolResult.mode, 'read-only');
+    assert.equal(explainDiagnosticToolResult.schema, 'ApiExplainDiagnosticReport');
+    assert.equal(typeof (explainDiagnosticToolResult.payload as { available?: unknown }).available, 'boolean');
+
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+    await withStepTimeout(
+      'executeCommand(vscPowerSyntax.openExplainDiagnostic)',
+      vscode.commands.executeCommand('vscPowerSyntax.openExplainDiagnostic'),
+      10000,
+    );
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Explain Diagnostic/);
   });
 
   test('el runtime self-test se ejecuta como comando read-only', async function () {

@@ -61,6 +61,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('diffSemanticWorkspaceSnapshots'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('checkWorkspace'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('checkObject'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('explainDiagnostic'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getCrossProjectSymbolConflicts'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getBuildProfileMatrix'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getPowerBuilderCodeMetrics'));
@@ -73,6 +74,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.capabilities.readOnlyTools.includes('cross-project-symbol-conflicts'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('workspace-check'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('object-check'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('explain-diagnostic'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('build-profile-matrix'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('code-metrics'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('technical-debt-report'));
@@ -85,6 +87,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.methods.some((method) => method.name === 'getBuildProfileMatrix' && method.command === 'powerbuilder.buildProfileMatrix'));
     assert.ok(descriptor.methods.some((method) => method.name === 'checkWorkspace' && method.command === 'powerbuilder.checkWorkspace'));
     assert.ok(descriptor.methods.some((method) => method.name === 'checkObject' && method.command === 'powerbuilder.checkCurrentObject'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'explainDiagnostic' && method.command === 'powerbuilder.explainDiagnostic'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderCodeMetrics' && method.command === 'powerbuilder.codeMetrics'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderTechnicalDebtReport' && method.command === 'powerbuilder.technicalDebtReport'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getCrossProjectSymbolConflicts' && method.command === 'powerbuilder.crossProjectSymbolConflicts'));
@@ -98,6 +101,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiBuildProfileMatrix' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiWorkspaceCheckReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiObjectCheckReport' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiExplainDiagnosticReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiCrossProjectSymbolConflicts' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiDataWindowSqlLineage' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPowerBuilderCodeMetrics' && schema.version === '1.0.0'));
@@ -126,6 +130,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(bridge.tools.some((tool) => tool.name === 'contract' && tool.responseSchema === 'ApiPublicContractDescriptor'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'workspace-check' && tool.responseSchema === 'ApiWorkspaceCheckReport'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'object-check' && tool.responseSchema === 'ApiObjectCheckReport'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'explain-diagnostic' && tool.responseSchema === 'ApiExplainDiagnosticReport'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'build-profile-matrix' && tool.responseSchema === 'ApiBuildProfileMatrix'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'code-metrics' && tool.responseSchema === 'ApiPowerBuilderCodeMetrics'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'technical-debt-report' && tool.responseSchema === 'ApiPowerBuilderTechnicalDebtReport'));

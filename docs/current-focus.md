@@ -2,36 +2,36 @@
 
 ## 1. Foco activo
 
-`B379 — Explain diagnostic tool and suggested safe fix contract`
+`B380 — Explain system symbol and catalog lookup tool for AI`
 
-Estado actual: `B378` queda cerrada. El repositorio ya dispone de un context pack corto, versionado y referenciado para tareas IA, de forma que el siguiente cuello de botella pasa a ser explicar diagnostics concretos sin obligar a releer archivos completos ni a reconstruir contexto manualmente.
+Estado actual: `B379` queda cerrada. El repositorio ya dispone de una surface read-only compacta para explicar diagnostics concretos sin releer archivos enteros: `explain-diagnostic` existe como tool/API/comando contractual y reutiliza el carril explainability existente en cliente sobre diagnostics ya publicados.
 
-La evidencia vigente que deja `B378` es:
+La evidencia vigente que deja `B379` es:
 
-- `docs/ai-context/powerbuilder-plugin-context.md` existe ya como entrada corta para agentes: recoge misión, boundaries, reglas PowerBuilder/SQL/DataWindow, validación, do-not-do, foco activo y ownership documental sin duplicar documentos largos ni datasets `generated/manual/localization` completos;
-- `docs/ai-strategy.md`, `docs/ai-orchestrator.md`, `docs/ai-agents-catalog.md`, `docs/developer-workflows.md`, `docs/spec-driven-development.md` y `AGENTS.md` referencian ya ese pack como atajo operativo, dejando claro que la autoridad sigue viviendo en la documentación propietaria;
-- `test/server/unit/aiContextDocs.test.ts` fija el guard documental mínimo: el pack no puede desaparecer, perder headings mínimos, crecer sin control o quedar huérfano respecto a la documentación canónica;
-- `specs/383-ai-context-pack-contract/` deja la traza SDD mínima para el backlog `B378` sin reutilizar numeración histórica de `specs/378-*`.
+- `src/shared/publicApi.ts` publica `ApiExplainDiagnosticRequest`, `ApiExplainDiagnosticReport`, el tool `explain-diagnostic`, el método `explainDiagnostic()` y la versión `2.16.0` del contrato público;
+- `src/client/explainDiagnosticReport.ts` concentra la selección determinista del diagnostic objetivo, la explicación por `diagnostic.code`, la evidencia mínima y el safe fix read-only cuando el runtime ya lo puede defender;
+- `src/client/extension.ts`, `src/client/commandRegistration.ts`, `src/client/diagnosticsExplainabilityPanelModel.ts` y `package.json` cablean el método público, el dispatch read-only, el comando `powerbuilder.explainDiagnostic` y la UX `PowerSyntax: Explain Diagnostic at Cursor` sin abrir un segundo motor de diagnostics;
+- `test/server/unit/explainDiagnosticReport.test.ts`, `test/server/unit/publicApi.test.ts`, `test/server/unit/diagnosticsExplainabilityPanelModel.test.ts` y la smoke focal de `test/smoke/extension.test.ts` fijan contrato, wiring y reuse del rail explainability.
 
-Con el pack base de contexto ya cerrado, el siguiente cuello de botella pasa a ser explicativo: toca abrir `B379` para exponer un tool/API read-only que resuma un diagnostic concreto con evidencia mínima, reason code, scope y posible fix seguro cuando exista.
+Con ese carril explicativo ya cerrado, el siguiente cuello de botella pasa a ser explicar símbolos del catálogo PowerBuilder sin arrastrar datasets completos al prompt.
 
 ---
 
 ## 2. Por qué es prioritario
 
-Con `B378` cerrada, ya existe una entrada corta para prompts. Ahora falta reducir el coste de entender problemas concretos:
+Con `B379` cerrada, ya existe un resumen compacto para diagnostics. Ahora falta el equivalente para conocimiento de lenguaje:
 
-- `B379` debe permitir que una IA explique un diagnostic usando `diagnostic.code`, posición, evidencia y contexto opcional sin releer archivos enteros;
-- el repositorio ya tiene diagnostics estables, explainability panel y `object-check`, pero aún falta una surface read-only específica y compacta para troubleshooting guiado;
-- `B381` depende de este contrato explicativo, así que dejarlo abierto bloquea el bundle de contexto IA más útil.
+- `B380` debe permitir que una IA o usuario explique un símbolo del catálogo con signatures, ownerTypes, provenance y localización opcional sin cargar `generated/manual/localization` completos;
+- `B381` depende de tener tanto explicación de diagnostics como explicación de símbolos antes de empaquetar un context bundle IA realmente útil;
+- el repositorio ya tiene `system catalog`, localization y consumers estables, pero aún falta una surface read-only específica y compacta para lookup guiado de símbolos PowerBuilder.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- añadir el tool read-only `explain-diagnostic`, su comando `powerbuilder.explainDiagnostic` y el método público `explainDiagnostic()`;
-- reutilizar diagnostics existentes, `currentObjectContext` y `safeEditPlan` cuando haga falta contexto adicional o fix seguro sugerido;
-- mantener todo el flujo en modo explicativo/read-only, sin writes y sin abrir un segundo motor de diagnostics.
+- añadir el tool read-only `explain-system-symbol`, su comando `powerbuilder.explainSystemSymbol` y el método público `explainSystemSymbol()`;
+- reutilizar `system catalog`, localization, enums, ownerTypes y provenance ya publicados, sin duplicar lógica ni pasar el catálogo completo al cliente o al prompt;
+- mantener el flujo en modo explicativo/read-only, sin writes y sin introducir un carril paralelo de serving catalog-driven.
 
 ---
 
@@ -39,30 +39,30 @@ Con `B378` cerrada, ya existe una entrada corta para prompts. Ahora falta reduci
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B378` salvo drift real del context pack o de su guard documental;
-- aplicar fixes automáticamente o modificar archivos desde `B379`;
-- abrir un segundo carril de diagnostics o parsear el workspace entero cuando el diagnostic concreto ya aporta ancla suficiente;
-- inventar remediaciones no respaldadas por `safeEditPlan`, `diagnostic.code` o evidencia real del runtime.
+- reabrir `B379` salvo drift real del contrato `explain-diagnostic`, sus tests o su wiring;
+- mover lógica de catálogo al cliente o reimplementar serving fuera del pipeline knowledge/runtime existente;
+- introducir writes, fixes automáticos o materialización masiva de datasets para responder una consulta puntual;
+- duplicar documentación de catálogo/localización fuera de `docs/architecture.md`, `docs/rules-catalog.md` y la guía técnica propietaria.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- existe `explain-diagnostic` como tool/API/comando read-only contractual;
-- el report devuelve el diagnostic objetivo con `code`, severidad, posición, explicación compacta, `reasonCode` y evidencia mínima suficiente;
-- cuando aplique, el report puede sumar contexto del objeto actual y un safe fix sugerido sin editar archivos;
-- `testing`, `architecture`, `developer-workflows`, `backlog`, `done-log` y `current-focus` quedan alineados con el contrato nuevo.
+- existe `explain-system-symbol` como tool/API/comando read-only contractual;
+- el report resuelve o degrada honestamente símbolos del catálogo con `resolution.state`, candidates, provenance y documentación opcional localizada;
+- el lookup reutiliza `generated/manual/localization` ya publicados sin scans globales ni bundles gigantes al prompt;
+- `architecture`, `testing`, `developer-workflows`, `backlog`, `done-log`, `current-focus` y el context pack IA quedan alineados con el contrato nuevo.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B380` — Explain system symbol and catalog lookup tool for AI.
-2. `B381` — AI task context bundle orchestration tool.
-3. `B320` — DataWindow expression/property official catalog.
+1. `B381` — AI task context bundle orchestration tool.
+2. `B320` — DataWindow expression/property official catalog.
+3. `B327` — DataWindow constants and property path catalog.
 
 ---
 
 ## 7. Regla final
 
-`B379` debe construir sobre diagnostics ya publicados y contratos read-only existentes. No toca arreglar errores por su cuenta: toca explicar mejor, con menos tokens y con evidencia más precisa, lo que el runtime ya sabe.
+`B380` debe construir sobre el `system catalog`, localization y contratos read-only ya cerrados. No toca exportar datasets enteros ni duplicar serving: toca explicar mejor, con menos tokens y con provenance clara, lo que el runtime ya sabe del lenguaje.

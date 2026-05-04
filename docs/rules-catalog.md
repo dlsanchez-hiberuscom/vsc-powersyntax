@@ -67,6 +67,7 @@ Consumidores cerrados sobre este contrato:
 
 - `technical-debt-report` reutiliza `diagnostic.code` como evidencia (`SD7`, familia DataWindow, `native-dependency`, lifecycle/sourceOrigin ya publicados) y no define IDs nuevos;
 - el framework v2 de code actions consume también `diagnostic.code` estable y solo habilita quick fixes cuando el catálogo versionado, el preflight, el `sourceOrigin` y los guards de dynamic strings permiten un cambio defendible;
+- `explain-diagnostic` consume ese mismo `diagnostic.code` estable para construir explicaciones compactas, `reasonCode`, evidencia y safe fixes read-only sin inventar IDs ni parsear `source` como contrato primario;
 - `B291` añade `embeddedSqlAnchors` explicables en context packs, code metrics, debt report y support bundle, pero no introduce `diagnostic.code` nuevos: reutiliza el binding transaccional existente y evidencia read-only fuera del carril de diagnostics;
 - cualquier ampliación futura del reporte que necesite una señal diagnóstica nueva debe abrir una spec/rule propia antes de mezclarse con este catálogo.
 

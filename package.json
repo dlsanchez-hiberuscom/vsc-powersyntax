@@ -260,6 +260,11 @@
         "category": "VSC PowerSyntax"
       },
       {
+        "command": "vscPowerSyntax.openExplainDiagnostic",
+        "title": "PowerSyntax: Explain Diagnostic at Cursor",
+        "category": "VSC PowerSyntax"
+      },
+      {
         "command": "vscPowerSyntax.openCrossProjectSymbolConflicts",
         "title": "PowerSyntax: Abrir Analizador de Conflictos Cross-Project",
         "category": "VSC PowerSyntax"
