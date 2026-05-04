@@ -209,6 +209,50 @@ suite('unit/powerbuilderParserResilienceFuzz (B272)', () => {
       }
     });
   }
+
+  test('ignora pseudo-marcadores de preprocesador comentados detectados en corpus reales', () => {
+    const source = joinLines([
+      '/*',
+      '1.4 Removed old #IF WebService code',
+      '*/',
+      'forward',
+      'global type n_preprocessor_comment_fuzz from nonvisualobject',
+      'end type',
+      'end forward',
+      'global type n_preprocessor_comment_fuzz from nonvisualobject',
+      'end type',
+      '// #define FIONBIO  _IOW(\'f\', 126, u_long)',
+      'Constant ulong FIONBIO = 2147772030',
+      'public subroutine of_test();',
+      '  integer li_value',
+      '  li_value = 1',
+      'end subroutine'
+    ]);
+    const label = 'commented-preprocessor-markers';
+    const document = TextDocument.create('file:///fuzz/commented-preprocessor.sru', 'powerbuilder', 1, source);
+    const statements = splitStatements(source);
+    const analysis = analyzeDocument(document);
+
+    assert.ok(
+      statements.every((statement) => !/(#define|#if)/i.test(statement.text)),
+      `${label}: splitStatements filtro sintaxis de preprocesador inexistente.`
+    );
+    assert.ok(
+      analysis.logicalStatements.every((statement) => !/(#define|#if)/i.test(statement.text)),
+      `${label}: analyzeDocument filtro sintaxis de preprocesador inexistente.`
+    );
+    assert.ok(
+      analysis.logicalStatements.some((statement) => /Constant ulong FIONBIO = 2147772030/i.test(statement.text)),
+      `${label}: el codigo real posterior al comentario debe seguir visible.`
+    );
+
+    const kb = new KnowledgeBase();
+    kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    const graph = new InheritanceGraph(kb);
+    const catalog = new SystemCatalog();
+    const diagnostics = buildDiagnosticsForDocument(document, kb, catalog, graph);
+    assertDiagnosticsSane(diagnostics, source.split(/\r?\n/).length, label);
+  });
 });
 
 function exerciseVariant(seed: FuzzSeed, variant: FuzzVariant, seedIndex: number, variantIndex: number): void {

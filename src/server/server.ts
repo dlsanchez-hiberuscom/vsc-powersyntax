@@ -30,8 +30,9 @@ import {
 } from './features/diagnostics';
 import { measureMs, measureMsAsync, formatTiming, FirstInvocationTracker } from './runtime/timing';
 import { TaskScheduler, TaskPriority } from './runtime/scheduler';
-import type { CancellationToken } from './runtime/cancellation';
-import { getRuntimeWorkloadPolicy, type RuntimeWorkloadClass } from './runtime/backpressurePolicy';
+import { getRuntimeWorkloadPolicy } from './runtime/backpressurePolicy';
+import { createManagedBuildWorkloads } from './runtime/managedBuildWorkloads';
+import { createManagedRuntimeWorkloads } from './runtime/managedRuntimeWorkloads';
 import { createLatencyGovernor } from './runtime/latencyGovernor';
 import { buildRuntimeHealthReport } from './runtime/runtimeHealth';
 import { buildRuntimeMemoryReport } from './runtime/memoryBudgets';
@@ -46,11 +47,8 @@ import { RuntimeJournal } from './runtime/runtimeJournal';
 import { createRuntimeProgressController } from './runtime/runtimeProgressController';
 import {
   PbAutoBuildRunner,
-  type PbAutoBuildRunnerRequest,
 } from './build/pbAutoBuildRunner';
-import type { PbAutoBuildRunResult } from '../shared/pbAutoBuildProtocol';
-import { OrcaRunner, type OrcaRunnerRequest } from './build/orcaRunner';
-import type { OrcaRunResult } from '../shared/orcaProtocol';
+import { OrcaRunner } from './build/orcaRunner';
 import { restoreOrcaStagingAliases } from './build/orcaStagingExport';
 import { NodeFileSystem } from './system/fileSystem';
 import { createSemanticCacheStore } from './cache/cacheStore';
@@ -427,76 +425,19 @@ function recordInteractiveLatency(feature: string, elapsedMs: number): void {
   }
 }
 
-let managedBackgroundTaskSequence = 0;
-
-function nextManagedBackgroundTaskId(prefix: string): string {
-  managedBackgroundTaskSequence += 1;
-  return `${prefix}-${managedBackgroundTaskSequence}`;
-}
-
-function yieldToEventLoop(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
-}
-
-async function runBackgroundWorkload<T>(
-  idPrefix: string,
-  workload: RuntimeWorkloadClass,
-  execute: (token: CancellationToken) => Promise<T> | T
-): Promise<T> {
-  return scheduler.enqueueBackground({
-    id: nextManagedBackgroundTaskId(idPrefix),
-    priority: TaskPriority.Background,
-    workload,
-    execute: async (token) => {
-      await yieldToEventLoop();
-      if (token.isCancelled) {
-        throw new Error(`Workload ${idPrefix} cancelado antes de iniciar.`);
-      }
-      return execute(token);
-    }
-  });
-}
-
-async function runNearContextWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T> {
-  return scheduler.enqueueNear({
-    id: nextManagedBackgroundTaskId(idPrefix),
-    priority: TaskPriority.Near,
-    workload: 'near-context',
-    execute: async (token) => {
-      await yieldToEventLoop();
-      if (token.isCancelled) {
-        throw new Error(`Workload ${idPrefix} cancelado antes de iniciar.`);
-      }
-      return execute();
-    }
-  });
-}
-
-async function runExportReportingWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T> {
-  return runBackgroundWorkload(idPrefix, 'export-reporting', async () => execute());
-}
-
-async function runMaintenanceWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T> {
-  return runBackgroundWorkload(idPrefix, 'maintenance', async () => execute());
-}
-
-async function runPbAutoBuildWithBackpressure(request: PbAutoBuildRunnerRequest): Promise<PbAutoBuildRunResult> {
-  return runBackgroundWorkload('pbautobuild', 'build', async (token) => {
-    token.onCancelled(() => {
-      pbAutoBuildRunner.cancel();
-    });
-    return pbAutoBuildRunner.run(request);
-  });
-}
-
-async function runOrcaWithBackpressure(request: OrcaRunnerRequest): Promise<OrcaRunResult> {
-  return runBackgroundWorkload('orca', 'legacy-orca', async (token) => {
-    token.onCancelled(() => {
-      orcaRunner.cancel();
-    });
-    return orcaRunner.run(request);
-  });
-}
+const managedRuntimeWorkloads = createManagedRuntimeWorkloads(scheduler);
+const {
+  runBackgroundWorkload,
+  runNearContextWorkload,
+  runExportReportingWorkload,
+  runMaintenanceWorkload,
+} = managedRuntimeWorkloads;
+const managedBuildWorkloads = createManagedBuildWorkloads({
+  runBackgroundWorkload,
+  pbAutoBuildRunner,
+  orcaRunner,
+});
+const { runPbAutoBuildWithBackpressure, runOrcaWithBackpressure } = managedBuildWorkloads;
 
 function makeCodeLensSymbolKey(entity: Entity): string {
   return `${entity.uri}#${entity.line}:${entity.character}:${entity.kind}:${entity.name}`;

@@ -25,6 +25,71 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.145 B301. Agent context budget enforcement — **Cerrada (AI tooling / performance 2026-05)**
+
+**Objetivo:** limitar payloads y contexto de surfaces agent-ready para que tools/API expongan budgets explícitos, truncado visible y degradación segura sobre workspaces grandes.
+
+**Resultado registrado:**
+- `ApiAiTaskContextBundle` publica ya `reasonCodes` machine-readable y `pagination` receipts para `diagnosticExplanations` y `systemSymbolExplanations`, de modo que el truncado deja de depender solo de `omissions` en texto libre;
+- `src/client/aiTaskContextBundle.ts` conserva el budget único por `intent` y añade reason codes explícitos para límites de lista, pruning por budget, minimización de meta y bundle mínimo, además de `missing-focus` en el unavailable builder;
+- `test/server/unit/aiTaskContextBundle.test.ts` fija budgets bajos, truncado por límites de lista y caps sobre un `workspaceCheck` inflado sin romper el budget declarado;
+- el contrato público y el read-only bridge permanecen compatibles mediante la ampliación aditiva validada por `test/server/unit/publicApi.test.ts`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/aiTaskContextBundle"`
+- `npm run test:unit -- --grep "unit/(aiTaskContextBundle|publicApi)"`
+
+**Documentación alineada:**
+- `docs/ai-strategy.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.144 B292. PowerBuilder preprocessor / conditional patterns investigation — **Cerrada (parser research 2026-05)**
+
+**Objetivo:** determinar si el producto necesitaba soporte explícito para patrones condicionales/preprocesador PowerBuilder o si debía descartarlos hasta encontrar evidencia activa en corpus reales.
+
+**Resultado registrado:**
+- las búsquedas sobre `fixtures-local/`, `src/server/`, `test/` y `plugin_old/` no encontraron directivas activas de preprocesador (`$if/$endif/#if/#endif/#define`) en código PowerBuilder servido por el producto;
+- la única evidencia encontrada en corpus real queda limitada a texto comentado o histórico dentro de `STD_FC_OrderEntry`: copias comentadas de `#define` en `nc_winsock_master.sru` y la revisión `Removed old #IF WebService code` en `nc_app_controller_master.sru`;
+- la decisión cerrada es `descarte explícito`: no se añade gramática ni semántica nueva de preprocesador mientras no aparezca sintaxis activa defendible en corpus reales;
+- `test/server/unit/powerbuilderParserResilienceFuzz.test.ts` fija que esos pseudo-marcadores comentados no contaminan `logicalStatements` ni desestabilizan el análisis estructural.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/powerbuilderParserResilienceFuzz"`
+
+**Documentación alineada:**
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.143 B354. Server runtime orchestration decomposition — **Cerrada (runtime architecture 2026-05)**
+
+**Objetivo:** separar la orquestación runtime de `server.ts` del wiring LSP sin cambiar `scheduler`, `backpressure`, `memory pressure` ni payloads visibles de stats/health/status.
+
+**Resultado registrado:**
+- `src/server/cache/semanticCacheRuntimeController.ts` concentra store activo, append journal, persistencia del serving snapshot, flush coordinator y métricas de restore/persist antes repartidas en `server.ts`;
+- `src/server/runtime/runtimeProgressController.ts` concentra la construcción/publicación del snapshot operativo de readiness, manteniendo `buildProgressReadinessSnapshot()` y `toProgressNotification()` como helpers puros reutilizados;
+- `src/server/runtime/managedRuntimeWorkloads.ts` concentra ids/yielding cooperativo y los adapters `near-context`, `export-reporting` y `maintenance`, mientras `src/server/runtime/managedBuildWorkloads.ts` concentra `pbautobuild` y `legacy-orca` sobre el mismo helper de background sin duplicar policy runtime;
+- `src/server/server.ts` queda reducido a bootstrap y composición de controladores runtime, manteniendo `TaskScheduler`, `backpressurePolicy`, `latencyGovernor` y `memoryPressurePolicy` como centros únicos de decisión y sin reintroducir build/legacy en el hot path interactivo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(scheduler|backpressurePolicy|memoryPressurePolicy|memoryBudgets|runtimeHealth|statusBarPresentation|servingCacheRuntime|cacheStore|progressReadiness|managedRuntimeWorkloads|managedBuildWorkloads)"`
+- `npm run test:performance:gate`
+- `npm run test:architecture:rapid`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/performance-budget.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.142 B344. DataWindow binding edge cases from plugin_old — **Cerrada (datawindow/plugin_old migration 2026-05)**
 
 **Objetivo:** extraer casos probados de bindings DataWindow `child/report/dddw` desde `plugin_old` como reglas/fixtures sobre el backbone actual, sin portar providers cliente ni parsear `.srd` como PowerScript.

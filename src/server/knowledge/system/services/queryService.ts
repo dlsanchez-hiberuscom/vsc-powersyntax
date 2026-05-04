@@ -133,6 +133,9 @@ function mergeEnrichmentIntoBase(
 ): PbSystemSymbolEntry {
     return {
         ...baseEntry,
+        // Permitir que una entrada manual-enrichment reescriba la categoría
+        // cuando la intención editorial del overlay lo exija (p. ej. visual vs official).
+        category: enrichmentEntry.category ?? baseEntry.category,
         documentation: baseEntry.documentation ?? enrichmentEntry.documentation,
         returnType: baseEntry.returnType ?? enrichmentEntry.returnType,
         returnDocumentation: baseEntry.returnDocumentation ?? enrichmentEntry.returnDocumentation,

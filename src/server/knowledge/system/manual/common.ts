@@ -35,12 +35,23 @@ function defineManualEntry(
     source: string,
     defaultSourceUrl: string,
 ): PbSystemSymbolEntry {
-    return finalizeSystemSymbolEntry({
+    const draft: PbSystemSymbolEntryDraft = {
         ...entry,
         dataset: 'manual-core',
         source,
         sourceUrl: entry.sourceUrl ?? defaultSourceUrl,
-    });
+        // Por defecto, las entradas manual-core se consideran 'enrichment'
+        // cuando no especifican explicitamente un overlay. Esto permite
+        // que los manual overlays aporten enriquecimientos editoriales
+        // (p. ej. categoría) sobre las entradas generadas.
+        manualOverlay: entry.manualOverlay ?? {
+            mode: 'enrichment',
+            reason: 'manual-core default enrichment',
+            evidence: ['manual-core'],
+        },
+    };
+
+    return finalizeSystemSymbolEntry(draft);
 }
 
 export function globalFunction(args: ManualSymbolArgs): PbSystemSymbolEntry {

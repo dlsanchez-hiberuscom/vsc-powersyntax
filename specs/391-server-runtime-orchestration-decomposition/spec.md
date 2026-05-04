@@ -2,7 +2,7 @@
 
 ## Estado
 
-- in-progress
+- done
 
 ## Relacion backlog
 
@@ -12,26 +12,21 @@
 
 Separar la orquestación runtime del host LSP en slices pequeños y verificables, manteniendo intactas las policies de scheduler, readiness, backpressure y memory pressure ya cerradas.
 
-## Slice actual
-
-- extraer del `server.ts` la orquestación local del semantic cache runtime: store activo, persistencia del serving snapshot, flush coordinator y métricas de restore/persist.
-
-## Avance actual
+## Resultado de cierre
 
 - `src/server/cache/semanticCacheRuntimeController.ts` concentra ya el store activo, append journal, persistencia del serving snapshot, flush coordinator y métricas de restore/persist antes dispersas en `server.ts`;
 - `src/server/runtime/runtimeProgressController.ts` concentra ya la construcción/publicación del snapshot de readiness operativo, manteniendo `buildProgressReadinessSnapshot()` y `toProgressNotification()` como helpers puros reutilizados;
-- ambos cortes siguen dejando fuera el startup/lifecycle completo y las policies de scheduler/memory pressure, pero reducen `server.ts` a wiring de controladores en dos zonas críticas del runtime.
+- `src/server/runtime/managedRuntimeWorkloads.ts` concentra la secuencia de ids, el yielding cooperativo y los adapters `near-context`, `export-reporting` y `maintenance` sobre el mismo `TaskScheduler` ya existente;
+- `src/server/runtime/managedBuildWorkloads.ts` concentra los adapters `pbautobuild` y `legacy-orca` sobre `runBackgroundWorkload`, preservando la misma policy que deja `build` y `legacy-orca` como workloads no preemptibles una vez arrancan;
+- `src/server/server.ts` queda reducido a bootstrap y composición de controladores runtime sin abrir un segundo centro de decisión para `TaskScheduler`, `backpressurePolicy`, `latencyGovernor` o `memoryPressurePolicy`.
 
-## Validación parcial ejecutada
+## Validación ejecutada
 
-- `npm run test:unit -- --grep "unit/(servingCacheRuntime|cacheStore)"`
-- `npm run test:unit -- --grep "unit/progressReadiness"`
+- `npm run test:unit -- --grep "unit/(scheduler|backpressurePolicy|memoryPressurePolicy|memoryBudgets|runtimeHealth|statusBarPresentation|servingCacheRuntime|cacheStore|progressReadiness|managedRuntimeWorkloads|managedBuildWorkloads)"`
+- `npm run test:performance:gate`
+- `npm run test:architecture:rapid`
 
-## Siguiente corte recomendado
-
-- extraer el runner de workloads gestionados (`runBackgroundWorkload`, `runNearContextWorkload`, `runExportReportingWorkload`, `runMaintenanceWorkload`) antes de tocar el bloque de memory pressure o el lifecycle completo.
-
-## Fuera de alcance del slice actual
+## Fuera de alcance del corte cerrado
 
 - mover startup/lifecycle completo;
 - alterar policies de scheduler o memory pressure;

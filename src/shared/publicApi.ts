@@ -800,6 +800,22 @@ export interface ApiAiTaskContextBundleRequest {
   maxFiles?: number;
 }
 
+export type ApiAiTaskContextBundleReasonCode =
+  | 'missing-focus'
+  | 'diagnostics-limit'
+  | 'system-symbol-limit'
+  | 'token-budget-context'
+  | 'token-budget-meta'
+  | 'token-budget-minimal';
+
+export interface ApiAiTaskContextBundlePaginationEntry {
+  requested: number;
+  available: number;
+  included: number;
+  truncated: boolean;
+  reasonCode?: ApiAiTaskContextBundleReasonCode;
+}
+
 export interface ApiAiTaskContextBundle {
   schemaVersion: '1.0.0';
   generatedAt: string;
@@ -813,6 +829,13 @@ export interface ApiAiTaskContextBundle {
     maxTokensHint?: number;
     estimatedTokens?: number;
     truncated: boolean;
+  };
+
+  reasonCodes: ApiAiTaskContextBundleReasonCode[];
+
+  pagination: {
+    diagnosticExplanations: ApiAiTaskContextBundlePaginationEntry;
+    systemSymbolExplanations: ApiAiTaskContextBundlePaginationEntry;
   };
 
   focus: {

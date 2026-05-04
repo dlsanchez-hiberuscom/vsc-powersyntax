@@ -790,6 +790,7 @@ Reglas:
 - preservar rangos exactos.
 - nunca romper semantic tokens por un error parcial.
 - degradar readiness, no bloquear LSP.
+- B292 queda cerrada como descarte explícito: mientras el corpus real no aporte sintaxis activa defendible de preprocesador/condicionales, tokens como `#define` o `#IF` observados en comentarios/históricos deben seguir tratándose como comentario o prosa, no como gramática PowerScript productiva.
 ```
 
 ---

@@ -3,6 +3,7 @@ import {
   type ApiAiTaskContextBundle,
   type ApiAiTaskContextBundleRequest,
   type ApiAiTaskIntent,
+  type ApiAiTaskContextBundleReasonCode,
   type ApiCurrentObjectContext,
   type ApiExplainDiagnosticReport,
   type ApiExplainSystemSymbolReport,
@@ -13,6 +14,17 @@ import {
 } from '../shared/publicApi';
 
 type AiTaskContextSectionKey = keyof ApiAiTaskContextBundle['context'];
+
+type AiTaskContextPaginationState = {
+  diagnosticExplanations: {
+    requested: number;
+    available: number;
+  };
+  systemSymbolExplanations: {
+    requested: number;
+    available: number;
+  };
+};
 
 interface NormalizedAiTaskContextBundleRequest {
   intent: ApiAiTaskIntent;
@@ -170,6 +182,18 @@ export function normalizeAiTaskContextBundleRequest(
 
 function estimateTokens(value: unknown): number {
   return Math.max(1, Math.ceil(JSON.stringify(value).length / 4));
+}
+
+function addOmission(
+  omissions: string[],
+  reasonCodes: Set<ApiAiTaskContextBundleReasonCode>,
+  message: string,
+  reasonCode?: ApiAiTaskContextBundleReasonCode,
+): void {
+  omissions.push(message);
+  if (reasonCode) {
+    reasonCodes.add(reasonCode);
+  }
 }
 
 function resolveFocus(input: AiTaskContextBundleBuildInput): ApiAiTaskContextBundle['focus'] {
@@ -346,16 +370,37 @@ function buildContext(
   normalizedRequest: NormalizedAiTaskContextBundleRequest,
   input: AiTaskContextBundleBuildInput,
   omissions: string[],
-): ApiAiTaskContextBundle['context'] {
+  reasonCodes: Set<ApiAiTaskContextBundleReasonCode>,
+): { context: ApiAiTaskContextBundle['context']; pagination: AiTaskContextPaginationState } {
   const diagnosticExplanations = trimDiagnosticsExplanations(input.diagnosticExplanations, normalizedRequest.maxDiagnostics);
   const systemSymbolExplanations = trimSystemSymbolExplanations(input.systemSymbolExplanations, normalizedRequest.maxSymbols);
+  const pagination: AiTaskContextPaginationState = {
+    diagnosticExplanations: {
+      requested: normalizedRequest.includeDiagnosticsExplanation ? normalizedRequest.maxDiagnostics : 0,
+      available: input.diagnosticExplanations?.length ?? 0,
+    },
+    systemSymbolExplanations: {
+      requested: normalizedRequest.includeSystemSymbolExplanations ? normalizedRequest.maxSymbols : 0,
+      available: input.systemSymbolExplanations?.length ?? 0,
+    },
+  };
 
   if (normalizedRequest.includeDiagnosticsExplanation && (input.diagnosticExplanations?.length ?? 0) > (diagnosticExplanations?.length ?? 0)) {
-    omissions.push(`diagnosticExplanations truncadas a ${normalizedRequest.maxDiagnostics}.`);
+    addOmission(
+      omissions,
+      reasonCodes,
+      `diagnosticExplanations truncadas a ${normalizedRequest.maxDiagnostics}.`,
+      'diagnostics-limit',
+    );
   }
 
   if (normalizedRequest.includeSystemSymbolExplanations && (input.systemSymbolExplanations?.length ?? 0) > (systemSymbolExplanations?.length ?? 0)) {
-    omissions.push(`systemSymbolExplanations truncadas a ${normalizedRequest.maxSymbols}.`);
+    addOmission(
+      omissions,
+      reasonCodes,
+      `systemSymbolExplanations truncadas a ${normalizedRequest.maxSymbols}.`,
+      'system-symbol-limit',
+    );
   }
 
   const context: ApiAiTaskContextBundle['context'] = {
@@ -369,25 +414,25 @@ function buildContext(
   };
 
   if (normalizedRequest.includeWorkspaceCheck && !input.workspaceCheck) {
-    omissions.push('workspaceCheck no disponible.');
+    addOmission(omissions, reasonCodes, 'workspaceCheck no disponible.');
   }
   if (normalizedRequest.includeObjectCheck && !input.objectCheck) {
-    omissions.push('objectCheck no disponible.');
+    addOmission(omissions, reasonCodes, 'objectCheck no disponible.');
   }
   if (normalizedRequest.includeSafeEditPlan && !input.safeEditPlan) {
-    omissions.push('safeEditPlan no disponible.');
+    addOmission(omissions, reasonCodes, 'safeEditPlan no disponible.');
   }
   if (normalizedRequest.includeDependencyGraph && !input.dependencyGraph) {
-    omissions.push('dependencyGraph no disponible.');
+    addOmission(omissions, reasonCodes, 'dependencyGraph no disponible.');
   }
   if (normalizedRequest.includeDiagnosticsExplanation && !diagnosticExplanations?.length) {
-    omissions.push('Sin diagnosticExplanations en el foco.');
+    addOmission(omissions, reasonCodes, 'Sin diagnosticExplanations en el foco.');
   }
   if (normalizedRequest.includeSystemSymbolExplanations && !systemSymbolExplanations?.length) {
-    omissions.push('Sin systemSymbolExplanations en el foco.');
+    addOmission(omissions, reasonCodes, 'Sin systemSymbolExplanations en el foco.');
   }
 
-  return context;
+  return { context, pagination };
 }
 
 function getDropPriority(intent: ApiAiTaskIntent, key: AiTaskContextSectionKey): number {
@@ -466,11 +511,12 @@ function pruneContextToBudget(input: {
   rules: string[];
   context: ApiAiTaskContextBundle['context'];
   omissions: string[];
+  reasonCodes: Set<ApiAiTaskContextBundleReasonCode>;
   docsToReview: string[];
   validationCommands: string[];
   recommendedWorkflow: string[];
 }): { context: ApiAiTaskContextBundle['context']; estimatedTokens: number; truncated: boolean } {
-  const { normalizedRequest, focus, rules, omissions, docsToReview, validationCommands, recommendedWorkflow } = input;
+  const { normalizedRequest, focus, rules, omissions, reasonCodes, docsToReview, validationCommands, recommendedWorkflow } = input;
   const context: ApiAiTaskContextBundle['context'] = { ...input.context };
 
   const estimateCurrent = (): number => estimateTokens({
@@ -496,7 +542,7 @@ function pruneContextToBudget(input: {
     }
 
     delete context[key];
-    omissions.push(`Budget omitio ${sectionLabel(key)}.`);
+    addOmission(omissions, reasonCodes, `Budget omitio ${sectionLabel(key)}.`, 'token-budget-context');
     estimatedTokens = estimateCurrent();
     truncated = true;
   }
@@ -530,6 +576,7 @@ function minimizeBundleMeta(input: {
   focus: ApiAiTaskContextBundle['focus'];
   context: ApiAiTaskContextBundle['context'];
   omissions: string[];
+  reasonCodes: Set<ApiAiTaskContextBundleReasonCode>;
   rules: string[];
   validationCommands: string[];
   docsToReview: string[];
@@ -575,6 +622,7 @@ function minimizeBundleMeta(input: {
 
   if (!omissions.includes('Bundle minimizado por budget extremo.')) {
     omissions.push('Bundle minimizado por budget extremo.');
+    input.reasonCodes.add('token-budget-meta');
   }
 
   while (estimatedTokens > input.normalizedRequest.maxTokensHint && docsToReview.length > 0) {
@@ -609,6 +657,7 @@ function minimizeBundleMeta(input: {
   if (estimatedTokens > input.normalizedRequest.maxTokensHint) {
     omissions.length = 0;
     omissions.push('Budget extremo: bundle minimo.');
+    input.reasonCodes.add('token-budget-minimal');
     estimatedTokens = estimateCurrent(true);
   }
 
@@ -627,6 +676,7 @@ export function buildUnavailableAiTaskContextBundle(
   request: ApiAiTaskContextBundleRequest = {},
 ): ApiAiTaskContextBundle {
   const normalizedRequest = normalizeAiTaskContextBundleRequest(request);
+  const reasonCodes: ApiAiTaskContextBundleReasonCode[] = ['missing-focus'];
   return {
     schemaVersion: '1.0.0',
     generatedAt: new Date().toISOString(),
@@ -637,6 +687,11 @@ export function buildUnavailableAiTaskContextBundle(
     tokenBudget: {
       maxTokensHint: normalizedRequest.maxTokensHint,
       truncated: false,
+    },
+    reasonCodes,
+    pagination: {
+      diagnosticExplanations: { requested: 0, available: 0, included: 0, truncated: false },
+      systemSymbolExplanations: { requested: 0, available: 0, included: 0, truncated: false },
     },
     focus: resolveFocus({ request }),
     summary: 'No se pudo preparar un bundle de contexto IA defendible.',
@@ -663,7 +718,9 @@ export function buildAiTaskContextBundle(
   }
 
   const omissions: string[] = [];
-  const context = buildContext(normalizedRequest, input, omissions);
+  const reasonCodes = new Set<ApiAiTaskContextBundleReasonCode>();
+  const builtContext = buildContext(normalizedRequest, input, omissions, reasonCodes);
+  const context = builtContext.context;
   const rules = buildBaseRules(normalizedRequest.intent);
   const validationCommands = buildValidationCommands(normalizedRequest.intent, input.safeEditPlan);
   const docsToReview = buildDocsToReview(normalizedRequest.intent, input.safeEditPlan);
@@ -674,6 +731,7 @@ export function buildAiTaskContextBundle(
     rules,
     context,
     omissions,
+    reasonCodes,
     docsToReview,
     validationCommands,
     recommendedWorkflow,
@@ -683,6 +741,7 @@ export function buildAiTaskContextBundle(
     focus,
     context: pruned.context,
     omissions,
+    reasonCodes,
     rules,
     validationCommands,
     docsToReview,
@@ -706,6 +765,7 @@ export function buildAiTaskContextBundle(
     finalValidationCommands = [];
     finalDocsToReview = [];
     finalOmissions = ['Budget extremo: bundle minimo.'];
+    reasonCodes.add('token-budget-minimal');
     finalSummary = buildMinimalSummary(normalizedRequest.intent, focus);
     finalEstimatedTokens = estimateTokens({
       focus,
@@ -718,6 +778,37 @@ export function buildAiTaskContextBundle(
     });
   }
 
+  const diagnosticIncluded = finalContext.diagnosticExplanations?.length ?? 0;
+  const systemSymbolIncluded = finalContext.systemSymbolExplanations?.length ?? 0;
+  const pagination: ApiAiTaskContextBundle['pagination'] = {
+    diagnosticExplanations: {
+      requested: builtContext.pagination.diagnosticExplanations.requested,
+      available: builtContext.pagination.diagnosticExplanations.available,
+      included: diagnosticIncluded,
+      truncated: builtContext.pagination.diagnosticExplanations.available > diagnosticIncluded,
+      ...(builtContext.pagination.diagnosticExplanations.available > diagnosticIncluded
+        ? {
+            reasonCode: diagnosticIncluded < Math.min(builtContext.pagination.diagnosticExplanations.available, builtContext.pagination.diagnosticExplanations.requested)
+              ? 'token-budget-context'
+              : 'diagnostics-limit',
+          }
+        : {}),
+    },
+    systemSymbolExplanations: {
+      requested: builtContext.pagination.systemSymbolExplanations.requested,
+      available: builtContext.pagination.systemSymbolExplanations.available,
+      included: systemSymbolIncluded,
+      truncated: builtContext.pagination.systemSymbolExplanations.available > systemSymbolIncluded,
+      ...(builtContext.pagination.systemSymbolExplanations.available > systemSymbolIncluded
+        ? {
+            reasonCode: systemSymbolIncluded < Math.min(builtContext.pagination.systemSymbolExplanations.available, builtContext.pagination.systemSymbolExplanations.requested)
+              ? 'token-budget-context'
+              : 'system-symbol-limit',
+          }
+        : {}),
+    },
+  };
+
   return {
     schemaVersion: '1.0.0',
     generatedAt: new Date().toISOString(),
@@ -729,6 +820,8 @@ export function buildAiTaskContextBundle(
       estimatedTokens: finalEstimatedTokens,
       truncated: pruned.truncated || finalOmissions.some((entry) => entry.toLowerCase().includes('budget')),
     },
+    reasonCodes: [...reasonCodes],
+    pagination,
     focus,
     summary: finalSummary,
     rules: finalRules,

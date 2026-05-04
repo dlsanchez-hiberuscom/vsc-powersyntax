@@ -123,6 +123,21 @@ function createWorkspaceCheck(): ApiWorkspaceCheckReport {
   } as ApiWorkspaceCheckReport;
 }
 
+function createOversizedWorkspaceCheck(): ApiWorkspaceCheckReport {
+  return {
+    ...createWorkspaceCheck(),
+    findings: Array.from({ length: 48 }, (_, index) => ({
+      code: `W${index}`,
+      area: 'performance',
+      severity: index % 2 === 0 ? 'warning' : 'info',
+      category: 'workspace',
+      message: `Finding ${index} ${'x'.repeat(240)}`,
+      detail: `Detail ${index} ${'y'.repeat(360)}`,
+    })),
+    recommendedActions: Array.from({ length: 24 }, (_, index) => `Action ${index} ${'z'.repeat(180)}`),
+  } as ApiWorkspaceCheckReport;
+}
+
 function createDiagnosticExplanation(): ApiExplainDiagnosticReport {
   return {
     schemaVersion: '1.0.0',
@@ -257,13 +272,71 @@ suite('unit/aiTaskContextBundle (B381)', () => {
 
     assert.equal(bundle.available, true);
     assert.equal(bundle.tokenBudget.truncated, true);
+    assert.ok(bundle.reasonCodes.some((code) => code.startsWith('token-budget')));
     assert.ok((bundle.omissions.length ?? 0) > 0);
     assert.ok((bundle.tokenBudget.estimatedTokens ?? 0) <= 80);
+  });
+
+  test('expone reason codes y receipt de paginacion para secciones truncadas por límite', () => {
+    const bundle = buildAiTaskContextBundle({
+      request: {
+        intent: 'diagnose',
+        uri: 'file:///workspace/sample.sru',
+        maxTokensHint: 2400,
+        maxDiagnostics: 1,
+        maxSymbols: 1,
+      },
+      workspaceCheck: createWorkspaceCheck(),
+      objectCheck: createObjectCheck(),
+      currentObjectContext: createCurrentObjectContext(),
+      safeEditPlan: createSafeEditPlan(),
+      dependencyGraph: createDependencyGraph(),
+      diagnosticExplanations: [createDiagnosticExplanation(), createDiagnosticExplanation()],
+      systemSymbolExplanations: [createSystemSymbolExplanation('Abs'), createSystemSymbolExplanation('MessageBox')],
+    });
+
+    assert.ok(bundle.reasonCodes.includes('diagnostics-limit'));
+    assert.ok(bundle.reasonCodes.includes('system-symbol-limit'));
+    assert.deepEqual(bundle.pagination.diagnosticExplanations, {
+      requested: 1,
+      available: 2,
+      included: 1,
+      truncated: true,
+      reasonCode: 'diagnostics-limit',
+    });
+    assert.deepEqual(bundle.pagination.systemSymbolExplanations, {
+      requested: 1,
+      available: 2,
+      included: 1,
+      truncated: true,
+      reasonCode: 'system-symbol-limit',
+    });
   });
 
   test('expone unavailable builder explicito', () => {
     const bundle = buildUnavailableAiTaskContextBundle('missing focus');
     assert.equal(bundle.available, false);
+    assert.ok(bundle.reasonCodes.includes('missing-focus'));
     assert.ok(bundle.omissions.includes('missing focus'));
+  });
+
+  test('acota payloads grandes de workspace al budget declarado', () => {
+    const bundle = buildAiTaskContextBundle({
+      request: {
+        intent: 'documentation-update',
+        uri: 'file:///workspace/sample.sru',
+        maxTokensHint: 220,
+      },
+      workspaceCheck: createOversizedWorkspaceCheck(),
+      objectCheck: createObjectCheck(),
+      currentObjectContext: createCurrentObjectContext(),
+      systemSymbolExplanations: [createSystemSymbolExplanation('Abs')],
+    });
+
+    assert.equal(bundle.available, true);
+    assert.equal(bundle.tokenBudget.truncated, true);
+    assert.ok((bundle.tokenBudget.estimatedTokens ?? 0) <= 220);
+    assert.ok(bundle.reasonCodes.some((code) => code.startsWith('token-budget')));
+    assert.equal(bundle.context.workspaceCheck, undefined);
   });
 });

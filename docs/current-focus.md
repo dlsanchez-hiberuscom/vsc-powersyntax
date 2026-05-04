@@ -2,34 +2,34 @@
 
 ## 1. Foco activo
 
-`B354 — Server runtime orchestration decomposition`
+`B299 — Agent execution dry-run contract`
 
-Estado actual: `B344` queda cerrada. La spec `390-datawindow-binding-edge-cases` fija ya el caso heredado de `plugin_old` para `report -> column -> dddw` sobre el backbone actual y deja el frente DataWindow inmediato sin gaps confirmados de child/report/column occurrences.
+Estado actual: `B301` queda cerrada. La spec `393-agent-context-budget-enforcement` fija que `ai-task-context-bundle` ya expone budgets visibles con `reasonCodes` y receipt de paginación, y que payloads grandes degradan dentro del budget sin reabrir contexto masivo.
 
-La evidencia cerrada que deja `B344` es:
+La evidencia cerrada que deja `B301` es:
 
-- `src/server/features/dataWindowPropertyPaths.ts` expande ahora el root resoluble de `report(...)` durante completion, de modo que `Modify("rpt_orders.")` publica columnas del child y `DataWindow` en lugar de limitarse a un namespace ciego;
-- `test/server/unit/completion.test.ts` y `hover.test.ts` fijan el camino anidado `rpt_orders.status_id.dddw.name` tanto para completion como para hover, sin ampliar el contrato fuera de bindings deterministas;
-- `test/fixtures/datawindow-b344/` y `test/smoke/datawindow-b344.extension.test.ts` validan el mismo caso sobre `.srd` reales en disco usando los providers reales del editor;
-- `docs/plugin-old-migration-opportunities.md` deja ya ese gap como absorbido y obliga a que cualquier reapertura futura llegue con corpus/fixture nuevo.
+- `ApiAiTaskContextBundle` publica `reasonCodes` machine-readable y `pagination` receipts para `diagnosticExplanations` y `systemSymbolExplanations`;
+- `buildAiTaskContextBundle()` mantiene budgets por `intent` y reason codes explícitos para límites de lista, pruning por budget, minimización de meta y bundle mínimo;
+- `test/server/unit/aiTaskContextBundle.test.ts` fija budgets bajos, truncado por límites de lista y caps sobre un `workspaceCheck` inflado;
+- `test/server/unit/publicApi.test.ts` mantiene verde el contrato público/read-only bridge tras ampliar el payload de forma aditiva.
 
 ---
 
 ## 2. Por qué es prioritario
 
-`B354` pasa a ser el siguiente foco natural porque:
+`B299` pasa a ser el siguiente foco natural porque:
 
-- `server.ts` sigue concentrando scheduler, readiness, memory pressure, serving cache, persistence y journals en el mismo host LSP, y ese monolito ya es el siguiente cuello arquitectónico visible;
-- `B342` y `B344` despejaron los frentes inmediatos heredados de `plugin_old`, así que el siguiente riesgo real ya no es semántico DataWindow sino orquestación runtime y mantenibilidad del host;
-- el backlog marca `B354` como alta prioridad y su trazabilidad con `B347` afecta directamente a la base operativa que soporta el resto de slices.
+- `B301` ya cerró los budgets, reason codes y caps sobre payloads grandes, así que el siguiente bloqueo real del carril write-enabled es exigir dry-run antes de cualquier ejecución;
+- `B299` abre el contrato declarativo previo a `B300`, `B302` y `B303`, que dependen de tener plan/impacto validable antes de tocar código o emitir receipts finales;
+- el backlog lo coloca ahora al frente del carril de AI automation safety y su resultado condiciona cualquier write-enabled posterior.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- separar wiring LSP de políticas runtime sin cambiar contratos de scheduler, readiness, backpressure, memory pressure, serving cache o persistence;
-- mover orquestación a slices legibles y testeables manteniendo payloads y observabilidad estables;
-- reforzar tests de runtime/health/status y gates de rendimiento sin abrir build/legacy en hot path interactivo.
+- definir un contrato dry-run declarativo para tareas agent-ready write-enabled;
+- exigir plan, impacto, archivos afectados, tests, docs y bloqueos antes de cualquier ejecución real;
+- validar el schema y el tool bridge sin introducir writes ni side effects.
 
 ---
 
@@ -37,29 +37,29 @@ La evidencia cerrada que deja `B344` es:
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B344` salvo regresión real en `dataWindowPropertyPaths` o en los fixtures/smoke ya cerrados;
-- cambiar políticas de scheduler/backpressure/memory como efecto colateral de una mera extracción estructural;
-- mezclar comandos build/legacy dentro del hot path semántico del servidor;
-- desplazar el trabajo a nuevas features semánticas mientras el host runtime siga concentrando la orquestación crítica.
+- reabrir `B301` salvo regresión demostrable en budgets, caps de payload o reason codes visibles;
+- ejecutar writes reales o receipts finales sin haber cerrado antes el contracto dry-run de `B299`;
+- meter side effects o heurísticas locales no trazables dentro del rail dry-run;
+- mezclar el rail de dry-run con cambios semánticos o de runtime ajenos al carril de agentes.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- `server.ts` deja de concentrar la orquestación principal en un único bloque difícil de mantener;
-- scheduler/backpressure/memory/readiness conservan contratos, payloads y guards de rendimiento;
-- `architecture`, `performance-budget`, `testing`, `backlog`, `done-log` y `current-focus` quedan alineados con el estado real del corte.
+- el contrato dry-run expone plan, impacto, archivos, tests, docs y bloqueos antes de cualquier write-enabled;
+- el public contract y el tool bridge validan el schema sin ejecutar cambios reales;
+- `docs/spec-driven-development.md`, `docs/ai-orchestrator.md`, `docs/backlog.md`, `docs/done-log.md` y `docs/current-focus.md` quedan alineados con el resultado.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B354` — Server runtime orchestration decomposition.
-2. `B292` — PowerBuilder preprocessor / conditional patterns investigation.
-3. `B301` — Agent context budget enforcement.
+1. `B299` — Agent execution dry-run contract.
+2. `B300` — Agent validation receipt.
+3. `B302` — Agent-safe documentation updater policy.
 
 ---
 
 ## 7. Regla final
 
-`B354` sólo puede descomponer el host runtime si conserva intactas las policies y evita abrir un segundo centro de decisión para scheduling, readiness o memory pressure.
+`B299` sólo puede abrir el carril write-enabled si deja un dry-run declarativo y verificable como gate contractual antes de cualquier ejecución real.
