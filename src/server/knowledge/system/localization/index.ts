@@ -1,5 +1,16 @@
 export { PB_SYSTEM_SYMBOL_LOCALIZATION_ES } from './es';
 export {
+  createDocumentationService,
+  getDisplayDocumentation,
+  getDisplayObsoleteMessage,
+  getDisplayParameterDocumentation,
+  getDisplayReturnDocumentation,
+  getDisplaySummary,
+  getDisplayUsageNotes,
+  type DocumentationLocale,
+  type SystemSymbolDocumentationService,
+} from './documentationService';
+export {
   buildSystemSymbolLocalizationIndex,
   getSystemSymbolLocalizationCatalogReport,
   getSystemSymbolLocalizationIndex,

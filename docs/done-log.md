@@ -25,6 +25,27 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.131 B372. DocumentationService locale-aware lazy resolver — **Cerrada (knowledge/localized documentation serving 2026-05)**
+
+**Objetivo:** crear una capa de serving documental locale-aware, reutilizable y barata que resuelva textos visibles del system catalog sobre una entry ya resuelta, con fallback seguro `es -> en` y sin scans globales ni merges por idioma en startup.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/localization/documentationService.ts` publica `DocumentationLocale`, `createDocumentationService()` y los helpers `getDisplaySummary|getDisplayDocumentation|getDisplayUsageNotes|getDisplayObsoleteMessage|getDisplayReturnDocumentation|getDisplayParameterDocumentation`, todos apoyados en lookup O(1) por `entry.id` sobre el índice de `B371` y sin mutar `PbSystemSymbolEntry`;
+- el servicio cachea de forma lazy la documentación de parámetros por entry y por overlay, reutiliza referencias existentes para `usageNotes` cuando no necesita materializar copias y mantiene el fallback al texto oficial inglés cuando falta overlay español;
+- `src/server/knowledge/system/localization/index.ts` deja el servicio exportado como rail reusable para `hover`, `completion` y `signatureHelp` sin tocar todavía los consumers finales;
+- `test/server/unit/documentationService.test.ts`, junto con `catalogLocalization` y el guard de hot path, fija prioridad del overlay español, fallback al texto original, soporte de overlays por `targetId`/`targetKey` y ausencia de drift en el carril interactivo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "documentationService|catalogLocalization|catalogConsistency"`
+- `npm run test:unit -- --grep "hotPathAllocationBudget"`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+
 ## 1.130 B371. Catalog localization model and immutable overlay contract — **Cerrada (knowledge/catalog localization base 2026-05)**
 
 **Objetivo:** fijar un modelo ligero e inmutable de localización documental para el system catalog sin duplicar símbolos por idioma, sin mutar el texto oficial de `generated` y dejando trazable cualquier drift del rail localizado.

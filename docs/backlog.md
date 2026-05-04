@@ -1007,105 +1007,6 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ---
 
-## B372 — DocumentationService locale-aware lazy resolver
-- **Estado:** Open
-- **Track:** knowledge / localization / runtime performance
-- **Prioridad:** Alta
-- **Depende de:** B371, B365
-- **Objetivo:** crear un servicio de documentación localizado que resuelva textos visibles por idioma de forma lazy, O(1), sin scans, sin traducción dinámica y sin merge global en startup.
-- **Razón técnica:** hover, completion, signatureHelp y diagnostics necesitan documentación localizada, pero esas rutas son sensibles a latencia. La localización debe ser un lookup por índice sobre la entrada ya resuelta, no una transformación masiva del catálogo.
-
-### Alcance incluido
-
-- Crear `documentationService.ts` o equivalente.
-- Resolver documentación preferida por locale.
-- Implementar fallback:
-
-```txt
-locale solicitado: es
-1. overlay es si existe
-2. texto original de entry
-3. string vacío/undefined si no hay documentación
-```
-
-- Exponer APIs pequeñas y sin scans.
-- Cachear de forma segura si aporta valor, sin stale data.
-- No tocar resolución semántica ni índices principales salvo integración mínima.
-
-### API objetivo
-
-```ts
-export type DocumentationLocale = 'en' | 'es';
-
-export function getDisplaySummary(
-    entry: PbSystemSymbolEntry,
-    locale: DocumentationLocale,
-): string;
-
-export function getDisplayDocumentation(
-    entry: PbSystemSymbolEntry,
-    locale: DocumentationLocale,
-): string | undefined;
-
-export function getDisplayUsageNotes(
-    entry: PbSystemSymbolEntry,
-    locale: DocumentationLocale,
-): readonly string[];
-
-export function getDisplayObsoleteMessage(
-    entry: PbSystemSymbolEntry,
-    locale: DocumentationLocale,
-): string | undefined;
-
-export function getDisplayReturnDocumentation(
-    entry: PbSystemSymbolEntry,
-    locale: DocumentationLocale,
-): string | undefined;
-
-export function getDisplayParameterDocumentation(
-    entry: PbSystemSymbolEntry,
-    signatureLabel: string,
-    parameterName: string,
-    locale: DocumentationLocale,
-): string | undefined;
-```
-
-### Performance rules
-
-- `entry.id` → localization overlay debe ser `Map<string, Overlay>` o estructura equivalente.
-- No recorrer todos los overlays en hover/completion/signatureHelp.
-- No construir copias profundas de `PbSystemSymbolEntry` por idioma.
-- No generar arrays nuevos si no hay uso visible, salvo valores pequeños inevitables.
-- No llamar traductores ni APIs externas.
-- El servicio no resuelve símbolos; solo transforma documentación de una entry ya resuelta.
-
-### Criterios de cierre verificables
-
-- Hover puede pedir resumen/documentación en español con lookup O(1).
-- Si falta overlay español, se muestra inglés original.
-- Tests cubren fallback `es → en`.
-- Tests cubren overlay por `targetId`.
-- Tests cubren overlay por `targetKey` si se implementa.
-- No hay full-catalog scans en el servicio.
-- No hay merge global en startup.
-- Performance/hot-path tests siguen verdes.
-
-### Docs afectadas
-
-- `docs/architecture.md`
-- `docs/performance-budget.md`
-- `docs/testing.md`
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "documentationService|localization|fallback|catalog"
-npm run test:unit -- --grep "hotPath|performance|allocation"
-```
-
----
-
 ## B373 — Localized catalog consumers for hover, completion and signatureHelp
 - **Estado:** Open
 - **Track:** language services / localization / UX
@@ -1972,12 +1873,11 @@ npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|rea
 
 ## Fase activa 
 
-01. B372 — DocumentationService locale-aware lazy resolver
-02. B373 — Localized catalog consumers for hover, completion and signatureHelp
-03. B374 — Spanish catalog localization authoring workflow and coverage gate
-04. B375 — Generated localization compatibility with regenerated catalog IDs
-05. B378 — AI PowerBuilder context pack and token budget contract
-06. B379 — Explain diagnostic tool and suggested safe fix contract
+01. B373 — Localized catalog consumers for hover, completion and signatureHelp
+02. B374 — Spanish catalog localization authoring workflow and coverage gate
+03. B375 — Generated localization compatibility with regenerated catalog IDs
+04. B378 — AI PowerBuilder context pack and token budget contract
+05. B379 — Explain diagnostic tool and suggested safe fix contract
 
 ## Siguiente fase — Localización española de alto rendimiento y datawindow
 
