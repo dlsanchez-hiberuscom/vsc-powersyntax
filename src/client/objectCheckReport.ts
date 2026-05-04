@@ -478,6 +478,35 @@ function addImpactFindings(
   }
 }
 
+function addFrameworkKnowledgeFindings(
+  findings: ApiObjectCheckFinding[],
+  recommendedActions: Set<string>,
+  input: ObjectCheckBuildInput,
+): void {
+  const conflict = input.objectContext?.frameworkKnowledgeConflict
+    ?? input.impactAnalysis?.frameworkKnowledgeConflict
+    ?? input.safeEditPlan?.frameworkKnowledgeConflict;
+
+  if (!conflict) {
+    return;
+  }
+
+  addFinding(findings, {
+    code: conflict.state === 'workspace-wins'
+      ? 'framework-knowledge-workspace-wins'
+      : 'framework-knowledge-pack-advisory',
+    severity: conflict.state === 'workspace-wins' ? 'info' : 'warning',
+    area: 'semantic',
+    message: conflict.state === 'workspace-wins'
+      ? 'El objeto tiene knowledge packs aplicables, pero la source real del workspace sigue siendo la autoridad.'
+      : 'El objeto depende de knowledge packs advisory sin una source real fuerte del workspace.',
+    detail: conflict.summary,
+    evidence: conflict.packs.map((pack) => pack.title),
+    uri: input.objectContext?.uri,
+  });
+  recommendedActions.add('Revisar el knowledge pack aplicable y confirmar que el comportamiento custom del workspace sigue siendo la fuente autoritativa.');
+}
+
 function sortFindings(findings: readonly ApiObjectCheckFinding[]): ApiObjectCheckFinding[] {
   return [...findings].sort((left, right) => {
     const severityDelta = SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity];
@@ -532,6 +561,7 @@ export function buildObjectCheckReport(input: ObjectCheckBuildInput): ApiObjectC
   if (normalized.includeImpactAnalysis) {
     addImpactFindings(findings, recommendedActions, input.impactAnalysis);
   }
+  addFrameworkKnowledgeFindings(findings, recommendedActions, input);
 
   const sortedFindings = sortFindings(findings);
   const visibleFindings = sortedFindings.slice(0, normalized.maxFindings);

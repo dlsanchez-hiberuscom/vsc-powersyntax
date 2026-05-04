@@ -2,34 +2,31 @@
 
 ## 1. Foco activo
 
-`B299 — Agent execution dry-run contract`
+Sin backlog activo abierto.
 
-Estado actual: `B301` queda cerrada. La spec `393-agent-context-budget-enforcement` fija que `ai-task-context-bundle` ya expone budgets visibles con `reasonCodes` y receipt de paginación, y que payloads grandes degradan dentro del budget sin reabrir contexto masivo.
+Estado actual: el dashboard ADR-0001 del catálogo queda cerrado. La spec `417-catalog-adr-compliance-dashboard-gate` consolida un gate reproducible y un reporte determinista fuera del hot path.
 
-La evidencia cerrada que deja `B301` es:
+La evidencia cerrada que deja este corte es:
 
-- `ApiAiTaskContextBundle` publica `reasonCodes` machine-readable y `pagination` receipts para `diagnosticExplanations` y `systemSymbolExplanations`;
-- `buildAiTaskContextBundle()` mantiene budgets por `intent` y reason codes explícitos para límites de lista, pruning por budget, minimización de meta y bundle mínimo;
-- `test/server/unit/aiTaskContextBundle.test.ts` fija budgets bajos, truncado por límites de lista y caps sobre un `workspaceCheck` inflado;
-- `test/server/unit/publicApi.test.ts` mantiene verde el contrato público/read-only bridge tras ampliar el payload de forma aditiva.
+- `src/server/features/workspaceCheckCatalogSummary.ts` reconsume `buildCatalogConsistencyReport()` y la merge policy real del query layer para publicar `adrCompliance` con policy recomendada, dominios `manual-primary`, coverage drift y `candidateHotPathViolations`;
+- `src/client/workspaceCheckReport.ts` eleva ese estado a findings/status/Markdown del `workspace-check`, de modo que el gate ADR-0001 puede fallar sin abrir otro motor de catálogo;
+- `scripts/generate_catalog_consistency_report.cjs` y `npm run report:catalog-consistency` serializan JSON/Markdown determinista en `artifacts/catalog/` usando el mismo baseline contractual `generated-primary-with-manual-overlays`.
 
 ---
 
-## 2. Por qué es prioritario
+## 2. Por qué no hay foco activo
 
-`B299` pasa a ser el siguiente foco natural porque:
-
-- `B301` ya cerró los budgets, reason codes y caps sobre payloads grandes, así que el siguiente bloqueo real del carril write-enabled es exigir dry-run antes de cualquier ejecución;
-- `B299` abre el contrato declarativo previo a `B300`, `B302` y `B303`, que dependen de tener plan/impacto validable antes de tocar código o emitir receipts finales;
-- el backlog lo coloca ahora al frente del carril de AI automation safety y su resultado condiciona cualquier write-enabled posterior.
+- `docs/backlog.md` queda sin ítems `Open` tras cerrar el dashboard ADR-0001 del catálogo;
+- abrir nueva implementación sin registrar primero el siguiente ítem rompería la alineación canónica backlog/focus/roadmap/specs;
+- el trabajo inmediato permitido es priorizar y registrar el siguiente corte antes de tocar más código funcional.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- definir un contrato dry-run declarativo para tareas agent-ready write-enabled;
-- exigir plan, impacto, archivos afectados, tests, docs y bloqueos antes de cualquier ejecución real;
-- validar el schema y el tool bridge sin introducir writes ni side effects.
+- registrar el siguiente ítem activo en backlog y reflejarlo en `docs/current-focus.md`, `docs/roadmap.md` y su spec correspondiente antes de nueva implementación;
+- mantener verdes `npm run test:docs:drift`, la batería focal del catálogo y `npm run report:catalog-consistency`;
+- corregir sólo regresiones demostrables sobre el dashboard ADR-0001, el cierre previo de knowledge packs y los contracts públicos tocados recientemente.
 
 ---
 
@@ -37,29 +34,20 @@ La evidencia cerrada que deja `B301` es:
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B301` salvo regresión demostrable en budgets, caps de payload o reason codes visibles;
-- ejecutar writes reales o receipts finales sin haber cerrado antes el contracto dry-run de `B299`;
-- meter side effects o heurísticas locales no trazables dentro del rail dry-run;
-- mezclar el rail de dry-run con cambios semánticos o de runtime ajenos al carril de agentes.
+- reabrir cierres canónicos recientes sin evidencia ejecutable;
+- mezclar nueva funcionalidad semántica mientras el backlog activo siga vacío;
+- usar el report ADR-0001 desde `hover`, `completion`, `signatureHelp` o `diagnostics` del hot path.
 
 ---
 
-## 5. Criterios de salida del foco actual
+## 5. Criterios para abrir el siguiente foco
 
-- el contrato dry-run expone plan, impacto, archivos, tests, docs y bloqueos antes de cualquier write-enabled;
-- el public contract y el tool bridge validan el schema sin ejecutar cambios reales;
-- `docs/spec-driven-development.md`, `docs/ai-orchestrator.md`, `docs/backlog.md`, `docs/done-log.md` y `docs/current-focus.md` quedan alineados con el resultado.
-
----
-
-## 6. Siguiente foco natural
-
-1. `B299` — Agent execution dry-run contract.
-2. `B300` — Agent validation receipt.
-3. `B302` — Agent-safe documentation updater policy.
+- existe un nuevo ítem `Open` en `docs/backlog.md`;
+- existe una spec activa para ese ítem;
+- `docs/current-focus.md` y `docs/roadmap.md` apuntan al mismo trabajo vivo.
 
 ---
 
-## 7. Regla final
+## 6. Regla final
 
-`B299` sólo puede abrir el carril write-enabled si deja un dry-run declarativo y verificable como gate contractual antes de cualquier ejecución real.
+No se abre una nueva implementación mientras el backlog activo siga vacío y la priorización canónica no haya sido actualizada.

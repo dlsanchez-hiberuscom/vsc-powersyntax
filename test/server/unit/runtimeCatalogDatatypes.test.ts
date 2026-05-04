@@ -146,12 +146,18 @@ suite('unit/runtimeCatalogDatatypes (B359)', () => {
     catalog = new SystemCatalog();
   });
 
-  test('todos los tipos del backlog B359 quedan curados en manual-core', () => {
+  test('todos los tipos del backlog B359 resuelven sobre generated-primary con overlays manuales', () => {
     for (const typeName of expectedB359Types) {
       const dt = catalog.resolveDatatype(typeName);
+      const rawEntries = catalog.findByKindAndLookupKey('system-type', typeName);
+      const hasGeneratedEntry = rawEntries.some((entry) => entry.dataset === 'generated');
       assert.ok(dt, `debe resolver ${typeName}`);
       assert.equal(dt?.kind, 'system-type');
-      assert.equal(dt?.dataset, 'manual-core', `${typeName} debe quedar curado en manual-core`);
+      assert.equal(
+        dt?.dataset,
+        hasGeneratedEntry ? 'generated' : 'manual-core',
+        `${typeName} debe seguir la policy generated-primary con fallback manual-core cuando no exista rail oficial`,
+      );
       assert.equal(dt?.name, typeName, `${typeName} debe conservar casing canónico`);
     }
   });

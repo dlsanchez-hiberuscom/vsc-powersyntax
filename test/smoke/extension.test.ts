@@ -37,6 +37,16 @@ suite('smoke/extension', () => {
     assert.equal(api!.isVersionCompatible(PUBLIC_API_VERSION), true);
     assert.equal(api!.contract.apiVersion, PUBLIC_API_VERSION);
     assert.equal(api!.contract.extensionId, PUBLIC_API_EXTENSION_ID);
+    const powerSyntaxConfiguration = vscode.workspace.getConfiguration('vscPowerSyntax');
+    const profileInspection = powerSyntaxConfiguration.inspect<string>('profile');
+    assert.equal(profileInspection?.defaultValue, 'balanced');
+    assert.equal(profileInspection?.workspaceValue, 'legacy-orca');
+    assert.equal(powerSyntaxConfiguration.get('profile'), 'legacy-orca');
+    assert.equal(powerSyntaxConfiguration.get('progress.show'), true);
+    assert.equal(powerSyntaxConfiguration.get('formatting.enabled'), true);
+    assert.equal(powerSyntaxConfiguration.get('formatting.formatOnSave'), false);
+    assert.equal(powerSyntaxConfiguration.get('formatting.maxDocumentChars'), 120000);
+    assert.equal(powerSyntaxConfiguration.get('formatting.maxDocumentLines'), 4000);
     assert.ok(api!.contract.capabilities.readOnlyMethods.includes('getCurrentObjectContext'));
     assert.ok(api!.contract.capabilities.writeEnabledMethods.includes('applySpecDrivenPblUpdate'));
     assert.deepEqual(api!.getPublicContract(), api!.contract);
@@ -68,6 +78,7 @@ suite('smoke/extension', () => {
     assert.ok(commands.includes('vscPowerSyntax.showSettingsGovernance'));
     assert.ok(commands.includes('vscPowerSyntax.applySettingsProfile'));
     assert.ok(commands.includes('vscPowerSyntax.openWorkspaceCheck'));
+    assert.ok(commands.includes('vscPowerSyntax.openExtensionUpgradeCompatibilityCheck'));
     assert.ok(commands.includes('vscPowerSyntax.openCurrentObjectCheck'));
     assert.ok(commands.includes('vscPowerSyntax.openObjectCheck'));
     assert.ok(commands.includes('vscPowerSyntax.openExplainDiagnostic'));
@@ -412,6 +423,14 @@ suite('smoke/extension', () => {
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Workspace Check/);
+
+    await withStepTimeout(
+      'executeCommand(vscPowerSyntax.openExtensionUpgradeCompatibilityCheck)',
+      vscode.commands.executeCommand('vscPowerSyntax.openExtensionUpgradeCompatibilityCheck'),
+      10000,
+    );
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Upgrade Compatibility/);
   });
 
   test('object check expone tool read-only y reporte markdown', async function () {
@@ -584,6 +603,71 @@ suite('smoke/extension', () => {
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Explain System Symbol/);
   });
 
+  test('explain semantic query expone metodo, tool read-only y reporte markdown', async function () {
+    this.timeout(30000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+    assert.equal(typeof api!.explainSemanticQuery, 'function');
+    assert.ok(api!.getReadOnlyToolBridge().tools.some((tool) => tool.name === 'explain-semantic-query'));
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+    const contextDocument = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'semantic_query_sample.sru')
+    );
+    const editor = await vscode.window.showTextDocument(contextDocument, { preview: false });
+    const queryOffset = contextDocument.getText().lastIndexOf('of_get_name()');
+    assert.ok(queryOffset >= 0, 'Se esperaba una invocación of_get_name() en el fixture smoke.');
+    const queryPosition = contextDocument.positionAt(queryOffset + 3);
+    editor.selection = new vscode.Selection(queryPosition, queryPosition);
+
+    const explainSemanticQuery = await withStepTimeout(
+      'explainSemanticQuery(api)',
+      api!.explainSemanticQuery({
+        includeCandidates: true,
+        includeDiscards: true,
+        includeTrace: true,
+      }),
+      10000,
+    );
+    assert.equal(explainSemanticQuery.available, true);
+    assert.equal(explainSemanticQuery.resolution.state, 'resolved');
+    assert.equal(explainSemanticQuery.winner?.name, 'of_get_name');
+
+    const explainSemanticQueryToolResult = await withStepTimeout(
+      'invokeReadOnlyTool(explain-semantic-query)',
+      api!.invokeReadOnlyTool({
+        tool: 'explain-semantic-query',
+        args: {
+          uri: contextDocument.uri.toString(),
+          line: queryPosition.line,
+          character: queryPosition.character,
+          includeCandidates: true,
+          includeTrace: true,
+        },
+      }),
+      10000,
+    );
+    assert.equal(explainSemanticQueryToolResult.mode, 'read-only');
+    assert.equal(explainSemanticQueryToolResult.schema, 'ApiExplainSemanticQueryReport');
+    assert.equal((explainSemanticQueryToolResult.payload as { available?: boolean }).available, true);
+
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+    editor.selection = new vscode.Selection(queryPosition, queryPosition);
+    await withStepTimeout(
+      'executeCommand(vscPowerSyntax.openExplainSemanticQuery)',
+      vscode.commands.executeCommand('vscPowerSyntax.openExplainSemanticQuery'),
+      10000,
+    );
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Explain Semantic Query/);
+  });
+
   test('ai task context bundle expone metodo, tool read-only y comando oculto', async function () {
     this.timeout(30000);
 
@@ -687,13 +771,23 @@ suite('smoke/extension', () => {
     assert.deepEqual(enumValues, ['fast', 'balanced', 'deep-analysis', 'legacy-orca', 'ci-support', 'support-safe']);
 
     const configuration = vscode.workspace.getConfiguration();
-    await configuration.update('vscPowerSyntax.profile', 'legacy-orca', vscode.ConfigurationTarget.Workspace);
-    await configuration.update('vscPowerSyntax.formatting.enabled', true, vscode.ConfigurationTarget.Workspace);
-    await configuration.update('vscPowerSyntax.formatting.formatOnSave', false, vscode.ConfigurationTarget.Workspace);
+    const previousProfile = configuration.inspect<string>('vscPowerSyntax.profile')?.workspaceValue;
+    const previousFormattingEnabled = configuration.inspect<boolean>('vscPowerSyntax.formatting.enabled')?.workspaceValue;
+    const previousFormatOnSave = configuration.inspect<boolean>('vscPowerSyntax.formatting.formatOnSave')?.workspaceValue;
 
-    await vscode.commands.executeCommand('vscPowerSyntax.showSettingsGovernance');
+    try {
+      await configuration.update('vscPowerSyntax.profile', 'legacy-orca', vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.enabled', true, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.formatOnSave', false, vscode.ConfigurationTarget.Workspace);
 
-    assert.equal(vscode.workspace.getConfiguration('vscPowerSyntax').get('profile'), 'legacy-orca');
+      await vscode.commands.executeCommand('vscPowerSyntax.showSettingsGovernance');
+
+      assert.equal(vscode.workspace.getConfiguration('vscPowerSyntax').get('profile'), 'legacy-orca');
+    } finally {
+      await configuration.update('vscPowerSyntax.profile', previousProfile, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.enabled', previousFormattingEnabled, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.formatOnSave', previousFormatOnSave, vscode.ConfigurationTarget.Workspace);
+    }
   });
 
   test('el comando restartServer puede ejecutarse repetidamente sin re-registrar comandos', async function () {

@@ -5,6 +5,7 @@ import type { ApiEmbeddedSqlAnchor } from '../../shared/publicApi';
 import { type ApiPowerBuilderCodeMetricsObject } from '../../shared/publicApi';
 import type { SourceOrigin } from '../../shared/sourceOrigin';
 import type { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import type { Fact } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
 
 export interface PowerBuilderTechnicalDebtReportRequest {
@@ -16,7 +17,10 @@ export interface PowerBuilderTechnicalDebtReportRequest {
 export type PowerBuilderTechnicalDebtHotspotCategory =
   | 'obsolete'
   | 'dynamic-sql'
+  | 'lifecycle-risk'
   | 'external-dependency'
+  | 'modern-integration'
+  | 'web-ui-integration'
   | 'datawindow-risk'
   | 'complexity'
   | 'source-origin-risk';
@@ -41,6 +45,10 @@ export interface PowerBuilderTechnicalDebtHotspot {
     diagnostics: number;
     externalDependencies: number;
     linkedDataWindows: number;
+    lifecycleWarnings: number;
+    webBrowserUsages?: number;
+    httpIntegrationUsages?: number;
+    jsonIntegrationUsages?: number;
     dynamicSqlStatements: number;
     obsoleteDiagnostics: number;
   };
@@ -71,7 +79,10 @@ export interface PowerBuilderTechnicalDebtReportSummary {
   totalRecommendations: number;
   obsoleteFindings: number;
   dynamicSqlFindings: number;
+  lifecycleRiskFindings: number;
   externalDependencyFindings: number;
+  modernIntegrationFindings: number;
+  webUiIntegrationFindings: number;
   dataWindowRiskFindings: number;
   complexObjectFindings: number;
   sourceOriginRiskFindings: number;
@@ -89,6 +100,21 @@ export interface PowerBuilderTechnicalDebtReport {
 interface ObjectDiagnosticsIndex {
   total: number;
   byCode: Record<string, number>;
+}
+
+interface ExternalDependencyInsight {
+  total: number;
+  byKind: Record<'dll' | 'pbx' | 'unknown', number>;
+  aliases: string[];
+}
+
+interface ModernIntegrationInsight {
+  endpoints: string[];
+  patterns: string[];
+}
+
+interface WebBrowserIntegrationInsight {
+  patterns: string[];
 }
 
 const SCHEMA_VERSION = '1.0.0';
@@ -116,6 +142,40 @@ function clamp(value: number | undefined, fallback: number): number {
 function normalizeDiagnosticCode(codeKey: string): string {
   const separator = codeKey.lastIndexOf(':');
   return (separator >= 0 ? codeKey.slice(separator + 1) : codeKey).toUpperCase();
+}
+
+function isOwnedCallable(symbol: Fact, objectName: string): boolean {
+  return (symbol.containerName ?? symbol.fileObjectName ?? '').toLowerCase() === objectName.toLowerCase()
+    && symbol.isPrototype !== true;
+}
+
+function collectExternalDependencyInsight(uri: string, objectName: string, kb: KnowledgeBase): ExternalDependencyInsight {
+  const snapshot = kb.getDocumentSnapshot(uri);
+  if (!snapshot) {
+    return {
+      total: 0,
+      byKind: { dll: 0, pbx: 0, unknown: 0 },
+      aliases: [],
+    };
+  }
+
+  const dependencies = snapshot.symbols.filter((symbol) => isOwnedCallable(symbol, objectName) && symbol.isExternal === true);
+  const aliases = new Set<string>();
+  const byKind: ExternalDependencyInsight['byKind'] = { dll: 0, pbx: 0, unknown: 0 };
+
+  for (const dependency of dependencies) {
+    const kind = dependency.externalDependencyKind ?? 'unknown';
+    byKind[kind] += 1;
+    if (dependency.externalAlias) {
+      aliases.add(dependency.externalAlias);
+    }
+  }
+
+  return {
+    total: dependencies.length,
+    byKind,
+    aliases: [...aliases].sort((left, right) => left.localeCompare(right)),
+  };
 }
 
 function buildObjectDiagnosticsIndex(
@@ -158,6 +218,131 @@ function countDynamicSqlStatements(uri: string, kb: KnowledgeBase): { total: num
   };
 }
 
+function extractStringLiterals(line: string): Array<{ value: string; start: number; end: number }> {
+  const literals: Array<{ value: string; start: number; end: number }> = [];
+  let quote: '"' | '\'' | null = null;
+  let start = -1;
+
+  for (let index = 0; index < line.length; index++) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (!quote && char === '/' && next === '/') {
+      break;
+    }
+
+    if (!quote && (char === '"' || char === '\'')) {
+      quote = char;
+      start = index;
+      continue;
+    }
+
+    if (quote && char === quote) {
+      literals.push({ value: line.slice(start + 1, index), start, end: index });
+      quote = null;
+      start = -1;
+    }
+  }
+
+  return literals;
+}
+
+function redactIntegrationEndpoint(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
+    return `${scheme}://redacted-host/...`;
+  } catch {
+    return 'relative:/...';
+  }
+}
+
+function looksLikeRelativeEndpoint(value: string): boolean {
+  const trimmed = value.trim();
+  return /^\/?(api|rest)\b/i.test(trimmed) || /^\//.test(trimmed);
+}
+
+function collectModernIntegrationInsight(uri: string, kb: KnowledgeBase): ModernIntegrationInsight {
+  const snapshot = kb.getDocumentSnapshot(uri);
+  if (!snapshot) {
+    return {
+      endpoints: [],
+      patterns: [],
+    };
+  }
+
+  const endpoints = new Set<string>();
+  const patterns = new Set<string>();
+
+  for (const line of snapshot.maskedText.lines) {
+    const literals = extractStringLiterals(line);
+    for (const match of line.matchAll(/\.\s*(get|post|put|patch|delete|sendrequest|requestresource|resendpostrequest)\s*\(/ig)) {
+      patterns.add(`integration-pattern:http-verb:${match[1].toLowerCase()}`);
+    }
+
+    for (const literal of literals) {
+      const value = literal.value.trim();
+      if (value.length === 0) {
+        continue;
+      }
+
+      if (/^https?:\/\//i.test(value)) {
+        endpoints.add(`integration-endpoint:${redactIntegrationEndpoint(value)}`);
+        continue;
+      }
+
+      if (looksLikeRelativeEndpoint(value) && /\b(get|post|put|patch|delete|sendrequest|requestresource|resendpostrequest|setrequesturi)\b/i.test(line)) {
+        endpoints.add('integration-endpoint:relative:/...');
+        continue;
+      }
+
+      if (/^authorization$/i.test(value) || /^bearer\b/i.test(value)) {
+        patterns.add('integration-pattern:authorization-header');
+        continue;
+      }
+
+      if (/^content-type$/i.test(value)) {
+        patterns.add('integration-pattern:content-type-header');
+        continue;
+      }
+
+      if (/application\/json/i.test(value)) {
+        patterns.add('integration-pattern:json-payload');
+      }
+    }
+  }
+
+  return {
+    endpoints: [...endpoints].sort((left, right) => left.localeCompare(right)),
+    patterns: [...patterns].sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+function collectWebBrowserIntegrationInsight(uri: string, kb: KnowledgeBase): WebBrowserIntegrationInsight {
+  const snapshot = kb.getDocumentSnapshot(uri);
+  if (!snapshot) {
+    return { patterns: [] };
+  }
+
+  const patterns = new Set<string>();
+
+  for (const line of snapshot.maskedText.lines) {
+    if (/\.\s*(navigate|navigatetostring|goback|goforward|refresh|stopnavigation)\s*\(/i.test(line)) {
+      patterns.add('web-ui-pattern:navigation');
+    }
+    if (/\.\s*(evaluatejavascriptasync|evaluatejavascriptsync|postjsonwebmessage|poststringwebmessage|registerevent)\s*\(/i.test(line)) {
+      patterns.add('web-ui-pattern:script-bridge');
+    }
+    if (/\bwebbrowserset\s*\(/i.test(line) && /remote-debugging-port|remote-allow-origins/i.test(line)) {
+      patterns.add('web-ui-pattern:remote-debugging');
+    }
+  }
+
+  return {
+    patterns: [...patterns].sort((left, right) => left.localeCompare(right)),
+  };
+}
+
 function isRiskySourceOrigin(sourceOrigin: SourceOrigin | undefined): sourceOrigin is SourceOrigin {
   return Boolean(sourceOrigin && RISKY_SOURCE_ORIGINS.includes(sourceOrigin));
 }
@@ -171,11 +356,20 @@ function buildHotspotRecommendations(categories: readonly PowerBuilderTechnicalD
   if (categories.includes('dynamic-sql')) {
     recommendations.add('Aislar SQL dinámico o fijar plantillas/contratos antes de modernizar el objeto.');
   }
+  if (categories.includes('lifecycle-risk')) {
+    recommendations.add('Revisar create/destroy, super calls y hooks constructor/destructor antes de modernizar el objeto.');
+  }
   if (categories.includes('datawindow-risk')) {
     recommendations.add('Revisar bindings DataObject/Retrieve y fijar targets antes de cambios estructurales.');
   }
   if (categories.includes('external-dependency')) {
-    recommendations.add('Inventariar DLL/PBX externas y validar su disponibilidad/portabilidad en el entorno objetivo.');
+    recommendations.add('Inventariar DLL/PBX externas, validar su disponibilidad/portabilidad y documentar su despliegue fuera del carril ORCA cuando aplique.');
+  }
+  if (categories.includes('modern-integration')) {
+    recommendations.add('Revisar contratos HTTP/REST/JSON y mantener redaction por defecto antes de automatizar cambios o ampliar soporte.');
+  }
+  if (categories.includes('web-ui-integration')) {
+    recommendations.add('Revisar navegación, bridge JavaScript y settings WebView2 sin inspeccionar contenido web remoto ni ampliar automatización write-enabled.');
   }
   if (categories.includes('complexity')) {
     recommendations.add('Reducir complejidad aproximada dividiendo el objeto o extrayendo helpers antes de automatizar cambios.');
@@ -193,6 +387,7 @@ function computePriority(categories: readonly PowerBuilderTechnicalDebtHotspotCa
     switch (category) {
       case 'obsolete':
       case 'dynamic-sql':
+      case 'lifecycle-risk':
       case 'datawindow-risk':
         score += 2;
         break;
@@ -220,7 +415,7 @@ function computeConfidence(
   obsoleteDiagnostics: number,
   dynamicSqlStatements: number,
 ): PowerBuilderTechnicalDebtConfidence {
-  if (obsoleteDiagnostics > 0 || dynamicSqlStatements > 0 || categories.includes('datawindow-risk')) {
+  if (obsoleteDiagnostics > 0 || dynamicSqlStatements > 0 || categories.includes('datawindow-risk') || categories.includes('lifecycle-risk')) {
     return 'high';
   }
   return 'medium';
@@ -309,22 +504,46 @@ export function buildPowerBuilderTechnicalDebtReport(
 
   let obsoleteFindings = 0;
   let dynamicSqlFindings = 0;
+  let lifecycleRiskFindings = 0;
   let externalDependencyFindings = 0;
+  let modernIntegrationFindings = 0;
+  let webUiIntegrationFindings = 0;
   let dataWindowRiskFindings = 0;
   let complexObjectFindings = 0;
 
   const hotspots = metrics.objects.flatMap((objectEntry) => {
     const objectDiagnostics = diagnosticsByObject.get(objectEntry.name.toLowerCase());
     const obsoleteDiagnostics = objectDiagnostics?.byCode.SD7 ?? 0;
-    const dataWindowDiagnostics = (objectDiagnostics?.byCode['DATAOBJECT-DYNAMIC'] ?? 0)
+    const dataObjectBindingDiagnostics = (objectDiagnostics?.byCode['DATAOBJECT-DYNAMIC'] ?? 0)
       + (objectDiagnostics?.byCode['DATAOBJECT-NOT-FOUND'] ?? 0)
-      + (objectDiagnostics?.byCode['DATAOBJECT-AMBIGUOUS'] ?? 0)
-      + (objectDiagnostics?.byCode['DATAWINDOW-PROPERTY-PATH-UNRESOLVED'] ?? 0)
-      + (objectDiagnostics?.byCode['RETRIEVE-ARITY-MISMATCH'] ?? 0)
-      + (objectDiagnostics?.byCode['TRANSACTION-BINDING-MISSING'] ?? 0)
+      + (objectDiagnostics?.byCode['DATAOBJECT-AMBIGUOUS'] ?? 0);
+    const dataWindowPathDiagnostics = objectDiagnostics?.byCode['DATAWINDOW-PROPERTY-PATH-UNRESOLVED'] ?? 0;
+    const retrieveArityDiagnostics = objectDiagnostics?.byCode['RETRIEVE-ARITY-MISMATCH'] ?? 0;
+    const transactionBindingDiagnostics = (objectDiagnostics?.byCode['TRANSACTION-BINDING-MISSING'] ?? 0)
       + (objectDiagnostics?.byCode['TRANSACTION-BINDING-UNKNOWN'] ?? 0)
       + (objectDiagnostics?.byCode['TRANSACTION-BINDING-DYNAMIC'] ?? 0);
+    const dataWindowDiagnostics = dataObjectBindingDiagnostics
+      + dataWindowPathDiagnostics
+      + retrieveArityDiagnostics
+      + transactionBindingDiagnostics;
+    const lifecycleMissingSuperDiagnostics = Object.entries(objectDiagnostics?.byCode ?? {}).reduce((count, [codeKey, total]) => {
+      return count + (codeKey.startsWith('MISSING-SUPER-') ? total : 0);
+    }, 0);
+    const lifecycleMissingTriggerDiagnostics = Object.entries(objectDiagnostics?.byCode ?? {}).reduce((count, [codeKey, total]) => {
+      return count + (codeKey.startsWith('MISSING-TRIGGER-') ? total : 0);
+    }, 0);
+    const lifecycleUnresolvedHookDiagnostics = (objectDiagnostics?.byCode['UNRESOLVED-CONSTRUCTOR'] ?? 0)
+      + (objectDiagnostics?.byCode['UNRESOLVED-DESTRUCTOR'] ?? 0);
+    const lifecycleRiskDiagnostics = lifecycleMissingSuperDiagnostics
+      + lifecycleMissingTriggerDiagnostics
+      + lifecycleUnresolvedHookDiagnostics;
     const dynamicSql = countDynamicSqlStatements(objectEntry.uri, kb);
+    const externalDependencyInsight = collectExternalDependencyInsight(objectEntry.uri, objectEntry.name, kb);
+    const modernIntegrationInsight = collectModernIntegrationInsight(objectEntry.uri, kb);
+    const webBrowserIntegrationInsight = collectWebBrowserIntegrationInsight(objectEntry.uri, kb);
+    const webBrowserUsages = objectEntry.metrics.webBrowserUsages ?? 0;
+    const httpIntegrationUsages = objectEntry.metrics.httpIntegrationUsages ?? 0;
+    const jsonIntegrationUsages = objectEntry.metrics.jsonIntegrationUsages ?? 0;
     const categories: PowerBuilderTechnicalDebtHotspotCategory[] = [];
     const evidence = new Set<string>();
 
@@ -338,18 +557,89 @@ export function buildPowerBuilderTechnicalDebtReport(
       dynamicSql.evidence.forEach((entry) => evidence.add(entry));
       dynamicSqlFindings += dynamicSql.total;
     }
+    if (lifecycleRiskDiagnostics > 0) {
+      categories.push('lifecycle-risk');
+      evidence.add(`diagnostic:lifecycle=${lifecycleRiskDiagnostics}`);
+      if (lifecycleMissingSuperDiagnostics > 0) {
+        evidence.add(`diagnostic:lifecycle-missing-super=${lifecycleMissingSuperDiagnostics}`);
+      }
+      if (lifecycleMissingTriggerDiagnostics > 0) {
+        evidence.add(`diagnostic:lifecycle-missing-trigger=${lifecycleMissingTriggerDiagnostics}`);
+      }
+      if (lifecycleUnresolvedHookDiagnostics > 0) {
+        evidence.add(`diagnostic:lifecycle-unresolved-hook=${lifecycleUnresolvedHookDiagnostics}`);
+      }
+      lifecycleRiskFindings += lifecycleRiskDiagnostics;
+    }
     for (const anchor of objectEntry.embeddedSqlAnchors ?? []) {
       evidence.add(`sql-anchor:${anchor.keyword.toLowerCase()}:${anchor.startLine + 1}-${anchor.endLine + 1}`);
     }
     if (objectEntry.metrics.externalDependencies > 0 || (objectDiagnostics?.byCode['NATIVE-DEPENDENCY'] ?? 0) > 0) {
       categories.push('external-dependency');
       evidence.add(`metric:externalDependencies=${objectEntry.metrics.externalDependencies}`);
+      if (externalDependencyInsight.total > 0) {
+        evidence.add(`external-consumers=${externalDependencyInsight.total}`);
+        evidence.add('external-risk:native-runtime');
+        evidence.add('external-build-impact:manual-native-deployment');
+      }
+      for (const [kind, total] of Object.entries(externalDependencyInsight.byKind)) {
+        if (total > 0) {
+          evidence.add(`external-kind:${kind}=${total}`);
+        }
+      }
+      for (const alias of externalDependencyInsight.aliases) {
+        evidence.add(`external-alias:${alias}`);
+      }
+      if (externalDependencyInsight.byKind.pbx > 0) {
+        evidence.add('external-risk:pbni-runtime-surface');
+        evidence.add('external-orca-impact:manual-pbx-packaging');
+      }
+      if (externalDependencyInsight.byKind.unknown > 0) {
+        evidence.add('external-risk:unknown-binary-classification');
+      }
       externalDependencyFindings += Math.max(objectEntry.metrics.externalDependencies, 1);
     }
-    if (objectEntry.metrics.linkedDataWindows > 0 && dataWindowDiagnostics > 0) {
+    if (httpIntegrationUsages > 0 || jsonIntegrationUsages > 0) {
+      categories.push('modern-integration');
+      if (httpIntegrationUsages > 0) {
+        evidence.add(`metric:httpIntegrationUsages=${httpIntegrationUsages}`);
+        evidence.add('integration-surface:http-rest');
+      }
+      if (jsonIntegrationUsages > 0) {
+        evidence.add(`metric:jsonIntegrationUsages=${jsonIntegrationUsages}`);
+        evidence.add('integration-surface:json');
+      }
+      evidence.add('integration-risk:redaction-required');
+      modernIntegrationInsight.endpoints.forEach((entry) => evidence.add(entry));
+      modernIntegrationInsight.patterns.forEach((entry) => evidence.add(entry));
+      modernIntegrationFindings += httpIntegrationUsages + jsonIntegrationUsages;
+    }
+    if (webBrowserUsages > 0) {
+      categories.push('web-ui-integration');
+      evidence.add(`metric:webBrowserUsages=${webBrowserUsages}`);
+      evidence.add('web-ui-surface:webbrowser');
+      webBrowserIntegrationInsight.patterns.forEach((entry) => evidence.add(entry));
+      evidence.add('web-ui-risk:no-content-inspection');
+      webUiIntegrationFindings++;
+    }
+    if (dataWindowDiagnostics > 0) {
       categories.push('datawindow-risk');
-      evidence.add(`metric:linkedDataWindows=${objectEntry.metrics.linkedDataWindows}`);
+      if (objectEntry.metrics.linkedDataWindows > 0) {
+        evidence.add(`metric:linkedDataWindows=${objectEntry.metrics.linkedDataWindows}`);
+      }
       evidence.add(`diagnostic:datawindow=${dataWindowDiagnostics}`);
+      if (dataObjectBindingDiagnostics > 0) {
+        evidence.add(`diagnostic:dataobject-binding=${dataObjectBindingDiagnostics}`);
+      }
+      if (transactionBindingDiagnostics > 0) {
+        evidence.add(`diagnostic:transaction-binding=${transactionBindingDiagnostics}`);
+      }
+      if (retrieveArityDiagnostics > 0) {
+        evidence.add(`diagnostic:retrieve-arity=${retrieveArityDiagnostics}`);
+      }
+      if (dataWindowPathDiagnostics > 0) {
+        evidence.add(`diagnostic:datawindow-path=${dataWindowPathDiagnostics}`);
+      }
       dataWindowRiskFindings++;
     }
     if (objectEntry.metrics.approximateComplexity >= 4) {
@@ -383,6 +673,10 @@ export function buildPowerBuilderTechnicalDebtReport(
         diagnostics: objectEntry.metrics.diagnostics,
         externalDependencies: objectEntry.metrics.externalDependencies,
         linkedDataWindows: objectEntry.metrics.linkedDataWindows,
+        lifecycleWarnings: objectEntry.metrics.lifecycleWarnings,
+        webBrowserUsages,
+        httpIntegrationUsages,
+        jsonIntegrationUsages,
         dynamicSqlStatements: dynamicSql.total,
         obsoleteDiagnostics,
       },
@@ -425,7 +719,10 @@ export function buildPowerBuilderTechnicalDebtReport(
       totalRecommendations: finalRecommendations.length,
       obsoleteFindings,
       dynamicSqlFindings,
+      lifecycleRiskFindings,
       externalDependencyFindings,
+      modernIntegrationFindings,
+      webUiIntegrationFindings,
       dataWindowRiskFindings,
       complexObjectFindings,
       sourceOriginRiskFindings: RISKY_SOURCE_ORIGINS.reduce((count, origin) => count + (workspaceState.getSourceOriginSummary()[origin] ?? 0), 0),

@@ -25,8 +25,9 @@ suite('unit/catalogConsistency (B132)', () => {
     const r = buildCatalogConsistencyReport();
     assert.ok((r.datasetCounts['manual-core'] ?? 0) > 0);
     assert.ok((r.datasetCounts['generated'] ?? 0) > 0);
-    assert.ok((r.manualOverlayModes.gap ?? 0) > 0);
     assert.ok((r.manualOverlayModes.enrichment ?? 0) > 0);
+    assert.ok((r.manualOverlayModes.gap ?? 0) === 0);
+    assert.ok((r.manualOverlayModes.candidate ?? 0) === 0);
     assert.ok((r.localization.locales.es?.overlayCount ?? 0) > 0);
     assert.equal(r.adoption.summary.recommendedPolicy, 'generated-primary-with-manual-overlays');
     assert.equal(r.adoption.summary.officialDomainsWithGaps.length, 0);

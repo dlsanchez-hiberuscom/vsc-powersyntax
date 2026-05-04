@@ -166,4 +166,75 @@ suite('unit/safeEditPlan (B219)', () => {
     assert.ok(plan.riskReasons?.includes('dynamic-strings:1'));
     assert.ok(plan.blockedReasons.some((reason) => reason.includes('DataWindow dinámico') || reason.includes('strings')));
   });
+
+  test('expone la razón específica cuando el símbolo aparece dentro de SQL dinámico', async () => {
+    const mainUri = 'file:///proj/lib_app.pbl/w_dynamic_sql.srw';
+    const document = setupAnalyzedDocument(mainUri, [
+      'forward',
+      'global type w_dynamic_sql from window',
+      'end type',
+      'end forward',
+      'global type w_dynamic_sql from window',
+      'end type',
+      'public subroutine of_customer();',
+      'end subroutine',
+      'public subroutine of_call();',
+      '  execute immediate "select of_customer from sales_order"',
+      '  of_customer()',
+      'end subroutine'
+    ].join('\r\n'));
+
+    const lines = document.getText().split(/\r?\n/);
+    const callLine = lines.findIndex((line) => line.trim() === 'of_customer()');
+    const callCharacter = lines[callLine].indexOf('of_customer') + 2;
+
+    const plan = await buildSafeEditPlan(
+      document,
+      {
+        line: callLine,
+        character: callCharacter,
+        maxSafeReferences: 16,
+      },
+      kb,
+      graph,
+      catalog,
+      async (uri) => contentsByUri.get(uri) ?? null,
+      { workspaceState }
+    );
+
+    assert.equal(plan.available, true);
+    assert.equal(plan.blocked, true);
+    assert.equal(plan.invocationRisk, 'dynamic');
+    assert.ok(plan.riskReasons?.includes('dynamic-strings:1'));
+    assert.ok(plan.riskReasons?.includes('dynamic-sql:1'));
+  });
+
+  test('arrastra la policy de knowledge packs al safe edit plan y la refleja en riesgos y docs', async () => {
+    const uri = 'file:///proj/lib_app.pbl/w_browser_host.srw';
+    const document = setupAnalyzedDocument(uri, [
+      'forward',
+      'global type w_browser_host from webbrowser',
+      'end type',
+      'end forward',
+      'global type w_browser_host from webbrowser',
+      'end type',
+      'event open();',
+      'end event'
+    ].join('\r\n'));
+
+    const plan = await buildSafeEditPlan(
+      document,
+      undefined,
+      kb,
+      graph,
+      catalog,
+      async (loadedUri) => contentsByUri.get(loadedUri) ?? null,
+      { workspaceState }
+    );
+
+    assert.equal(plan.available, true);
+    assert.equal(plan.frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.ok(plan.risks.some((entry) => entry.includes('knowledge packs curados')));
+    assert.ok(plan.docsToReview.includes('docs/developer-workflows.md'));
+  });
 });

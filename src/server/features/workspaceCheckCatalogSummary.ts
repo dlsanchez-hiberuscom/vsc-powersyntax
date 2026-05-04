@@ -1,22 +1,12 @@
-import type { ApiWorkspaceCheckCatalogSummary } from '../../shared/publicApi';
+import type {
+  ApiCatalogAdoptionRecommendedPolicy,
+  ApiWorkspaceCheckCatalogAdrComplianceSummary,
+  ApiWorkspaceCheckCatalogSummary,
+} from '../../shared/publicApi';
 
-import { PB_GENERATED_COMPLETENESS } from '../knowledge/system/generated/generatedCompleteness.generated';
-import { PB_SYSTEM_SYMBOL_REGISTRY } from '../knowledge/system/registry/registry';
-import type { PbSystemSymbolEntry } from '../knowledge/system/types';
-
-function buildLogicalOverlapKey(
-  entry: Pick<PbSystemSymbolEntry, 'domain' | 'kind' | 'namespace' | 'invocation' | 'enumValueOf' | 'normalizedName' | 'normalizedOwnerTypes'>,
-): string {
-  return [
-    entry.domain,
-    entry.kind,
-    entry.namespace,
-    entry.invocation,
-    entry.enumValueOf ?? '',
-    entry.normalizedName,
-    entry.normalizedOwnerTypes.join('+') || 'all',
-  ].join('|');
-}
+import { buildCatalogConsistencyReport } from '../knowledge/system/consistency';
+import { PB_GENERATED_OFFICIAL_COVERAGE } from '../knowledge/system/generated/officialCoverage.generated';
+import { listCatalogPolicyResolvedEntriesForAudit } from '../knowledge/system/services/queryService';
 
 function toConsistencyStatus(summary: {
   duplicates: number;
@@ -42,72 +32,137 @@ function toConsistencyStatus(summary: {
 
 let cachedSummary: ApiWorkspaceCheckCatalogSummary | undefined;
 
+type OfficialCoverageDomain = keyof typeof PB_GENERATED_OFFICIAL_COVERAGE;
+type OfficialCoverageEntry = (typeof PB_GENERATED_OFFICIAL_COVERAGE)[OfficialCoverageDomain];
+
+const OFFICIAL_COVERAGE_BY_DOMAIN = PB_GENERATED_OFFICIAL_COVERAGE as Partial<Record<string, OfficialCoverageEntry>>;
+
+function buildOfficialCoverageDriftDomains(
+  report: ReturnType<typeof buildCatalogConsistencyReport>,
+): string[] {
+  const driftDomains: string[] = [];
+
+  for (const domain of Object.keys(OFFICIAL_COVERAGE_BY_DOMAIN).sort((left, right) => left.localeCompare(right))) {
+    const domainReport = report.adoption.domains[domain as keyof typeof report.adoption.domains];
+    const coverage = domainReport?.officialCoverage;
+    const generatedCoverage = OFFICIAL_COVERAGE_BY_DOMAIN[domain];
+
+    if (!coverage || !generatedCoverage) {
+      driftDomains.push(domain);
+      continue;
+    }
+
+    if (
+      coverage.measurement !== generatedCoverage.measurement
+      || coverage.coveredCount !== generatedCoverage.coveredCount
+      || coverage.missingCount !== generatedCoverage.missingCount
+      || domainReport?.officialCount !== generatedCoverage.officialCount
+    ) {
+      driftDomains.push(domain);
+    }
+  }
+
+  return driftDomains;
+}
+
+function buildAdrComplianceStatus(
+  issueCount: number,
+  candidateCount: number,
+): ApiWorkspaceCheckCatalogAdrComplianceSummary['status'] {
+  if (issueCount > 0) {
+    return 'failed';
+  }
+
+  if (candidateCount > 0) {
+    return 'warning';
+  }
+
+  return 'passed';
+}
+
+function cloneAdrCompliance(
+  summary: ApiWorkspaceCheckCatalogAdrComplianceSummary,
+): ApiWorkspaceCheckCatalogAdrComplianceSummary {
+  return {
+    ...summary,
+    manualPrimaryDomains: [...summary.manualPrimaryDomains],
+    officialDomainsWithGaps: [...summary.officialDomainsWithGaps],
+    officialCoverageDriftDomains: [...summary.officialCoverageDriftDomains],
+    overlayCounts: { ...summary.overlayCounts },
+  };
+}
+
+function cloneWorkspaceCheckCatalogSummary(
+  summary: ApiWorkspaceCheckCatalogSummary,
+): ApiWorkspaceCheckCatalogSummary {
+  return {
+    ...summary,
+    ...(summary.adrCompliance ? { adrCompliance: cloneAdrCompliance(summary.adrCompliance) } : {}),
+  };
+}
+
 export function buildWorkspaceCheckCatalogSummary(): ApiWorkspaceCheckCatalogSummary {
   if (cachedSummary) {
-    return { ...cachedSummary };
+    return cloneWorkspaceCheckCatalogSummary(cachedSummary);
   }
 
-  const entries = PB_SYSTEM_SYMBOL_REGISTRY.entries;
-  const seenIds = new Map<string, number>();
-  const logicalBuckets = new Map<string, { hasGenerated: boolean; hasManualWithoutOverlay: boolean }>();
-  let missingSignatures = 0;
-  let invalidEnumTypes = 0;
+  const report = buildCatalogConsistencyReport();
+  const officialCoverageDriftDomains = buildOfficialCoverageDriftDomains(report);
+  const candidateHotPathViolations = listCatalogPolicyResolvedEntriesForAudit()
+    .filter((entry) => entry.manualOverlay?.mode === 'candidate')
+    .length;
+  const adrIssueCount = report.adoption.summary.officialDomainsWithGaps.length
+    + officialCoverageDriftDomains.length
+    + report.adoption.summary.scraperErrorCount
+    + candidateHotPathViolations
+    + report.localization.incompleteOverlays.length
+    + report.localization.invalidParameterTargets.length
+    + report.localization.recoveredTargetIds.length;
 
-  for (const entry of entries) {
-    seenIds.set(entry.id, (seenIds.get(entry.id) ?? 0) + 1);
-
-    if (entry.signatures.length === 0) {
-      missingSignatures += 1;
-    }
-
-    if (entry.kind === 'enumerated-type' && entry.name.endsWith('!')) {
-      invalidEnumTypes += 1;
-    }
-
-    const logicalKey = buildLogicalOverlapKey(entry);
-    const bucket = logicalBuckets.get(logicalKey) ?? { hasGenerated: false, hasManualWithoutOverlay: false };
-    if (entry.dataset === 'generated') {
-      bucket.hasGenerated = true;
-    }
-    if (entry.dataset === 'manual-core' && !entry.manualOverlay) {
-      bucket.hasManualWithoutOverlay = true;
-    }
-    logicalBuckets.set(logicalKey, bucket);
-  }
-
-  let duplicates = 0;
-  for (const occurrences of seenIds.values()) {
-    if (occurrences > 1) {
-      duplicates += 1;
-    }
-  }
-
-  let generatedManualConflicts = 0;
-  for (const bucket of logicalBuckets.values()) {
-    if (bucket.hasGenerated && bucket.hasManualWithoutOverlay) {
-      generatedManualConflicts += 1;
-    }
-  }
-
-  const officialDomainsWithGaps = Object.values(PB_GENERATED_COMPLETENESS).reduce((total, entry) => {
-    return total + (entry.missingCount > 0 ? 1 : 0);
-  }, 0);
+  const adrCompliance: ApiWorkspaceCheckCatalogAdrComplianceSummary = {
+    status: buildAdrComplianceStatus(adrIssueCount, report.adoption.summary.candidateCount),
+    issueCount: adrIssueCount,
+    recommendedPolicy: report.adoption.summary.recommendedPolicy as ApiCatalogAdoptionRecommendedPolicy,
+    completenessMode: report.adoption.completenessMode,
+    officialDomainCount: report.adoption.officialDomains.length,
+    manualPrimaryDomains: [...report.adoption.manualOnlyDomains],
+    officialDomainsWithGaps: [...report.adoption.summary.officialDomainsWithGaps],
+    officialCoverageDriftDomains,
+    overlayCounts: {
+      gap: report.adoption.summary.gapCount,
+      enrichment: report.adoption.summary.enrichmentCount,
+      override: report.adoption.summary.overrideCount,
+      candidate: report.adoption.summary.candidateCount,
+    },
+    candidateCount: report.adoption.summary.candidateCount,
+    candidateHotPathViolations,
+    scraperErrorCount: report.adoption.summary.scraperErrorCount,
+    localizationIncompleteOverlays: report.localization.incompleteOverlays.length,
+    localizationInvalidParameterTargets: report.localization.invalidParameterTargets.length,
+    localizationRecoveredTargetIds: report.localization.recoveredTargetIds.length,
+    officialEntries: report.provenance.byAuthority.official ?? 0,
+    curatedEntries: report.provenance.byAuthority.curated ?? 0,
+    generatedEntries: report.provenance.byKind.generated ?? 0,
+    manualEntries: report.provenance.byKind.manual ?? 0,
+  };
 
   cachedSummary = {
     available: true,
-    totalEntries: entries.length,
-    duplicates,
-    missingSignatures,
-    invalidEnumTypes,
-    generatedManualConflicts,
+    totalEntries: report.total,
+    duplicates: report.duplicateIds.length,
+    missingSignatures: report.missingSignatures.length,
+    invalidEnumTypes: report.invalidEnumeratedTypeNames.length,
+    orphanLocalizationOverlays: report.localization.orphanOverlays.length,
+    generatedManualConflicts: report.manualGeneratedOverlapsWithoutOverlay.length,
     consistencyStatus: toConsistencyStatus({
-      duplicates,
-      missingSignatures,
-      invalidEnumTypes,
-      generatedManualConflicts,
-      officialDomainsWithGaps,
+      duplicates: report.duplicateIds.length,
+      missingSignatures: report.missingSignatures.length,
+      invalidEnumTypes: report.invalidEnumeratedTypeNames.length,
+      generatedManualConflicts: report.manualGeneratedOverlapsWithoutOverlay.length,
+      officialDomainsWithGaps: report.adoption.summary.officialDomainsWithGaps.length,
     }),
+    adrCompliance,
   };
 
-  return { ...cachedSummary };
+  return cloneWorkspaceCheckCatalogSummary(cachedSummary);
 }

@@ -158,6 +158,226 @@ suite('unit/powerBuilderTechnicalDebtReport (B261)', () => {
     assert.ok(hotspot?.recommendations.some((entry) => /obsolete|sql dinámico|datawindow/i.test(entry)));
   });
 
+  test('publica riesgo lifecycle específico cuando faltan super calls o hooks resolubles', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/w_lifecycle.srw';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type w_lifecycle from window',
+      'end type',
+      'end forward',
+      'global type w_lifecycle from window',
+      'end type',
+      'event open();',
+      'end event',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const diagnosticsSummary = buildDiagnosticsSnapshot(new Map([
+      [focusUri, {
+        diagnostics: [
+          {
+            severity: DiagnosticSeverity.Warning,
+            source: 'PowerScript',
+            code: 'missing-super-create',
+            message: 'missing super create',
+            range: { start: { line: 6, character: 0 }, end: { line: 6, character: 8 } },
+          },
+          {
+            severity: DiagnosticSeverity.Warning,
+            source: 'PowerScript',
+            code: 'missing-trigger-constructor',
+            message: 'missing constructor trigger',
+            range: { start: { line: 6, character: 0 }, end: { line: 6, character: 8 } },
+          },
+          {
+            severity: DiagnosticSeverity.Warning,
+            source: 'PowerScript',
+            code: 'unresolved-destructor',
+            message: 'unresolved destructor hook',
+            range: { start: { line: 6, character: 0 }, end: { line: 6, character: 8 } },
+          },
+        ],
+        projectKey: 'file:///proj/app.pbt',
+        projectLabel: 'app',
+        objectKey: 'w_lifecycle',
+        objectLabel: 'w_lifecycle',
+        sourceOrigin: 'pbl-folder-source',
+      }],
+    ]));
+
+    const report = buildPowerBuilderTechnicalDebtReport(undefined, kb, workspaceState, diagnosticsSummary);
+    const hotspot = report.hotspots.find((entry) => entry.name === 'w_lifecycle');
+
+    assert.ok(hotspot);
+    assert.equal(report.summary.lifecycleRiskFindings, 3);
+    assert.ok(hotspot?.categories.includes('lifecycle-risk'));
+    assert.equal(hotspot?.metrics.lifecycleWarnings, 3);
+    assert.ok(hotspot?.evidence.includes('diagnostic:lifecycle-missing-super=1'));
+    assert.ok(hotspot?.evidence.includes('diagnostic:lifecycle-missing-trigger=1'));
+    assert.ok(hotspot?.evidence.includes('diagnostic:lifecycle-unresolved-hook=1'));
+    assert.ok(hotspot?.recommendations.some((entry) => /lifecycle|ancestor|hook/i.test(entry)));
+  });
+
+  test('desglosa dependencias externas por tipo y alias en el hotspot nativo', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/w_native.srw';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward prototypes',
+      'function int MessageBeep(int ai_type) library "user32.dll" alias for "MessageBeep"',
+      'subroutine PBXCall() library "native_driver.pbx" alias for "PBXEntry"',
+      'function int Mystery() library "legacy.bin"',
+      'end prototypes',
+      'forward',
+      'global type w_native from window',
+      'end type',
+      'end forward',
+      'global type w_native from window',
+      'end type',
+      'event open();',
+      '  MessageBeep(1)',
+      '  PBXCall()',
+      '  Mystery()',
+      'end event',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const report = buildPowerBuilderTechnicalDebtReport(undefined, kb, workspaceState, null);
+    const hotspot = report.hotspots.find((entry) => entry.name === 'w_native');
+
+    assert.ok(hotspot);
+    assert.ok(hotspot?.categories.includes('external-dependency'));
+    assert.equal(hotspot?.metrics.externalDependencies, 3);
+    assert.ok(hotspot?.evidence.includes('external-consumers=3'));
+    assert.ok(hotspot?.evidence.includes('external-kind:dll=1'));
+    assert.ok(hotspot?.evidence.includes('external-kind:pbx=1'));
+    assert.ok(hotspot?.evidence.includes('external-kind:unknown=1'));
+    assert.ok(hotspot?.evidence.includes('external-alias:PBXEntry'));
+    assert.ok(hotspot?.evidence.includes('external-risk:native-runtime'));
+    assert.ok(hotspot?.evidence.includes('external-build-impact:manual-native-deployment'));
+    assert.ok(hotspot?.evidence.includes('external-risk:pbni-runtime-surface'));
+    assert.ok(hotspot?.evidence.includes('external-orca-impact:manual-pbx-packaging'));
+  });
+
+  test('publica integración HTTP/REST/JSON como hotspot moderno visible', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/n_http_json_usage.sru';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type n_http_json_usage from httpclient',
+      'end type',
+      'end forward',
+      'global type n_http_json_usage from httpclient',
+      'restclient inv_rest',
+      'jsonparser inv_parser',
+      'jsongenerator inv_writer',
+      'event open();',
+      '  integer li_rc',
+      '  li_rc = inv_rest.Get("https://api.example.test/orders/42?token=secret")',
+      '  inv_rest.SetRequestHeader("Authorization", "Bearer super-secret")',
+      '  inv_rest.SetRequestHeader("Content-Type", "application/json")',
+      'end event',
+      'end type',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const report = buildPowerBuilderTechnicalDebtReport(undefined, kb, workspaceState, null);
+    const hotspot = report.hotspots.find((entry) => entry.name === 'n_http_json_usage');
+
+    assert.ok(hotspot);
+    assert.ok(hotspot?.categories.includes('modern-integration'));
+    assert.equal(hotspot?.metrics.httpIntegrationUsages, 2);
+    assert.equal(hotspot?.metrics.jsonIntegrationUsages, 2);
+    assert.ok(hotspot?.evidence.includes('metric:httpIntegrationUsages=2'));
+    assert.ok(hotspot?.evidence.includes('metric:jsonIntegrationUsages=2'));
+    assert.ok(hotspot?.evidence.includes('integration-endpoint:https://redacted-host/...'));
+    assert.ok(hotspot?.evidence.includes('integration-pattern:http-verb:get'));
+    assert.ok(hotspot?.evidence.includes('integration-pattern:authorization-header'));
+    assert.ok(hotspot?.evidence.includes('integration-pattern:content-type-header'));
+    assert.ok(hotspot?.evidence.includes('integration-pattern:json-payload'));
+    assert.ok(hotspot?.evidence.every((entry) => !entry.includes('api.example.test')));
+    assert.ok(hotspot?.evidence.every((entry) => !entry.includes('orders/42')));
+    assert.ok(hotspot?.evidence.every((entry) => !entry.includes('token=secret')));
+    assert.ok(hotspot?.evidence.every((entry) => !entry.includes('super-secret')));
+    assert.equal(report.summary.modernIntegrationFindings, 4);
+    assert.ok(hotspot?.recommendations.some((entry) => /HTTP|REST|JSON|redact/i.test(entry)));
+  });
+
+  test('publica patrones WebBrowser/WebView2 como hotspot visible de interop web', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/w_browser_host.srw';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type w_browser_host from window',
+      'end type',
+      'end forward',
+      'global type w_browser_host from window',
+      'webbrowser wb_shell',
+      'end type',
+      'event open();',
+      '  wb_shell.Navigate("https://portal.example.test/home")',
+      '  wb_shell.EvaluateJavascriptAsync("window.chrome.webview.postMessage(\'ready\')")',
+      '  li_rc = WebBrowserSet("remote-debugging-port", "8210")',
+      'end event',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const report = buildPowerBuilderTechnicalDebtReport(undefined, kb, workspaceState, null);
+    const hotspot = report.hotspots.find((entry) => entry.name === 'w_browser_host');
+
+    assert.ok(hotspot);
+    assert.ok(hotspot?.categories.includes('web-ui-integration'));
+    assert.equal(hotspot?.metrics.webBrowserUsages, 1);
+    assert.ok(hotspot?.evidence.includes('metric:webBrowserUsages=1'));
+    assert.ok(hotspot?.evidence.includes('web-ui-surface:webbrowser'));
+    assert.ok(hotspot?.evidence.includes('web-ui-pattern:navigation'));
+    assert.ok(hotspot?.evidence.includes('web-ui-pattern:script-bridge'));
+    assert.ok(hotspot?.evidence.includes('web-ui-pattern:remote-debugging'));
+    assert.ok(hotspot?.evidence.includes('web-ui-risk:no-content-inspection'));
+    assert.equal(report.summary.webUiIntegrationFindings, 1);
+    assert.ok(hotspot?.recommendations.some((entry) => /WebView2|JavaScript|web/i.test(entry)));
+  });
+
   test('resume riesgos sourceOrigin y ORCA/PBL con recomendaciones accionables', () => {
     workspaceState.addRoot('libraries', 'file:///legacy/lib_legacy.pbl');
     workspaceState.addSourceFile('file:///legacy/lib_legacy.pbl/w_legacy.srw', 'pbl-folder-source');
@@ -182,5 +402,78 @@ suite('unit/powerBuilderTechnicalDebtReport (B261)', () => {
     ));
     assert.equal(report.summary.sourceOriginRiskFindings, 1);
     assert.equal(report.summary.legacyWorkspaceRiskFindings, 2);
+  });
+
+  test('mantiene riesgo DataWindow cuando el flujo Retrieve/Update queda degradado por binding dinámico o transacción ausente', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/w_txn.srw';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type w_txn from window',
+      'end type',
+      'end forward',
+      'global type w_txn from window',
+      'end type',
+      '',
+      'event open();',
+      '  string ls_dataobject',
+      '  ls_dataobject = "d_orders"',
+      '  dw_orders.DataObject = ls_dataobject',
+      '  dw_orders.Retrieve(1)',
+      'end event',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const diagnosticsSummary = buildDiagnosticsSnapshot(new Map([
+      [focusUri, {
+        diagnostics: [
+          {
+            severity: DiagnosticSeverity.Information,
+            source: 'PowerScript',
+            code: 'dataobject-dynamic',
+            message: 'dynamic dataobject',
+            range: { start: { line: 10, character: 2 }, end: { line: 10, character: 24 } },
+          },
+          {
+            severity: DiagnosticSeverity.Warning,
+            source: 'PowerScript',
+            code: 'transaction-binding-missing',
+            message: 'missing transaction binding',
+            range: { start: { line: 11, character: 12 }, end: { line: 11, character: 20 } },
+          },
+          {
+            severity: DiagnosticSeverity.Warning,
+            source: 'PowerScript',
+            code: 'retrieve-arity-mismatch',
+            message: 'retrieve arity mismatch',
+            range: { start: { line: 11, character: 12 }, end: { line: 11, character: 20 } },
+          },
+        ],
+        projectKey: 'file:///proj/app.pbt',
+        projectLabel: 'app',
+        objectKey: 'w_txn',
+        objectLabel: 'w_txn',
+        sourceOrigin: 'pbl-folder-source',
+      }],
+    ]));
+
+    const report = buildPowerBuilderTechnicalDebtReport(undefined, kb, workspaceState, diagnosticsSummary);
+    const hotspot = report.hotspots.find((entry) => entry.name === 'w_txn');
+
+    assert.ok(hotspot);
+    assert.ok(hotspot?.categories.includes('datawindow-risk'));
+    assert.ok(hotspot?.evidence.includes('diagnostic:dataobject-binding=1'));
+    assert.ok(hotspot?.evidence.includes('diagnostic:transaction-binding=1'));
+    assert.ok(hotspot?.evidence.includes('diagnostic:retrieve-arity=1'));
   });
 });

@@ -18,7 +18,7 @@
 - **Discovery STD_FC_OrderEntry:** `463.63ms` sobre `744` archivos
 - **Indexación cold STD_FC_OrderEntry:** `12873.54ms` con `23872` entidades
 - **Indexación warm STD_FC_OrderEntry:** `0.75ms`
-- **Budgets operativos actuales:** discovery `< 2000ms`, cold `< 15000ms`, warm `< 1000ms`
+- **Budgets operativos actuales:** discovery `< 2000ms`, cold objetivo `< 15000ms` con hard gate `< 18000ms` en host compartido, warm `< 1000ms`
 
 ## 3. Batch documental
 

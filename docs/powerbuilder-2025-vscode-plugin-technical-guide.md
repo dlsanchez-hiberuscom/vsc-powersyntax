@@ -710,7 +710,7 @@ Estado auditado 2026-05-03:
 - `B322` queda ya cerrada: `officialCoverage.generated.ts` cubre `keywords` y `reserved-words` sin gaps, `generated.generated.ts` materializa `PB_GENERATED_KEYWORDS` y `PB_GENERATED_RESERVED_WORDS`, y `generatedKeywordLexemes.generated.ts` mantiene `PB_KEYWORDS` alineado con vocabulario oficial como `PUBLIC`, `COMMIT`, `NAMESPACE`, `WITH`, `SYSTEMREAD` y `XOR` sin convertir `pronouns` ni `system-globals` en la fuente primaria del dominio.
 - `B357` queda ya cerrada: el catálogo manual se reparte ahora en `language/`, `datawindow/`, `runtime/`, `core/` y `ownerTypes/`; `manual/common.ts` conserva sólo factories/helpers, `manual/sources.ts` centraliza provenance base y `manual/index.ts` publica agregadores estables para que `registry/datasets.ts`, `nativeAncestors.ts` y el carril generated no dependan de rutas internas de slices.
 - `B358` queda ya cerrada: el carril visual de `system-object-datatypes` vive ahora en `manual/visual/` (`visualObjects`, `textControls`, `listControls`, `drawingControls`, `dataControls`, `ribbonControls`, `oleVisualControls`), `Application` queda fijado en runtime/system, `OLEControl`/`OLECustomControl` pasan al rail visual y tipos como `MDIFrame`, `MDIClient`, `MenuCascade`, `RibbonApplicationMenu`, `RibbonPanelItem` y `WindowActiveX` quedan alineados entre catálogo, owner groups, ancestros nativos y `PB_BUILTIN_TYPES`.
-- `B359` queda ya cerrada: `manual/runtime/` y `manual/integration/` completan el carril nonvisual moderno en slices explícitas (`systemTypes`, `errors`, `reflection`, `ole`, `mail`, `profiling`, `json`, `http`, `rest`, `oauth`, `pdf`, `filesystem`, `compression`, `crypto`, `dotnet`), el catálogo fija casing canónico para `Inet`, `RESTClient`, `MailFileDescription` y `MailMessage`, y familias representativas como `SMTPClient`, `ResourceResponse`, `PDFPage`, `PDFTableOfContents`, `TraceTreeRoutine` y `PowerServerResult` quedan curadas ya en `manual-core` con `PB_BUILTIN_TYPES` alineado sin remezclar visual con runtime/nonvisual.
+- `B359` queda ya cerrada: `manual/runtime/` y `manual/integration/` completan el rail curado nonvisual moderno en slices explícitas (`systemTypes`, `errors`, `reflection`, `ole`, `mail`, `profiling`, `json`, `http`, `rest`, `oauth`, `pdf`, `filesystem`, `compression`, `crypto`, `dotnet`), el catálogo adopta `generated-primary-with-manual-overlays`, mantiene `WSConnection` como excepción `manual-only`, fija casing canónico para `Inet`, `RESTClient`, `MailFileDescription` y `MailMessage`, y cubre familias representativas como `SMTPClient`, `ResourceResponse`, `PDFPage`, `PDFTableOfContents`, `TraceTreeRoutine` y `PowerServerResult` con `PB_BUILTIN_TYPES` alineado sin remezclar visual con runtime/nonvisual.
 - `B360` queda ya cerrada: `manual/language/enumerations/` separa de forma estricta `enumerated-type` y `enumerated-value`, los tipos canónicos (`SaveAsType`, `DWBuffer`, `Encoding`, `WindowType`, etc.) ya no conservan `!`, los valores (`Text!`, `Primary!`, `EncodingUTF8!`, etc.) quedan ligados por `enumValueOf`, `queryService.ts`/`SystemCatalog.ts` publican `listEnumeratedTypes()` + `resolveEnumeratedType()`/`resolveEnumeratedValue()` y `buildCatalogConsistencyReport()` bloquea regresiones con `invalidEnumeratedTypeNames`.
 - `B361` queda ya cerrada: el mismo rail oficial de `script/generate_official_function_catalog.cjs` genera `enumeratedTypes.generated.ts`, `enumeratedValues.generated.ts`, `enumeratedCoverage.generated.ts` y `enumeratedProvenance.generated.ts` desde el concepto de enumerated datatypes, DataWindow constants y property pages de Appeon, recortando el contenido local antes del `navfooter` para no mezclar TOCs o páginas índice con membresía real.
 - Ese rail oficial puede dejar tipos sin `enumValues` cuando la documentación solo publica códigos enteros o rangos numéricos y no tokens con `!` defendibles, como ocurre con `SecureProtocol`; cualquier ampliación curada posterior pertenece a `B362`, no al extractor oficial.
@@ -732,6 +732,7 @@ Estado auditado 2026-05-03:
 - `B373` queda ya cerrada: `hover`, `completion` y `signatureHelp` consumen ya el rail localizado en producto real mediante `DocumentationService`, la setting pública `vscPowerSyntax.languageServices.documentationLocale` resuelve `auto|en|es` usando el locale de VS Code cuando procede, la `ServingCache` se segrega por idioma efectivo y el serving documental puede reutilizar overlays desde siblings manual/generated del mismo bucket lógico sin alterar el símbolo semántico finalmente servido.
 - `B374` queda ya cerrada: el mismo rail localizado incorpora ya un workflow de authoring explícito, con `domainCoverage`, overlays incompletos y `invalidParameterTargets` publicados desde `buildCatalogConsistencyReport().localization`, script determinista `npm run report:catalog-localization` para snapshot JSON/Markdown bajo `artifacts/catalog/` y guía viva en `docs/localization.md` para ampliar `es` sin traducir nombres reales ni anchors técnicos.
 - `B375` queda ya cerrada: si una regeneración mueve el `targetId` pero deja intacta la identidad semántica del símbolo, `targetKey` recupera el target canónico, el audit publica `recoveredTargetIds` y `npm run migrate:catalog-localization-target-ids` deja la reconciliación del source como operación offline explícita en lugar de esconderla dentro del runtime.
+- `B335` queda ya cerrada: `workspaceCheckCatalogSummary.ts` reconsume `buildCatalogConsistencyReport()` y la merge policy real del query layer para publicar `adrCompliance` (policy recomendada, dominios `manual-primary`, coverage drift, `candidateHotPathViolations` y drift de localización), `workspaceCheckReport.ts` lo eleva a findings/status del `workspace-check` y `npm run report:catalog-consistency` serializa JSON/Markdown determinista en `artifacts/catalog/` sin abrir otro rail de catálogo ni meter el gate en el hot path.
 ```
 
 ---
@@ -1235,6 +1236,14 @@ Reglas:
 - external functions deben indexarse como símbolos externos.
 ```
 
+En reportes read-only visibles:
+
+```text
+- technical debt report debe reutilizar external functions y native-dependency para distinguir dll/pbx/unknown, aliases y consumers;
+- una dependencia pbx debe exponerse además como superficie PBNI runtime y como impacto ORCA/deployment manual, sin cargar el binario;
+- health y support bundle deben reutilizar esa misma evidencia visible, no recomputarla en un motor paralelo.
+```
+
 ---
 
 ## 24. WebView2, JavaScript, JSON, HTTP y código dinámico
@@ -1265,6 +1274,24 @@ Reglas:
 - JS strings no permiten rename seguro.
 - endpoints REST dinámicos son low confidence.
 - credenciales/tokens/certificados deben activar diagnostics de seguridad si aparecen hardcoded.
+```
+
+Estado cerrado B306:
+
+```text
+- code metrics ya cuenta `httpIntegrationUsages` y `jsonIntegrationUsages` desde `datatype` / `baseTypeName` indexados, sin parser HTTP/JSON paralelo;
+- technical debt report publica `modern-integration` con `integration-surface:*`, `integration-pattern:*`, `integration-endpoint:*` redactado e `integration-risk:redaction-required`;
+- endpoints visibles deben quedar siempre redactados (`https://redacted-host/...` o `relative:/...`) y nunca deben exponer hosts, paths, queries, tokens o credenciales reales;
+- health y support bundle reutilizan esa misma evidencia visible y no deben recomputarla desde otro motor.
+```
+
+Estado cerrado B307:
+
+```text
+- code metrics ya cuenta `webBrowserUsages` desde `datatype` / `baseTypeName` indexados, sin parser WebBrowser/WebView2 paralelo;
+- technical debt report publica `web-ui-integration` con `web-ui-surface:*`, `web-ui-pattern:*` y `web-ui-risk:no-content-inspection` para navegación, bridge JavaScript y remote debugging defendibles;
+- el slice no inspecciona HTML, DOM, JavaScript remoto ni payloads web: sólo resume patrones visibles sobre `maskedText` ya indexado;
+- health, Markdown y support bundle reutilizan esa misma evidencia visible y no deben recomputarla desde otro motor.
 ```
 
 Estado cerrado B282:

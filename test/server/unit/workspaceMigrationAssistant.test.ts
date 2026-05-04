@@ -75,4 +75,35 @@ suite('unit/workspaceMigrationAssistant (B256)', () => {
       && recommendation.evidence.some((entry) => /ambiguous/i.test(entry))
     ));
   });
+
+  test('explica artefactos SCM y outputs locales sin tratarlos como topología o source real', () => {
+    workspaceState.addRoot('workspaces', 'file:///workspace/app.pbw');
+    workspaceState.addSourceFile('file:///workspace/lib_app.pbl/w_main.srw', 'workspace-ws_objects');
+    workspaceState.recordDiscoveryArtifact('scm-git-dir', 'file:///workspace/.git');
+    workspaceState.recordDiscoveryArtifact('scm-svn-dir', 'file:///workspace/.svn');
+    workspaceState.recordDiscoveryArtifact('scm-gitignore-file', 'file:///workspace/.gitignore');
+    workspaceState.recordDiscoveryArtifact('scm-gitattributes-file', 'file:///workspace/.gitattributes');
+    workspaceState.recordDiscoveryArtifact('scm-scc-file', 'file:///workspace/vssver.scc');
+    workspaceState.recordDiscoveryArtifact('artifact-build-dir', 'file:///workspace/build');
+    workspaceState.recordDiscoveryArtifact('artifact-backup-dir', 'file:///workspace/_backupfiles');
+    workspaceState.refreshProjectRouting();
+
+    const assistant = buildWorkspaceMigrationAssistant(undefined, workspaceState);
+
+    assert.equal(assistant.available, true);
+    assert.ok(assistant.recommendations.some((recommendation) =>
+      recommendation.id === 'source-control-artifacts'
+      && recommendation.category === 'legacy'
+      && recommendation.evidence.some((entry) => entry === 'scm-gitignore-files:1')
+      && recommendation.evidence.some((entry) => entry === 'scm-scc-files:1')
+      && recommendation.actions.some((action) => /\.gitignore|\.gitattributes|\.scc/i.test(action))
+    ));
+    assert.ok(assistant.recommendations.some((recommendation) =>
+      recommendation.id === 'local-artifact-noise'
+      && recommendation.category === 'build'
+      && recommendation.evidence.some((entry) => entry === 'artifact-build-dirs:1')
+      && recommendation.evidence.some((entry) => entry === 'artifact-backup-dirs:1')
+      && recommendation.actions.some((action) => /Get-ChildItem/i.test(action))
+    ));
+  });
 });

@@ -76,16 +76,14 @@ suite('unit/systemCatalogQueryHardening (B365)', () => {
     assert.equal(clipboardEntries[0]?.dataset, 'manual-core');
   });
 
-  test('registry clasifica por defecto overlaps como enrichment y ausencias como gap', () => {
+  test('registry mantiene enrichments explícitos cuando generated ya cubre datatype y enum type', () => {
     const integerEntries = findEntriesByDomainAndLookupKey('datatypes', 'integer');
     const seekTypeEntries = findEntriesByKindAndLookupKey('enumerated-type', 'seektype');
     const manualInteger = integerEntries.find((entry) => entry.dataset === 'manual-core');
     const manualSeekType = seekTypeEntries.find((entry) => entry.dataset === 'manual-core');
 
     assert.equal(manualInteger?.manualOverlay?.mode, 'enrichment');
-    assert.equal(manualInteger?.manualOverlay?.targetKey?.name, 'Integer');
-    assert.equal(manualSeekType?.manualOverlay?.mode, 'gap');
-    assert.equal(manualSeekType?.manualOverlay?.targetKey, undefined);
+    assert.equal(manualSeekType?.manualOverlay?.mode, 'enrichment');
   });
 
   test('query layer aplica la merge policy provisional de B368 en hot path', () => {

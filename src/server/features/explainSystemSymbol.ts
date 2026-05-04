@@ -293,6 +293,23 @@ function collapseExplainSystemSymbolFamilies(candidates: readonly PbSystemSymbol
   return [...families.values()].sort(compareExplainSystemSymbolCandidate);
 }
 
+function selectPreferredExplainSystemSymbolCandidate(
+  candidates: readonly PbSystemSymbolEntry[],
+  normalizedRequest: NormalizedExplainSystemSymbolRequest,
+): PbSystemSymbolEntry | undefined {
+  if (
+    candidates.length <= 1
+    || normalizedRequest.domain
+    || normalizedRequest.kind
+    || normalizedRequest.ownerType
+  ) {
+    return undefined;
+  }
+
+  const officialCandidates = candidates.filter((candidate) => candidate.provenance.authority === 'official');
+  return officialCandidates.length === 1 ? officialCandidates[0] : undefined;
+}
+
 function parseSignatureParameterLabel(label: string): { name: string; type?: string } {
   const trimmed = label.trim();
   const match = /^(.+?)\s+([A-Za-z_][A-Za-z0-9_$#%!]*)$/u.exec(trimmed);
@@ -505,6 +522,11 @@ export function buildExplainSystemSymbolReport(
         state: 'unresolved',
       }),
     };
+  }
+
+  const preferredCandidate = selectPreferredExplainSystemSymbolCandidate(candidates, normalizedRequest);
+  if (preferredCandidate) {
+    candidates.splice(0, candidates.length, preferredCandidate);
   }
 
   if (candidates.length > 1) {

@@ -23,6 +23,7 @@ import {
 } from '../knowledge/resolution/semanticQueryService';
 import { Entity, EntityKind } from '../knowledge/types';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import { buildFrameworkKnowledgeConflictPolicy } from '../knowledge/system/frameworkKnowledgePackPolicy';
 import { inferSourceOrigin, type SourceOrigin } from '../../shared/sourceOrigin';
 import {
   type ApiCurrentObjectAncestor,
@@ -62,6 +63,23 @@ function clamp(value: number, min: number, max: number): number {
 function pickSourceOrigin(uri: string, workspaceState?: WorkspaceState): SourceOrigin {
   return workspaceState?.getSourceOrigin(uri)
     ?? inferSourceOrigin(uri, { hasSolutionRoots: workspaceState?.getMode() === 'solution' || workspaceState?.getMode() === 'mixed' });
+}
+
+function buildCurrentObjectFrameworkKnowledgeConflict(input: {
+  objectInfo: ReturnType<typeof buildObjectInfo>;
+  ancestorChain: readonly string[];
+  sourceOrigin?: SourceOrigin;
+  resolutionConfidence?: NonNullable<ApiCurrentObjectContext['evidence']>['resolutionConfidence'];
+}): ApiCurrentObjectContext['frameworkKnowledgeConflict'] | undefined {
+  return buildFrameworkKnowledgeConflictPolicy({
+    ownerTypes: [
+      input.objectInfo.globalType,
+      input.objectInfo.baseType,
+      ...input.ancestorChain,
+    ],
+    sourceOrigin: input.sourceOrigin,
+    confidence: input.resolutionConfidence,
+  });
 }
 
 function buildExcerpt(
@@ -528,6 +546,14 @@ export function buildCurrentObjectContext(
     addRelatedFile(relatedFiles, relatedSeen, reference.target.uri, 'reference-target');
   }
 
+  const resolvedSourceOrigin = currentObject?.lineage?.sourceOrigin ?? pickSourceOrigin(document.uri, options.workspaceState);
+  const frameworkKnowledgeConflict = buildCurrentObjectFrameworkKnowledgeConflict({
+    objectInfo,
+    ancestorChain: hierarchy.ancestorChain,
+    sourceOrigin: resolvedSourceOrigin,
+    resolutionConfidence: 'high',
+  });
+
   return {
     available: true,
     uri: document.uri,
@@ -539,7 +565,7 @@ export function buildCurrentObjectContext(
       ...(objectInfo.library ? { library: objectInfo.library } : {}),
       ...(objectInfo.project ? { project: objectInfo.project } : {}),
       objectKind: inferPowerBuilderObjectKindFromUri(currentObject?.uri ?? objectInfo.uri),
-      sourceOrigin: currentObject?.lineage?.sourceOrigin ?? pickSourceOrigin(document.uri, options.workspaceState),
+      sourceOrigin: resolvedSourceOrigin,
       readiness: snapshot.readiness,
     },
     projectContext: {
@@ -568,6 +594,7 @@ export function buildCurrentObjectContext(
       ...(queryContext ? { targetCount: queryContext.resolutionTargetCount } : {}),
       evidenceKinds: queryContext?.resolutionEvidenceKinds ?? []
     },
+    ...(frameworkKnowledgeConflict ? { frameworkKnowledgeConflict } : {}),
     relatedFiles,
   };
 }

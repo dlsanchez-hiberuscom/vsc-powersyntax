@@ -128,9 +128,11 @@ La extensión se activa de forma perezosa cuando realmente se necesita, para man
 
 El carril de release queda preparado para validación repetible antes de publicar en marketplace:
 
-- `npm run release:verify` ejecuta smoke/unit/integration, el gate de rendimiento y genera un VSIX listo para inspección.
-- `npm run package:vsix` empaqueta la extensión en `./.dist/vsc-powersyntax.vsix` usando `vsce`.
+- `npm run release:verify` ejecuta smoke/unit/integration, el gate de rendimiento y genera un VSIX listo para inspección; el self-verification instalado reutiliza la smoke del VSIX para comprobar activación, comandos, handshake mínimo con runtime/LSP, defaults de settings y descriptor/API pública.
+- `npm run package:vsix` empaqueta la extensión en `./.dist/vsc-powersyntax.vsix` usando `vsce` y el runtime bundlado en `dist/client/extension.js` + `dist/server/server.js`.
 - `npm run package:vsix:list` permite inspeccionar el contenido que se publicaría.
+- `npm run verify:vsix-contents` valida required paths y bloquea artefactos de desarrollo dentro del VSIX real.
+- `npm run test:smoke:installed-vsix` valida desde el VSIX instalado en un entorno aislado la activación, comandos, handshake mínimo con runtime/LSP, defaults de settings y descriptor/API pública.
 
 Antes de un release conviene revisar `CHANGELOG.md`, comprobar que el workflow `release-readiness` está verde y verificar que la metadata pública (`README`, icono, keywords, bugs/repository/homepage) sigue alineada.
 

@@ -38,6 +38,10 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 - Toda tarea write-enabled debe partir del `taskExecutionCatalog` exportado por el producto; la documentación contextualiza, pero no sustituye el contrato publicado.
 - `docs/ai-context/powerbuilder-plugin-context.md` es el arranque corto recomendado para tareas IA; si no basta, se escala a documentación propietaria, no a resúmenes paralelos.
 - Para troubleshooting local amplio o preparación de tarea IA, la surface preferida pasa a ser `ai-task-context-bundle`; cuando la pregunta ya es puntual, el orden de fallback sigue siendo `explain-diagnostic` para problemas ya emitidos, `explain-system-symbol` para dudas de lenguaje/catálogo, `object-check` para contexto de objeto y `workspace-check` como red de cierre, evitando pedir contexto masivo cuando el runtime ya publicó una ancla suficiente.
+- Todo rail write-enabled debe arrancar con `task-execution-dry-run` o `getTaskExecutionDryRun()`, y ese preflight debe dejar plan, impacto, archivos, tests, docs y bloqueos explícitos antes de cualquier ejecución real.
+- Si la incidencia entra desde evidencia exportada, el arranque preferido pasa a ser `task-replay-bundle` o `replayTaskFromBundle()` para rehidratar contexto mínimo read-only antes del dry-run.
+- Ningún cierre write-enabled es canónico sin `validationReceipt` y sin resolver `docsPending`.
+- Antes de mover backlog, done-log, current-focus o roadmap, debe pasar `npm run test:docs:drift`; si falla, el drift documental se corrige antes de continuar con el cierre.
 
 ---
 
@@ -62,6 +66,8 @@ Capacidades portables y reutilizables con lógica o recursos propios.
    - `implementation-agent`
    - `test-writer`
    - `docs-updater`
+   - `implementation-agent` parte del dry-run contractual y no ejecuta writes si el preflight deja bloqueos o documentación implícita;
+   - `docs-updater` consume el `validationReceipt` y no cierra mientras `docsPending` no esté vacío.
 6. revisión final:
    - `architecture-reviewer`
    - `docs-auditor`
@@ -73,6 +79,7 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 1. `codebase-analyst`
    - verifica estado real del código;
    - identifica módulos afectados.
+   - si el caso llega desde evidencia exportada, valida si procede arrancar con `task-replay-bundle`.
 
 2. `test-writer`
    - añade o valida tests;
@@ -80,10 +87,12 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 
 3. `docs-updater`
    - actualiza documentación viva;
-   - mueve Done a done-log si aplica.
+   - consume `docsTouched`, `docsPending`, `specsAffected` y `nextFocus` del `validationReceipt` cuando exista;
+   - mueve Done a done-log solo si la documentación pendiente ya quedó resuelta.
 
 4. `docs-auditor`
    - revisa backlog/current-focus/done-log/roadmap.
+   - ejecuta o exige `npm run test:docs:drift` cuando el cierre toque documentación viva canónica.
 
 5. `architecture-reviewer`
    - valida que no rompe constitución ni arquitectura.
@@ -138,6 +147,7 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 
 - Ningún write-enabled ejecuta sin spec, plan o tarea madura.
 - Ningún agente cierra tarea sin validación y documentación.
+- Ningún rail write-enabled se considera cerrable sin `validationReceipt` y con `docsPending` todavía abierto.
 - Cambios pequeños y revisables.
 - Si hay ambigüedad, vuelve a `spec-orchestrator`.
 - Si una tarea es repetible y simple, usar prompt file.

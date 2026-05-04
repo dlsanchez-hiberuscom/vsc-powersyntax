@@ -33,7 +33,7 @@ type ManualSymbolArgs = {
 function defineManualEntry(
     entry: Omit<PbSystemSymbolEntryDraft, 'dataset' | 'source'>,
     source: string,
-    defaultSourceUrl: string,
+    defaultSourceUrl?: string,
 ): PbSystemSymbolEntry {
     const draft: PbSystemSymbolEntryDraft = {
         ...entry,
@@ -254,4 +254,15 @@ export function enumeratedValue(args: LanguageSymbolArgs): PbSystemSymbolEntry {
         invocation: 'global',
         domain: 'enumerated-values',
     }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
+}
+
+export function toolingSymbol(args: LanguageSymbolArgs): PbSystemSymbolEntry {
+    return defineManualEntry({
+        ...args,
+        signatures: args.signatures ?? [{ label: args.name }],
+        kind: 'constant',
+        namespace: 'powerbuilder-tooling',
+        invocation: 'global',
+        domain: 'tooling-symbols',
+    }, 'PowerSyntax tooling workflows');
 }

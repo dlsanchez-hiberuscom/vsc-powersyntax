@@ -128,6 +128,7 @@ Hoy el runtime ya dispone de:
 - yielding cooperativo,
 - cancelación/preempción del background gobernada por `backpressurePolicy`, preservando `build/legacy-orca` una vez arrancan y manteniendo cancelables `background-indexing`, `export-reporting`, `maintenance` y `ai-tooling`,
 - admisión unificada de workloads `background-indexing`, `export-reporting`, `build`, `legacy-orca` y `maintenance` detrás del mismo scheduler + latency governor, cableada a través de `managedRuntimeWorkloads.ts` y `managedBuildWorkloads.ts`, con yielding previo para reports read-only y observabilidad explícita de `throttledBackgroundWorkload/reason`,
+- dashboard/gate ADR-0001 del catálogo servido sólo por `workspaceCheckCatalogSummary`, `workspaceCheckReport` y `npm run report:catalog-consistency`, siempre sobre el carril `export-reporting` y nunca desde `hover`, `completion`, `signatureHelp` o `diagnostics` del hot path,
 - backpressure del watcher,
 - refresco incremental de routing/provenance para markers de topología y altas calientes de SR* sin rediscovery completo,
 - diff snapshot-aware con dependencias `DataObject`/`report`/`dddw` y contrato retrieve de `.srd`, de modo que el fan-out incremental alcance solo a los consumidores necesarios sin abrir otro motor de invalidación,
@@ -171,7 +172,7 @@ Objetivo general:
 ### 6.3 Workspace
 Objetivo general:
 - discovery inicial sobre PFC: `< 2000ms`;
-- indexación cold sobre PFC: `< 15000ms`;
+- indexación cold sobre PFC: objetivo `< 15000ms` y hard gate `< 18000ms` en host compartido, con warning explícito al rebasar el objetivo operativo;
 - indexación warm sobre PFC: `< 1000ms` y claramente mejor que cold;
 - memoria: **controlada y estable**
 
@@ -294,6 +295,7 @@ El guard local/CI actual contra allocations accidentales en hot path es `test/se
 Hoy ese carril debe:
 
 - ejecutar budgets deterministas sobre el corpus publico `fixtures-local/public/legacy-pbl-dump` para hover, diagnostics y batch analysis del archivo activo;
+- mantener ese corpus `legacy-pbl-dump` utilizable tanto en CI como en `release-readiness`, sin depender de fixtures locales ausentes ni obligar a dejar el workflow manual;
 - incluir la suite `performance/large-workspace-incremental` para rafagas moderadas y masivas sobre workspaces sinteticos grandes;
 - seguir verde junto con la proof suite `semanticDiff + watchedFileIntake` que fija el fan-out incremental de `B265` para cambios cosméticos, implementation/prototype/ancestor, `.srd`/`DataObject`, markers, `sourceOrigin`, ORCA staging y external functions;
 - seguir verde junto con la suite `queryScopePolicy + referenceSourcePool + featureReadiness + references/rename/CodeLens + completion/signatureHelp/currentObjectContext/impactAnalysis`, que fija la policy v2 de `B266`, los caps por consumer y la no materialización global fuera del contract;

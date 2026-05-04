@@ -9,6 +9,7 @@ import type { WorkspaceState } from '../workspace/workspaceState';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from '../knowledge/HotContextCache';
+import { buildFrameworkKnowledgeConflictPolicy } from '../knowledge/system/frameworkKnowledgePackPolicy';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { Entity, EntityKind } from '../knowledge/types';
 import { buildCallableSignatureFamilyKey, isCallableEntity } from '../knowledge/callSignature';
@@ -21,6 +22,7 @@ import {
   type ApiImpactBuildTarget,
   type ApiImpactLocation,
 } from '../../shared/publicApi';
+import type { SourceOrigin } from '../../shared/sourceOrigin';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import { detectDynamicStringReferences } from './dynamicStringReferences';
 import { buildInvocationRiskSummary } from './invocationRiskModel';
@@ -55,6 +57,24 @@ function toImpactSymbol(entity: Entity): ApiCurrentObjectContextSymbol {
 
 function toImpactAncestor(name: string, kb: KnowledgeBase, systemCatalog: SystemCatalog): ApiCurrentObjectAncestor {
   return resolveAncestorDescriptor(name, kb, systemCatalog);
+}
+
+function buildImpactFrameworkKnowledgeConflict(input: {
+  ownerType: string | null | undefined;
+  currentContext: ReturnType<typeof buildCurrentObjectContext>;
+  sourceOrigin?: SourceOrigin;
+  confidence?: ApiImpactAnalysis['confidence'];
+}): ApiImpactAnalysis['frameworkKnowledgeConflict'] | undefined {
+  return buildFrameworkKnowledgeConflictPolicy({
+    ownerTypes: [
+      input.ownerType,
+      input.currentContext.objectInfo?.globalType,
+      input.currentContext.objectInfo?.baseType,
+      ...(input.currentContext.ancestorChain?.map((entry) => entry.name) ?? []),
+    ],
+    sourceOrigin: input.sourceOrigin ?? input.currentContext.objectInfo?.sourceOrigin,
+    confidence: input.confidence,
+  });
 }
 
 function addRelatedFile(
@@ -293,11 +313,18 @@ export async function buildImpactAnalysis(
     hasExternalTarget: rootEntity.isExternal === true,
     dataWindowBindingStates: relatedDataWindows.map((binding) => binding.state),
   });
+  const impactConfidence = queryContext?.resolutionConfidence ?? 'high';
+  const frameworkKnowledgeConflict = buildImpactFrameworkKnowledgeConflict({
+    ownerType,
+    currentContext,
+    sourceOrigin: rootEntity.lineage?.sourceOrigin,
+    confidence: impactConfidence,
+  });
 
   return {
     available: true,
     rootSymbol: toImpactSymbol(rootEntity),
-    ...(queryContext?.resolutionConfidence ? { confidence: queryContext.resolutionConfidence } : { confidence: 'high' }),
+    confidence: impactConfidence,
     ...(queryContext?.primaryResolutionReasonCode ? { primaryReasonCode: queryContext.primaryResolutionReasonCode } : {}),
     ...(queryContext ? { evidenceKinds: queryContext.resolutionEvidenceKinds } : {}),
     ...(queryContext?.invocationKind ? { invocationKind: queryContext.invocationKind } : {}),
@@ -312,5 +339,6 @@ export async function buildImpactAnalysis(
     relatedDataWindows,
     affectedSymbols,
     buildTargets: collectBuildTargets(probableImpactFiles, options.workspaceState),
+    ...(frameworkKnowledgeConflict ? { frameworkKnowledgeConflict } : {}),
   };
 }

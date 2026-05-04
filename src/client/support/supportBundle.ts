@@ -8,9 +8,12 @@ import type {
   ApiPowerBuilderTechnicalDebtReport,
   ApiPublicContractDescriptor,
   ApiReadOnlyToolBridgeDescriptor,
+  ApiRuntimeJournalSnapshot,
   ApiSemanticWorkspaceManifest,
   ApiServerStats,
+  ApiWorkspaceMigrationAssistant,
 } from '../../shared/publicApi';
+import { classifyBuildOrcaFailures } from '../build/buildOrcaFailureClassification';
 import type { PowerSyntaxProfileId, PowerSyntaxSettingsGovernanceReport } from '../settingsGovernance';
 
 export type SupportBundleRedactionLevel = Exclude<ApiObservabilityRedaction, 'none'>;
@@ -35,10 +38,12 @@ export interface SupportBundleInput {
   currentObjectContext?: ApiCurrentObjectContext;
   codeMetrics?: ApiPowerBuilderCodeMetrics;
   technicalDebtReport?: ApiPowerBuilderTechnicalDebtReport;
+  workspaceMigrationAssistant?: ApiWorkspaceMigrationAssistant;
   publicContract: ApiPublicContractDescriptor;
   readOnlyToolBridge: ApiReadOnlyToolBridgeDescriptor;
   settingsGovernance: PowerSyntaxSettingsGovernanceReport;
   settingsValues: Record<string, unknown>;
+  buildOrcaJournal?: ApiRuntimeJournalSnapshot;
   maxJournalEvents?: number;
   generatedAt?: string;
 }
@@ -96,6 +101,31 @@ interface SupportBundleRuntimeJournalTail {
   events: unknown[];
 }
 
+interface SupportBundleCleanupRecommendation {
+  id: string;
+  priority: 'high' | 'medium' | 'low';
+  area: 'workspace' | 'cache' | 'settings' | 'snapshot';
+  detail: string;
+  evidence: string[];
+  commands: string[];
+}
+
+interface SupportBundleCleanupAdvisor {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  summary: {
+    selectedProfile: PowerSyntaxProfileId;
+    settingsConflicts: number;
+    managedSettingsOutOfProfile: number;
+    publicApiVersion: string;
+    workspaceManifestSchemaVersion: ApiSemanticWorkspaceManifest['schemaVersion'];
+    supportBundleSchemaVersion: SupportBundleManifest['schemaVersion'];
+    workspaceMigrationAssistantAvailable: boolean;
+    workspaceArtifactRecommendations: number;
+  };
+  recommendations: SupportBundleCleanupRecommendation[];
+}
+
 const DEFAULT_MAX_RUNTIME_JOURNAL_EVENTS = 40;
 
 export function buildSupportBundleRedactionPolicy(profile: PowerSyntaxProfileId): SupportBundleRedactionPolicy {
@@ -151,9 +181,10 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundleBund
   const reducedManifest = buildReducedManifest(input.workspaceManifest, redactionPolicy);
   const runtimeJournalTail = buildRuntimeJournalTail(input.serverStats, input.maxJournalEvents, redactionPolicy);
   const performanceSummary = buildPerformanceSummary(input.serverStats);
-  const buildOrcaSnapshot = buildBuildOrcaSnapshot(input.serverStats, redactionPolicy);
+  const buildOrcaSnapshot = buildBuildOrcaSnapshot(input.serverStats, redactionPolicy, input.buildOrcaJournal);
   const settingsSnapshot = buildSanitizedSettings(input.settingsValues, input.settingsGovernance, redactionPolicy);
   const apiInventory = buildApiInventory(input.publicContract, input.readOnlyToolBridge);
+  const workspaceCleanupAdvisor = buildWorkspaceCleanupAdvisor(input, generatedAt, redactionPolicy);
 
   const files: SupportBundleFile[] = [];
   const manifestFiles: SupportBundleManifest['files'] = [];
@@ -195,6 +226,7 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundleBund
   appendFile('settings-governance.json', `${JSON.stringify(input.settingsGovernance, null, 2)}\n`, 'Reporte de gobernanza y divergencias del perfil actual.', 'none');
   appendFile('settings-sanitized.json', `${JSON.stringify(settingsSnapshot, null, 2)}\n`, 'Settings exportados con redacción de rutas y secretos locales.', redactionPolicy.settings);
   appendFile('build-orca-snapshot.json', `${JSON.stringify(buildOrcaSnapshot, null, 2)}\n`, 'Estado saneado de build moderno, ORCA legacy y journal asociado.', redactionPolicy.paths);
+  appendFile('workspace-cleanup-advisor.json', `${JSON.stringify(workspaceCleanupAdvisor, null, 2)}\n`, 'Advisor read-only con acciones manuales para artefactos locales, staging y caches persistentes.', combineRedactionLevels(redactionPolicy.paths, redactionPolicy.settings));
   appendFile('public-contract.json', `${JSON.stringify(input.publicContract, null, 2)}\n`, 'Contrato público exportado por la extensión.', 'none');
   appendFile('read-only-tool-bridge.json', `${JSON.stringify(input.readOnlyToolBridge, null, 2)}\n`, 'Descriptor del bridge read-only y schemas visibles.', 'none');
   appendFile('api-inventory.json', `${JSON.stringify(apiInventory, null, 2)}\n`, 'Inventario resumido de métodos y tools read-only.', 'none');
@@ -343,7 +375,13 @@ function buildPerformanceSummary(stats: ApiServerStats): Record<string, unknown>
 function buildBuildOrcaSnapshot(
   stats: ApiServerStats,
   redactionPolicy: SupportBundleRedactionPolicy,
+  buildOrcaJournal?: ApiRuntimeJournalSnapshot,
 ): Record<string, unknown> {
+  const failureClassification = classifyBuildOrcaFailures({
+    stats,
+    buildOrcaJournal,
+  });
+
   return {
     buildTooling: sanitizeUnknown(stats.buildTooling, ['buildTooling'], redactionPolicy),
     buildFiles: stats.buildFiles,
@@ -353,11 +391,129 @@ function buildBuildOrcaSnapshot(
     buildHealth: stats.buildHealth,
     orcaTooling: sanitizeUnknown(stats.orcaTooling, ['orcaTooling'], redactionPolicy),
     orcaRunner: sanitizeUnknown(stats.orcaRunner, ['orcaRunner'], redactionPolicy),
+    failureClassification: sanitizeUnknown(failureClassification, ['failureClassification'], redactionPolicy),
     persistence: sanitizeUnknown({
       buildOrcaJournalUri: stats.persistence?.buildOrcaJournalUri,
       journalUri: stats.persistence?.journalUri,
       checkpointUri: stats.persistence?.checkpointUri,
     }, ['persistence'], redactionPolicy),
+  };
+}
+
+function buildWorkspaceCleanupAdvisor(
+  input: SupportBundleInput,
+  generatedAt: string,
+  redactionPolicy: SupportBundleRedactionPolicy,
+): SupportBundleCleanupAdvisor {
+  const settingsConflicts = input.settingsGovernance.conflicts.length;
+  const managedSettingsOutOfProfile = input.settingsGovernance.managedSettings.filter((entry) => entry.matchesProfile === false).length;
+  const workspaceArtifactRecommendations = (input.workspaceMigrationAssistant?.recommendations ?? []).filter((recommendation) =>
+    recommendation.id === 'source-control-artifacts'
+    || recommendation.id === 'local-artifact-noise'
+    || recommendation.id === 'legacy-orca-aliases'
+  );
+
+  const recommendations: SupportBundleCleanupRecommendation[] = [];
+  const hasPersistentRuntimeState = Boolean(
+    input.serverStats.persistence?.checkpointUri
+    || input.serverStats.persistence?.journalUri
+    || input.serverStats.persistence?.buildOrcaJournalUri
+    || input.serverStats.persistence?.servingSnapshot?.lastRestoredEntries
+    || input.serverStats.caches?.analysis?.size
+    || input.serverStats.caches?.serving?.size
+  );
+
+  if (hasPersistentRuntimeState) {
+    recommendations.push({
+      id: 'runtime-cache-refresh',
+      priority: 'medium',
+      area: 'cache',
+      detail: 'El runtime conserva journal/checkpoint, serving snapshot o entradas de cache; si el troubleshooting sospecha drift o estado obsoleto, inspecciona y regenera ese runtime local manualmente.',
+      evidence: [
+        `analysis-cache-size:${input.serverStats.caches?.analysis?.size ?? 0}`,
+        `serving-cache-size:${input.serverStats.caches?.serving?.size ?? 0}`,
+        `serving-snapshot-restored:${input.serverStats.persistence?.servingSnapshot?.lastRestoredEntries ?? 0}`,
+        `restore-state:${input.serverStats.persistence?.restoreState ?? 'unknown'}`,
+        `retention-policy-version:${input.serverStats.persistence?.policy?.version ?? 'unknown'}`,
+      ],
+      commands: [
+        'Inspeccionar el runtime local con `Get-ChildItem -Force ".vsc-powersyntax/runtime"` desde la raíz del workspace.',
+        'Cerrar VS Code antes de archivar o retirar manualmente `checkpoint`, `journal` y snapshots persistentes del runtime.',
+        'Reabrir el workspace y volver a exportar el support bundle para comprobar que el runtime se reconstruyó limpio.',
+      ],
+    });
+  }
+
+  if (settingsConflicts > 0 || managedSettingsOutOfProfile > 0) {
+    recommendations.push({
+      id: 'settings-profile-drift',
+      priority: 'medium',
+      area: 'settings',
+      detail: 'El perfil activo y los managed settings no están alineados; conviene estabilizar el perfil antes de limpiar caches o comparar bundles sucesivos.',
+      evidence: [
+        `selected-profile:${input.settingsGovernance.selectedProfile}`,
+        `settings-conflicts:${settingsConflicts}`,
+        `managed-settings-out-of-profile:${managedSettingsOutOfProfile}`,
+      ],
+      commands: [
+        'Revisar `settings-governance.json` y corregir o documentar primero el drift de configuración.',
+        'Volver a exportar el bundle después de cambiar el profile para no comparar snapshots generados con settings heterogéneos.',
+      ],
+    });
+  }
+
+  if (workspaceArtifactRecommendations.length > 0) {
+    recommendations.push({
+      id: 'workspace-artifact-cleanup',
+      priority: 'high',
+      area: 'workspace',
+      detail: 'El workspace aún expone artefactos locales o staging legacy que deben tratarse como ruido o soporte temporal, nunca como source/build canónicos.',
+      evidence: [
+        ...workspaceArtifactRecommendations.map((recommendation) => `assistant:${recommendation.id}`),
+        ...workspaceArtifactRecommendations.flatMap((recommendation) => recommendation.evidence).slice(0, 8),
+      ],
+      commands: [
+        'Inspeccionar ruido local con `Get-ChildItem -Force -Directory . | Where-Object Name -in @( ".pb", "build", "_backupfiles" )`.',
+        'Si el staging ORCA ya no es la referencia activa, archivarlo o retirarlo manualmente solo después de confirmar import/source real.',
+        'Ejecutar de nuevo el asistente de migración y regenerar el support bundle tras la limpieza manual.',
+      ],
+    });
+  }
+
+  recommendations.push({
+    id: 'snapshot-version-review',
+    priority: 'low',
+    area: 'snapshot',
+    detail: 'Antes de comparar bundles o reutilizar capturas antiguas, confirma que la versión pública y los schemaVersion exportados siguen alineados.',
+    evidence: [
+      `public-api-version:${input.publicContract.apiVersion}`,
+      'support-bundle-schema:1',
+      `workspace-manifest-schema:${input.workspaceManifest.schemaVersion}`,
+      `migration-assistant-schema:${input.workspaceMigrationAssistant?.schemaVersion ?? 'not-exported'}`,
+    ],
+    commands: [
+      'Comparar `public-contract.json`, `semantic-workspace-manifest.reduced.json` y `workspace-cleanup-advisor.json` antes de reciclar bundles viejos o de mezclar snapshots de otra sesión.',
+    ],
+  });
+
+  return {
+    schemaVersion: '1.0.0',
+    generatedAt,
+    summary: {
+      selectedProfile: input.settingsGovernance.selectedProfile,
+      settingsConflicts,
+      managedSettingsOutOfProfile,
+      publicApiVersion: input.publicContract.apiVersion,
+      workspaceManifestSchemaVersion: input.workspaceManifest.schemaVersion,
+      supportBundleSchemaVersion: 1,
+      workspaceMigrationAssistantAvailable: Boolean(input.workspaceMigrationAssistant?.available),
+      workspaceArtifactRecommendations: workspaceArtifactRecommendations.length,
+    },
+    recommendations: recommendations.map((recommendation) => ({
+      ...recommendation,
+      evidence: sanitizeUnknown(recommendation.evidence, ['workspaceCleanupAdvisor', recommendation.id], redactionPolicy) as string[],
+      commands: sanitizeUnknown(recommendation.commands, ['workspaceCleanupAdvisor', recommendation.id, 'commands'], redactionPolicy) as string[],
+    })),
   };
 }
 
@@ -620,7 +776,8 @@ function buildReadme(manifest: SupportBundleManifest): string {
     '1. Revisar runtime-health.json y performance-summary.json para detectar presion, degradacion o backpressure.',
     '2. Revisar diagnostics-snapshot.sanitized.json y semantic-workspace-manifest.reduced.json para entender el estado semantico visible.',
     '3. Revisar build-orca-snapshot.json y runtime-journal-tail.json si el problema afecta build, ORCA o persistencia.',
-    '4. Adjuntar public-contract.json y read-only-tool-bridge.json si soporte necesita reproducir consumo API/tooling.',
+    '4. Revisar workspace-cleanup-advisor.json antes de limpiar caches, staging u otros artefactos locales del workspace.',
+    '5. Adjuntar public-contract.json y read-only-tool-bridge.json si soporte necesita reproducir consumo API/tooling.',
     '',
   ];
 

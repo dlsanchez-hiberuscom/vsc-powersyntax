@@ -54,6 +54,7 @@ export interface WorkspaceDiscoverySnapshot {
   librarySourceAliases?: Record<string, string[]>;
   roots: WorkspaceRoots;
   buildFiles?: PbAutoBuildBuildFileInfo[];
+  discoveryArtifacts?: Record<string, string[]>;
 }
 
 function cloneRoots(roots: WorkspaceRoots): WorkspaceRoots {
@@ -140,6 +141,7 @@ export type WorkspaceMode = 'workspace' | 'solution' | 'mixed' | 'pbl-only' | 'u
 export class WorkspaceState {
   private knownFiles: Map<string, SourceOrigin> = new Map();
   private librarySourceAliases: Map<string, string[]> = new Map();
+  private discoveryArtifacts: Map<string, string[]> = new Map();
   private indexDirty = true;
   private buildFileCandidates: Map<string, PbAutoBuildBuildFileCandidate> = new Map();
   private buildFiles: PbAutoBuildBuildFileInfo[] = [];
@@ -213,6 +215,37 @@ export class WorkspaceState {
     return summarizeSourceOrigins(this.knownFiles.values());
   }
 
+  recordDiscoveryArtifact(kind: string, uri: string): void {
+    const normalized = normalizeUri(uri);
+    const current = this.discoveryArtifacts.get(kind) ?? [];
+    if (current.includes(normalized)) {
+      return;
+    }
+
+    current.push(normalized);
+    current.sort();
+    this.discoveryArtifacts.set(kind, current);
+  }
+
+  getDiscoveryArtifacts(): Record<string, string[]> {
+    const artifacts: Record<string, string[]> = {};
+    for (const [kind, uris] of this.discoveryArtifacts.entries()) {
+      artifacts[kind] = [...uris];
+    }
+    return artifacts;
+  }
+
+  getDiscoveryArtifactSummary(): Record<string, { count: number; samples: string[] }> {
+    const summary: Record<string, { count: number; samples: string[] }> = {};
+    for (const [kind, uris] of this.discoveryArtifacts.entries()) {
+      summary[kind] = {
+        count: uris.length,
+        samples: uris.slice(0, 3),
+      };
+    }
+    return summary;
+  }
+
   inferSourceOriginForUri(uri: string): SourceOrigin {
     return inferSourceOrigin(uri, {
       hasSolutionRoots: resolveHasSolutionRootsForUri(uri, this.roots)
@@ -281,7 +314,8 @@ export class WorkspaceState {
       sourceOrigins,
       librarySourceAliases: this.getLibrarySourceAliases(),
       roots: cloneRoots(this.roots),
-      buildFiles: this.getBuildFiles()
+      buildFiles: this.getBuildFiles(),
+      discoveryArtifacts: this.getDiscoveryArtifacts(),
     };
   }
 
@@ -304,6 +338,9 @@ export class WorkspaceState {
         normalizeRootList(sourceRoots)
       ])
     );
+    this.discoveryArtifacts = new Map(
+      Object.entries(snapshot.discoveryArtifacts ?? {}).map(([kind, uris]) => [kind, normalizeRootList(uris)])
+    );
     this.topology = emptyTopology();
     this.buildFileCandidates = new Map();
     this.buildFiles = (snapshot.buildFiles ?? []).map((buildFile) => clonePbAutoBuildBuildFileInfo(buildFile));
@@ -316,6 +353,9 @@ export class WorkspaceState {
     this.knownFiles = new Map(other.getAllSourceFiles().map((uri) => [uri, other.getSourceOrigin(uri) ?? 'unknown']));
     this.librarySourceAliases = new Map(
       Object.entries(other.getLibrarySourceAliases()).map(([libraryUri, sourceRoots]) => [libraryUri, [...sourceRoots]])
+    );
+    this.discoveryArtifacts = new Map(
+      Object.entries(other.getDiscoveryArtifacts()).map(([kind, uris]) => [kind, [...uris]])
     );
     this.buildFileCandidates = new Map(
       [...other.buildFileCandidates.entries()].map(([uri, candidate]) => [uri, clonePbAutoBuildBuildFileCandidate(candidate)])
@@ -351,6 +391,7 @@ export class WorkspaceState {
   clear(): void {
     this.knownFiles.clear();
     this.librarySourceAliases.clear();
+    this.discoveryArtifacts.clear();
     this.indexDirty = true;
     this.buildFileCandidates.clear();
     this.buildFiles = [];

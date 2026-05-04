@@ -258,6 +258,20 @@ export function buildCurrentObjectContextPanelModel(context: ApiCurrentObjectCon
     createSection('section:summary', 'Resumen', summaryItems, `${objectName} · ${normalizeObjectKind(context.objectInfo.objectKind, context.objectInfo.uri)}`),
   ];
 
+  if (context.frameworkKnowledgeConflict) {
+    const frameworkItems: CurrentObjectContextPanelNode[] = [
+      createItem('framework-knowledge:state', 'Policy', context.frameworkKnowledgeConflict.state, context.frameworkKnowledgeConflict.summary),
+      createItem('framework-knowledge:reason', 'Reason', context.frameworkKnowledgeConflict.reasonCode, context.frameworkKnowledgeConflict.summary),
+      createItem('framework-knowledge:packs', 'Packs', context.frameworkKnowledgeConflict.packs.map((pack) => pack.title).join(', ')),
+      createItem('framework-knowledge:owners', 'Owner types', context.frameworkKnowledgeConflict.matchedOwnerTypes.join(', ')),
+      createItem('framework-knowledge:confidence', 'Confidence', context.frameworkKnowledgeConflict.confidence),
+    ].filter((item) => item.description);
+
+    if (frameworkItems.length > 0) {
+      roots.push(createSection('section:framework-knowledge', 'Framework knowledge', frameworkItems, `${context.frameworkKnowledgeConflict.packs.length} pack(s)`));
+    }
+  }
+
   if ((context.ancestorChain?.length ?? 0) > 0) {
     roots.push(createSection(
       'section:ancestors',

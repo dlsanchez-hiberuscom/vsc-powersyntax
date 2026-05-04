@@ -201,4 +201,33 @@ suite('unit/impactAnalysis (B218)', () => {
     assert.equal(impact.rootSymbol?.name, 'of_pick');
     assert.deepEqual(impact.overrides, []);
   });
+
+  test('propaga la policy de knowledge packs al impact analysis sin desplazar el símbolo real del workspace', async () => {
+    const uri = 'file:///proj/lib_app.pbl/w_browser_host.srw';
+    const document = setupAnalyzedDocument(uri, [
+      'forward',
+      'global type w_browser_host from webbrowser',
+      'end type',
+      'end forward',
+      'global type w_browser_host from webbrowser',
+      'end type',
+      'event open();',
+      'end event'
+    ].join('\r\n'));
+
+    const impact = await buildImpactAnalysis(
+      document,
+      undefined,
+      kb,
+      graph,
+      catalog,
+      async (loadedUri) => contentsByUri.get(loadedUri) ?? null,
+      { workspaceState }
+    );
+
+    assert.equal(impact.available, true);
+    assert.equal(impact.rootSymbol?.name, 'w_browser_host');
+    assert.equal(impact.frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.ok(impact.frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'appeon-webbrowser-webview2'));
+  });
 });

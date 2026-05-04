@@ -181,6 +181,7 @@ suite('unit/crossSurfaceGoldenMatrix (B273)', () => {
           'server-stats.sanitized.json',
           'settings-governance.json',
           'settings-sanitized.json',
+          'workspace-cleanup-advisor.json',
         ],
       },
     });

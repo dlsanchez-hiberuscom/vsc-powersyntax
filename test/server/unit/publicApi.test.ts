@@ -2,6 +2,8 @@ import * as assert from 'assert/strict';
 import {
   PUBLIC_API_EXTENSION_ID,
   PUBLIC_API_VERSION,
+  type ApiPowerBuilderCodeMetrics,
+  type ApiPowerBuilderTechnicalDebtReport,
   getPublicApiContractDescriptor,
   getReadOnlyToolBridgeDescriptor,
   getTaskExecutionContractCatalog,
@@ -62,6 +64,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('checkWorkspace'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('checkObject'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('explainDiagnostic'));
+    assert.ok(descriptor.capabilities.readOnlyMethods.includes('explainSemanticQuery'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('explainSystemSymbol'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getAiTaskContextBundle'));
     assert.ok(descriptor.capabilities.readOnlyMethods.includes('getCrossProjectSymbolConflicts'));
@@ -77,6 +80,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.capabilities.readOnlyTools.includes('workspace-check'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('object-check'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('explain-diagnostic'));
+    assert.ok(descriptor.capabilities.readOnlyTools.includes('explain-semantic-query'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('explain-system-symbol'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('ai-task-context-bundle'));
     assert.ok(descriptor.capabilities.readOnlyTools.includes('build-profile-matrix'));
@@ -92,6 +96,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.methods.some((method) => method.name === 'checkWorkspace' && method.command === 'powerbuilder.checkWorkspace'));
     assert.ok(descriptor.methods.some((method) => method.name === 'checkObject' && method.command === 'powerbuilder.checkCurrentObject'));
     assert.ok(descriptor.methods.some((method) => method.name === 'explainDiagnostic' && method.command === 'powerbuilder.explainDiagnostic'));
+    assert.ok(descriptor.methods.some((method) => method.name === 'explainSemanticQuery' && method.command === 'powerbuilder.explainSemanticQuery'));
     assert.ok(descriptor.methods.some((method) => method.name === 'explainSystemSymbol' && method.command === 'powerbuilder.explainSystemSymbol'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getAiTaskContextBundle' && method.command === 'powerbuilder.exportAiTaskContextBundle'));
     assert.ok(descriptor.methods.some((method) => method.name === 'getPowerBuilderCodeMetrics' && method.command === 'powerbuilder.codeMetrics'));
@@ -108,6 +113,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiWorkspaceCheckReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiObjectCheckReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiExplainDiagnosticReport' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiExplainSemanticQueryReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiExplainSystemSymbolReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiAiTaskContextBundle' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiCrossProjectSymbolConflicts' && schema.version === '1.0.0'));
@@ -139,6 +145,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(bridge.tools.some((tool) => tool.name === 'workspace-check' && tool.responseSchema === 'ApiWorkspaceCheckReport'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'object-check' && tool.responseSchema === 'ApiObjectCheckReport'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'explain-diagnostic' && tool.responseSchema === 'ApiExplainDiagnosticReport'));
+    assert.ok(bridge.tools.some((tool) => tool.name === 'explain-semantic-query' && tool.responseSchema === 'ApiExplainSemanticQueryReport'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'explain-system-symbol' && tool.responseSchema === 'ApiExplainSystemSymbolReport'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'ai-task-context-bundle' && tool.responseSchema === 'ApiAiTaskContextBundle'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'build-profile-matrix' && tool.responseSchema === 'ApiBuildProfileMatrix'));
@@ -151,6 +158,145 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(bridge.tools.some((tool) => tool.name === 'semantic-snapshot-diff' && tool.responseSchema === 'ApiSemanticWorkspaceSnapshotDiff'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'semantic-workspace-manifest' && tool.command === 'powerbuilder.semanticWorkspaceManifest'));
     assert.ok(bridge.tools.some((tool) => tool.name === 'workspace-migration-assistant' && tool.responseSchema === 'ApiWorkspaceMigrationAssistant'));
+  });
+
+  test('tipos públicos incluyen señal moderna HTTP/JSON y WebBrowser/WebView2', () => {
+    const metrics: ApiPowerBuilderCodeMetrics = {
+      schemaVersion: '1.0.0',
+      generatedAt: 1,
+      summary: {
+        totalProjects: 1,
+        totalLibraries: 1,
+        totalObjects: 1,
+        totalFunctions: 1,
+        totalEvents: 1,
+        totalEmbeddedSqlStatements: 0,
+        totalLinkedDataWindows: 0,
+        totalExternalDependencies: 0,
+        totalWebBrowserUsages: 1,
+        totalHttpIntegrationUsages: 2,
+        totalJsonIntegrationUsages: 2,
+        totalLifecycleWarnings: 0,
+        totalDiagnostics: 0,
+      },
+      diagnostics: {
+        total: 0,
+        byArea: [],
+      },
+      footprint: {
+        build: { total: 0, usable: 0, invalid: 0, ambiguous: 0 },
+        orca: { stagedFiles: 0, libraryAliases: 0 },
+      },
+      objects: [
+        {
+          name: 'n_http_json_usage',
+          uri: 'file:///proj/lib_app.pbl/n_http_json_usage.sru',
+          metrics: {
+            functions: 1,
+            events: 1,
+            approximateComplexity: 1,
+            embeddedSqlStatements: 0,
+            linkedDataWindows: 0,
+            externalDependencies: 0,
+            webBrowserUsages: 1,
+            httpIntegrationUsages: 2,
+            jsonIntegrationUsages: 2,
+            lifecycleWarnings: 0,
+            diagnostics: 0,
+          },
+        },
+      ],
+    };
+
+    const debt: ApiPowerBuilderTechnicalDebtReport = {
+      schemaVersion: '1.0.0',
+      generatedAt: 1,
+      summary: {
+        totalHotspots: 1,
+        totalRecommendations: 1,
+        obsoleteFindings: 0,
+        dynamicSqlFindings: 0,
+        lifecycleRiskFindings: 0,
+        externalDependencyFindings: 0,
+        modernIntegrationFindings: 4,
+        webUiIntegrationFindings: 1,
+        dataWindowRiskFindings: 0,
+        complexObjectFindings: 0,
+        sourceOriginRiskFindings: 0,
+        legacyWorkspaceRiskFindings: 0,
+      },
+      hotspots: [
+        {
+          name: 'n_http_json_usage',
+          uri: 'file:///proj/lib_app.pbl/n_http_json_usage.sru',
+          priority: 'medium',
+          confidence: 'high',
+          categories: ['modern-integration'],
+          evidence: [
+            'integration-endpoint:https://redacted-host/...',
+            'integration-pattern:http-verb:get',
+            'integration-risk:redaction-required',
+          ],
+          recommendations: ['Mantener redaction por defecto.'],
+          metrics: {
+            approximateComplexity: 1,
+            diagnostics: 0,
+            externalDependencies: 0,
+            linkedDataWindows: 0,
+            lifecycleWarnings: 0,
+            webBrowserUsages: 1,
+            httpIntegrationUsages: 2,
+            jsonIntegrationUsages: 2,
+            dynamicSqlStatements: 0,
+            obsoleteDiagnostics: 0,
+          },
+        },
+        {
+          name: 'w_browser_host',
+          uri: 'file:///proj/lib_app.pbl/w_browser_host.srw',
+          priority: 'medium',
+          confidence: 'high',
+          categories: ['web-ui-integration'],
+          evidence: [
+            'web-ui-surface:webbrowser',
+            'web-ui-pattern:navigation',
+            'web-ui-pattern:script-bridge',
+            'web-ui-risk:no-content-inspection',
+          ],
+          recommendations: ['Revisar bridge JavaScript y navegación.'],
+          metrics: {
+            approximateComplexity: 1,
+            diagnostics: 0,
+            externalDependencies: 0,
+            linkedDataWindows: 0,
+            webBrowserUsages: 1,
+            dynamicSqlStatements: 0,
+            obsoleteDiagnostics: 0,
+          },
+        },
+      ],
+      recommendations: [
+        {
+          id: 'rec-modern-http-json',
+          category: 'modernization',
+          priority: 'medium',
+          confidence: 'high',
+          title: 'Integración HTTP/JSON',
+          detail: 'Mantener redaction por defecto.',
+          evidence: ['integration-risk:redaction-required'],
+          actions: ['Revisar endpoints redactados'],
+        },
+      ],
+    };
+
+    assert.equal(metrics.summary.totalWebBrowserUsages, 1);
+    assert.equal(metrics.objects[0]?.metrics.webBrowserUsages, 1);
+    assert.equal(metrics.summary.totalHttpIntegrationUsages, 2);
+    assert.equal(metrics.objects[0]?.metrics.jsonIntegrationUsages, 2);
+    assert.equal(debt.summary.modernIntegrationFindings, 4);
+    assert.equal(debt.summary.webUiIntegrationFindings, 1);
+    assert.ok(debt.hotspots[0]?.categories.includes('modern-integration'));
+    assert.ok(debt.hotspots[1]?.categories.includes('web-ui-integration'));
   });
 
   test('descriptor contractual v2 expone task execution contracts versionados', () => {
@@ -311,5 +457,36 @@ suite('unit/publicApi (B109)', () => {
       line: 10,
       character: 4
     });
+  });
+
+  test('toApiSymbol clona frameworkKnowledgeConflict sin exponer estructuras mutables', () => {
+    const symbol = toApiSymbol({
+      name: 'w_browser_host',
+      kind: 'Type',
+      uri: 'file:///proj/lib_app.pbl/w_browser_host.srw',
+      line: 1,
+      character: 0,
+      frameworkKnowledgeConflict: {
+        state: 'workspace-wins',
+        reasonCode: 'workspace-source-overrides-framework-pack',
+        summary: 'El símbolo real del workspace prevalece.',
+        matchedOwnerTypes: ['w_browser_host', 'webbrowser'],
+        packs: [
+          {
+            id: 'appeon-webbrowser-webview2',
+            version: '1.0.0',
+            title: 'WebBrowser / WebView2',
+            ownerTypes: ['webbrowser'],
+            source: 'VSC PowerSyntax curated framework pack',
+          }
+        ],
+        sourceOrigin: 'pbl-folder-source',
+        confidence: 'high',
+      }
+    });
+
+    assert.equal(symbol.frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.deepEqual(symbol.frameworkKnowledgeConflict?.matchedOwnerTypes, ['w_browser_host', 'webbrowser']);
+    assert.ok(symbol.frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'appeon-webbrowser-webview2'));
   });
 });

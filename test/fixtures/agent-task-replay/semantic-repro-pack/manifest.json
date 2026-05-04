@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-04T12:00:00.000Z",
+  "reproWorkspaceRelativePath": "tools/repro-bundles/sample-repro",
+  "focus": {
+    "uri": "file:///repo/w_main.sru",
+    "workspaceRelativePath": "w_main.sru",
+    "line": 12,
+    "character": 4,
+    "symbolName": "of_apply",
+    "objectName": "w_main",
+    "sourceOrigin": "workspace-ws_objects"
+  },
+  "evidence": {
+    "currentObjectAvailable": true,
+    "impactAvailable": true,
+    "safeEditPlanAvailable": true,
+    "readinessState": "ready",
+    "healthStatus": "healthy"
+  },
+  "capturedFiles": [
+    {
+      "uri": "file:///repo/w_main.sru",
+      "workspaceRelativePath": "w_main.sru",
+      "exportedRelativePath": "files/workspace/w_main.sru",
+      "sourceOrigin": "workspace-ws_objects",
+      "reasons": ["focus"]
+    }
+  ],
+  "missingFiles": []
+}

@@ -20,6 +20,17 @@ const IGNORED_DIRECTORIES = new Set([
   'build',
   '_backupfiles'
 ]);
+const DISCOVERY_ARTIFACT_DIRECTORIES = new Map<string, string>([
+  ['.git', 'scm-git-dir'],
+  ['.svn', 'scm-svn-dir'],
+  ['.pb', 'artifact-pb-dir'],
+  ['build', 'artifact-build-dir'],
+  ['_backupfiles', 'artifact-backup-dir'],
+]);
+const DISCOVERY_ARTIFACT_FILES = new Map<string, string>([
+  ['.gitignore', 'scm-gitignore-file'],
+  ['.gitattributes', 'scm-gitattributes-file'],
+]);
 
 const PB_SOURCE_EXTENSIONS = new Set<string>(POWERBUILDER_SOURCE_EXTENSIONS);
 
@@ -78,6 +89,10 @@ async function walkDirectory(
 
     if (stat.isDirectory) {
       if (IGNORED_DIRECTORIES.has(lowerName)) {
+        const artifactKind = DISCOVERY_ARTIFACT_DIRECTORIES.get(lowerName);
+        if (artifactKind) {
+          state.recordDiscoveryArtifact(artifactKind, entryUri);
+        }
         continue;
       }
       directories.push({ entryUri, lowerName });
@@ -91,6 +106,12 @@ async function walkDirectory(
 
   for (const file of files) {
     if (token.isCancelled) return;
+
+    const artifactKind = DISCOVERY_ARTIFACT_FILES.get(file.lowerName)
+      ?? (file.lowerName.endsWith('.scc') ? 'scm-scc-file' : undefined);
+    if (artifactKind) {
+      state.recordDiscoveryArtifact(artifactKind, file.entryUri);
+    }
 
     // Detección de roots
     if (file.lowerName.endsWith('.pbw')) {

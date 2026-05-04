@@ -110,6 +110,7 @@ export function buildWorkspaceMigrationAssistant(
   const roots = workspaceState.getRoots();
   const buildSummary = workspaceState.getBuildFileSummary();
   const buildFiles = workspaceState.getBuildFiles();
+  const discoveryArtifacts = workspaceState.getDiscoveryArtifactSummary();
   const projectCount = workspaceState.getProjectModel()?.getProjects().length ?? 0;
   const hasOrcaAliases = Object.keys(workspaceState.getLibrarySourceAliases()).length > 0;
   const maxRecommendations = clamp(request?.maxRecommendations, DEFAULT_MAX_RECOMMENDATIONS);
@@ -239,6 +240,61 @@ export function buildWorkspaceMigrationAssistant(
     ));
   }
 
+  const scmGitDirs = discoveryArtifacts['scm-git-dir']?.count ?? 0;
+  const scmSvnDirs = discoveryArtifacts['scm-svn-dir']?.count ?? 0;
+  const gitIgnoreFiles = discoveryArtifacts['scm-gitignore-file']?.count ?? 0;
+  const gitAttributesFiles = discoveryArtifacts['scm-gitattributes-file']?.count ?? 0;
+  const sccFiles = discoveryArtifacts['scm-scc-file']?.count ?? 0;
+  if (scmGitDirs > 0 || scmSvnDirs > 0 || gitIgnoreFiles > 0 || gitAttributesFiles > 0 || sccFiles > 0) {
+    const samples = [
+      ...(discoveryArtifacts['scm-gitignore-file']?.samples ?? []),
+      ...(discoveryArtifacts['scm-gitattributes-file']?.samples ?? []),
+      ...(discoveryArtifacts['scm-scc-file']?.samples ?? []),
+    ].slice(0, 3);
+    recommendations.push(createRecommendation(
+      'source-control-artifacts',
+      'medium',
+      'legacy',
+      'Tratar los artefactos SCM como governance, no como input semántico',
+      'Discovery ya detectó metadata o policy files de source control (`.git`, `.svn`, `.gitignore`, `.gitattributes`, `.scc`). Deben servir para hygiene/versionado, no para inferir topología ni alimentar build/reportes semánticos.',
+      [
+        `scm-git-dirs:${scmGitDirs}`,
+        `scm-svn-dirs:${scmSvnDirs}`,
+        `scm-gitignore-files:${gitIgnoreFiles}`,
+        `scm-gitattributes-files:${gitAttributesFiles}`,
+        `scm-scc-files:${sccFiles}`,
+        ...samples,
+      ],
+      [
+        'Mantener `.git` y `.svn` fuera del carril de discovery/indexación y no tratarlos como fuentes del proyecto.',
+        'Versionar `.gitignore`/`.gitattributes` solo como policy del repo y revisar los `.scc` legacy antes de migrar o limpiar el workspace.',
+      ],
+    ));
+  }
+
+  const pbArtifactDirs = discoveryArtifacts['artifact-pb-dir']?.count ?? 0;
+  const buildArtifactDirs = discoveryArtifacts['artifact-build-dir']?.count ?? 0;
+  const backupArtifactDirs = discoveryArtifacts['artifact-backup-dir']?.count ?? 0;
+  if (pbArtifactDirs > 0 || buildArtifactDirs > 0 || backupArtifactDirs > 0) {
+    recommendations.push(createRecommendation(
+      'local-artifact-noise',
+      'medium',
+      'build',
+      'Excluir outputs locales y respaldos del razonamiento de migración',
+      'Discovery ignoró carpetas locales `.pb`, `build` o `_backupfiles`; son outputs/respaldo y no deben competir con markers, build files JSON ni source real al evaluar el workspace.',
+      [
+        `artifact-pb-dirs:${pbArtifactDirs}`,
+        `artifact-build-dirs:${buildArtifactDirs}`,
+        `artifact-backup-dirs:${backupArtifactDirs}`,
+      ],
+      [
+        'Mantener esas carpetas fuera del versionado y no usarlas como evidencia para topology, build o migration assistant.',
+        'Tomar solo `.pbw/.pbt/.pbsln/.pbproj`, build files JSON y source real como inputs canónicos del análisis.',
+        'Inspeccionar manualmente el ruido local con `Get-ChildItem -Force -Directory . | Where-Object Name -in @(".pb", "build", "_backupfiles")` antes de archivarlo o retirarlo.',
+      ],
+    ));
+  }
+
   if (hasOrcaAliases) {
     recommendations.push(createRecommendation(
       'legacy-orca-aliases',
@@ -253,6 +309,7 @@ export function buildWorkspaceMigrationAssistant(
       [
         'Aplicar cambios definitivos sobre source real o importarlos de vuelta antes de limpiar el staging.',
         'No usar `orca-staging` como única referencia para cerrar la migración de layout.',
+        'Inspeccionar el staging legacy con `Get-ChildItem -Force -Directory . | Where-Object Name -match "orca|staging"` y retirarlo manualmente solo cuando el source real ya sea la referencia canónica.',
       ],
     ));
   }

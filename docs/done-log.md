@@ -25,6 +25,563 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.169 B335. Catalog ADR-0001 compliance dashboard and consistency gate — **Cerrada (catalog governance 2026-05)**
+
+**Objetivo:** publicar un dashboard/gate reproducible que valide el cumplimiento de `ADR-0001` sobre el catálogo real, sin reabrir la decisión `generated-primary-with-manual-overlays` ni mover el audit al hot path interactivo.
+
+**Resultado registrado:**
+- `src/server/features/workspaceCheckCatalogSummary.ts` reconsume `buildCatalogConsistencyReport()` y la merge policy real del query layer para publicar `adrCompliance` con policy recomendada, dominios `manual-primary`, coverage drift, `candidateHotPathViolations` y drift de localización documental;
+- `src/client/workspaceCheckReport.ts` eleva ese estado a findings/status/Markdown del `workspace-check`, de modo que el gate ADR-0001 puede fallar el summary sin abrir otro rail de catálogo ni reimplementar el source-of-truth;
+- `scripts/generate_catalog_consistency_report.cjs`, `package.json` y `artifacts/catalog/catalogConsistencyReport.generated.{json,md}` dejan un reporte determinista ejecutable por `npm run report:catalog-consistency`, mientras `workspaceCheckCatalogSummary.test.ts`, `workspaceCheckReport.test.ts`, `catalogConsistency.test.ts`, `catalogAdoptionDecision.test.ts`, `catalogProvenanceAudit.test.ts` y `systemCatalogQueryHardening.test.ts` fijan el cierre del slice.
+
+**Validación registrada:**
+- `npm run compile`
+- `npx tsc -p tsconfig.test.json`
+- `npx mocha --ui tdd out/test/server/unit/catalogConsistency.test.js out/test/server/unit/catalogAdoptionDecision.test.js out/test/server/unit/catalogProvenanceAudit.test.js out/test/server/unit/systemCatalogQueryHardening.test.js out/test/server/unit/workspaceCheckCatalogSummary.test.js out/test/server/unit/workspaceCheckReport.test.js out/test/server/unit/publicApi.test.js`
+- `npm run report:catalog-consistency`
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.168 B286. Workspace symbols vs framework knowledge pack conflict policy — **Cerrada (knowledge pack governance 2026-05)**
+
+**Objetivo:** definir cómo conviven los símbolos reales del workspace con framework knowledge packs curados sin reabrir la política generated/manual del system catalog ni alterar el winner real del query engine.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/frameworkKnowledgePackPolicy.ts` centraliza la policy ligera basada en owner types curados + `sourceOrigin`, donde el source real del workspace gana y los knowledge packs degradan a contexto advisory;
+- `src/shared/publicApi.ts`, `src/server/features/workspaceSymbols.ts`, `src/server/features/currentObjectContext.ts`, `src/server/features/impactAnalysis.ts` y `src/server/features/safeEditPlan.ts` publican `frameworkKnowledgeConflict` en las surfaces read-only que ya conocían el símbolo ganador, sin abrir otro motor ni tocar la selección real del winner;
+- `src/client/objectCheckReport.ts` y `src/client/currentObjectContextPanelModel.ts` hacen visible esa policy en object check/panel, mientras `test/server/unit/frameworkKnowledgePacks.test.ts`, `workspaceSymbols.test.ts`, `currentObjectContext.test.ts`, `impactAnalysis.test.ts`, `safeEditPlan.test.ts`, `objectCheckReport.test.ts`, `currentObjectContextPanelModel.test.ts` y `publicApi.test.ts` fijan el cierre del slice.
+
+**Validación registrada:**
+- `npx tsc -p tsconfig.test.json`
+- `npx mocha --ui tdd out/test/server/unit/frameworkKnowledgePacks.test.js out/test/server/unit/workspaceSymbols.test.js out/test/server/unit/currentObjectContext.test.js out/test/server/unit/impactAnalysis.test.js out/test/server/unit/safeEditPlan.test.js out/test/server/unit/currentObjectContextPanelModel.test.js out/test/server/unit/objectCheckReport.test.js out/test/server/unit/publicApi.test.js`
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.167 B284. Semantic query explain plan — **Cerrada (query diagnostics 2026-05)**
+
+**Objetivo:** exportar un explain plan legible de una resolución semántica real, con fases, candidatos, descartes, winner, `confidence`, `sourceOrigin` y coste aproximado sin abrir otro motor de resolución.
+
+**Resultado registrado:**
+- `src/server/features/explainSemanticQuery.ts` compone el report read-only directamente sobre `queryContext`, `ResolvedTargetInfo` y `queryTrace`, exponiendo phases/candidates/discards/winner/`sourceOrigin` y coste aproximado sobre la resolución real;
+- `src/shared/publicApi.ts`, `src/server/handlers/reportCommandHandlers.ts`, `src/server/handlers/lifecycleHandlers.ts` y `src/client/extension.ts` publican `explainSemanticQuery()` como comando/API/tool estable (`powerbuilder.explainSemanticQuery`, `explain-semantic-query`) con fallback por editor activo;
+- `src/client/explainSemanticQueryReport.ts`, `src/client/commandRegistration.ts`, `package.json`, `test/fixtures/basic/semantic_query_sample.sru` y `test/smoke/extension.test.ts` añaden la salida Markdown `PowerSyntax: Explain Semantic Query at Cursor` y la validación end-to-end del wiring real.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(explainSemanticQuery|publicApi)"`
+- `npm run test:smoke -- --grep "explain semantic query"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.166 B340. ORCA/PBAutoBuild tooling vocabulary catalog — **Cerrada (tooling catalog 2026-05)**
+
+**Objetivo:** modelar vocabulario de tooling PowerBuilder para ORCA/PBAutoBuild fuera del hot path semántico, de modo que build/health/docs surfaces puedan reutilizarlo sin contaminar resolución PowerScript/DataWindow.
+
+**Resultado registrado:**
+- `src/server/knowledge/system/manual/tooling/index.ts` publica `tooling-symbols` bajo el namespace `powerbuilder-tooling` para ORCA, PBAutoBuild, env vars y settings de tooling;
+- `src/server/knowledge/system/manual/index.ts` incorpora ese slice al dataset `manual-core` y el consistency report publica ya el nuevo dominio sin romper provenance ni counts del catálogo;
+- `src/server/knowledge/system/services/queryService.ts` excluye `tooling-symbols` de `resolveLanguageSymbol()`, manteniendo el vocabulario visible sólo por acceso explícito al catálogo y fuera del hot path interactivo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/toolingCatalog"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.165 B314. Build/ORCA failure classification v2 — **Cerrada (build / troubleshooting 2026-05)**
+
+**Objetivo:** clasificar fallos comunes de build moderno y ORCA legacy para troubleshooting y support bundle reutilizando el estado ya publicado del runtime, el parser de problemas de PBAutoBuild y el journal técnico persistido.
+
+**Resultado registrado:**
+- `src/client/build/buildOrcaFailureClassification.ts` clasifica `missing-tool`, `invalid-env`, `compile-errors`, `stale-staging`, `source-conflict` y `packaging-disabled` sin abrir un segundo checker ni una API nueva;
+- `src/client/support/supportBundle.ts` incorpora `failureClassification` en `build-orca-snapshot.json` y `src/client/extension.ts` lee `.vsc-powersyntax/runtime/build-orca-journal.json` de forma read-only para enriquecer el bundle exportado;
+- el detalle ORCA del bundle queda path-safe y reutiliza `buildHealth`, `buildProblems`, `orcaTooling`, `orcaRunner` y el `build-orca-journal` persistido para distinguir troubleshooting de tooling, compile y staging.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(buildOrcaFailureClassification|supportBundle|pbAutoBuildProblems|orcaStagingImport)"`
+
+**Documentación alineada:**
+- `docs/developer-workflows.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.164 B317. Backlog lifecycle automation guard — **Cerrada (SDD / backlog governance 2026-05)**
+
+**Objetivo:** proteger transiciones `Open/Partial/Done` y el movimiento backlog ↔ done-log reutilizando el audit documental ya publicado, sin abrir un segundo checker ni rehacer la historia completa del repo.
+
+**Resultado registrado:**
+- `tools/docs-drift-audit.cjs` endurece `npm run test:docs:drift` para rechazar estados `Done/Closed` todavía presentes en backlog y entradas canónicas modernas del done-log sin `**Validación registrada:**` o `**Documentación alineada:**`;
+- `test/server/unit/docsLifecycleGuard.test.ts` congela el nuevo guard de lifecycle documental sobre un caso sintético mínimo;
+- el cierre completa el formato canónico de las entradas `B358`, `B359`, `B360`, `B361`, `B362` y `B363` en `docs/done-log.md`, dejando el rail moderno de cierre limpio sobre el repo real.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/docsLifecycleGuard"`
+- `npm run test:docs:drift`
+
+**Nota de validación adicional:**
+- El guard se apoya deliberadamente en el rail de `B316` y solo endurece el lifecycle canónico actual; no intenta reestructurar retrospectivamente entradas históricas previas al bloque moderno del done-log.
+
+**Documentación alineada:**
+- `docs/spec-driven-development.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.163 B316. Documentation drift detector — **Cerrada (docs governance / SDD 2026-05)**
+
+**Objetivo:** detectar drift canónico entre backlog, done-log, specs, roadmap y current-focus con un check local reproducible que no dependa del runtime del producto.
+
+**Resultado registrado:**
+- `tools/docs-drift-audit.cjs` publica `npm run test:docs:drift` y marca ítems `Done` todavía activos en backlog, duplicados canónicos en `docs/backlog.md`/`docs/done-log.md`, specs sin `spec.md`/`tasks.md` y desalineación entre `docs/current-focus.md` y `docs/roadmap.md`;
+- `test/server/unit/docsDriftAudit.test.ts` congela el rail con un caso sintético de drift y exige que el repo actual pase limpio sin errores ni warnings;
+- el cierre corrige drift documental real preexistente añadiendo `specs/377-catalog-driven-enum-consumers/tasks.md`, retirando `B329` del backlog activo y eliminando la entrada duplicada de `B361` en `docs/done-log.md`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/docsDriftAudit"`
+- `npm run test:docs:drift`
+
+**Nota de validación adicional:**
+- El audit se limita al drift canónico de backlog/done-log/current-focus/roadmap y a la documentación mínima `spec.md`/`tasks.md`; no intenta normalizar retrospectivamente toda la historia de `plan.md` ni ownership histórico de specs antiguas.
+
+**Documentación alineada:**
+- `docs/spec-driven-development.md`
+- `docs/ai-orchestrator.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.162 B315. Extension package self-verification v2 — **Cerrada (release / package quality 2026-05)**
+
+**Objetivo:** reforzar la auto-verificación del VSIX empaquetado para que el carril de release instalado compruebe activación, comandos, handshake mínimo con runtime/LSP, defaults de settings y descriptor/API pública.
+
+**Resultado registrado:**
+- `test/smoke/extension.test.ts` amplía la smoke instalada para verificar defaults de `vscPowerSyntax.profile`, `progress.show`, `formatting.enabled`, `formatting.formatOnSave`, `formatting.maxDocumentChars` y `formatting.maxDocumentLines`, además de activación, comandos y descriptor/API pública ya cubiertos;
+- `test/server/unit/packageSelfVerificationContract.test.ts` congela el alcance del self-verification del paquete y confirma que `release:verify` mantiene `test:smoke:installed-vsix` como parte del lane;
+- `release:verify` sigue usando `package:vsix -> verify:vsix-contents -> test:smoke:installed-vsix`, de modo que la verificación ampliada ocurre sobre el VSIX instalado real y no sobre la development extension.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/packageSelfVerificationContract"`
+- `npm run test:smoke:installed-vsix`
+- `npm run release:verify`
+
+**Nota de validación adicional:**
+- `npm run release:verify` sigue bloqueado por los mismos fallos globales preexistentes ajenos a `B315`: `unit/visualCatalogDatatypes`, `unit/systemCatalogQueryHardening`, `unit/runtimeCatalogDatatypes`, `unit/explainSystemSymbol`, `unit/catalogConsistency` y el hotspot histórico de `src/client/extension.ts` en `unit/architectureImports`.
+
+**Documentación alineada:**
+- `docs/testing.md`
+- `README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.161 B298. Extension upgrade compatibility checker — **Cerrada (upgrade / compatibility 2026-05)**
+
+**Objetivo:** detectar problemas al actualizar versión de la extensión revisando cache schema, settings legacy, snapshots, `apiVersion` y artefactos locales del workspace.
+
+**Resultado registrado:**
+- `workspace-check` añade el modo `upgrade`, reutilizando `server-stats`, `semanticWorkspaceManifest`, settings governance y `workspaceMigrationAssistant` para revisar runtime persistente, `cache policy`, settings legacy, `apiVersion/schemaVersion` y ruido local sin abrir un segundo checker;
+- el cliente publica el comando `PowerSyntax: Check Extension Upgrade Compatibility`, que abre el mismo reporte Markdown AI-readable del rail `workspace-check` en modo `upgrade`;
+- el reporte consolida findings/recommended actions para drift de settings, runtime cache persistente, artefactos locales/staging legacy y revisión explícita de versiones exportadas antes de reutilizar snapshots o bundles viejos.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/extensionUpgradeCompatibilityChecker"`
+- `npm run test:smoke -- --grep "la extensión se activa en menos de 500ms"`
+
+**Nota de validación adicional:**
+- la smoke focal pasó y abrió el nuevo checker, aunque el log sigue mostrando el warning histórico de activación por encima de 500 ms en entorno local de test; no abrió una regresión nueva del slice `B298`.
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.160 B387. Release readiness alignment after bundling — **Cerrada (CI / release / workflows 2026-05)**
+
+**Objetivo:** alinear `release:verify`, workflow de GitHub Actions y documentación con el modelo productivo basado en `dist/**`, verificación de contenido y smoke instalada del VSIX.
+
+**Resultado registrado:**
+- `.vscode-test.js` publica el label `smoke-installed` con `extensionDevelopmentPath: []`, `installExtensions: ['.dist/vsc-powersyntax.vsix']` y directorios aislados de user-data/extensions para ejecutar la smoke de activación real sobre la extensión instalada;
+- `package.json` añade `test:smoke:installed-vsix` y encadena esa smoke dentro de `release:verify` después de `package:vsix` y `verify:vsix-contents`, dejando el lane release alineado con `bundle -> package -> verify -> installed smoke`;
+- `.github/workflows/release-readiness.yml` sigue usando `npm run release:verify` y publica el VSIX/artifacts del mismo carril, mientras la documentación de release/testing/workflows refleja ya el flujo `dist/**` y la validación instalada.
+
+**Validación registrada:**
+- `npm run test:smoke:installed-vsix`
+- `npm run test:unit -- --grep "unit/releaseReadinessContract"`
+- `npm run test:performance:gate`
+- `npm run test:architecture:rapid`
+- `npm run test:architecture:metrics`
+- `npm run release:verify`
+
+**Nota de validación adicional:**
+- `npm run test:architecture:metrics` y `npm run release:verify` siguen fallando por bloqueos preexistentes fuera de `B387`: el hotspot histórico de `src/client/extension.ts` en `architecture-hotspot-guard`/`unit/architectureImports` y regresiones ajenas en `unit/visualCatalogDatatypes`, `unit/systemCatalogQueryHardening`, `unit/runtimeCatalogDatatypes`, `unit/explainSystemSymbol` y `unit/catalogConsistency`.
+
+**Documentación alineada:**
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+- `docs/performance-budget.md`
+- `README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.159 B386. VSIX package surface hardening and package content verification — **Cerrada (packaging / release / quality gate 2026-05)**
+
+**Objetivo:** endurecer la surface del VSIX para que el paquete final sea pequeño, reproducible y verificable, evitando artefactos de desarrollo y dependencias innecesarias.
+
+**Resultado registrado:**
+- `package.json.files` queda fijado sobre la allowlist productiva `dist/**`, `syntaxes/**`, `icons/**`, `language-configuration.json`, `package.json`, `LICENSE`, `README.md` y `CHANGELOG.md`, sin `.vscodeignore` paralelo que contradiga ese modelo;
+- `tools/verify-vsix-contents.mjs` comprueba required paths del runtime/publicación y bloquea prefijos prohibidos (`src/`, `test/`, `fixtures-local/`, `node_modules/`, `coverage/`, `.cache/`, `.tmp/`, `tools/`, `scripts/`, `out/`) además de `*.tsbuildinfo`;
+- `test/server/unit/vsixPackageSurfaceContract.test.ts` congela el contrato `allowlist + verify-vsix-contents + release:verify` para que el carril VSIX no vuelva a ensancharse por accidente.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/vsixPackageSurfaceContract"`
+- `npm run package:vsix:list`
+- `npm run verify:vsix-contents`
+- `npm run release:verify` ejecutado como comprobación del carril completo
+
+**Nota de validación adicional:**
+- `npm run release:verify` sigue fallando por regresiones preexistentes ajenas a `B386` en `unit/visualCatalogDatatypes`, `unit/systemCatalogQueryHardening`, `unit/runtimeCatalogDatatypes`, `unit/explainSystemSymbol`, `unit/catalogConsistency` y por el hotspot histórico de `unit/architectureImports` sobre `src/client/extension.ts`.
+
+**Documentación alineada:**
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+- `README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.158 B385. Production esbuild bundling for client and language server — **Cerrada (packaging / runtime / bundling 2026-05)**
+
+**Objetivo:** sustituir el empaquetado basado en `out/** + node_modules runtime` por bundles de producción con `esbuild`, dejando un runtime VSIX autocontenido y defendible.
+
+**Resultado registrado:**
+- `package.json` publica `main = ./dist/client/extension.js`, empaqueta solo `dist/**` y ejecuta `npm run bundle` en `vscode:prepublish`/`package:vsix` para que el carril productivo no dependa de `node_modules` runtime suelto;
+- `tools/esbuild.mjs` genera `dist/client/extension.js` y `dist/server/server.js`, manteniendo `vscode` como `external` del cliente y un server bundle Node ejecutable localmente;
+- `src/client/extension.ts` arranca el LSP desde `dist/server/server.js` y deja `out/server/server.js` como fallback exclusivo de `Development`, evitando que el paquete productivo dependa del layout de compilación TypeScript.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/productionBundlingContract"`
+- `npm run package:vsix`
+- `npm run package:vsix:list`
+
+**Nota de validación adicional:**
+- `npm run test:unit -- --grep "unit/architectureImports"` sigue fallando por el hotspot preexistente de `src/client/extension.ts` (budgets de líneas/imports), ya documentado previamente y no introducido por `B385`.
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+- `README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.157 B313. Workspace artifact cleanup advisor — **Cerrada (workspace hygiene / supportability 2026-05)**
+
+**Objetivo:** sugerir limpieza no destructiva de artefactos locales, staging, logs y caches del workspace reutilizando surfaces read-only ya existentes.
+
+**Resultado registrado:**
+- `src/server/features/workspaceMigrationAssistant.ts` añade acciones manuales para inspeccionar ruido local (`.pb`, `build`, `_backupfiles`) y staging legacy ORCA sin ejecutar limpieza automática;
+- `src/client/support/supportBundle.ts` exporta `workspace-cleanup-advisor.json`, que resume recomendaciones manuales sobre artefactos locales, runtime cache/journal, drift de settings y revisión de API/schema versions, además de enlazar esa guidance desde `README.md`;
+- `src/client/extension.ts` reutiliza `getWorkspaceMigrationAssistant()` durante la exportación del support bundle en vez de abrir una surface paralela.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(workspaceMigrationAssistant|supportBundle|crossSurfaceGoldenMatrix)"`
+
+**Documentación alineada:**
+- `docs/developer-workflows.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.156 B309. Source control artifact awareness — **Cerrada (workspace hygiene / scm awareness 2026-05)**
+
+**Objetivo:** reconocer artefactos `Git/SVN/SCC` y outputs locales del workspace para evitar indexar ruido y mejorar `workspaceMigrationAssistant` sin ejecutar SCM ni aplicar limpieza destructiva.
+
+**Resultado registrado:**
+- `src/server/workspace/discovery.ts` registra ya metadata/policy files SCM (`.git`, `.svn`, `.gitignore`, `.gitattributes`, `.scc`) y outputs locales (`.pb`, `build`, `_backupfiles`) en `WorkspaceState`, manteniéndolos fuera de roots/source sin perder esa observación read-only;
+- `src/server/features/workspaceMigrationAssistant.ts` publica recomendaciones `source-control-artifacts` y `local-artifact-noise` para explicar qué se ignora, qué no debe competir con la topología/build canónicos y qué debe tratarse sólo como governance o ruido local;
+- `test/server/unit/workspace.test.ts` y `workspaceMigrationAssistant.test.ts` fijan el carril `discover -> state -> migration assistant` con fixtures de `.git`, `.svn`, `.scc`, `.gitignore`, `.gitattributes`, `build` y `_backupfiles`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(workspace|workspaceMigrationAssistant)"`
+
+**Documentación alineada:**
+- `docs/developer-workflows.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.155 B307. WebBrowser/WebView2 usage analyzer — **Cerrada (web ui interop / reports 2026-05)**
+
+**Objetivo:** detectar superficies `WebBrowser`/`WebView2` y resumir patrones de navegación, bridge JavaScript y settings relevantes para reportes read-only sin inspeccionar contenido web remoto ni abrir un motor nuevo.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderCodeMetrics.ts` publica ya `webBrowserUsages` por objeto y en summary global reutilizando `datatype` y `baseTypeName` del snapshot indexado;
+- `src/server/features/powerBuilderTechnicalDebtReport.ts` publica el hotspot `web-ui-integration` con evidencia `web-ui-surface:*`, `web-ui-pattern:*` y `web-ui-risk:no-content-inspection`, distinguiendo navegación, script bridge y remote debugging sin leer HTML, DOM ni payloads remotos;
+- `src/client/workspaceCheckReport.ts` resume esa misma evidencia en health, `src/client/extension.ts` la refleja en el Markdown del informe técnico y `src/client/support/supportBundle.ts` la mantiene visible en el debt report saneado;
+- `src/shared/publicApi.ts` versiona el contrato visible a `2.22.0` y `test/server/unit/publicApi.test.ts` fija que los nuevos campos WebBrowser/WebView2 forman parte del API público.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(powerBuilderCodeMetrics|powerBuilderTechnicalDebtReport|workspaceCheckReport|supportBundle|publicApi)"`
+
+**Documentación alineada:**
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+- `docs/developer-workflows.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.154 B306. HTTPClient/REST/JSON usage analyzer — **Cerrada (modern integration / reports 2026-05)**
+
+**Objetivo:** detectar usos HTTP/REST/JSON y resumir endpoints/patrones de integración moderna para `code metrics`, debt report, health y support bundle sin exponer secretos ni abrir un motor nuevo.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderCodeMetrics.ts` publica ya `httpIntegrationUsages` y `jsonIntegrationUsages` por objeto y en summary global reutilizando `datatype` y `baseTypeName` del snapshot indexado;
+- `src/server/features/powerBuilderTechnicalDebtReport.ts` publica el hotspot `modern-integration` con evidencia `integration-surface:*`, `integration-pattern:*`, `integration-endpoint:*` redactado e `integration-risk:redaction-required`, sin filtrar hosts, paths, tokens ni credenciales reales;
+- `src/client/workspaceCheckReport.ts` resume la misma evidencia pública en health y `src/client/support/supportBundle.ts` la mantiene visible en el debt report saneado, sin abrir una segunda clasificación;
+- `src/shared/publicApi.ts` versiona el contrato visible a `2.21.0` y `test/server/unit/publicApi.test.ts` fija que los nuevos campos HTTP/JSON forman parte del API público.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(powerBuilderCodeMetrics|powerBuilderTechnicalDebtReport|workspaceCheckReport|supportBundle|publicApi)"`
+
+**Documentación alineada:**
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+- `docs/developer-workflows.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.153 B308. PBNI/PBX dependency insight v2 — **Cerrada (native dependencies / reports 2026-05)**
+
+**Objetivo:** profundizar dependencias externas `DLL/PBX/unknown` para reportes read-only, health y support bundle reutilizando external functions y `native-dependency`, sin cargar binarios nativos.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderTechnicalDebtReport.ts` desglosa el hotspot `external-dependency` con evidencia `external-kind:dll|pbx|unknown`, `external-alias:*` y `external-consumers=*`, manteniendo el contador base `externalDependencies` sobre el mismo snapshot indexado;
+- el mismo debt report añade evidencia visible de riesgo e impacto `external-risk:native-runtime`, `external-build-impact:manual-native-deployment`, `external-risk:pbni-runtime-surface`, `external-orca-impact:manual-pbx-packaging` y `external-risk:unknown-binary-classification` cuando aplica;
+- `src/client/workspaceCheckReport.ts` resume esa evidencia pública en health sin ampliar el contrato ni abrir un segundo motor de clasificación;
+- `src/client/support/supportBundle.ts` sigue reutilizando el debt report saneado y `test/server/unit/supportBundle.test.ts` fija que la evidencia externa visible llega intacta al bundle.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(externalFunctions|powerBuilderTechnicalDebtReport|workspaceCheckReport|supportBundle)"`
+
+**Documentación alineada:**
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.152 B310. Object lifecycle risk report v2 — **Cerrada (PowerBuilder lifecycle / diagnostics 2026-05)**
+
+**Objetivo:** elevar lifecycle `create/destroy/constructor/destructor` a reportes de riesgo y modernization reutilizando diagnostics y metrics ya existentes.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderTechnicalDebtReport.ts` publica el hotspot `lifecycle-risk` cuando existen warnings `missing-super-*`, `missing-trigger-*` o `unresolved-*`, con evidencia `diagnostic:lifecycle-*` y summary `lifecycleRiskFindings`;
+- el debt report reutiliza `objectEntry.metrics.lifecycleWarnings` ya publicados por `powerBuilderCodeMetrics`, evitando recomputar lifecycle fuera del snapshot de diagnostics;
+- `src/client/extension.ts` refleja ya el summary `lifecycle` y el contador lifecycle por hotspot en el Markdown del informe técnico;
+- `test/server/unit/diagnostics.test.ts`, `powerBuilderCodeMetrics.test.ts`, `powerBuilderTechnicalDebtReport.test.ts` y `publicApi.test.ts` fijan la cadena `diagnostics -> metrics -> debt report` para este slice.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(diagnostics|powerBuilderCodeMetrics|powerBuilderTechnicalDebtReport|publicApi)"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/rules-catalog.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.151 B312. SQL dynamic risk taxonomy v2 — **Cerrada (SQL / risk model 2026-05)**
+
+**Objetivo:** clasificar riesgo de SQL embebido/dinámico para `diagnostics`, debt report y `safeEditPlan` con reason codes defendibles, sin intentar parsear SQL dinámico no demostrable.
+
+**Resultado registrado:**
+- `src/server/features/invocationRiskModel.ts` conserva `dynamic-strings:n` y añade `dynamic-sql:n` solo cuando `dynamicStringReferences` ya aporta evidencia SQL defendible;
+- `test/server/unit/invocationRiskModel.test.ts` fija esa taxonomía local y congela que el contador genérico no se pierde al añadir el subtipo SQL;
+- `test/server/unit/safeEditPlan.test.ts` demuestra que `safeEditPlan` hereda `dynamic-sql:n` vía `impactAnalysis`, mientras `codeActions.test.ts` sigue verde para los casos dinámicos no SQL;
+- `test/server/unit/powerBuilderTechnicalDebtReport.test.ts` mantiene el hotspot `dynamic-sql` con evidencia y `confidence` explícitas como surface canónica de reportes.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(invocationRiskModel|safeEditPlan|codeActions)"`
+- `npm run test:unit -- --grep "unit/powerBuilderTechnicalDebtReport"`
+
+**Documentación alineada:**
+- `docs/rules-catalog.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.150 B311. Transaction and DataWindow update flow analyzer — **Cerrada (transaction semantics / reports 2026-05)**
+
+**Objetivo:** analizar flujos `SetTransObject/SetTrans/Retrieve/Update` y proyectar su riesgo real en code metrics y technical debt report sin abrir un parser paralelo ni un segundo motor de scoring.
+
+**Resultado registrado:**
+- `src/server/features/powerBuilderTechnicalDebtReport.ts` mantiene `datawindow-risk` aunque el binding no resuelva un `.srd` único, siempre que existan evidencias defendibles en `diagnostic.code` para `dataobject-*`, `transaction-binding-*` o `retrieve-arity-mismatch`;
+- el debt report añade evidencia específica por `dataobject-binding`, `transaction-binding`, `retrieve-arity` y `datawindow-path`, evitando colapsar todo el riesgo DataWindow en un único contador opaco;
+- `src/server/features/powerBuilderCodeMetrics.ts` publica contadores por objeto y summary para `dataObjectBindingDiagnostics`, `transactionBindingDiagnostics` y `retrieveArityDiagnostics`, reutilizando el mismo snapshot de diagnostics;
+- `test/server/unit/powerBuilderTechnicalDebtReport.test.ts` y `powerBuilderCodeMetrics.test.ts` fijan el caso degradado de `Retrieve/Update` con binding dinámico o transacción ausente.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(powerBuilderCodeMetrics|powerBuilderTechnicalDebtReport)"`
+
+**Documentación alineada:**
+- `docs/rules-catalog.md`
+- `docs/developer-workflows.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.149 B303. Agent task replay from repro/support bundle — **Cerrada (AI supportability 2026-05)**
+
+**Objetivo:** permitir que un agente reconstruya una incidencia desde un semantic repro pack o support bundle saneado sin requerir el repo completo ni abrir side effects.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` publica `ApiTaskReplayBundleRequest`, `ApiTaskReplayBundleReport` y el tool read-only `task-replay-bundle` como parte del contrato público versionado;
+- `src/client/taskExecutionAutomation.ts` detecta manifests `semantic-repro-pack` y `support-bundle`, y genera `minimalContext`, `referencedFiles`, `suggestedCommands` y `recommendedContractId` sin depender del workspace real;
+- `src/client/extension.ts` expone `replayTaskFromBundle()` por el read-only bridge, reutilizando el rail contractual existente en vez de abrir un loader paralelo;
+- `test/fixtures/agent-task-replay/` y `test/server/unit/taskExecutionAutomation.test.ts` fijan el replay para ambos formatos soportados.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "taskExecutionAutomation|agentDocsPolicy"`
+
+**Documentación alineada:**
+- `docs/ai-orchestrator.md`
+- `docs/developer-workflows.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.148 B302. Agent-safe documentation updater policy — **Cerrada (docs automation 2026-05)**
+
+**Objetivo:** evitar que agentes dupliquen documentación, cierren trabajo con documentos propietarios pendientes o traten intención como implementación.
+
+**Resultado registrado:**
+- `test/server/unit/agentDocsPolicy.test.ts` fija sobre archivos reales del repo que `docs-updater` solo toca documentos afectados, que `docs-auditor` no marca como implementado lo que solo está planificado y que el context pack IA delega el foco vivo a `docs/current-focus.md`;
+- `docs/ai-context/powerbuilder-plugin-context.md` deja de conservar foco histórico desalineado y refleja ya los tools read-only actuales del carril IA;
+- `docs/ai-orchestrator.md`, `docs/spec-driven-development.md` y `docs/ai-agents-catalog.md` pasan a exigir `validationReceipt` y `docsPending` explícitos antes de cerrar trabajo write-enabled.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "taskExecutionAutomation|agentDocsPolicy"`
+
+**Documentación alineada:**
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/spec-driven-development.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.147 B300. Agent validation receipt — **Cerrada (SDD / AI governance 2026-05)**
+
+**Objetivo:** generar un recibo estructurado tras una tarea agent-ready para dejar comandos, resultados, artefactos, riesgos, docs pendientes, specs afectadas y siguiente foco.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` publica `ApiTaskExecutionValidationReceipt` y permite adjuntarlo a `ApiSpecDrivenPblUpdateResult` y `ApiSpecDrivenPblUpdateBatchResult`;
+- `src/client/taskExecutionAutomation.ts` compone receipts single y batch con comandos, resultados, `docsTouched`, `docsPending`, `specsAffected`, `artifacts` y `nextFocus`;
+- `src/client/extension.ts` adjunta `validationReceipt` a `applySpecDrivenPblUpdate()` y `applySpecDrivenPblUpdateBatch()` sobre el mismo rail seguro de ejecución;
+- `test/server/unit/taskExecutionAutomation.test.ts` fija receipts con journal, ledger y riesgos sin abrir un postprocesado paralelo.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "taskExecutionAutomation|agentDocsPolicy"`
+
+**Documentación alineada:**
+- `docs/spec-driven-development.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.146 B299. Agent execution dry-run contract — **Cerrada (AI automation safety 2026-05)**
+
+**Objetivo:** exigir un dry-run declarativo previo para tareas IA write-enabled con plan, impacto, archivos, tests, docs y bloqueos visibles antes de tocar código.
+
+**Resultado registrado:**
+- `src/shared/publicApi.ts` publica `ApiTaskExecutionDryRunRequest`, `ApiTaskExecutionDryRunReport`, el método `getTaskExecutionDryRun()` y el tool read-only `task-execution-dry-run` en el contrato público versionado;
+- `src/client/extension.ts` expone ese dry-run por el read-only bridge y lo resuelve reutilizando `generateSafeEditPlan()` y `analyzeImpact()` sin abrir otro planner;
+- `src/client/taskExecutionAutomation.ts` compone items y summaries del dry-run con archivos, riesgos, tests, docs pendientes y bloqueos defendibles;
+- `test/server/unit/taskExecutionAutomation.test.ts` fija el contrato sobre un caso `spec-driven-pbl-update` y mantiene verde el rail agent-ready sin side effects.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "taskExecutionAutomation|agentDocsPolicy"`
+
+**Documentación alineada:**
+- `docs/ai-orchestrator.md`
+- `docs/spec-driven-development.md`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.145 B301. Agent context budget enforcement — **Cerrada (AI tooling / performance 2026-05)**
 
 **Objetivo:** limitar payloads y contexto de surfaces agent-ready para que tools/API expongan budgets explícitos, truncado visible y degradación segura sobre workspaces grandes.
@@ -3177,6 +3734,30 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 
 ## 1.163 B361. Official enumerated datatype extractor and coverage rail — **Cerrada (spec 375, official enum rail 2026-05)**
 
+**Objetivo:** cerrar el rail oficial reproducible para tipos y valores enumerados PowerBuilder sin abrir un pipeline paralelo al generator actual, dejando cobertura auditable, provenance explícita y consumers runtime capaces de mezclar `manual-core` + `generated` por `enumValueOf`.
+
+**Resultado registrado:**
+- `script/generate_official_function_catalog.cjs` endurece el scraper oficial de Appeon con `findDocPageEndIndex()` y `extractPrimaryContentHtml()`, y ajusta `extractSectionHtml`, `parseDataWindowConstantPage`, `extractObjectsPropertyVariantReferences` y `parseObjectsPropertyEnumPageVariant` para impedir que TOCs, índices locales o `navfooter` globales entren como valores enumerados oficiales;
+- el mismo rail oficial materializa `src/server/knowledge/system/generated/enumeratedTypes.generated.ts`, `enumeratedValues.generated.ts`, `enumeratedCoverage.generated.ts` y `enumeratedProvenance.generated.ts`, dejando `enumerated-types` con `officialCount = coveredCount = 33` y `enumerated-values` con `officialCount = coveredCount = 233`, sin texto oficial masivo copiado y con provenance/version/sourceUrl trazables;
+- `src/server/knowledge/system/registry/datasets.ts` publica ya los slices `generated` de enums junto al rail manual, `buildIndexes.ts`/`queryService.ts` siguen resolviendo la unión efectiva por `byEnumValueOf` y `src/server/features/hover.ts` muestra esa unión real para tipos como `WindowType`, combinando `Main!` con valores generated como `MDIDock!` y `MDIDockHelp!` sin hardcodes paralelos;
+- el cierre deja explícito que tipos como `SecureProtocol` pueden permanecer como datatype oficial sin `enumValues` cuando Appeon solo documenta códigos enteros y no tokens enumerados con `!`, de forma que cualquier curación posterior quede reservada para `B362`;
+- `docs/architecture.md`, `docs/testing.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/backlog.md`, `docs/current-focus.md` y `docs/roadmap.md` quedan alineados con el cierre formal de B361 y con el paso del foco a `B362`.
+
+**Validación registrada:**
+- `node script/generate_official_function_catalog.cjs`
+- `npm run compile`
+- `npx tsc -p tsconfig.test.json`
+- `npx vscode-test --label unit --grep "unit/catalogGeneratorScript|unit/catalogV2|unit/hover"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
 ## 1.164 B362. PowerBuilder enumerated datatypes and values catalog completion — **Cerrada (spec 376, enum catalog completion 2026-05)**
 
 **Objetivo:** completar la integración consumible del catálogo de tipos y valores enumerados reutilizando el rail oficial de `B361`, cerrando gaps curados mínimos y dejando metadata útil y límites honestos para tipos oficiales sin miembros nominales.
@@ -3192,6 +3773,15 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run compile`
 - `npx tsc -p tsconfig.test.json`
 - `npx vscode-test --label unit --grep "unit/catalogGeneratorScript|unit/catalogV2"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/testing.md`
+- `docs/architecture.md`
+- `docs/roadmap.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/done-log.md`
 
 ## 1.165 B363. Catalog-driven enum hover, completion, signatureHelp and diagnostics — **Cerrada (spec 377, enum consumers 2026-05)**
 
@@ -3210,22 +3800,14 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npx vscode-test --label unit --grep "completion|hover|signatureHelp|semanticTokens|diagnostics|enumerated|enum"`
 - `npx vscode-test --label unit --grep "catalog|systemCatalog|catalogV2"`
 
-## 1.163 B361. Official enumerated datatype extractor and coverage rail — **Cerrada (spec 375, official enum rail 2026-05)**
-
-**Objetivo:** cerrar el rail oficial reproducible para tipos y valores enumerados PowerBuilder sin abrir un pipeline paralelo al generator actual, dejando cobertura auditable, provenance explícita y consumers runtime capaces de mezclar `manual-core` + `generated` por `enumValueOf`.
-
-**Resultado registrado:**
-- `script/generate_official_function_catalog.cjs` endurece el scraper oficial de Appeon con `findDocPageEndIndex()` y `extractPrimaryContentHtml()`, y ajusta `extractSectionHtml`, `parseDataWindowConstantPage`, `extractObjectsPropertyVariantReferences` y `parseObjectsPropertyEnumPageVariant` para impedir que TOCs, índices locales o `navfooter` globales entren como valores enumerados oficiales;
-- el mismo rail oficial materializa `src/server/knowledge/system/generated/enumeratedTypes.generated.ts`, `enumeratedValues.generated.ts`, `enumeratedCoverage.generated.ts` y `enumeratedProvenance.generated.ts`, dejando `enumerated-types` con `officialCount = coveredCount = 33` y `enumerated-values` con `officialCount = coveredCount = 233`, sin texto oficial masivo copiado y con provenance/version/sourceUrl trazables;
-- `src/server/knowledge/system/registry/datasets.ts` publica ya los slices `generated` de enums junto al rail manual, `buildIndexes.ts`/`queryService.ts` siguen resolviendo la unión efectiva por `byEnumValueOf` y `src/server/features/hover.ts` muestra esa unión real para tipos como `WindowType`, combinando `Main!` con valores generated como `MDIDock!` y `MDIDockHelp!` sin hardcodes paralelos;
-- el cierre deja explícito que tipos como `SecureProtocol` pueden permanecer como datatype oficial sin `enumValues` cuando Appeon solo documenta códigos enteros y no tokens enumerados con `!`, de forma que cualquier curación posterior quede reservada para `B362`;
-- `docs/architecture.md`, `docs/testing.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/backlog.md`, `docs/current-focus.md` y `docs/roadmap.md` quedan alineados con el cierre formal de B361 y con el paso del foco a `B362`.
-
-**Validación registrada:**
-- `node script/generate_official_function_catalog.cjs`
-- `npm run compile`
-- `npx tsc -p tsconfig.test.json`
-- `npx vscode-test --label unit --grep "unit/catalogGeneratorScript|unit/catalogV2|unit/hover"`
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+- `docs/rules-catalog.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 
 ## 1.162 B360. Enumerated catalog model breaking normalization — **Cerrada (spec 374, strict enum type/value split 2026-05)**
 
@@ -3243,20 +3825,40 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run test:unit -- --grep "completion|hover|semanticTokens|signatureHelp"`
 - `npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|enumerated|enum"`
 
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/roadmap.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.161 B359. Runtime, integration and nonvisual system object datatypes catalog completion — **Cerrada (spec 373, manual runtime/integration rails 2026-05)**
 
 **Objetivo:** completar los rails curados `manual/runtime/` y `manual/integration/` para tipos runtime/nonvisual modernos, PDF, correo, profiling/trazas, reflexión, OLE no visual y subsistemas de integración, sin remezclarlos con el carril visual ya cerrado en `B358`.
 
 **Resultado registrado:**
-- `src/server/knowledge/system/manual/runtime/` queda consolidado por ownership (`systemTypes.ts`, `errors.ts`, `reflection.ts`, `ole.ts`, `mail.ts`, `profiling.ts`) y `src/server/knowledge/system/manual/integration/` hace lo mismo para `json.ts`, `http.ts`, `rest.ts`, `oauth.ts`, `pdf.ts`, `filesystem.ts`, `compression.ts`, `crypto.ts` y `dotnet.ts`, cerrando el backlog B359 completo sobre `manual-core` en vez de depender solo del rail `generated`;
+- `src/server/knowledge/system/manual/runtime/` queda consolidado por ownership (`systemTypes.ts`, `errors.ts`, `reflection.ts`, `ole.ts`, `mail.ts`, `profiling.ts`) y `src/server/knowledge/system/manual/integration/` hace lo mismo para `json.ts`, `http.ts`, `rest.ts`, `oauth.ts`, `pdf.ts`, `filesystem.ts`, `compression.ts`, `crypto.ts` y `dotnet.ts`, cerrando el backlog B359 completo como rail curado de overlays y excepciones `manual-only` consumidas hoy sobre el baseline `generated-primary-with-manual-overlays`;
 - el catálogo fija además casing canónico para tipos runtime/integration relevantes (`Inet`, `RESTClient`, `MailFileDescription`, `MailMessage`) y completa families que faltaban en profiling (`TraceTreeRoutine`, `TraceTreeObject`, `TraceTreeUser`, etc.), correo (`SMTPClient`) e integración moderna (`ResourceResponse`, `PDFPage`, `PDFTableOfContents`, etc.);
-- `src/server/parsing/grammar.ts` alinea `PB_BUILTIN_TYPES` con los tipos runtime/integration/PDF/traza representativos y `test/server/unit/runtimeCatalogDatatypes.test.ts` bloquea ya la lista completa de tipos B359 como `manual-core`, la resolución representativa por categoría y la exclusión del extractor noise que solo debe seguir siendo owner-type generado;
+- `src/server/parsing/grammar.ts` alinea `PB_BUILTIN_TYPES` con los tipos runtime/integration/PDF/traza representativos y `test/server/unit/runtimeCatalogDatatypes.test.ts` bloquea ya la resolución B359 según la merge policy vigente (`generated` cuando existe rail oficial y `manual-only` en excepciones como `WSConnection`), junto con la resolución representativa por categoría y la exclusión del extractor noise que solo debe seguir siendo owner-type generado;
 - `docs/architecture.md`, `docs/testing.md`, `docs/rules-catalog.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/roadmap.md`, `docs/backlog.md` y `docs/current-focus.md` quedan alineados con el cierre de B359 y con el siguiente foco natural `B360`.
 
 **Validación registrada:**
 - `npm run test:unit -- --grep "runtimeCatalogDatatypes|catalogV2"`
 - `npm run test:unit -- --grep "catalog|systemCatalog|catalogV2|catalogConsistency|nativeAncestors|ownerTypes"`
 - `npm run test:unit -- --grep "completion|hover|signatureHelp"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/roadmap.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
 
 ## 1.160 B358. Visual PowerBuilder system object datatypes catalog completion — **Cerrada (spec 372, manual visual rail 2026-05)**
 
@@ -3271,6 +3873,16 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 **Validación registrada:**
 - `npm run build:test`
 - `npm run test:unit -- --grep "visualCatalogDatatypes|catalogV2"`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/rules-catalog.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/roadmap.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
 
 ## 1.159 B339. Catalog provenance audit against official Appeon sources — **Cerrada (spec 371, catalog provenance guardrails 2026-05)**
 

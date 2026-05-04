@@ -200,4 +200,32 @@ suite('unit/currentObjectContext (B217)', () => {
       transactionTarget: 'SQLCA'
     });
   });
+
+  test('expone policy de knowledge packs cuando un objeto custom hereda de un owner curado', () => {
+    const document = setupAnalyzedDocument('file:///proj/lib_app.pbl/w_browser_host.srw', [
+      'forward',
+      'global type w_browser_host from webbrowser',
+      'end type',
+      'end forward',
+      'global type w_browser_host from webbrowser',
+      'end type',
+      'event open();',
+      'end event'
+    ].join('\r\n'));
+
+    const context = buildCurrentObjectContext(
+      document,
+      { line: 6, character: 4 },
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.equal(context.frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.equal(context.frameworkKnowledgeConflict?.confidence, 'high');
+    assert.ok(context.frameworkKnowledgeConflict?.matchedOwnerTypes.includes('webbrowser'));
+    assert.ok(context.frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'appeon-webbrowser-webview2'));
+  });
 });

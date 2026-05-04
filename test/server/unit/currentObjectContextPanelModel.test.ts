@@ -139,6 +139,23 @@ suite('unit/currentObjectContextPanelModel (B215)', () => {
         evidenceKinds: ['winner-target'],
         targetCount: 1,
       },
+      frameworkKnowledgeConflict: {
+        state: 'workspace-wins',
+        reasonCode: 'workspace-source-overrides-framework-pack',
+        summary: 'El workspace prevalece y el pack queda advisory.',
+        matchedOwnerTypes: ['w_context', 'window'],
+        packs: [
+          {
+            id: 'appeon-webbrowser-webview2',
+            version: '1.0.0',
+            title: 'WebBrowser / WebView2',
+            ownerTypes: ['webbrowser'],
+            source: 'VSC PowerSyntax curated framework pack',
+          }
+        ],
+        sourceOrigin: 'pbl-folder-source',
+        confidence: 'high',
+      },
     };
   }
 
@@ -152,6 +169,7 @@ suite('unit/currentObjectContextPanelModel (B215)', () => {
     assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Variables visibles'));
     assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Members'));
     assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Diagnostics'));
+    assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Framework knowledge'));
     assert.ok(model.roots.some((node) => node.type === 'section' && node.label === 'Embedded SQL'));
   });
 

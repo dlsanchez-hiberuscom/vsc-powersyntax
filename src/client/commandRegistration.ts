@@ -44,11 +44,13 @@ export interface ClientCommandRegistrationDependencies {
   openObjectExplorerObject(target?: ObjectExplorerTarget): unknown;
   openProjectHealthDashboard(): unknown;
   openWorkspaceCheck(): unknown;
+  openExtensionUpgradeCompatibilityCheck(): unknown;
   runWorkspaceCheck(request?: unknown): unknown;
   openCurrentObjectCheck(): unknown;
   openObjectCheck(): unknown;
   runObjectCheck(request?: unknown): unknown;
   openExplainDiagnostic(): unknown;
+  openExplainSemanticQuery(): unknown;
   runExplainDiagnostic(request?: unknown): unknown;
   runAiTaskContextBundle(request?: unknown): unknown;
   openExplainSystemSymbol(): unknown;
@@ -206,6 +208,10 @@ function buildReportCommands(
       handler: () => dependencies.openWorkspaceCheck(),
     },
     {
+      id: 'vscPowerSyntax.openExtensionUpgradeCompatibilityCheck',
+      handler: () => dependencies.openExtensionUpgradeCompatibilityCheck(),
+    },
+    {
       id: 'vscPowerSyntax.openCurrentObjectCheck',
       handler: () => dependencies.openCurrentObjectCheck(),
     },
@@ -216,6 +222,10 @@ function buildReportCommands(
     {
       id: 'vscPowerSyntax.openExplainDiagnostic',
       handler: () => dependencies.openExplainDiagnostic(),
+    },
+    {
+      id: 'vscPowerSyntax.openExplainSemanticQuery',
+      handler: () => dependencies.openExplainSemanticQuery(),
     },
     {
       id: 'vscPowerSyntax.openExplainSystemSymbol',

@@ -1,4 +1,5 @@
 import type {
+  ApiExplainSemanticQueryRequest,
   ApiExplainSystemSymbolRequest,
   ApiSafeBatchRefactorPlanRequest,
   ApiSafeEditPlan,
@@ -20,6 +21,7 @@ import { applySpecDrivenPblUpdate, applySpecDrivenPblUpdateBatch } from '../buil
 import { buildCrossProjectSymbolConflicts } from '../features/crossProjectSymbolConflicts';
 import { buildCurrentObjectContext } from '../features/currentObjectContext';
 import { buildDataWindowSqlLineage } from '../features/dataWindowSqlLineage';
+import { buildExplainSemanticQueryReport } from '../features/explainSemanticQuery';
 import { buildExplainSystemSymbolReport } from '../features/explainSystemSymbol';
 import { buildPowerBuilderDependencyGraph } from '../features/dependencyGraph';
 import { decideFeatureReadiness } from '../features/featureReadiness';
@@ -545,6 +547,33 @@ export async function tryHandleReportCommand(
             systemCatalog,
             document,
             knowledgeBase,
+          },
+        )),
+      };
+    }
+    case 'powerbuilder.explainSemanticQuery': {
+      const [requestArg] = params.arguments ?? [];
+      const request = typeof requestArg === 'object' && requestArg !== null
+        ? requestArg as ApiExplainSemanticQueryRequest
+        : undefined;
+      const requestUri = typeof request?.uri === 'string' ? request.uri : undefined;
+      const effectiveUri = requestUri ?? getActiveDocumentUri() ?? undefined;
+      const document = effectiveUri ? await loadTextDocument(context, effectiveUri) ?? undefined : undefined;
+
+      return {
+        handled: true,
+        result: await runNearContextWorkload('explain-semantic-query', () => buildExplainSemanticQueryReport(
+          effectiveUri && effectiveUri !== requestUri
+            ? {
+              ...(request ?? {}),
+              uri: effectiveUri,
+            }
+            : request,
+          {
+            knowledgeBase,
+            inheritanceGraph,
+            document,
+            hotContext: hotContextCache,
           },
         )),
       };

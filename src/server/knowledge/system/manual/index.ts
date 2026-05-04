@@ -50,6 +50,10 @@ import {
     PB_MANUAL_CORE_RUNTIME_SYSTEM_OBJECT_DATATYPES,
     PB_MANUAL_CORE_RUNTIME_SYSTEM_OBJECT_DATATYPE_CATEGORIES,
 } from './runtime';
+import {
+    PB_MANUAL_CORE_TOOLING_SYMBOLS,
+    PB_MANUAL_CORE_TOOLING_SYMBOL_CATEGORIES,
+} from './tooling';
 
 export * from './sources';
 export * from './ownerTypes';
@@ -57,6 +61,7 @@ export * from './language';
 export * from './visual';
 export * from './runtime';
 export * from './integration';
+export * from './tooling';
 export * from './datawindow';
 export * from './core';
 
@@ -186,5 +191,11 @@ export const PB_MANUAL_CORE_DATASET_SLICES: readonly PbSystemSymbolDatasetSlice[
         domain: 'enumerated-values',
         entries: PB_MANUAL_CORE_ENUMERATED_VALUES,
         allowedCategories: PB_MANUAL_CORE_ENUMERATED_VALUE_CATEGORIES,
+    },
+    {
+        dataset: 'manual-core',
+        domain: 'tooling-symbols',
+        entries: PB_MANUAL_CORE_TOOLING_SYMBOLS,
+        allowedCategories: PB_MANUAL_CORE_TOOLING_SYMBOL_CATEGORIES,
     },
 ];

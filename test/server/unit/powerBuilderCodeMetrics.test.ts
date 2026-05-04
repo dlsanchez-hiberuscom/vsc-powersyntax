@@ -175,6 +175,20 @@ suite('unit/powerBuilderCodeMetrics (B260)', () => {
             message: 'native dependency',
             range: { start: { line: 2, character: 0 }, end: { line: 2, character: 5 } },
           },
+          {
+            severity: DiagnosticSeverity.Warning,
+            source: 'PowerScript',
+            code: 'transaction-binding-missing',
+            message: 'missing transaction binding',
+            range: { start: { line: 3, character: 0 }, end: { line: 3, character: 8 } },
+          },
+          {
+            severity: DiagnosticSeverity.Warning,
+            source: 'PowerScript',
+            code: 'retrieve-arity-mismatch',
+            message: 'retrieve arity mismatch',
+            range: { start: { line: 4, character: 0 }, end: { line: 4, character: 8 } },
+          },
         ],
         projectKey: 'file:///proj/app.pbt',
         projectLabel: 'app',
@@ -189,14 +203,88 @@ suite('unit/powerBuilderCodeMetrics (B260)', () => {
 
     assert.ok(focusObject);
     assert.equal(focusObject?.metrics.lifecycleWarnings, 1);
-    assert.equal(focusObject?.metrics.diagnostics, 3);
+    assert.equal(focusObject?.metrics.diagnostics, 5);
+    assert.equal(focusObject?.metrics.dataObjectBindingDiagnostics, 1);
+    assert.equal(focusObject?.metrics.transactionBindingDiagnostics, 1);
+    assert.equal(focusObject?.metrics.retrieveArityDiagnostics, 1);
     assert.deepEqual(metrics.diagnostics.byArea, [
-      { area: 'datawindow', total: 1 },
+      { area: 'datawindow', total: 3 },
       { area: 'external', total: 1 },
       { area: 'lifecycle', total: 1 },
     ]);
+    assert.equal(metrics.summary.totalDataObjectBindingDiagnostics, 1);
+    assert.equal(metrics.summary.totalTransactionBindingDiagnostics, 1);
+    assert.equal(metrics.summary.totalRetrieveArityDiagnostics, 1);
     assert.equal(metrics.footprint.build.total, 1);
     assert.equal(metrics.footprint.build.usable, 1);
     assert.equal(metrics.footprint.orca.stagedFiles, 1);
+  });
+
+  test('cuenta usos HTTP/REST y JSON desde datatype y baseTypeName ya indexados', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/n_http_json_usage.sru';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type n_http_json_usage from httpclient',
+      'end type',
+      'end forward',
+      'global type n_http_json_usage from httpclient',
+      'restclient inv_rest',
+      'jsonparser inv_parser',
+      'jsongenerator inv_writer',
+      'end type',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const metrics = buildPowerBuilderCodeMetrics(undefined, kb, workspaceState, null);
+    const focusObject = metrics.objects.find((entry) => entry.name === 'n_http_json_usage');
+
+    assert.ok(focusObject);
+    assert.equal(focusObject?.metrics.httpIntegrationUsages, 2);
+    assert.equal(focusObject?.metrics.jsonIntegrationUsages, 2);
+    assert.equal(metrics.summary.totalHttpIntegrationUsages, 2);
+    assert.equal(metrics.summary.totalJsonIntegrationUsages, 2);
+  });
+
+  test('cuenta superficies WebBrowser desde datatype ya indexado', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/w_browser_host.srw';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type w_browser_host from window',
+      'end type',
+      'end forward',
+      'global type w_browser_host from window',
+      'webbrowser wb_shell',
+      'end type',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const metrics = buildPowerBuilderCodeMetrics(undefined, kb, workspaceState, null);
+    const focusObject = metrics.objects.find((entry) => entry.name === 'w_browser_host');
+
+    assert.ok(focusObject);
+    assert.equal(focusObject?.metrics.webBrowserUsages, 1);
+    assert.equal(metrics.summary.totalWebBrowserUsages, 1);
   });
 });

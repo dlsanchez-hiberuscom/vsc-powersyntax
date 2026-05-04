@@ -357,7 +357,7 @@ suite('performance/catalogCorpusValidation-smoke (B336)', () => {
         filePath: path.join(legacyRoot, 'Export Source Code', 'uo_dw.sru'),
         needle: 'ls_syntax=adw.Describe("DataWindow.Syntax")',
         token: 'Describe',
-        expectedSubstring: 'Lee propiedades del DataWindow',
+        expectedSubstring: 'dwcontrol.Describe',
       },
       {
         kind: 'diagnostics',

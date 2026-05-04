@@ -2,6 +2,7 @@ import { SymbolInformation, SymbolKind, Location, Position } from 'vscode-langua
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { Entity, EntityKind } from '../knowledge/types';
 import { buildSymbolKey } from '../knowledge/symbolKey';
+import { buildFrameworkKnowledgeConflictPolicy } from '../knowledge/system/frameworkKnowledgePackPolicy';
 import { toApiSymbol, type ApiSymbol } from '../../shared/publicApi';
 
 const MAX_RESULTS = 200;
@@ -37,6 +38,12 @@ function entityToSymbolInformation(entity: Entity): SymbolInformation {
 }
 
 function entityToApiSymbol(entity: Entity): ApiSymbol {
+  const frameworkKnowledgeConflict = buildFrameworkKnowledgeConflictPolicy({
+    ownerTypes: collectFrameworkKnowledgeOwnerTypes(entity),
+    sourceOrigin: entity.lineage?.sourceOrigin,
+    confidence: mapEntityLineageConfidence(entity.lineage?.confidence),
+  });
+
   return toApiSymbol({
     name: entity.name,
     kind: entity.kind,
@@ -44,8 +51,46 @@ function entityToApiSymbol(entity: Entity): ApiSymbol {
     line: entity.line,
     character: entity.character,
     identityKey: buildSymbolKey(entity),
-    lineage: entity.lineage
+    lineage: entity.lineage,
+    ...(frameworkKnowledgeConflict ? { frameworkKnowledgeConflict } : {}),
   });
+}
+
+function collectFrameworkKnowledgeOwnerTypes(entity: Entity): string[] {
+  const ownerTypes = new Set<string>();
+
+  if (entity.kind === EntityKind.Type) {
+    ownerTypes.add(entity.name);
+  }
+  if (entity.baseTypeName) {
+    ownerTypes.add(entity.baseTypeName);
+  }
+  if (entity.ownerName) {
+    ownerTypes.add(entity.ownerName);
+  }
+  if (entity.containerName) {
+    ownerTypes.add(entity.containerName);
+  }
+  if (entity.fileObjectName) {
+    ownerTypes.add(entity.fileObjectName);
+  }
+
+  return [...ownerTypes];
+}
+
+function mapEntityLineageConfidence(
+  confidence: 'direct' | 'inherited' | 'fallback' | undefined,
+): 'high' | 'medium' | 'low' | undefined {
+  switch (confidence) {
+    case 'direct':
+      return 'high';
+    case 'inherited':
+      return 'medium';
+    case 'fallback':
+      return 'low';
+    default:
+      return undefined;
+  }
 }
 
 /**

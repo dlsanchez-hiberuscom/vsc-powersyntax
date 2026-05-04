@@ -45,6 +45,23 @@ function createContext(): ApiCurrentObjectContext {
         uri: 'file:///workspace/w_base.srw',
       },
     ],
+    frameworkKnowledgeConflict: {
+      state: 'workspace-wins',
+      reasonCode: 'workspace-source-overrides-framework-pack',
+      summary: 'El símbolo real del workspace prevalece y el pack queda advisory.',
+      matchedOwnerTypes: ['w_main', 'window'],
+      packs: [
+        {
+          id: 'appeon-webbrowser-webview2',
+          version: '1.0.0',
+          title: 'WebBrowser / WebView2',
+          ownerTypes: ['webbrowser'],
+          source: 'VSC PowerSyntax curated framework pack',
+        },
+      ],
+      sourceOrigin: 'pbl-folder-source',
+      confidence: 'high',
+    },
   };
 }
 
@@ -236,6 +253,22 @@ suite('unit/objectCheckReport (B377)', () => {
     assert.equal(report.summary.dynamicSqlRiskCount, 1);
     assert.equal(report.summary.truncated, true);
     assert.equal(report.findings.length, 3);
+  });
+
+  test('reporta en findings la policy de knowledge packs sin degradar un objeto sano', () => {
+    const report = buildObjectCheckReport({
+      source: {
+        kind: 'active-editor',
+        uri: 'file:///workspace/w_main.srw',
+      },
+      objectContext: createContext(),
+      dependencyGraph: createDependencyGraph(),
+      safeEditPlan: createSafeEditPlan(),
+    });
+
+    assert.equal(report.status, 'passed');
+    assert.ok(report.findings.some((finding) => finding.code === 'framework-knowledge-workspace-wins'));
+    assert.ok(report.recommendedActions.some((action) => action.includes('knowledge pack aplicable')));
   });
 
   test('expone unavailable si no hay context pack', () => {

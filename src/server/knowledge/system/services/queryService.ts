@@ -131,8 +131,11 @@ function mergeEnrichmentIntoBase(
     baseEntry: PbSystemSymbolEntry,
     enrichmentEntry: PbSystemSymbolEntry,
 ): PbSystemSymbolEntry {
+    const preservesCanonicalCasing = baseEntry.normalizedName === enrichmentEntry.normalizedName;
+
     return {
         ...baseEntry,
+        name: preservesCanonicalCasing ? enrichmentEntry.name : baseEntry.name,
         // Permitir que una entrada manual-enrichment reescriba la categoría
         // cuando la intención editorial del overlay lo exija (p. ej. visual vs official).
         category: enrichmentEntry.category ?? baseEntry.category,
@@ -338,6 +341,10 @@ export function listSystemSymbolsByDomain(
     domain: PbSystemSymbolEntry['domain'],
 ): readonly PbSystemSymbolEntry[] {
     return getEntriesForDomain(domain);
+}
+
+export function listCatalogPolicyResolvedEntriesForAudit(): readonly PbSystemSymbolEntry[] {
+    return applyCatalogMergePolicy(PB_SYSTEM_SYMBOL_REGISTRY.entries);
 }
 
 export function findEntriesByDomainAndLookupKey(
@@ -658,7 +665,7 @@ export function resolveReservedWord(name: string): PbSystemSymbolEntry | undefin
 
 export function resolveDatatype(name: string): PbSystemSymbolEntry | undefined {
     const preferredSystemType = selectPreferredSystemTypeEntry(
-        findEntriesByKindAndLookupKey('system-type', name),
+        applyCatalogMergePolicy(findEntriesByKindAndLookupKey('system-type', name)),
     );
 
     return selectCatalogPolicyEntry(findEntriesByKindAndLookupKey('datatype', name))
@@ -716,7 +723,8 @@ export function resolveEnumValueForExpectedType(
  */
 export function resolveLanguageSymbol(name: string): PbSystemSymbolEntry | undefined {
     for (const kind of PB_LANGUAGE_SYMBOL_RESOLUTION_PRIORITY) {
-        const matches = findEntriesByKindAndLookupKey(kind, name);
+        const matches = findEntriesByKindAndLookupKey(kind, name)
+            .filter(entry => entry.domain !== 'tooling-symbols');
         const match = kind === 'system-type'
             ? selectPreferredSystemTypeEntry(matches)
             : selectCatalogPolicyEntry(matches);

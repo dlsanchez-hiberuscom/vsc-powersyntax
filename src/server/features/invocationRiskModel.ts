@@ -80,6 +80,16 @@ export function buildInvocationRiskSummary(input: {
   }
   if (blockingDynamicHits.length > 0) {
     reasons.push(`dynamic-strings:${blockingDynamicHits.length}`);
+    const dynamicApis = new Map<string, number>();
+    for (const hit of blockingDynamicHits) {
+      if (hit.api !== 'dynamic-sql') {
+        continue;
+      }
+      dynamicApis.set(hit.api, (dynamicApis.get(hit.api) ?? 0) + 1);
+    }
+    for (const [api, total] of [...dynamicApis.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+      reasons.push(`${api}:${total}`);
+    }
   }
   if (dataWindowDynamic) {
     reasons.push('datawindow-binding-dynamic');

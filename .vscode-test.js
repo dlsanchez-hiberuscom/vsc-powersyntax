@@ -4,9 +4,21 @@ const os = require('os');
 
 const userDataDir = path.join(os.tmpdir(), 'vsc-powersyntax-test-userdata');
 const extensionsDir = path.join(os.tmpdir(), 'vsc-powersyntax-test-extensions');
+const installedUserDataDir = path.join(os.tmpdir(), 'vsc-powersyntax-installed-test-userdata');
+const installedExtensionsDir = path.join(os.tmpdir(), 'vsc-powersyntax-installed-test-extensions');
 const launchArgs = [
   '--user-data-dir', userDataDir,
   '--extensions-dir', extensionsDir,
+  '--disable-gpu',
+  '--no-sandbox',
+  '--disable-updates',
+  '--skip-welcome',
+  '--skip-release-notes',
+  '--disable-workspace-trust'
+];
+const installedLaunchArgs = [
+  '--user-data-dir', installedUserDataDir,
+  '--extensions-dir', installedExtensionsDir,
   '--disable-gpu',
   '--no-sandbox',
   '--disable-updates',
@@ -36,6 +48,19 @@ module.exports = defineConfig([
     mocha: {
       ui: 'tdd',
       timeout: 20000
+    }
+  },
+  {
+    label: 'smoke-installed',
+    files: 'out/test/smoke/extension.test.js',
+    version: 'stable',
+    workspaceFolder: '.',
+    extensionDevelopmentPath: [],
+    installExtensions: ['.dist/vsc-powersyntax.vsix'],
+    launchArgs: installedLaunchArgs,
+    mocha: {
+      ui: 'tdd',
+      timeout: 30000
     }
   },
   {

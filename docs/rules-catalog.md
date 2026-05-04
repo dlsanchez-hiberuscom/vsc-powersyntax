@@ -65,7 +65,10 @@ IDs emitidos hoy:
 
 Consumidores cerrados sobre este contrato:
 
-- `technical-debt-report` reutiliza `diagnostic.code` como evidencia (`SD7`, familia DataWindow, `native-dependency`, lifecycle/sourceOrigin ya publicados) y no define IDs nuevos;
+- `technical-debt-report` reutiliza `diagnostic.code` como evidencia (`SD7`, familia DataWindow, `native-dependency`, lifecycle/sourceOrigin ya publicados) y no define IDs nuevos; desde `B311` además desglosa `dataobject-binding`, `transaction-binding`, `retrieve-arity` y `datawindow-path`, y desde `B310` proyecta `missing-super-*`, `missing-trigger-*` y `unresolved-*` como hotspot `lifecycle-risk` con evidencia `diagnostic:lifecycle-*`;
+- `code-metrics` proyecta esos mismos códigos como contadores read-only por objeto y summary, incluyendo `lifecycleWarnings` y los contadores DataWindow, sin abrir un clasificador nuevo fuera del snapshot de diagnostics;
+- `B306` no introduce `diagnostic.code` nuevos: `code-metrics` y `technical-debt-report` proyectan integraciones HTTP/REST/JSON desde `datatype`, `baseTypeName` y `maskedText` ya indexados, usando evidencia `integration-surface:*`, `integration-pattern:*`, `integration-endpoint:*` redactado e `integration-risk:redaction-required`, y health/support bundle reutilizan ese mismo payload visible;
+- `B307` tampoco introduce `diagnostic.code` nuevos: `code-metrics` y `technical-debt-report` proyectan superficies `WebBrowser`/`WebView2` desde `datatype`, `baseTypeName` y `maskedText` ya indexados, usando evidencia `web-ui-surface:*`, `web-ui-pattern:*` y `web-ui-risk:no-content-inspection`, y health/support bundle reutilizan ese mismo payload visible;
 - el framework v2 de code actions consume también `diagnostic.code` estable y solo habilita quick fixes cuando el catálogo versionado, el preflight, el `sourceOrigin` y los guards de dynamic strings permiten un cambio defendible;
 - `explain-diagnostic` consume ese mismo `diagnostic.code` estable para construir explicaciones compactas, `reasonCode`, evidencia y safe fixes read-only sin inventar IDs ni parsear `source` como contrato primario;
 - `B291` añade `embeddedSqlAnchors` explicables en context packs, code metrics, debt report y support bundle, pero no introduce `diagnostic.code` nuevos: reutiliza el binding transaccional existente y evidencia read-only fuera del carril de diagnostics;
@@ -128,10 +131,12 @@ Estado operativo tras `B282`:
 - el contrato público usa `invocationRisk = safe | inherited | fallback | dynamic | external`;
 - `fallback` cubre resolución por fallback semántico, evidencia descartada o `sourceOrigin` no canónico de baja autoridad;
 - `dynamic` cubre strings dinámicos, bindings DataWindow dinámicos/ambiguos/missing, `orca-staging`, catálogos transitorios no oficiales y patrones WebView/HTTP/DataWindow/eventos defendiblemente dinámicos; el dataset `generated` oficial del system catalog ya no entra aquí por sí solo tras `B367`;
+- desde `B312`, cuando la evidencia de string dinámico ya demuestra SQL defendible, `riskReasons` conserva `dynamic-strings:n` y añade `dynamic-sql:n`; si el SQL real no es demostrable, la degradación debe quedarse en el reason genérico o en `fallback`, sin inventar subtipos SQL;
 - `external` cubre dependencias nativas externas sin implementación interna segura;
 - la coexistencia `manual-core + generated` es una decisión de provenance/overlay del catálogo y no debe degradar por sí sola el riesgo de invocación cuando la entrada resuelta conserva autoridad oficial suficiente;
 - tras `B369`, esa policy deja de ser solo provisional y queda ratificada por la decision gate del catálogo: `generated` es la base contractual en dominios oficiales, `override` manual gana, `enrichment` se fusiona sobre base `generated`, `candidate` no entra en resolución/listado interactivo y solo `datawindow-events`, `operators`, `pronouns` y `system-globals` permanecen `manual-primary` por ausencia de rail oficial equivalente;
 - `rename`, `safeEditPlan` y code actions deben bloquear antes de editar cuando el riesgo sea `dynamic`, `fallback` o `external`;
+- `technical-debt-report` mantiene su propia `confidence` explícita para hotspots `dynamic-sql`, mientras `impactAnalysis`/`safeEditPlan` no deben fingir una certeza SQL superior a la evidencia realmente publicada;
 - `references` puede degradar a declaraciones o devolver vacío si se piden solo usos textuales con riesgo dinámico;
 - ninguna regla diagnóstica nueva debe inventarse solo para materializar este riesgo: la señal vive como metadata de query/impact/edit, no como warning agresivo por defecto.
 
@@ -144,6 +149,7 @@ Estado operativo tras `B371`:
 - los overlays localizados se resuelven por `targetId` o `targetKey` estable contra la entry canónica del bucket runtime, respetando la policy `generated-primary-with-manual-overlays` ya fijada por `B369`;
 - desde `B374`, `buildCatalogConsistencyReport().localization` publica además `domainCoverage`, `incompleteOverlays` e `invalidParameterTargets`, de modo que un overlay sin target resoluble, incompleto o con `signatureLabel`/`parameterName` traducidos se detecta como problema de gobernanza del catálogo antes de llegar a hover/completion/signatureHelp;
 - desde `B375`, si `targetId` queda obsoleto pero `targetKey` todavía resuelve de forma única, el runtime recupera la overlay y publica `recoveredTargetIds`; la reconciliación del source se hace con tooling offline, nunca durante el serving interactivo;
+- desde `B335`, `workspace-check` y `npm run report:catalog-consistency` tratan `incompleteOverlays`, `invalidParameterTargets` y `recoveredTargetIds` como drift de gobernanza ADR-0001; estas incidencias deben resolverse en authoring/tooling offline antes de llegar a consumers visibles;
 - los IDs diagnósticos, `reason codes`, severidades y gates de readiness/confidence no cambian por locale: la localización afecta solo presentación/documentación visible, no el contrato semántico de reglas.
 
 ## PB-SYM-001 — Unresolved symbol
@@ -228,6 +234,8 @@ Estado operativo tras `B371`:
 ---
 
 ## 6. Reglas PBL/ORCA
+
+- `B314` no introduce `diagnostic.code` nuevos: `build-orca-snapshot.json` publica `failureClassification` con `reasonCode` operativos (`missing-tool`, `invalid-env`, `compile-errors`, `stale-staging`, `source-conflict`, `packaging-disabled`) para troubleshooting/support bundle, reutilizando `buildHealth`, problemas ya parseados de PBAutoBuild y el `build-orca-journal` persistido;
 
 ## PB-PBL-001 — Staging source is stale
 

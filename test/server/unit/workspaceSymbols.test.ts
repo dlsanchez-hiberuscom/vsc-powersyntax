@@ -76,6 +76,31 @@ suite('unit/workspaceSymbols', () => {
     });
   });
 
+  test('queryApiSymbols anota knowledge packs aplicables cuando un type custom hereda de un owner curado', () => {
+    kb.upsertDocument('file:///proj/lib_app.pbl/w_browser_host.srw', [
+      {
+        id: 'w_browser_host',
+        name: 'w_browser_host',
+        kind: EntityKind.Type,
+        uri: 'file:///proj/lib_app.pbl/w_browser_host.srw',
+        line: 1,
+        character: 0,
+        baseTypeName: 'webbrowser',
+        lineage: {
+          sourceOrigin: 'pbl-folder-source',
+          confidence: 'direct'
+        }
+      }
+    ]);
+
+    const symbols = queryApiSymbols('browser_host', kb, 5);
+
+    assert.equal(symbols.length, 1);
+    assert.equal(symbols[0].frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.equal(symbols[0].frameworkKnowledgeConflict?.confidence, 'high');
+    assert.ok(symbols[0].frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'appeon-webbrowser-webview2'));
+  });
+
   test('workspace/api symbols incluyen el stub type publicado por un .srd', () => {
     const document = TextDocument.create(
       'file:///d_customer.srd',

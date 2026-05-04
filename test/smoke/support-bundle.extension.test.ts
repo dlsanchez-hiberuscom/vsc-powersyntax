@@ -16,13 +16,14 @@ suite('smoke/support-bundle-extension', () => {
 
     const sourceUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test', 'fixtures', 'basic', 'sample.sru');
     const destinationUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test', '.tmp', 'support-bundle');
+    const configuration = vscode.workspace.getConfiguration();
+    const previousProfile = configuration.inspect<string>('vscPowerSyntax.profile')?.workspaceValue;
 
     await vscode.workspace.fs.delete(destinationUri, { recursive: true, useTrash: false }).then(undefined, () => undefined);
 
     try {
       const document = await vscode.workspace.openTextDocument(sourceUri);
       await vscode.window.showTextDocument(document, { preview: false });
-      const configuration = vscode.workspace.getConfiguration();
       await configuration.update('vscPowerSyntax.profile', 'ci-support', vscode.ConfigurationTarget.Workspace);
 
       const result = await vscode.commands.executeCommand<{
@@ -67,6 +68,7 @@ suite('smoke/support-bundle-extension', () => {
       const rawSourceExists = await vscode.workspace.fs.stat(rawSourceUri).then(() => true, () => false);
       assert.equal(rawSourceExists, false, 'El support bundle no debe incluir código bruto por defecto');
     } finally {
+      await configuration.update('vscPowerSyntax.profile', previousProfile, vscode.ConfigurationTarget.Workspace);
       await vscode.workspace.fs.delete(destinationUri, { recursive: true, useTrash: false }).then(undefined, () => undefined);
     }
   });

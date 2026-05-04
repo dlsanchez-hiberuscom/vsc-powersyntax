@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-04T12:30:00.000Z",
+  "supportBundleWorkspaceRelativePath": "tools/support-bundles/sample-support",
+  "workspace": {
+    "label": "repo",
+    "activeUri": "sanitized:///repo/w_main.sru",
+    "activeWorkspaceRelativePath": "w_main.sru",
+    "mode": "workspace"
+  },
+  "summary": {
+    "readinessState": "ready",
+    "healthStatus": "warning",
+    "buildHealthState": "ready",
+    "diagnosticsAvailable": true,
+    "runtimeJournalEvents": 4,
+    "rawSourceIncluded": false,
+    "publicApiVersion": "2.19.0",
+    "readOnlyToolCount": 22,
+    "redactionProfile": "support-safe",
+    "redactionPolicy": {
+      "paths": "summary-only",
+      "snippets": "summary-only",
+      "diagnostics": "sanitized",
+      "settings": "summary-only",
+      "manifest": "sanitized"
+    }
+  },
+  "files": [
+    { "relativePath": "runtime-health.json", "description": "Runtime health", "redaction": "summary-only" },
+    { "relativePath": "diagnostics-snapshot.sanitized.json", "description": "Diagnostics", "redaction": "sanitized" },
+    { "relativePath": "current-object-context.sanitized.json", "description": "Current object", "redaction": "sanitized" },
+    { "relativePath": "public-contract.json", "description": "Public contract", "redaction": "none" },
+    { "relativePath": "read-only-tool-bridge.json", "description": "Read-only bridge", "redaction": "none" },
+    { "relativePath": "README.md", "description": "Guide", "redaction": "none" }
+  ]
+}

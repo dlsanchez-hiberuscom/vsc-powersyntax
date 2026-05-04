@@ -64,6 +64,12 @@ function collectRisks(impact: ApiImpactAnalysis): string[] {
   for (const reason of impact.riskReasons ?? []) {
     risks.push(`Invocation risk: ${reason}.`);
   }
+  if (impact.frameworkKnowledgeConflict?.state === 'workspace-wins') {
+    risks.push('El símbolo convive con knowledge packs curados; revisar si el cambio pisa comportamiento documentado del framework.');
+  }
+  if (impact.frameworkKnowledgeConflict?.state === 'pack-advisory') {
+    risks.push('La lectura del símbolo depende de knowledge packs advisory sin source origin fuerte del workspace.');
+  }
   if (impact.descendants.length > 0) {
     risks.push('Hay descendientes del tipo impactado; un cambio puede propagarse por herencia.');
   }
@@ -103,6 +109,11 @@ function collectDocsToReview(impact: ApiImpactAnalysis): string[] {
   const docs = new Set<string>();
   docs.add('docs/testing.md');
   docs.add('docs/architecture.md');
+
+  if (impact.frameworkKnowledgeConflict) {
+    docs.add('docs/developer-workflows.md');
+    docs.add('docs/powerbuilder-2025-vscode-plugin-technical-guide.md');
+  }
 
   if (impact.relatedDataWindows.length > 0) {
     docs.add('docs/powerbuilder-2025-vscode-plugin-technical-guide.md');
@@ -170,6 +181,7 @@ export function buildSafeEditPlanFromImpact(impact: ApiImpactAnalysis): ApiSafeE
     ...(impact.invocationRisk ? { invocationRisk: impact.invocationRisk } : {}),
     ...(impact.riskReasons ? { riskReasons: impact.riskReasons } : {}),
     ...(impact.rootSymbol ? { targetSymbol: impact.rootSymbol } : {}),
+    ...(impact.frameworkKnowledgeConflict ? { frameworkKnowledgeConflict: impact.frameworkKnowledgeConflict } : {}),
     objects: [...impact.affectedSymbols],
     files,
     risks: collectRisks(impact),

@@ -4,7 +4,7 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.18.0';
+export const PUBLIC_API_VERSION = '2.25.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
@@ -14,7 +14,10 @@ export type ApiReadOnlyToolName =
   | 'object-check'
   | 'explain-diagnostic'
   | 'explain-system-symbol'
+  | 'explain-semantic-query'
   | 'ai-task-context-bundle'
+  | 'task-execution-dry-run'
+  | 'task-replay-bundle'
   | 'query-symbols'
   | 'cross-project-symbol-conflicts'
   | 'workspace-migration-assistant'
@@ -426,7 +429,7 @@ export interface ApiBuildProfileMatrix {
   profiles: ApiBuildProfileMatrixProfile[];
 }
 
-export type ApiWorkspaceCheckMode = 'quick' | 'full' | 'catalog' | 'diagnostics';
+export type ApiWorkspaceCheckMode = 'quick' | 'full' | 'catalog' | 'diagnostics' | 'upgrade';
 
 export interface ApiWorkspaceCheckRequest {
   mode?: ApiWorkspaceCheckMode;
@@ -437,6 +440,7 @@ export interface ApiWorkspaceCheckRequest {
   includeTechnicalDebt?: boolean;
   includeCodeMetrics?: boolean;
   includeManifest?: boolean;
+  includeUpgradeCompatibility?: boolean;
   maxDiagnostics?: number;
   maxFiles?: number;
   maxFindings?: number;
@@ -455,6 +459,7 @@ export interface ApiWorkspaceCheckFinding {
     | 'build'
     | 'health'
     | 'performance'
+    | 'upgrade'
     | 'localization'
     | 'unknown';
   message: string;
@@ -464,6 +469,40 @@ export interface ApiWorkspaceCheckFinding {
   character?: number;
   evidence?: string[];
   suggestedAction?: string;
+}
+
+export type ApiCatalogAdoptionRecommendedPolicy =
+  | 'generated-primary-with-manual-overlays'
+  | 'manual-primary'
+  | 'hybrid-by-domain';
+
+export interface ApiWorkspaceCheckCatalogOverlaySummary {
+  gap: number;
+  enrichment: number;
+  override: number;
+  candidate: number;
+}
+
+export interface ApiWorkspaceCheckCatalogAdrComplianceSummary {
+  status: 'passed' | 'warning' | 'failed';
+  issueCount: number;
+  recommendedPolicy: ApiCatalogAdoptionRecommendedPolicy;
+  completenessMode: string;
+  officialDomainCount: number;
+  manualPrimaryDomains: string[];
+  officialDomainsWithGaps: string[];
+  officialCoverageDriftDomains: string[];
+  overlayCounts: ApiWorkspaceCheckCatalogOverlaySummary;
+  candidateCount: number;
+  candidateHotPathViolations: number;
+  scraperErrorCount: number;
+  localizationIncompleteOverlays: number;
+  localizationInvalidParameterTargets: number;
+  localizationRecoveredTargetIds: number;
+  officialEntries: number;
+  curatedEntries: number;
+  generatedEntries: number;
+  manualEntries: number;
 }
 
 export interface ApiWorkspaceCheckCatalogSummary {
@@ -476,6 +515,20 @@ export interface ApiWorkspaceCheckCatalogSummary {
   orphanLocalizationOverlays?: number;
   generatedManualConflicts?: number;
   consistencyStatus: 'passed' | 'warning' | 'failed' | 'unknown';
+  adrCompliance?: ApiWorkspaceCheckCatalogAdrComplianceSummary;
+}
+
+export interface ApiWorkspaceCheckUpgradeCompatibility {
+  reviewStatus: 'passed' | 'warning';
+  currentApiVersion: string;
+  workspaceManifestSchemaVersion?: string;
+  cachePolicyVersion?: number;
+  cacheRestoreState?: 'restored' | 'reused' | 'rebuilt';
+  selectedProfile?: string;
+  settingsConflicts: number;
+  managedSettingsOutOfProfile: number;
+  hasPersistentRuntimeState: boolean;
+  workspaceArtifactRecommendations: number;
 }
 
 export interface ApiWorkspaceCheckSummary {
@@ -510,6 +563,7 @@ export interface ApiWorkspaceCheckReport {
   health?: ApiRuntimeHealthReport;
   diagnostics?: ApiDiagnosticsSnapshot;
   catalog?: ApiWorkspaceCheckCatalogSummary;
+  upgradeCompatibility?: ApiWorkspaceCheckUpgradeCompatibility;
   manifest?: ApiSemanticWorkspaceManifest;
   codeMetrics?: ApiPowerBuilderCodeMetrics;
   technicalDebt?: ApiPowerBuilderTechnicalDebtReport;
@@ -773,6 +827,112 @@ export interface ApiExplainSystemSymbolReport {
   recommendedActions: string[];
 }
 
+export interface ApiExplainSemanticQueryRequest {
+  uri?: string;
+  line?: number;
+  character?: number;
+  includeCandidates?: boolean;
+  includeDiscards?: boolean;
+  includeTrace?: boolean;
+  maxCandidates?: number;
+  maxDiscards?: number;
+  maxTraceSteps?: number;
+}
+
+export interface ApiExplainSemanticQueryReport {
+  schemaVersion: '1.0.0';
+  generatedAt: string;
+  apiVersion: string;
+
+  available: boolean;
+  reason?: string;
+  query: ApiExplainSemanticQueryRequest;
+
+  document?: {
+    uri: string;
+    line: number;
+    character: number;
+    identifier?: string;
+    qualifier?: string;
+    currentObject?: string;
+  };
+
+  resolution: {
+    state: 'resolved' | 'ambiguous' | 'unresolved' | 'no-context';
+    candidateCount: number;
+    targetCount: number;
+    confidence?: 'high' | 'medium' | 'low';
+    reasonCodes: string[];
+    primaryReasonCode?: string;
+    invocationKind?: string;
+    invocationRisk?: string;
+    ambiguityKind?: string;
+    resolvedQualifierType?: string;
+    evidenceKinds: string[];
+  };
+
+  winner?: ApiSymbol & {
+    containerName?: string;
+    sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+    authority?: string;
+    phase?: string;
+    role?: string;
+    confidence?: string;
+    resolutionKind?: string;
+  };
+
+  candidates?: Array<{
+    name: string;
+    kind: string;
+    uri: string;
+    containerName?: string;
+    reasonCode?: string;
+  }>;
+
+  discards?: Array<{
+    kind: string;
+    reasonCode?: string;
+    summary: string;
+    detail?: string;
+  }>;
+
+  phases: Array<{
+    name: 'context' | 'candidates' | 'resolution' | 'trace';
+    status: 'resolved' | 'ambiguous' | 'unresolved' | 'skipped';
+    summary: string;
+  }>;
+
+  cost: {
+    approximate: 'low' | 'medium' | 'high';
+    traceSteps: number;
+    candidateCount: number;
+    discardCount: number;
+  };
+
+  trace?: {
+    label?: string;
+    stepCount: number;
+    phases: string[];
+    actions: string[];
+    lastStepName?: string;
+    steps?: Array<{
+      name: string;
+      phase?: string;
+      action?: string;
+      detail?: unknown;
+    }>;
+  };
+
+  findings: Array<{
+    code: string;
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    detail?: string;
+  }>;
+
+  recommendedActions: string[];
+}
+
 export type ApiAiTaskIntent =
   | 'bug-fix'
   | 'refactor'
@@ -872,7 +1032,7 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
   },
   {
     name: 'workspace-check',
-    description: 'Ejecuta una comprobacion read-only consolidada del workspace usando discovery, indexing, diagnostics, health, catalogo y senales semanticas ya disponibles.',
+    description: 'Ejecuta una comprobacion read-only consolidada del workspace usando discovery, indexing, diagnostics, health, catalogo, compatibilidad de upgrade y senales semanticas ya disponibles.',
     command: 'powerbuilder.checkWorkspace',
     requestSchema: 'ApiWorkspaceCheckRequest',
     responseSchema: 'ApiWorkspaceCheckReport',
@@ -900,6 +1060,14 @@ const READ_ONLY_TOOL_DESCRIPTORS: ReadonlyArray<ApiReadOnlyToolDescriptor> = [
     command: 'powerbuilder.explainSystemSymbol',
     requestSchema: 'ApiExplainSystemSymbolRequest',
     responseSchema: 'ApiExplainSystemSymbolReport',
+    usesActiveEditorFallback: true,
+  },
+  {
+    name: 'explain-semantic-query',
+    description: 'Explica una resolución semántica real con fases, candidatos, descartes, winner, confidence y trace resumido.',
+    command: 'powerbuilder.explainSemanticQuery',
+    requestSchema: 'ApiExplainSemanticQueryRequest',
+    responseSchema: 'ApiExplainSemanticQueryReport',
     usesActiveEditorFallback: true,
   },
   {
@@ -1161,6 +1329,129 @@ export interface ApiTaskExecutionDryRunSimulation {
   contractId: ApiTaskExecutionContractId;
   strategy: ApiTaskExecutionDryRunStrategy;
   steps: ApiTaskExecutionDryRunSimulationStep[];
+}
+
+export interface ApiTaskExecutionMetadata {
+  validationCommands?: string[];
+  docsTouched?: string[];
+  specsAffected?: string[];
+  nextFocus?: string;
+}
+
+export interface ApiTaskExecutionDryRunItemRequest extends ApiTaskExecutionMetadata {
+  uri?: string;
+  label?: string;
+  line?: number;
+  character?: number;
+  maxSafeReferences?: number;
+}
+
+export interface ApiTaskExecutionDryRunRequest extends ApiTaskExecutionMetadata {
+  contractId: ApiTaskExecutionContractId;
+  uri?: string;
+  line?: number;
+  character?: number;
+  maxSafeReferences?: number;
+  requests?: ApiTaskExecutionDryRunItemRequest[];
+}
+
+export interface ApiTaskExecutionDryRunReportItem {
+  label?: string;
+  uri?: string;
+  available: boolean;
+  blocked: boolean;
+  reason?: string;
+  safeEditPlan?: ApiSafeEditPlan;
+  impactAnalysis?: ApiImpactAnalysis;
+  files: ApiSafeEditPlanFile[];
+  risks: string[];
+  recommendedTests: string[];
+  docsToReview: string[];
+  blockedReasons: string[];
+}
+
+export interface ApiTaskExecutionDryRunReport {
+  schemaVersion: '1.0.0';
+  contractId: ApiTaskExecutionContractId;
+  available: boolean;
+  blocked: boolean;
+  reason?: string;
+  contract: ApiTaskExecutionContract;
+  simulation: ApiTaskExecutionDryRunSimulation;
+  validationCommands: string[];
+  docsTouched: string[];
+  docsPending: string[];
+  specsAffected: string[];
+  nextFocus?: string;
+  items: ApiTaskExecutionDryRunReportItem[];
+  summary: {
+    total: number;
+    blockedCount: number;
+    files: ApiSafeEditPlanFile[];
+    risks: string[];
+    recommendedTests: string[];
+    docsToReview: string[];
+  };
+}
+
+export interface ApiTaskExecutionValidationReceiptArtifact {
+  name: string;
+  status: 'present' | 'missing' | 'not-applicable';
+  uri?: string;
+  detail?: string;
+}
+
+export interface ApiTaskExecutionValidationReceipt {
+  schemaVersion: '1.0.0';
+  contractId: ApiTaskExecutionContractId;
+  method: ApiTaskExecutionContract['method'];
+  command: ApiTaskExecutionContract['command'];
+  status: 'completed' | 'blocked';
+  commands: string[];
+  results: string[];
+  docsAffected: string[];
+  docsTouched: string[];
+  docsPending: string[];
+  specsAffected: string[];
+  risks: string[];
+  nextFocus?: string;
+  artifacts: ApiTaskExecutionValidationReceiptArtifact[];
+}
+
+export type ApiTaskReplayBundleKind = 'auto' | 'semantic-repro-pack' | 'support-bundle';
+
+export interface ApiTaskReplayBundleRequest {
+  bundleKind?: ApiTaskReplayBundleKind;
+  sourceUri?: string;
+  manifest?: unknown;
+  manifestJson?: string;
+  files?: Record<string, string>;
+}
+
+export interface ApiTaskReplaySuggestedCommand {
+  title: string;
+  detail: string;
+  commandId?: string;
+  targetRelativePath?: string;
+}
+
+export interface ApiTaskReplayBundleReport {
+  schemaVersion: '1.0.0';
+  available: boolean;
+  reason?: string;
+  bundleKind?: Exclude<ApiTaskReplayBundleKind, 'auto'>;
+  sourceUri?: string;
+  focus: {
+    uri?: string;
+    workspaceRelativePath?: string;
+    objectName?: string;
+    symbolName?: string;
+    sourceOrigin?: string;
+  };
+  minimalContext: string[];
+  referencedFiles: string[];
+  suggestedCommands: ApiTaskReplaySuggestedCommand[];
+  recommendedContractId?: ApiTaskExecutionContractId;
 }
 
 const TASK_EXECUTION_CONTRACTS: ReadonlyArray<ApiTaskExecutionContract> = [
@@ -1520,12 +1811,34 @@ const PUBLIC_API_CONTRACT_METHODS: ReadonlyArray<ApiPublicContractMethod> = [
     responseSchema: 'ApiExplainSystemSymbolReport',
   },
   {
+    name: 'explainSemanticQuery',
+    command: 'powerbuilder.explainSemanticQuery',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiExplainSemanticQueryRequest',
+    responseSchema: 'ApiExplainSemanticQueryReport',
+  },
+  {
     name: 'getAiTaskContextBundle',
     command: 'powerbuilder.exportAiTaskContextBundle',
     access: 'read-only',
     stability: 'stable',
     requestSchema: 'ApiAiTaskContextBundleRequest',
     responseSchema: 'ApiAiTaskContextBundle',
+  },
+  {
+    name: 'getTaskExecutionDryRun',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiTaskExecutionDryRunRequest',
+    responseSchema: 'ApiTaskExecutionDryRunReport',
+  },
+  {
+    name: 'replayTaskFromBundle',
+    access: 'read-only',
+    stability: 'stable',
+    requestSchema: 'ApiTaskReplayBundleRequest',
+    responseSchema: 'ApiTaskReplayBundleReport',
   },
   {
     name: 'querySymbols',
@@ -1676,8 +1989,15 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiExplainDiagnosticReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiExplainSystemSymbolRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiExplainSystemSymbolReport', version: '1.0.0', kind: 'response' },
+  { name: 'ApiExplainSemanticQueryRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiExplainSemanticQueryReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiAiTaskContextBundleRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiAiTaskContextBundle', version: '1.0.0', kind: 'response' },
+  { name: 'ApiTaskExecutionDryRunRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiTaskExecutionDryRunReport', version: '1.0.0', kind: 'response' },
+  { name: 'ApiTaskExecutionValidationReceipt', version: '1.0.0', kind: 'response' },
+  { name: 'ApiTaskReplayBundleRequest', version: '1.0.0', kind: 'request' },
+  { name: 'ApiTaskReplayBundleReport', version: '1.0.0', kind: 'response' },
   { name: 'ApiQuerySymbolsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflictsRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiCrossProjectSymbolConflicts', version: '1.0.0', kind: 'response' },
@@ -1742,6 +2062,25 @@ export interface ApiSymbolLineage {
   confidence?: 'direct' | 'inherited' | 'fallback';
 }
 
+export interface ApiFrameworkKnowledgePackReference {
+  id: string;
+  version: string;
+  title: string;
+  ownerTypes: string[];
+  source: string;
+  sourceUrl?: string;
+}
+
+export interface ApiFrameworkKnowledgeConflict {
+  state: 'workspace-wins' | 'pack-advisory';
+  reasonCode: 'workspace-source-overrides-framework-pack' | 'framework-pack-advisory';
+  summary: string;
+  matchedOwnerTypes: string[];
+  packs: ApiFrameworkKnowledgePackReference[];
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+  confidence?: 'high' | 'medium' | 'low';
+}
+
 export interface ApiSymbol {
   name: string;
   kind: string;
@@ -1750,6 +2089,7 @@ export interface ApiSymbol {
   character: number;
   identityKey?: string;
   lineage?: ApiSymbolLineage;
+  frameworkKnowledgeConflict?: ApiFrameworkKnowledgeConflict;
 }
 
 export interface ApiSymbolInput {
@@ -1760,6 +2100,7 @@ export interface ApiSymbolInput {
   character: number;
   identityKey?: string;
   lineage?: ApiSymbolLineage;
+  frameworkKnowledgeConflict?: ApiFrameworkKnowledgeConflict;
 }
 
 function cloneApiSymbolLineage(lineage?: ApiSymbolLineage): ApiSymbolLineage | undefined {
@@ -1780,6 +2121,31 @@ function cloneApiSymbolLineage(lineage?: ApiSymbolLineage): ApiSymbolLineage | u
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+function cloneApiFrameworkKnowledgeConflict(
+  conflict?: ApiFrameworkKnowledgeConflict,
+): ApiFrameworkKnowledgeConflict | undefined {
+  if (!conflict) {
+    return undefined;
+  }
+
+  return {
+    state: conflict.state,
+    reasonCode: conflict.reasonCode,
+    summary: conflict.summary,
+    matchedOwnerTypes: [...conflict.matchedOwnerTypes],
+    packs: conflict.packs.map((pack) => ({
+      id: pack.id,
+      version: pack.version,
+      title: pack.title,
+      ownerTypes: [...pack.ownerTypes],
+      source: pack.source,
+      ...(pack.sourceUrl ? { sourceUrl: pack.sourceUrl } : {}),
+    })),
+    ...(conflict.sourceOrigin ? { sourceOrigin: conflict.sourceOrigin } : {}),
+    ...(conflict.confidence ? { confidence: conflict.confidence } : {}),
+  };
+}
+
 export function toApiSymbol(symbol: ApiSymbolInput): ApiSymbol {
   return {
     name: symbol.name,
@@ -1789,6 +2155,9 @@ export function toApiSymbol(symbol: ApiSymbolInput): ApiSymbol {
     character: symbol.character,
     ...(symbol.identityKey ? { identityKey: symbol.identityKey } : {}),
     ...(cloneApiSymbolLineage(symbol.lineage) ? { lineage: cloneApiSymbolLineage(symbol.lineage) } : {}),
+    ...(cloneApiFrameworkKnowledgeConflict(symbol.frameworkKnowledgeConflict)
+      ? { frameworkKnowledgeConflict: cloneApiFrameworkKnowledgeConflict(symbol.frameworkKnowledgeConflict) }
+      : {}),
   };
 }
 
@@ -1895,7 +2264,6 @@ export interface ApiCurrentObjectRelatedFile {
   uri: string;
   role: 'active-document' | 'project' | 'library' | 'ancestor' | 'datawindow' | 'reference-target' | 'descendant' | 'override';
 }
-
 export interface ApiCurrentObjectContext {
   available: boolean;
   reason?: string;
@@ -1939,6 +2307,7 @@ export interface ApiCurrentObjectContext {
     targetCount?: number;
     evidenceKinds: string[];
   };
+  frameworkKnowledgeConflict?: ApiFrameworkKnowledgeConflict;
   relatedFiles?: ApiCurrentObjectRelatedFile[];
 }
 
@@ -1980,6 +2349,7 @@ export interface ApiImpactAnalysis {
   relatedDataWindows: ApiCurrentObjectDataWindowBinding[];
   affectedSymbols: ApiCurrentObjectContextSymbol[];
   buildTargets: ApiImpactBuildTarget[];
+  frameworkKnowledgeConflict?: ApiFrameworkKnowledgeConflict;
 }
 
 export interface ApiSafeEditPlanRequest extends ApiImpactAnalysisRequest {}
@@ -2005,6 +2375,7 @@ export interface ApiSafeEditPlan {
   recommendedTests: string[];
   docsToReview: string[];
   blockedReasons: string[];
+  frameworkKnowledgeConflict?: ApiFrameworkKnowledgeConflict;
 }
 
 export interface ApiSafeBatchRefactorPlanItemRequest extends ApiSafeEditPlanRequest {
@@ -2052,7 +2423,7 @@ export interface ApiSpecDrivenPblUpdateEdit {
   content: string;
 }
 
-export interface ApiSpecDrivenPblUpdateRequest extends ApiSafeEditPlanRequest {
+export interface ApiSpecDrivenPblUpdateRequest extends ApiSafeEditPlanRequest, ApiTaskExecutionMetadata {
   executablePath: string;
   sessionLibrary: string;
   timeoutMs?: number;
@@ -2074,13 +2445,14 @@ export interface ApiSpecDrivenPblUpdateResult {
   exportResult?: import('./orcaProtocol').OrcaStagingExportResult;
   importResult?: import('./orcaProtocol').OrcaStagingImportResult;
   journalUri?: string;
+  validationReceipt?: ApiTaskExecutionValidationReceipt;
 }
 
 export interface ApiSpecDrivenPblUpdateBatchRequestItem extends ApiSpecDrivenPblUpdateRequest {
   label?: string;
 }
 
-export interface ApiSpecDrivenPblUpdateBatchRequest {
+export interface ApiSpecDrivenPblUpdateBatchRequest extends ApiTaskExecutionMetadata {
   requests: ApiSpecDrivenPblUpdateBatchRequestItem[];
   stopOnError?: boolean;
 }
@@ -2101,6 +2473,7 @@ export interface ApiSpecDrivenPblUpdateBatchResult {
   blockedCount: number;
   items: ApiSpecDrivenPblUpdateBatchItemResult[];
   journalUri?: string;
+  validationReceipt?: ApiTaskExecutionValidationReceipt;
 }
 
 export interface ApiSemanticWorkspaceManifestRequest {
@@ -2189,8 +2562,14 @@ export interface ApiPowerBuilderCodeMetricsObjectMetrics {
   embeddedSqlStatements: number;
   linkedDataWindows: number;
   externalDependencies: number;
+  webBrowserUsages?: number;
+  httpIntegrationUsages?: number;
+  jsonIntegrationUsages?: number;
   lifecycleWarnings: number;
   diagnostics: number;
+  dataObjectBindingDiagnostics?: number;
+  transactionBindingDiagnostics?: number;
+  retrieveArityDiagnostics?: number;
 }
 
 export interface ApiPowerBuilderCodeMetricsObject {
@@ -2214,8 +2593,14 @@ export interface ApiPowerBuilderCodeMetricsSummary {
   totalEmbeddedSqlStatements: number;
   totalLinkedDataWindows: number;
   totalExternalDependencies: number;
+  totalWebBrowserUsages?: number;
+  totalHttpIntegrationUsages?: number;
+  totalJsonIntegrationUsages?: number;
   totalLifecycleWarnings: number;
   totalDiagnostics: number;
+  totalDataObjectBindingDiagnostics?: number;
+  totalTransactionBindingDiagnostics?: number;
+  totalRetrieveArityDiagnostics?: number;
 }
 
 export interface ApiPowerBuilderCodeMetricsDiagnosticArea {
@@ -2259,7 +2644,10 @@ export interface ApiPowerBuilderTechnicalDebtReportRequest {
 export type ApiPowerBuilderTechnicalDebtHotspotCategory =
   | 'obsolete'
   | 'dynamic-sql'
+  | 'lifecycle-risk'
   | 'external-dependency'
+  | 'modern-integration'
+  | 'web-ui-integration'
   | 'datawindow-risk'
   | 'complexity'
   | 'source-origin-risk';
@@ -2272,6 +2660,10 @@ export interface ApiPowerBuilderTechnicalDebtHotspotMetrics {
   diagnostics: number;
   externalDependencies: number;
   linkedDataWindows: number;
+  lifecycleWarnings?: number;
+  webBrowserUsages?: number;
+  httpIntegrationUsages?: number;
+  jsonIntegrationUsages?: number;
   dynamicSqlStatements: number;
   obsoleteDiagnostics: number;
 }
@@ -2316,7 +2708,10 @@ export interface ApiPowerBuilderTechnicalDebtReportSummary {
   totalRecommendations: number;
   obsoleteFindings: number;
   dynamicSqlFindings: number;
+  lifecycleRiskFindings?: number;
   externalDependencyFindings: number;
+  modernIntegrationFindings?: number;
+  webUiIntegrationFindings?: number;
   dataWindowRiskFindings: number;
   complexObjectFindings: number;
   sourceOriginRiskFindings: number;
@@ -2654,7 +3049,10 @@ export interface VscPowerSyntaxApi {
   checkObject(request?: ApiObjectCheckRequest): Promise<ApiObjectCheckReport>;
   explainDiagnostic(request?: ApiExplainDiagnosticRequest): Promise<ApiExplainDiagnosticReport>;
   explainSystemSymbol(request?: ApiExplainSystemSymbolRequest): Promise<ApiExplainSystemSymbolReport>;
+  explainSemanticQuery(request?: ApiExplainSemanticQueryRequest): Promise<ApiExplainSemanticQueryReport>;
   getAiTaskContextBundle(request?: ApiAiTaskContextBundleRequest): Promise<ApiAiTaskContextBundle>;
+  getTaskExecutionDryRun(request: ApiTaskExecutionDryRunRequest): Promise<ApiTaskExecutionDryRunReport>;
+  replayTaskFromBundle(request: ApiTaskReplayBundleRequest): Promise<ApiTaskReplayBundleReport>;
   querySymbols(request: ApiQuerySymbolsRequest): Promise<ApiSymbol[]>;
   getCrossProjectSymbolConflicts(request?: ApiCrossProjectSymbolConflictsRequest): Promise<ApiCrossProjectSymbolConflicts>;
   getWorkspaceMigrationAssistant(request?: ApiWorkspaceMigrationAssistantRequest): Promise<ApiWorkspaceMigrationAssistant>;

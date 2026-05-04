@@ -120,6 +120,40 @@ suite('unit/workspace', () => {
     assert.ok(state.hasSourceFile('file:///workspace/lib.pbl/w_test.srw'));
   });
 
+  test('discovery registra artefactos SCM y outputs locales ignorados', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///workspace');
+    fs.addFile('file:///workspace/app.pbw');
+    fs.addFile('file:///workspace/.gitignore');
+    fs.addFile('file:///workspace/.gitattributes');
+    fs.addFile('file:///workspace/vssver.scc');
+    fs.addDir('file:///workspace/.git');
+    fs.addFile('file:///workspace/.git/config');
+    fs.addDir('file:///workspace/.svn');
+    fs.addFile('file:///workspace/.svn/entries');
+    fs.addDir('file:///workspace/build');
+    fs.addFile('file:///workspace/build/generated.pbr');
+    fs.addDir('file:///workspace/_backupfiles');
+    fs.addFile('file:///workspace/_backupfiles/w_old.srw');
+    fs.addDir('file:///workspace/.pb');
+    fs.addFile('file:///workspace/.pb/session.pbw');
+
+    await discoverWorkspace(['file:///workspace'], fs, state, cancelSource.token);
+
+    const summary = state.getDiscoveryArtifactSummary();
+    assert.equal(summary['scm-git-dir']?.count ?? 0, 1);
+    assert.equal(summary['scm-svn-dir']?.count ?? 0, 1);
+    assert.equal(summary['scm-gitignore-file']?.count ?? 0, 1);
+    assert.equal(summary['scm-gitattributes-file']?.count ?? 0, 1);
+    assert.equal(summary['scm-scc-file']?.count ?? 0, 1);
+    assert.equal(summary['artifact-build-dir']?.count ?? 0, 1);
+    assert.equal(summary['artifact-backup-dir']?.count ?? 0, 1);
+    assert.equal(summary['artifact-pb-dir']?.count ?? 0, 1);
+  });
+
   test('discovery respeta la cancelacion cooperativa', async () => {
     const fs = new FakeFileSystem();
     const state = new WorkspaceState();

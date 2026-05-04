@@ -26,6 +26,11 @@ import {
   type ApiPublicContractDescriptor,
   type ApiAiTaskContextBundle,
   type ApiAiTaskContextBundleRequest,
+  type ApiTaskExecutionDryRunItemRequest,
+  type ApiTaskExecutionDryRunReport,
+  type ApiTaskExecutionDryRunRequest,
+  type ApiTaskReplayBundleReport,
+  type ApiTaskReplayBundleRequest,
   type ApiReadOnlyToolBridgeDescriptor,
   type ApiReadOnlyToolCallRequest,
   type ApiReadOnlyToolCallResult,
@@ -37,6 +42,8 @@ import {
   type ApiObjectCheckRequest,
   type ApiExplainDiagnosticReport,
   type ApiExplainDiagnosticRequest,
+  type ApiExplainSemanticQueryReport,
+  type ApiExplainSemanticQueryRequest,
   type ApiExplainSystemSymbolReport,
   type ApiExplainSystemSymbolRequest,
   type ApiWorkspaceCheckCatalogSummary,
@@ -73,6 +80,7 @@ import {
   type ApiSpecDrivenPblUpdateResult,
   type ApiSemanticWorkspaceManifest,
   type ApiSemanticWorkspaceManifestRequest,
+  type ApiRuntimeJournalSnapshot,
   PUBLIC_API_EXTENSION_ID,
   PUBLIC_API_VERSION,
   getPublicApiContractDescriptor,
@@ -97,6 +105,7 @@ import { buildProjectHealthDashboardMarkdown } from './projectHealthDashboard';
 import { PowerBuilderObjectExplorerController } from './objectExplorer';
 import { CurrentObjectContextPanelController } from './currentObjectContextPanel';
 import { buildRuntimeSelfTestMarkdown, buildRuntimeSelfTestReport } from './runtimeSelfTest';
+import { buildExplainSemanticQueryMarkdown } from './explainSemanticQueryReport';
 import {
   collectExplainableDiagnosticsFromActiveEditor,
   DiagnosticsExplainabilityPanelController,
@@ -169,6 +178,13 @@ import {
   buildWorkspaceCheckReport,
   normalizeWorkspaceCheckRequest,
 } from './workspaceCheckReport';
+import {
+  buildDryRunReportItem,
+  buildTaskExecutionBatchValidationReceipt,
+  buildTaskExecutionDryRunReport,
+  buildTaskExecutionValidationReceipt,
+  buildTaskReplayBundleReport,
+} from './taskExecutionAutomation';
 import {
   type PbAutoBuildCancelResult as PbAutoBuildCancelResultProtocol,
   type PbAutoBuildBuildFileOption,
@@ -510,6 +526,7 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
     },
     openProjectHealthDashboard,
     openWorkspaceCheck,
+    openExtensionUpgradeCompatibilityCheck,
     runWorkspaceCheck: async (request?: unknown) => runWorkspaceCheck(request as ApiWorkspaceCheckRequest | undefined),
     openCurrentObjectCheck,
     openObjectCheck,
@@ -517,6 +534,7 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
     openExplainDiagnostic,
     runExplainDiagnostic: async (request?: unknown) => runExplainDiagnostic(request as ApiExplainDiagnosticRequest | undefined),
     runAiTaskContextBundle: async (request?: unknown) => runAiTaskContextBundle(request as ApiAiTaskContextBundleRequest | undefined),
+    openExplainSemanticQuery,
     openExplainSystemSymbol,
     openCrossProjectSymbolConflicts,
     openWorkspaceMigrationAssistant,
@@ -587,14 +605,18 @@ function buildClientRuntime(
   serverOptions: ServerOptions;
   clientOptions: LanguageClientOptions;
 } {
-  const serverModule = context.asAbsolutePath(
-    path.join('out', 'server', 'server.js')
-  );
+  const serverModuleCandidates = [
+    context.asAbsolutePath(path.join('dist', 'server', 'server.js')),
+    ...(context.extensionMode === vscode.ExtensionMode.Development
+      ? [context.asAbsolutePath(path.join('out', 'server', 'server.js'))]
+      : []),
+  ];
+  const serverModule = serverModuleCandidates.find((candidate) => fs.existsSync(candidate));
 
-  if (!fs.existsSync(serverModule)) {
+  if (!serverModule) {
     throw new Error(
-      `No se ha encontrado el servidor LSP en: ${serverModule}. ` +
-      'Ejecuta la compilación del servidor antes de iniciar la extensión.'
+      `No se ha encontrado el servidor LSP en ninguna ruta conocida: ${serverModuleCandidates.join(', ')}. ` +
+      'Ejecuta la compilación y el bundle del servidor antes de iniciar la extensión.'
     );
   }
 
@@ -781,12 +803,33 @@ function createPublicApi(): VscPowerSyntaxApi {
             schema: 'ApiExplainSystemSymbolReport',
             payload: await api.explainSystemSymbol(args as ApiExplainSystemSymbolRequest),
           };
+        case 'explain-semantic-query':
+          return {
+            tool: 'explain-semantic-query',
+            mode: 'read-only',
+            schema: 'ApiExplainSemanticQueryReport',
+            payload: await api.explainSemanticQuery(args as ApiExplainSemanticQueryRequest),
+          };
         case 'ai-task-context-bundle':
           return {
             tool: 'ai-task-context-bundle',
             mode: 'read-only',
             schema: 'ApiAiTaskContextBundle',
             payload: await api.getAiTaskContextBundle(args as ApiAiTaskContextBundleRequest),
+          };
+        case 'task-execution-dry-run':
+          return {
+            tool: 'task-execution-dry-run',
+            mode: 'read-only',
+            schema: 'ApiTaskExecutionDryRunReport',
+            payload: await api.getTaskExecutionDryRun(args as unknown as ApiTaskExecutionDryRunRequest),
+          };
+        case 'task-replay-bundle':
+          return {
+            tool: 'task-replay-bundle',
+            mode: 'read-only',
+            schema: 'ApiTaskReplayBundleReport',
+            payload: await api.replayTaskFromBundle(args as unknown as ApiTaskReplayBundleRequest),
           };
         case 'query-symbols':
           return {
@@ -985,10 +1028,14 @@ function createPublicApi(): VscPowerSyntaxApi {
 
       let manifest: ApiSemanticWorkspaceManifest | undefined;
       let catalog: ApiWorkspaceCheckCatalogSummary | undefined;
+      let workspaceMigrationAssistant: ApiWorkspaceMigrationAssistant | undefined;
       let codeMetrics: ApiPowerBuilderCodeMetrics | undefined;
       let technicalDebt: ApiPowerBuilderTechnicalDebtReport | undefined;
       let buildProfiles: ApiBuildProfileMatrix | undefined;
-      const sectionErrors: Partial<Record<'manifest' | 'catalog' | 'buildProfiles' | 'codeMetrics' | 'technicalDebt', string>> = {};
+      const settingsGovernance = normalized.includeUpgradeCompatibility
+        ? buildCurrentSettingsGovernanceReport()
+        : undefined;
+      const sectionErrors: Partial<Record<'manifest' | 'catalog' | 'buildProfiles' | 'codeMetrics' | 'technicalDebt' | 'upgradeCompatibility', string>> = {};
       const sectionWork: Promise<void>[] = [];
 
       if (normalized.includeManifest) {
@@ -1010,6 +1057,18 @@ function createPublicApi(): VscPowerSyntaxApi {
             catalog = await executeServerCommand<ApiWorkspaceCheckCatalogSummary>('powerbuilder.workspaceCheckCatalogSummary', []);
           } catch (error) {
             sectionErrors.catalog = error instanceof Error ? error.message : String(error);
+          }
+        })());
+      }
+
+      if (normalized.includeUpgradeCompatibility) {
+        sectionWork.push((async () => {
+          try {
+            workspaceMigrationAssistant = await api.getWorkspaceMigrationAssistant({
+              maxRecommendations: Math.max(8, normalized.maxFiles),
+            });
+          } catch (error) {
+            sectionErrors.upgradeCompatibility = error instanceof Error ? error.message : String(error);
           }
         })());
       }
@@ -1059,6 +1118,8 @@ function createPublicApi(): VscPowerSyntaxApi {
         serverStats,
         manifest,
         catalog,
+        settingsGovernance,
+        workspaceMigrationAssistant,
         codeMetrics,
         technicalDebt,
         buildProfiles,
@@ -1224,6 +1285,18 @@ function createPublicApi(): VscPowerSyntaxApi {
       const resolvedSource = resolveExplainSystemSymbolSource(request);
 
       return executeServerCommand<ApiExplainSystemSymbolReport>('powerbuilder.explainSystemSymbol', [
+        {
+          ...request,
+          ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
+          ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+          ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+        },
+      ]);
+    },
+    async explainSemanticQuery(request: ApiExplainSemanticQueryRequest = {}): Promise<ApiExplainSemanticQueryReport> {
+      const resolvedSource = resolveExplainSemanticQuerySource(request);
+
+      return executeServerCommand<ApiExplainSemanticQueryReport>('powerbuilder.explainSemanticQuery', [
         {
           ...request,
           ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
@@ -1414,6 +1487,66 @@ function createPublicApi(): VscPowerSyntaxApi {
         systemSymbolExplanations,
       });
     },
+    async getTaskExecutionDryRun(request: ApiTaskExecutionDryRunRequest): Promise<ApiTaskExecutionDryRunReport> {
+      if (!request || typeof request !== 'object') {
+        throw new Error('Se requiere una request JSON para construir el task execution dry-run.');
+      }
+
+      const buildItem = async (itemRequest: ApiTaskExecutionDryRunItemRequest): Promise<ReturnType<typeof buildDryRunReportItem>> => {
+        try {
+          const safeEditPlan = clonePlainData(await api.generateSafeEditPlan({
+            ...(itemRequest.uri ? { uri: itemRequest.uri } : {}),
+            ...(typeof itemRequest.line === 'number' ? { line: itemRequest.line } : {}),
+            ...(typeof itemRequest.character === 'number' ? { character: itemRequest.character } : {}),
+            ...(typeof itemRequest.maxSafeReferences === 'number' ? { maxSafeReferences: itemRequest.maxSafeReferences } : {}),
+          }));
+          const impactAnalysis = clonePlainData(await api.analyzeImpact({
+            ...(itemRequest.uri ? { uri: itemRequest.uri } : {}),
+            ...(typeof itemRequest.line === 'number' ? { line: itemRequest.line } : {}),
+            ...(typeof itemRequest.character === 'number' ? { character: itemRequest.character } : {}),
+            ...(typeof itemRequest.maxSafeReferences === 'number' ? { maxSafeReferences: itemRequest.maxSafeReferences } : {}),
+          }));
+          return buildDryRunReportItem({
+            ...(itemRequest.label ? { label: itemRequest.label } : {}),
+            ...(itemRequest.uri ? { uri: itemRequest.uri } : {}),
+            safeEditPlan,
+            impactAnalysis,
+          });
+        } catch (error) {
+          return buildDryRunReportItem({
+            ...(itemRequest.label ? { label: itemRequest.label } : {}),
+            ...(itemRequest.uri ? { uri: itemRequest.uri } : {}),
+            reason: error instanceof Error ? error.message : 'No se pudo construir el dry-run.',
+            blockedReasons: [error instanceof Error ? error.message : 'No se pudo construir el dry-run.'],
+          });
+        }
+      };
+
+      const items = request.contractId === 'spec-driven-pbl-update-batch'
+        ? await Promise.all((request.requests ?? []).map((item) => buildItem(item)))
+        : [await buildItem({
+          ...(request.uri ? { uri: request.uri } : {}),
+          ...(typeof request.line === 'number' ? { line: request.line } : {}),
+          ...(typeof request.character === 'number' ? { character: request.character } : {}),
+          ...(typeof request.maxSafeReferences === 'number' ? { maxSafeReferences: request.maxSafeReferences } : {}),
+        })];
+
+      if (request.contractId === 'spec-driven-pbl-update-batch' && items.length === 0) {
+        return buildTaskExecutionDryRunReport({
+          request,
+          items,
+          reason: 'El dry-run batch requiere requests explícitas por item.',
+        });
+      }
+
+      return buildTaskExecutionDryRunReport({
+        request,
+        items,
+      });
+    },
+    async replayTaskFromBundle(request: ApiTaskReplayBundleRequest): Promise<ApiTaskReplayBundleReport> {
+      return buildTaskReplayBundleReport(request);
+    },
     async querySymbols(request: ApiQuerySymbolsRequest) {
       const query = request.query ?? '';
       const limit = typeof request.limit === 'number'
@@ -1584,12 +1717,26 @@ function createPublicApi(): VscPowerSyntaxApi {
         ? Math.max(0, Math.trunc(request.character))
         : editor?.selection.active.character;
 
-      return executeServerCommand<ApiSpecDrivenPblUpdateResult>('powerbuilder.applySpecDrivenPblUpdate', [{
+      const result = await executeServerCommand<ApiSpecDrivenPblUpdateResult>('powerbuilder.applySpecDrivenPblUpdate', [{
         ...request,
         uri,
         ...(typeof line === 'number' ? { line } : {}),
         ...(typeof character === 'number' ? { character } : {}),
       }]);
+
+      return {
+        ...result,
+        validationReceipt: buildTaskExecutionValidationReceipt({
+          contractId: 'spec-driven-pbl-update',
+          request: {
+            ...request,
+            uri,
+            ...(typeof line === 'number' ? { line } : {}),
+            ...(typeof character === 'number' ? { character } : {}),
+          },
+          result,
+        }),
+      };
     },
     async applySpecDrivenPblUpdateBatch(request: ApiSpecDrivenPblUpdateBatchRequest): Promise<ApiSpecDrivenPblUpdateBatchResult> {
       if (!Array.isArray(request.requests) || request.requests.length === 0) {
@@ -1609,10 +1756,42 @@ function createPublicApi(): VscPowerSyntaxApi {
         };
       });
 
-      return executeServerCommand<ApiSpecDrivenPblUpdateBatchResult>('powerbuilder.applySpecDrivenPblUpdateBatch', [{
+      const result = await executeServerCommand<ApiSpecDrivenPblUpdateBatchResult>('powerbuilder.applySpecDrivenPblUpdateBatch', [{
         ...request,
         requests: normalizedRequests,
       }]);
+
+      const items = result.items.map((item, index) => ({
+        ...item,
+        ...(item.result
+          ? {
+            result: {
+              ...item.result,
+              validationReceipt: buildTaskExecutionValidationReceipt({
+                contractId: 'spec-driven-pbl-update',
+                request: normalizedRequests[index]!,
+                result: item.result,
+              }),
+            },
+          }
+          : {}),
+      }));
+
+      const batchResult: ApiSpecDrivenPblUpdateBatchResult = {
+        ...result,
+        items,
+      };
+
+      return {
+        ...batchResult,
+        validationReceipt: buildTaskExecutionBatchValidationReceipt({
+          request: {
+            ...request,
+            requests: normalizedRequests,
+          },
+          result: batchResult,
+        }),
+      };
     },
     async getSemanticWorkspaceManifest(request: ApiSemanticWorkspaceManifestRequest = {}): Promise<ApiSemanticWorkspaceManifest> {
       return executeServerCommand<ApiSemanticWorkspaceManifest>('powerbuilder.semanticWorkspaceManifest', [
@@ -2597,7 +2776,8 @@ async function exportSupportBundle(options?: SupportBundleCommandOptions): Promi
     : undefined;
   const workspaceManifest = await fetchSupportBundleWorkspaceManifest();
   const serverStats = await publicApiSingleton.getServerStats();
-  const [codeMetrics, technicalDebtReport, currentObjectContext] = await Promise.all([
+  const buildOrcaJournal = await readBuildOrcaJournalSnapshot(serverStats.persistence?.buildOrcaJournalUri);
+  const [codeMetrics, technicalDebtReport, workspaceMigrationAssistant, currentObjectContext] = await Promise.all([
     publicApiSingleton.getPowerBuilderCodeMetrics({
       maxObjects: 80,
     }),
@@ -2605,6 +2785,9 @@ async function exportSupportBundle(options?: SupportBundleCommandOptions): Promi
       maxObjects: 80,
       maxHotspots: 25,
       maxRecommendations: 20,
+    }),
+    publicApiSingleton.getWorkspaceMigrationAssistant({
+      maxRecommendations: 12,
     }),
     activePowerBuilderEditor
       ? publicApiSingleton.getCurrentObjectContext({
@@ -2635,10 +2818,12 @@ async function exportSupportBundle(options?: SupportBundleCommandOptions): Promi
     ...(currentObjectContext ? { currentObjectContext } : {}),
     codeMetrics,
     technicalDebtReport,
+    workspaceMigrationAssistant,
     publicContract: publicApiSingleton.getPublicContract(),
     readOnlyToolBridge: publicApiSingleton.getReadOnlyToolBridge(),
     settingsGovernance,
     settingsValues,
+    ...(buildOrcaJournal ? { buildOrcaJournal } : {}),
     generatedAt,
   });
 
@@ -3512,6 +3697,10 @@ async function runExplainSystemSymbol(request: ApiExplainSystemSymbolRequest = {
   return publicApiSingleton.explainSystemSymbol(request);
 }
 
+async function runExplainSemanticQuery(request: ApiExplainSemanticQueryRequest = {}): Promise<ApiExplainSemanticQueryReport> {
+  return publicApiSingleton.explainSemanticQuery(request);
+}
+
 async function runAiTaskContextBundle(request: ApiAiTaskContextBundleRequest = {}): Promise<ApiAiTaskContextBundle> {
   return publicApiSingleton.getAiTaskContextBundle(request);
 }
@@ -3602,6 +3791,26 @@ async function openExplainSystemSymbol(): Promise<void> {
   await openMarkdownReportDocument(buildExplainSystemSymbolMarkdown(report));
 }
 
+async function openExplainSemanticQuery(): Promise<void> {
+  let report: ApiExplainSemanticQueryReport;
+  try {
+    report = await runExplainSemanticQuery({
+      includeCandidates: true,
+      includeDiscards: true,
+      includeTrace: true,
+      maxCandidates: 8,
+      maxDiscards: 8,
+      maxTraceSteps: 24,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo explicar la query semantica activa: ${message}`);
+    return;
+  }
+
+  await openMarkdownReportDocument(buildExplainSemanticQueryMarkdown(report));
+}
+
 function resolveExplainSystemSymbolSource(request: ApiExplainSystemSymbolRequest): {
   uri?: string;
   line?: number;
@@ -3648,6 +3857,52 @@ function resolveExplainSystemSymbolSource(request: ApiExplainSystemSymbolRequest
     line: editor.selection.active.line,
     character: editor.selection.active.character,
   };
+}
+
+function resolveExplainSemanticQuerySource(request: ApiExplainSemanticQueryRequest): {
+  uri?: string;
+  line?: number;
+  character?: number;
+} {
+  const editor = vscode.window.activeTextEditor;
+
+  if (request.uri) {
+    const normalizedLine = typeof request.line === 'number'
+      ? Math.max(0, Math.trunc(request.line))
+      : editor?.document.uri.toString() === request.uri
+        ? editor.selection.active.line
+        : undefined;
+    const normalizedCharacter = typeof request.character === 'number'
+      ? Math.max(0, Math.trunc(request.character))
+      : editor?.document.uri.toString() === request.uri
+        ? editor.selection.active.character
+        : undefined;
+    return {
+      uri: request.uri,
+      ...(typeof normalizedLine === 'number' ? { line: normalizedLine } : {}),
+      ...(typeof normalizedCharacter === 'number' ? { character: normalizedCharacter } : {}),
+    };
+  }
+
+  if ((typeof request.line === 'number' || typeof request.character === 'number') && editor) {
+    return {
+      uri: editor.document.uri.toString(),
+      ...(typeof request.line === 'number' ? { line: Math.max(0, Math.trunc(request.line)) } : { line: editor.selection.active.line }),
+      ...(typeof request.character === 'number'
+        ? { character: Math.max(0, Math.trunc(request.character)) }
+        : { character: editor.selection.active.character }),
+    };
+  }
+
+  if (editor) {
+    return {
+      uri: editor.document.uri.toString(),
+      line: editor.selection.active.line,
+      character: editor.selection.active.character,
+    };
+  }
+
+  return {};
 }
 
 function resolveAiTaskContextBundleSource(request: ApiAiTaskContextBundleRequest): {
@@ -3839,6 +4094,39 @@ async function openWorkspaceCheck(): Promise<void> {
   );
 }
 
+async function openExtensionUpgradeCompatibilityCheck(): Promise<void> {
+  let report: ApiWorkspaceCheckReport;
+  try {
+    report = await runWorkspaceCheck({
+      mode: 'upgrade',
+      maxFiles: 12,
+      maxFindings: 24,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`PowerSyntax: no se pudo ejecutar el upgrade compatibility check: ${message}`);
+    return;
+  }
+
+  const content = buildWorkspaceCheckMarkdown(report);
+  const document = await vscode.workspace.openTextDocument({
+    language: 'markdown',
+    content,
+  });
+
+  await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+  });
+
+  void vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri).then(
+    undefined,
+    () => {
+      // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+    },
+  );
+}
+
 async function openMarkdownReportDocument(content: string): Promise<string> {
   const document = await vscode.workspace.openTextDocument({
     language: 'markdown',
@@ -3978,7 +4266,7 @@ function buildPowerBuilderTechnicalDebtReportMarkdown(report: ApiPowerBuilderTec
     '# PowerBuilder Technical Debt Report',
     '',
     `- Generado: ${new Date(report.generatedAt).toISOString()}`,
-    `- Resumen: hotspots=${report.summary.totalHotspots}, recomendaciones=${report.summary.totalRecommendations}, obsolete=${report.summary.obsoleteFindings}, dynamicSql=${report.summary.dynamicSqlFindings}, externas=${report.summary.externalDependencyFindings}, datawindow=${report.summary.dataWindowRiskFindings}, complejos=${report.summary.complexObjectFindings}, sourceOrigin=${report.summary.sourceOriginRiskFindings}, legacyWorkspace=${report.summary.legacyWorkspaceRiskFindings}`,
+    `- Resumen: hotspots=${report.summary.totalHotspots}, recomendaciones=${report.summary.totalRecommendations}, obsolete=${report.summary.obsoleteFindings}, dynamicSql=${report.summary.dynamicSqlFindings}, lifecycle=${report.summary.lifecycleRiskFindings ?? 0}, externas=${report.summary.externalDependencyFindings}, modernIntegration=${report.summary.modernIntegrationFindings ?? 0}, webUiIntegration=${report.summary.webUiIntegrationFindings ?? 0}, datawindow=${report.summary.dataWindowRiskFindings}, complejos=${report.summary.complexObjectFindings}, sourceOrigin=${report.summary.sourceOriginRiskFindings}, legacyWorkspace=${report.summary.legacyWorkspaceRiskFindings}`,
     '',
     '## Hotspots',
     '',
@@ -3986,7 +4274,7 @@ function buildPowerBuilderTechnicalDebtReportMarkdown(report: ApiPowerBuilderTec
       ? report.hotspots.map((entry) => [
         `- ${entry.name}${entry.objectKind ? ` [${entry.objectKind}]` : ''} | prioridad=${entry.priority} | confidence=${entry.confidence}`,
         `  categorías=${entry.categories.join(', ')}`,
-        `  métricas: complejidad≈${entry.metrics.approximateComplexity}, diagnostics=${entry.metrics.diagnostics}, externas=${entry.metrics.externalDependencies}, DataWindows=${entry.metrics.linkedDataWindows}, SQL dinámico=${entry.metrics.dynamicSqlStatements}, obsolete=${entry.metrics.obsoleteDiagnostics}`,
+        `  métricas: complejidad≈${entry.metrics.approximateComplexity}, diagnostics=${entry.metrics.diagnostics}, externas=${entry.metrics.externalDependencies}, WebBrowser=${entry.metrics.webBrowserUsages ?? 0}, HTTP/REST=${entry.metrics.httpIntegrationUsages ?? 0}, JSON=${entry.metrics.jsonIntegrationUsages ?? 0}, DataWindows=${entry.metrics.linkedDataWindows}, lifecycle=${entry.metrics.lifecycleWarnings ?? 0}, SQL dinámico=${entry.metrics.dynamicSqlStatements}, obsolete=${entry.metrics.obsoleteDiagnostics}`,
         entry.projectUri ? `  proyecto=${entry.projectUri}` : undefined,
         entry.library ? `  librería=${entry.library}` : undefined,
         entry.sourceOrigin ? `  sourceOrigin=${entry.sourceOrigin}` : undefined,
@@ -4652,5 +4940,34 @@ async function openDataWindowSqlLineage(): Promise<void> {
     await vscode.commands.executeCommand('markdown.showPreviewToSide', document.uri);
   } catch {
     // El markdown plano ya queda abierto incluso si el preview no estuviera disponible.
+  }
+}
+
+async function readBuildOrcaJournalSnapshot(journalUri: string | undefined): Promise<ApiRuntimeJournalSnapshot | undefined> {
+  if (!journalUri) {
+    return undefined;
+  }
+
+  try {
+    const raw = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.parse(journalUri))).toString('utf8')) as {
+      snapshot?: Partial<ApiRuntimeJournalSnapshot>;
+      total?: unknown;
+      dropped?: unknown;
+      events?: unknown;
+    };
+    const candidate = raw && typeof raw === 'object' && raw.snapshot && typeof raw.snapshot === 'object'
+      ? raw.snapshot
+      : raw;
+    if (!candidate || typeof candidate !== 'object' || !Array.isArray(candidate.events)) {
+      return undefined;
+    }
+
+    return {
+      total: typeof candidate.total === 'number' ? candidate.total : candidate.events.length,
+      dropped: typeof candidate.dropped === 'number' ? candidate.dropped : 0,
+      events: candidate.events.filter((event) => Boolean(event) && typeof event === 'object') as ApiRuntimeJournalSnapshot['events'],
+    };
+  } catch {
+    return undefined;
   }
 }

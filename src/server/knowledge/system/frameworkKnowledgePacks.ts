@@ -1,51 +1,11 @@
 import type { ApiFrameworkKnowledgePackSummary } from '../../../shared/publicApi';
 
 import { SystemCatalog } from './SystemCatalog';
+import {
+  CURATED_FRAMEWORK_KNOWLEDGE_PACKS,
+  type CuratedFrameworkKnowledgePackDefinition,
+} from './frameworkKnowledgePackPolicy';
 import type { PbSystemSymbolEntry } from './types';
-
-interface PowerBuilderFrameworkKnowledgePackDefinition {
-  id: string;
-  version: string;
-  title: string;
-  summary: string;
-  ownerTypes: readonly string[];
-  source: string;
-  sourceUrl?: string;
-  spotlightSymbols?: readonly string[];
-}
-
-const CURATED_FRAMEWORK_KNOWLEDGE_PACKS: readonly PowerBuilderFrameworkKnowledgePackDefinition[] = [
-  {
-    id: 'appeon-webbrowser-webview2',
-    version: '1.0.0',
-    title: 'WebBrowser / WebView2',
-    summary: 'Pack curado para navegación, mensajería web y ciclo de eventos del control WebBrowser moderno.',
-    ownerTypes: ['webbrowser'],
-    source: 'VSC PowerSyntax curated framework pack',
-    sourceUrl: 'https://docs.appeon.com/pb2025/powerscript_reference/index.html',
-    spotlightSymbols: ['EvaluateJavascriptFinished', 'NavigationCompleted', 'NavigationStart', 'PostWebMessageAsJson'],
-  },
-  {
-    id: 'appeon-mobilink-sync',
-    version: '1.0.0',
-    title: 'MobiLink Sync',
-    summary: 'Pack curado para sincronización MLSync/MLSynchronization, incluyendo eventos de lifecycle y progreso.',
-    ownerTypes: ['mlsync', 'mlsynchronization'],
-    source: 'VSC PowerSyntax curated framework pack',
-    sourceUrl: 'https://docs.appeon.com/pb2025/powerscript_reference/index.html',
-    spotlightSymbols: ['BeginSync', 'EndSync', 'BeginDownload', 'EndDownload'],
-  },
-  {
-    id: 'appeon-ribbonbar-ui',
-    version: '1.0.0',
-    title: 'RibbonBar UI',
-    summary: 'Pack curado para la superficie RibbonBar y sus eventos de selección, categorías y controles relacionados.',
-    ownerTypes: ['ribbonbar', 'ribboncomboboxitem'],
-    source: 'VSC PowerSyntax curated framework pack',
-    sourceUrl: 'https://docs.appeon.com/pb2025/powerscript_reference/index.html',
-    spotlightSymbols: ['CategoryExpanded', 'CategoryCollapsed', 'CategorySelectionChanged', 'MenuChanged'],
-  },
-];
 
 function dedupeEntries(entries: readonly PbSystemSymbolEntry[]): PbSystemSymbolEntry[] {
   const result: PbSystemSymbolEntry[] = [];
@@ -106,7 +66,7 @@ function resolvePackEntries(
 
 function resolvePackSummary(
   systemCatalog: SystemCatalog,
-  definition: PowerBuilderFrameworkKnowledgePackDefinition,
+  definition: CuratedFrameworkKnowledgePackDefinition,
 ): ApiFrameworkKnowledgePackSummary {
   const entries = resolvePackEntries(systemCatalog, definition.ownerTypes);
 

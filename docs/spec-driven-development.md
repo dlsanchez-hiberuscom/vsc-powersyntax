@@ -98,6 +98,12 @@ Checklist de revisión documental:
 - `docs/ai-agents-catalog.md`
 - `docs/ai-context/powerbuilder-plugin-context.md`
 
+Guardrail local de drift documental:
+
+- `npm run test:docs:drift` debe detectar ítems `Done` todavía activos en backlog, entradas duplicadas en `docs/backlog.md` o `docs/done-log.md`, specs sin `spec.md`/`tasks.md` y desalineación entre `docs/current-focus.md` y `docs/roadmap.md`.
+- El mismo rail debe rechazar estados `Done/Closed` todavía presentes en `docs/backlog.md` y entradas canónicas modernas del done-log sin `**Validación registrada:**` o `**Documentación alineada:**`.
+- Este audit protege el cierre canónico de documentación viva; no sustituye una normalización histórica completa de todas las specs antiguas.
+
 Una spec no está Done si la documentación viva afectada no está actualizada.
 
 ---
@@ -197,7 +203,9 @@ Además, la spec debe dejar:
 
 - contrato versionado exportado por el producto, no solo descrito en docs;
 - inputs/outputs, contexto máximo, validación requerida, límites write-enabled, receipts y handoff SDD explícitos;
-- dry-run auditable antes de cualquier ejecución write-enabled.
+- replay read-only desde repro/support bundle cuando la tarea no arranca con el repo completo;
+- dry-run auditable antes de cualquier ejecución write-enabled;
+- `validationReceipt` posterior con `commands`, `results`, `artifacts`, `docsTouched`, `docsPending`, `specsAffected` y `nextFocus`, y ningún cierre canónico mientras `docsPending` no esté vacío.
 
 ---
 
@@ -232,7 +240,7 @@ Guardrail adicional de arquitectura:
 Al cerrar una spec:
 
 1. verificar criterios de aceptación;
-2. ejecutar validación proporcional;
+2. ejecutar validación proporcional y conservar `dry-run`/`validationReceipt` cuando aplique;
 3. actualizar documentación afectada;
 4. mover ítems cerrados fuera de backlog;
 5. añadir entrada en done-log;

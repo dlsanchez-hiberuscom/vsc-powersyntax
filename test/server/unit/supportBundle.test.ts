@@ -13,6 +13,7 @@ import {
   getPublicApiContractDescriptor,
   getReadOnlyToolBridgeDescriptor,
   type ApiSemanticWorkspaceManifest,
+  type ApiWorkspaceMigrationAssistant,
 } from '../../../src/shared/publicApi';
 import { loadFixture } from '../helpers/fixtureLoader';
 
@@ -218,11 +219,13 @@ suite('unit/supportBundle (B258)', () => {
         schemaVersion: '1.0.0',
         generatedAt: 1,
         summary: {
-          totalHotspots: 1,
+          totalHotspots: 4,
           totalRecommendations: 0,
           obsoleteFindings: 0,
           dynamicSqlFindings: 0,
           externalDependencyFindings: 0,
+          modernIntegrationFindings: 4,
+          webUiIntegrationFindings: 1,
           dataWindowRiskFindings: 0,
           complexObjectFindings: 0,
           sourceOriginRiskFindings: 0,
@@ -256,10 +259,128 @@ suite('unit/supportBundle (B258)', () => {
                 transactionTarget: 'SQLCA',
               }
             ],
+          },
+          {
+            name: 'w_native',
+            uri: 'file:///repo/lib_app.pbl/w_native.srw',
+            projectUri: 'file:///repo/app.pbt',
+            priority: 'medium',
+            confidence: 'high',
+            categories: ['external-dependency'],
+            evidence: [
+              'external-consumers=2',
+              'external-kind:dll=1',
+              'external-kind:pbx=1',
+              'external-alias:PBXEntry',
+              'external-risk:native-runtime',
+              'external-build-impact:manual-native-deployment',
+              'external-risk:pbni-runtime-surface',
+              'external-orca-impact:manual-pbx-packaging',
+            ],
+            recommendations: ['Inventariar dependencias nativas y su despliegue.'],
+            metrics: {
+              approximateComplexity: 1,
+              diagnostics: 0,
+              externalDependencies: 2,
+              linkedDataWindows: 0,
+              dynamicSqlStatements: 0,
+              obsoleteDiagnostics: 0,
+            },
+          },
+          {
+            name: 'n_http_json_usage',
+            uri: 'file:///repo/lib_app.pbl/n_http_json_usage.sru',
+            projectUri: 'file:///repo/app.pbt',
+            priority: 'medium',
+            confidence: 'high',
+            categories: ['modern-integration'],
+            evidence: [
+              'metric:httpIntegrationUsages=2',
+              'metric:jsonIntegrationUsages=2',
+              'integration-surface:http-rest',
+              'integration-surface:json',
+              'integration-endpoint:https://redacted-host/...',
+              'integration-pattern:http-verb:get',
+              'integration-pattern:authorization-header',
+              'integration-risk:redaction-required',
+            ],
+            recommendations: ['Revisar contratos HTTP/REST/JSON con redaction.'],
+            metrics: {
+              approximateComplexity: 1,
+              diagnostics: 0,
+              externalDependencies: 0,
+              httpIntegrationUsages: 2,
+              jsonIntegrationUsages: 2,
+              linkedDataWindows: 0,
+              dynamicSqlStatements: 0,
+              obsoleteDiagnostics: 0,
+            },
+          },
+          {
+            name: 'w_browser_host',
+            uri: 'file:///repo/lib_app.pbl/w_browser_host.srw',
+            projectUri: 'file:///repo/app.pbt',
+            priority: 'medium',
+            confidence: 'high',
+            categories: ['web-ui-integration'],
+            evidence: [
+              'metric:webBrowserUsages=1',
+              'web-ui-surface:webbrowser',
+              'web-ui-pattern:navigation',
+              'web-ui-pattern:script-bridge',
+              'web-ui-pattern:remote-debugging',
+              'web-ui-risk:no-content-inspection',
+            ],
+            recommendations: ['Revisar navegación y bridge JavaScript.'],
+            metrics: {
+              approximateComplexity: 1,
+              diagnostics: 0,
+              externalDependencies: 0,
+              webBrowserUsages: 1,
+              linkedDataWindows: 0,
+              dynamicSqlStatements: 0,
+              obsoleteDiagnostics: 0,
+            },
           }
         ],
         recommendations: [],
       } as unknown as ApiPowerBuilderTechnicalDebtReport,
+      workspaceMigrationAssistant: {
+        schemaVersion: '1.0.0',
+        generatedAt: '2026-05-03T12:29:00.000Z',
+        available: true,
+        currentMode: 'workspace',
+        targetMode: 'solution',
+        summary: {
+          sourceFileCount: 4,
+          projectCount: 1,
+          buildFilesTotal: 1,
+          usableBuildFiles: 1,
+          hasLegacyLibraries: true,
+          hasMixedMarkers: false,
+          hasOrcaAliases: true,
+        },
+        recommendations: [
+          {
+            id: 'local-artifact-noise',
+            priority: 'medium',
+            category: 'build',
+            title: 'Excluir outputs locales',
+            detail: 'Discovery ignoró build y _backupfiles.',
+            evidence: ['artifact-build-dirs:1', 'artifact-backup-dirs:1'],
+            actions: ['Inspeccionar manualmente el ruido local con `Get-ChildItem -Force -Directory . | Where-Object Name -in @( ".pb", "build", "_backupfiles" )` antes de archivarlo o retirarlo.'],
+          },
+          {
+            id: 'legacy-orca-aliases',
+            priority: 'medium',
+            category: 'legacy',
+            title: 'Limpiar staging ORCA legacy',
+            detail: 'El workspace mantiene aliases ORCA.',
+            evidence: ['orca-aliases:1'],
+            actions: ['Inspeccionar el staging legacy con `Get-ChildItem -Force -Directory . | Where-Object Name -match "orca|staging"` y retirarlo manualmente solo cuando el source real ya sea la referencia canónica.'],
+          },
+        ],
+      } as ApiWorkspaceMigrationAssistant,
       publicContract: {
         apiVersion: '2.9.0',
         apiVersionMajor: 2,
@@ -297,12 +418,35 @@ suite('unit/supportBundle (B258)', () => {
         'vscPowerSyntax.legacy.orcaPath': 'C:/Tools/orca.exe',
       },
       generatedAt: '2026-05-03T12:30:00.000Z',
+      buildOrcaJournal: {
+        total: 1,
+        dropped: 0,
+        events: [
+          {
+            ts: 10,
+            phase: 'legacy',
+            kind: 'orca-import',
+            action: 'blocked',
+            severity: 'warning',
+            detail: {
+              issues: [
+                {
+                  code: 'stale-staging',
+                  severity: 'error',
+                  message: 'Staging obsoleto para C:/repo/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source.',
+                },
+              ],
+            },
+          },
+        ],
+      },
     });
 
     assert.equal(bundle.supportBundleWorkspaceRelativePath, 'tools/support-bundles/sample-support');
     assert.ok(bundle.files.some((file) => file.relativePath === 'manifest.json'));
     assert.ok(bundle.files.some((file) => file.relativePath === 'settings-sanitized.json'));
     assert.ok(bundle.files.some((file) => file.relativePath === 'build-orca-snapshot.json'));
+    assert.ok(bundle.files.some((file) => file.relativePath === 'workspace-cleanup-advisor.json'));
     assert.ok(bundle.files.some((file) => file.relativePath === 'current-object-context.sanitized.json'));
     assert.ok(bundle.files.some((file) => file.relativePath === 'powerbuilder-code-metrics.sanitized.json'));
     assert.ok(bundle.files.some((file) => file.relativePath === 'powerbuilder-technical-debt-report.sanitized.json'));
@@ -314,6 +458,12 @@ suite('unit/supportBundle (B258)', () => {
     const settings = bundle.files.find((file) => file.relativePath === 'settings-sanitized.json')?.content ?? '';
     assert.match(settings, /redacted:orca\.exe/);
     assert.doesNotMatch(settings, /C:\/Tools\//);
+
+    const buildOrcaSnapshot = JSON.parse(bundle.files.find((file) => file.relativePath === 'build-orca-snapshot.json')?.content ?? '{}');
+    assert.equal(buildOrcaSnapshot.failureClassification?.orca?.primaryReasonCode, 'stale-staging');
+    assert.ok(buildOrcaSnapshot.failureClassification?.orca?.findings?.some((finding: { reasonCode?: string }) => finding.reasonCode === 'packaging-disabled'));
+    assert.equal(buildOrcaSnapshot.failureClassification?.orca?.findings?.find((finding: { reasonCode?: string }) => finding.reasonCode === 'stale-staging')?.detail, 'El preflight ORCA reportó staging obsoleto.');
+    assert.doesNotMatch(JSON.stringify(buildOrcaSnapshot), /C:\/repo\//);
 
     const diagnostics = bundle.files.find((file) => file.relativePath === 'diagnostics-snapshot.sanitized.json')?.content ?? '';
     assert.match(diagnostics, /redacted:w_main\.srw/);
@@ -328,7 +478,19 @@ suite('unit/supportBundle (B258)', () => {
 
     const technicalDebtReport = bundle.files.find((file) => file.relativePath === 'powerbuilder-technical-debt-report.sanitized.json')?.content ?? '';
     assert.match(technicalDebtReport, /redacted:w_main\.srw/);
+    assert.match(technicalDebtReport, /redacted:w_native\.srw/);
     assert.match(technicalDebtReport, /sql-anchor:select:11-13/);
+    assert.match(technicalDebtReport, /external-kind:pbx=1/);
+    assert.match(technicalDebtReport, /manual-pbx-packaging/);
+    assert.match(technicalDebtReport, /redacted:n_http_json_usage\.sru/);
+    assert.match(technicalDebtReport, /integration-surface:http-rest/);
+    assert.match(technicalDebtReport, /integration-endpoint:https:\/\/redacted-host\/\.\.\./);
+    assert.match(technicalDebtReport, /integration-pattern:authorization-header/);
+    assert.match(technicalDebtReport, /redaction-required/);
+    assert.match(technicalDebtReport, /redacted:w_browser_host\.srw/);
+    assert.match(technicalDebtReport, /web-ui-surface:webbrowser/);
+    assert.match(technicalDebtReport, /web-ui-pattern:remote-debugging/);
+    assert.match(technicalDebtReport, /no-content-inspection/);
 
     const manifest = JSON.parse(bundle.files.find((file) => file.relativePath === 'manifest.json')?.content ?? '{}');
     assert.equal(manifest.summary.rawSourceIncluded, false);
@@ -339,10 +501,18 @@ suite('unit/supportBundle (B258)', () => {
     assert.ok(manifest.files.some((file: { relativePath: string }) => file.relativePath === 'powerbuilder-code-metrics.sanitized.json'));
     assert.ok(manifest.files.some((file: { relativePath: string }) => file.relativePath === 'powerbuilder-technical-debt-report.sanitized.json'));
     assert.ok(manifest.files.some((file: { relativePath: string; redaction?: string }) => file.relativePath === 'settings-sanitized.json' && file.redaction === 'sanitized'));
+    assert.ok(manifest.files.some((file: { relativePath: string }) => file.relativePath === 'workspace-cleanup-advisor.json'));
+
+    const cleanupAdvisor = bundle.files.find((file) => file.relativePath === 'workspace-cleanup-advisor.json')?.content ?? '';
+    assert.match(cleanupAdvisor, /runtime-cache-refresh/);
+    assert.match(cleanupAdvisor, /workspace-artifact-cleanup/);
+    assert.match(cleanupAdvisor, /public-api-version:2\.9\.0/);
+    assert.match(cleanupAdvisor, /Get-ChildItem -Force/);
 
     const readme = bundle.files.find((file) => file.relativePath === 'README.md')?.content ?? '';
     assert.match(readme, /sin incluir codigo bruto/i);
     assert.match(readme, /runtime-health\.json/);
+    assert.match(readme, /workspace-cleanup-advisor\.json/);
   });
 
   test('endurece la redaccion por perfil para ci-support', () => {

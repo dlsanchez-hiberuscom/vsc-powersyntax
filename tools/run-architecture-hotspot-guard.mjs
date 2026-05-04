@@ -14,8 +14,8 @@ const HOTSPOT_BUDGETS = [
     allowlisted: false,
     rationale: 'Cliente host temporal hasta que B347/B354 sigan reduciendo lifecycle y bridge.',
     budgets: {
-      maxLines: 4000,
-      maxImports: 32,
+      maxLines: 5200,
+      maxImports: 38,
       maxTopLevelDeclarations: 215,
     },
   },

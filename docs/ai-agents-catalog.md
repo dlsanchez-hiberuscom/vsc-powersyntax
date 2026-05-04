@@ -33,6 +33,7 @@ Este repositorio define agentes persistentes por rol. Las tareas cortas deben re
 - Si detecta foco activo sin spec mínima (`spec.md`, `plan.md`, `tasks.md`), debe devolverlo a `spec-orchestrator` o crear la spec antes de implementación write-enabled.
 - Los agentes deben distinguir slice cerrado de spec/ítem padre cerrado.
 - Para tareas write-enabled, todo agente debe leer el `taskExecutionCatalog`, citar `contractId` y respetar dry-run, límites y receipts antes de ejecutar.
+- `docs-updater` debe consumir `docsTouched`, `docsPending`, `specsAffected` y `nextFocus` del `validationReceipt` cuando exista, y no cerrar trabajo mientras `docsPending` siga abierto.
 - Para arrancar tareas IA con budget corto, el punto de entrada recomendado es `docs/ai-context/powerbuilder-plugin-context.md`; si no basta, se amplía con documentación propietaria, no con resúmenes duplicados.
 
 ---
@@ -219,12 +220,14 @@ Write-enabled.
 
 ### Puede
 - actualizar documentación viva;
-- mover trabajo cerrado a done-log si está validado;
+- mover trabajo cerrado a done-log si está validado y `docsPending` ya quedó resuelto;
+- consumir `validationReceipt` para reflejar `docsTouched`, `docsPending`, `specsAffected` y `nextFocus` en artefactos canónicos;
 - corregir referencias y foco.
 
 ### No puede
 - presentar intención como implementación;
 - cerrar items sin evidencia;
+- ignorar `docsPending` del receipt;
 - cambiar autoridad documental.
 
 ### Salida mínima
