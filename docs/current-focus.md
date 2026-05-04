@@ -2,34 +2,34 @@
 
 ## 1. Foco activo
 
-`B344 — DataWindow binding edge cases from plugin_old`
+`B354 — Server runtime orchestration decomposition`
 
-Estado actual: `B342` queda cerrada. La spec `389-plugin-old-symbol-heuristics` deja ya una matriz auditada de heurísticas `plugin_old` y absorbe la primera mejora defendible: linked editing seguro para `Local` y `Argumento` servido por el runtime actual sin provider paralelo.
+Estado actual: `B344` queda cerrada. La spec `390-datawindow-binding-edge-cases` fija ya el caso heredado de `plugin_old` para `report -> column -> dddw` sobre el backbone actual y deja el frente DataWindow inmediato sin gaps confirmados de child/report/column occurrences.
 
-La evidencia cerrada que deja `B342` es:
+La evidencia cerrada que deja `B344` es:
 
-- `docs/plugin-old-migration-opportunities.md` clasifica ya `linked editing` como absorbido, deja `folding`, `inlay hints` y resúmenes extra de `code lens` como parciales aprovechables, y aisla `child/report/column occurrences` como frente específico de `B344`;
-- `src/server/features/linkedEditing.ts` reutiliza `queryContext` + `references` sobre el documento activo y sólo publica rangos editables cuando la resolución es única, `local-scope` y el símbolo pertenece a `Local` o `Argumento`;
-- `src/server/handlers/featureHandlers.ts`, `lifecycleHandlers.ts` y `server.ts` anuncian y sirven `linkedEditingRangeProvider` con los mismos readiness/confidence gates de rename/references, sin abrir host cliente ni índices heredados;
-- `test/server/unit/linkedEditing.test.ts` fija parámetros, locales y el caso peligroso de homónimo en otro callable, mientras `architectureImports.test.ts` protege la integración contra imports prohibidos.
+- `src/server/features/dataWindowPropertyPaths.ts` expande ahora el root resoluble de `report(...)` durante completion, de modo que `Modify("rpt_orders.")` publica columnas del child y `DataWindow` en lugar de limitarse a un namespace ciego;
+- `test/server/unit/completion.test.ts` y `hover.test.ts` fijan el camino anidado `rpt_orders.status_id.dddw.name` tanto para completion como para hover, sin ampliar el contrato fuera de bindings deterministas;
+- `test/fixtures/datawindow-b344/` y `test/smoke/datawindow-b344.extension.test.ts` validan el mismo caso sobre `.srd` reales en disco usando los providers reales del editor;
+- `docs/plugin-old-migration-opportunities.md` deja ya ese gap como absorbido y obliga a que cualquier reapertura futura llegue con corpus/fixture nuevo.
 
 ---
 
 ## 2. Por qué es prioritario
 
-`B344` pasa a ser el siguiente foco natural porque:
+`B354` pasa a ser el siguiente foco natural porque:
 
-- `B342` ya aisló qué parte de `plugin_old` era heurística de símbolos genérica y cuál seguía siendo deuda DataWindow específica;
-- los casos `child/report/column occurrences` siguen siendo la principal brecha útil confirmada por la auditoría legacy y deben entrar ahora como fixtures/reglas sobre `DataWindowModel`, no como providers heredados;
-- `B327` y `B342` dejan ya cerrados el catálogo DataWindow reusable y la primera heurística `plugin_old`, así que el siguiente trabajo puede centrarse en bindings edge-case reales sin reabrir infraestructura.
+- `server.ts` sigue concentrando scheduler, readiness, memory pressure, serving cache, persistence y journals en el mismo host LSP, y ese monolito ya es el siguiente cuello arquitectónico visible;
+- `B342` y `B344` despejaron los frentes inmediatos heredados de `plugin_old`, así que el siguiente riesgo real ya no es semántico DataWindow sino orquestación runtime y mantenibilidad del host;
+- el backlog marca `B354` como alta prioridad y su trazabilidad con `B347` afecta directamente a la base operativa que soporta el resto de slices.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- extraer fixtures o reglas DataWindow de `plugin_old` que sigan aportando valor para `child`, `report(...)`, `column occurrences` y `dddw` sin parsear DataWindow como PowerScript;
-- extender resolvers/bindings actuales sólo cuando el `DataWindowModel`, el binding `DataObject` y la confidence sostengan el resultado;
-- reforzar tests unitarios o golden `.srd` focales y actualizar `docs/plugin-old-migration-opportunities.md` con qué edge cases quedaron absorbidos y cuáles degradan honestamente.
+- separar wiring LSP de políticas runtime sin cambiar contratos de scheduler, readiness, backpressure, memory pressure, serving cache o persistence;
+- mover orquestación a slices legibles y testeables manteniendo payloads y observabilidad estables;
+- reforzar tests de runtime/health/status y gates de rendimiento sin abrir build/legacy en hot path interactivo.
 
 ---
 
@@ -37,29 +37,29 @@ La evidencia cerrada que deja `B342` es:
 
 No abrir salvo regresión demostrable:
 
-- reabrir `B342` salvo regresión real en linked editing o drift documental de la matriz ya cerrada;
-- portar providers DataWindow completos de `plugin_old` o mezclar host cliente legacy en el servidor nuevo;
-- parsear `.srd` como PowerScript para cubrir edge cases que deben seguir viviendo sobre `DataWindowModel` y bindings actuales;
-- abrir heurísticas genéricas nuevas fuera de DataWindow mientras `B344` siga siendo el siguiente bloqueo real.
+- reabrir `B344` salvo regresión real en `dataWindowPropertyPaths` o en los fixtures/smoke ya cerrados;
+- cambiar políticas de scheduler/backpressure/memory como efecto colateral de una mera extracción estructural;
+- mezclar comandos build/legacy dentro del hot path semántico del servidor;
+- desplazar el trabajo a nuevas features semánticas mientras el host runtime siga concentrando la orquestación crítica.
 
 ---
 
 ## 5. Criterios de salida del foco actual
 
-- fixtures/reglas representativas cubren edge cases DataWindow `child/report/column occurrences` sin abrir un parser paralelo ni un provider host heredado;
-- la degradación frente a bindings dinámicos sigue siendo honesta y defendible sobre el backbone actual;
-- `plugin-old-migration-opportunities`, `testing`, `backlog`, `done-log`, `current-focus` y la guía técnica DataWindow quedan alineados con el estado real del corte.
+- `server.ts` deja de concentrar la orquestación principal en un único bloque difícil de mantener;
+- scheduler/backpressure/memory/readiness conservan contratos, payloads y guards de rendimiento;
+- `architecture`, `performance-budget`, `testing`, `backlog`, `done-log` y `current-focus` quedan alineados con el estado real del corte.
 
 ---
 
 ## 6. Siguiente foco natural
 
-1. `B344` — DataWindow binding edge cases from plugin_old.
-2. `B354` — Server runtime orchestration decomposition.
-3. `B292` — PowerBuilder preprocessor / conditional patterns investigation.
+1. `B354` — Server runtime orchestration decomposition.
+2. `B292` — PowerBuilder preprocessor / conditional patterns investigation.
+3. `B301` — Agent context budget enforcement.
 
 ---
 
 ## 7. Regla final
 
-`B344` debe tratar `plugin_old` sólo como fuente de fixtures y reglas DataWindow probadas. Ningún edge case justifica reintroducir su arquitectura ni sacar DataWindow fuera del backbone actual.
+`B354` sólo puede descomponer el host runtime si conserva intactas las policies y evita abrir un segundo centro de decisión para scheduling, readiness o memory pressure.

@@ -336,17 +336,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Docs afectadas:** `docs/developer-workflows.md`, `docs/architecture.md`.
 - **Validación esperada:** tests de build/ORCA surfaces y architectureImports.
 
-## B344 — DataWindow binding edge cases from plugin_old
-- **Estado:** Open
-- **Track:** DataWindow / plugin_old migration
-- **Prioridad:** Media-Alta
-- **Depende de:** B287, B342
-- **Objetivo:** extraer casos probados de bindings DataWindow/child/report/dddw desde `plugin_old` como fixtures o reglas nuevas.
-- **Razón técnica:** `plugin_old` contiene lógica rica de child links y column occurrences; debe migrarse como conocimiento/test, no como provider cliente acoplado.
-- **Criterios de cierre verificables:** fixtures representativos, resolvers actuales extendidos sin parsear DataWindow como PowerScript y degradación honesta para bindings dinámicos.
-- **Docs afectadas:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/plugin-old-migration-opportunities.md`.
-- **Validación esperada:** DataWindow unit/golden tests y smoke real `.srd`.
-
 ## B354 — Server runtime orchestration decomposition
 - **Estado:** Open
 - **Track:** runtime architecture
@@ -980,20 +969,19 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ## Fase activa 
 
-01. B344 — DataWindow binding edge cases from plugin_old
-02. B354 — Server runtime orchestration decomposition
-03. B292 — PowerBuilder preprocessor / conditional patterns investigation
-04. B301 — Agent context budget enforcement
-05. B299 — Agent execution dry-run contract
-06. B300 — Agent validation receipt
-07. B302 — Agent-safe documentation updater policy
-08. B303 — Agent task replay from repro/support bundle
-09. B311 — Transaction and DataWindow update flow analyzer
-10. B312 — SQL dynamic risk taxonomy v2
-11. B310 — Object lifecycle risk report v2
-12. B308 — PBNI/PBX dependency insight v2
-13. B306 — HTTPClient/REST/JSON usage analyzer
-14. B307 — WebBrowser/WebView2 usage analyzer
+01. B354 — Server runtime orchestration decomposition
+02. B292 — PowerBuilder preprocessor / conditional patterns investigation
+03. B301 — Agent context budget enforcement
+04. B299 — Agent execution dry-run contract
+05. B300 — Agent validation receipt
+06. B302 — Agent-safe documentation updater policy
+07. B303 — Agent task replay from repro/support bundle
+08. B311 — Transaction and DataWindow update flow analyzer
+09. B312 — SQL dynamic risk taxonomy v2
+10. B310 — Object lifecycle risk report v2
+11. B308 — PBNI/PBX dependency insight v2
+12. B306 — HTTPClient/REST/JSON usage analyzer
+13. B307 — WebBrowser/WebView2 usage analyzer
 
 ## Siguiente fase 
 

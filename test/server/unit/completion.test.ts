@@ -512,6 +512,82 @@ end subroutine
     assert.ok(nestedItems?.some((item) => item.label === 'name'), 'Debe sugerir la propiedad dddw.name del column child cuando el prefijo ya entra en dddw.');
   });
 
+  test('debe ofrecer completion segura para un report child y su columna dropdown anidada', () => {
+    setupDocument('file:///d_parent_report_completion.srd', [
+      '$PBExportHeader$d_parent_report_completion.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'report(name=rpt_orders dataobject="d_orders_report_completion")',
+    ].join('\r\n'));
+    setupDocument('file:///d_orders_report_completion.srd', [
+      '$PBExportHeader$d_orders_report_completion.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=char(10) update=yes name=status_id dbname="sales.status_id" dddw.name="d_status_report_completion") retrieve="SELECT status_id FROM orders")',
+    ].join('\r\n'));
+    setupDocument('file:///d_status_report_completion.srd', [
+      '$PBExportHeader$d_status_report_completion.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT status_id, status_name FROM status")',
+    ].join('\r\n'));
+
+    const docReport = setupDocument('file:///w_report_completion.srw', [
+      'global type w_report_completion from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent_report_completion"',
+      '  dw_parent.Modify("rpt_orders.")',
+      'end event',
+    ].join('\r\n'));
+
+    const reportLines = docReport.getText().split(/\r?\n/);
+    const reportLineIndex = reportLines.findIndex((line) => line.includes('rpt_orders.'));
+    const reportCharacter = reportLines[reportLineIndex].indexOf('rpt_orders.') + 'rpt_orders.'.length;
+    const reportItems = provideCompletion(docReport, Position.create(reportLineIndex, reportCharacter), kb, systemCatalog, graph);
+
+    assert.ok(reportItems, 'Esperaba completion DataWindow dentro de Modify sobre un report child resoluble.');
+    assert.ok(reportItems?.some((item) => item.label === 'status_id'), 'Debe sugerir la columna del DataWindow hijo publicado por el report.');
+    assert.ok(reportItems?.some((item) => item.label === 'DataWindow'), 'Debe sugerir el namespace DataWindow del report child.');
+
+    const docColumn = setupDocument('file:///w_report_column_completion.srw', [
+      'global type w_report_column_completion from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent_report_completion"',
+      '  dw_parent.Modify("rpt_orders.status_id.")',
+      'end event',
+    ].join('\r\n'));
+
+    const columnLines = docColumn.getText().split(/\r?\n/);
+    const columnLineIndex = columnLines.findIndex((line) => line.includes('rpt_orders.status_id.'));
+    const columnCharacter = columnLines[columnLineIndex].indexOf('rpt_orders.status_id.') + 'rpt_orders.status_id.'.length;
+    const columnItems = provideCompletion(docColumn, Position.create(columnLineIndex, columnCharacter), kb, systemCatalog, graph);
+
+    assert.ok(columnItems, 'Esperaba completion DataWindow dentro de Modify sobre una columna anidada en report child.');
+    assert.ok(columnItems?.some((item) => item.label === 'DataWindow'), 'Debe sugerir la continuación hacia el child DataWindow del dropdown anidado.');
+    assert.ok(columnItems?.some((item) => item.label === 'dddw'), 'Debe sugerir la metadata dddw de la columna anidada.');
+
+    const docNested = setupDocument('file:///w_report_column_nested_completion.srw', [
+      'global type w_report_column_nested_completion from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent_report_completion"',
+      '  dw_parent.Modify("rpt_orders.status_id.dddw.")',
+      'end event',
+    ].join('\r\n'));
+
+    const nestedLines = docNested.getText().split(/\r?\n/);
+    const nestedLineIndex = nestedLines.findIndex((line) => line.includes('rpt_orders.status_id.dddw.'));
+    const nestedCharacter = nestedLines[nestedLineIndex].indexOf('rpt_orders.status_id.dddw.') + 'rpt_orders.status_id.dddw.'.length;
+    const nestedItems = provideCompletion(docNested, Position.create(nestedLineIndex, nestedCharacter), kb, systemCatalog, graph);
+
+    assert.ok(nestedItems?.some((item) => item.label === 'name'), 'Debe sugerir dddw.name también cuando la columna cuelga de un report child.');
+  });
+
   test('debe ofrecer completion raiz DataWindow dentro de Modify con prefijo parcial', () => {
     setupDocument('file:///d_parent_completion_root.srd', [
       '$PBExportHeader$d_parent_completion_root.srd',

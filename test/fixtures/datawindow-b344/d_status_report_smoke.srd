@@ -1,0 +1,4 @@
+$PBExportHeader$d_status_report_smoke.srd
+release 39;
+datawindow(units=0)
+table(retrieve="SELECT status_id, status_name FROM status")

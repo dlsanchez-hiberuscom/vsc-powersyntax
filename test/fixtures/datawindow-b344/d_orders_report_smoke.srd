@@ -1,0 +1,4 @@
+$PBExportHeader$d_orders_report_smoke.srd
+release 39;
+datawindow(units=0)
+table(column=(type=char(10) update=yes name=status_id dbname="sales.status_id" dddw.name="d_status_report_smoke") retrieve="SELECT status_id FROM orders")

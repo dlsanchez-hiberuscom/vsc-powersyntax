@@ -348,9 +348,14 @@ function resolveCompletionCandidates(
   if (!normalizedPath.includes('.')) {
     const report = current.model.reports.find((entry) => entry.name.toLowerCase() === lowerPath);
     if (report?.dataObject) {
-      return [
-        { label: 'DataWindow', kind: CompletionItemKind.Class, detail: 'Child DataWindow property namespace' },
-      ];
+      const child = resolveSingleDataWindowTarget(report.dataObject, kb, cache);
+      if (!child) {
+        return [
+          { label: 'DataWindow', kind: CompletionItemKind.Class, detail: 'Child DataWindow property namespace' },
+        ];
+      }
+
+      return resolveCompletionCandidates('', child, kb, cache);
     }
 
     const tableColumn = current.model.tableColumns.find((entry) => entry.name.toLowerCase() === lowerPath);

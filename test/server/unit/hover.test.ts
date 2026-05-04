@@ -422,6 +422,52 @@ end event
     assert.ok(value.includes('Ruta: `rpt_orders`'));
   });
 
+  test('provideHover resuelve rutas anidadas de report child hacia dddw.name', () => {
+    setupAnalyzedDocument('file:///d_parent_report_dddw_hover.srd', [
+      '$PBExportHeader$d_parent_report_dddw_hover.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'report(name=rpt_orders dataobject="d_orders_report_dddw_hover")'
+    ].join('\r\n'));
+    setupAnalyzedDocument('file:///d_orders_report_dddw_hover.srd', [
+      '$PBExportHeader$d_orders_report_dddw_hover.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=char(10) update=yes name=status_id dbname="sales.status_id" dddw.name="d_status_report_dddw_hover") retrieve="SELECT status_id FROM orders")'
+    ].join('\r\n'));
+    setupAnalyzedDocument('file:///d_status_report_dddw_hover.srd', [
+      '$PBExportHeader$d_status_report_dddw_hover.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(retrieve="SELECT status_id, status_name FROM status")'
+    ].join('\r\n'));
+    const doc = setupAnalyzedDocument('file:///w_report_dddw_hover.srw', [
+      'global type w_report_dddw_hover from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_parent.DataObject = "d_parent_report_dddw_hover"',
+      '  dw_parent.Describe("rpt_orders.status_id.dddw.name")',
+      'end event'
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('rpt_orders.status_id.dddw.name'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('rpt_orders.status_id.dddw.name') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.ok(hover);
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('rpt_orders.status_id.dddw.name'));
+    assert.ok(value.includes('d_status_report_dddw_hover'));
+    assert.ok(value.includes('Ruta: `rpt_orders > status_id`'));
+  });
+
   test('provideHover resuelve dw_customer.Object.DataWindow.Table.Select usando el DataObject enlazado', () => {
     setupAnalyzedDocument('file:///d_customer_object.srd', [
       '$PBExportHeader$d_customer_object.srd',

@@ -25,6 +25,28 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.142 B344. DataWindow binding edge cases from plugin_old — **Cerrada (datawindow/plugin_old migration 2026-05)**
+
+**Objetivo:** extraer casos probados de bindings DataWindow `child/report/dddw` desde `plugin_old` como reglas/fixtures sobre el backbone actual, sin portar providers cliente ni parsear `.srd` como PowerScript.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowPropertyPaths.ts` expande el root resoluble de `report(...)` durante completion, de modo que `Modify("rpt_orders.")` ya ofrece columnas del DataWindow hijo y `DataWindow`, manteniendo el serving dentro de `DataWindowModel` + bindings `DataObject` actuales;
+- `test/server/unit/completion.test.ts` y `hover.test.ts` fijan el camino anidado `report -> column -> dddw.name`, incluyendo `rpt_orders.status_id.dddw.name`, sin ampliar el contrato fuera de bindings deterministas;
+- `test/fixtures/datawindow-b344/` y `test/smoke/datawindow-b344.extension.test.ts` validan completion y hover del mismo path sobre `.srd` reales en disco con los providers reales del editor;
+- `specs/390-datawindow-binding-edge-cases/` queda cerrada y deja sin gap activo el frente DataWindow `child/report/column occurrences` heredado de `plugin_old`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "report child y su columna dropdown anidada|report child hacia dddw\.name"`
+- `npm run test:smoke -- --grep "report child con columna dropdown"`
+
+**Documentación alineada:**
+- `docs/plugin-old-migration-opportunities.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.141 B342. Extract proven symbol heuristics from plugin_old — **Cerrada (plugin_old migration/semantics 2026-05)**
 
 **Objetivo:** revisar heurísticas probadas de `plugin_old` sin crear un motor paralelo y absorber sólo las que puedan vivir sobre `KnowledgeBase`, snapshots y query service actuales.

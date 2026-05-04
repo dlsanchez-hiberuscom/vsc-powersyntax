@@ -1,0 +1,4 @@
+$PBExportHeader$d_parent_report_smoke.srd
+release 39;
+datawindow(units=0)
+report(name=rpt_orders dataobject="d_orders_report_smoke")

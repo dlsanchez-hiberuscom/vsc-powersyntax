@@ -150,8 +150,9 @@ Clasificación vigente tras revisar `plugin_old` frente a la arquitectura actual
 
 - **Ya implementado mejor:** core semántico, snapshots, KnowledgeBase, sourceOrigin, scoring base de completion, DataWindow safe mode inicial, ORCA staging moderno y guards de rename/references.
 - **Ya absorbido por B342:** linked editing para `Local` y `Argumento` vive ahora en el servidor LSP nuevo sobre `queryContext` + `references`, limitado al documento activo y a resolución semántica única; no existe provider host ni índice paralelo heredado.
+- **Ya absorbido por B344:** `dataWindowPropertyPaths.ts` sirve ya el root resoluble de `report(name=... dataobject=...)` y mantiene navegable el tramo `report -> column -> dddw.name` sobre `DataWindowModel` + bindings actuales, con unit y smoke sobre `.srd` en disco sin portar providers legacy.
 - **Implementación parcial aprovechable:** folding estructural/comentarios, inlay hints owner-aware para parámetros, resúmenes extra de callable/code lens por herencia y advanced semantic tokens.
-- **Valuable gaps registrados:** `B344` concentra ahora los edge cases DataWindow `child/report/column occurrences`; cualquier migración debe entrar como fixture/regla sobre `DataWindowModel`, bindings y resolvers actuales.
+- **Valuable gaps registrados:** no queda un gap DataWindow `child/report/column occurrences` confirmado tras `B344`; cualquier nueva reapertura debe venir acompañada de fixture/corpus nuevo y seguir entrando como regla sobre `DataWindowModel`, bindings y resolvers actuales.
 - **No portar:** provider host cliente, singleton indexes sin versionado, symbol keys sin sourceOrigin, ORCA directo y cualquier lógica que reconstruya semántica fuera de `KnowledgeBase`/snapshots/query service.
 
-La sesión actual sigue sin portar código legacy masivo: sólo extrae la heurística de linked editing sobre el backbone nuevo y deja el resto clasificado para slices posteriores.
+La sesión actual sigue sin portar código legacy masivo: `B342` absorbió linked editing, `B344` fijó el frente DataWindow `report -> column -> dddw` sobre el backbone nuevo y el resto queda clasificado para slices posteriores.

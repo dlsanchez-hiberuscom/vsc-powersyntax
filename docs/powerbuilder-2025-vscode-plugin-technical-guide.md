@@ -902,6 +902,7 @@ Estado actual del repo:
 - ese slice avanzado cubre `report(name=... dataobject=...)`, `column.dddw.name`, property paths `Describe/Modify(...DataWindow.Table.Select)`, acceso directo `dw.Object.<control|column|property>` y `GetChild()` cuando el binding `DataObject` literal y la cadena child son deterministas.
 - `B320` cierra además el primer catálogo oficial reutilizable de ese sublenguaje: `datawindow-properties` sirve `DataWindow.DataObject`, `DataWindow.Table.Select` y `dddw.name` a `Describe/Modify/Object`, mientras `datawindow-expression-functions` sirve `CurrentRow`, `If`, `Sum` y el resto del vocabulario oficial Appeon sólo dentro de expresiones `.srd`.
 - `B327` completa ese corte añadiendo `datawindow-constants` como vista DataWindow-scoped sobre enums oficiales ya existentes y fijando tanto `DataWindow.Syntax` como el root completion `DataWindow.T -> Table` dentro de `Modify(...)`, sin reparsear `.srd` como PowerScript ni abrir un segundo rail de serving.
+- `B344` cierra el gap heredado de `plugin_old` para `child/report/column occurrences`: `dataWindowPropertyPaths.ts` expande ya el root resoluble de `report(...)` durante completion, de modo que `Modify("rpt_orders.")` ofrece columnas y `DataWindow`, y las rutas anidadas `rpt_orders.status_id.dddw.name` quedan fijadas tanto en unit como en smoke con `.srd` reales bajo `test/fixtures/datawindow-b344/`.
 
 Phase 2: bindings
   - DataObject assignments
