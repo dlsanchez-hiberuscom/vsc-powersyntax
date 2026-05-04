@@ -43,6 +43,7 @@ import {
 } from './runtime/memoryPressurePolicy';
 import { BuildOrcaJournalStore } from './runtime/buildOrcaJournalStore';
 import { RuntimeJournal } from './runtime/runtimeJournal';
+import { createRuntimeProgressController } from './runtime/runtimeProgressController';
 import {
   PbAutoBuildRunner,
   type PbAutoBuildRunnerRequest,
@@ -52,19 +53,14 @@ import { OrcaRunner, type OrcaRunnerRequest } from './build/orcaRunner';
 import type { OrcaRunResult } from '../shared/orcaProtocol';
 import { restoreOrcaStagingAliases } from './build/orcaStagingExport';
 import { NodeFileSystem } from './system/fileSystem';
-import { createSemanticCacheStore, type SemanticCacheStore } from './cache/cacheStore';
+import { createSemanticCacheStore } from './cache/cacheStore';
 import { createCacheCheckpoint } from './cache/cacheCheckpoint';
 import type { SemanticCacheCheckpointMetadata } from './cache/cacheSchema';
 import {
-  persistServingCacheSnapshot,
   restoreServingCacheSnapshot
 } from './cache/servingCachePersistence';
-import { ServingCacheFlushCoordinator } from './cache/servingCacheFlushCoordinator';
 import { cacheServingResult, invalidateServingCacheEntries } from './cache/servingCacheRuntime';
-import {
-  buildProgressReadinessSnapshot,
-  toProgressNotification
-} from './features/progressReadiness';
+import { createSemanticCacheRuntimeController } from './cache/semanticCacheRuntimeController';
 import { createDocumentQueryContext } from './features/queryContext';
 import { discoverWorkspace } from './workspace/discovery';
 import { WorkspaceState } from './workspace/workspaceState';
@@ -242,21 +238,8 @@ const watcherIntake = createFileWatcherDebouncer({
     });
   }
 });
-let cacheStore: SemanticCacheStore | null = null;
 let cacheStorageUri: string | null = null;
-let lastServingSnapshotRestoreEntries = 0;
-let lastServingSnapshotPersistEntries = 0;
-let lastPersistenceRestoreState: 'restored' | 'reused' | 'rebuilt' | undefined;
-let lastPersistenceRestoreReason: string | undefined;
-let lastRestoredCheckpointDocuments = 0;
-const persistServingSnapshot = async (): Promise<void> => {
-  if (!cacheStore) {
-    lastServingSnapshotPersistEntries = 0;
-    return;
-  }
-
-  lastServingSnapshotPersistEntries = await persistServingCacheSnapshot(servingCache, cacheStore, knowledgeBase.semanticEpoch);
-};
+const semanticCacheRuntimeController = createSemanticCacheRuntimeController(servingCache, () => knowledgeBase.semanticEpoch);
 
 function buildCacheCheckpointMetadata(): Partial<SemanticCacheCheckpointMetadata> {
   return {
@@ -267,9 +250,7 @@ function buildCacheCheckpointMetadata(): Partial<SemanticCacheCheckpointMetadata
   };
 }
 
-const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {
-  await persistServingSnapshot();
-});
+const servingCacheFlushCoordinator = semanticCacheRuntimeController.flushCoordinator;
 const disposeTraceSnapshotSubscription = subscribeTraceSnapshots((trace) => {
   runtimeJournal.record({
     phase: 'query',
@@ -291,23 +272,10 @@ const disposeTraceSnapshotSubscription = subscribeTraceSnapshots((trace) => {
 // Conectar caché interactiva con backends globales para evitar doble parseo
 setAnalysisBackends(documentCache, knowledgeBase, {
   appendUpsert(record, semanticEpoch) {
-    if (cacheStore) {
-      return cacheStore.appendJournalMutation({
-        semanticEpoch,
-        kind: 'upsert',
-        uris: [record.uri],
-        documents: [record]
-      });
-    }
+    return semanticCacheRuntimeController.appendUpsert(record, semanticEpoch);
   },
   appendRemove(uri, semanticEpoch) {
-    if (cacheStore) {
-      return cacheStore.appendJournalMutation({
-        semanticEpoch,
-        kind: 'remove',
-        uris: [uri]
-      });
-    }
+    return semanticCacheRuntimeController.appendRemove(uri, semanticEpoch);
   }
 }, (uri) => (
   workspaceState.getSourceOrigin(uri) && workspaceState.getSourceOrigin(uri) !== 'unknown'
@@ -324,35 +292,40 @@ const discoveryProgress = {
   total: 0
 };
 
-function buildRuntimeProgressReadiness(activeUriOverride?: string | null) {
-  const indexerStatus = getIndexerStatus();
-  const workspaceFiles = workspaceState.getAllSourceFiles();
-  const activeUri = activeUriOverride ?? activeDocumentUri;
-  const activeProject = workspaceState.getProjectContextForFile(activeUri);
-  const activeProjectFiles = activeProject
-    ? workspaceState.getProjectModel()?.getFilesForProject(activeProject.projectUri) ?? []
-    : [];
-
-  return buildProgressReadinessSnapshot({
-    discovery: discoveryProgress,
-    indexer: indexerStatus,
-    activeUri,
-    activeProjectName: activeProject?.name,
-    activeProjectFiles,
-    workspaceFiles,
-    isSemanticallyReady: (uri) => {
-      const snapshot = knowledgeBase.getDocumentSnapshot(uri);
-      return documentCache.hasSnapshot(uri)
-        || snapshot?.readiness === 'nearby-semantic-ready'
-        || getFileIndexState(uri) === 'indexed';
+const runtimeProgressController = createRuntimeProgressController({
+  discoveryProgress,
+  getIndexerStatus,
+  getActiveDocumentUri: () => activeDocumentUri,
+  getActiveProject: (activeUri) => {
+    const activeProject = workspaceState.getProjectContextForFile(activeUri);
+    if (!activeProject) {
+      return null;
     }
-  });
+
+    return {
+      name: activeProject.name,
+      files: workspaceState.getProjectModel()?.getFilesForProject(activeProject.projectUri) ?? [],
+    };
+  },
+  getWorkspaceFiles: () => workspaceState.getAllSourceFiles(),
+  isSemanticallyReady: (uri) => {
+    const snapshot = knowledgeBase.getDocumentSnapshot(uri);
+    return documentCache.hasSnapshot(uri)
+      || snapshot?.readiness === 'nearby-semantic-ready'
+      || getFileIndexState(uri) === 'indexed';
+  },
+  transitionReadiness: (state, detail) => {
+    readiness.transition(state, detail);
+  },
+  sendProgress,
+});
+
+function buildRuntimeProgressReadiness(activeUriOverride?: string | null) {
+  return runtimeProgressController.buildRuntimeProgressReadiness(activeUriOverride);
 }
 
 function publishRuntimeProgressReadiness(): void {
-  const snapshot = buildRuntimeProgressReadiness();
-  readiness.transition(snapshot.readiness.state, snapshot.readiness.detail);
-  sendProgress(toProgressNotification(snapshot));
+  runtimeProgressController.publishRuntimeProgressReadiness();
 }
 
 function buildRuntimeMemorySnapshot() {
@@ -728,15 +701,12 @@ registerInitializedHandler({
   getCacheStorageUri: () => cacheStorageUri,
   getActiveDocumentUri: () => activeDocumentUri,
   setCacheStore: (store) => {
-    cacheStore = store;
+    semanticCacheRuntimeController.setCacheStore(store);
   },
   buildCacheCheckpointMetadata,
-  persistServingSnapshot,
-  setPersistenceRestoreReport: ({ reason, state, documents, servingEntries }) => {
-    lastPersistenceRestoreReason = reason;
-    lastPersistenceRestoreState = state;
-    lastRestoredCheckpointDocuments = documents;
-    lastServingSnapshotRestoreEntries = servingEntries;
+  persistServingSnapshot: () => semanticCacheRuntimeController.persistServingSnapshot(),
+  setPersistenceRestoreReport: (report) => {
+    semanticCacheRuntimeController.setPersistenceRestoreReport(report);
   },
 });
 
@@ -941,16 +911,16 @@ connection.onExecuteCommand(async (params) => {
     runtimeJournal,
     buildOrcaJournal,
     getActiveDocumentUri: () => activeDocumentUri,
-    getCacheStore: () => cacheStore,
+    getCacheStore: () => semanticCacheRuntimeController.getCacheStore(),
     buildRuntimeProgressReadiness,
     buildRuntimeMemorySnapshot,
     getCodeLensCacheStats,
     getWatcherStats: () => watcherIntake.getStats(),
-    getLastPersistenceRestoreState: () => lastPersistenceRestoreState,
-    getLastPersistenceRestoreReason: () => lastPersistenceRestoreReason,
-    getLastRestoredCheckpointDocuments: () => lastRestoredCheckpointDocuments,
-    getLastServingSnapshotRestoreEntries: () => lastServingSnapshotRestoreEntries,
-    getLastServingSnapshotPersistEntries: () => lastServingSnapshotPersistEntries,
+    getLastPersistenceRestoreState: () => semanticCacheRuntimeController.getLastPersistenceRestoreState(),
+    getLastPersistenceRestoreReason: () => semanticCacheRuntimeController.getLastPersistenceRestoreReason(),
+    getLastRestoredCheckpointDocuments: () => semanticCacheRuntimeController.getLastRestoredCheckpointDocuments(),
+    getLastServingSnapshotRestoreEntries: () => semanticCacheRuntimeController.getLastServingSnapshotRestoreEntries(),
+    getLastServingSnapshotPersistEntries: () => semanticCacheRuntimeController.getLastServingSnapshotPersistEntries(),
     getLastHealthJournalSignature: () => lastHealthJournalSignature,
     setLastHealthJournalSignature: (signature: string) => {
       lastHealthJournalSignature = signature;
