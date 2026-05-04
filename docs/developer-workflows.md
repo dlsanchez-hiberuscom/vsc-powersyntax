@@ -144,6 +144,7 @@ El plugin debe poder generar contexto read-only:
 
 Estado actual:
 
+- `docs/ai-context/powerbuilder-plugin-context.md` fija ya el pack corto de arranque para tareas IA: resume boundaries, reglas PowerBuilder, validación y ownership documental sin arrastrar documentación masiva ni datasets `generated/manual/localization` completos dentro del prompt.
 - el plugin ya puede exportar un repro pack semántico reproducible desde el editor activo, capturando `currentObjectContext`, `impactAnalysis`, `safeEditPlan`, `semanticWorkspaceManifest`, `serverStats`, diagnostics visibles y copias de archivos relacionados bajo `tools/semantic-repros`.
 - los diagnostics incluidos en ese contexto y en snapshots ya exponen `diagnostic.code` estable; tooling nuevo debe consumir ese campo y no parsear `source` como contrato primario.
 - la API pública v2 ya expone descriptor contractual, bridge read-only por tools, snapshot semántico exportable/importable, settings governance observable con perfiles `fast|balanced|deep-analysis|legacy-orca|ci-support|support-safe`, knowledge packs curados y safe batch refactor planning sin abrir un segundo motor en cliente.

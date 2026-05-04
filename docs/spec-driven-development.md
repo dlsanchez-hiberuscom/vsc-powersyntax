@@ -96,6 +96,7 @@ Checklist de revisión documental:
 - `docs/ai-strategy.md`
 - `docs/ai-orchestrator.md`
 - `docs/ai-agents-catalog.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
 
 Una spec no está Done si la documentación viva afectada no está actualizada.
 
@@ -145,6 +146,7 @@ Actualizar:
 - `ai-strategy.md`
 - `ai-orchestrator.md`
 - `ai-agents-catalog.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
 - `00-ai-entrypoint.md` si cambia regla global
 
 ### Si cambia code actions o quick fixes write-enabled

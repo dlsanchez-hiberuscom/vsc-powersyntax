@@ -25,6 +25,34 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.135 B378. AI PowerBuilder context pack and token budget contract — **Cerrada (AI supportability/context budget 2026-05)**
+
+**Objetivo:** crear un context pack compacto, estable y versionado para que tareas IA sobre el plugin puedan arrancar con arquitectura, reglas PowerBuilder, validación y ownership documental sin arrastrar documentación masiva ni datasets completos al prompt.
+
+**Resultado registrado:**
+- `docs/ai-context/powerbuilder-plugin-context.md` fija ya el pack corto del repositorio con misión, boundaries, reglas PowerBuilder/SQL/DataWindow, policy de catálogo/localización, comandos de validación, workflow recomendado, `do not do`, foco activo y ownership documental, enlazando siempre a la documentación propietaria en vez de duplicarla;
+- `docs/ai-strategy.md`, `docs/ai-orchestrator.md`, `docs/ai-agents-catalog.md`, `docs/developer-workflows.md`, `docs/spec-driven-development.md` y `AGENTS.md` referencian ya ese pack como entrada corta para tareas IA con budget reducido, dejando explícito que la autoridad sigue en constitución/arquitectura/current-focus y resto de docs canónicas;
+- `test/server/unit/aiContextDocs.test.ts` detecta si el pack desaparece, pierde headings mínimos, deja de mencionar `workspace-check`/`object-check`, crece más allá de un budget razonable o queda sin referencias desde la documentación canónica;
+- `specs/383-ai-context-pack-contract/` deja la traza SDD mínima de `B378` con `spec.md`, `plan.md` y `tasks.md`, respetando la numeración secuencial de specs y evitando reutilizar la carpeta histórica `specs/378-*`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run test:unit -- --grep "docs|ai-context|context-budget|documentation"`
+- `npm run test:unit -- --grep "aiContextDocs|documentationService|documentationLocale"`
+
+**Documentación alineada:**
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `docs/ai-strategy.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/developer-workflows.md`
+- `docs/spec-driven-development.md`
+- `docs/testing.md`
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/done-log.md`
+- `AGENTS.md`
+
 ## 1.134 B375. Generated localization compatibility with regenerated catalog IDs — **Cerrada (localization/generated compatibility 2026-05)**
 
 **Objetivo:** garantizar que los overlays localizados sobreviven a regeneraciones del catálogo `generated` cuando la identidad semántica sigue siendo recuperable por `targetKey`, y que el drift residual quede visible y migrable fuera del hot path.

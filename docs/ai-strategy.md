@@ -173,6 +173,12 @@ El desarrollador debe tener control total sobre:
 - si se envía código a proveedores externos,
 - y si las operaciones de escritura requieren confirmación explícita.
 
+### 7.6 Context pack corto y versionado
+
+El punto de entrada corto para tareas IA de este repositorio es `docs/ai-context/powerbuilder-plugin-context.md`.
+
+Su función es reducir tokens y estandarizar contexto operativo, no duplicar documentos propietarios. Cuando haga falta detalle, el agente debe escalar a `constitution`, `architecture`, `current-focus`, `developer-workflows` o al documento propietario correspondiente.
+
 ---
 
 ## 8. Relación con el roadmap

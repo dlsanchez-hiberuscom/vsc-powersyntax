@@ -1007,151 +1007,7 @@ npm run test:unit -- --grep "registry|datasets|merge"
 
 ---
 
-## B375 — Generated localization compatibility with regenerated catalog IDs
-- **Estado:** Open
-- **Track:** localization / generated compatibility / catalog governance
-- **Prioridad:** Media-Alta
-- **Depende de:** B371, B367
-- **Objetivo:** garantizar que los overlays de localización sobreviven a regeneraciones del catálogo o fallan con mensajes claros cuando cambian IDs o claves de destino.
-- **Razón técnica:** si la localización se enlaza por `entry.id`, una mejora del generated puede cambiar IDs si cambian domain/kind/namespace/invocation/name/ownerTypes. El sistema debe detectar esos cambios y ofrecer una ruta de migración segura.
-
-### Alcance incluido
-
-- Añadir test/snapshot de IDs localizados.
-- Añadir reporte de overlays rotos tras regenerar generated.
-- Soportar `targetKey` como fallback si `targetId` cambia pero la identidad semántica sigue siendo localizable.
-- Añadir script opcional de migración de localization IDs.
-- Documentar cuándo usar `targetId` y cuándo usar `targetKey`.
-
-### Reglas recomendadas
-
-```txt
-targetId:
-  usar cuando el ID es estable y la entry ya está consolidada.
-
-targetKey:
-  usar cuando la entry procede de generated en evolución o puede cambiar ownerTypes.
-
-Ambos:
-  targetId preferido; targetKey fallback de recuperación.
-```
-
-### Criterios de cierre verificables
-
-- Una regeneración de generated no rompe silenciosamente localizaciones.
-- Overlays sin destino válido fallan en consistency o aparecen en reporte claro.
-- Existe fixture de ID cambiado que demuestra recuperación por targetKey.
-- Existe documentación de migración.
-- No hay coste en hot path por resolver migraciones; la resolución se preindexa.
-
-### Docs afectadas
-
-- `docs/rules-catalog.md`
-- `docs/testing.md`
-- `docs/architecture.md`
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "localization|generated|ids|compatibility|consistency"
-```
-
----
-
 # L5.2 — Enumerated Catalog / DataWindow Knowledge
-
-## B378 — AI PowerBuilder context pack and token budget contract
-- **Estado:** Open
-- **Track:** AI supportability / developer workflow / context budget
-- **Prioridad:** Alta
-- **Depende de:** B301, B365
-- **Relacionada con:** B376, B377
-- **Objetivo:** crear un context pack compacto, estable y versionado para que una IA pueda programar en PowerBuilder respetando arquitectura, estilo, validación y reglas del proyecto sin cargar documentación masiva.
-- **Razón técnica:** la IA funciona mejor con contexto breve, estable y accionable que con documentos extensos repetidos en cada tarea. Un context pack reduce tokens, evita drift y estandariza cómo los agentes deben trabajar con PowerBuilder y con este plugin.
-
-### Alcance incluido
-
-- Crear documento compacto:
-
-```txt
-docs/ai-context/powerbuilder-plugin-context.md
-```
-
-- Opcionalmente añadir versión reducida o referencia desde:
-
-```txt
-AGENTS.md
-.github/copilot-instructions.md
-```
-
-- Incluir solo información estable y de alto valor:
-  - arquitectura general del plugin;
-  - reglas PowerBuilder del proyecto;
-  - reglas de SQL y DataWindow;
-  - rutas importantes;
-  - comandos de validación;
-  - herramientas read-only disponibles;
-  - flujo recomendado para tareas IA;
-  - qué no hacer;
-  - specs activas actuales;
-  - reglas de documentación.
-
-### Contenido mínimo requerido
-
-```md
-# AI context — PowerBuilder plugin
-
-## Mission
-## Architecture boundaries
-## PowerBuilder coding rules
-## SQL formatting rules
-## DataWindow rules
-## Catalog/generated/manual/localization rules
-## Validation commands and tools
-## Recommended AI workflow
-## Do not do
-## Active focus
-## Documentation ownership
-```
-
-### Reglas estrictas
-
-- El context pack no debe duplicar documentación larga.
-- El context pack debe enlazar a documentos propietarios cuando haga falta detalle.
-- El context pack debe caber en un prompt pequeño.
-- El context pack no debe incluir generated/manual catalog completo.
-- El context pack debe mantenerse actualizado cuando cambien arquitectura, reglas de validación o foco activo.
-- Si hay conflicto entre context pack y documentación propietaria, la documentación propietaria gana y debe corregirse el context pack.
-
-### Criterios de cierre verificables
-
-- Existe `docs/ai-context/powerbuilder-plugin-context.md`.
-- El documento incluye reglas PowerBuilder críticas.
-- El documento incluye comandos/tools recomendadas para IA.
-- El documento referencia `workspace-check` y `object-check` cuando B376/B377 estén disponibles.
-- El documento indica que no se debe cargar generated/manual completo en prompts.
-- El documento enlaza a docs propietarias en vez de duplicarlas.
-- Tests/checks documentales detectan si el archivo desaparece o queda sin referencias.
-
-### Docs afectadas
-
-- `docs/ai-strategy.md`
-- `docs/ai-orchestrator.md`
-- `docs/developer-workflows.md`
-- `docs/spec-driven-development.md`
-- `docs/backlog.md`
-- `docs/current-focus.md`
-- `AGENTS.md` si existe.
-
-### Validación esperada
-
-```bash
-npm run build:test
-npm run test:unit -- --grep "docs|ai-context|context-budget|documentation"
-```
-
----
 
 ## B379 — Explain diagnostic tool and suggested safe fix contract
 - **Estado:** Open
@@ -1695,23 +1551,21 @@ npm run test:unit -- --grep "ai-task-context-bundle|context-budget|publicApi|rea
 
 ## Fase activa 
 
-01. B374 — Spanish catalog localization authoring workflow and coverage gate
-02. B375 — Generated localization compatibility with regenerated catalog IDs
-03. B378 — AI PowerBuilder context pack and token budget contract
-04. B379 — Explain diagnostic tool and suggested safe fix contract
-05. B380 — Explain system symbol and catalog lookup tool for AI
+01. B379 — Explain diagnostic tool and suggested safe fix contract
+02. B380 — Explain system symbol and catalog lookup tool for AI
+03. B381 — AI task context bundle orchestration
+04. B320 — DataWindow expression/property official catalog
+05. B327 — DataWindow constants and property path catalog
 
 ## Siguiente fase 
 
-01. B378 — AI PowerBuilder context pack and token budget contract
-02. B379 — Explain diagnostic tool and suggested safe fix contract
-03. B380 — Explain system symbol and catalog lookup tool for AI
-04. B381 — AI task context bundle orchestration 
-05. B320 — DataWindow expression/property official catalog
-06. B327 — DataWindow constants and property path catalog
-07. B342 — Extract proven symbol heuristics from plugin_old
-08. B344 — DataWindow binding edge cases from plugin_old
-09. B354 — Server runtime orchestration decomposition
+01. B380 — Explain system symbol and catalog lookup tool for AI
+02. B381 — AI task context bundle orchestration 
+03. B320 — DataWindow expression/property official catalog
+04. B327 — DataWindow constants and property path catalog
+05. B342 — Extract proven symbol heuristics from plugin_old
+06. B344 — DataWindow binding edge cases from plugin_old
+07. B354 — Server runtime orchestration decomposition
 10. B292 — PowerBuilder preprocessor / conditional patterns investigation
 11. B301 — Agent context budget enforcement
 12. B299 — Agent execution dry-run contract

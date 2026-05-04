@@ -36,6 +36,7 @@ Capacidades portables y reutilizables con lógica o recursos propios.
 - Specs activas sin documentación mínima vuelven a `spec-orchestrator` antes de implementación.
 - Slices cerradas no cuentan como specs completas ni cierran épicas padre.
 - Toda tarea write-enabled debe partir del `taskExecutionCatalog` exportado por el producto; la documentación contextualiza, pero no sustituye el contrato publicado.
+- `docs/ai-context/powerbuilder-plugin-context.md` es el arranque corto recomendado para tareas IA; si no basta, se escala a documentación propietaria, no a resúmenes paralelos.
 
 ---
 

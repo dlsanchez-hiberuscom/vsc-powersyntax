@@ -80,6 +80,7 @@ Añadir según el tipo de cambio:
   - `docs/ai-orchestrator.md`
   - `docs/ai-agents-catalog.md`
   - `docs/ai-strategy.md`
+  - `docs/ai-context/powerbuilder-plugin-context.md` como pack corto de arranque, sin sustituir la autoridad documental
 - si afecta diagnósticos:
   - `docs/rules-catalog.md`
 - si afecta UX/workflows:
@@ -205,6 +206,7 @@ Documento propietario por tipo de información:
 - Agentes → `docs/ai-agents-catalog.md`
 - Orquestación IA → `docs/ai-orchestrator.md`
 - Visión IA → `docs/ai-strategy.md`
+- Context pack corto IA → `docs/ai-context/powerbuilder-plugin-context.md`
 - Diagnósticos → `docs/rules-catalog.md`
 - Workflows usuario → `docs/developer-workflows.md`
 - Referencias de `plugin_old` → `docs/plugin-old-migration-opportunities.md`
@@ -229,6 +231,7 @@ Leer solo el contexto necesario.
 ### Añadir solo cuando haga falta
 
 - spec activa;
+- `docs/ai-context/powerbuilder-plugin-context.md` para tareas IA con budget corto;
 - `README.md`;
 - archivos del área afectada;
 - tests o fixtures relacionados;

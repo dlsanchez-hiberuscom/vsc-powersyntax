@@ -33,6 +33,7 @@ Este repositorio define agentes persistentes por rol. Las tareas cortas deben re
 - Si detecta foco activo sin spec mínima (`spec.md`, `plan.md`, `tasks.md`), debe devolverlo a `spec-orchestrator` o crear la spec antes de implementación write-enabled.
 - Los agentes deben distinguir slice cerrado de spec/ítem padre cerrado.
 - Para tareas write-enabled, todo agente debe leer el `taskExecutionCatalog`, citar `contractId` y respetar dry-run, límites y receipts antes de ejecutar.
+- Para arrancar tareas IA con budget corto, el punto de entrada recomendado es `docs/ai-context/powerbuilder-plugin-context.md`; si no basta, se amplía con documentación propietaria, no con resúmenes duplicados.
 
 ---
 
