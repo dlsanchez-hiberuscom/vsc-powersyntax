@@ -765,7 +765,8 @@
     "package:vsix": "npm run bundle && node -e \"require('fs').mkdirSync('.dist',{recursive:true})\" && vsce package --no-yarn --out ./.dist/vsc-powersyntax.vsix",
     "package:vsix:list": "vsce ls --no-yarn",
     "verify:vsix-contents": "node ./tools/verify-vsix-contents.mjs",
-    "release:verify": "npm test && npm run test:performance:gate && npm run verify:catalog-coverage && npm run package:vsix && npm run verify:vsix-contents && npm run test:smoke:installed-vsix"
+    "release:summary": "node ./tools/release-readiness-summary.mjs",
+    "release:verify": "npm test && npm run test:architecture:rapid && npm run test:docs:drift && npm run test:performance:gate && npm run verify:catalog-coverage && npm run package:vsix && npm run verify:vsix-contents && npm run test:smoke:installed-vsix && npm run release:summary"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",

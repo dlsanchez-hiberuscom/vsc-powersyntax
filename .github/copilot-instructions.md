@@ -7,6 +7,7 @@ Follow `AGENTS.md` as the authoritative AI operating contract.
 - Keep activation fast: no blocking full scans, deep DataWindow analysis or ORCA/PBAutoBuild discovery on startup.
 - Use incremental parsing/indexing/caching and atomic state updates.
 - Preserve catalog compatibility and existing query behavior.
+- Treat `plugin_old` as reference-only evidence, never as runtime dependency.
 
 ## PowerBuilder rules
 - Respect PowerBuilder object model, scopes, inheritance, functions/events, variables and legacy PFC/STD patterns.

@@ -15,6 +15,7 @@ import type { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph'
 import type { OrcaRunner } from '../build/orcaRunner';
 import type { PbAutoBuildRunner } from '../build/pbAutoBuildRunner';
 import type { BuildOrcaJournalStore } from '../runtime/buildOrcaJournalStore';
+import type { InteractiveServingStatsSnapshot } from '../runtime/interactiveServingStats';
 import { buildRuntimeMemoryReport } from '../runtime/memoryBudgets';
 import type { RuntimeMemoryPressurePolicy } from '../runtime/memoryPressurePolicy';
 import type { RuntimeJournal } from '../runtime/runtimeJournal';
@@ -64,6 +65,7 @@ export interface RuntimeCommandHandlerContext {
   getLastRestoredCheckpointDocuments(): number;
   getLastServingSnapshotRestoreEntries(): number;
   getLastServingSnapshotPersistEntries(): number;
+  getInteractiveServingStats(): InteractiveServingStatsSnapshot;
   getLastHealthJournalSignature(): string;
   setLastHealthJournalSignature(signature: string): void;
   ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy;
@@ -100,6 +102,7 @@ export async function tryHandleRuntimeCommand(
     getLastRestoredCheckpointDocuments,
     getLastServingSnapshotRestoreEntries,
     getLastServingSnapshotPersistEntries,
+    getInteractiveServingStats,
     getLastHealthJournalSignature,
     setLastHealthJournalSignature,
     ensureRuntimeMemoryPressureRelief,
@@ -149,6 +152,7 @@ export async function tryHandleRuntimeCommand(
           codeLens: getCodeLensCacheStats(),
           watcher: getWatcherStats()
         },
+        interactiveServing: getInteractiveServingStats(),
         memory,
         projectModel: projectStats,
         buildFiles: workspaceState.getBuildFileSummary(),

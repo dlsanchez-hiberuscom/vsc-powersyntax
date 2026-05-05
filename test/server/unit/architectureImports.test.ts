@@ -8,8 +8,14 @@ const WORKSPACE_ROOT = path.resolve(REPO_ROOT, '..');
 const SERVER_ROOT = path.join(REPO_ROOT, 'src', 'server');
 const CLIENT_ROOT = path.join(REPO_ROOT, 'src', 'client');
 const SHARED_ROOT = path.join(REPO_ROOT, 'src', 'shared');
+const PRESENTATION_ROOT = path.join(SERVER_ROOT, 'presentation');
+const SRC_ROOT = path.join(REPO_ROOT, 'src');
 const HOT_PATH_FEATURE_PATTERN = /src\/server\/features\/(completion|definition|diagnostics|documentSymbols|hover|queryContext|references|referenceSourcePool|rename|semanticTokens|signatureHelp|workspaceSymbols)\.ts$/;
 const ARCHITECTURE_HOTSPOT_GUARD = path.join(WORKSPACE_ROOT, 'tools', 'run-architecture-hotspot-guard.mjs');
+const ALLOWED_DATAWINDOW_PARSER_CONTRACTS = new Set([
+  'src/server/parsing/grammar.ts',
+  'src/server/parsing/statementSplitter.ts',
+]);
 
 suite('unit/architectureImports (B228, B277, B353)', () => {
   test('knowledge, parsing y utils puros no importan vscode ni vscode-languageserver', async () => {
@@ -73,6 +79,54 @@ suite('unit/architectureImports (B228, B277, B353)', () => {
     assert.deepEqual(offenders, []);
   });
 
+  test('shared se mantiene como contratos puros sin IO ni runtime internals', async () => {
+    const offenders = await collectViolations([SHARED_ROOT], async ({ filePath, importEntries }) => {
+      const invalid: string[] = [];
+      for (const entry of importEntries) {
+        const resolved = await resolveImportTarget(filePath, entry.specifier);
+        if (entry.specifier === 'vscode') {
+          invalid.push(`${toRelativePath(filePath)} -> ${entry.specifier}`);
+          continue;
+        }
+        if (entry.specifier === 'node:fs' || entry.specifier === 'fs') {
+          invalid.push(`${toRelativePath(filePath)} -> ${entry.specifier}`);
+          continue;
+        }
+        if (/^vscode-languageserver(?:\/node)?$/.test(entry.specifier) && !entry.isTypeOnly) {
+          invalid.push(`${toRelativePath(filePath)} -> ${entry.specifier} (non-type import)`);
+          continue;
+        }
+        if (
+          resolved?.startsWith('src/server/parsing/')
+          || resolved?.startsWith('src/server/analysis/')
+          || resolved === 'src/server/knowledge/KnowledgeBase.ts'
+          || resolved === 'src/server/knowledge/system/SystemCatalog.ts'
+          || resolved?.startsWith('src/server/features/dataWindow')
+        ) {
+          invalid.push(`${toRelativePath(filePath)} -> ${entry.specifier} (${resolved})`);
+        }
+      }
+      return invalid;
+    });
+
+    assert.deepEqual(offenders, []);
+  });
+
+  test('src no importa plugin_old como dependencia runtime', async () => {
+    const offenders = await collectViolations([SRC_ROOT], async ({ filePath, importSpecifiers }) => {
+      const invalid: string[] = [];
+      for (const specifier of importSpecifiers) {
+        const resolved = await resolveImportTarget(filePath, specifier);
+        if (specifier.includes('plugin_old') || resolved?.startsWith('plugin_old/')) {
+          invalid.push(`${toRelativePath(filePath)} -> ${specifier}${resolved ? ` (${resolved})` : ''} (plugin_old is reference-only)`);
+        }
+      }
+      return invalid;
+    });
+
+    assert.deepEqual(offenders, []);
+  });
+
   test('build y ORCA no importan hot path semantico interactivo', async () => {
     const offenders = await collectViolations([path.join(SERVER_ROOT, 'build')], async ({ filePath, importSpecifiers }) => {
       const invalid: string[] = [];
@@ -87,6 +141,55 @@ suite('unit/architectureImports (B228, B277, B353)', () => {
           || resolved.startsWith('src/server/parsing/')
           || HOT_PATH_FEATURE_PATTERN.test(resolved)
         ) {
+          invalid.push(`${toRelativePath(filePath)} -> ${specifier} (${resolved})`);
+        }
+      }
+      return invalid;
+    });
+
+    assert.deepEqual(offenders, []);
+  });
+
+  test('presentation no importa IO, workspace discovery, parser ni stores semanticos runtime', async () => {
+    const offenders = await collectViolations([PRESENTATION_ROOT], async ({ filePath, importSpecifiers }) => {
+      const invalid: string[] = [];
+      for (const specifier of importSpecifiers) {
+        const resolved = await resolveImportTarget(filePath, specifier);
+        if (specifier === 'node:fs' || specifier === 'fs') {
+          invalid.push(`${toRelativePath(filePath)} -> ${specifier}`);
+          continue;
+        }
+        if (!resolved) {
+          continue;
+        }
+        if (
+          resolved.startsWith('src/server/analysis/')
+          || resolved.startsWith('src/server/parsing/')
+          || resolved.startsWith('src/server/workspace/')
+          || resolved === 'src/server/knowledge/KnowledgeBase.ts'
+          || resolved === 'src/server/knowledge/DocumentCache.ts'
+          || resolved === 'src/server/knowledge/system/SystemCatalog.ts'
+          || resolved === 'src/server/features/dataWindowModel.ts'
+        ) {
+          invalid.push(`${toRelativePath(filePath)} -> ${specifier} (${resolved})`);
+        }
+      }
+      return invalid;
+    });
+
+    assert.deepEqual(offenders, []);
+  });
+
+  test('DataWindow features no entran al parser PowerScript generico', async () => {
+    const offenders = await collectViolations([path.join(SERVER_ROOT, 'features')], async ({ filePath, importSpecifiers }) => {
+      if (!path.basename(filePath).startsWith('dataWindow')) {
+        return [];
+      }
+
+      const invalid: string[] = [];
+      for (const specifier of importSpecifiers) {
+        const resolved = await resolveImportTarget(filePath, specifier);
+        if (resolved?.startsWith('src/server/parsing/') && !ALLOWED_DATAWINDOW_PARSER_CONTRACTS.has(resolved)) {
           invalid.push(`${toRelativePath(filePath)} -> ${specifier} (${resolved})`);
         }
       }
@@ -118,6 +221,8 @@ suite('unit/architectureImports (B228, B277, B353)', () => {
       hotspots: Array<{
         path: string;
         allowlisted: boolean;
+        growthPolicy: string;
+        suggestions: string[];
         metrics: {
           lines: number;
           imports: number;
@@ -129,21 +234,50 @@ suite('unit/architectureImports (B228, B277, B353)', () => {
 
     assert.equal(report.status, 'passed');
     assert.equal(report.summary.failingHotspots, 0);
-    assert.ok(report.summary.totalHotspots >= 8, 'El reporte debe cubrir los hotspots críticos y la allowlist de catálogo.');
+    assert.ok(report.summary.totalHotspots >= 17, 'El reporte debe cubrir roots, features LSP/DataWindow y la allowlist de catálogo.');
     assert.ok(report.summary.allowlistedHotspots >= 5, 'El reporte debe distinguir la allowlist generated/manual.');
 
     const extensionHotspot = report.hotspots.find((entry) => entry.path === 'src/client/extension.ts');
     assert.ok(extensionHotspot, 'El reporte debe incluir src/client/extension.ts.');
     assert.equal(extensionHotspot?.allowlisted, false);
+    assert.equal(extensionHotspot?.growthPolicy, 'composition-root-guarded');
+    assert.ok(extensionHotspot?.suggestions.some((suggestion) => suggestion.includes('commandRegistration')));
     assert.ok((extensionHotspot?.metrics.lines ?? 0) >= 3000, 'extension.ts debe seguir trazado como hotspot real.');
     assert.equal(extensionHotspot?.violations.length, 0);
+
+    const serverHotspot = report.hotspots.find((entry) => entry.path === 'src/server/server.ts');
+    assert.ok(serverHotspot, 'El reporte debe incluir src/server/server.ts.');
+    assert.equal(serverHotspot?.growthPolicy, 'composition-root-guarded');
+    assert.ok(serverHotspot?.suggestions.some((suggestion) => suggestion.includes('composition')));
+
+    for (const featurePath of [
+      'src/server/handlers/featureHandlers.ts',
+      'src/server/features/completion.ts',
+      'src/server/features/hover.ts',
+      'src/server/features/signatureHelp.ts',
+      'src/server/features/definition.ts',
+      'src/server/features/diagnostics.ts',
+      'src/server/features/dataWindowFastContext.ts',
+      'src/server/features/dataWindowServingAdapters.ts',
+    ]) {
+      const featureHotspot = report.hotspots.find((entry) => entry.path === featurePath);
+      assert.ok(featureHotspot, `El reporte debe incluir ${featurePath}.`);
+      assert.equal(featureHotspot?.allowlisted, false);
+      assert.equal(featureHotspot?.violations.length, 0);
+    }
 
     const generatedHotspot = report.hotspots.find((entry) => entry.path === 'src/server/knowledge/system/generated/generated.generated.ts');
     assert.ok(generatedHotspot, 'El reporte debe incluir el slice generated principal.');
     assert.equal(generatedHotspot?.allowlisted, true);
+    assert.equal(generatedHotspot?.growthPolicy, 'allowlisted-source-data');
     assert.equal(generatedHotspot?.violations.length, 0);
   });
 });
+
+type ImportEntry = {
+  specifier: string;
+  isTypeOnly: boolean;
+};
 
 async function collectTsFiles(root: string): Promise<string[]> {
   const entries = await fs.readdir(root, { withFileTypes: true });
@@ -165,25 +299,48 @@ async function collectTsFiles(root: string): Promise<string[]> {
 
 async function collectViolations(
   roots: string[],
-  inspect: (file: { filePath: string; importSpecifiers: string[] }) => Promise<string[]>
+  inspect: (file: { filePath: string; importSpecifiers: string[]; importEntries: ImportEntry[] }) => Promise<string[]>
 ): Promise<string[]> {
   const files = (await Promise.all(roots.map((root) => collectTsFiles(root)))).flat();
   const offenders: string[] = [];
 
   for (const filePath of files) {
     const content = await fs.readFile(filePath, 'utf8');
-    offenders.push(...await inspect({ filePath, importSpecifiers: collectImportSpecifiers(content) }));
+    const importEntries = collectImportEntries(content);
+    offenders.push(...await inspect({
+      filePath,
+      importSpecifiers: importEntries.map((entry) => entry.specifier),
+      importEntries,
+    }));
   }
 
   return offenders.sort();
 }
 
 function collectImportSpecifiers(content: string): string[] {
-  const specifiers: string[] = [];
-  const matches = content.matchAll(/from\s+['"]([^'"]+)['"]/g);
+  return collectImportEntries(content).map((entry) => entry.specifier);
+}
+
+function collectImportEntries(content: string): ImportEntry[] {
+  const specifiers: ImportEntry[] = [];
+  const matches = content.matchAll(/import[\s\S]*?from\s+['"]([^'"]+)['"];?/g);
   for (const match of matches) {
-    specifiers.push(match[1]);
+    specifiers.push({
+      specifier: match[1],
+      isTypeOnly: match[0].trimStart().startsWith('import type '),
+    });
   }
+
+  const dynamicImportMatches = content.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g);
+  for (const match of dynamicImportMatches) {
+    specifiers.push({ specifier: match[1], isTypeOnly: false });
+  }
+
+  const requireMatches = content.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g);
+  for (const match of requireMatches) {
+    specifiers.push({ specifier: match[1], isTypeOnly: false });
+  }
+
   return specifiers;
 }
 

@@ -22,8 +22,11 @@ import { DIAGNOSTIC_SOURCE } from '../../shared/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { ScopeKind, type Scope } from '../knowledge/types';
 import {
+  END_CHOOSE_PATTERN,
   END_EVENT_PATTERN,
   END_FUNCTION_PATTERN,
+  END_IF_PATTERN,
+  END_TRY_PATTERN,
   FUNCTION_PATTERN
 } from '../parsing/grammar';
 
@@ -46,7 +49,12 @@ export function checkUnreachableAfterReturn(
     if (!trimmed) continue;
     // Cualquier control de flujo nuevo resetea la heurística (pequeña pero
     // útil: salir de bloque o entrar en uno).
-    if (/^\s*(if|else|elseif|for|do|while|loop|next|case|choose|try|catch|finally)\b/i.test(trimmed)) {
+    if (
+      /^\s*(if|else|elseif|for|do|while|loop|next|case|choose|try|catch|finally)\b/i.test(trimmed)
+      || END_IF_PATTERN.test(trimmed)
+      || END_CHOOSE_PATTERN.test(trimmed)
+      || END_TRY_PATTERN.test(trimmed)
+    ) {
       sawReturn = false;
       continue;
     }

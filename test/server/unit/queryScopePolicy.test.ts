@@ -4,6 +4,7 @@ import {
   getQueryConsumerPolicy,
   listQueryConsumerPolicies,
 } from '../../../src/server/features/queryScopePolicy';
+import { INTERACTIVE_PAYLOAD_BUDGETS } from '../../../src/server/serving/payloadBudget';
 
 suite('unit/queryScopePolicy (B266)', () => {
   test('declara budget, cap, readiness, confidence y fallback para cada consumer semantico actual', () => {
@@ -34,6 +35,26 @@ suite('unit/queryScopePolicy (B266)', () => {
     assert.equal(getQueryConsumerPolicy('code-lens-references').allowStaging, false);
     assert.equal(getQueryConsumerPolicy('code-lens-references').allowGenerated, false);
     assert.equal(getQueryConsumerPolicy('code-lens-references').allowExternal, false);
+  });
+
+  test('features LSP criticas tienen payload budget documentable o policy semantica explicita', () => {
+    for (const feature of [
+      'hover',
+      'completion',
+      'completion-resolve',
+      'signatureHelp',
+      'definition',
+      'references',
+      'documentSymbols',
+      'semanticTokens',
+    ] as const) {
+      assert.ok(INTERACTIVE_PAYLOAD_BUDGETS[feature].budgetBytes > 0, `payload budget faltante para ${feature}`);
+    }
+
+    assert.equal(getQueryConsumerPolicy('signature-help').budgetMs, 50);
+    assert.equal(getQueryConsumerPolicy('definition').budgetMs, 50);
+    assert.equal(getQueryConsumerPolicy('references').resultCap, 512);
+    assert.equal(getQueryConsumerPolicy('code-lens-references').resultCap, 128);
   });
 
   test('currentObjectContext e impactAnalysis declaran scopes y caps mas estrechos que workspace', () => {

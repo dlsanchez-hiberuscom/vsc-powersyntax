@@ -518,4 +518,47 @@ end subroutine
     assert.ok(refs.some((ref) => ref.uri === useDoc.uri), 'Debe conservar la invocación real.');
     assert.ok(!refs.some((ref) => ref.uri === stagedDoc.uri), 'No debe mezclar la surface de orca-staging.');
   });
+
+  test('mantiene referencias del tipo custom cuando un descendiente de DataWindow se usa desde otro objeto', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+
+    const customDataWindow = TextDocument.create('file:///u_dw_refs.sru', 'powerbuilder', 1, `
+global type u_dw_refs from datawindow
+end type
+    `);
+    const consumerDocument = TextDocument.create('file:///w_dw_refs.srw', 'powerbuilder', 1, `
+global type w_dw_refs from window
+  u_dw_refs idw_orders
+end type
+
+event open();
+  u_dw_refs ldw_local
+  idw_orders.GetColumnName(1)
+end event
+    `);
+
+    for (const indexed of [customDataWindow, consumerDocument]) {
+      const analysis = analyzeDocument(indexed);
+      kb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    }
+
+    const lines = consumerDocument.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('u_dw_refs idw_orders'));
+    const secondUseLine = lines.findIndex((line) => line.includes('u_dw_refs ldw_local'));
+    const refs = provideReferences(
+      consumerDocument,
+      Position.create(lineIndex, lines[lineIndex].indexOf('u_dw_refs') + 1),
+      kb,
+      graph,
+      [
+        { uri: customDataWindow.uri, content: customDataWindow.getText() },
+        { uri: consumerDocument.uri, content: consumerDocument.getText() }
+      ]
+    );
+
+    assert.ok(refs.some((ref) => ref.uri === customDataWindow.uri && ref.range.start.line === 1), 'Debe incluir la declaración del type custom.');
+    assert.ok(refs.some((ref) => ref.uri === consumerDocument.uri && ref.range.start.line === lineIndex), 'Debe incluir el uso del type custom en el consumidor.');
+    assert.ok(refs.some((ref) => ref.uri === consumerDocument.uri && ref.range.start.line === secondUseLine), 'Debe incluir usos adicionales del mismo type custom.');
+  });
 });

@@ -7,6 +7,7 @@ import { provideDefinition } from '../../../src/server/features/definition';
 import { createDocumentQueryContext } from '../../../src/server/features/queryContext';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
+import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { EntityKind, ScopeKind } from '../../../src/server/knowledge/types';
 
 suite('unit/definition', () => {
@@ -581,6 +582,64 @@ suite('unit/definition', () => {
     if (loc && !Array.isArray(loc)) {
       assert.equal(loc.uri, 'file:///d_customer.srd');
       assert.equal(loc.range.start.line, 0);
+    }
+  });
+
+  test('provideDefinition abre la documentación oficial de GetColumnName sobre un descendiente custom de DataWindow', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+    const systemCatalog = new SystemCatalog();
+
+    const customDataWindow = TextDocument.create(
+      'file:///u_dw_orders.sru',
+      'powerbuilder',
+      1,
+      [
+        'global type u_dw_orders from datawindow',
+        'end type'
+      ].join('\r\n')
+    );
+    const consumerDocument = TextDocument.create(
+      'file:///w_dw_native_definition.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_dw_native_definition from window',
+        '  u_dw_orders idw_orders',
+        'end type',
+        '',
+        'event open();',
+        '  idw_orders.GetColumnName(1)',
+        'end event'
+      ].join('\r\n')
+    );
+
+    for (const indexed of [customDataWindow, consumerDocument]) {
+      const analysis = analyzeFreshDocument(indexed);
+      localKb.upsertDocument(indexed.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+    }
+
+    const expectedTarget = systemCatalog.resolveMemberFunctionForOwner('GetColumnName', ['datawindow']);
+    assert.ok(expectedTarget?.sourceUrl, 'Esperaba sourceUrl oficial para GetColumnName.');
+
+    const lines = consumerDocument.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('GetColumnName'));
+    const character = lines[lineIndex].indexOf('GetColumnName') + 2;
+    const loc = provideDefinition(
+      consumerDocument,
+      Position.create(lineIndex, character),
+      localKb,
+      localGraph,
+      undefined,
+      undefined,
+      systemCatalog
+    );
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, expectedTarget?.sourceUrl);
+      assert.equal(loc.range.start.line, 0);
+      assert.equal(loc.range.start.character, 0);
     }
   });
 

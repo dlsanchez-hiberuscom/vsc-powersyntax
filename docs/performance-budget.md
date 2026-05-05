@@ -192,6 +192,7 @@ La revisión actual del consumo/cobertura catalog-driven sobre corpora reales qu
 - `B329` amplía ese carril con un fast path catalog-driven para `keywords`, `reserved-words`, `datatypes`, `system-globals`, `pronouns` y `global-functions` cuando no hay qualifier: la clasificación sigue apoyándose en resolutores directos de `SystemCatalog`, evita scans completos o clones de catálogo por token y mantiene verde `test/server/unit/hotPathAllocationBudget.test.ts`;
 - `B372` añade el siguiente guardrail de serving localizado sin reabrir el hot path: `documentationService.ts` resuelve textos por `entry.id` sobre el índice memoizado de `localization/`, cae a inglés original cuando falta overlay, reutiliza arrays existentes para `usageNotes` y cachea documentación de parámetros por entry/overlay en vez de recorrer todos los overlays o clonar entries por locale;
 - `B373` mantiene ese guardrail ya en producto visible: hover/completion/signatureHelp solo leen locale efectiva y texto servido, `featureHandlers.ts` mete la locale en la `ServingCache` key para no mezclar resultados entre idiomas y `documentationService.ts` añade alias memoizados manual/generated más fallback O(1) por nombre de parámetro único cuando el `signatureLabel` visible difiere del overlay, sin abrir scans por item ni reordenar la selección semántica del consumer;
+- `featureHandlers.ts` deja además el hot path silencioso por defecto: conserva el log del primer uso por feature para trazabilidad, pero ya no emite una traza por interacción salvo que el tiempo servido cruce `50ms`, alineado con el presupuesto interactivo visible;
 - `test/server/performance/enumCatalogCorpusValidation.smoke.test.ts` fija `B364`: tras indexar PFC Solution, STD_FC_OrderEntry y legacy PBL dump, el scan corpus-driven de valores con `!` completa en aproximadamente `3.35s` sobre PFC, `5.47s` sobre OrderEntry y `0.14s` sobre legacy, reporta `13068` ocurrencias (`1554` catalogadas, `5296` unknown, `6214` false positives, `4` out-of-context, `0` candidates) y deja esas familias para `B368/B370` sin meter el corpus en el hot path interactivo ni convertirlo en autoridad de catálogo;
 - cualquier cambio futuro de catálogo o de sus consumers reales debe revalidar esta smoke corpus-driven junto con `catalogV2.test.ts`, `completion.test.ts`, `hover.test.ts`, `semanticTokens.test.ts`, `signatureHelp.test.ts` y `diagnostics.test.ts` antes de tocar claims de cobertura.
 
@@ -243,6 +244,23 @@ Se vigila:
 - densidad de caché,
 - activación de la policy adaptativa de presión (`serving cache relief`, deferrals y caps de reports).
 
+### 7.6 Payload LSP interactivo
+
+El owner ejecutable de estos valores es `src/server/serving/payloadBudget.ts`; `test/server/unit/lspPayloadBudgetContracts.test.ts` mide payloads representativos con `estimateLspPayloadBytes` y falla con `feature`, `payloadBytes`, `budgetBytes` y `overflowBytes` cuando hay regresión.
+
+| Feature | Budget | Regla |
+| --- | ---: | --- |
+| `hover` | `4 KiB` | Markdown compacto de una respuesta visible. |
+| `completion` | `64 KiB` | Lista inicial acotada y sin documentación larga por item. |
+| `completion-resolve` | `4 KiB` | Detalle diferido para un item concreto. |
+| `signatureHelp` | `12 KiB` | Firmas activas y documentación resumida del callable actual. |
+| `definition` | `4 KiB` | Ubicaciones de navegación y metadata mínima. |
+| `references` | `96 KiB` | Lista acotada de ubicaciones interactivas. |
+| `documentSymbols` | `48 KiB` | Árbol del documento activo, no del workspace. |
+| `semanticTokens` | `256 KiB` | Payload denso pero capado por documento. |
+
+Diagnostics no entra hoy en `INTERACTIVE_PAYLOAD_BUDGETS` porque se publica por el scheduler de diagnósticos, no como request interactiva equivalente; su control sigue en caps, deduplicación y reason codes del pipeline de diagnostics.
+
 ---
 
 ## 8. Métricas mínimas obligatorias
@@ -288,9 +306,22 @@ Ante una regresión:
 
 El gate ejecutable actual del presupuesto es `npm run test:performance:gate`.
 
+El cierre más reciente del carril devtools LSP dejó `legacy-public-active-hover = 5.00ms / 50.00ms` en ese gate y añadió guards unitarios para bloquear regresiones de `workspace fallback` innecesario tanto en `member-hierarchy` del documento activo como en owner chains de catálogo para descendants custom de DataWindow.
+
 El soak local opt-in actual es `npm run test:performance:soak`; genera `artifacts/performance/session-stability-soak.json` y `artifacts/performance/session-stability-soak.md` para dejar evidencia de estabilidad prolongada sin meter ese coste en CI por defecto.
 
 El guard local/CI actual contra allocations accidentales en hot path es `test/server/unit/hotPathAllocationBudget.test.ts`; queda revalidado junto con `queryContext/completion/diagnostics/referenceSourcePool/references/definition/rename` para bloquear patrones estructurales antes de que se conviertan en regresión de latencia.
+
+Estado operativo abierto tras la Parte 2 del `architecture-implementation-map`:
+
+- `interactiveHotPathGuards.test.ts` demuestra `no IO / no workspace scan / no full parse` para `hover`, `completion`, `signatureHelp`, `definition`, `documentSymbols`, `semanticTokens`, `DataWindowFastContext` y los adapters DataWindow cuando el snapshot ya está caliente; diagnostics incrementales conservan su protección por scheduler/analysisCache y se endurecerán con guard dedicado sólo si entran en el mismo carril de serving.
+- `semanticQueryFacade.test.ts` demuestra que la nueva fachada read-only de Bloque 5 coordina target symbol, receiver type, callable, inheritance y enum context sin IO ni full parse sobre contexto ya publicado, y sin clonar `KnowledgeBase`, `SystemCatalog` ni `InheritanceGraph`.
+- `NegativeHoverCache`, `HoverViewModel cache`, `InteractiveServingPipeline`, `ActiveDocumentServingSnapshot`, `SignatureHelpViewModel`, `CompletionListViewModel`, `CompletionResolveViewModel`, `DiagnosticMessageViewModel`, `DefinitionViewModel`, `SemanticTokensViewModel` y definition con key estructurada/stale guard ya existen, así que el hot path activo ya no depende solo de `ServingCache`, `HotContextCache` y `analysisCache`; el gap real queda desplazado a mantener versionado/invalidation estrictos bajo presión de memoria.
+- completion ya difiere documentación/detalle enriquecido mediante `completionItem/resolve` con payload budget `4 KiB` por item; `completion.test.ts` y `presentationContracts.test.ts` congelan ranking contextual, payload inicial ligero y separación initial/resolve; una caché standalone de lista final sigue condicionada a presión medible.
+- DataWindow fast mode no ejecuta SQL ni calcula lineage profundo en hot path: sólo proyecta evidencia ya disponible del `DataWindowModel`, binding literal/GetChild con confidence y buffers oficiales desde catálogo.
+- `documentSymbols` mantiene decisión explícita de no cache final: recompone outline desde snapshot caliente y reconciliation, con coste bajo esperado y sin workspace scan; introducir cache por outline requerirá medición corpus-driven previa.
+- `semanticTokens` mantiene respuesta `full` sin delta ni cache final dedicada: clasifica desde snapshot y `SystemCatalog`, proyecta orden/dedupe en `SemanticTokensViewModel`, conserva payload budget declarativo y guard caliente; delta/range/cache quedan futuros sólo si aparece presión de payload/coste.
+- `CodeLens` mantiene `codeLensProvider.resolveProvider = false` y `CodeLensResultCache` como caché especializada; cualquier adopción de `codeLens/resolve` debe abrir backlog propio.
 
 Hoy ese carril debe:
 

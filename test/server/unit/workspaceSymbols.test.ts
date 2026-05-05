@@ -121,4 +121,25 @@ suite('unit/workspaceSymbols', () => {
     assert.ok(workspaceSymbols.some((entry) => entry.name === 'd_customer' && entry.kind === SymbolKind.Class));
     assert.ok(apiSymbols.some((entry) => entry.name === 'd_customer' && entry.kind === 'Type'));
   });
+
+  test('workspace symbols indexa descendants custom de DataWindow como types navegables', () => {
+    const document = TextDocument.create(
+      'file:///u_dw_workspace.sru',
+      'powerbuilder',
+      1,
+      [
+        'global type u_dw_workspace from datawindow',
+        'end type'
+      ].join('\r\n')
+    );
+
+    const analysis = analyzeDocument(document);
+    kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+
+    const workspaceSymbols = provideWorkspaceSymbols('u_dw_workspace', kb);
+    const apiSymbols = queryApiSymbols('u_dw_workspace', kb, 5);
+
+    assert.ok(workspaceSymbols.some((entry) => entry.name === 'u_dw_workspace' && entry.kind === SymbolKind.Class));
+    assert.ok(apiSymbols.some((entry) => entry.name === 'u_dw_workspace' && entry.kind === 'Type'));
+  });
 });

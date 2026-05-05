@@ -2,8 +2,10 @@ import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import type { PbSystemSymbolEntry } from '../knowledge/system/types';
+import { resolveCatalogOwnerTypes } from './dataWindowBindingModel';
 import { resolveDocumentQualifierType } from './queryContext';
 import {
   extractSignatureContext,
@@ -19,7 +21,7 @@ export interface ExpectedEnumCallArgumentContext {
 export function matchesEnumeratedPropertyContext(
   entry: PbSystemSymbolEntry,
   propertyName: string,
-  ownerType: string,
+  ownerType: string | readonly string[],
 ): boolean {
   if (entry.allowedOnProperties?.length && !entry.allowedOnProperties.some((name) => name.toLowerCase() === propertyName.toLowerCase())) {
     return false;
@@ -34,8 +36,9 @@ export function matchesEnumeratedPropertyContext(
     return true;
   }
 
-  const normalizedOwnerType = normalizeOwnerLabel(ownerType);
-  return explicitOwners.some((label) => normalizeOwnerLabel(label) === normalizedOwnerType);
+  const ownerTypes = Array.isArray(ownerType) ? ownerType : [ownerType];
+  const normalizedOwnerTypes = ownerTypes.map((label) => normalizeOwnerLabel(label));
+  return explicitOwners.some((label) => normalizedOwnerTypes.includes(normalizeOwnerLabel(label)));
 }
 
 export function resolveExpectedEnumTypeForCallArgumentAtPosition(
@@ -43,8 +46,9 @@ export function resolveExpectedEnumTypeForCallArgumentAtPosition(
   position: Position,
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
+  graph?: InheritanceGraph,
 ): string | null {
-  return resolveExpectedEnumContextForCallArgumentAtPosition(document, position, kb, systemCatalog)?.enumTypeName ?? null;
+  return resolveExpectedEnumContextForCallArgumentAtPosition(document, position, kb, systemCatalog, graph)?.enumTypeName ?? null;
 }
 
 export function resolveExpectedEnumContextForCallArgumentAtPosition(
@@ -52,6 +56,7 @@ export function resolveExpectedEnumContextForCallArgumentAtPosition(
   position: Position,
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
+  graph?: InheritanceGraph,
 ): ExpectedEnumCallArgumentContext | null {
   const signatureContext = extractSignatureContext(document, position);
   if (!signatureContext) {
@@ -65,6 +70,7 @@ export function resolveExpectedEnumContextForCallArgumentAtPosition(
     position,
     kb,
     systemCatalog,
+    graph,
   );
   const enumTypeName = resolveExpectedEnumTypeForCallArgument(systemCatalog, systemTargets, signatureContext.activeParameter);
   if (!enumTypeName) {
@@ -84,11 +90,12 @@ function resolveSystemTargetsForCallArgument(
   position: Position,
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
+  graph?: InheritanceGraph,
 ): readonly PbSystemSymbolEntry[] {
   if (qualifier) {
     const ownerType = resolveDocumentQualifierType(document, qualifier, position, kb);
     const ownerTarget = ownerType
-      ? systemCatalog.resolveMemberFunctionForOwner(identifier, [ownerType])
+      ? systemCatalog.resolveMemberFunctionForOwner(identifier, resolveCatalogOwnerTypes(ownerType, graph))
       : undefined;
     return ownerTarget ? [ownerTarget] : [];
   }

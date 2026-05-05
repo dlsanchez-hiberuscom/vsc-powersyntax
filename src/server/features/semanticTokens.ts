@@ -1,4 +1,4 @@
-import { SemanticTokens, SemanticTokensBuilder, SemanticTokensLegend } from 'vscode-languageserver/node';
+import { SemanticTokens, SemanticTokensLegend } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
@@ -8,6 +8,11 @@ import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryServic
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { EntityKind, Scope, ScopeKind } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
+import {
+  buildSemanticTokensViewModel,
+  formatSemanticTokensViewModel,
+} from '../presentation/semanticTokenPresentation';
+import type { SemanticTokenViewModelEntry } from '../presentation/viewModels';
 
 // ---------------------------------------------------------------------------
 // Legends
@@ -73,6 +78,7 @@ interface TokenEntry {
   length: number;
   type: number;
   mods: number;
+  source?: SemanticTokenViewModelEntry['source'];
 }
 
 export function provideSemanticTokens(
@@ -91,29 +97,19 @@ export function provideSemanticTokens(
   // Coloreamos los usos
   emitUsages(document, snapshot, kb, inheritanceGraph, systemCatalog, tokens);
 
-  // Ordenar tokens: por línea, luego por carácter
-  tokens.sort((a, b) => {
-    if (a.line !== b.line) return a.line - b.line;
-    return a.char - b.char;
-  });
+  return formatSemanticTokensViewModel(buildSemanticTokensViewModel(tokens.map(toSemanticTokenViewModelEntry)));
+}
 
-  // Dedup: si hay dos tokens en la misma posición exacta, quedarnos con uno (ej: declaración y uso solapados)
-  const deduped: TokenEntry[] = [];
-  for (const token of tokens) {
-    const last = deduped[deduped.length - 1];
-    if (last && last.line === token.line && last.char === token.char) {
-      // Priorizar el que tenga más info o simplemente ignorar el duplicado
-      continue;
-    }
-    deduped.push(token);
-  }
-
-  const builder = new SemanticTokensBuilder();
-  for (const token of deduped) {
-    builder.push(token.line, token.char, token.length, token.type, token.mods);
-  }
-
-  return builder.build();
+function toSemanticTokenViewModelEntry(token: TokenEntry): SemanticTokenViewModelEntry {
+  return {
+    line: token.line,
+    char: token.char,
+    length: token.length,
+    tokenType: token.type,
+    tokenModifiers: token.mods,
+    source: token.source ?? 'usage',
+    confidence: 'high',
+  };
 }
 
 function emitDeclarations(snapshot: SemanticDocumentSnapshot, tokens: TokenEntry[]): void {

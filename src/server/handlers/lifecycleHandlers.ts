@@ -152,7 +152,8 @@ export function registerInitializeHandler(context: InitializeHandlerContext): vo
         definitionProvider: true,
         referencesProvider: true,
         completionProvider: {
-          triggerCharacters: ['.']
+          triggerCharacters: ['.'],
+          resolveProvider: true,
         },
         signatureHelpProvider: {
           triggerCharacters: ['(', ',']

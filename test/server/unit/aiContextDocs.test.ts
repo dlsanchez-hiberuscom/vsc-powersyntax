@@ -39,6 +39,7 @@ suite('unit/aiContextDocs (B378)', () => {
     const ownerDocs = [
       'AGENTS.md',
       'docs/ai-agents-catalog.md',
+      'docs/ai-orchestration.md',
       'docs/ai-orchestrator.md',
       'docs/ai-strategy.md',
       'docs/developer-workflows.md',

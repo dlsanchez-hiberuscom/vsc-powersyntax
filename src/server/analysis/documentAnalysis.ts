@@ -110,7 +110,63 @@ function resolveAnalysisSourceOrigin(uri: string, options?: DocumentAnalysisOpti
   return options?.sourceOrigin ?? inferSourceOrigin(uri);
 }
 
+function isDataWindowSourceUri(uri: string): boolean {
+  return uri.toLowerCase().endsWith('.srd');
+}
+
+function createUnmaskedLines(lines: readonly string[]): Uint8Array[] {
+  return lines.map((line) => new Uint8Array(line.length));
+}
+
+function analyzeDataWindowDocument(document: TextDocument, options?: DocumentAnalysisOptions): DocumentAnalysis {
+  const text = document.getText();
+  const lines = text.split(/\r?\n/);
+  if (lines.length > 0 && lines[0].charCodeAt(0) === 0xfeff) {
+    lines[0] = lines[0].slice(1);
+  }
+  const fingerprint = fingerprintOf(text);
+  const stubFacts = buildFileObjectStubFacts(document.uri, lines);
+  const semanticFacts = mapToSemanticFacts(stubFacts, document.uri, resolveAnalysisSourceOrigin(document.uri, options));
+  const masks = createUnmaskedLines(lines);
+  const snapshot = createSemanticSnapshot({
+    uri: document.uri,
+    version: document.version,
+    fingerprint,
+    sections: [],
+    typeBlocks: [],
+    strippedLines: lines,
+    masks,
+    semanticFacts,
+    scopes: [],
+    logicalStatements: [],
+    controlBlocks: [],
+    pass: 'structural',
+    readiness: 'structural-only'
+  });
+
+  return {
+    uri: document.uri,
+    version: document.version,
+    fingerprint,
+    lines,
+    strippedLines: lines,
+    masks,
+    sections: [],
+    controlBlocks: [],
+    typeBlocks: [],
+    facts: stubFacts,
+    semanticFacts,
+    scopes: [],
+    logicalStatements: [],
+    snapshot
+  };
+}
+
 export function analyzeDocument(document: TextDocument, options?: DocumentAnalysisOptions): DocumentAnalysis {
+  if (isDataWindowSourceUri(document.uri)) {
+    return analyzeDataWindowDocument(document, options);
+  }
+
   const text = document.getText();
   const lines = text.split(/\r?\n/);
   // Spec 087: BOM al principio del archivo. PowerBuilder genera SR* en
@@ -172,6 +228,16 @@ export function analyzeDocument(document: TextDocument, options?: DocumentAnalys
 }
 
 export function analyzeDocumentStructural(document: TextDocument, options?: DocumentAnalysisOptions): StructuralDocumentAnalysis {
+  if (isDataWindowSourceUri(document.uri)) {
+    const analysis = analyzeDataWindowDocument(document, options);
+    return {
+      uri: analysis.uri,
+      version: analysis.version,
+      fingerprint: analysis.fingerprint,
+      snapshot: analysis.snapshot
+    };
+  }
+
   const text = document.getText();
   const lines = text.split(/\r?\n/);
   if (lines.length > 0 && lines[0].charCodeAt(0) === 0xfeff) {
@@ -292,6 +358,10 @@ function extractParameters(line: string): { label: string, documentation?: strin
     }
   }
   return parameters.length > 0 ? parameters : undefined;
+}
+
+function sanitizeCallableSignature(rawLine: string): string {
+  return rawLine.split(';', 1)[0]?.trim() ?? rawLine.trim();
 }
 
 /**
@@ -548,7 +618,7 @@ function collectFactsAndScopes(
           facts.push({
             name: external.name,
             kind: external.kind,
-            detail: rawLine.trim().replace(/;\s*$/, ''),
+            detail: sanitizeCallableSignature(rawLine),
             containerName: rootFileObjectName,
             containerKind: rootFileObjectName ? 'type' : undefined,
             fileObjectName: rootFileObjectName,
@@ -573,7 +643,7 @@ function collectFactsAndScopes(
             name: fn.name,
             kind: fn.kind,
             declarationOnly: true,
-            detail: rawLine.trim().replace(/;\s*$/, ''),
+            detail: sanitizeCallableSignature(rawLine),
             containerName: rootFileObjectName,
             containerKind: rootFileObjectName ? 'type' : undefined,
             fileObjectName: rootFileObjectName,
@@ -594,7 +664,7 @@ function collectFactsAndScopes(
             name: ev.name,
             kind: 'event',
             declarationOnly: true,
-            detail: rawLine.trim().replace(/;\s*$/, ''),
+            detail: sanitizeCallableSignature(rawLine),
             containerName: rootFileObjectName,
             containerKind: rootFileObjectName ? 'type' : undefined,
             fileObjectName: rootFileObjectName,
@@ -790,7 +860,7 @@ function collectFactsAndScopes(
         if (currentFuncScope) currentFuncScope.endLine = i - 1; // Previous one didn't close properly
 
         const containerName = containerAt(i);
-        const callableSignature = rawLine.trim().replace(/;\s*$/, '');
+        const callableSignature = sanitizeCallableSignature(rawLine);
         const fileObjectName = rootFileObjectName ?? containerName;
         currentContainerName = containerName;
         // Asegura que existe un Type-scope para `containerName` (puede ser
@@ -848,7 +918,7 @@ function collectFactsAndScopes(
         if (currentFuncScope) currentFuncScope.endLine = i - 1;
 
         const containerName = ev.ownerName ?? containerAt(i);
-        const callableSignature = rawLine.trim().replace(/;\s*$/, '');
+        const callableSignature = sanitizeCallableSignature(rawLine);
         const fileObjectName = rootFileObjectName ?? containerAt(i) ?? containerName;
         currentContainerName = containerName;
         const parentScope = ensureTypeScope(containerName) ?? globalScope;
@@ -904,7 +974,7 @@ function collectFactsAndScopes(
           kind: external.kind,
           containerName,
           containerKind: containerName ? 'type' : undefined,
-          detail: rawLine.trim().replace(/;\s*$/, ''),
+          detail: sanitizeCallableSignature(rawLine),
           fileObjectName: rootFileObjectName ?? containerName,
           declarationScope: 'callable',
           parameters: extractParameters(line),

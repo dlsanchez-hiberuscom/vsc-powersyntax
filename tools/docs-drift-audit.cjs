@@ -18,7 +18,13 @@ function countOccurrences(values) {
 }
 
 const CANONICAL_DONE_LOG_SEQUENCE_MIN = 1160;
-const BACKLOG_ID_PATTERN = '(?:B\\d+|[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)';
+const BACKLOG_ID_PATTERN = '(?:B\\d+|BLOQUE\\s+\\d+|BLOQUE-\\d+|[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)';
+
+function normalizeBacklogId(id) {
+  const raw = String(id ?? '').trim();
+  const blockMatch = raw.match(/^BLOQUE[\s-]+(\d+)$/i);
+  return blockMatch ? `BLOQUE-${blockMatch[1]}` : raw;
+}
 
 function parseBacklogSections(content) {
   const normalized = normalizeText(content);
@@ -29,7 +35,7 @@ function parseBacklogSections(content) {
     const block = normalized.slice(start, end);
     const stateMatch = block.match(/^- \*\*Estado:\*\*\s*(.+)$/m);
     return {
-      id: match[1],
+      id: normalizeBacklogId(match[1]),
       title: match[2],
       state: stateMatch ? stateMatch[1].trim() : undefined,
       block,
@@ -55,7 +61,7 @@ function parseDoneLogEntries(content) {
     return {
       sequence: match[1],
       sequenceKey: Number(match[1].replace('.', '')),
-      id: match[2],
+      id: normalizeBacklogId(match[2]),
       block: normalized.slice(start, end),
     };
   });
@@ -69,14 +75,52 @@ function parseCurrentFocusId(content) {
   const normalized = normalizeText(content);
   const focusMatch = normalized.match(new RegExp(`##\\s+1\\.\\s+Foco activo[\\s\\S]*?\`(${BACKLOG_ID_PATTERN})\\s+—`, 'i'));
   if (focusMatch) {
-    return focusMatch[1];
+    return normalizeBacklogId(focusMatch[1]);
   }
 
-  return normalized.match(new RegExp(`\`(${BACKLOG_ID_PATTERN})\``, 'i'))?.[1];
+  const promotedBlockMatch = normalized.match(/Bloque\s+(\d+)\s+—/i);
+  if (promotedBlockMatch) {
+    return normalizeBacklogId(`BLOQUE ${promotedBlockMatch[1]}`);
+  }
+
+  const inlineMatch = normalized.match(new RegExp(`\`(${BACKLOG_ID_PATTERN})\``, 'i'))?.[1];
+  return inlineMatch ? normalizeBacklogId(inlineMatch) : undefined;
 }
 
 function parseRoadmapFocusId(content) {
-  return normalizeText(content).match(new RegExp(`continuidad\\s+\`?(${BACKLOG_ID_PATTERN})\`?`, 'i'))?.[1];
+  const match = normalizeText(content).match(new RegExp(`continuidad\\s+\`?(${BACKLOG_ID_PATTERN})\`?`, 'i'))?.[1];
+  return match ? normalizeBacklogId(match) : undefined;
+}
+
+function normalizePromptReference(reference) {
+  return String(reference ?? '').replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+function extractPromptReferences(...contents) {
+  const references = [];
+  const pattern = /(?:^|[`\s(])((?:\.\/)?\.github\/prompts\/[^`\s)]+\.prompt\.md)(?=$|[`\s)])/g;
+
+  for (const content of contents) {
+    for (const match of normalizeText(content).matchAll(pattern)) {
+      references.push(normalizePromptReference(match[1]));
+    }
+  }
+
+  return uniqueSorted(references);
+}
+
+function customizationDocsContainName(name, kind, docsText) {
+  const normalized = normalizeText(docsText);
+  const pathReference = kind === 'agent'
+    ? `.github/agents/${name}.agent.md`
+    : `.github/skills/${name}/SKILL.md`;
+  const fileReference = kind === 'agent'
+    ? `${name}.agent.md`
+    : `${name}/SKILL.md`;
+
+  return normalized.includes(`\`${name}\``)
+    || normalized.includes(pathReference)
+    || normalized.includes(fileReference);
 }
 
 function buildFinding(code, severity, message, detail, evidence) {
@@ -218,10 +262,89 @@ function auditDocsDriftFromSources(sources) {
     }
   }
 
+  for (const promptReference of sources.promptReferences ?? []) {
+    if (!promptReference.exists) {
+      findings.push(buildFinding(
+        'prompt-reference-missing',
+        'error',
+        `La referencia ${promptReference.path} no existe en el repositorio.`,
+        'Backlog, current-focus y roadmap sólo deben promover prompts reales.',
+        [promptReference.path],
+      ));
+    }
+  }
+
+  for (const promptFile of sources.promptFiles ?? []) {
+    if (!String(promptFile.path).endsWith('.prompt.md')) {
+      findings.push(buildFinding(
+        'prompt-file-extension-invalid',
+        'error',
+        `El prompt ejecutable ${promptFile.path} no usa extension .prompt.md.`,
+        'Los prompt files bajo .github/prompts deben usar el contrato de nombre *.prompt.md.',
+        [promptFile.path],
+      ));
+    }
+  }
+
+  const customizationDocsText = [
+    sources.backlog,
+    sources.currentFocus,
+    sources.roadmap,
+    ...(sources.customizationDocs ?? []),
+  ].map(normalizeText).join('\n');
+
+  for (const agentFile of sources.agentFiles ?? []) {
+    if (!String(agentFile.path).endsWith('.agent.md')) {
+      findings.push(buildFinding(
+        'agent-file-extension-invalid',
+        'error',
+        `El agente ${agentFile.path} no usa extension .agent.md.`,
+        'Los agentes bajo .github/agents deben usar el contrato de nombre *.agent.md.',
+        [agentFile.path],
+      ));
+    }
+
+    if (!customizationDocsContainName(agentFile.name, 'agent', customizationDocsText)) {
+      findings.push(buildFinding(
+        'agent-reference-missing',
+        'error',
+        `El agente ${agentFile.name} existe pero no aparece en la documentación AI.`,
+        'Los agentes versionados deben aparecer en docs/ai/README.md, docs/ai/agent-skill-routing.md, docs/ai-orchestration.md o ai-agents-catalog.md.',
+        [agentFile.path],
+      ));
+    }
+  }
+
+  for (const skillFile of sources.skillFiles ?? []) {
+    if (!String(skillFile.path).endsWith('/SKILL.md')) {
+      findings.push(buildFinding(
+        'skill-file-contract-invalid',
+        'error',
+        `La skill ${skillFile.path} no usa el contrato */SKILL.md.`,
+        'Las skills bajo .github/skills deben vivir en .github/skills/<name>/SKILL.md.',
+        [skillFile.path],
+      ));
+    }
+
+    if (!customizationDocsContainName(skillFile.name, 'skill', customizationDocsText)) {
+      findings.push(buildFinding(
+        'skill-reference-missing',
+        'error',
+        `La skill ${skillFile.name} existe pero no aparece en la documentación AI.`,
+        'Las skills versionadas deben aparecer en docs/ai/README.md, docs/ai/agent-skill-routing.md, docs/ai-orchestration.md o ai-agents-catalog.md.',
+        [skillFile.path],
+      ));
+    }
+  }
+
   const summary = {
     activeBacklogItems: uniqueSorted(activeBacklogIds).length,
     doneLogItems: uniqueSorted(doneLogIds).length,
     specFolders: sources.specs.length,
+    promptReferences: (sources.promptReferences ?? []).length,
+    promptFiles: (sources.promptFiles ?? []).length,
+    agentFiles: (sources.agentFiles ?? []).length,
+    skillFiles: (sources.skillFiles ?? []).length,
     findings: findings.length,
     errorFindings: findings.filter((finding) => finding.severity === 'error').length,
     warningFindings: findings.filter((finding) => finding.severity === 'warning').length,
@@ -257,12 +380,57 @@ function loadRepoSources(repoRoot) {
       };
     });
 
+  const backlog = fs.readFileSync(path.join(repoRoot, 'docs', 'backlog.md'), 'utf8');
+  const doneLog = fs.readFileSync(path.join(repoRoot, 'docs', 'done-log.md'), 'utf8');
+  const currentFocus = fs.readFileSync(path.join(repoRoot, 'docs', 'current-focus.md'), 'utf8');
+  const roadmap = fs.readFileSync(path.join(repoRoot, 'docs', 'roadmap.md'), 'utf8');
+  const promptReferences = extractPromptReferences(backlog, currentFocus, roadmap).map((reference) => ({
+    path: reference,
+    exists: fs.existsSync(path.join(repoRoot, reference)),
+  }));
+  const promptsRoot = path.join(repoRoot, '.github', 'prompts');
+  const promptFiles = fs.existsSync(promptsRoot)
+    ? fs.readdirSync(promptsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => ({ path: normalizePromptReference(path.join('.github', 'prompts', entry.name)) }))
+    : [];
+  const agentsRoot = path.join(repoRoot, '.github', 'agents');
+  const agentFiles = fs.existsSync(agentsRoot)
+    ? fs.readdirSync(agentsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => ({
+        name: entry.name.replace(/\.agent\.md$/, ''),
+        path: normalizePromptReference(path.join('.github', 'agents', entry.name)),
+      }))
+    : [];
+  const skillsRoot = path.join(repoRoot, '.github', 'skills');
+  const skillFiles = fs.existsSync(skillsRoot)
+    ? fs.readdirSync(skillsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => ({
+        name: entry.name,
+        path: normalizePromptReference(path.join('.github', 'skills', entry.name, 'SKILL.md')),
+      }))
+      .filter((entry) => fs.existsSync(path.join(repoRoot, entry.path)))
+    : [];
+  const customizationDocs = [
+    path.join(repoRoot, 'docs', 'ai', 'README.md'),
+    path.join(repoRoot, 'docs', 'ai', 'agent-skill-routing.md'),
+    path.join(repoRoot, 'docs', 'ai-orchestration.md'),
+    path.join(repoRoot, 'docs', 'ai-agents-catalog.md'),
+  ].map(readFileIfExists).filter((content) => typeof content === 'string');
+
   return {
-    backlog: fs.readFileSync(path.join(repoRoot, 'docs', 'backlog.md'), 'utf8'),
-    doneLog: fs.readFileSync(path.join(repoRoot, 'docs', 'done-log.md'), 'utf8'),
-    currentFocus: fs.readFileSync(path.join(repoRoot, 'docs', 'current-focus.md'), 'utf8'),
-    roadmap: fs.readFileSync(path.join(repoRoot, 'docs', 'roadmap.md'), 'utf8'),
+    backlog,
+    doneLog,
+    currentFocus,
+    roadmap,
     specs,
+    promptReferences,
+    promptFiles,
+    agentFiles,
+    skillFiles,
+    customizationDocs,
   };
 }
 

@@ -4636,6 +4636,17 @@ Reglas para IA:
 7. Reconocer DataWindowChild/DDDW/nested reports.
 ```
 
+Política de análisis interactivo:
+
+```text
+1. DataObject literal y único puede ser high confidence.
+2. DataStore comparte superficie DataWindow, pero debe distinguirse de control visual.
+3. DataWindowChild obtenido por GetChild es evidencia útil pero limitada; no debe elevarse a certeza absoluta.
+4. DataObject dinámico, concatenaciones, property names calculados, Evaluate y SQL dinámico degradan a low/unknown.
+5. Describe/Modify sólo son seguros para rutas literales simples respaldadas por modelo/catálogo.
+6. SQL lineage puede enriquecer si ya existe evidencia; el hot path no debe ejecutar consultas ni análisis profundo.
+```
+
 ---
 
 ## 34. DataWindow runtime, buffers y edición

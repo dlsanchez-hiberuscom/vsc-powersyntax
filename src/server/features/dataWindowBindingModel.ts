@@ -3,6 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { EntityKind, ScopeKind, type Fact, type Scope } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 import type { LogicalStatement } from '../parsing/statementSplitter';
@@ -28,6 +29,32 @@ export interface DataWindowBindingSummary {
   state: 'resolved' | 'missing' | 'ambiguous' | 'dynamic';
   targetUri?: string;
   retrieveArguments: DataWindowRetrieveArgument[];
+}
+
+export function resolveCatalogOwnerTypes(typeName: string | undefined, graph?: InheritanceGraph): string[] {
+  if (!typeName) {
+    return [];
+  }
+
+  const hierarchy = graph ? graph.getTypeHierarchy(typeName) : [typeName];
+  const seen = new Set<string>();
+  const ownerTypes: string[] = [];
+
+  for (const candidate of hierarchy) {
+    const normalized = candidate.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    ownerTypes.push(normalized);
+  }
+
+  return ownerTypes;
+}
+
+export function isDataWindowOwnerType(typeName: string | undefined, graph?: InheritanceGraph): boolean {
+  return resolveCatalogOwnerTypes(typeName, graph).some((ownerType) => DATAWINDOW_BIND_OWNER_TYPES.has(ownerType));
 }
 
 export function extractDataObjectLiteral(expression: string): string | null | undefined {

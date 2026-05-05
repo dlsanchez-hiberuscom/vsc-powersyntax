@@ -12,11 +12,13 @@ The repository uses English for AI-facing files so agents can consume instructio
 4. `.github/agents/*.agent.md` — session modes.
 5. `.github/skills/*/SKILL.md` — task capabilities.
 6. `.github/prompts/*.prompt.md` — reusable workflows.
-7. `docs/ai-context/powerbuilder-plugin-context.md` — compact context pack.
+7. `docs/ai-orchestration.md` — AI ownership, contracts, validation and safety policy.
+8. `docs/ai-context/powerbuilder-plugin-context.md` — compact context pack.
 
 ## Documents
 - `agent-skill-routing.md` — which agent/skill/prompt to use.
 - `lean-token-policy.md` — token-efficiency rules and anti-patterns.
+- `../ai-orchestration.md` — canonical AI orchestration and public-contract policy.
 
 ## Active agents
 - `planner`

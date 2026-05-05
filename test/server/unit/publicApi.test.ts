@@ -348,6 +348,7 @@ suite('unit/publicApi (B109)', () => {
       'cache',
       'memory',
       'latency',
+      'interactive-serving',
       'build',
       'orca',
       'diagnostics',

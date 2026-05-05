@@ -1230,6 +1230,7 @@ export type ApiObservabilityDomain =
   | 'cache'
   | 'memory'
   | 'latency'
+  | 'interactive-serving'
   | 'build'
   | 'orca'
   | 'diagnostics'
@@ -1597,6 +1598,16 @@ const OBSERVABILITY_SURFACES: ReadonlyArray<ApiObservabilitySurfaceDescriptor> =
     tool: 'server-stats',
     command: 'powerbuilder.showStats',
     fieldPath: 'scheduler',
+    redaction: 'none',
+  },
+  {
+    domain: 'interactive-serving',
+    schema: 'ApiServerStats',
+    exposure: 'public-api-method',
+    method: 'getServerStats',
+    tool: 'server-stats',
+    command: 'powerbuilder.showStats',
+    fieldPath: 'interactiveServing',
     redaction: 'none',
   },
   {
@@ -2920,10 +2931,67 @@ export interface ApiServerStats {
       misses?: number;
       evictions?: number;
       ttlMs?: number;
+      byFeature?: Record<string, {
+        size?: number;
+        capacity?: number;
+        hits?: number;
+        misses?: number;
+        evictions?: number;
+      }>;
     };
     documents?: { size?: number; internedStrings?: number };
     hotContext?: { inheritedTypes?: number; capacity?: number };
     codeLens?: { size?: number; capacity?: number; hits?: number; misses?: number; evictions?: number };
+  };
+  interactiveServing?: {
+    features?: Record<string, {
+      requests?: number;
+      reasons?: Record<string, number>;
+      totalMsAvg?: number;
+      providerMsAvg?: number;
+      formatterMsAvg?: number;
+      cacheWriteMsAvg?: number;
+      payloadBytesAvg?: number;
+      payloadBytesMax?: number;
+      lastEvent?: {
+        feature?: string;
+        reason?: string;
+        totalMs?: number;
+        providerMs?: number;
+        formatterMs?: number;
+        cacheWriteMs?: number;
+        payloadBytes?: number;
+        payloadBudgetBytes?: number;
+        payloadBudgetExceeded?: boolean;
+        locale?: string;
+        kbVersion?: number;
+        semanticEpoch?: number;
+        budgetMs?: number;
+        readinessAction?: string;
+        readinessReason?: string;
+        staleReason?: string;
+        ts?: number;
+      };
+    }>;
+    recentEvents?: Array<{
+      feature?: string;
+      reason?: string;
+      totalMs?: number;
+      providerMs?: number;
+      formatterMs?: number;
+      cacheWriteMs?: number;
+      payloadBytes?: number;
+      payloadBudgetBytes?: number;
+      payloadBudgetExceeded?: boolean;
+      locale?: string;
+      kbVersion?: number;
+      semanticEpoch?: number;
+      budgetMs?: number;
+      readinessAction?: string;
+      readinessReason?: string;
+      staleReason?: string;
+      ts?: number;
+    }>;
   };
   lastQueryTrace?: {
     label?: string;

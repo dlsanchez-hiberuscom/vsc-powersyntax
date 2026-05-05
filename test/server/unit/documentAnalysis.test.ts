@@ -168,6 +168,11 @@ suite('unit/documentAnalysis', () => {
 
     assert.ok(structuralType, 'El snapshot estructural debe conservar el stub del .srd.');
     assert.equal(structuralType?.name, 'd_customer');
+    assert.equal(analysis.sections.length, 0, '.srd no debe entrar por secciones PowerScript genéricas.');
+    assert.equal(analysis.scopes.length, 0, '.srd no debe publicar scopes PowerScript genéricos.');
+    assert.equal(analysis.logicalStatements.length, 0, '.srd no debe dividirse como statements PowerScript.');
+    assert.equal(analysis.controlBlocks.length, 0, '.srd no debe pasar por bloques de control PowerScript.');
+    assert.equal(structural.snapshot.containerModel.sections.length, 0, 'El snapshot .srd conserva frontera DataWindow/PowerScript.');
   });
 
   // -------------------------------------------------------------------------
@@ -399,6 +404,26 @@ suite('unit/documentAnalysis', () => {
     assert.equal(eventScope?.parent?.id, 'cb_ok');
     assert.equal(local?.ownerName, 'cb_ok');
     assert.equal(local?.fileObjectName, 'w_main');
+  });
+
+  test('sanitiza containerSignature cuando la cabecera callable comparte línea con una sentencia', () => {
+    const source = [
+      'global type w_main from window',
+      'end type',
+      '',
+      'event pfc_values; call super::pfc_values()',
+      '  string ls_value',
+      'end event'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///documentAnalysis-callable-signature.srw', 'powerbuilder', 1, source);
+    const analysis = analyzeDocument(document);
+    const eventFact = analysis.semanticFacts.find((fact) => fact.kind === EntityKind.Event && fact.name.toLowerCase() === 'pfc_values');
+    const eventScope = findScopeByName(analysis.scopes, 'pfc_values');
+    const local = eventScope?.symbols.find((symbol: any) => symbol.name.toLowerCase() === 'ls_value');
+
+    assert.equal(eventFact?.signature, 'event pfc_values');
+    assert.equal(local?.containerSignature, 'event pfc_values');
   });
 
   test('B281 conserva overloads y solo sustituye prototipo por implementación de la misma firma', () => {

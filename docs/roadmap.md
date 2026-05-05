@@ -377,22 +377,20 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Bloque pedido por el usuario — continuidad completada**
+**Bloque pedido por el usuario — continuidad `BLOQUE-13`**
 
 Cadena activa obligatoria:
 
 ```txt
-completado
+.github/prompts/implement-spec.bloque13.prompt.md
 ```
 
 Con foco en:
 
-- consolidar el cierre ya ejecutado de la cadena inmediata previa sin reabrir backlog activo para ítems ya movidos a `done-log`;
-- consolidar el cierre ya ejecutado del bloque derivado inicial sin reabrir taxonomías o claims documentales ya absorbidos por la clasificación compartida y el contrato real del corpus público;
-- reanclar backlog/current-focus/roadmap a la cadena documental restante sin placeholders ni focos agotados;
-- consolidar `docs/build/README.md` como mapa canónico del carril build/packaging/VSIX/PBAutoBuild/ORCA y retirar referencias rotas;
-- registrar que el safe model DataWindow literal-only, el gate read-only de conditional compilation y los markers plausibles de guards LSP ya quedaron cerrados con evidencia;
-- mantener el gate documental de continuidad antes de abrir código nuevo fuera de la cadena derivada completada.
+- ejecutar la auditoría final multi-surface sin reabrir ítems movidos a `done-log`;
+- revisar sistema de símbolos, catálogo y localización con dueños existentes antes de crear nuevos dominios;
+- mantener `plugin_old` como reference-only según [legacy-isolation.md](legacy-isolation.md) y registrar deuda nueva en [technical-debt-inventory.md](technical-debt-inventory.md) o backlog derivado;
+- mantener el gate documental de continuidad antes de abrir código nuevo fuera de la cadena promovida.
 
 ### Trabajo paralelo permitido
 

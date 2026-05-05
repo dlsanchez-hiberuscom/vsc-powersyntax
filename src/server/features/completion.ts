@@ -1,4 +1,4 @@
-import { Position, CompletionItem, CompletionItemKind, InsertTextFormat } from 'vscode-languageserver/node';
+import { Position, CompletionItem } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 
@@ -6,24 +6,120 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
-import {
-  getDisplayDocumentation,
-  getDisplaySummary,
-  type DocumentationLocale,
-} from '../knowledge/system/localization';
+import type { DocumentationLocale } from '../knowledge/system/localization';
 import { Entity, EntityKind } from '../knowledge/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
+import { resolveCatalogOwnerTypes } from './dataWindowBindingModel';
 import { buildDataWindowModel, rangeContains } from './dataWindowModel';
-import { providePowerScriptDataWindowPropertyCompletion } from './dataWindowPropertyPaths';
+import { provideDataWindowCompletionAdapter } from './dataWindowServingAdapters';
 import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import {
   matchesEnumeratedPropertyContext,
   resolveExpectedEnumContextForCallArgumentAtPosition,
 } from './enumeratedContext';
+import type { SourceOrigin } from '../../shared/sourceOrigin';
+import {
+  buildEntityCompletionItemViewModel,
+  buildEntityCompletionResolveViewModel,
+  buildStaticCompletionItemViewModel,
+  buildSystemCompletionItemViewModel,
+  buildSystemCompletionResolveViewModel,
+  formatCompletionItemViewModel,
+  formatCompletionResolveViewModel,
+} from '../presentation/completionPresentation';
 
 const MAX_GLOBAL_COMPLETION_ENTITIES = getQueryConsumerPolicy('completion').resultCap;
+
+const COMPLETION_RESOLVE_DATA_PROTOCOL = 'vsc-powersyntax.completion';
+const COMPLETION_RESOLVE_DATA_VERSION = 1;
+
+export type CompletionRankGroup =
+  | 'local'
+  | 'argument'
+  | 'qualified-member'
+  | 'current-shared-member'
+  | 'current-instance-member'
+  | 'global'
+  | 'reserved-word'
+  | 'keyword'
+  | 'pronoun'
+  | 'datatype'
+  | 'enumerated-type'
+  | 'system-global'
+  | 'enumerated-value'
+  | 'datawindow-expression-function';
+
+export const COMPLETION_RANK_SORT_PREFIX: Readonly<Record<CompletionRankGroup, string>> = {
+  local: '0_local_0_',
+  argument: '0_local_1_argument_',
+  'qualified-member': '1_member_',
+  'current-shared-member': '1_shared_',
+  'current-instance-member': '1_instance_',
+  global: '2_global_',
+  'reserved-word': '3_reserved_',
+  keyword: '3_keyword_',
+  pronoun: '3_pronoun_',
+  datatype: '3_datatype_',
+  'enumerated-type': '3_enumerated_type_',
+  'system-global': '3_system_global_',
+  'enumerated-value': '3_enumerated_value_',
+  'datawindow-expression-function': '0_dw_expr_function_',
+};
+
+interface CompletionResolveDataBase {
+  protocol: typeof COMPLETION_RESOLVE_DATA_PROTOCOL;
+  version: typeof COMPLETION_RESOLVE_DATA_VERSION;
+  uri: string;
+  documentVersion: number;
+  kbVersion: number;
+  semanticEpoch: number;
+  sourceOrigin: SourceOrigin | 'unknown';
+  locale: DocumentationLocale;
+}
+
+export interface CompletionProviderContext {
+  sourceOrigin?: SourceOrigin | 'unknown';
+}
+
+export type CompletionItemResolveData = CompletionResolveDataBase & (
+  | {
+      source: 'system';
+      symbolId: string;
+      name: string;
+      domain: PbSystemSymbolEntry['domain'];
+    }
+  | {
+      source: 'entity';
+      entityId: string;
+      name: string;
+      entityUri: string;
+      entityKind: EntityKind;
+      line: number;
+      character: number;
+    }
+);
+
+interface CompletionResolveContext extends CompletionResolveDataBase {}
+
+function createCompletionResolveContext(
+  document: TextDocument,
+  kb: KnowledgeBase,
+  documentationLocale: DocumentationLocale,
+  providerContext?: CompletionProviderContext,
+): CompletionResolveContext {
+  return {
+    protocol: COMPLETION_RESOLVE_DATA_PROTOCOL,
+    version: COMPLETION_RESOLVE_DATA_VERSION,
+    uri: document.uri,
+    documentVersion: document.version,
+    kbVersion: kb.version,
+    semanticEpoch: kb.semanticEpoch,
+    sourceOrigin: providerContext?.sourceOrigin ?? 'unknown',
+    locale: documentationLocale,
+  };
+}
 
 function getMembersForCompletion(
   typeName: string,
@@ -56,17 +152,26 @@ export function provideCompletion(
   graph: InheritanceGraph,
   hotContext?: HotContextCache,
   kbVersion?: number,
-  documentationLocale: DocumentationLocale = 'en'
+  documentationLocale: DocumentationLocale = 'en',
+  providerContext?: CompletionProviderContext,
 ): CompletionItem[] | null {
   const snapshot = getDocumentAnalysis(document).snapshot;
   const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
+  const resolveContext = createCompletionResolveContext(document, kb, documentationLocale, providerContext);
 
-  const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(document, position, systemCatalog, documentationLocale);
+  const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(document, position, systemCatalog, documentationLocale, resolveContext);
   if (dataWindowExpressionCompletion) {
     return dataWindowExpressionCompletion;
   }
   
-  const dataWindowCompletion = providePowerScriptDataWindowPropertyCompletion(document, position, kb);
+  const dataWindowCompletion = provideDataWindowCompletionAdapter({
+    document,
+    position,
+    kb,
+    graph,
+    systemCatalog,
+    hotContext,
+  });
   if (dataWindowCompletion) {
     return dataWindowCompletion;
   }
@@ -84,15 +189,17 @@ export function provideCompletion(
   const enumAssignmentContext = extractEnumeratedAssignmentContext(lineText);
   if (enumAssignmentContext) {
     const ownerType = resolveDocumentQualifierType(document, enumAssignmentContext.qualifier, position, kb, hotContext);
+    const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
     const enumType = systemCatalog.resolveEnumeratedType(enumAssignmentContext.enumTypeName);
-    if (ownerType && enumType) {
+    if (ownerTypes.length > 0 && enumType) {
       const enumValueItems = createEnumeratedValueCompletionItemsForType(
         systemCatalog,
         enumType.name,
         enumAssignmentContext.propertyName,
-        ownerType,
+        ownerTypes,
         enumAssignmentContext.identifierPrefix,
         documentationLocale,
+        resolveContext,
       );
       if (enumValueItems.length > 0) {
         return enumValueItems;
@@ -105,8 +212,10 @@ export function provideCompletion(
     position,
     kb,
     systemCatalog,
+    graph,
     trailingIdentifierPrefix,
     documentationLocale,
+    resolveContext,
   );
   if (enumArgumentItems.length > 0) {
     return enumArgumentItems;
@@ -138,14 +247,19 @@ export function provideCompletion(
     const varType = resolveDocumentQualifierType(document, qualifier, position, kb, hotContext);
     if (varType) {
       let members: Entity[] = [];
+      let catalogOwnerType = varType;
 
       if (varType.toLowerCase() === 'super' && currentMainObject?.baseTypeName) {
         members = getMembersForCompletion(currentMainObject.baseTypeName, currentUri, kb, graph, hotContext, kbVersion);
+        catalogOwnerType = currentMainObject.baseTypeName;
       } else if (varType.toLowerCase() === 'this' && currentMainObject) {
         members = getMembersForCompletion(currentMainObject.name, currentUri, kb, graph, hotContext, kbVersion);
+        catalogOwnerType = currentMainObject.name;
       } else {
         members = getMembersForCompletion(varType, currentUri, kb, graph, hotContext, kbVersion);
       }
+
+      const catalogOwnerTypes = resolveCatalogOwnerTypes(catalogOwnerType, graph);
 
       // Deduplicate members by name (in case of overrides, we just want to show it once in completion)
       const seen = new Set<string>();
@@ -154,23 +268,23 @@ export function provideCompletion(
         if (seen.has(m.name.toLowerCase())) continue;
         seen.add(m.name.toLowerCase());
         
-        items.push(createCompletionItem(m, '1_member_'));
+        items.push(createCompletionItem(m, COMPLETION_RANK_SORT_PREFIX['qualified-member'], resolveContext));
       }
 
-      for (const sys of systemCatalog.listMembersForOwner([varType])) {
+      for (const sys of systemCatalog.listMembersForOwner(catalogOwnerTypes)) {
         if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(sys.name.toLowerCase())) continue;
         seen.add(sys.name.toLowerCase());
 
-        items.push(createSystemCompletionItem(sys, '1_member_', documentationLocale));
+        items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX['qualified-member'], documentationLocale, resolveContext));
       }
 
-      for (const sys of systemCatalog.listEventsForOwner([varType])) {
+      for (const sys of systemCatalog.listEventsForOwner(catalogOwnerTypes)) {
         if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(sys.name.toLowerCase())) continue;
         seen.add(sys.name.toLowerCase());
 
-        items.push(createSystemCompletionItem(sys, '1_member_', documentationLocale));
+        items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX['qualified-member'], documentationLocale, resolveContext));
       }
     }
   } else {
@@ -188,7 +302,10 @@ export function provideCompletion(
         if (seen.has(local.name.toLowerCase())) continue;
         seen.add(local.name.toLowerCase());
         
-        items.push(createCompletionItem(local, '0_local_'));
+        const priority = local.scope === 'Argumento'
+          ? COMPLETION_RANK_SORT_PREFIX.argument
+          : COMPLETION_RANK_SORT_PREFIX.local;
+        items.push(createCompletionItem(local, priority, resolveContext));
       }
     }
 
@@ -200,8 +317,10 @@ export function provideCompletion(
         if (seen.has(m.name.toLowerCase())) continue;
         seen.add(m.name.toLowerCase());
         
-        const priority = m.scope === 'Compartida' ? '1_shared_' : '3_instance_';
-        items.push(createCompletionItem(m, priority));
+        const priority = m.scope === 'Compartida'
+          ? COMPLETION_RANK_SORT_PREFIX['current-shared-member']
+          : COMPLETION_RANK_SORT_PREFIX['current-instance-member'];
+        items.push(createCompletionItem(m, priority, resolveContext));
       }
     }
 
@@ -211,7 +330,7 @@ export function provideCompletion(
       if (seen.has(sys.name.toLowerCase())) continue;
       seen.add(sys.name.toLowerCase());
 
-      items.push(createSystemCompletionItem(sys, '2_global_', documentationLocale));
+      items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX.global, documentationLocale, resolveContext));
     }
 
     for (const sys of systemCatalog.listStatements()) {
@@ -219,7 +338,7 @@ export function provideCompletion(
       if (seen.has(sys.name.toLowerCase())) continue;
       seen.add(sys.name.toLowerCase());
 
-      items.push(createSystemCompletionItem(sys, '2_global_', documentationLocale));
+      items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX.global, documentationLocale, resolveContext));
     }
 
     for (const entity of kb.queryEntities({
@@ -234,34 +353,34 @@ export function provideCompletion(
       if (seen.has(entity.name.toLowerCase())) continue;
       seen.add(entity.name.toLowerCase());
 
-      items.push(createCompletionItem(entity, '2_global_'));
+      items.push(createCompletionItem(entity, COMPLETION_RANK_SORT_PREFIX.global, resolveContext));
     }
 
     // 4. Keywords and datatypes from catalog v2 (only if prefix matches)
     if (identifierPrefix.length >= 2) {
-      appendCatalogCompletionItems(items, seen, systemCatalog.listReservedWords(), identifierPrefix, '3_reserved_', documentationLocale);
+      appendCatalogCompletionItems(items, seen, systemCatalog.listReservedWords(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['reserved-word'], documentationLocale, resolveContext);
       for (const kw of systemCatalog.listKeywords()) {
         if (!kw.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(kw.name.toLowerCase())) continue;
         seen.add(kw.name.toLowerCase());
-        items.push(createSystemCompletionItem(kw, '3_keyword_', documentationLocale));
+        items.push(createSystemCompletionItem(kw, COMPLETION_RANK_SORT_PREFIX.keyword, documentationLocale, resolveContext));
       }
-      appendCatalogCompletionItems(items, seen, systemCatalog.listPronouns(), identifierPrefix, '3_pronoun_', documentationLocale);
+      appendCatalogCompletionItems(items, seen, systemCatalog.listPronouns(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX.pronoun, documentationLocale, resolveContext);
       for (const dt of systemCatalog.listDatatypes()) {
         if (!dt.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(dt.name.toLowerCase())) continue;
         seen.add(dt.name.toLowerCase());
-        items.push(createSystemCompletionItem(dt, '3_keyword_', documentationLocale));
+        items.push(createSystemCompletionItem(dt, COMPLETION_RANK_SORT_PREFIX.datatype, documentationLocale, resolveContext));
       }
       for (const st of systemCatalog.listSystemTypes()) {
         if (!st.name.toLowerCase().startsWith(identifierPrefix)) continue;
         if (seen.has(st.name.toLowerCase())) continue;
         seen.add(st.name.toLowerCase());
-        items.push(createSystemCompletionItem(st, '3_keyword_', documentationLocale));
+        items.push(createSystemCompletionItem(st, COMPLETION_RANK_SORT_PREFIX.datatype, documentationLocale, resolveContext));
       }
-      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedTypes(), identifierPrefix, '3_enumerated_type_', documentationLocale);
-      appendCatalogCompletionItems(items, seen, systemCatalog.listSystemGlobals(), identifierPrefix, '3_system_global_', documentationLocale);
-      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, '3_enumerated_value_', documentationLocale);
+      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedTypes(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['enumerated-type'], documentationLocale, resolveContext);
+      appendCatalogCompletionItems(items, seen, systemCatalog.listSystemGlobals(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['system-global'], documentationLocale, resolveContext);
+      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['enumerated-value'], documentationLocale, resolveContext);
     }
   }
 
@@ -273,6 +392,7 @@ function provideDataWindowExpressionCompletion(
   position: Position,
   systemCatalog: SystemCatalog,
   documentationLocale: DocumentationLocale,
+  resolveContext: CompletionResolveContext,
 ): CompletionItem[] | null {
   const model = buildDataWindowModel(document);
   if (!model) {
@@ -306,8 +426,9 @@ function provideDataWindowExpressionCompletion(
     seen,
     systemCatalog.listDataWindowExpressionFunctions(),
     prefix,
-    '0_dw_expr_function_',
+    COMPLETION_RANK_SORT_PREFIX['datawindow-expression-function'],
     documentationLocale,
+    resolveContext,
   );
 
   for (const column of model.tableColumns) {
@@ -320,12 +441,13 @@ function provideDataWindowExpressionCompletion(
     }
 
     seen.add(normalized);
-    items.push({
+    items.push(formatCompletionItemViewModel(buildStaticCompletionItemViewModel({
       label: column.name,
-      kind: CompletionItemKind.Variable,
+      kind: 'variable',
+      source: 'datawindow-expression',
       detail: column.type ? `DataWindow column · ${column.type}` : 'DataWindow column',
       sortText: `1_dw_column_${normalized}`,
-    });
+    })));
   }
 
   for (const control of model.controls) {
@@ -338,12 +460,13 @@ function provideDataWindowExpressionCompletion(
     }
 
     seen.add(normalized);
-    items.push({
+    items.push(formatCompletionItemViewModel(buildStaticCompletionItemViewModel({
       label: control.name,
-      kind: CompletionItemKind.Field,
+      kind: 'field',
+      source: 'datawindow-expression',
       detail: `DataWindow control · ${control.controlType}`,
       sortText: `2_dw_control_${normalized}`,
-    });
+    })));
   }
 
   return items.length > 0 ? items : null;
@@ -364,33 +487,120 @@ function extractTrailingIdentifierPrefix(lineText: string): string {
   return (match?.[1] ?? '').toLowerCase();
 }
 
-function createCompletionItem(entity: Entity, sortPrefix: string): CompletionItem {
-  let kind: CompletionItemKind;
-  switch (entity.kind) {
-    case EntityKind.Function:
-    case EntityKind.Subroutine:
-      kind = CompletionItemKind.Method;
-      break;
-    case EntityKind.Event:
-      kind = CompletionItemKind.Event;
-      break;
-    case EntityKind.Variable:
-      kind = CompletionItemKind.Variable;
-      break;
-    case EntityKind.Type:
-      kind = CompletionItemKind.Class;
-      break;
-    default:
-      kind = CompletionItemKind.Text;
+function createCompletionItem(entity: Entity, sortPrefix: string, resolveContext: CompletionResolveContext): CompletionItem {
+  return formatCompletionItemViewModel(buildEntityCompletionItemViewModel(
+    entity,
+    sortPrefix + entity.name.toLowerCase(),
+    createEntityCompletionResolveData(entity, resolveContext),
+  ));
+}
+
+function createEntityCompletionResolveData(
+  entity: Entity,
+  resolveContext: CompletionResolveContext,
+): CompletionItemResolveData {
+  return {
+    ...resolveContext,
+    source: 'entity',
+    entityId: entity.id,
+    name: entity.name,
+    entityUri: entity.uri,
+    entityKind: entity.kind,
+    line: entity.line,
+    character: entity.character,
+  };
+}
+
+function createSystemCompletionResolveData(
+  entry: PbSystemSymbolEntry,
+  resolveContext: CompletionResolveContext,
+): CompletionItemResolveData {
+  return {
+    ...resolveContext,
+    source: 'system',
+    symbolId: entry.id,
+    name: entry.name,
+    domain: entry.domain,
+  };
+}
+
+export function isCompletionItemResolveData(value: unknown): value is CompletionItemResolveData {
+  if (!value || typeof value !== 'object') {
+    return false;
   }
 
-  return {
-    label: entity.name,
-    kind: kind,
-    detail: entity.signature || (entity.datatype ? `${entity.datatype} ${entity.name}` : undefined),
-    documentation: entity.documentation,
-    sortText: sortPrefix + entity.name.toLowerCase()
-  };
+  const candidate = value as Partial<CompletionItemResolveData>;
+  return candidate.protocol === COMPLETION_RESOLVE_DATA_PROTOCOL
+    && candidate.version === COMPLETION_RESOLVE_DATA_VERSION
+    && typeof candidate.uri === 'string'
+    && typeof candidate.documentVersion === 'number'
+    && typeof candidate.kbVersion === 'number'
+    && typeof candidate.semanticEpoch === 'number'
+    && (candidate.source === 'system' || candidate.source === 'entity');
+}
+
+export function resolveCompletionItem(
+  item: CompletionItem,
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog,
+  documentationLocale: DocumentationLocale = 'en',
+): CompletionItem {
+  const data = isCompletionItemResolveData(item.data) ? item.data : null;
+  if (!data) {
+    return item;
+  }
+
+  if (data.source === 'system') {
+    const entry = resolveSystemCompletionEntry(systemCatalog, data);
+    return entry ? enrichSystemCompletionItem(item, entry, documentationLocale) : item;
+  }
+
+  const entity = resolveEntityCompletionEntry(kb, data);
+  return entity ? enrichEntityCompletionItem(item, entity) : item;
+}
+
+function resolveSystemCompletionEntry(
+  systemCatalog: SystemCatalog,
+  data: Extract<CompletionItemResolveData, { source: 'system' }>,
+): PbSystemSymbolEntry | undefined {
+  return systemCatalog.findByDomainAndLookupKey(data.domain, data.name)
+    .find((entry) => entry.id === data.symbolId);
+}
+
+function resolveEntityCompletionEntry(
+  kb: KnowledgeBase,
+  data: Extract<CompletionItemResolveData, { source: 'entity' }>,
+): Entity | undefined {
+  const direct = kb.getEntitiesByUri(data.entityUri).find((entity) => matchesCompletionEntity(entity, data));
+  if (direct) {
+    return direct;
+  }
+
+  const scope = kb.getScopeAt(data.entityUri, data.line);
+  return scope?.symbols.find((entity) => matchesCompletionEntity(entity, data));
+}
+
+function matchesCompletionEntity(
+  entity: Entity,
+  data: Extract<CompletionItemResolveData, { source: 'entity' }>,
+): boolean {
+  return entity.id === data.entityId
+    && entity.kind === data.entityKind
+    && entity.name === data.name
+    && entity.line === data.line
+    && entity.character === data.character;
+}
+
+function enrichEntityCompletionItem(item: CompletionItem, entity: Entity): CompletionItem {
+  return formatCompletionResolveViewModel(item, buildEntityCompletionResolveViewModel(item, entity));
+}
+
+function enrichSystemCompletionItem(
+  item: CompletionItem,
+  entry: PbSystemSymbolEntry,
+  documentationLocale: DocumentationLocale,
+): CompletionItem {
+  return formatCompletionResolveViewModel(item, buildSystemCompletionResolveViewModel(item, entry, documentationLocale));
 }
 
 function appendCatalogCompletionItems(
@@ -400,13 +610,14 @@ function appendCatalogCompletionItems(
   identifierPrefix: string,
   sortPrefix: string,
   documentationLocale: DocumentationLocale,
+  resolveContext: CompletionResolveContext,
 ): void {
   for (const entry of entries) {
     const normalizedName = entry.name.toLowerCase();
     if (!normalizedName.startsWith(identifierPrefix)) continue;
     if (seen.has(normalizedName)) continue;
     seen.add(normalizedName);
-    items.push(createSystemCompletionItem(entry, sortPrefix, documentationLocale));
+    items.push(createSystemCompletionItem(entry, sortPrefix, documentationLocale, resolveContext));
   }
 }
 
@@ -414,60 +625,24 @@ function createSystemCompletionItem(
   entry: PbSystemSymbolEntry,
   sortPrefix: string,
   documentationLocale: DocumentationLocale,
+  resolveContext: CompletionResolveContext,
 ): CompletionItem {
-  let kind: CompletionItemKind;
-  switch (entry.kind) {
-    case 'event':
-      kind = CompletionItemKind.Event;
-      break;
-    case 'callable':
-      kind = entry.invocation === 'global' ? CompletionItemKind.Function : CompletionItemKind.Method;
-      break;
-    case 'datatype':
-      kind = CompletionItemKind.TypeParameter;
-      break;
-    case 'system-type':
-      kind = CompletionItemKind.Class;
-      break;
-    case 'enumerated-type':
-      kind = CompletionItemKind.Enum;
-      break;
-    case 'system-global':
-    case 'pronoun':
-      kind = CompletionItemKind.Variable;
-      break;
-    case 'enumerated-value':
-      kind = CompletionItemKind.EnumMember;
-      break;
-    case 'property':
-      kind = CompletionItemKind.Property;
-      break;
-    case 'constant':
-      kind = entry.enumValueOf
-        ? CompletionItemKind.EnumMember
-        : (entry.enumValues?.length ? CompletionItemKind.Enum : CompletionItemKind.Constant);
-      break;
-    default:
-      kind = CompletionItemKind.Keyword;
-  }
-
-  return {
-    label: entry.name,
-    kind,
-    detail: entry.summary,
-    documentation: getDisplayDocumentation(entry, documentationLocale) ?? getDisplaySummary(entry, documentationLocale),
-    insertTextFormat: InsertTextFormat.PlainText,
-    sortText: sortPrefix + entry.name.toLowerCase()
-  };
+  return formatCompletionItemViewModel(buildSystemCompletionItemViewModel(
+    entry,
+    sortPrefix + entry.name.toLowerCase(),
+    documentationLocale,
+    createSystemCompletionResolveData(entry, resolveContext),
+  ));
 }
 
 function createEnumeratedValueCompletionItemsForType(
   systemCatalog: SystemCatalog,
   typeName: string,
   propertyName: string,
-  ownerType: string,
+  ownerTypes: readonly string[],
   identifierPrefix: string,
   documentationLocale: DocumentationLocale,
+  resolveContext: CompletionResolveContext,
 ): CompletionItem[] {
   const items: CompletionItem[] = [];
   const seen = new Set<string>();
@@ -475,11 +650,12 @@ function createEnumeratedValueCompletionItemsForType(
     items,
     seen,
     systemCatalog.listEnumeratedValuesForType(typeName).filter((entry) =>
-      matchesEnumeratedPropertyContext(entry, propertyName, ownerType),
+      matchesEnumeratedPropertyContext(entry, propertyName, ownerTypes),
     ),
     identifierPrefix,
     '0_enum_value_context_',
     documentationLocale,
+    resolveContext,
   );
   return items;
 }
@@ -489,10 +665,12 @@ function createEnumeratedValueCompletionItemsForCallArgument(
   position: Position,
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
+  graph: InheritanceGraph,
   identifierPrefix: string,
-  documentationLocale: DocumentationLocale = 'en',
+  documentationLocale: DocumentationLocale,
+  resolveContext: CompletionResolveContext,
 ): CompletionItem[] {
-  const enumContext = resolveExpectedEnumContextForCallArgumentAtPosition(document, position, kb, systemCatalog);
+  const enumContext = resolveExpectedEnumContextForCallArgumentAtPosition(document, position, kb, systemCatalog, graph);
   if (!enumContext) {
     return [];
   }
@@ -513,6 +691,7 @@ function createEnumeratedValueCompletionItemsForCallArgument(
     identifierPrefix,
     '0_enum_value_context_',
     documentationLocale,
+    resolveContext,
   );
   return items;
 }

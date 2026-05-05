@@ -18,6 +18,11 @@ const HOTSPOT_BUDGETS = [
       maxImports: 38,
       maxTopLevelDeclarations: 215,
     },
+    suggestions: [
+      'Mover nuevo command wiring a src/client/commandRegistration.ts.',
+      'Mantener Object Explorer, Current Object Context y Diagnostics Explainability detrás de ensure*Controller().',
+      'Extraer nuevos reports/support flows a módulos client dedicados antes de crecer extension.ts.',
+    ],
   },
   {
     path: 'src/server/server.ts',
@@ -29,6 +34,11 @@ const HOTSPOT_BUDGETS = [
       maxImports: 70,
       maxTopLevelDeclarations: 45,
     },
+    suggestions: [
+      'Mover nuevo handler wiring a src/server/handlers/*Registration.ts.',
+      'Extraer composition de runtime/cache/build/report a factories por dominio antes de crecer server.ts.',
+      'Mantener server.ts como orden de bootstrap y no como owner de semántica, parsing o formatting.',
+    ],
   },
   {
     path: 'src/client/commandRegistration.ts',
@@ -40,6 +50,130 @@ const HOTSPOT_BUDGETS = [
       maxImports: 10,
       maxTopLevelDeclarations: 20,
     },
+    suggestions: [
+      'Agrupar comandos nuevos por dominio y delegar lógica a controllers/services existentes.',
+      'Evitar que commandRegistration.ts construya reports, markdown o runners directamente.',
+    ],
+  },
+  {
+    path: 'src/server/handlers/featureHandlers.ts',
+    category: 'server-feature-wiring',
+    allowlisted: false,
+    rationale: 'Wiring de handlers LSP historico; debe seguir cediendo registro a featureHandlerRegistration.ts y no recuperar semantica propia.',
+    budgets: {
+      maxLines: 1500,
+      maxImports: 45,
+      maxTopLevelDeclarations: 70,
+    },
+    suggestions: [
+      'Mover nuevo registro de providers a src/server/handlers/featureHandlerRegistration.ts o a handler modules dedicados.',
+      'Evitar que featureHandlers.ts calcule ViewModels, parse o semantic queries directamente.',
+    ],
+  },
+  {
+    path: 'src/server/features/completion.ts',
+    category: 'server-feature-hotspot',
+    allowlisted: false,
+    rationale: 'Completion concentra ranking, catalogo y DataWindow adapters; debe delegar presentation y evitar scans o clones globales.',
+    budgets: {
+      maxLines: 850,
+      maxImports: 24,
+      maxTopLevelDeclarations: 55,
+    },
+    suggestions: [
+      'Mantener payload inicial ligero y mover detalle a completionItem/resolve.',
+      'Extraer heuristicas nuevas a owners/facades compartidos antes de crecer el provider.',
+    ],
+  },
+  {
+    path: 'src/server/features/hover.ts',
+    category: 'server-feature-hotspot',
+    allowlisted: false,
+    rationale: 'Hover es hot path visible; cualquier crecimiento debe preservar cache negativa, ViewModel y resolvers compartidos.',
+    budgets: {
+      maxLines: 420,
+      maxImports: 24,
+      maxTopLevelDeclarations: 35,
+    },
+    suggestions: [
+      'Mantener formatting en hoverFormat/hoverViewModel y evitar recomponer markdown en ramas semanticas.',
+      'Reusar SemanticQueryFacade para resolucion compartida.',
+    ],
+  },
+  {
+    path: 'src/server/features/signatureHelp.ts',
+    category: 'server-feature-hotspot',
+    allowlisted: false,
+    rationale: 'SignatureHelp comparte catalogo/locale/receiver context y no debe bifurcar owners semanticos.',
+    budgets: {
+      maxLines: 620,
+      maxImports: 24,
+      maxTopLevelDeclarations: 45,
+    },
+    suggestions: [
+      'Compartir resolucion callable con SemanticQueryFacade cuando cambie el owner.',
+      'Mantener SignatureHelpViewModel como frontera de presentation.',
+    ],
+  },
+  {
+    path: 'src/server/features/definition.ts',
+    category: 'server-feature-hotspot',
+    allowlisted: false,
+    rationale: 'Definition debe seguir siendo wrapper fino sobre resolucion/catálogo y ViewModel de navegación.',
+    budgets: {
+      maxLines: 220,
+      maxImports: 16,
+      maxTopLevelDeclarations: 20,
+    },
+    suggestions: [
+      'Mover nuevas ramas de origen a resolvers compartidos o adapters DataWindow existentes.',
+      'Mantener DefinitionViewModel como unico formatter LSP final.',
+    ],
+  },
+  {
+    path: 'src/server/features/diagnostics.ts',
+    category: 'server-feature-hotspot',
+    allowlisted: false,
+    rationale: 'Diagnostics es feature amplia por reglas semanticas; debe mantener reason codes, confidence y presentation separada.',
+    budgets: {
+      maxLines: 2050,
+      maxImports: 35,
+      maxTopLevelDeclarations: 90,
+    },
+    suggestions: [
+      'Mover nuevas familias de reglas a helpers/owners especificos sin debilitar reason codes.',
+      'Mantener DiagnosticMessageViewModel como frontera de mensaje visible.',
+    ],
+  },
+  {
+    path: 'src/server/features/dataWindowFastContext.ts',
+    category: 'server-datawindow-hotspot',
+    allowlisted: false,
+    rationale: 'Fast context DataWindow debe seguir read-only, evidence-based y separado del parser PowerScript generico.',
+    budgets: {
+      maxLines: 650,
+      maxImports: 20,
+      maxTopLevelDeclarations: 55,
+    },
+    suggestions: [
+      'Mantener SQL/lineage profundo fuera del hot path DataWindow.',
+      'Agregar nuevos casos mediante adapters con confidence/sourceOrigin explicitos.',
+    ],
+  },
+  {
+    path: 'src/server/features/dataWindowServingAdapters.ts',
+    category: 'server-datawindow-hotspot',
+    allowlisted: false,
+    rationale: 'Adapters DataWindow conectan fast context con features LSP sin convertir .srd en PowerScript generico.',
+    budgets: {
+      maxLines: 220,
+      maxImports: 16,
+      maxTopLevelDeclarations: 25,
+    },
+    suggestions: [
+      'Mantener adapters como traduccion fina de DataWindowFastContext a surfaces LSP.',
+      'No introducir IO ni descubrimiento de workspace desde adapters.',
+    ],
   },
   {
     path: 'src/server/knowledge/system/generated/generated.generated.ts',
@@ -177,7 +311,9 @@ function collectHotspot(entry) {
     path: entry.path,
     category: entry.category,
     allowlisted: entry.allowlisted,
+    growthPolicy: entry.allowlisted ? 'allowlisted-source-data' : 'composition-root-guarded',
     rationale: entry.rationale,
+    suggestions: entry.suggestions ?? [],
     metrics,
     budgets: entry.budgets,
     warnings: evaluations.filter((evaluation) => evaluation.status === 'warning'),

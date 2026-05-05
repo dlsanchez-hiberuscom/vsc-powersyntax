@@ -55,6 +55,13 @@ interface DataWindowCompletionSuggestion {
 const DATAWINDOW_PROPERTIES_DOMAIN = 'datawindow-properties';
 const DATAWINDOW_PROPERTY_ENTRIES = PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomain.get(DATAWINDOW_PROPERTIES_DOMAIN) ?? [];
 
+export const SAFE_DATAWINDOW_PROPERTY_PATHS = [
+  'DataWindow.DataObject',
+  'DataWindow.Syntax',
+  'DataWindow.Table.Select',
+  'dddw.name',
+] as const;
+
 function buildCompositeKey(left: string, right: string): string {
   return `${left}\u0000${right}`;
 }
@@ -68,6 +75,15 @@ function lookupDataWindowPropertyEntry(path: string): PbSystemSymbolEntry | unde
   return PB_SYSTEM_SYMBOL_REGISTRY.indexes.byDomainAndLookupKey.get(
     buildCompositeKey(DATAWINDOW_PROPERTIES_DOMAIN, normalizedPath),
   )?.[0];
+}
+
+export function isKnownSafeDataWindowPropertyPath(path: string): boolean {
+  return SAFE_DATAWINDOW_PROPERTY_PATHS.some((candidate) => candidate.toLowerCase() === path.toLowerCase())
+    && lookupDataWindowPropertyEntry(path) !== undefined;
+}
+
+export function listKnownSafeDataWindowPropertyPaths(): string[] {
+  return SAFE_DATAWINDOW_PROPERTY_PATHS.filter(isKnownSafeDataWindowPropertyPath);
 }
 
 function toDataWindowCompletionSuggestion(

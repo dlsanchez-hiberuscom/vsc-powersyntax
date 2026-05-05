@@ -1,5 +1,11 @@
 import * as assert from 'assert/strict';
-import { formatUserHover } from '../../../src/server/features/hoverFormat';
+import { formatHoverViewModel, formatUserHover } from '../../../src/server/features/hoverFormat';
+import {
+  buildLanguageHoverViewModel,
+  buildPreformattedHoverViewModel,
+  buildSystemHoverViewModel,
+} from '../../../src/server/features/hoverViewModel';
+import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { EntityKind, type Entity } from '../../../src/server/knowledge/types';
 
 function fn(overrides: Partial<Entity> = {}): Entity {
@@ -20,17 +26,13 @@ function fn(overrides: Partial<Entity> = {}): Entity {
 suite('unit/hoverFormat (B103)', () => {
   test('muestra prototype tag', () => {
     const md = formatUserHover(fn({ isPrototype: true }));
-    assert.match(md, /Prototype/);
-  });
-
-  test('muestra implementation tag', () => {
-    const md = formatUserHover(fn({ isPrototype: false }));
-    assert.match(md, /Implementation/);
+    assert.match(md, /Function/);
   });
 
   test('muestra external library', () => {
     const md = formatUserHover(fn({ isExternal: true, externalLibraryName: 'kernel32.dll' }));
-    assert.match(md, /kernel32\.dll/);
+    assert.match(md, /External function/);
+    assert.match(md, /external\/native call/i);
   });
 
   test('muestra tipo y alias de dependencia nativa', () => {
@@ -42,8 +44,8 @@ suite('unit/hoverFormat (B103)', () => {
       externalAlias: 'PBXEntry'
     }));
 
-    assert.match(md, /pbx/);
-    assert.match(md, /PBXEntry/);
+    assert.match(md, /External function/);
+    assert.match(md, /external\/native call/i);
   });
 
   test('muestra etiqueta explícita para RPCFUNC', () => {
@@ -53,57 +55,50 @@ suite('unit/hoverFormat (B103)', () => {
       externalAlias: 'sp_update_customer'
     }));
 
-    assert.match(md, /RPCFUNC stored procedure declaration/);
-    assert.match(md, /rpcfunc/);
-    assert.match(md, /sp_update_customer/);
+    assert.match(md, /External function/);
+    assert.match(md, /stored procedure declaration/i);
   });
 
   test('muestra container', () => {
     const md = formatUserHover(fn());
-    assert.match(md, /w_main/);
+    assert.match(md, /Defined in:.*w_main/);
   });
 
-  test('muestra lineage mínimo cuando existe', () => {
+  test('muestra herencia útil cuando existe', () => {
     const md = formatUserHover(fn({
       lineage: {
         sourceKind: 'document',
         authority: 'derived',
         phase: 'prototype',
+        inheritedFrom: 'w_base',
         confidence: 'direct'
       }
     }));
 
-    assert.match(md, /Origen:\* document/);
-    assert.match(md, /Autoridad:\* derived/);
-    assert.match(md, /Confianza:\* direct/);
+    assert.match(md, /Inherited from:.*w_base/);
+    assert.doesNotMatch(md, /Origen:/);
+    assert.doesNotMatch(md, /Autoridad:/);
+    assert.doesNotMatch(md, /Confianza:/);
   });
 
-  test('muestra confidence general de resolucion cuando se aporta', () => {
-    const md = formatUserHover(fn(), { confidence: 'high' });
-    assert.match(md, /Confianza de resolución:\* high/);
-  });
-
-  test('muestra reason code principal cuando se aporta', () => {
-    const md = formatUserHover(fn(), { reasonCode: 'member-hierarchy' });
-    assert.match(md, /Motivo de resolución:\* member-hierarchy/);
+  test('solo muestra warnings de resolución cuando aportan valor', () => {
+    const md = formatUserHover(fn(), { reasonCode: 'global-fallback', confidence: 'low' });
+    assert.match(md, /workspace fallback/i);
+    assert.doesNotMatch(md, /Confianza de resolución/);
+    assert.doesNotMatch(md, /Motivo de resolución/);
   });
 
   test('muestra nota de ambiguedad cuando se aporta', () => {
     const md = formatUserHover(fn(), { ambiguous: true, targetCount: 2 });
-    assert.match(md, /Resolución ambigua:\* 2 candidatos con distancia mínima/);
+    assert.match(md, /ambiguous target/i);
   });
 
   test('distingue la ambiguedad de global fallback cuando se aporta', () => {
     const md = formatUserHover(fn(), { ambiguous: true, ambiguityKind: 'global-fallback', targetCount: 2 });
-    assert.match(md, /Resolución ambigua:\* 2 candidatos ganadores por global fallback/);
+    assert.match(md, /workspace fallback/i);
   });
 
-  test('muestra el numero de candidatos ganadores cuando se aporta', () => {
-    const md = formatUserHover(fn(), { targetCount: 2 });
-    assert.match(md, /Candidatos ganadores:\* 2/);
-  });
-
-  test('muestra metadata enriquecida de declarationScope, owner y callable contenedor', () => {
+  test('muestra contexto útil para locals sin metadata interna', () => {
     const md = formatUserHover({
       id: 'li_total',
       name: 'li_total',
@@ -119,13 +114,35 @@ suite('unit/hoverFormat (B103)', () => {
       fileObjectName: 'w_main'
     });
 
-    assert.match(md, /Declaration scope:\* local/);
-    assert.match(md, /Owner real:.*w_main/);
-    assert.match(md, /Callable contenedor:.*of_calc/);
-    assert.match(md, /Container kind:\* function/);
+    assert.match(md, /Local variable/);
+    assert.match(md, /Scope:.*of_calc/);
+    assert.doesNotMatch(md, /Declaration scope:/);
+    assert.doesNotMatch(md, /Owner real:/);
+    assert.doesNotMatch(md, /Callable contenedor:/);
+    assert.doesNotMatch(md, /Container kind:/);
   });
 
-  test('muestra on-handler y external function con etiquetas específicas', () => {
+  test('sanea la firma del callable visible cuando la cabecera viene contaminada por ;', () => {
+    const md = formatUserHover({
+      id: 'ls_sqlsyntax',
+      name: 'ls_sqlsyntax',
+      kind: EntityKind.Variable,
+      uri: 'file:///x',
+      line: 0,
+      character: 0,
+      datatype: 'string',
+      containerName: 'w_main.pfc_values',
+      declarationScope: 'local',
+      containerKind: 'event',
+      containerSignature: 'event pfc_values; call super::pfc_values()',
+      fileObjectName: 'w_main'
+    });
+
+    assert.match(md, /Scope:.*event pfc_values/);
+    assert.doesNotMatch(md, /call super::pfc_values/);
+  });
+
+  test('mantiene etiquetas útiles para on-handler y external function', () => {
     const onHandler = formatUserHover(fn({
       kind: EntityKind.Event,
       signature: 'on w_main.create',
@@ -136,7 +153,40 @@ suite('unit/hoverFormat (B103)', () => {
       externalLibraryName: 'kernel32.dll'
     }));
 
-    assert.match(onHandler, /On-handler/);
-    assert.match(external, /External function declaration/);
+    assert.match(onHandler, /Event/);
+    assert.match(external, /External function/);
+  });
+
+  test('renderiza markdown preformateado sin recomponer bloques', () => {
+    const md = formatHoverViewModel(buildPreformattedHoverViewModel('datawindow-property', '**DataWindow**\n- Retrieve'));
+
+    assert.equal(md, '**DataWindow**\n- Retrieve');
+  });
+
+  test('clasifica SQLCA como sql-symbol con riesgo visible', () => {
+    const catalog = new SystemCatalog();
+    const symbol = catalog.resolveSystemGlobal('SQLCA');
+
+    assert.ok(symbol, 'SQLCA debe existir en el catálogo runtime.');
+    const viewModel = buildSystemHoverViewModel(symbol, catalog, 'es');
+    const md = formatHoverViewModel(viewModel);
+
+    assert.equal(viewModel.kind, 'sql-symbol');
+    assert.equal(viewModel.confidence, 'high');
+    assert.match(md, /Riesgo de uso:/i);
+    assert.match(md, /SQLCA/i);
+  });
+
+  test('expone categoría visible para símbolos de lenguaje', () => {
+    const catalog = new SystemCatalog();
+    const symbol = catalog.resolveLanguageSymbol('if');
+
+    assert.ok(symbol, 'if debe existir como símbolo de lenguaje.');
+    const viewModel = buildLanguageHoverViewModel(symbol, catalog, 'es');
+    const md = formatHoverViewModel(viewModel);
+
+    assert.equal(viewModel.confidence, 'high');
+    assert.match(md, /Categoría:/i);
+    assert.match(md, /if/i);
   });
 });

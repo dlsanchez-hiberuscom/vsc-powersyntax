@@ -9,7 +9,6 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { PbSystemSymbolEntry } from '../knowledge/system/types';
-import { systemProvenanceToLineage } from '../knowledge/system/normalization';
 import type { HotContextCache } from '../knowledge/HotContextCache';
 import {
   getDisplayDocumentation,
@@ -21,13 +20,23 @@ import {
   type DocumentationLocale,
 } from '../knowledge/system/localization';
 import { EntityKind } from '../knowledge/types';
-import { providePowerScriptDataWindowColumnHover } from './dataWindowColumnAccess';
-import { provideDataWindowLegacyHover } from './dataWindowLegacySafeMode';
-import { providePowerScriptDataWindowPropertyHover } from './dataWindowPropertyPaths';
+import { resolveCatalogOwnerTypes } from './dataWindowBindingModel';
+import { provideDataWindowHoverAdapter } from './dataWindowServingAdapters';
 import { buildHierarchyInspection } from './hierarchyInspection';
-import { resolveDocumentQualifierType, resolveDocumentQueryTargets } from './queryContext';
 import { summarizeDataWindowSafeMode } from './dataWindowSafeMode';
-import { formatLineageHover, formatUserHover } from './hoverFormat';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
+import { formatHoverViewModel } from './hoverFormat';
+import {
+  buildLanguageHoverViewModel,
+  buildPreformattedHoverViewModel,
+  buildSystemHoverViewModel,
+  buildUserHoverViewModel,
+  type HoverNegativeReason,
+  type HoverViewModel,
+} from './hoverViewModel';
+import type { ActiveDocumentServingSnapshot } from '../serving/activeDocumentServingSnapshot';
+import { CharType, stripCommentsSmart } from '../utils/comments';
+import { findPowerBuilderIdentifierSpan } from '../utils/pbIdentifier';
 
 function buildLifecycleHoverBlock(
   entity: import('../knowledge/types').Entity,
@@ -116,6 +125,178 @@ function buildDataWindowHoverBlock(
   return lines.join('\n');
 }
 
+type HoverPresentationResult =
+  | { kind: 'viewmodel'; viewModel: HoverViewModel; cacheToken: string }
+  | { kind: 'negative'; reason: HoverNegativeReason; cacheToken: string };
+
+type HoverNegativeProbe = {
+  reason: HoverNegativeReason;
+  token: string;
+  definitive: boolean;
+};
+
+function splitMarkdownBlock(block: string | null): string[] {
+  return block
+    ? block.split('\n').filter((line, index) => !(index === 0 && line.trim().length === 0))
+    : [];
+}
+
+function extractHoverMarkdownValue(hover: Hover): string {
+  if (typeof hover.contents === 'string') {
+    return hover.contents;
+  }
+  if (Array.isArray(hover.contents)) {
+    return hover.contents.map((entry) => typeof entry === 'string' ? entry : ('value' in entry ? entry.value : '')).join('\n');
+  }
+  return hover.contents.value;
+}
+
+function getDocumentLineText(document: TextDocument, line: number): string {
+  if (line < 0 || line >= document.lineCount) {
+    return '';
+  }
+
+  const start = Position.create(line, 0);
+  const end = line < document.lineCount - 1
+    ? Position.create(line + 1, 0)
+    : Position.create(line, Number.MAX_SAFE_INTEGER);
+  return document.getText({ start, end }).replace(/\r?\n$/, '');
+}
+
+function resolveHoverNegativeReason(
+  document: TextDocument,
+  position: Position,
+  catalog: SystemCatalog,
+  activeSnapshot?: ActiveDocumentServingSnapshot,
+): HoverNegativeProbe | null {
+  const lineText = activeSnapshot?.getLineText(position.line) ?? getDocumentLineText(document, position.line);
+  const token = activeSnapshot?.getTokenAt(position)
+    ?? findPowerBuilderIdentifierSpan(lineText, position.character, { allowCursorAfterIdentifier: true });
+  const maskAtCursor = activeSnapshot?.getMaskedCharacterType(position)
+    ?? stripCommentsSmart([lineText]).masks[0]?.[Math.min(Math.max(position.character, 0), Math.max(0, lineText.length - 1))];
+
+  if (maskAtCursor === CharType.Comment) {
+    return { reason: 'comment', token: 'comment', definitive: true };
+  }
+  if (maskAtCursor === CharType.String) {
+    return { reason: 'string', token: 'string', definitive: false };
+  }
+
+  if (!token) {
+    const probe = lineText[position.character] ?? lineText[Math.max(0, position.character - 1)] ?? '';
+    return {
+      reason: probe.trim().length === 0 ? 'whitespace' : 'separator',
+      token: probe.trim().length === 0 ? 'whitespace' : probe,
+      definitive: true,
+    };
+  }
+
+  const languageSymbol = catalog.resolveLanguageSymbol(token.word);
+  if (languageSymbol && (languageSymbol.kind === 'keyword' || languageSymbol.kind === 'reserved-word')) {
+    return { reason: 'keyword', token: token.word.toLowerCase(), definitive: false };
+  }
+
+  return null;
+}
+
+export function buildHoverPresentationResult(
+  document: TextDocument,
+  position: Position,
+  kb: KnowledgeBase,
+  catalog: SystemCatalog,
+  graph: InheritanceGraph,
+  hotContext?: HotContextCache,
+  documentationLocale: DocumentationLocale = 'en',
+  activeSnapshot?: ActiveDocumentServingSnapshot,
+): HoverPresentationResult {
+  const negativeProbe = resolveHoverNegativeReason(document, position, catalog, activeSnapshot);
+  if (negativeProbe?.definitive) {
+    return { kind: 'negative', reason: negativeProbe.reason, cacheToken: negativeProbe.token };
+  }
+
+  const dataWindowHover = provideDataWindowHoverAdapter({
+    document,
+    position,
+    kb,
+    graph,
+    systemCatalog: catalog,
+    hotContext,
+    activeSnapshot,
+  });
+  if (dataWindowHover) {
+    return {
+      kind: 'viewmodel',
+      viewModel: buildPreformattedHoverViewModel(dataWindowHover.source, extractHoverMarkdownValue(dataWindowHover.hover)),
+      cacheToken: activeSnapshot?.getTokenAt(position)?.word.toLowerCase() ?? dataWindowHover.fastContext.cacheKey,
+    };
+  }
+
+  const semanticFacade = createSemanticQueryFacade({ kb, graph, systemCatalog: catalog, hotContext });
+  const resolved = semanticFacade.resolveTargetInfo(document, position, { traceLabel: 'hover', consumer: 'hover' });
+  const cacheToken = resolved?.context.identifier.toLowerCase() ?? activeSnapshot?.getTokenAt(position)?.word.toLowerCase() ?? 'hover';
+  if (!resolved) {
+    return { kind: 'negative', reason: negativeProbe?.reason ?? 'unresolved', cacheToken: negativeProbe?.token ?? cacheToken };
+  }
+
+  const userDefinitions = resolved.targets;
+  if (userDefinitions.length > 0) {
+    const definition = userDefinitions[0];
+    const lifecycleLines = splitMarkdownBlock(buildLifecycleHoverBlock(definition, kb, graph, catalog));
+    const dataWindowLines = splitMarkdownBlock(buildDataWindowHoverBlock(definition, kb));
+    return {
+      kind: 'viewmodel',
+      viewModel: buildUserHoverViewModel(definition, {
+        confidence: resolved.confidence,
+        reasonCode: resolved.reasonCodes[0],
+        ambiguous: resolved.targets.length > 1,
+        ambiguityKind: resolved.ambiguityKind,
+        targetCount: resolved.targets.length,
+      }, {
+        detailLines: [...lifecycleLines, ...dataWindowLines],
+      }),
+      cacheToken,
+    };
+  }
+
+  const ownerType = resolved.context.qualifier
+    ? semanticFacade.resolveReceiverType(document, resolved.context.qualifier, position).ownerType ?? undefined
+    : undefined;
+  const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
+  const ownerScopedSymbol = ownerTypes.length > 0
+    ? catalog.resolveMemberFunctionForOwner(resolved.context.identifier, ownerTypes)
+      ?? catalog.resolveEventForOwner(resolved.context.identifier, ownerTypes)
+    : undefined;
+  const systemSymbols = resolved.context.qualifier
+    ? (ownerScopedSymbol ? [ownerScopedSymbol] : [])
+    : catalog.findSystemSymbol(resolved.context.identifier);
+  if (systemSymbols.length > 0) {
+    return {
+      kind: 'viewmodel',
+      viewModel: buildSystemHoverViewModel(systemSymbols[0], catalog, documentationLocale),
+      cacheToken,
+    };
+  }
+
+  const langSymbol = catalog.resolveLanguageSymbol(resolved.context.identifier);
+  if (langSymbol) {
+    if (langSymbol.kind === 'keyword' || langSymbol.kind === 'reserved-word') {
+      return { kind: 'negative', reason: 'keyword', cacheToken };
+    }
+
+    return {
+      kind: 'viewmodel',
+      viewModel: buildLanguageHoverViewModel(langSymbol, catalog, documentationLocale),
+      cacheToken,
+    };
+  }
+
+  return {
+    kind: 'negative',
+    reason: negativeProbe?.reason ?? 'unresolved',
+    cacheToken: negativeProbe?.token ?? cacheToken,
+  };
+}
+
 /**
  * Provee la información de Hover cuando el usuario pone el ratón sobre una palabra.
  */
@@ -126,279 +307,27 @@ export function provideHover(
   catalog: SystemCatalog,
   graph: InheritanceGraph,
   hotContext?: HotContextCache,
-  documentationLocale: DocumentationLocale = 'en'
+  documentationLocale: DocumentationLocale = 'en',
+  activeSnapshot?: ActiveDocumentServingSnapshot,
 ): Hover | null {
-  const dataWindowHover = provideDataWindowLegacyHover(document, position)
-    ?? providePowerScriptDataWindowPropertyHover(document, position, kb)
-    ?? providePowerScriptDataWindowColumnHover(document, position, kb);
-  if (dataWindowHover) {
-    return dataWindowHover;
-  }
-
-  const resolved = resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'hover', 'hover');
-  if (!resolved) {
+  const presentation = buildHoverPresentationResult(
+    document,
+    position,
+    kb,
+    catalog,
+    graph,
+    hotContext,
+    documentationLocale,
+    activeSnapshot,
+  );
+  if (presentation.kind === 'negative') {
     return null;
   }
 
-  const { identifier } = resolved.context;
-
-  // 1. Buscar en la KnowledgeBase (Definiciones del usuario/proyecto) mediante resolución semántica
-  const userDefinitions = resolved.targets;
-  if (userDefinitions.length > 0) {
-    // Tomamos la primera definición (el override más cercano o coincidencia exacta)
-    const definition = userDefinitions[0];
-    const lifecycleBlock = buildLifecycleHoverBlock(definition, kb, graph, catalog);
-    const dataWindowBlock = buildDataWindowHoverBlock(definition, kb);
-    return {
-      contents: {
-        kind: MarkupKind.Markdown,
-        value: `${formatUserHover(definition, {
-          confidence: resolved.confidence,
-          reasonCode: resolved.reasonCodes[0],
-          ambiguous: resolved.targets.length > 1,
-          ambiguityKind: resolved.ambiguityKind,
-          targetCount: resolved.targets.length
-        })}${lifecycleBlock ? `\n${lifecycleBlock}` : ''}${dataWindowBlock ? `\n${dataWindowBlock}` : ''}`
-      }
-    };
-  }
-
-  // 2. Si no hay en el usuario, buscar en el catálogo del sistema (PowerBuilder oficial)
-  const ownerType = resolved.context.qualifier
-    ? resolveDocumentQualifierType(document, resolved.context.qualifier, position, kb, hotContext)
-    : undefined;
-  const ownerScopedSymbol = ownerType
-    ? catalog.resolveMemberFunctionForOwner(identifier, [ownerType])
-      ?? catalog.resolveEventForOwner(identifier, [ownerType])
-    : undefined;
-  const systemSymbols = resolved.context.qualifier
-    ? (ownerScopedSymbol ? [ownerScopedSymbol] : [])
-    : catalog.findSystemSymbol(identifier);
-  if (systemSymbols.length > 0) {
-    // Tomamos la primera coincidencia
-    const symbol = systemSymbols[0];
-    return {
-      contents: {
-        kind: MarkupKind.Markdown,
-        value: buildSystemSymbolMarkdown(symbol, catalog, documentationLocale)
-      }
-    };
-  }
-
-  // 3. Si no hay callable/event/statement, buscar símbolos de lenguaje (keyword, datatype, pronoun, etc.)
-  const langSymbol = catalog.resolveLanguageSymbol(identifier);
-  if (langSymbol) {
-    return {
-      contents: {
-        kind: MarkupKind.Markdown,
-        value: buildLanguageSymbolMarkdown(langSymbol, catalog, documentationLocale)
-      }
-    };
-  }
-
-  return null;
-}
-
-/**
- * Formatea un PbSystemSymbolEntry como un Markdown rico con firmas, resumen y enlaces.
- */
-function buildSystemSymbolMarkdown(
-  symbol: PbSystemSymbolEntry,
-  catalog: SystemCatalog,
-  documentationLocale: DocumentationLocale,
-): string {
-  const lines: string[] = [];
-  const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
-  const displaySummary = getDisplaySummary(symbol, documentationLocale);
-  const displayDocumentation = getDisplayDocumentation(symbol, documentationLocale);
-  const displayObsoleteMessage = getDisplayObsoleteMessage(symbol, documentationLocale);
-  const displayUsageNotes = getDisplayUsageNotes(symbol, documentationLocale);
-  const displayReturnDocumentation = getDisplayReturnDocumentation(symbol, documentationLocale);
-
-  // Firma principal (tomamos la primera, a futuro se podría mostrar que hay N sobrecargas)
-  if (symbol.signatures && symbol.signatures.length > 0) {
-    const mainSig = symbol.signatures[0];
-    lines.push(`\`\`\`powerbuilder\n${mainSig.label}\n\`\`\``);
-  } else {
-    lines.push(`\`\`\`powerbuilder\n${symbol.name}\n\`\`\``);
-  }
-
-  lines.push('---');
-  
-  if (symbol.obsolete) {
-    lines.push(`**⚠️ OBSOLETO:** ${displayObsoleteMessage || 'Evita usar esta función.'}`);
-    if (symbol.replacement) {
-      lines.push(`> *Usa \`${symbol.replacement}\` en su lugar.*`);
+  return {
+    contents: {
+      kind: MarkupKind.Markdown,
+      value: formatHoverViewModel(presentation.viewModel)
     }
-    lines.push('');
-  }
-
-  if (displaySummary) {
-    lines.push(displaySummary);
-  }
-
-  if (displayDocumentation) {
-    lines.push('');
-    lines.push(displayDocumentation);
-  }
-
-  if (symbol.risk) {
-    lines.push('');
-    lines.push(`**Riesgo de uso:** ${formatSystemSymbolRisk(symbol.risk)}`);
-  }
-
-  if (symbol.signatures && symbol.signatures.length > 0) {
-    const mainSig = symbol.signatures[0];
-    if (mainSig.parameters && mainSig.parameters.length > 0) {
-      lines.push('');
-      lines.push('**Parámetros:**');
-      for (const p of mainSig.parameters) {
-        const parameterDocumentation = getDisplayParameterDocumentation(
-          symbol,
-          mainSig.label,
-          p.label,
-          documentationLocale,
-        ) ?? p.documentation;
-        lines.push(`* \`${p.label}\`${parameterDocumentation ? `: ${parameterDocumentation}` : ''}`);
-      }
-    }
-  }
-
-  if (displayReturnDocumentation) {
-    lines.push('');
-    lines.push(`**Retorno:** ${displayReturnDocumentation}`);
-  }
-
-  if (displayUsageNotes.length > 0) {
-    lines.push('');
-    lines.push('**Notas de uso:**');
-    for (const usageNote of displayUsageNotes) {
-      lines.push(`* ${usageNote}`);
-    }
-  }
-  
-  if (symbol.appliesTo && symbol.appliesTo.length > 0) {
-    lines.push('');
-    lines.push(`**Se aplica a:** ${symbol.appliesTo.join(', ')}`);
-  }
-
-  if (symbol.kind === 'enumerated-type' && effectiveEnumValues.length > 0) {
-    lines.push('');
-    lines.push(`**Valores:** ${effectiveEnumValues.join(', ')}`);
-  }
-
-  if (symbol.kind === 'enumerated-value' && symbol.enumValueOf) {
-    lines.push('');
-    lines.push(`**Tipo:** ${symbol.enumValueOf}`);
-    if (symbol.enumNumericValue !== undefined) {
-      lines.push(`**Valor numérico:** ${symbol.enumNumericValue}`);
-    }
-    if (symbol.enumValueMeaning) {
-      lines.push(`**Significado:** ${symbol.enumValueMeaning}`);
-    }
-  }
-
-  if (symbol.sourceUrl) {
-    lines.push('');
-    lines.push(`[📚 Documentación Oficial Appeon](${symbol.sourceUrl})`);
-  }
-
-  const lineage = formatLineageHover(systemProvenanceToLineage(symbol.provenance));
-  if (lineage) {
-    lines.push('');
-    lines.push(lineage);
-  }
-
-  return lines.join('\n');
-}
-
-function formatSystemSymbolRisk(risk: NonNullable<PbSystemSymbolEntry['risk']>): string {
-  switch (risk) {
-    case 'safe':
-      return 'seguro';
-    case 'dynamic':
-      return 'dinamico';
-    case 'deprecated':
-      return 'deprecated';
-    case 'legacy':
-      return 'legacy';
-    case 'external':
-      return 'externo';
-  }
-}
-
-/**
- * Formatea un símbolo de lenguaje (keyword, datatype, pronoun, etc.) como Markdown compacto.
- */
-function collectEffectiveEnumeratedTypeValues(
-  symbol: PbSystemSymbolEntry,
-  catalog: SystemCatalog
-): readonly string[] {
-  if (symbol.kind !== 'enumerated-type') {
-    return [];
-  }
-
-  const values = new Set<string>(symbol.enumValues ?? []);
-
-  for (const entry of catalog.listEnumeratedValuesForType(symbol.name)) {
-    values.add(entry.name);
-  }
-
-  return Array.from(values);
-}
-
-function buildLanguageSymbolMarkdown(
-  symbol: PbSystemSymbolEntry,
-  catalog: SystemCatalog,
-  documentationLocale: DocumentationLocale,
-): string {
-  const kindLabels: Record<string, string> = {
-    'keyword': '🔤 Palabra clave',
-    'reserved-word': '🔒 Palabra reservada',
-    'datatype': '📦 Tipo de dato',
-    'system-type': '🏛️ Tipo de sistema',
-    'enumerated-type': '🏷️ Tipo enumerado',
-    'operator': '⚡ Operador',
-    'pronoun': '👆 Pronombre de objeto',
-    'system-global': '🌐 Global del sistema',
-    'enumerated-value': '🔖 Valor enumerado',
-    'property': '🔧 Propiedad',
-    'constant': '📌 Constante',
   };
-
-  const lines: string[] = [];
-  const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
-  const displaySummary = getDisplaySummary(symbol, documentationLocale);
-  const displayDocumentation = getDisplayDocumentation(symbol, documentationLocale);
-  lines.push(`\`\`\`powerbuilder\n${symbol.name}\n\`\`\``);
-  lines.push('---');
-  lines.push(kindLabels[symbol.kind] ?? `📋 ${symbol.kind}`);
-  if (displaySummary) {
-    lines.push('');
-    lines.push(displaySummary);
-  }
-  if (symbol.category) {
-    lines.push('');
-    lines.push(`**Categoría:** ${symbol.category}`);
-  }
-  if (displayDocumentation) {
-    lines.push('');
-    lines.push(displayDocumentation);
-  }
-  if (symbol.kind === 'enumerated-type' && effectiveEnumValues.length > 0) {
-    lines.push('');
-    lines.push(`**Valores:** ${effectiveEnumValues.join(', ')}`);
-  }
-  if (symbol.kind === 'enumerated-value' && symbol.enumValueOf) {
-    lines.push('');
-    lines.push(`**Tipo:** ${symbol.enumValueOf}`);
-    if (symbol.enumNumericValue !== undefined) {
-      lines.push(`**Valor numérico:** ${symbol.enumNumericValue}`);
-    }
-    if (symbol.enumValueMeaning) {
-      lines.push(`**Significado:** ${symbol.enumValueMeaning}`);
-    }
-  }
-
-  return lines.join('\n');
 }

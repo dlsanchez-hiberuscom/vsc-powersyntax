@@ -13,6 +13,10 @@ import {
   withDiagnosticCode,
 } from '../../shared/diagnosticCodes';
 import { DIAGNOSTIC_SOURCE } from '../../shared/types';
+import {
+  buildDiagnosticMessageViewModels,
+  formatDiagnosticMessageViewModels,
+} from '../presentation/diagnosticPresentation';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { runExtraDiagnostics } from './diagnosticsExtra';
@@ -38,8 +42,9 @@ import { buildHierarchyInspection } from './hierarchyInspection';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import { getDocumentLineText } from '../utils/documentLineText';
 import {
-  DATAWINDOW_BIND_OWNER_TYPES,
   extractDataObjectLiteral,
+  isDataWindowOwnerType,
+  resolveCatalogOwnerTypes,
   resolveDataWindowDefinitionTargets,
   resolveDataWindowRetrieveArguments,
   type DataWindowRetrieveArgument,
@@ -121,7 +126,8 @@ export function buildDiagnosticsForDocument(
   const extra = runExtraDiagnostics(document);
   const obsolete = findObsoleteCalls(document.getText());
   const all = applySeverityOverrides([...structural, ...semantic, ...extra, ...obsolete]);
-  return dedupAndCap(all, MAX_DIAGNOSTICS_PER_FILE);
+  const presented = formatDiagnosticMessageViewModels(buildDiagnosticMessageViewModels(all));
+  return dedupAndCap(presented, MAX_DIAGNOSTICS_PER_FILE);
 }
 
 /**
@@ -533,10 +539,10 @@ export function validateSemantics(
   // --- Binding transaccional/DataObject para DataStore y DataWindow ---
   if (mainType) {
     for (const rootScope of scopes) {
-      checkDataObjectBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb);
+      checkDataObjectBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb, inheritanceGraph);
       checkDataWindowPropertyPathDiagnostics(rootScope, document, snapshot, diagnostics, kb);
-      checkTransactionBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb, systemCatalog);
-      checkEnumeratedValueContextDiagnostics(rootScope, document, snapshot, mainType, diagnostics, kb, systemCatalog);
+      checkTransactionBindings(rootScope, document.uri, snapshot, mainType, diagnostics, kb, systemCatalog, inheritanceGraph);
+      checkEnumeratedValueContextDiagnostics(rootScope, document, snapshot, mainType, diagnostics, kb, systemCatalog, inheritanceGraph);
     }
     checkLifecycleWarnings(mainType, semanticFacts, diagnostics, kb, inheritanceGraph, systemCatalog);
   }
@@ -760,7 +766,8 @@ function checkTransactionBindings(
   mainType: import('../knowledge/types').Fact,
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
-  systemCatalog: SystemCatalog
+  systemCatalog: SystemCatalog,
+  inheritanceGraph: InheritanceGraph
 ): void {
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
     const bindings = new Map<string, TransactionBinding>();
@@ -781,7 +788,7 @@ function checkTransactionBindings(
         const expression = dataObjectMatch[2].trim();
         const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
 
-        if (!targetType || !DATAWINDOW_BIND_OWNER_TYPES.has(targetType.toLowerCase())) {
+        if (!targetType || !isDataWindowOwnerType(targetType, inheritanceGraph)) {
           continue;
         }
 
@@ -811,8 +818,9 @@ function checkTransactionBindings(
         const methodName = bindMatch[2] as TransactionBinding['method'];
         const argument = bindMatch[3].trim();
         const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
+        const ownerTypes = resolveCatalogOwnerTypes(targetType, inheritanceGraph);
 
-        if (!targetType || !systemCatalog.resolveDataWindowFunctionForOwner(methodName, [targetType])) {
+        if (ownerTypes.length === 0 || !systemCatalog.resolveDataWindowFunctionForOwner(methodName, ownerTypes)) {
           continue;
         }
 
@@ -825,8 +833,9 @@ function checkTransactionBindings(
         const targetName = operationMatch[1];
         const operationName = operationMatch[2] as 'Retrieve' | 'Update';
         const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
+        const ownerTypes = resolveCatalogOwnerTypes(targetType, inheritanceGraph);
 
-        if (!targetType || !systemCatalog.resolveDataWindowFunctionForOwner(operationName, [targetType])) {
+        if (ownerTypes.length === 0 || !systemCatalog.resolveDataWindowFunctionForOwner(operationName, ownerTypes)) {
           continue;
         }
 
@@ -869,7 +878,7 @@ function checkTransactionBindings(
   }
 
   for (const child of scope.children) {
-    checkTransactionBindings(child, currentUri, snapshot, mainType, diagnostics, kb, systemCatalog);
+    checkTransactionBindings(child, currentUri, snapshot, mainType, diagnostics, kb, systemCatalog, inheritanceGraph);
   }
 }
 
@@ -879,7 +888,8 @@ function checkDataObjectBindings(
   snapshot: SemanticDocumentSnapshot,
   mainType: import('../knowledge/types').Fact,
   diagnostics: Diagnostic[],
-  kb: KnowledgeBase
+  kb: KnowledgeBase,
+  inheritanceGraph: InheritanceGraph
 ): void {
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
     const statements = getLogicalStatementsForScope(snapshot, scope);
@@ -898,7 +908,7 @@ function checkDataObjectBindings(
         const expression = assignMatch[2].trim();
         const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
 
-        if (!targetType || !DATAWINDOW_BIND_OWNER_TYPES.has(targetType.toLowerCase())) {
+        if (!targetType || !isDataWindowOwnerType(targetType, inheritanceGraph)) {
           continue;
         }
 
@@ -933,7 +943,7 @@ function checkDataObjectBindings(
   }
 
   for (const child of scope.children) {
-    checkDataObjectBindings(child, currentUri, snapshot, mainType, diagnostics, kb);
+    checkDataObjectBindings(child, currentUri, snapshot, mainType, diagnostics, kb, inheritanceGraph);
   }
 }
 
@@ -982,6 +992,7 @@ function checkEnumeratedValueContextDiagnostics(
   diagnostics: Diagnostic[],
   kb: KnowledgeBase,
   systemCatalog: SystemCatalog,
+  inheritanceGraph: InheritanceGraph,
 ): void {
   if (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event) {
     const statements = getLogicalStatementsForScope(snapshot, scope);
@@ -1001,16 +1012,17 @@ function checkEnumeratedValueContextDiagnostics(
           const propertyName = propertyMatch[2];
           const enumValueName = propertyMatch[3];
           const ownerType = resolveQualifierType(qualifier, document.uri, kb, line, mainType);
+          const ownerTypes = resolveCatalogOwnerTypes(ownerType, inheritanceGraph);
           const expectedEnumType = systemCatalog.resolveEnumeratedType(propertyName);
           const actualEnumValue = systemCatalog.resolveEnumeratedValue(enumValueName);
 
-          if (!ownerType || !expectedEnumType || !actualEnumValue) {
+          if (ownerTypes.length === 0 || !expectedEnumType || !actualEnumValue) {
             continue;
           }
 
           if (
             actualEnumValue.enumValueOf?.toLowerCase() === expectedEnumType.name.toLowerCase()
-            && matchesEnumeratedPropertyContext(actualEnumValue, propertyName, ownerType)
+            && matchesEnumeratedPropertyContext(actualEnumValue, propertyName, ownerTypes)
           ) {
             continue;
           }
@@ -1042,6 +1054,7 @@ function checkEnumeratedValueContextDiagnostics(
             Position.create(line, tokenEnd),
             kb,
             systemCatalog,
+            inheritanceGraph,
           );
           if (!expectedEnumType) {
             continue;
@@ -1065,7 +1078,7 @@ function checkEnumeratedValueContextDiagnostics(
   }
 
   for (const child of scope.children) {
-    checkEnumeratedValueContextDiagnostics(child, document, snapshot, mainType, diagnostics, kb, systemCatalog);
+    checkEnumeratedValueContextDiagnostics(child, document, snapshot, mainType, diagnostics, kb, systemCatalog, inheritanceGraph);
   }
 }
 
@@ -1476,9 +1489,9 @@ function visitScopes(
           if (
             qualifiedTarget
             && qualifiedTargetType
-            && DATAWINDOW_BIND_OWNER_TYPES.has(qualifiedTargetType.toLowerCase())
+            && isDataWindowOwnerType(qualifiedTargetType, inheritanceGraph)
             && isDataWindowBehavioralCatalogSymbol(systemCatalog, funcName)
-            && !systemCatalog.resolveDataWindowFunctionForOwner(funcName, [qualifiedTargetType])
+            && !systemCatalog.resolveDataWindowFunctionForOwner(funcName, resolveCatalogOwnerTypes(qualifiedTargetType, inheritanceGraph))
           ) {
             const col = raw.indexOf(funcName, raw.length - raw.trimStart().length);
             diagnostics.push(withDiagnosticCode({

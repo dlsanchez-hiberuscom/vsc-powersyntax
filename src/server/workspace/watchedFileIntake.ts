@@ -35,6 +35,7 @@ export interface ApplyWatchedFileEventsOptions {
   hotContextCache: HotContextCache;
   servingCache: ServingCache<unknown>;
   servingCacheFlushCoordinator: ServingCacheFlushCoordinator;
+  invalidateHoverPresentationCaches?: (uri?: string) => void;
   massiveChangeThreshold?: number;
   isDocumentOpen?: (uri: string) => boolean;
   getOpenDocument?: (uri: string) => TextDocument | undefined;
@@ -190,6 +191,7 @@ export async function applyWatchedFileEvents(
       if (!massive) {
         for (const uri of invalidationPlan.allUris) {
           opts.hotContextCache.invalidateForUri(uri);
+          opts.invalidateHoverPresentationCaches?.(uri);
         }
         invalidateServingCacheEntries(
           opts.servingCache,
@@ -251,6 +253,7 @@ export async function applyWatchedFileEvents(
       if (!massive) {
         for (const uri of invalidationPlan.allUris) {
           opts.hotContextCache.invalidateForUri(uri);
+          opts.invalidateHoverPresentationCaches?.(uri);
         }
         invalidateServingCacheEntries(
           opts.servingCache,
@@ -272,6 +275,7 @@ export async function applyWatchedFileEvents(
 
   if (massive) {
     opts.hotContextCache.invalidate();
+    opts.invalidateHoverPresentationCaches?.();
     invalidateServingCacheEntries(
       opts.servingCache,
       undefined,
@@ -299,6 +303,7 @@ export async function applyWatchedFileEvents(
   if (!massive && sourceOriginInvalidatedUris.length > 0) {
     for (const uri of sourceOriginInvalidatedUris) {
       opts.hotContextCache.invalidateForUri(uri);
+      opts.invalidateHoverPresentationCaches?.(uri);
       diagnosticRefreshUris.add(uri);
     }
     invalidateServingCacheEntries(

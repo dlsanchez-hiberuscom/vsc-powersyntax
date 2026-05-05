@@ -22,10 +22,43 @@ import { resolveDocumentQualifierType } from './queryContext';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import {
   DATAWINDOW_BIND_OWNER_TYPES,
-  findNearestDataObjectLiteralBinding,
-  resolveDataWindowRetrieveArguments,
+  resolveCatalogOwnerTypes,
 } from './dataWindowBindingModel';
+import { buildLinkedDataWindowRetrieveSignatureAdapter } from './dataWindowServingAdapters';
 import type { PbSystemSymbolEntry, PbSystemSymbolSignature } from '../knowledge/system/types';
+
+export type SignatureHelpViewModelSource = 'system-catalog' | 'workspace' | 'datawindow-binding';
+
+export interface SignatureHelpViewModel {
+  signatures: SignatureInformation[];
+  activeSignature: number;
+  activeParameter: number;
+  source: SignatureHelpViewModelSource;
+  reason: string;
+}
+
+export function formatSignatureHelpViewModel(viewModel: SignatureHelpViewModel): SignatureHelp {
+  return {
+    signatures: viewModel.signatures,
+    activeSignature: viewModel.activeSignature,
+    activeParameter: viewModel.activeParameter,
+  };
+}
+
+function createSignatureHelpFromViewModel(
+  signatures: SignatureInformation[],
+  activeParameter: number,
+  source: SignatureHelpViewModelSource,
+  reason: string,
+): SignatureHelp {
+  return formatSignatureHelpViewModel({
+    signatures,
+    activeSignature: 0,
+    activeParameter,
+    source,
+    reason,
+  });
+}
 
 export function provideSignatureHelp(
   document: TextDocument,
@@ -54,24 +87,32 @@ export function provideSignatureHelp(
   const ownerType = qualifier
     ? resolveDocumentQualifierType(document, qualifier, position, kb, hotContext)
     : undefined;
+  const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
 
   const linkedRetrieveSignature = identifier.toLowerCase() === 'retrieve'
     && qualifier
-    && ownerType
-    && DATAWINDOW_BIND_OWNER_TYPES.has(ownerType.toLowerCase())
-    ? buildLinkedDataWindowRetrieveSignature(document, qualifier, position.line, kb)
+    && ownerTypes.some((typeName) => DATAWINDOW_BIND_OWNER_TYPES.has(typeName))
+    ? buildLinkedDataWindowRetrieveSignatureAdapter({
+        document,
+        position,
+        kb,
+        graph,
+        systemCatalog,
+        hotContext,
+      }, qualifier)
     : null;
   if (linkedRetrieveSignature) {
-    return {
-      signatures: [linkedRetrieveSignature],
-      activeSignature: 0,
+    return createSignatureHelpFromViewModel(
+      [linkedRetrieveSignature],
       activeParameter,
-    };
+      'datawindow-binding',
+      'linked-datawindow-retrieve',
+    );
   }
 
   // 1. Intentar resolver en SystemCatalog
-  const ownerScopedTarget = ownerType
-    ? systemCatalog.resolveMemberFunctionForOwner(identifier, [ownerType])
+  const ownerScopedTarget = ownerTypes.length > 0
+    ? systemCatalog.resolveMemberFunctionForOwner(identifier, ownerTypes)
     : undefined;
   const sysTargets = qualifier
     ? (ownerScopedTarget ? [ownerScopedTarget] : [])
@@ -102,11 +143,12 @@ export function provideSignatureHelp(
     }
 
     if (signatures.length > 0) {
-      return {
+      return createSignatureHelpFromViewModel(
         signatures,
-        activeSignature: 0,
-        activeParameter: activeParameter
-      };
+        activeParameter,
+        'system-catalog',
+        qualifier ? 'owner-scoped-system-callable' : 'global-system-callable',
+      );
     }
   }
 
@@ -149,11 +191,12 @@ export function provideSignatureHelp(
     }
     
     if (signatures.length > 0) {
-      return {
+      return createSignatureHelpFromViewModel(
         signatures,
-        activeSignature: 0,
-        activeParameter: activeParameter
-      };
+        activeParameter,
+        'workspace',
+        'semantic-query-callable',
+      );
     }
   }
 
@@ -178,36 +221,6 @@ function getDocumentationPriority(entry: PbSystemSymbolEntry): number {
   }
 
   return 2;
-}
-
-function buildLinkedDataWindowRetrieveSignature(
-  document: TextDocument,
-  qualifier: string,
-  line: number,
-  kb: KnowledgeBase
-): SignatureInformation | null {
-  const dataObjectLiteral = findNearestDataObjectLiteralBinding(document, qualifier, line);
-  if (!dataObjectLiteral) {
-    return null;
-  }
-
-  const retrieveArguments = resolveDataWindowRetrieveArguments(dataObjectLiteral, kb);
-  if (retrieveArguments.length === 0) {
-    return null;
-  }
-
-  const parameters = retrieveArguments.map((argument) =>
-    ParameterInformation.create(
-      argument.label,
-      `Argumento de retrieve '${argument.name}' (${argument.type}) del DataWindow '${dataObjectLiteral}'.`
-    )
-  );
-
-  return SignatureInformation.create(
-    `Retrieve(${retrieveArguments.map((argument) => argument.label).join(', ')})`,
-    `Retrieve del DataWindow '${dataObjectLiteral}' enlazado por DataObject.`,
-    ...parameters
-  );
 }
 
 function inferArgumentType(argumentText: string): string {

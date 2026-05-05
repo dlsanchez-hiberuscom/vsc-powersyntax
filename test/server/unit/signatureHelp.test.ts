@@ -1,8 +1,8 @@
 import * as assert from 'assert';
-import { Position } from 'vscode-languageserver/node';
+import { Position, SignatureInformation } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { provideSignatureHelp } from '../../../src/server/features/signatureHelp';
+import { formatSignatureHelpViewModel, provideSignatureHelp } from '../../../src/server/features/signatureHelp';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
@@ -31,6 +31,21 @@ suite('unit/signatureHelp', () => {
     kb.upsertDocument(uri, analysis.semanticFacts, analysis.scopes);
     return doc;
   }
+
+  test('formatea SignatureHelpViewModel sin recomponer firmas ni parametros', () => {
+    const signature = SignatureInformation.create('Abs ( n )', 'doc');
+    const result = formatSignatureHelpViewModel({
+      signatures: [signature],
+      activeSignature: 0,
+      activeParameter: 0,
+      source: 'system-catalog',
+      reason: 'unit-test',
+    });
+
+    assert.strictEqual(result.signatures[0], signature);
+    assert.strictEqual(result.activeSignature, 0);
+    assert.strictEqual(result.activeParameter, 0);
+  });
 
   test('debe devolver ayuda de firma para una función global del sistema', () => {
     const doc = setupDocument('file:///test.srw', 'integer li_rtn\nli_rtn = MessageBox("Title", "Message"');
@@ -358,6 +373,55 @@ end subroutine
     const lines = doc.getText().split(/\r?\n/);
     const lineIndex = lines.findIndex((line) => line.includes('ids_orders.Retrieve('));
     const pos = Position.create(lineIndex, 22);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph);
+
+    assert.ok(result);
+    assert.ok(result.signatures.some((signature) => signature.label === 'Retrieve(number custarg)'));
+    assert.strictEqual(result.activeParameter, 0);
+  });
+
+  test('debe especializar la firma de Retrieve para un descendiente custom de DataWindow', () => {
+    setupDocument('file:///u_dw_sig_bound.sru', `
+global type u_dw_sig_bound from datawindow
+end type
+    `);
+
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_sales_orders_custom.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_sales_orders_custom.srd',
+        'release 39;',
+        'table(retrieve="PBSELECT( VERSION(400) TABLE(NAME=~"sales_order~" ) ARG(NAME = ~"custarg~" TYPE = number) " arguments=(("custarg", number)) )" )'
+      ].join('\r\n')
+    );
+    const dataWindowAnalysis = analyzeDocument(dataWindowDocument);
+    kb.upsertDocument(
+      dataWindowDocument.uri,
+      dataWindowAnalysis.semanticFacts,
+      dataWindowAnalysis.scopes,
+      dataWindowAnalysis.snapshot
+    );
+
+    const doc = setupDocument('file:///test_dw_signature_bound_custom.sru', `
+global type w_tx_sig_bound_custom from window
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  u_dw_sig_bound idw_orders
+  idw_orders.DataObject = "d_sales_orders_custom"
+  idw_orders.Retrieve(
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('idw_orders.Retrieve('));
+    const pos = Position.create(lineIndex, lines[lineIndex].length);
     const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph);
 
     assert.ok(result);

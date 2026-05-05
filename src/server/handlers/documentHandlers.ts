@@ -36,6 +36,7 @@ export interface DocumentHandlerContext {
   isSemanticallyServedDocument(document: TextDocument): boolean;
   setActiveDocumentUri(uri: string): void;
   invalidateCodeLensCache(uri?: string): void;
+  invalidateHoverPresentationCaches(uri?: string): void;
   pushWatchedFileChange(change: FileEvent): void;
 }
 
@@ -57,6 +58,7 @@ export function registerDocumentHandlers(context: DocumentHandlerContext): void 
     isSemanticallyServedDocument,
     setActiveDocumentUri,
     invalidateCodeLensCache,
+    invalidateHoverPresentationCaches,
     pushWatchedFileChange,
   } = context;
 
@@ -114,6 +116,7 @@ export function registerDocumentHandlers(context: DocumentHandlerContext): void 
     for (const uri of invalidationPlan.allUris) {
       hotContextCache.invalidateForUri(uri);
       invalidateCodeLensCache(uri);
+      invalidateHoverPresentationCaches(uri);
     }
     runtimeJournal.record({
       phase: 'invalidation',
@@ -151,6 +154,7 @@ export function registerDocumentHandlers(context: DocumentHandlerContext): void 
     for (const uri of invalidationPlan.allUris) {
       hotContextCache.invalidateForUri(uri);
       invalidateCodeLensCache(uri);
+      invalidateHoverPresentationCaches(uri);
     }
     runtimeJournal.record({
       phase: 'invalidation',
@@ -187,6 +191,7 @@ export interface ShutdownHandlerContext {
   disposeTraceSnapshotSubscription(): void;
   disposeWatcherIntake(): void;
   invalidateCodeLensCache(uri?: string): void;
+  invalidateHoverPresentationCaches(uri?: string): void;
 }
 
 export function registerShutdownHandler(context: ShutdownHandlerContext): void {
@@ -199,6 +204,7 @@ export function registerShutdownHandler(context: ShutdownHandlerContext): void {
     disposeTraceSnapshotSubscription,
     disposeWatcherIntake,
     invalidateCodeLensCache,
+    invalidateHoverPresentationCaches,
   } = context;
 
   connection.onShutdown(async () => {
@@ -206,6 +212,7 @@ export function registerShutdownHandler(context: ShutdownHandlerContext): void {
     disposeWatcherIntake();
     invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
     invalidateCodeLensCache();
+    invalidateHoverPresentationCaches();
     await servingCacheFlushCoordinator.flushIfDirty();
     scheduler.shutdown();
     clearAllScheduledDiagnostics();

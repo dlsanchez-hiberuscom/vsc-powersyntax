@@ -25,6 +25,443 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.217 BLOQUE 12. Legacy Isolation, Technical Debt & Controlled Cleanup — **Cerrado (legacy-isolation / technical-debt / cleanup-policy / 2026-05)**
+
+**Objetivo:** fijar una frontera explícita para `plugin_old`, registrar deuda técnica con estados claros y reforzar cleanup controlado sin retirar superficies útiles ni introducir dependencias legacy en runtime.
+
+**Resultado registrado:**
+- [docs/legacy-isolation.md](legacy-isolation.md) queda como owner canónico de la política `plugin_old` reference-only, usos permitidos/prohibidos, contrato de extracción, guardrail ejecutable y política de retirada;
+- [docs/technical-debt-inventory.md](technical-debt-inventory.md) registra categorías, estados oficiales, owners, decisiones, validación esperada y cleanup receipts para deuda post-bloque;
+- [.github/copilot-instructions.md](../.github/copilot-instructions.md) y [AGENTS.md](../AGENTS.md) quedan alineados en tratar `plugin_old` como evidencia reference-only y no como dependencia runtime;
+- [test/server/unit/architectureImports.test.ts](../test/server/unit/architectureImports.test.ts) refuerza el guard `src/** -> plugin_old/**` para static imports, dynamic `import()` y CommonJS `require()`;
+- [tools/docs-drift-audit.cjs](../tools/docs-drift-audit.cjs) valida prompts, agentes y skills versionados contra documentación AI; [test/server/unit/docsDriftAudit.test.ts](../test/server/unit/docsDriftAudit.test.ts) cubre el caso negativo;
+- [docs/release.md](release.md) añade checklist pre-release de cleanup, TODO/deuda, VSIX contents y receipts;
+- [README.md](../README.md), [docs/architecture-status.md](architecture-status.md), [docs/architecture-implementation-map.md](architecture-implementation-map.md), [docs/testing.md](testing.md), [docs/backlog.md](backlog.md), [docs/current-focus.md](current-focus.md) y [docs/roadmap.md](roadmap.md) quedan alineados con el cierre y la promoción de Bloque 13;
+- no se eliminaron archivos legacy, prompts, agents, skills, fixtures ni scripts durante este bloque.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(docsDriftAudit|architectureImports)"` (`17 passing`, exit code 0)
+- `npm run test:docs:drift` (`passed`; `findings: []`, `activeBacklogItems: 1`, `currentFocusId: BLOQUE-13`, `agentFiles: 7`, `skillFiles: 8`, exit code 0)
+- `npm run test:architecture:rapid` (`smoke 3 passing`, `performance 7 passing`, architecture rapid gate passed, exit code 0)
+
+**Documentación alineada:**
+- `.github/copilot-instructions.md`
+- `README.md`
+- `docs/legacy-isolation.md`
+- `docs/technical-debt-inventory.md`
+- `docs/release.md`
+- `docs/architecture-status.md`
+- `docs/architecture-implementation-map.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.216 BLOQUE 11. Build, Release, VSIX, ORCA/PBAutoBuild & CI/CD Rails — **Cerrado (release / vsix / ci / external-build-rails / 2026-05)**
+
+**Objetivo:** consolidar un carril profesional y reproducible de release/VSIX/CI junto con documentación y troubleshooting de PBAutoBuild/ORCA como rails externas opcionales, sin convertir herramientas PowerBuilder en dependencia del hot path LSP.
+
+**Resultado registrado:**
+- [package.json](../package.json) refuerza `release:verify` para ejecutar `npm test`, architecture rapid, docs drift, performance gate, catalog coverage, package VSIX, verify VSIX contents, installed smoke y summary final;
+- [tools/release-readiness-summary.mjs](../tools/release-readiness-summary.mjs) publica versión, commit, artifact `.dist/vsc-powersyntax.vsix` y validaciones ejecutadas al final del carril;
+- [.github/workflows/release-readiness.yml](../.github/workflows/release-readiness.yml) ejecuta el mismo lane bajo `xvfb-run -a` y sube `vsc-powersyntax-vsix` con `retention-days: 14` sin publicar Marketplace;
+- [docs/release.md](release.md) queda como owner canónico para release readiness, VSIX, smoke instalada, CI artifact, versioning, changelog, Marketplace/pre-release y publish policy con `VSCE_PAT`/approval explícito;
+- [docs/troubleshooting.md](troubleshooting.md) queda como owner de failure reasons para release, PBAutoBuild, ORCA, Workspace Trust, redacción de logs y support bundles;
+- [test/server/unit/releaseReadinessContract.test.ts](../test/server/unit/releaseReadinessContract.test.ts) fija el nuevo lane, summary, workflow headless/retention y owners documentales; [test/server/unit/vsixPackageSurfaceContract.test.ts](../test/server/unit/vsixPackageSurfaceContract.test.ts) sigue cubriendo la allowlist productiva del VSIX;
+- [README.md](../README.md), [docs/developer-workflows.md](developer-workflows.md), [docs/architecture-implementation-map.md](architecture-implementation-map.md), [docs/architecture-status.md](architecture-status.md) y [docs/testing.md](testing.md) quedan alineados con el owner release/troubleshooting.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(releaseReadinessContract|vsixPackageSurfaceContract|architectureImports|buildOrcaFailureClassification)"` (`21 passing`, exit code 0)
+- `npm run test:docs:drift` (`passed`; `findings: []`)
+- `npm run package:vsix` (`.dist/vsc-powersyntax.vsix`, `21 files`, `1.51 MB`, exit code 0)
+- `npm run verify:vsix-contents` (`VSIX verificado correctamente con 19 entradas`, exit code 0)
+- `npm run release:summary` (`version: 0.1.0`, `vsix: .dist/vsc-powersyntax.vsix`, exit code 0)
+- `npm run test:smoke:installed-vsix` (exit code 0)
+- `npm run release:verify` (`npm test`, architecture rapid, docs drift, performance gate, catalog coverage, VSIX package, VSIX verification, installed smoke y summary; `$LASTEXITCODE = 0`)
+
+**Documentación alineada:**
+- `README.md`
+- `docs/release.md`
+- `docs/troubleshooting.md`
+- `docs/developer-workflows.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.215 BLOQUE 10. AI Tools, Agents, Prompts & Public Contracts — **Cerrado (ai-governance / public-contracts / prompts / 2026-05)**
+
+**Objetivo:** ordenar las superficies AI del repositorio, fijar contratos públicos read-only, context bundles, prompts, agents, skills, política de tools/MCP, safe-edit y validación sin introducir write-enabled tools ni motores semánticos paralelos.
+
+**Resultado registrado:**
+- [docs/ai-orchestration.md](ai-orchestration.md) queda como owner canónico de customizations AI, instrucciones, prompts, agents, skills, contratos públicos read-only, context bundles, policy tools/MCP, safe-edit, checklist de validación, token budget y seguridad/data exposure;
+- [docs/ai/README.md](ai/README.md), [docs/ai-orchestrator.md](ai-orchestrator.md), [docs/ai-agents-catalog.md](ai-agents-catalog.md) y [docs/ai-context/powerbuilder-plugin-context.md](ai-context/powerbuilder-plugin-context.md) apuntan al nuevo owner sin duplicar arquitectura ni backlog;
+- [.github/prompts/audit-architecture-implementation-map.prompt.md](../.github/prompts/audit-architecture-implementation-map.prompt.md) reemplaza el prompt histórico sin extensión ejecutable, alineando la carpeta `.github/prompts` con el contrato `*.prompt.md`;
+- [tools/docs-drift-audit.cjs](../tools/docs-drift-audit.cjs) ahora valida también prompt files con extensión inválida en `.github/prompts`, y [test/server/unit/docsDriftAudit.test.ts](../test/server/unit/docsDriftAudit.test.ts) fija el caso negativo;
+- [test/server/unit/aiCustomizationGovernance.test.ts](../test/server/unit/aiCustomizationGovernance.test.ts) fija el mapa canónico, contratos read-only, context bundles, safe-edit, política MCP/tooling y condición de retiro de stubs de compatibilidad;
+- [README.md](../README.md), [docs/testing.md](testing.md), [docs/architecture-status.md](architecture-status.md), [docs/architecture-implementation-map.md](architecture-implementation-map.md) y [docs/backlog.md](backlog.md) quedan alineados con el owner AI y el guard de prompts.
+
+**Validación registrada:**
+- `npm run compile` (`tsc -b`, exit code 0)
+- `npm run test:unit -- --grep "unit/(aiContextDocs|aiCustomizationGovernance|aiTaskContextBundle|publicApi|docsDriftAudit)"` (`34 passing`, exit code 0)
+- `npm run test:architecture:rapid` (`passed`; smoke `3 passing`, performance `7 passing`)
+- `npm run test:docs:drift` (`passed`; `promptFiles: 16`, `findings: []`)
+- `npm run test:performance:gate` (`4 passing`; `10` métricas `[perf-budget]` dentro de budget)
+
+**Documentación alineada:**
+- `README.md`
+- `docs/ai-orchestration.md`
+- `docs/ai/README.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.214 BLOQUE 9. Testing, Performance Gates & Regression Safety — **Cerrado (testing / performance / regression-safety / 2026-05)**
+
+**Objetivo:** convertir decisiones de arquitectura, hot path, payload, caché, performance y docs lifecycle en contratos ejecutables y en una matriz de lanes oficial para humanos/agentes.
+
+**Resultado registrado:**
+- [docs/testing.md](testing.md) incorpora la matriz canónica de lanes con comandos reales de [package.json](../package.json), coste esperado, riesgo cubierto y regla explícita para `test:real-corpora` como carril opt-in sin dependencia obligatoria de CI;
+- [test/server/helpers/hotPathTestHarness.ts](../test/server/helpers/hotPathTestHarness.ts) centraliza `KnowledgeBase`, `InheritanceGraph`, `SystemCatalog`, `analysisCache` caliente y spies de IO/full parse; [interactiveHotPathGuards.test.ts](../test/server/unit/interactiveHotPathGuards.test.ts) consume ese harness para `hover`, `completion`, `signatureHelp`, `definition`, `documentSymbols` y `semanticTokens`;
+- [test/server/unit/lspPayloadBudgetContracts.test.ts](../test/server/unit/lspPayloadBudgetContracts.test.ts) mide payloads representativos de `hover`, `completion`, `completion-resolve`, `signatureHelp`, `definition`, `references`, `documentSymbols` y `semanticTokens` contra [payloadBudget.ts](../src/server/serving/payloadBudget.ts);
+- [test/server/unit/servingCache.test.ts](../test/server/unit/servingCache.test.ts) añade regresión para claves estructuradas que aíslan `sourceOrigin`, `locale` y `semanticEpoch`, manteniendo invalidación por URI sin colisión entre particiones;
+- [test/server/performance/ci-budget-gate.perf.test.ts](../test/server/performance/ci-budget-gate.perf.test.ts) amplía `test:performance:gate` con métricas deterministas hot para `completion`, `signatureHelp`, `definition`, `documentSymbols` y `semanticTokens`, además de hover/diagnostics/batch existentes;
+- [tools/run-architecture-hotspot-guard.mjs](../tools/run-architecture-hotspot-guard.mjs) cubre ahora `featureHandlers.ts`, `completion.ts`, `hover.ts`, `signatureHelp.ts`, `definition.ts`, `diagnostics.ts`, `dataWindowFastContext.ts` y `dataWindowServingAdapters.ts`, con budgets y sugerencias accionables;
+- [tools/docs-drift-audit.cjs](../tools/docs-drift-audit.cjs) valida referencias a prompts `.prompt.md` existentes en backlog/current-focus/roadmap y [docsDriftAudit.test.ts](../test/server/unit/docsDriftAudit.test.ts) fija el caso negativo;
+- [script/generate_official_function_catalog.cjs](../script/generate_official_function_catalog.cjs) vuelve a existir como wrapper de compatibilidad hacia el generador canónico plural, desbloqueando el carril unitario sin mover el source-of-truth real.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx vscode-test --label unit --grep "catalogGeneratorScript|testingMatrixDocs|lspPayloadBudgetContracts|docsDriftAudit|interactiveHotPathGuards|architectureImports|ServingCache"` (`69 passing`)
+- `npm run test:unit` (`1192 passing`, exit code 0)
+- `npm test` (`unit 1192 passing`, `integration 4 passing`, exit code 0)
+- `npm run test:architecture:metrics` (`passed`; `17` hotspots, `0` failing)
+- `npm run test:architecture:rapid` (`passed`; smoke `3 passing`, performance `7 passing`)
+- `npm run test:performance:gate` (`4 passing`; `10` métricas `[perf-budget]` dentro de budget)
+- `npm run test:docs:drift` (`passed`, `findings: []`)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/developer-workflows.md`
+- `docs/performance-budget.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.213 BLOQUE 8. Architectural Modularization, Boundaries & Composition Roots — **Cerrado (architecture / boundaries / composition-roots / 2026-05)**
+
+**Objetivo:** reforzar boundaries client/server/shared, reducir crecimiento de composition roots y convertir reglas arquitectónicas críticas en fitness functions ejecutables sin hacer un big-bang refactor.
+
+**Resultado registrado:**
+- [src/server/handlers/featureHandlerRegistration.ts](../src/server/handlers/featureHandlerRegistration.ts) concentra el registro LSP primario/auxiliar de features y deja [src/server/server.ts](../src/server/server.ts) como wiring de bootstrap más claro;
+- [src/server/handlers/commandHandlerRegistration.ts](../src/server/handlers/commandHandlerRegistration.ts) centraliza el pipeline `workspace/executeCommand` hacia build, report y runtime handlers manteniendo el orden estable;
+- [test/server/unit/architectureImports.test.ts](../test/server/unit/architectureImports.test.ts) amplía guards para `shared` puro, aislamiento productivo de `plugin_old`, frontera DataWindow/parsing, presentation purity y budgets de hotspots con schema enriquecido;
+- [tools/run-architecture-hotspot-guard.mjs](../tools/run-architecture-hotspot-guard.mjs) añade `growthPolicy` y sugerencias accionables por root/slice; [artifacts/performance/architecture-hotspot-guard.json](../artifacts/performance/architecture-hotspot-guard.json) queda como evidencia serializada;
+- `server.ts` baja de `966` a `885` líneas en el gate, con handler registration como destino modular inicial; `extension.ts` sigue vigilado como composition root cliente con lazy controllers y `commandRegistration.ts` como wiring declarativo;
+- `src/shared/**` queda protegido como capa de contratos puros, permitiendo sólo imports LSP type-only cuando son parte del contrato serializable;
+- `src/**` no puede importar `plugin_old/**` como dependencia runtime; la política de retirada legacy queda para el bloque/deuda correspondiente, no para producto activo.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx vscode-test --label unit --grep "architectureImports|lspCapabilitiesContract|featureHandlers|runtimeCommandHandlers|buildCommandHandlers|reportCommandHandlers"` (`13 passing`)
+- `npm run test:architecture:metrics` (`passed`; `server.ts = 885/1100`, warnings no bloqueantes preexistentes)
+- `npm test` (`unit 1186 passing`, `integration 4 passing`, exit code 0)
+- `npm run test:architecture:rapid` (`passed`; smoke `3 passing`, performance `7 passing`)
+- `npm run test:performance:gate` (`4 passing`; todos los budgets ok)
+- `npm run test:docs:drift` (`passed`, `findings: []` tras el cierre documental)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/developer-workflows.md`
+- `docs/done-log.md`
+
+## 1.212 BLOQUE 7. Presentation, ViewModels & UX Contracts — **Cerrado (presentation / viewmodels / UX contracts / 2026-05)**
+
+**Objetivo:** separar la resolución semántica de la presentación visible LSP/AI mediante ViewModels y formatters puros, sin duplicar semántica ni inflar payloads de hot path.
+
+**Resultado registrado:**
+- [src/server/presentation/viewModels.ts](../src/server/presentation/viewModels.ts) define contratos de presentación compactos para completion initial/resolve, definition, diagnostics, semantic tokens y AI context, con payload policy común y sin stores semánticos runtime;
+- [src/server/presentation/completionPresentation.ts](../src/server/presentation/completionPresentation.ts), [definitionPresentation.ts](../src/server/presentation/definitionPresentation.ts), [diagnosticPresentation.ts](../src/server/presentation/diagnosticPresentation.ts), [semanticTokenPresentation.ts](../src/server/presentation/semanticTokenPresentation.ts) y [aiContextPresentation.ts](../src/server/presentation/aiContextPresentation.ts) materializan formatters/read models feature-specific sobre datos ya resueltos;
+- [src/server/features/completion.ts](../src/server/features/completion.ts), [definition.ts](../src/server/features/definition.ts), [diagnostics.ts](../src/server/features/diagnostics.ts) y [semanticTokens.ts](../src/server/features/semanticTokens.ts) delegan la adaptación final a la capa `presentation` sin reabrir resolvers, parser, catálogo ni DataWindowFastContext;
+- `completionItem/resolve` conserva lista inicial ligera y aplica overlay localizado en presentación sin cambiar identidad de símbolo, dominio ni lookup keys;
+- `DiagnosticMessageViewModel` conserva code, severity, reason codes y confidence antes de publicar DTOs LSP; `SemanticTokensViewModel` ordena/deduplica antes de `SemanticTokensBuilder`; `DefinitionViewModel` mantiene respuesta `null|Location|Location[]` sin internals;
+- [test/server/unit/architectureImports.test.ts](../test/server/unit/architectureImports.test.ts) añade guard para que `src/server/presentation` no importe IO, workspace discovery, parser ni stores semánticos runtime.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx vscode-test --label unit --grep "presentationContracts|architectureImports|completion|diagnostics|semanticTokens|definition|hoverFormat|signatureHelp|interactiveHotPathGuards"` (`175 passing`)
+- `npm run test:unit` (`1183 passing`)
+- `npm run test:architecture:metrics` (`passed`; hotspots dentro de budgets, warnings no bloqueantes preexistentes)
+- `npm run test:architecture:rapid` (`passed`; smoke `3 passing`, performance `7 passing`)
+- `npm run test:performance:gate` (`4 passing`; todos los budgets ok)
+- `npm run test:docs:drift` (`passed`, `findings: []` tras el cierre documental)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/done-log.md`
+
+## 1.211 BLOQUE 6. DataWindow Fast Mode & Boundary Hardening — **Cerrado (datawindow / hot-path / boundary / 2026-05)**
+
+**Objetivo:** consolidar una ruta rápida, segura y mantenible para DataWindow/DataStore/DataWindowChild en hot path interactivo, sin tratar `.srd` como PowerScript genérico, sin crear parser nuevo y sin duplicar binding logic entre providers.
+
+**Resultado registrado:**
+- [src/server/analysis/documentAnalysis.ts](../src/server/analysis/documentAnalysis.ts) blinda la frontera `.srd` como dominio DataWindow y conserva stub navegable sin entrar por el parser PowerScript genérico;
+- [src/server/features/dataWindowFastContext.ts](../src/server/features/dataWindowFastContext.ts) publica `DataWindowFastContext` read-only, high-confidence y versionado por URI, document version, `semanticEpoch`, `sourceOrigin`, receiver, binding y DataObject;
+- [src/server/features/dataWindowServingAdapters.ts](../src/server/features/dataWindowServingAdapters.ts) centraliza adapters DataWindow para hover, completion, definition y signatureHelp sobre el fast context, incluyendo `GetItem*`/`SetItem*` con columna literal y buffers seguros;
+- [src/server/features/dataWindowPropertyPaths.ts](../src/server/features/dataWindowPropertyPaths.ts) expone el lookup reutilizable de property paths seguras para evitar hardcodes duplicados;
+- `dataWindowBindingModel.ts`, `dataWindowColumnAccess.ts`, `dataWindowPropertyPaths.ts`, `SystemCatalog` y `DataWindowModel` quedan documentados como owners de binding, columnas, properties, buffers oficiales y modelo canónico;
+- la policy `Describe/Modify`/strings dinámicos degrada a `unknown`/low confidence y no expone columnas si el DataObject no es defendible.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx vscode-test --label unit --grep "dataWindowFastContext|documentAnalysis|interactiveHotPathGuards|completion|hover|definition|signatureHelp"` (`155 passing`)
+- `npm run test:unit` (`1176 passing`)
+- `npm run test:architecture:metrics` (`passed`; hotspots dentro de budgets, warnings no bloqueantes preexistentes)
+- `npm run test:architecture:rapid` (`passed`; smoke `3 passing`, performance `7 passing`)
+- `npm run test:performance:gate` (`4 passing`; todos los budgets ok)
+- `npm run test:docs:drift` (`passed`, `findings: []` antes del cierre documental)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/done-log.md`
+
+## 1.210 BLOQUE 5. Semantic Query Foundation & Resolver Ownership — **Cerrado (semantic-query / resolver-ownership / facade / 2026-05)**
+
+**Objetivo:** consolidar owners semánticos claros para contexto posicional, symbol resolution, receiver type, callables, inheritance, enum context y modelos de resultado sin reescribir `KnowledgeBase`, parser, catálogo, indexer ni graph.
+
+**Resultado registrado:**
+- [src/server/features/semanticQueryFacade.ts](../src/server/features/semanticQueryFacade.ts) publica `SemanticQueryFacade` como fachada read-only sobre `queryContext`, `semanticQueryService`, `InheritanceGraph`, `SystemCatalog`, `enumeratedContext` y `dataWindowBindingModel`;
+- [src/server/knowledge/resolution/resolvedSemanticModels.ts](../src/server/knowledge/resolution/resolvedSemanticModels.ts) define modelos neutrales server-side para `ResolvedSymbol`, `ResolvedReceiver`, `ResolvedCallable` y `ResolvedEnumContext`, con confidence/reason/sourceOrigin sin Markdown ni DTO LSP;
+- [src/server/features/hover.ts](../src/server/features/hover.ts) y [src/server/features/definition.ts](../src/server/features/definition.ts) empezaron a consumir la fachada sin cambios visibles de comportamiento;
+- `semanticQueryFacade.test.ts` fija target symbol, receiver type, callable, inheritance, enum context, catálogo owner-aware y ausencia de IO/full parse sobre contexto publicado;
+- `queryContext.ts`, `semanticQueryService.ts`, `InheritanceGraph.ts`, `enumeratedContext.ts`/`SystemCatalog` y `dataWindowBindingModel.ts` quedan documentados como owners explícitos, sin crear DataWindowFastContext ni otro store semántico.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticQueryFacade.test.js out/test/server/unit/interactiveHotPathGuards.test.js out/test/server/unit/queryContext.test.js out/test/server/unit/semanticQueryService.test.js out/test/server/unit/definition.test.js out/test/server/unit/hover.test.js` (`92 passing`)
+- `npm run test:unit` (`1171 passing`)
+- `npm run test:architecture:metrics` (`passed`; hotspots dentro de budgets, warnings no bloqueantes preexistentes)
+- `npm run test:architecture:rapid` (`passed`; PFC Workspace, PFC Solution y STD_FC_OrderEntry presentes)
+- `npm run test:performance:gate` (`4 passing`; `legacy-public-active-hover = 6.75ms / 50.00ms`, `legacy-public-active-diagnostics = 5.57ms / 100.00ms`)
+- `npm run test:docs:drift` (`passed` antes del cierre documental)
+- `npm test` (`unit 1171 passing`, `integration 4 passing`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/done-log.md`
+
+## 1.209 BLOQUE 4. SignatureHelp, Definition, Symbols & Semantic Tokens Alignment — **Cerrado (lsp / serving / symbols / semantic-tokens / 2026-05)**
+
+**Objetivo:** alinear SignatureHelp, Definition, References/Rename, DocumentSymbols, SemanticTokens y CodeLens con los contratos modernos de serving/hot path, evitando payloads no medidos, capabilities implícitas y widening accidental.
+
+**Resultado registrado:**
+- [src/server/features/signatureHelp.ts](../src/server/features/signatureHelp.ts) materializa `SignatureHelpViewModel` ligero y mantiene la resolución semántica en los owners existentes;
+- [src/server/handlers/featureHandlers.ts](../src/server/handlers/featureHandlers.ts) alinea Definition con `ActiveDocumentServingSnapshot`, key estructurada y `InteractiveServingStaleGuard` antes de publicar o cachear misses;
+- `references`/`rename` quedan defendidos por source pool acotado, no-widening a workspace, exclusión `orca-staging/generated` según policy y caps declarativos;
+- `documentSymbols` mantiene decisión explícita de no cache final mientras snapshot caliente sea suficiente; `semanticTokens` mantiene respuesta `full` sin delta/cache final hasta que haya presión medida;
+- CodeLens conserva `codeLensProvider.resolveProvider = false` con `CodeLensResultCache` especializado, y el contrato de capabilities queda cubierto por prueba dedicada;
+- el guard de hot path cubre `hover`, `completion`, `signatureHelp`, `definition`, `documentSymbols` y `semanticTokens` sin IO, workspace scan ni full parse cuando el snapshot está caliente.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/queryScopePolicy.test.js out/test/server/unit/interactiveHotPathGuards.test.js out/test/server/unit/signatureHelp.test.js out/test/server/unit/definition.test.js out/test/server/unit/referenceSourcePool.test.js out/test/server/unit/references.test.js out/test/server/unit/rename.test.js out/test/server/unit/documentSymbols.test.js out/test/server/unit/semanticTokens.test.js out/test/server/unit/codeLensResultCache.test.js out/test/server/unit/codeLensReferences.test.js` (`89 passing`)
+- `npx mocha --ui tdd out/test/server/unit/lspCapabilitiesContract.test.js out/test/server/unit/queryScopePolicy.test.js` (`5 passing`)
+- `npm run test:unit` (`1166 passing`)
+- `npm run test:architecture:rapid` (`passed`; PFC Workspace, PFC Solution y STD_FC_OrderEntry presentes)
+- `npm run test:performance:gate` (`4 passing`; `legacy-public-active-hover = 8.23ms / 50.00ms`, `legacy-public-active-diagnostics = 4.72ms / 100.00ms`)
+- `npm run test:docs:drift` (`passed` antes del cierre documental)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/done-log.md`
+
+## 1.208 BLOQUE 3. Completion Ultra-Fast & Modern LSP Resolve — **Cerrado (completion / lsp-resolve / performance / 2026-05)**
+
+**Objetivo:** convertir completion en una ruta inicial ligera, estable y observable, con documentación/detalle diferidos por `completionItem/resolve` y protección de ranking, dedupe, payload y stale safety.
+
+**Resultado registrado:**
+- [src/server/features/completion.ts](../src/server/features/completion.ts) emite items iniciales ligeros con `CompletionItem.data` mínimo y grupos de ranking centralizados en `COMPLETION_RANK_SORT_PREFIX`;
+- [src/server/handlers/lifecycleHandlers.ts](../src/server/handlers/lifecycleHandlers.ts) anuncia `completionProvider.resolveProvider = true` y [src/server/handlers/featureHandlers.ts](../src/server/handlers/featureHandlers.ts) registra `connection.onCompletionResolve(...)` dentro de `InteractiveServingPipeline`;
+- `completion-resolve` queda separado en métricas, stale guard, cache key estructurada y payload budget `4 KiB`, devolviendo el item original cuando el dato está stale o no es propio;
+- la cobertura de completion fija lista inicial ligera, localización diferida, ranking local/argumento/instancia/built-in, boundaries comentario/string/receiver desconocido, dedupe, DataWindow/DataStore, enum values y payload inicial bajo budget;
+- el cierre usa la partición explícita existente de `ServingCache` para completion y deja `CompletionListViewModel` standalone como opción futura solo si aparece presión medible.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/completion.test.js out/test/server/unit/interactiveServingPipeline.test.js`
+- `npm run test:architecture:rapid`
+- `npm run test:performance:gate`
+- `npm run test:docs:drift`
+- `npm run test:unit` (`1163 passing`)
+- `npm test` (`smoke + unit + integration`, exit code 0; unit `1163 passing`, integration `4 passing`)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-implementation-map.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/done-log.md`
+
+## 1.207 HOVER-AUDIT-01. Auditoría final end-to-end de hover — **Cerrada (audit / hover / matrix / 2026-05)**
+
+**Objetivo:** cerrar la auditoría transversal del carril interactivo y demostrar que hover, definition, completion, signatureHelp, diagnostics y surfaces relacionadas quedan alineadas y dentro de presupuesto.
+
+**Resultado registrado:**
+- la matriz final del carril quedó fijada con `hoverFormat`, `hover`, `definition`, `completion`, `signatureHelp`, `diagnostics`, `diagnosticsExtra`, `documentSymbols`, `workspaceSymbols`, `references` y `crossSurfaceGoldenMatrix`, sin reabrir payload debug ni claims semánticos ya corregidos;
+- `test/server/unit/crossSurfaceGoldenMatrix.test.ts` sigue congelando la surface visible resumida del fixture compartido y ahora convive con guards explícitos del cierre devtools LSP sobre descendants custom y hot path del hover;
+- el gate `npm run test:performance:gate` quedó verde al cierre del carril, por lo que la auditoría ya no depende de evidencia manual ni de una explicación parcial de runtime.
+
+**Validación registrada:**
+- `npx mocha --ui tdd out/test/server/unit/hoverFormat.test.js out/test/server/unit/hover.test.js out/test/server/unit/definition.test.js out/test/server/unit/completion.test.js out/test/server/unit/signatureHelp.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/diagnosticsExtra.test.js out/test/server/unit/documentSymbols.test.js out/test/server/unit/workspaceSymbols.test.js out/test/server/unit/references.test.js out/test/server/unit/crossSurfaceGoldenMatrix.test.js`
+- `npm run test:performance:gate`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/done-log.md`
+
+## 1.206 HOVER-02. Optimizar hover para cache/hot path y evitar fallback global innecesario — **Cerrada (performance / hover / hot-path / 2026-05)**
+
+**Objetivo:** dejar hover dentro de presupuesto real y sin warnings de `workspace fallback` cuando la resolución ya está cerrada por contexto activo, caché caliente o owner chain del catálogo.
+
+**Resultado registrado:**
+- `test/server/unit/hover.test.ts` fija que el documento activo resuelto por `member-hierarchy` ya no proyecta `workspace fallback`, y que los built-ins del catálogo sobre descendants custom de DataWindow tampoco degradan a fallback global innecesario;
+- el gate `test:performance:gate` quedó verde con `legacy-public-active-hover = 5.00ms / 50.00ms`, manteniendo el carril hover dentro de presupuesto ejecutable CI/local;
+- no fue necesario abrir otra rama de resolución: el hardening quedó absorbido por guards de comportamiento y evidencia de performance sobre la ruta real ya materializada.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/hover.test.js`
+- `npm run test:performance:gate`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/done-log.md`
+
+## 1.205 DW-01. Resolver funciones nativas DataWindow en descendants custom — **Cerrada (semantic / datawindow / inheritance / 2026-05)**
+
+**Objetivo:** completar el soporte semántico de funciones nativas DataWindow cuando el receiver es un tipo custom que hereda transitivamente de `datawindow`.
+
+**Resultado registrado:**
+- `src/server/features/definition.ts` ya resuelve `GetColumnName()` y miembros nativos equivalentes sobre descendants custom de DataWindow hacia la documentación oficial del catálogo usando el mismo owner chain jerárquico ya aplicado en hover/completion/signatureHelp/diagnostics;
+- `src/server/handlers/featureHandlers.ts` propaga `systemCatalog` al carril de definition sin abrir scans adicionales ni una segunda ruta de resolución;
+- `test/server/unit/definition.test.ts`, `references.test.ts`, `documentSymbols.test.ts` y `workspaceSymbols.test.ts` fijan la validación explícita del cierre sobre descendants custom, incluyendo navegación oficial de definition y surfaces auxiliares sin regresión.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/definition.test.js out/test/server/unit/references.test.js out/test/server/unit/documentSymbols.test.js out/test/server/unit/workspaceSymbols.test.js`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.204 HOVER-01. Hover compacto por tipo de símbolo — **Cerrada (hover UX / compact payload / 2026-05)**
+
+**Objetivo:** dejar el hover normal compacto, útil y silencioso, ocultando metadata interna salvo warnings reales o surfaces explain/debug aparte.
+
+**Resultado registrado:**
+- `src/server/features/hoverFormat.ts` reduce el payload normal a tipo/firma/contexto útil/warnings reales, oculta `Origen/Autoridad/Fase/Confianza/Motivo/Candidatos` y sanea la presentación de scopes locales;
+- `src/server/features/hover.ts` deja de proyectar provenance interna del catálogo del sistema en el hover visible por defecto;
+- `test/server/unit/hoverFormat.test.ts` y `hover.test.ts` fijan el contrato compacto, el warning útil de fallback/ambigüedad y la ausencia de metadata interna en el payload servido.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/hoverFormat.test.js out/test/server/unit/hover.test.js`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-status.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+
+## 1.203 DIAG-01. SD11 no marca cierres estructurales — **Cerrada (diagnostics / false positive removal / 2026-05)**
+
+**Objetivo:** eliminar falsos positivos de `SD11` sobre cierres estructurales tras `return` sin dejar de marcar instrucciones ejecutivas reales inalcanzables.
+
+**Resultado registrado:**
+- `src/server/features/diagnosticsExtra.ts` ya resetea la heurística en `END IF`, `END CHOOSE` y `END TRY`, además de aperturas y transiciones estructurales ya soportadas;
+- `test/server/unit/diagnosticsExtra.test.ts` fija el caso positivo de línea ejecutiva tras `return` y el caso negativo sobre cierres estructurales;
+- el carril visible deja de introducir ruido en Problems/hover para este falso positivo concreto.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/documentAnalysis.test.js out/test/server/unit/diagnosticsExtra.test.js --grep "sanitiza|SD11"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-status.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+
+## 1.202 CALLABLE-01. Separar cabecera callable e instrucción inicial tras `;` — **Cerrada (parser / callable signature hygiene / 2026-05)**
+
+**Objetivo:** separar la cabecera callable del primer statement ejecutable cuando ambos comparten línea, evitando contaminar hover y scope metadata.
+
+**Resultado registrado:**
+- `src/server/analysis/documentAnalysis.ts` sanea la firma callable antes del primer `;` tanto para facts como para `containerSignature` de parámetros/locales;
+- `test/server/unit/documentAnalysis.test.ts` fija que `event pfc_values; call super::...` conserva `event pfc_values` como firma canónica y no arrastra la sentencia ejecutable al metadata local;
+- el hover compacto y cualquier consumer que reutilice `containerSignature` recibe ya el identificador correcto del callable.
+
+**Validación registrada:**
+- `npm run build:test ; npx mocha --ui tdd out/test/server/unit/documentAnalysis.test.js out/test/server/unit/diagnosticsExtra.test.js --grep "sanitiza|SD11"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/architecture-status.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+
 ## 1.201 BL-07. Guards LSP con markers reales minimalistas — **Cerrada (lsp-guard / realistic markers / 2026-05)**
 
 **Objetivo:** sustituir los fixtures sintéticos usados por la smoke de guards LSP por markers PowerBuilder plausibles y minimalistas, manteniendo el mismo borde de no-serving semántico.
@@ -5310,6 +5747,38 @@ Las `Specs 149-152`, `209`, `211-215` y `218` dejan cerrado el modelo compartido
 - `npm run build:test`
 - `npx mocha --ui tdd out/test/server/unit/orcaDetection.test.js out/test/server/unit/statusBarPresentation.test.js out/test/server/unit/projectHealthDashboard.test.js`
 - `npm run test:smoke -- --grep "ORCA legacy"`
+
+## 1.105 B235. Hover ultra-fast & developer-useful UX — **Cerrada (prompt bloque 2 2026-05)**
+
+**Objetivo:** convertir `hover` en un carril extremadamente rápido, compacto y útil para desarrolladores PowerBuilder, apoyado en la serving layer común sin duplicar semántica ni abrir un segundo motor de resolución.
+
+**Resultado registrado:**
+- `src/server/features/hoverViewModel.ts`, `src/server/features/hoverFormat.ts` y `src/server/features/hover.ts` separan ya resolución semántica y presentación visible mediante `HoverViewModel`, `HoverKind`, negativos seguros y render compacto por tipo de símbolo, incluyendo built-ins, enum values/types, SQLCA, DataWindow/DataStore, lifecycle hooks y casos ambiguos sin metadata interna ruidosa;
+- `src/server/serving/presentationCache.ts`, `src/server/server.ts` y `src/server/handlers/featureHandlers.ts` materializan `HoverViewModel cache` y `NegativeHoverCache` versionadas por URI/documento/epoch/`sourceOrigin`/locale/token-rango, con integración real sobre `InteractiveServingPipeline`, pressure policy, watcher intake, invalidación documental y shutdown;
+- `src/server/serving/interactiveServingPipeline.ts` y las métricas runtime ya distinguen `cache-hit`, `viewmodel-hit`, `negative-hit`, `miss`, `stale-discarded` y `readiness-degraded` sin logs por request, y `hover` preserva casos válidos sobre strings/DataWindow/hooks antes de caer a negativo;
+- `test/server/unit/hover.test.ts`, `hoverFormat.test.ts`, `interactiveServingPipeline.test.ts`, `cacheKeyContract.test.ts`, `interactiveHotPathGuards.test.ts` y `hotPathAllocationBudget.test.ts` fijan contrato visible, negativos seguros, reasons del fast path, invalidación/versionado y ausencia de full split/IO en hot path.
+
+**Validación registrada:**
+- `npm run test:unit`
+- `npm run test:performance:gate`
+- `npm run test:architecture:rapid`
+- `npm run test:docs:drift`
+
+## 1.104 B234. DevTools ultra-fast serving & cache layer — **Cerrada (prompt bloque 1 2026-05)**
+
+**Objetivo:** cerrar una serving layer interactiva ultrarrápida, medible y modular para features LSP calientes sin reescribir la arquitectura global ni duplicar la verdad semántica del servidor.
+
+**Resultado registrado:**
+- `src/server/runtime/interactiveServingStats.ts`, `src/shared/publicApi.ts` y el wiring runtime exponen ya observabilidad real por feature/fase/payload/readiness/stale state, con budgets visibles y métricas agregadas reutilizables desde stats/journal sin coste ruidoso en hot path;
+- `src/server/serving/interactiveServingPipeline.ts`, `payloadBudget.ts`, `staleGuard.ts`, `activeDocumentServingSnapshot.ts` y `cacheKeyContract.ts` materializan la pipeline común con payload budgets, stale guard, contrato de keys e instantánea read-only del activo reutilizada por `hover`, `completion` y `signatureHelp`;
+- `src/server/knowledge/ServingCache.ts`, `src/server/server.ts`, `src/server/handlers/documentHandlers.ts` y `src/server/workspace/watchedFileIntake.ts` endurecen el serving cache con partición por feature, stats `byFeature`, alivio coordinado bajo presión de memoria e invalidación coherente por documento/watcher/shutdown;
+- `test/server/unit/servingCache.test.ts`, `runtimeCommandHandlers.test.ts`, `interactiveServingPipeline.test.ts`, `activeDocumentServingSnapshot.test.ts`, `cacheKeyContract.test.ts` e `interactiveHotPathGuards.test.ts` fijan observabilidad, guards no IO/no workspace scan/no full parse, stale safety, payload budgets y reuse read-only del activo.
+
+**Validación registrada:**
+- `npm run test:unit`
+- `npm run test:performance:gate`
+- `npm run test:architecture:rapid`
+- `npm run test:docs:drift`
 
 ## 1.103 B198. Build/ORCA documentation and troubleshooting — **Cerrada (spec 294, build/ORCA documentation and troubleshooting 2026-05)**
 

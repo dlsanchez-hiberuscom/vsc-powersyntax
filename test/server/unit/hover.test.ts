@@ -1,7 +1,8 @@
 import * as assert from 'assert/strict';
 import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { provideHover } from '../../../src/server/features/hover';
+import { buildHoverPresentationResult, provideHover } from '../../../src/server/features/hover';
+import { formatHoverViewModel } from '../../../src/server/features/hoverFormat';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
@@ -105,8 +106,8 @@ suite('unit/hover', () => {
     const value = (hover?.contents as any).value as string;
     assert.ok(value.includes('MessageBox'), 'Debe contener el nombre de la función');
     assert.ok(value.includes('docs.appeon.com'), 'Debe contener el enlace oficial de la documentación');
-    assert.ok(value.includes('*Origen:* system'), 'Debe incluir lineage de sistema');
-    assert.ok(value.includes('*Confianza:* direct'), 'Debe incluir confianza derivada');
+    assert.ok(!value.includes('*Origen:*'), 'No debe mostrar provenance interna por defecto');
+    assert.ok(!value.includes('*Confianza:*'), 'No debe mostrar confidence interna por defecto');
   });
 
   test('provideHover localiza summary, documentation y parametros del catalogo visible', () => {
@@ -200,11 +201,42 @@ end subroutine
     assert.ok(hover, 'Hover no debería ser null');
     const value = (hover?.contents as any).value as string;
     assert.ok(value.includes('of_SetData'), 'Debe contener el nombre de la función');
-    assert.ok(value.includes('*Origen:* document'), 'Debe exponer lineage del símbolo de usuario');
-    assert.ok(value.includes('*Confianza:* direct'), 'Debe indicar confianza directa');
-    assert.ok(value.includes('*Confianza de resolución:* low'), 'Debe proyectar la confidence general de resolución');
-    assert.ok(value.includes('*Motivo de resolución:* global-fallback'), 'Debe proyectar el reason code principal');
-    assert.ok(value.includes('*Candidatos ganadores:* 1'), 'Debe proyectar la cardinalidad del winner path');
+    assert.ok(value.includes('**Defined in:** `w_main`'), 'Debe indicar el owner útil del símbolo');
+    assert.ok(value.includes('workspace fallback'), 'Debe advertir cuando la resolución cae a fallback global');
+    assert.ok(!value.includes('*Origen:*'), 'No debe exponer provenance interna por defecto');
+    assert.ok(!value.includes('*Confianza:*'), 'No debe indicar confidence interna');
+    assert.ok(!value.includes('*Confianza de resolución:*'), 'No debe proyectar la confidence general textual');
+    assert.ok(!value.includes('*Motivo de resolución:*'), 'No debe proyectar el reason code textual');
+    assert.ok(!value.includes('*Candidatos ganadores:*'), 'No debe proyectar la cardinalidad interna');
+  });
+
+  test('provideHover no muestra workspace fallback cuando el documento activo ya resuelve por member-hierarchy', () => {
+    const doc = setupAnalyzedDocument('file:///w_hover_active_context.srw', `
+global type w_hover_active_context from window
+end type
+
+forward prototypes
+public function integer of_test()
+public function integer of_runner()
+end prototypes
+
+public function integer of_test();
+  return 1
+end function
+
+public function integer of_runner();
+  return of_test()
+end function
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('return of_test()'));
+    const hover = provideHover(doc, Position.create(lineIndex, lines[lineIndex].indexOf('of_test') + 2), kb, catalog, graph);
+
+    assert.ok(hover, 'Hover no debería ser null para una llamada resuelta en el documento activo.');
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('of_test'), 'Debe resolver la función del documento activo.');
+    assert.ok(!value.includes('workspace fallback'), 'No debe advertir fallback global cuando la resolución ya es jerárquica y local.');
   });
 
   test('provideHover devuelve null si no es un identificador valido', () => {
@@ -219,14 +251,79 @@ end subroutine
     assert.equal(hover, null);
   });
 
+  test('buildHoverPresentationResult marca negativos seguros para keyword, comentario, string y whitespace', () => {
+    const keywordDoc = TextDocument.create('file:///hover_keyword.sru', 'powerbuilder', 1, 'IF');
+    const commentDoc = TextDocument.create('file:///hover_comment.sru', 'powerbuilder', 1, 'll_count = 1 // comment');
+    const stringDoc = TextDocument.create('file:///hover_string.sru', 'powerbuilder', 1, 'MessageBox("Hola", "Mundo")');
+    const whitespaceDoc = TextDocument.create('file:///hover_whitespace.sru', 'powerbuilder', 1, '     ');
+    const keywordCatalog = {
+      resolveLanguageSymbol: () => ({ name: 'IF', kind: 'keyword' }),
+      findSystemSymbol: () => [],
+      resolveMemberFunctionForOwner: () => undefined,
+      resolveEventForOwner: () => undefined,
+    } as unknown as SystemCatalog;
+
+    const keyword = buildHoverPresentationResult(keywordDoc, Position.create(0, 1), kb, keywordCatalog, graph);
+    const comment = buildHoverPresentationResult(commentDoc, Position.create(0, 16), kb, catalog, graph);
+    const string = buildHoverPresentationResult(stringDoc, Position.create(0, 12), kb, catalog, graph);
+    const whitespace = buildHoverPresentationResult(whitespaceDoc, Position.create(0, 2), kb, catalog, graph);
+
+    assert.deepEqual(keyword, { kind: 'negative', reason: 'keyword', cacheToken: 'if' });
+    assert.deepEqual(comment, { kind: 'negative', reason: 'comment', cacheToken: 'comment' });
+    assert.deepEqual(string, { kind: 'negative', reason: 'string', cacheToken: 'string' });
+    assert.deepEqual(whitespace, { kind: 'negative', reason: 'whitespace', cacheToken: 'whitespace' });
+  });
+
+  test('buildHoverPresentationResult produce un viewmodel equivalente al hover visible para built-ins', () => {
+    const doc = TextDocument.create('file:///hover_viewmodel_messagebox.sru', 'powerbuilder', 1, 'MessageBox("Hola", "Mundo")');
+
+    const presentation = buildHoverPresentationResult(doc, Position.create(0, 5), kb, catalog, graph, undefined, 'es');
+    const hover = provideHover(doc, Position.create(0, 5), kb, catalog, graph, undefined, 'es');
+
+    assert.equal(presentation.kind, 'viewmodel');
+    assert.equal(presentation.viewModel.kind, 'built-in');
+    assert.ok(hover, 'El hover final visible no debe ser null.');
+    assert.equal((hover?.contents as any).kind, 'markdown');
+    assert.equal((hover?.contents as any).value, formatHoverViewModel(presentation.viewModel));
+    assert.match((hover?.contents as any).value as string, /cuadro de mensaje del sistema/i);
+  });
+
   test('provideHover anota la ambiguedad cuando existen varios ganadores minimos', () => {
     const doc = TextDocument.create('file:///w_ambiguous.sru', 'powerbuilder', 1, '  of_Ambiguous()  ');
     const hover = provideHover(doc, Position.create(0, 5), kb, catalog, graph);
 
     assert.ok(hover, 'Hover ambiguo no debería ser null');
     const value = (hover?.contents as any).value as string;
-    assert.ok(value.includes('*Resolución ambigua:* 2 candidatos con distancia mínima'), 'Debe indicar la ambigüedad del winner path');
-    assert.ok(value.includes('*Candidatos ganadores:* 2'), 'Debe proyectar la cardinalidad del winner path ambiguo');
+    assert.ok(value.includes('ambiguous target'), 'Debe indicar la ambigüedad de forma útil y compacta');
+    assert.ok(!value.includes('*Candidatos ganadores:*'), 'No debe proyectar la cardinalidad interna del winner path');
+  });
+
+  test('provideHover resuelve built-ins del catálogo para un descendiente custom de DataWindow', () => {
+    setupAnalyzedDocument('file:///u_dw_hover_runtime.sru', `
+global type u_dw_hover_runtime from datawindow
+end type
+    `);
+
+    const doc = setupAnalyzedDocument('file:///w_custom_dw_hover.srw', `
+global type w_custom_dw_hover from window
+end type
+
+event open();
+  u_dw_hover_runtime idw_orders
+  idw_orders.Retrieve()
+end event
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('idw_orders.Retrieve()'));
+    const character = lines[lineIndex].indexOf('Retrieve') + 2;
+    const hover = provideHover(doc, Position.create(lineIndex, character), kb, catalog, graph);
+
+    assert.ok(hover, 'Hover no debería ser null para métodos nativos en descendientes custom.');
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('Retrieve'), 'Debe resolver la función del catálogo nativo.');
+    assert.ok(value.includes('docs.appeon.com'), 'Debe seguir exponiendo la referencia oficial.');
+    assert.ok(!value.includes('workspace fallback'), 'No debe degradar a fallback global cuando el owner chain del catálogo ya resuelve el método nativo.');
   });
 
   test('provideHover prioriza la entrada de DataWindow para Retrieve con datastore tipado', () => {
@@ -341,7 +438,7 @@ end event
     assert.ok(hover, 'Hover no debería ser null para el DataObject literal.');
     const value = (hover?.contents as any).value as string;
     assert.ok(value.includes('d_customer'), 'Debe resolver el objeto DataWindow por nombre.');
-    assert.ok(value.includes('*Hereda de:* datawindow'), 'Debe exponer que el target resuelto es un DataWindow.');
+    assert.ok(value.includes('**Inherits:** `d_customer -> datawindow`'), 'Debe exponer que el target resuelto es un DataWindow.');
     assert.ok(value.includes('**DataWindow Safe Mode**'), 'Debe añadir el bloque de safe mode del .srd.');
     assert.ok(value.includes('SQL base:'), 'Debe incluir el SQL base del DataWindow.');
     assert.ok(value.includes('Columnas:'), 'Debe incluir un resumen de columnas.');

@@ -32,11 +32,29 @@ suite('unit/releaseReadinessContract (B387)', () => {
       'npm run compile && node ./tools/verify-catalog-coverage.cjs'
     );
     assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm test/);
+    assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run test:architecture:rapid/);
+    assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run test:docs:drift/);
     assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run test:performance:gate/);
     assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run verify:catalog-coverage/);
     assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run package:vsix/);
     assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run verify:vsix-contents/);
     assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run test:smoke:installed-vsix/);
+    assert.match(packageJson.scripts?.['release:verify'] ?? '', /npm run release:summary/);
+    assert.equal(packageJson.scripts?.['release:summary'], 'node ./tools/release-readiness-summary.mjs');
+  });
+
+  test('release summary publica version, commit, VSIX y validaciones ejecutadas', () => {
+    const summaryScriptPath = path.join(REPO_ROOT, 'tools', 'release-readiness-summary.mjs');
+    const source = fs.readFileSync(summaryScriptPath, 'utf8');
+
+    assert.match(source, /Release readiness summary/);
+    assert.match(source, /version:/);
+    assert.match(source, /commit:/);
+    assert.match(source, /vsix:/);
+    assert.match(source, /validations:/);
+    assert.match(source, /npm run test:architecture:rapid/);
+    assert.match(source, /npm run test:docs:drift/);
+    assert.match(source, /npm run test:smoke:installed-vsix/);
   });
 
   test('verify:catalog-coverage falla sobre drift de official coverage y publica el detalle ADR-0001', () => {
@@ -58,8 +76,37 @@ suite('unit/releaseReadinessContract (B387)', () => {
     assert.match(source, /workflow_dispatch:/);
     assert.match(source, /push:/);
     assert.match(source, /pull_request:/);
-    assert.match(source, /run: npm run release:verify/);
+    assert.match(source, /run: xvfb-run -a npm run release:verify/);
     assert.match(source, /name: vsc-powersyntax-vsix/);
     assert.match(source, /path: \.\/\.dist\/vsc-powersyntax\.vsix/);
+    assert.match(source, /retention-days: 14/);
+  });
+
+  test('release y troubleshooting tienen owner documental sin publicar automaticamente', () => {
+    const releaseDoc = fs.readFileSync(path.join(REPO_ROOT, 'docs', 'release.md'), 'utf8');
+    const troubleshootingDoc = fs.readFileSync(path.join(REPO_ROOT, 'docs', 'troubleshooting.md'), 'utf8');
+
+    for (const expected of [
+      'npm run release:verify',
+      '.dist/vsc-powersyntax.vsix',
+      'npm run test:smoke:installed-vsix',
+      'retention-days: 14',
+      'VSCE_PAT',
+      'never publishes automatically',
+    ]) {
+      assert.ok(releaseDoc.includes(expected), `${expected} debe estar documentado en release.md`);
+    }
+
+    for (const expected of [
+      'tool-missing',
+      'config-json-invalid',
+      'source-control-auth-failure',
+      'unsupported-platform',
+      'orca-tool-missing',
+      'packaging-disabled',
+      'Workspace Trust',
+    ]) {
+      assert.ok(troubleshootingDoc.includes(expected), `${expected} debe estar documentado en troubleshooting.md`);
+    }
   });
 });

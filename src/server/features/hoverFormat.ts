@@ -1,181 +1,60 @@
 /**
- * Hover formatter (Spec 037 / B103).
+ * Hover formatter (Spec 037 / B103 / Hover UX).
  *
- * Genera markdown enriquecido para entidades del usuario.
+ * Renderiza un HoverViewModel compacto a Markdown LSP sin volver a resolver
+ * semántica ni duplicar documentación fuera del modelo visible.
  *
  * @module features/hoverFormat
  */
 
-import { enrichEntity } from '../knowledge/enrichEntity';
-import { Entity, EntityKind, type EntityLineage } from '../knowledge/types';
-import type { QueryAmbiguityKind, QueryReasonCode, QueryResolutionConfidence } from '../knowledge/resolution/semanticQueryService';
+import type { EntityLineage, Entity } from '../knowledge/types';
+import { buildUserHoverViewModel, type HoverResolutionSummary, type HoverViewModel } from './hoverViewModel';
 
-const KIND_NAME: Record<string, string> = {
-  Type: 'Objeto / Estructura',
-  Function: 'Función',
-  Subroutine: 'Subrutina',
-  Event: 'Evento',
-  Variable: 'Variable'
-};
-
-export interface HoverResolutionSummary {
-  confidence?: QueryResolutionConfidence;
-  reasonCode?: QueryReasonCode;
-  ambiguous?: boolean;
-  ambiguityKind?: QueryAmbiguityKind;
-  targetCount?: number;
-}
+export type { HoverResolutionSummary } from './hoverViewModel';
 
 export function formatLineageHover(lineage?: EntityLineage): string | null {
-  if (!lineage) {
+  if (!lineage?.inheritedFrom) {
     return null;
   }
 
-  const segments: string[] = [];
+  return `**Inherited from:** \`${lineage.inheritedFrom}\``;
+}
 
-  if (lineage.sourceKind) {
-    segments.push(`*Origen:* ${lineage.sourceKind}`);
+export function formatHoverViewModel(viewModel: HoverViewModel): string {
+  if (viewModel.preformattedMarkdown) {
+    return viewModel.preformattedMarkdown;
   }
 
-  if (lineage.authority) {
-    segments.push(`*Autoridad:* ${lineage.authority}`);
+  const lines: string[] = [];
+  if (viewModel.title) {
+    lines.push(viewModel.title);
   }
 
-  if (lineage.phase) {
-    segments.push(`*Fase:* ${lineage.phase}`);
+  if (viewModel.signature) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push('```powerbuilder');
+    lines.push(viewModel.signature);
+    lines.push('```');
   }
 
-  if (lineage.role) {
-    segments.push(`*Rol:* ${lineage.role}`);
+  if (viewModel.summary) {
+    lines.push('');
+    lines.push(viewModel.summary);
   }
 
-  if (lineage.inheritedFrom) {
-    segments.push(`*Hereda de:* ${lineage.inheritedFrom}`);
+  for (const block of viewModel.blocks) {
+    if (block.lines.length === 0) {
+      continue;
+    }
+    lines.push('');
+    lines.push(...block.lines);
   }
 
-  if (lineage.confidence) {
-    segments.push(`*Confianza:* ${lineage.confidence}`);
-  }
-
-  return segments.length > 0 ? segments.join(' · ') : null;
+  return lines.join('\n');
 }
 
 export function formatUserHover(entity: Entity, resolution?: HoverResolutionSummary): string {
-  const enriched = enrichEntity(entity);
-  const out: string[] = [];
-  const access = enriched.access ? `${enriched.access} ` : '';
-
-  let signature: string;
-  if (enriched.kind === EntityKind.Variable) {
-    const scopeStr = enriched.scope ? `(${enriched.scope}) ` : '';
-    signature = `${scopeStr}${access}${enriched.datatype ?? 'any'} ${enriched.name}`;
-  } else if (enriched.kind === EntityKind.Function || enriched.kind === EntityKind.Subroutine) {
-    signature = enriched.signature ?? `${access}${enriched.kind.toLowerCase()} ${enriched.name}(...)`;
-  } else {
-    signature = enriched.signature ?? `(${KIND_NAME[enriched.kind] ?? enriched.kind}) ${enriched.name}`;
-  }
-  out.push('```powerbuilder');
-  out.push(signature);
-  out.push('```');
-  out.push('---');
-
-  // Tag prototipo vs implementación.
-  if (enriched.isPrototype === true) {
-    out.push('*(Prototype)*');
-  } else if (enriched.implementationKind === 'on-handler') {
-    out.push('*(On-handler)*');
-  } else if (enriched.isExternal && enriched.externalCallableKind === 'rpcfunc') {
-    out.push('*(RPCFUNC stored procedure declaration)*');
-  } else if (enriched.implementationKind === 'external-function') {
-    out.push('*(External function declaration)*');
-  } else if (enriched.isPrototype === false &&
-    (enriched.kind === EntityKind.Function ||
-      enriched.kind === EntityKind.Subroutine ||
-      enriched.kind === EntityKind.Event)) {
-    out.push('*(Implementation)*');
-  }
-
-  if (enriched.isExternal && enriched.externalLibraryName) {
-    out.push(`**External library:** \`${enriched.externalLibraryName}\``);
-  }
-
-  if (enriched.isExternal && enriched.externalDependencyKind) {
-    out.push(`**Native dependency kind:** \`${enriched.externalDependencyKind}\``);
-  }
-
-  if (enriched.isExternal && enriched.externalCallableKind === 'rpcfunc') {
-    out.push('**External callable kind:** `rpcfunc`');
-  }
-
-  if (enriched.isExternal && enriched.externalAlias) {
-    out.push(`**External alias:** \`${enriched.externalAlias}\``);
-  }
-
-  if (enriched.documentation) {
-    out.push('');
-    out.push(enriched.documentation);
-  }
-
-  const lineage = formatLineageHover(enriched.lineage);
-  if (lineage) {
-    out.push('');
-    out.push(lineage);
-  }
-
-  if (resolution?.confidence) {
-    out.push('');
-    out.push(`*Confianza de resolución:* ${resolution.confidence}`);
-  }
-
-  if (resolution?.reasonCode) {
-    out.push('');
-    out.push(`*Motivo de resolución:* ${resolution.reasonCode}`);
-  }
-
-  if (resolution?.ambiguous) {
-    out.push('');
-    const ambiguityDetail = resolution.ambiguityKind === 'global-fallback'
-      ? `${resolution.targetCount ?? 0} candidatos ganadores por global fallback`
-      : `${resolution.targetCount ?? 0} candidatos con distancia mínima`;
-    out.push(`*Resolución ambigua:* ${ambiguityDetail}`);
-  }
-
-  if (typeof resolution?.targetCount === 'number' && resolution.targetCount > 0) {
-    out.push('');
-    out.push(`*Candidatos ganadores:* ${resolution.targetCount}`);
-  }
-
-  if (enriched.declarationScope) {
-    out.push('');
-    out.push(`*Declaration scope:* ${enriched.declarationScope}`);
-  }
-
-  if (enriched.ownerName) {
-    out.push('');
-    out.push(`*Owner real:* \`${enriched.ownerName}\``);
-  }
-
-  if (enriched.fileObjectName && enriched.fileObjectName !== enriched.ownerName) {
-    out.push('');
-    out.push(`*Objeto archivo:* \`${enriched.fileObjectName}\``);
-  }
-
-  if (
-    (enriched.declarationScope === 'local' || enriched.declarationScope === 'parameter')
-    && enriched.containerSignature
-  ) {
-    out.push('');
-    out.push(`*Callable contenedor:* \`${enriched.containerSignature}\``);
-  }
-
-  if (enriched.containerKind) {
-    out.push('');
-    out.push(`*Container kind:* ${enriched.containerKind}`);
-  }
-
-  if (enriched.containerName) {
-    out.push('');
-    out.push(`*Definido en:* \`${enriched.containerName}\``);
-  }
-  return out.join('\n');
+  return formatHoverViewModel(buildUserHoverViewModel(entity, resolution));
 }

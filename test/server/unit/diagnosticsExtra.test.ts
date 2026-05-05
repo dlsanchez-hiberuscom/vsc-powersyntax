@@ -41,6 +41,19 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     strictEqual(ds[0].range.start.line, 2);
   });
 
+  test('SD11: no marca cierres estructurales tras return', () => {
+    const lines = [
+      'public function integer f_test()',
+      '  if true then',
+      '    return 1',
+      '  end if',
+      'end function'
+    ];
+    const scope = makeScope('file:///x.pbl', lines.length, lines);
+    const ds = checkUnreachableAfterReturn(scope, lines);
+    strictEqual(ds.length, 0);
+  });
+
   test('SD12: detecta paréntesis desbalanceados', () => {
     const lines = [
       'public function integer f_test()',

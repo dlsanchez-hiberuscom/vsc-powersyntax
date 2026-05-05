@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import { Position, CompletionItemKind } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { provideCompletion } from '../../../src/server/features/completion';
+import { isCompletionItemResolveData, provideCompletion, resolveCompletionItem } from '../../../src/server/features/completion';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { HotContextCache } from '../../../src/server/knowledge/HotContextCache';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
@@ -10,6 +10,7 @@ import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalo
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { EntityKind } from '../../../src/server/knowledge/types';
+import { estimateLspPayloadBytes } from '../../../src/server/runtime/interactiveServingStats';
 
 suite('unit/completion', () => {
   let kb: KnowledgeBase;
@@ -126,6 +127,104 @@ end subroutine
     assert.ok(jsonItems.some((item) => item.label === 'JSONParser'));
     assert.ok(jsonItems.some((item) => item.label === 'JSONGenerator'));
     assert.ok(jsonItems.some((item) => item.label === 'JSONPackage'));
+  });
+
+  test('sirve completion inicial ligero y difiere documentación de catálogo a resolve', () => {
+    const doc = setupDocument('file:///test_completion_resolve_catalog.sru', `
+global type test_completion_resolve_catalog from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  ab
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'ab');
+    const items = provideCompletion(doc, Position.create(lineIndex, 4), kb, systemCatalog, graph, undefined, undefined, 'es');
+    assert.ok(items);
+
+    const absItem = items.find((item) => item.label === 'Abs');
+    assert.ok(absItem);
+    assert.equal(absItem.documentation, undefined);
+    assert.ok(isCompletionItemResolveData(absItem.data));
+    assert.equal(absItem.data.locale, 'es');
+
+    const resolved = resolveCompletionItem(absItem, kb, systemCatalog, 'es');
+    assert.equal(resolved.label, absItem.label);
+    assert.equal(resolved.kind, absItem.kind);
+    assert.equal(resolved.sortText, absItem.sortText);
+    assert.match(String(resolved.detail), /Abs/i);
+    assert.match(String(resolved.documentation), /magnitud positiva/i);
+    assert.ok(estimateLspPayloadBytes(items) < 64 * 1024);
+    assert.ok(estimateLspPayloadBytes(resolved) < 4 * 1024);
+  });
+
+  test('mantiene ranking contextual local, argumentos, instancia y built-ins', () => {
+    const doc = setupDocument('file:///test_completion_rank_matrix.sru', `
+global type test_completion_rank_matrix from nonvisualobject
+  integer ii_rank_value
+end type
+forward prototypes
+public function integer of_rank(integer ai_rank_value)
+end prototypes
+public function integer of_rank(integer ai_rank_value)
+  integer li_rank_value
+  
+end function
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const localDeclarationLine = lines.findIndex((line) => line.includes('li_rank_value'));
+    const lineIndex = localDeclarationLine + 1;
+    const items = provideCompletion(doc, Position.create(lineIndex, 2), kb, systemCatalog, graph);
+    assert.ok(items);
+
+    const localItem = items.find((item) => item.label === 'li_rank_value');
+    const argumentItem = items.find((item) => item.label === 'ai_rank_value');
+    const instanceItem = items.find((item) => item.label === 'ii_rank_value');
+    const builtinItem = items.find((item) => item.label === 'Abs');
+
+    assert.ok(localItem?.sortText);
+    assert.ok(argumentItem?.sortText);
+    assert.ok(instanceItem?.sortText);
+    assert.ok(builtinItem?.sortText);
+    assert.ok(localItem.sortText < argumentItem.sortText);
+    assert.ok(argumentItem.sortText < instanceItem.sortText);
+    assert.ok(instanceItem.sortText < builtinItem.sortText);
+    assert.equal(new Set(items.map((item) => item.label)).size, items.length);
+  });
+
+  test('no ofrece completion dentro de comentario, string ni receiver desconocido', () => {
+    const doc = setupDocument('file:///test_completion_boundaries.sru', `
+global type test_completion_boundaries from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  // ab
+  string ls_text = "ab"
+  lnv_missing.
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const commentLine = lines.findIndex((line) => line.includes('// ab'));
+    const stringLine = lines.findIndex((line) => line.includes('"ab"'));
+    const unknownReceiverLine = lines.findIndex((line) => line.includes('lnv_missing.'));
+
+    assert.equal(provideCompletion(doc, Position.create(commentLine, lines[commentLine].indexOf('ab') + 2), kb, systemCatalog, graph), null);
+    assert.equal(provideCompletion(doc, Position.create(stringLine, lines[stringLine].indexOf('ab') + 2), kb, systemCatalog, graph), null);
+    assert.equal(provideCompletion(doc, Position.create(unknownReceiverLine, lines[unknownReceiverLine].length), kb, systemCatalog, graph), null);
+  });
+
+  test('resolve conserva el item cuando no hay data propia', () => {
+    const item = { label: 'custom_item', sortText: 'z_custom_item' };
+
+    assert.strictEqual(resolveCompletionItem(item, kb, systemCatalog), item);
   });
 
   test('debe sugerir reserved words, pronouns, system globals y enumerated values desde el catálogo contextual', () => {
@@ -433,6 +532,64 @@ end subroutine
     assert.ok(!items?.some((item) => item.label === 'GetChild'));
   });
 
+  test('debe sugerir el catálogo DataWindow para un descendiente custom', () => {
+    setupDocument('file:///u_dw_orders.sru', `
+global type u_dw_orders from datawindow
+end type
+    `);
+
+    const doc = setupDocument('file:///test_custom_datwindow_completion.sru', `
+global type test_custom_datwindow_completion from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  u_dw_orders idw_orders
+  idw_orders.
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'idw_orders.');
+    const pos = Position.create(lineIndex, 13);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items?.some((item) => item.label === 'SetTransObject'));
+    assert.ok(items?.some((item) => item.label === 'Retrieve'));
+    assert.ok(items?.some((item) => item.label === 'GetChild'));
+  });
+
+  test('sugiere valores enumerados en parámetros DataWindow para un descendiente custom', () => {
+    setupDocument('file:///u_dw_enum_orders.sru', `
+global type u_dw_enum_orders from datawindow
+end type
+    `);
+
+    const doc = setupDocument('file:///test_custom_dw_enum_argument_completion.srw', `
+global type test_custom_dw_enum_argument_completion from window
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  u_dw_enum_orders idw_orders
+  idw_orders.RowsMove(1, 1, 
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('RowsMove(1, 1,'));
+    const pos = Position.create(lineIndex, lines[lineIndex].length);
+
+    const items = provideCompletion(doc, pos, kb, systemCatalog, graph);
+    assert.ok(items);
+    assert.deepStrictEqual(
+      items.map((item) => item.label),
+      ['Primary!', 'Delete!', 'Filter!'],
+    );
+  });
+
   test('limita candidatos globales para completion con prefijo', () => {
     const doc = setupDocument('file:///test_global_cap.sru', `
 global type test_global_cap from nonvisualobject
@@ -679,7 +836,10 @@ end subroutine
     assert.ok(items);
     const messageBoxItems = items.filter((item) => item.label === 'MessageBox');
     assert.strictEqual(messageBoxItems.length, 1);
-    assert.match(String(messageBoxItems[0].documentation), /interacciones bloqueantes/i);
-    assert.notStrictEqual(messageBoxItems[0].detail, messageBoxItems[0].documentation);
+    assert.strictEqual(messageBoxItems[0].documentation, undefined);
+
+    const resolved = resolveCompletionItem(messageBoxItems[0], kb, systemCatalog, 'es');
+    assert.match(String(resolved.documentation), /interacciones bloqueantes/i);
+    assert.notStrictEqual(resolved.detail, resolved.documentation);
   });
 });

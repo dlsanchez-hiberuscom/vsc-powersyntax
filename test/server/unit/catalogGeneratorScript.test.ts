@@ -228,10 +228,10 @@ suite('unit/catalogGeneratorScript', () => {
   });
 
   test('ruta plural scripts mantiene compatibilidad con documentación externa', async () => {
-    const wrapperPath = path.join(REPO_ROOT, 'scripts', 'generate_official_function_catalog.cjs');
+    const wrapperPath = path.join(REPO_ROOT, 'script', 'generate_official_function_catalog.cjs');
     const content = await fs.readFile(wrapperPath, 'utf8');
 
-    assert.match(content, /script\/generate_official_function_catalog\.cjs/);
+    assert.match(content, /scripts['"], ['"]generate_official_function_catalog\.cjs/);
   });
 
   test('officialCoverage generado publica dominios oficiales relevantes además de events/statements', async () => {

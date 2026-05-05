@@ -217,12 +217,13 @@ El plugin y su repo deben poder:
 
 Estado actual:
 
+- el owner documental del carril release/VSIX/Marketplace es `docs/release.md`, mientras errores operativos y reason codes de release/PBAutoBuild/ORCA viven en `docs/troubleshooting.md`;
 - `npm run package:vsix` genera `./.dist/vsc-powersyntax.vsix` con el runtime real de la extension, empaquetado desde `dist/client/extension.js` y `dist/server/server.js`;
 - `npm run package:vsix:list` inspecciona el contenido publicable;
 - `npm run verify:vsix-contents` valida required paths y bloquea prefijos prohibidos del VSIX real antes de publicar;
 - `npm run test:smoke:installed-vsix` reutiliza `test/smoke/extension.test.ts` contra `./.dist/vsc-powersyntax.vsix` instalado en un entorno aislado;
-- `npm run release:verify` encadena tests base, gate de rendimiento, empaquetado, `verify:vsix-contents` y la smoke instalada del VSIX;
-- `.github/workflows/release-readiness.yml` deja ese mismo carril disponible en CI (`workflow_dispatch`, `push`, `pull_request`).
+- `npm run release:verify` encadena tests base, arquitectura rápida, docs drift, gate de rendimiento, cobertura de catálogo, empaquetado, `verify:vsix-contents`, smoke instalada del VSIX y summary final con versión/commit/artifact;
+- `.github/workflows/release-readiness.yml` deja ese mismo carril disponible en CI (`workflow_dispatch`, `push`, `pull_request`) bajo `xvfb-run -a` y conserva el artifact VSIX durante `14` días.
 
 ---
 
@@ -504,3 +505,44 @@ Reglas:
 - la política sólo gobierna claves explícitas del producto; no debe sobreescribir paths locales de PBAutoBuild u ORCA ni settings ajenos al contrato;
 - `legacy-orca`, `ci-support` y `support-safe` priorizan reproducibilidad y baja mutación sobre corpus legacy o sesiones de soporte;
 - la aplicación del perfil escribe en settings de workspace, no en settings globales del usuario.
+
+---
+
+## 23. Workflow 22 — Mantener composition roots bajo control
+
+El maintainer o agente necesita añadir una capability sin convertir [src/client/extension.ts](../src/client/extension.ts) o [src/server/server.ts](../src/server/server.ts) en dueños de lógica nueva.
+
+Flujo:
+
+1. revisar `npm run test:architecture:metrics` y `artifacts/performance/architecture-hotspot-guard.json` antes de tocar roots;
+2. si el cambio es cliente, registrar comandos en [src/client/commandRegistration.ts](../src/client/commandRegistration.ts) y mantener controllers detrás de `ensure*Controller()` cuando sean UI lazy;
+3. si el cambio es servidor LSP, registrar handlers desde [src/server/handlers/featureHandlerRegistration.ts](../src/server/handlers/featureHandlerRegistration.ts) o [src/server/handlers/commandHandlerRegistration.ts](../src/server/handlers/commandHandlerRegistration.ts), delegando lógica a handlers/services existentes;
+4. no mover semántica, parsing, DataWindow, build runners o reports a `shared`; `shared` queda para contratos serializables y tipos puros;
+5. ejecutar `npm run build:test`, la suite focal afectada y `npm run test:architecture:metrics` después del corte.
+
+Reglas:
+
+- un root puede coordinar orden de bootstrap, no poseer resolución semántica, formatting complejo, IO de corpus ni lógica de build/report;
+- todo crecimiento que acerque un root al warning del 90% debe venir con destino de extracción o justificación en docs;
+- `plugin_old` puede consultarse como referencia histórica, pero `src/**` no debe importarlo como dependencia runtime.
+
+---
+
+## 24. Workflow 23 — Elegir validation lane antes de cerrar un bloque
+
+El maintainer o agente necesita cerrar una spec con evidencia suficiente sin ejecutar carriles enormes por costumbre ni omitir gates críticos.
+
+Flujo:
+
+1. consultar la matriz canónica en [testing.md](testing.md) y elegir el carril mínimo que cubre el riesgo tocado;
+2. ejecutar siempre `npm run build:test` si hubo cambios TypeScript o tests;
+3. ejecutar `npm run test:architecture:rapid` o `npm run test:architecture:metrics` cuando cambien imports, ownership, composition roots, hot path o DataWindow boundary;
+4. ejecutar `npm run test:performance:gate` cuando cambien serving, cache, payload, parser, diagnostics o performance docs;
+5. ejecutar `npm run test:docs:drift` después de modificar backlog, current-focus, roadmap, done-log, specs o prompts;
+6. registrar en `done-log.md` los comandos exactos y no promover el siguiente bloque hasta que el carril elegido esté verde.
+
+Reglas:
+
+- `test:real-corpora` no existe como script obligatorio; los corpora privados/locales siguen siendo opt-in con skips honestos;
+- `release:verify` es el carril local equivalente al release workflow cuando el cambio afecta empaquetado o publicación;
+- un fallo de lane se corrige en el contrato afectado o se documenta como brecha explícita antes de cerrar el bloque.

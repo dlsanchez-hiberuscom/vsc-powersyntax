@@ -435,6 +435,8 @@ Separación conceptual:
 
 Regla: los contratos no exponen directamente entidades internas mutables del dominio.
 
+Guard vigente: `src/shared/**` no importa cliente, servidor, IO, VS Code API ni internals runtime; los imports LSP se mantienen type-only cuando forman parte de un contrato serializable.
+
 ---
 
 ## 7. Estado explícito del sistema
@@ -586,6 +588,8 @@ Siempre progresiva, cancelable, observable y no bloqueante.
 - `diagnostics/*` no reconstruye resolver o binder.
 - `adapters/*` implementa puertos; no define dominio.
 - `shared/contracts/*` no importa `core/domain/*`.
+- `src/shared/**` no importa cliente, servidor, IO ni stores semánticos runtime.
+- `src/**` no importa `plugin_old/**` como dependencia de producto.
 - `runtime/*` coordina ejecución; no contiene reglas semánticas profundas.
 - `knowledge/*` puede depender de `core/domain` y `core/application`, pero no de UI ni de cliente VS Code.
 - `ux/*` no accede a `core/domain/*` directamente.
@@ -600,7 +604,9 @@ Siempre progresiva, cancelable, observable y no bloqueante.
 Deben existir tests o scripts para proteger:
 
 - firewall de imports entre capas;
+- isolation de `plugin_old` frente al runtime actual;
 - budgets de hotspots principales;
+- `growthPolicy` y sugerencias accionables para composition roots vigiladas;
 - ausencia de scans completos en hot path;
 - ausencia de clones globales de catálogo en serving;
 - ausencia de `JSON.stringify` pesado en features interactivas;
@@ -651,11 +657,12 @@ La documentación debe distinguir siempre entre:
 ## 15. Documentos relacionados
 
 - `docs/architecture-status.md` — estado implementado actual y guardrails vigentes.
+- `docs/architecture-implementation-map.md` — mapa puente entre capas, código real, flujos, cachés y validación.
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` — semántica PowerBuilder y reglas de interpretación.
 - `docs/localization.md` — workflow de overlays y authoring documental del catálogo.
-- `docs/ai-orchestrator.md` — orquestación de tools, context bundles y surfaces IA.
-- `docs/ai-agents-catalog.md` — catálogo operativo de agentes IA del repositorio.
-- `docs/build/README.md` — build, packaging, VSIX, PBAutoBuild y ORCA.
+- `docs/ai/README.md` — entrypoint actual de orquestación IA, estructura y ownership.
+- `docs/ai/agent-skill-routing.md` — catálogo operativo de agentes, skills y routing.
+- `docs/developer-workflows.md` — workflows reales de build, packaging, VSIX, PBAutoBuild y ORCA.
 - `docs/current-focus.md` — foco actual.
 - `docs/backlog.md` — trabajo pendiente.
 - `docs/done-log.md` — historial cerrado.

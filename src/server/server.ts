@@ -44,8 +44,11 @@ import {
   type RuntimeMemoryPressurePolicy,
 } from './runtime/memoryPressurePolicy';
 import { BuildOrcaJournalStore } from './runtime/buildOrcaJournalStore';
+import { InteractiveServingStatsTracker } from './runtime/interactiveServingStats';
 import { RuntimeJournal } from './runtime/runtimeJournal';
 import { createRuntimeProgressController } from './runtime/runtimeProgressController';
+import { InteractiveServingStaleGuard } from './serving/staleGuard';
+import { PresentationCache } from './serving/presentationCache';
 import {
   PbAutoBuildRunner,
 } from './build/pbAutoBuildRunner';
@@ -83,25 +86,14 @@ import { createFileWatcherDebouncer } from './system/fileWatcherDebouncer';
 import { applyWatchedFileEvents } from './workspace/watchedFileIntake';
 import { toWatchedFsEvent } from './workspace/watchedFileChangeBridge';
 import { findPowerBuilderIdentifierSpan } from './utils/pbIdentifier';
+import type { HoverNegativeReason, HoverViewModel } from './features/hoverViewModel';
 import {
-  registerCodeLensHandler,
-  registerCodeActionHandler,
-  registerCompletionHandler,
-  registerDefinitionHandler,
-  registerDocumentSymbolHandler,
-  registerHoverHandler,
-  registerLinkedEditingHandler,
-  registerRenameHandlers,
-  registerReferencesHandler,
-  registerSemanticTokensHandler,
-  registerSignatureHelpHandler,
-  registerWorkspaceSymbolHandler,
-} from './handlers/featureHandlers';
+  registerAuxiliaryFeatureHandlers,
+  registerPrimaryFeatureHandlers,
+} from './handlers/featureHandlerRegistration';
 import { registerDocumentHandlers, registerShutdownHandler } from './handlers/documentHandlers';
 import { registerInitializeHandler, registerInitializedHandler } from './handlers/lifecycleHandlers';
-import { tryHandleBuildCommand } from './handlers/buildCommandHandlers';
-import { tryHandleRuntimeCommand } from './handlers/runtimeCommandHandlers';
-import { tryHandleReportCommand } from './handlers/reportCommandHandlers';
+import { registerServerCommandHandler } from './handlers/commandHandlerRegistration';
 
 // ---------------------------------------------------------------------------
 // Inicialización (Bootstrap)
@@ -131,6 +123,15 @@ const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
 const runtimeJournal = new RuntimeJournal(160);
+const interactiveServingStats = new InteractiveServingStatsTracker(64);
+const servingStaleGuard = new InteractiveServingStaleGuard();
+const hoverViewModelCache = new PresentationCache<HoverViewModel>(128);
+const hoverNegativeCache = new PresentationCache<{ reason: HoverNegativeReason }>(256);
+
+function invalidateHoverPresentationCaches(uri?: string): void {
+  hoverViewModelCache.invalidate(uri);
+  hoverNegativeCache.invalidate(uri);
+}
 
 function republishOpenDiagnostics(uris?: readonly string[]): void {
   republishOpenDiagnosticsForDocuments({
@@ -214,6 +215,7 @@ const watcherIntake = createFileWatcherDebouncer({
           hotContextCache,
           servingCache,
           servingCacheFlushCoordinator,
+          invalidateHoverPresentationCaches,
           isDocumentOpen: (uri) => documents.get(uri) !== undefined,
           getOpenDocument: (uri) => documents.get(uri),
           clearDiagnostics: (uri) => {
@@ -384,11 +386,13 @@ function ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy {
     return policy;
   }
 
-  if (servingCache.size() === 0 || lastMemoryPressureReliefReason === policy.reason) {
+  if ((servingCache.size() === 0 && hoverViewModelCache.size() === 0 && hoverNegativeCache.size() === 0)
+    || lastMemoryPressureReliefReason === policy.reason) {
     return policy;
   }
 
   invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
+  invalidateHoverPresentationCaches();
   lastMemoryPressureReliefReason = policy.reason;
   connection.console.log(`[MEMORY] ${policy.reason}; serving cache vaciado para sostener el carril interactivo.`);
   runtimeJournal.record({
@@ -429,6 +433,26 @@ function cacheServingResultWithMemoryPressure<T>(key: string, value: T): void {
   }
 
   cacheServingResult(servingCache, key, value, servingCacheFlushCoordinator);
+  invalidateRuntimeMemoryPressureSample();
+}
+
+function cacheHoverViewModelWithMemoryPressure(key: string, value: HoverViewModel): void {
+  const policy = ensureRuntimeMemoryPressureRelief();
+  if (!policy.allowServingCacheWrites) {
+    return;
+  }
+
+  hoverViewModelCache.set(key, value);
+  invalidateRuntimeMemoryPressureSample();
+}
+
+function cacheHoverNegativeWithMemoryPressure(key: string, value: { reason: HoverNegativeReason }): void {
+  const policy = ensureRuntimeMemoryPressureRelief();
+  if (!policy.allowServingCacheWrites) {
+    return;
+  }
+
+  hoverNegativeCache.set(key, value);
   invalidateRuntimeMemoryPressureSample();
 }
 
@@ -671,16 +695,15 @@ registerInitializedHandler({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Símbolos del Documento
-// ---------------------------------------------------------------------------
-
 const featureHandlerContext = {
   connection,
   documents,
   scheduler,
   firstInvocation,
   runtimeJournal,
+  interactiveServingStats,
+  documentCache,
+  servingStaleGuard,
   workspaceState,
   knowledgeBase,
   inheritanceGraph,
@@ -695,6 +718,10 @@ const featureHandlerContext = {
   isLatencyPressureHigh,
   recordInteractiveLatency,
   cacheServingResultWithMemoryPressure,
+  getHoverViewModelCacheEntry: (key: string) => hoverViewModelCache.get(key),
+  cacheHoverViewModelWithMemoryPressure,
+  getHoverNegativeCacheEntry: (key: string) => hoverNegativeCache.get(key),
+  cacheHoverNegativeWithMemoryPressure,
   isDefinitionCacheEntry,
   collectReferenceSourcesForQuery,
   wordAt,
@@ -706,49 +733,7 @@ const featureHandlerContext = {
   buildCodeLensReferenceCounts,
 };
 
-registerDocumentSymbolHandler(featureHandlerContext);
-
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Información al pasar el ratón (Hover)
-// ---------------------------------------------------------------------------
-
-registerHoverHandler(featureHandlerContext);
-
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Símbolos del Workspace
-// ---------------------------------------------------------------------------
-
-registerWorkspaceSymbolHandler(featureHandlerContext);
-
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Ir a Definición
-// ---------------------------------------------------------------------------
-
-registerDefinitionHandler(featureHandlerContext);
-
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Find References (Spec 025 / B023)
-// ---------------------------------------------------------------------------
-
-registerReferencesHandler(featureHandlerContext);
-
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Ayuda de Firmas (Signature Help)
-// ---------------------------------------------------------------------------
-
-registerSignatureHelpHandler(featureHandlerContext);
-
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Completado Contextual (Completion)
-// ---------------------------------------------------------------------------
-
-registerCompletionHandler(featureHandlerContext);
-
-// ---------------------------------------------------------------------------
-// Funcionalidades (Features) — Tokens Semánticos (Semantic Tokens)
-// ---------------------------------------------------------------------------
-
-registerSemanticTokensHandler(featureHandlerContext);
+registerPrimaryFeatureHandlers(featureHandlerContext);
 
 // ---------------------------------------------------------------------------
 // Eventos de Documento
@@ -766,6 +751,7 @@ const documentHandlerContext = {
   hotContextCache,
   servingCache,
   servingCacheFlushCoordinator,
+  invalidateHoverPresentationCaches,
   runtimeJournal,
   serverStartTime,
   isSemanticallyServedDocument,
@@ -800,23 +786,14 @@ registerShutdownHandler({
     watcherIntake.dispose();
   },
   invalidateCodeLensCache,
+  invalidateHoverPresentationCaches,
 });
 
-// ---------------------------------------------------------------------------
-// Funcionalidades — Linked Editing / Code Actions / Code Lens / Rename / Custom commands
-// (Specs 103-107). Conectan los providers ya implementados al LSP.
-// ---------------------------------------------------------------------------
+registerAuxiliaryFeatureHandlers(featureHandlerContext);
 
-registerLinkedEditingHandler(featureHandlerContext);
-
-registerCodeActionHandler(featureHandlerContext);
-
-registerCodeLensHandler(featureHandlerContext);
-
-registerRenameHandlers(featureHandlerContext);
-
-connection.onExecuteCommand(async (params) => {
-  const buildCommand = await tryHandleBuildCommand(params, {
+registerServerCommandHandler({
+  connection,
+  build: {
     workspaceState,
     knowledgeBase,
     runtimeJournal,
@@ -829,12 +806,8 @@ connection.onExecuteCommand(async (params) => {
     basenameFromPathOrUri,
     runPbAutoBuildWithBackpressure,
     runOrcaWithBackpressure,
-  });
-  if (buildCommand.handled) {
-    return buildCommand.result ?? null;
-  }
-
-  const reportCommand = await tryHandleReportCommand(params, {
+  },
+  report: {
     workspaceState,
     knowledgeBase,
     inheritanceGraph,
@@ -854,12 +827,8 @@ connection.onExecuteCommand(async (params) => {
     runNearContextWorkload,
     runExportReportingWorkload,
     runOrcaWithBackpressure,
-  });
-  if (reportCommand.handled) {
-    return reportCommand.result ?? null;
-  }
-
-  const runtimeCommand = await tryHandleRuntimeCommand(params, {
+  },
+  runtime: {
     knowledgeBase,
     scheduler,
     workspaceState,
@@ -882,6 +851,7 @@ connection.onExecuteCommand(async (params) => {
     getLastRestoredCheckpointDocuments: () => semanticCacheRuntimeController.getLastRestoredCheckpointDocuments(),
     getLastServingSnapshotRestoreEntries: () => semanticCacheRuntimeController.getLastServingSnapshotRestoreEntries(),
     getLastServingSnapshotPersistEntries: () => semanticCacheRuntimeController.getLastServingSnapshotPersistEntries(),
+    getInteractiveServingStats: () => interactiveServingStats.snapshot(32),
     getLastHealthJournalSignature: () => lastHealthJournalSignature,
     setLastHealthJournalSignature: (signature: string) => {
       lastHealthJournalSignature = signature;
@@ -891,12 +861,7 @@ connection.onExecuteCommand(async (params) => {
     runExportReportingWorkload,
     runMaintenanceWorkload,
     buildCacheCheckpointMetadata,
-  });
-  if (runtimeCommand.handled) {
-    return runtimeCommand.result ?? null;
-  }
-
-  return null;
+  },
 });
 
 /** Spec 105: extracción de identificador alrededor de una columna. */

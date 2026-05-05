@@ -1,5 +1,6 @@
 import * as assert from 'assert/strict';
 import { ServingCache, kbVersionFromKey, makeKey } from '../../../src/server/knowledge/ServingCache';
+import { buildInteractiveServingCacheKey } from '../../../src/server/serving/cacheKeyContract';
 
 suite('unit/ServingCache', () => {
   test('makeKey produce claves estables y diferenciadas', () => {
@@ -59,8 +60,127 @@ suite('unit/ServingCache', () => {
       hits: 1,
       misses: 1,
       evictions: 1,
-      ttlMs: 0
+      ttlMs: 0,
+      byFeature: {
+        hover: { size: 0, capacity: 1, hits: 0, misses: 0, evictions: 0 },
+        completion: { size: 0, capacity: 1, hits: 0, misses: 0, evictions: 0 },
+        signatureHelp: { size: 0, capacity: 0, hits: 0, misses: 0, evictions: 0 },
+        definition: { size: 0, capacity: 0, hits: 0, misses: 0, evictions: 0 }
+      }
     });
+  });
+
+  test('particiona la LRU por feature para evitar que completion expulse hover', () => {
+    const cache = new ServingCache<string>(8);
+    const hoverA = makeKey({ feature: 'hover', uri: 'file:///a.sru', line: 1, character: 1, kbVersion: 1, extra: 'a' });
+    const hoverB = makeKey({ feature: 'hover', uri: 'file:///a.sru', line: 1, character: 2, kbVersion: 1, extra: 'b' });
+    const completionA = makeKey({ feature: 'completion', uri: 'file:///a.sru', line: 1, character: 1, kbVersion: 1, extra: 'a' });
+    const completionB = makeKey({ feature: 'completion', uri: 'file:///a.sru', line: 1, character: 2, kbVersion: 1, extra: 'b' });
+    const completionC = makeKey({ feature: 'completion', uri: 'file:///a.sru', line: 1, character: 3, kbVersion: 1, extra: 'c' });
+    const completionD = makeKey({ feature: 'completion', uri: 'file:///a.sru', line: 1, character: 4, kbVersion: 1, extra: 'd' });
+
+    cache.set(hoverA, 'hover-a');
+    cache.set(hoverB, 'hover-b');
+    cache.set(completionA, 'completion-a');
+    cache.set(completionB, 'completion-b');
+    cache.set(completionC, 'completion-c');
+    cache.set(completionD, 'completion-d');
+
+    assert.equal(cache.get(hoverA), 'hover-a');
+    assert.equal(cache.get(hoverB), 'hover-b');
+    assert.equal(cache.get(completionA), undefined);
+    assert.equal(cache.get(completionB), 'completion-b');
+    assert.equal(cache.get(completionC), 'completion-c');
+    assert.equal(cache.get(completionD), 'completion-d');
+    assert.equal(cache.getStats().byFeature.completion.evictions, 1);
+    assert.equal(cache.getStats().byFeature.hover.size, 2);
+  });
+
+  test('acepta claves estructuradas del contrato nuevo para partición e invalidación', () => {
+    const cache = new ServingCache<string>(8);
+    const hoverKey = buildInteractiveServingCacheKey({
+      cacheClass: 'serving',
+      feature: 'hover',
+      pressureClass: 'hot',
+      uri: 'file:///a.sru',
+      documentVersion: 1,
+      kbVersion: 7,
+      semanticEpoch: 9,
+      sourceOrigin: 'workspace-ws_objects',
+      locale: 'es',
+      line: 4,
+      character: 8,
+    });
+    const completionKey = buildInteractiveServingCacheKey({
+      cacheClass: 'serving',
+      feature: 'completion',
+      pressureClass: 'heavy',
+      uri: 'file:///a.sru',
+      documentVersion: 1,
+      kbVersion: 7,
+      semanticEpoch: 9,
+      sourceOrigin: 'workspace-ws_objects',
+      locale: 'es',
+      line: 4,
+      character: 8,
+      triggerKind: 1,
+      triggerCharacter: '.',
+    });
+
+    cache.set(hoverKey, 'hover');
+    cache.set(completionKey, 'completion');
+
+    assert.equal(cache.get(hoverKey), 'hover');
+    assert.equal(cache.get(completionKey), 'completion');
+    assert.equal(cache.getStats().byFeature.hover.size, 1);
+    assert.equal(cache.getStats().byFeature.completion.size, 1);
+
+    cache.invalidate('file:///a.sru');
+
+    assert.equal(cache.size(), 0);
+    assert.equal(cache.getStats().byFeature.hover.size, 0);
+    assert.equal(cache.getStats().byFeature.completion.size, 0);
+  });
+
+  test('claves estructuradas aislan sourceOrigin, locale y semanticEpoch sin colisionar', () => {
+    const cache = new ServingCache<string>(32);
+    const base = {
+      cacheClass: 'serving' as const,
+      feature: 'hover' as const,
+      pressureClass: 'hot' as const,
+      uri: 'file:///a.sru',
+      documentVersion: 1,
+      kbVersion: 7,
+      semanticEpoch: 9,
+      sourceOrigin: 'workspace-ws_objects' as const,
+      locale: 'es',
+      line: 4,
+      character: 8,
+    };
+    const workspaceEs = buildInteractiveServingCacheKey(base);
+    const solutionEs = buildInteractiveServingCacheKey({ ...base, sourceOrigin: 'solution-source' });
+    const workspaceEn = buildInteractiveServingCacheKey({ ...base, locale: 'en' });
+    const nextEpoch = buildInteractiveServingCacheKey({ ...base, semanticEpoch: 10 });
+    const otherUri = buildInteractiveServingCacheKey({ ...base, uri: 'file:///b.sru' });
+
+    cache.set(workspaceEs, 'workspace-es');
+    cache.set(solutionEs, 'solution-es');
+    cache.set(workspaceEn, 'workspace-en');
+    cache.set(nextEpoch, 'workspace-es-epoch-10');
+    cache.set(otherUri, 'other-uri');
+
+    assert.equal(cache.get(workspaceEs), 'workspace-es');
+    assert.equal(cache.get(solutionEs), 'solution-es');
+    assert.equal(cache.get(workspaceEn), 'workspace-en');
+    assert.equal(cache.get(nextEpoch), 'workspace-es-epoch-10');
+
+    cache.invalidate('file:///a.sru');
+
+    assert.equal(cache.get(workspaceEs), undefined);
+    assert.equal(cache.get(solutionEs), undefined);
+    assert.equal(cache.get(workspaceEn), undefined);
+    assert.equal(cache.get(nextEpoch), undefined);
+    assert.equal(cache.get(otherUri), 'other-uri');
   });
 
   test('LRU evicta el más antiguo al superar maxEntries', () => {
@@ -165,8 +285,22 @@ suite('unit/ServingCache', () => {
 
   test('kbVersionFromKey extrae la epoch de una clave válida y degrada en claves inválidas', () => {
     const validKey = makeKey({ feature: 'hover', uri: 'file:///a.sru', line: 1, character: 2, kbVersion: 7, extra: '.' });
+    const structuredKey = buildInteractiveServingCacheKey({
+      cacheClass: 'serving',
+      feature: 'hover',
+      pressureClass: 'hot',
+      uri: 'file:///a.sru',
+      documentVersion: 1,
+      kbVersion: 8,
+      semanticEpoch: 9,
+      sourceOrigin: 'workspace-ws_objects',
+      locale: 'en',
+      line: 1,
+      character: 2,
+    });
 
     assert.equal(kbVersionFromKey(validKey), 7);
+    assert.equal(kbVersionFromKey(structuredKey), 8);
     assert.equal(kbVersionFromKey('hover|file:///a.sru|1|2|not-a-number|.'), null);
     assert.equal(kbVersionFromKey('invalid-key'), null);
   });

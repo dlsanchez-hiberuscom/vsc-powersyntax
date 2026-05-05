@@ -1,4 +1,4 @@
-import { Range, type Connection, type TextDocuments } from 'vscode-languageserver/node';
+import { Range, type CompletionItem, type Connection, type TextDocuments } from 'vscode-languageserver/node';
 import { TaskPriority, type TaskScheduler } from '../runtime/scheduler';
 import { measureMs, formatTiming, type FirstInvocationTracker } from '../runtime/timing';
 import { provideCodeActions } from '../features/codeActions';
@@ -8,29 +8,42 @@ import {
 } from '../features/documentSymbols';
 import { provideReferenceCodeLenses, type CodeLensSymbol } from '../features/codeLensReferences';
 import { provideDefinition } from '../features/definition';
-import { provideHover } from '../features/hover';
+import { buildHoverPresentationResult, provideHover } from '../features/hover';
 import { provideLinkedEditingRanges } from '../features/linkedEditing';
 import { provideReferences, type ReferenceSource } from '../features/references';
 import { provideRename } from '../features/rename';
 import { provideSignatureHelp } from '../features/signatureHelp';
-import { provideCompletion } from '../features/completion';
+import { isCompletionItemResolveData, provideCompletion, resolveCompletionItem } from '../features/completion';
 import { provideWorkspaceSymbols } from '../features/workspaceSymbols';
 import { provideSemanticTokens } from '../features/semanticTokens';
 import { decideFeatureReadiness } from '../features/featureReadiness';
 import { createDocumentQueryContext, type DocumentQueryContext } from '../features/queryContext';
 import { resolveServingReadiness } from '../features/servingReadiness';
-import type { QueryConsumerId } from '../features/queryScopePolicy';
+import { getQueryConsumerPolicy, type QueryConsumerId } from '../features/queryScopePolicy';
 import { RuntimeJournal } from '../runtime/runtimeJournal';
+import {
+  estimateLspPayloadBytes,
+  type InteractiveServingFeature,
+  type InteractiveServingReason,
+  InteractiveServingStatsTracker,
+} from '../runtime/interactiveServingStats';
 import { CodeLensResultCache } from '../features/codeLensResultCache';
 import { WorkspaceState } from '../workspace/workspaceState';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { HotContextCache } from '../knowledge/HotContextCache';
-import { ServingCache, makeKey as makeServingKey } from '../knowledge/ServingCache';
+import { ServingCache } from '../knowledge/ServingCache';
+import { DocumentCache } from '../knowledge/DocumentCache';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import type { DocumentationLocale } from '../knowledge/system/localization';
 import { Entity, EntityKind } from '../knowledge/types';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { ActiveDocumentServingSnapshot } from '../serving/activeDocumentServingSnapshot';
+import { buildInteractiveServingCacheKey } from '../serving/cacheKeyContract';
+import { recordInteractiveServingEvent, runInteractiveServingPipeline } from '../serving/interactiveServingPipeline';
+import type { InteractiveServingStaleGuard } from '../serving/staleGuard';
+import { formatHoverViewModel } from '../features/hoverFormat';
+import type { HoverNegativeReason, HoverViewModel } from '../features/hoverViewModel';
 
 type RuntimeProgressReadinessSnapshot = Parameters<typeof decideFeatureReadiness>[1];
 type DefinitionCacheEntry = {
@@ -38,12 +51,57 @@ type DefinitionCacheEntry = {
   resolutionConfidence?: ReturnType<typeof createDocumentQueryContext>['resolutionConfidence'];
 };
 
+export const INTERACTIVE_TIMING_LOG_THRESHOLD_MS = 50;
+
+const INTERACTIVE_SERVING_BUDGET_MS: Record<InteractiveServingFeature, number | undefined> = {
+  hover: getQueryConsumerPolicy('hover').budgetMs,
+  completion: getQueryConsumerPolicy('completion').budgetMs,
+  'completion-resolve': getQueryConsumerPolicy('completion').budgetMs,
+  signatureHelp: getQueryConsumerPolicy('signature-help').budgetMs,
+  definition: getQueryConsumerPolicy('definition').budgetMs,
+  references: getQueryConsumerPolicy('references').budgetMs,
+  documentSymbols: undefined,
+  semanticTokens: undefined,
+};
+
+export function shouldLogInteractiveTiming(elapsedMs: number): boolean {
+  return elapsedMs >= INTERACTIVE_TIMING_LOG_THRESHOLD_MS;
+}
+
+function logInteractiveFeatureTiming(
+  connection: Connection,
+  featureLabel: string,
+  elapsedMs: number,
+  firstInvocation?: FirstInvocationTracker,
+  firstInvocationKey?: string,
+  firstInvocationLabel?: string,
+  serverStartTime?: number,
+): void {
+  if (
+    firstInvocation
+    && firstInvocationKey
+    && firstInvocationLabel
+    && typeof serverStartTime === 'number'
+    && firstInvocation.isFirst(firstInvocationKey)
+  ) {
+    const sinceStart = performance.now() - serverStartTime;
+    connection.console.log(formatTiming(firstInvocationLabel, sinceStart));
+  }
+
+  if (shouldLogInteractiveTiming(elapsedMs)) {
+    connection.console.log(formatTiming(featureLabel, elapsedMs));
+  }
+}
+
 export interface FeatureHandlerContext {
   connection: Connection;
   documents: TextDocuments<TextDocument>;
   scheduler: TaskScheduler;
   firstInvocation: FirstInvocationTracker;
   runtimeJournal: RuntimeJournal;
+  interactiveServingStats: InteractiveServingStatsTracker;
+  documentCache: DocumentCache;
+  servingStaleGuard: InteractiveServingStaleGuard;
   workspaceState: WorkspaceState;
   knowledgeBase: KnowledgeBase;
   inheritanceGraph: InheritanceGraph;
@@ -58,6 +116,10 @@ export interface FeatureHandlerContext {
   isLatencyPressureHigh(): boolean;
   recordInteractiveLatency(feature: string, elapsedMs: number): void;
   cacheServingResultWithMemoryPressure(key: string, value: unknown): void;
+  getHoverViewModelCacheEntry(key: string): HoverViewModel | undefined;
+  cacheHoverViewModelWithMemoryPressure(key: string, value: HoverViewModel): void;
+  getHoverNegativeCacheEntry(key: string): { reason: HoverNegativeReason } | undefined;
+  cacheHoverNegativeWithMemoryPressure(key: string, value: { reason: HoverNegativeReason }): void;
   isDefinitionCacheEntry(value: unknown): value is DefinitionCacheEntry;
   collectReferenceSourcesForQuery(
     document: TextDocument,
@@ -112,12 +174,15 @@ export function registerDocumentSymbolHandler(context: FeatureHandlerContext): v
             });
           }
 
-          if (firstInvocation.isFirst('documentSymbols')) {
-            const sinceStart = performance.now() - serverStartTime;
-            connection.console.log(formatTiming('Primer documentSymbols (desde el inicio)', sinceStart));
-          }
-
-          connection.console.log(formatTiming('documentSymbols', elapsedMs));
+          logInteractiveFeatureTiming(
+            connection,
+            'documentSymbols',
+            elapsedMs,
+            firstInvocation,
+            'documentSymbols',
+            'Primer documentSymbols (desde el inicio)',
+            serverStartTime,
+          );
           return result.symbols;
         }
       });
@@ -158,7 +223,7 @@ export function registerWorkspaceSymbolHandler(context: FeatureHandlerContext): 
   connection.onWorkspaceSymbol((params) => {
     try {
       const { result, elapsedMs } = measureMs(() => provideWorkspaceSymbols(params.query, knowledgeBase));
-      connection.console.log(formatTiming('workspaceSymbol', elapsedMs));
+      logInteractiveFeatureTiming(connection, 'workspaceSymbol', elapsedMs);
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -179,6 +244,11 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
     hotContextCache,
     servingCache,
     firstInvocation,
+    runtimeJournal,
+    interactiveServingStats,
+    documentCache,
+    servingStaleGuard,
+    workspaceState,
     serverStartTime,
     getDocumentationLocale,
     buildRuntimeProgressReadiness,
@@ -186,6 +256,10 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
     isLatencyPressureHigh,
     recordInteractiveLatency,
     cacheServingResultWithMemoryPressure,
+    getHoverViewModelCacheEntry,
+    cacheHoverViewModelWithMemoryPressure,
+    getHoverNegativeCacheEntry,
+    cacheHoverNegativeWithMemoryPressure,
     isSemanticallyServedDocument,
   } = context;
 
@@ -202,43 +276,178 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
       return scheduler.runInteractive({
         id: `hover-${document.uri}`,
         priority: TaskPriority.Interactive,
-        execute: () => {
+        execute: (token) => {
           const documentationLocale = getDocumentationLocale();
           const readinessDecision = decideFeatureReadiness('hover', buildRuntimeProgressReadiness(document.uri), {
             latencyOverloaded: isLatencyPressureHigh()
           });
           hotContextCache.setActive(document.uri, knowledgeBase.version);
-          const cacheKey = makeServingKey({
-            feature: 'hover',
-            uri: document.uri,
+          const snapshot = new ActiveDocumentServingSnapshot({
+            document,
+            knowledgeBase,
+            documentCache,
+            hotContextCache,
+            inheritanceGraph,
+            systemCatalog,
+            workspaceState,
+            locale: documentationLocale,
+          });
+          const cacheKey = snapshot.buildCacheKey('hover', {
+            cacheClass: 'serving',
+            pressureClass: 'hot',
             line: params.position.line,
             character: params.position.character,
-            kbVersion: knowledgeBase.version,
-            extra: documentationLocale,
+          });
+          const hoverToken = snapshot.getTokenAt(params.position);
+          const hoverContextKey = hoverToken
+            ? `${params.position.line}:${hoverToken.start}-${hoverToken.end}:${hoverToken.word.toLowerCase()}`
+            : `${params.position.line}:${params.position.character}`;
+          const hoverViewModelCacheKey = snapshot.buildCacheKey('hover-view-model', {
+            cacheClass: 'view-model',
+            pressureClass: 'hot',
+            line: params.position.line,
+            character: params.position.character,
+            ...(hoverToken ? {
+              rangeStartLine: params.position.line,
+              rangeStartCharacter: hoverToken.start,
+              rangeEndLine: params.position.line,
+              rangeEndCharacter: hoverToken.end,
+              context: hoverToken.word.toLowerCase(),
+            } : {
+              context: 'cursor',
+            }),
+          });
+          const hoverNegativeCacheKey = snapshot.buildCacheKey('hover-negative', {
+            cacheClass: 'negative',
+            pressureClass: 'negative',
+            line: params.position.line,
+            character: params.position.character,
+            ...(hoverToken ? {
+              rangeStartLine: params.position.line,
+              rangeStartCharacter: hoverToken.start,
+              rangeEndLine: params.position.line,
+              rangeEndCharacter: hoverToken.end,
+              context: hoverToken.word.toLowerCase(),
+            } : {
+              context: 'cursor',
+            }),
           });
 
-          ensureRuntimeMemoryPressureRelief();
-          const cached = servingCache.get(cacheKey);
-          if (cached !== undefined) {
-            return cached as ReturnType<typeof provideHover>;
-          }
+          return runInteractiveServingPipeline({
+            feature: 'hover',
+            cacheKey,
+            readiness: {
+              action: readinessDecision.action,
+              reason: readinessDecision.reason,
+              blockedResult: null,
+              warningMessage: `[hover] bloqueado: ${readinessDecision.reason}`,
+            },
+            requestState: {
+              feature: 'hover',
+              uri: snapshot.uri,
+              documentVersion: snapshot.documentVersion,
+              kbVersion: snapshot.kbVersion,
+              semanticEpoch: snapshot.semanticEpoch,
+              sourceOrigin: snapshot.sourceOrigin,
+              locale: snapshot.locale,
+              contextKey: hoverContextKey,
+            },
+            readCurrentState: () => ({
+              feature: 'hover',
+              uri: document.uri,
+              documentVersion: document.version,
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+              locale: documentationLocale,
+              contextKey: hoverContextKey,
+            }),
+            staleGuard: servingStaleGuard,
+            runtimeJournal,
+            interactiveServingStats,
+            budgetMs: INTERACTIVE_SERVING_BUDGET_MS.hover,
+            kbVersion: snapshot.kbVersion,
+            semanticEpoch: snapshot.semanticEpoch,
+            locale: snapshot.locale,
+            cancellationToken: token,
+            ensureRuntimeMemoryPressureRelief,
+            getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideHover> | undefined,
+            resolveEarlyResult: () => {
+              if (getHoverNegativeCacheEntry(hoverNegativeCacheKey)) {
+                return {
+                  handled: true,
+                  reason: 'negative-hit',
+                  result: null,
+                  skipCacheWrite: true,
+                } as const;
+              }
 
-          if (readinessDecision.action === 'block') {
-            connection.console.warn(`[hover] bloqueado: ${readinessDecision.reason}`);
-            return null;
-          }
+              const cachedViewModel = getHoverViewModelCacheEntry(hoverViewModelCacheKey);
+              if (!cachedViewModel) {
+                return undefined;
+              }
 
-          const { result, elapsedMs } = measureMs(() => provideHover(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, documentationLocale));
-          recordInteractiveLatency('hover', elapsedMs);
+              const formatterStartedAt = performance.now();
+              return {
+                handled: true,
+                reason: 'viewmodel-hit',
+                result: {
+                  contents: {
+                    kind: 'markdown',
+                    value: formatHoverViewModel(cachedViewModel),
+                  }
+                },
+                formatterMs: performance.now() - formatterStartedAt,
+              } as const;
+            },
+            resolve: () => buildHoverPresentationResult(
+              document,
+              params.position,
+              knowledgeBase,
+              systemCatalog,
+              inheritanceGraph,
+              hotContextCache,
+              documentationLocale,
+              snapshot,
+            ),
+            onResolved: (resolved) => {
+              const presentation = resolved as ReturnType<typeof buildHoverPresentationResult>;
+              if (presentation.kind === 'viewmodel') {
+                cacheHoverViewModelWithMemoryPressure(hoverViewModelCacheKey, presentation.viewModel);
+                return;
+              }
 
-          if (firstInvocation.isFirst('hover')) {
-            const sinceStart = performance.now() - serverStartTime;
-            connection.console.log(formatTiming('Primer hover (desde el inicio)', sinceStart));
-          }
+              cacheHoverNegativeWithMemoryPressure(hoverNegativeCacheKey, { reason: presentation.reason });
+            },
+            format: (resolved) => {
+              const presentation = resolved as ReturnType<typeof buildHoverPresentationResult>;
+              if (presentation.kind === 'negative') {
+                return null;
+              }
 
-          connection.console.log(formatTiming('hover', elapsedMs));
-          cacheServingResultWithMemoryPressure(cacheKey, result);
-          return result;
+              return {
+                contents: {
+                  kind: 'markdown',
+                  value: formatHoverViewModel(presentation.viewModel),
+                }
+              };
+            },
+            shouldWriteCache: (_result, resolved) => (resolved as ReturnType<typeof buildHoverPresentationResult>).kind === 'viewmodel',
+            writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
+            onBlocked: (message) => connection.console.warn(message),
+            onComputed: (_result, telemetry) => {
+              recordInteractiveLatency('hover', telemetry.totalMs);
+              logInteractiveFeatureTiming(
+                connection,
+                'hover',
+                telemetry.totalMs,
+                firstInvocation,
+                'hover',
+                'Primer hover (desde el inicio)',
+                serverStartTime,
+              );
+            },
+          });
         }
       });
     } catch (error) {
@@ -260,6 +469,11 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
     hotContextCache,
     servingCache,
     firstInvocation,
+    runtimeJournal,
+    interactiveServingStats,
+    documentCache,
+    servingStaleGuard,
+    workspaceState,
     serverStartTime,
     getDocumentationLocale,
     buildRuntimeProgressReadiness,
@@ -283,16 +497,24 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
       return scheduler.runInteractive({
         id: `signatureHelp-${document.uri}`,
         priority: TaskPriority.Interactive,
-        execute: () => {
+        execute: (token) => {
           const documentationLocale = getDocumentationLocale();
           hotContextCache.setActive(document.uri, knowledgeBase.version);
-          const cacheKey = makeServingKey({
-            feature: 'signatureHelp',
-            uri: document.uri,
+          const snapshot = new ActiveDocumentServingSnapshot({
+            document,
+            knowledgeBase,
+            documentCache,
+            hotContextCache,
+            inheritanceGraph,
+            systemCatalog,
+            workspaceState,
+            locale: documentationLocale,
+          });
+          const cacheKey = snapshot.buildCacheKey('signatureHelp', {
+            cacheClass: 'serving',
+            pressureClass: 'hot',
             line: params.position.line,
             character: params.position.character,
-            kbVersion: knowledgeBase.version,
-            extra: documentationLocale,
           });
           const readiness = resolveServingReadiness({
             feature: 'signature-help',
@@ -303,32 +525,64 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
               latencyOverloaded: isLatencyPressureHigh()
             }
           });
-          ensureRuntimeMemoryPressureRelief();
-          const cached = servingCache.get(cacheKey);
-          if (cached !== undefined) {
-            if (readiness.blocked) {
-              connection.console.warn(readiness.warningMessage);
-              return readiness.blockedResult;
-            }
-            return cached as ReturnType<typeof provideSignatureHelp>;
-          }
 
-          if (readiness.blocked) {
-            connection.console.warn(readiness.warningMessage);
-            return readiness.blockedResult;
-          }
-
-          const { result, elapsedMs } = measureMs(() => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, documentationLocale));
-          recordInteractiveLatency('signatureHelp', elapsedMs);
-
-          if (firstInvocation.isFirst('signatureHelp')) {
-            const sinceStart = performance.now() - serverStartTime;
-            connection.console.log(formatTiming('Primer signatureHelp (desde el inicio)', sinceStart));
-          }
-
-          connection.console.log(formatTiming('signatureHelp', elapsedMs));
-          cacheServingResultWithMemoryPressure(cacheKey, result);
-          return result;
+          return runInteractiveServingPipeline({
+            feature: 'signatureHelp',
+            cacheKey,
+            readiness: {
+              action: readiness.decision.action,
+              reason: readiness.decision.reason,
+              blocked: readiness.blocked,
+              blockedResult: readiness.blocked ? readiness.blockedResult : null,
+              warningMessage: readiness.blocked ? readiness.warningMessage : undefined,
+            },
+            requestState: {
+              feature: 'signatureHelp',
+              uri: snapshot.uri,
+              documentVersion: snapshot.documentVersion,
+              kbVersion: snapshot.kbVersion,
+              semanticEpoch: snapshot.semanticEpoch,
+              sourceOrigin: snapshot.sourceOrigin,
+              locale: snapshot.locale,
+              contextKey: `${params.position.line}:${params.position.character}`,
+            },
+            readCurrentState: () => ({
+              feature: 'signatureHelp',
+              uri: document.uri,
+              documentVersion: document.version,
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+              locale: documentationLocale,
+              contextKey: `${params.position.line}:${params.position.character}`,
+            }),
+            staleGuard: servingStaleGuard,
+            runtimeJournal,
+            interactiveServingStats,
+            budgetMs: INTERACTIVE_SERVING_BUDGET_MS.signatureHelp,
+            kbVersion: snapshot.kbVersion,
+            semanticEpoch: snapshot.semanticEpoch,
+            locale: snapshot.locale,
+            cancellationToken: token,
+            ensureRuntimeMemoryPressureRelief,
+            allowCachedWhileBlocked: false,
+            getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideSignatureHelp> | undefined,
+            execute: () => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, documentationLocale),
+            writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
+            onBlocked: (message) => connection.console.warn(message),
+            onComputed: (_result, telemetry) => {
+              recordInteractiveLatency('signatureHelp', telemetry.totalMs);
+              logInteractiveFeatureTiming(
+                connection,
+                'signatureHelp',
+                telemetry.totalMs,
+                firstInvocation,
+                'signatureHelp',
+                'Primer signatureHelp (desde el inicio)',
+                serverStartTime,
+              );
+            },
+          });
         }
       });
     } catch (error) {
@@ -350,6 +604,11 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
     hotContextCache,
     servingCache,
     firstInvocation,
+    runtimeJournal,
+    interactiveServingStats,
+    documentCache,
+    servingStaleGuard,
+    workspaceState,
     serverStartTime,
     getDocumentationLocale,
     buildRuntimeProgressReadiness,
@@ -373,48 +632,206 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
       return scheduler.runInteractive({
         id: `completion-${document.uri}`,
         priority: TaskPriority.Interactive,
-        execute: () => {
+        execute: (token) => {
           const readinessDecision = decideFeatureReadiness('completion', buildRuntimeProgressReadiness(document.uri), {
             latencyOverloaded: isLatencyPressureHigh()
           });
           const documentationLocale = getDocumentationLocale();
           hotContextCache.setActive(document.uri, knowledgeBase.version);
-          const cacheKey = makeServingKey({
-            feature: 'completion',
-            uri: document.uri,
+          const snapshot = new ActiveDocumentServingSnapshot({
+            document,
+            knowledgeBase,
+            documentCache,
+            hotContextCache,
+            inheritanceGraph,
+            systemCatalog,
+            workspaceState,
+            locale: documentationLocale,
+          });
+          const cacheKey = snapshot.buildCacheKey('completion', {
+            cacheClass: 'serving',
+            pressureClass: 'heavy',
             line: params.position.line,
             character: params.position.character,
-            kbVersion: knowledgeBase.version,
-            extra: `${params.context?.triggerKind ?? ''}|${params.context?.triggerCharacter ?? ''}|${documentationLocale}`
+            triggerKind: params.context?.triggerKind,
+            triggerCharacter: params.context?.triggerCharacter,
           });
-          ensureRuntimeMemoryPressureRelief();
-          const cached = servingCache.get(cacheKey);
-          if (cached !== undefined) {
-            return cached as ReturnType<typeof provideCompletion>;
-          }
 
-          if (readinessDecision.action === 'block') {
-            connection.console.warn(`[completion] bloqueado: ${readinessDecision.reason}`);
-            return null;
-          }
-
-          const { result, elapsedMs } = measureMs(() => provideCompletion(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, knowledgeBase.version, documentationLocale));
-          recordInteractiveLatency('completion', elapsedMs);
-
-          if (firstInvocation.isFirst('completion')) {
-            const sinceStart = performance.now() - serverStartTime;
-            connection.console.log(formatTiming('Primer completion (desde el inicio)', sinceStart));
-          }
-
-          connection.console.log(formatTiming('completion', elapsedMs));
-          cacheServingResultWithMemoryPressure(cacheKey, result);
-          return result;
+          return runInteractiveServingPipeline({
+            feature: 'completion',
+            cacheKey,
+            readiness: {
+              action: readinessDecision.action,
+              reason: readinessDecision.reason,
+              blockedResult: null,
+              warningMessage: `[completion] bloqueado: ${readinessDecision.reason}`,
+            },
+            requestState: {
+              feature: 'completion',
+              uri: snapshot.uri,
+              documentVersion: snapshot.documentVersion,
+              kbVersion: snapshot.kbVersion,
+              semanticEpoch: snapshot.semanticEpoch,
+              sourceOrigin: snapshot.sourceOrigin,
+              locale: snapshot.locale,
+              contextKey: `${params.position.line}:${params.position.character}:${params.context?.triggerKind ?? ''}:${params.context?.triggerCharacter ?? ''}`,
+            },
+            readCurrentState: () => ({
+              feature: 'completion',
+              uri: document.uri,
+              documentVersion: document.version,
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+              locale: documentationLocale,
+              contextKey: `${params.position.line}:${params.position.character}:${params.context?.triggerKind ?? ''}:${params.context?.triggerCharacter ?? ''}`,
+            }),
+            staleGuard: servingStaleGuard,
+            runtimeJournal,
+            interactiveServingStats,
+            budgetMs: INTERACTIVE_SERVING_BUDGET_MS.completion,
+            kbVersion: snapshot.kbVersion,
+            semanticEpoch: snapshot.semanticEpoch,
+            locale: snapshot.locale,
+            cancellationToken: token,
+            ensureRuntimeMemoryPressureRelief,
+            getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideCompletion> | undefined,
+            execute: () => provideCompletion(
+              document,
+              params.position,
+              knowledgeBase,
+              systemCatalog,
+              inheritanceGraph,
+              hotContextCache,
+              knowledgeBase.version,
+              documentationLocale,
+              { sourceOrigin: snapshot.sourceOrigin },
+            ),
+            writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
+            onBlocked: (message) => connection.console.warn(message),
+            onComputed: (_result, telemetry) => {
+              recordInteractiveLatency('completion', telemetry.totalMs);
+              logInteractiveFeatureTiming(
+                connection,
+                'completion',
+                telemetry.totalMs,
+                firstInvocation,
+                'completion',
+                'Primer completion (desde el inicio)',
+                serverStartTime,
+              );
+            },
+          });
         }
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       connection.console.error(`[ERROR] completion: ${message}`);
       return null;
+    }
+  });
+
+  connection.onCompletionResolve((item) => {
+    const data = isCompletionItemResolveData(item.data) ? item.data : null;
+    if (!data) {
+      return item;
+    }
+
+    const document = documents.get(data.uri);
+    if (!document) {
+      return item;
+    }
+    if (!isSemanticallyServedDocument(document)) {
+      return item;
+    }
+
+    try {
+      return scheduler.runInteractive({
+        id: `completion-resolve-${document.uri}`,
+        priority: TaskPriority.Interactive,
+        execute: (token) => {
+          const documentationLocale = getDocumentationLocale();
+          const readinessDecision = decideFeatureReadiness('completion', buildRuntimeProgressReadiness(document.uri), {
+            latencyOverloaded: isLatencyPressureHigh(),
+          });
+          const contextKey = data.source === 'system'
+            ? `system:${data.symbolId}`
+            : `entity:${data.entityUri}:${data.entityId}:${data.line}:${data.character}`;
+          const cacheKey = buildInteractiveServingCacheKey({
+            cacheClass: 'serving',
+            feature: 'completion-resolve',
+            pressureClass: 'hot',
+            uri: data.uri,
+            documentVersion: data.documentVersion,
+            kbVersion: data.kbVersion,
+            semanticEpoch: data.semanticEpoch,
+            sourceOrigin: data.sourceOrigin,
+            locale: documentationLocale,
+            context: contextKey,
+          });
+
+          return runInteractiveServingPipeline({
+            feature: 'completion-resolve',
+            cacheKey,
+            readiness: {
+              action: readinessDecision.action,
+              reason: readinessDecision.reason,
+              blockedResult: item,
+              warningMessage: `[completion-resolve] bloqueado: ${readinessDecision.reason}`,
+            },
+            requestState: {
+              feature: 'completion-resolve',
+              uri: data.uri,
+              documentVersion: data.documentVersion,
+              kbVersion: data.kbVersion,
+              semanticEpoch: data.semanticEpoch,
+              sourceOrigin: data.sourceOrigin,
+              locale: data.locale,
+              contextKey,
+            },
+            readCurrentState: () => ({
+              feature: 'completion-resolve',
+              uri: document.uri,
+              documentVersion: document.version,
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+              locale: documentationLocale,
+              contextKey,
+            }),
+            staleGuard: servingStaleGuard,
+            runtimeJournal,
+            interactiveServingStats,
+            budgetMs: INTERACTIVE_SERVING_BUDGET_MS['completion-resolve'],
+            kbVersion: knowledgeBase.version,
+            semanticEpoch: knowledgeBase.semanticEpoch,
+            locale: documentationLocale,
+            payloadBudgetFeature: 'completion-resolve',
+            cancellationToken: token,
+            ensureRuntimeMemoryPressureRelief,
+            getCachedResult: () => servingCache.get(cacheKey) as CompletionItem | undefined,
+            execute: () => resolveCompletionItem(item, knowledgeBase, systemCatalog, documentationLocale),
+            writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
+            onBlocked: (message) => connection.console.warn(message),
+            onComputed: (_result, telemetry) => {
+              recordInteractiveLatency('completion-resolve', telemetry.totalMs);
+              logInteractiveFeatureTiming(
+                connection,
+                'completion-resolve',
+                telemetry.totalMs,
+                firstInvocation,
+                'completion-resolve',
+                'Primer completion resolve (desde el inicio)',
+                serverStartTime,
+              );
+            },
+          });
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      connection.console.error(`[ERROR] completion-resolve: ${message}`);
+      return item;
     }
   });
 }
@@ -425,10 +842,16 @@ export function registerDefinitionHandler(context: FeatureHandlerContext): void 
     documents,
     scheduler,
     knowledgeBase,
+    systemCatalog,
     inheritanceGraph,
     hotContextCache,
     servingCache,
     firstInvocation,
+    runtimeJournal,
+    interactiveServingStats,
+    documentCache,
+    servingStaleGuard,
+    workspaceState,
     serverStartTime,
     buildRuntimeProgressReadiness,
     ensureRuntimeMemoryPressureRelief,
@@ -452,17 +875,48 @@ export function registerDefinitionHandler(context: FeatureHandlerContext): void 
       return scheduler.runInteractive({
         id: `definition-${document.uri}`,
         priority: TaskPriority.Interactive,
-        execute: () => {
+        execute: (token) => {
           const runtimeReadiness = buildRuntimeProgressReadiness(document.uri);
           hotContextCache.setActive(document.uri, knowledgeBase.version);
-          const cacheKey = makeServingKey({
-            feature: 'definition',
+          const snapshot = new ActiveDocumentServingSnapshot({
+            document,
+            knowledgeBase,
+            documentCache,
+            hotContextCache,
+            inheritanceGraph,
+            systemCatalog,
+            workspaceState,
+          });
+          const contextKey = `${params.position.line}:${params.position.character}`;
+          const requestState = {
+            feature: 'definition' as const,
+            uri: snapshot.uri,
+            documentVersion: snapshot.documentVersion,
+            kbVersion: snapshot.kbVersion,
+            semanticEpoch: snapshot.semanticEpoch,
+            sourceOrigin: snapshot.sourceOrigin,
+            locale: snapshot.locale,
+            contextKey,
+          };
+          const readCurrentState = () => ({
+            feature: 'definition' as const,
             uri: document.uri,
+            documentVersion: document.version,
+            kbVersion: knowledgeBase.version,
+            semanticEpoch: knowledgeBase.semanticEpoch,
+            sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+            locale: snapshot.locale,
+            contextKey,
+          });
+          const requestToken = servingStaleGuard.begin(requestState);
+          const cacheKey = snapshot.buildCacheKey('definition', {
+            cacheClass: 'serving',
+            pressureClass: 'hot',
             line: params.position.line,
             character: params.position.character,
-            kbVersion: knowledgeBase.version
           });
           ensureRuntimeMemoryPressureRelief();
+          const cacheLookupStartedAt = performance.now();
           const cached = servingCache.get(cacheKey);
           if (isDefinitionCacheEntry(cached)) {
             const readiness = resolveServingReadiness({
@@ -477,8 +931,27 @@ export function registerDefinitionHandler(context: FeatureHandlerContext): void 
             });
             if (readiness.blocked) {
               connection.console.warn(readiness.warningMessage);
+              recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                feature: 'definition',
+                reason: 'blocked',
+                totalMs: performance.now() - cacheLookupStartedAt,
+                kbVersion: knowledgeBase.version,
+                semanticEpoch: knowledgeBase.semanticEpoch,
+                readinessAction: readiness.decision.action,
+                readinessReason: readiness.decision.reason,
+              });
               return readiness.blockedResult;
             }
+            recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+              feature: 'definition',
+              reason: 'cache-hit',
+              totalMs: performance.now() - cacheLookupStartedAt,
+              payloadBytes: estimateLspPayloadBytes(cached.result),
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              readinessAction: readiness.decision.action,
+              readinessReason: readiness.decision.reason,
+            });
             return cached.result;
           }
 
@@ -490,21 +963,79 @@ export function registerDefinitionHandler(context: FeatureHandlerContext): void 
 
           if (readinessDecision.action === 'block') {
             connection.console.warn(`[definition] bloqueado: ${readinessDecision.reason}`);
+            recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+              feature: 'definition',
+              reason: 'blocked',
+              totalMs: 0,
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              readinessAction: readinessDecision.action,
+              readinessReason: readinessDecision.reason,
+            });
             return null;
           }
 
-          const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, queryContext));
+          const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, queryContext, systemCatalog));
           recordInteractiveLatency('definition', elapsedMs);
 
-          if (firstInvocation.isFirst('definition')) {
-            const sinceStart = performance.now() - serverStartTime;
-            connection.console.log(formatTiming('Primera definición (desde el inicio)', sinceStart));
-          }
-
-          connection.console.log(formatTiming('definition', elapsedMs));
-          cacheServingResultWithMemoryPressure(cacheKey, {
+          logInteractiveFeatureTiming(
+            connection,
+            'definition',
+            elapsedMs,
+            firstInvocation,
+            'definition',
+            'Primera definición (desde el inicio)',
+            serverStartTime,
+          );
+          const cacheEntry = {
             result,
             resolutionConfidence: queryContext.resolutionConfidence
+          };
+          const staleBeforeWrite = servingStaleGuard.check(requestToken, readCurrentState(), token);
+          if (staleBeforeWrite.stale) {
+            recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+              feature: 'definition',
+              reason: 'stale-discarded',
+              totalMs: elapsedMs,
+              providerMs: elapsedMs,
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              readinessAction: readinessDecision.action,
+              readinessReason: readinessDecision.reason,
+              staleReason: staleBeforeWrite.reason,
+            });
+            return null;
+          }
+          const cacheWriteStartedAt = performance.now();
+          cacheServingResultWithMemoryPressure(cacheKey, cacheEntry);
+          const cacheWriteMs = performance.now() - cacheWriteStartedAt;
+          const staleBeforeReturn = servingStaleGuard.check(requestToken, readCurrentState(), token);
+          if (staleBeforeReturn.stale) {
+            recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+              feature: 'definition',
+              reason: 'stale-discarded',
+              totalMs: elapsedMs + cacheWriteMs,
+              providerMs: elapsedMs,
+              cacheWriteMs,
+              kbVersion: knowledgeBase.version,
+              semanticEpoch: knowledgeBase.semanticEpoch,
+              readinessAction: readinessDecision.action,
+              readinessReason: readinessDecision.reason,
+              staleReason: staleBeforeReturn.reason,
+            });
+            return null;
+          }
+          recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+            feature: 'definition',
+            reason: 'miss',
+            totalMs: elapsedMs + cacheWriteMs,
+            providerMs: elapsedMs,
+            cacheWriteMs,
+            payloadBytes: estimateLspPayloadBytes(result),
+            kbVersion: knowledgeBase.version,
+            semanticEpoch: knowledgeBase.semanticEpoch,
+            readinessAction: readinessDecision.action,
+            readinessReason: readinessDecision.reason,
           });
           return result;
         }
@@ -568,7 +1099,7 @@ export function registerReferencesHandler(context: FeatureHandlerContext): void 
         )
       );
       recordInteractiveLatency('references', elapsedMs);
-      connection.console.log(formatTiming('references', elapsedMs));
+      logInteractiveFeatureTiming(connection, 'references', elapsedMs);
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -713,7 +1244,7 @@ export function registerLinkedEditingHandler(context: FeatureHandlerContext): vo
         )
       );
       recordInteractiveLatency('linkedEditing', elapsedMs);
-      connection.console.log(formatTiming('linkedEditing', elapsedMs));
+      logInteractiveFeatureTiming(connection, 'linkedEditing', elapsedMs);
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -816,12 +1347,15 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
         execute: () => {
           const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog));
 
-          if (firstInvocation.isFirst('semanticTokens')) {
-            const sinceStart = performance.now() - serverStartTime;
-            connection.console.log(formatTiming('Primer semanticTokens (desde el inicio)', sinceStart));
-          }
-
-          connection.console.log(formatTiming('semanticTokens', elapsedMs));
+          logInteractiveFeatureTiming(
+            connection,
+            'semanticTokens',
+            elapsedMs,
+            firstInvocation,
+            'semanticTokens',
+            'Primer semanticTokens (desde el inicio)',
+            serverStartTime,
+          );
           return result;
         }
       });

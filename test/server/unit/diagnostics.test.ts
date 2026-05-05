@@ -635,6 +635,53 @@ suite('unit/diagnostics', () => {
     });
   });
 
+  test('validateSemantics avisa cuando un descendiente custom de DataWindow hace Retrieve sin transaction conocida', () => {
+    const customDataWindow = TextDocument.create(
+      'file:///u_dw_diag_orders.sru',
+      'powerbuilder',
+      1,
+      [
+        'global type u_dw_diag_orders from datawindow',
+        'end type'
+      ].join('\r\n')
+    );
+    const customAnalysis = analyzeDocument(customDataWindow);
+    kb.upsertDocument(
+      customDataWindow.uri,
+      customAnalysis.semanticFacts,
+      customAnalysis.scopes,
+      customAnalysis.snapshot
+    );
+
+    const source = [
+      'global type n_tx_missing_custom from nonvisualobject',
+      'end type',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      'public subroutine of_test()',
+      '  u_dw_diag_orders idw_orders',
+      '  idw_orders.Retrieve()',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_transaction_missing_custom_dw.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const missing = diagnostics.find((diag) => diag.message.includes('idw_orders.Retrieve()') && diag.message.includes('transaction object conocido'));
+
+    assert.ok(missing, 'Esperaba un diagnóstico para Retrieve sin transaction conocida en un descendiente custom.');
+    assert.equal(missing?.severity, DiagnosticSeverity.Warning);
+    assert.equal(missing?.code, DIAGNOSTIC_CODES.transactionBindingMissing);
+    assert.deepEqual(missing?.data, {
+      kind: 'transaction-binding',
+      state: 'missing',
+      confidence: 'low',
+      operation: 'Retrieve',
+      target: 'idw_orders',
+      argument: undefined
+    });
+  });
+
   test('validateSemantics degrada confidence cuando SetTransObject es dinámico', () => {
     const source = [
       'global type n_tx_dynamic from nonvisualobject',

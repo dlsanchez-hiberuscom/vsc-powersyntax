@@ -163,4 +163,30 @@ suite('unit/documentSymbols', () => {
     assert.ok(table?.children?.some((child) => child.name === 'retrieve'));
     assert.ok(controls?.children?.some((child) => child.name === 'rpt_orders'));
   });
+
+  test('extractDocumentSymbols mantiene el type custom DataWindow y sus callables visibles', () => {
+    const document = TextDocument.create(
+      'file:///u_dw_outline.sru',
+      'powerbuilder',
+      1,
+      [
+        'global type u_dw_outline from datawindow',
+        'end type',
+        '',
+        'forward prototypes',
+        'public function integer of_refresh()',
+        'end prototypes',
+        '',
+        'public function integer of_refresh();',
+        '  return this.GetRow()',
+        'end function'
+      ].join('\r\n')
+    );
+
+    const symbols = extractDocumentSymbols(document);
+    const typeSymbol = symbols.find((symbol) => symbol.name === 'u_dw_outline');
+
+    assert.ok(typeSymbol, 'Debe exponer el type custom DataWindow en el outline.');
+    assert.ok(typeSymbol?.children?.some((child) => child.name === 'of_refresh'), 'Debe conservar los callables del type custom.');
+  });
 });

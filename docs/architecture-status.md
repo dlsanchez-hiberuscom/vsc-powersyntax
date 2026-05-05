@@ -56,8 +56,8 @@ Guardrails asociados:
 
 - `test/server/unit/architectureImports.test.ts` mantiene firewall por capas.
 - `npm run test:architecture:metrics` aplica budgets explícitos para hotspots.
-- `tools/run-architecture-hotspot-guard.mjs` protege tamaño de entrypoints y permite allowlist de slices generated/manual grandes.
-- `artifacts/performance/architecture-hotspot-guard.json` publica resultados y warnings al 90% del budget.
+- `tools/run-architecture-hotspot-guard.mjs` protege tamaño de entrypoints, feature hotspots LSP/DataWindow y permite allowlist de slices generated/manual grandes.
+- `artifacts/performance/architecture-hotspot-guard.json` publica resultados, warnings al 90% del budget, `growthPolicy` y sugerencias de extracción por hotspot.
 
 ---
 
@@ -82,7 +82,7 @@ Estado actual:
 
 Política adaptativa actual:
 
-- purga `ServingCache` bajo presión;
+- purga `ServingCache` y las presentation caches de hover bajo presión;
 - suspende nuevas escrituras en esa caché si procede;
 - difiere `background-indexing`, `maintenance` y `ai-tooling`;
 - acota reports read-only pesados antes de afectar al archivo activo.
@@ -219,6 +219,18 @@ Estado actual:
   - `diagnostics`;
   - `referenceSourcePool`.
 
+Cierre relevante del carril devtools LSP:
+
+- `definition` ya abre members nativos DataWindow sobre descendants custom hacia la documentación oficial del catálogo usando owner chain jerárquico, sin depender de `InheritanceGraph.getMembers()` como única fuente;
+- hover quedó protegido con guards explícitos contra `workspace fallback` innecesario cuando la resolución ya es `member-hierarchy` local o owner-scoped de catálogo en descendants custom de DataWindow;
+- completion publica lista inicial ligera y difiere documentación/detalle enriquecido con `completionItem/resolve`, payload budget propio y stale discard separado;
+- signatureHelp materializa `SignatureHelpViewModel` ligero antes de adaptar al DTO LSP;
+- definition usa key estructurada de `ActiveDocumentServingSnapshot` y stale guard antes de publicar misses;
+- `src/server/presentation` ya concentra ViewModels/formatters puros para completion, definition, diagnostics, semantic tokens y AI context, sin imports a IO, discovery, parser ni stores semánticos runtime;
+- `documentSymbols` y `semanticTokens` tienen decisión explícita `no-cache final` / respuesta `full` mientras el snapshot caliente mantenga coste bajo;
+- CodeLens mantiene `resolveProvider = false` con `CodeLensResultCache` especializado y prueba contractual de capabilities;
+- el gate ejecutable `test:performance:gate` cerró este carril con `legacy-public-active-hover = 5.00ms / 50.00ms`, manteniendo el hot path interactivo dentro de presupuesto real.
+
 ---
 
 ## 9. Features interactivas
@@ -230,14 +242,27 @@ Estado actual:
   - definition;
   - signatureHelp;
   - completion.
+- `ServingCache` ya particiona por feature y publica `hit/miss/eviction` por feature en stats/runtime health.
+- `InteractiveServingPipeline` centraliza readiness, payload budget, stale guard, metrics y cache lookup/write para `hover`, `completion`, `completion-resolve` y `signatureHelp`; definition usa wrapper equivalente con key estructurada y stale guard.
+- `ActiveDocumentServingSnapshot` ya materializa una vista read-only del activo con token, scope, query context, receiver, binding, hot members, texto de línea y masking reutilizable entre features.
+- Hover ya tiene `HoverViewModel cache` y `NegativeHoverCache` con invalidación por documento, epoch, locale, `sourceOrigin`, watcher intake, shutdown y pressure policy.
 - `references`, `rename` y CodeLens apoyados en candidate pool compartido y acotado por query/proyecto.
 - Reuso de líneas y `maskedText` publicados por snapshot.
 - `queryContext` y diagnostics de línea única leen solo la línea activa.
-- Completion consume listas read-only segmentadas del catálogo del sistema.
+- Completion consume listas read-only segmentadas del catálogo del sistema y sirve documentación enriquecida sólo en `completionItem/resolve`.
+- Completion, definition, diagnostics y semantic tokens delegan la adaptación final a `src/server/presentation`; los providers siguen resolviendo contexto, pero no poseen DTOs LSP complejos ni wording/payload final.
 - `referenceSourcePool` reutiliza URIs normalizadas del workspace.
 - `hotPathAllocationBudget.test.ts` fija ausencia de `JSON.stringify`, `getAllEntities` y `exportDocumentRecords` en features vigiladas.
+- `interactiveHotPathGuards.test.ts` fija `no IO / no workspace scan / no full parse` para `hover`, `completion`, `signatureHelp`, `definition`, `documentSymbols` y `semanticTokens` con snapshot caliente.
+- `SemanticQueryFacade` ofrece una entrada read-only para contexto posicional, target symbol, receiver type, callable, inheritance, enum context y catálogo owner-aware, coordinando `queryContext`, `semanticQueryService`, `InheritanceGraph`, `SystemCatalog`, `enumeratedContext` y `dataWindowBindingModel` sin crear otro store semántico.
+- `hover` y `definition` ya consumen `SemanticQueryFacade`; otros providers deben migrarse sólo por slices focales con pruebas visibles.
+- `resolvedSemanticModels.ts` define modelos server-side neutrales (`ResolvedSymbol*`, `ResolvedReceiver`, `ResolvedCallable`, `ResolvedEnumContext`) con confidence/reason/sourceOrigin sin Markdown ni DTO LSP.
 - Linked editing reutiliza `queryContext` + `references` y solo publica sobre Local/Argument con resolución semántica única.
 - Formatter conservador configurable corre en servidor LSP mediante `powerbuilder.formatDocument`.
+- Hover normal ya sirve un payload compacto y accionable: contexto útil por tipo de símbolo, warnings reales y sin metadata interna de provenance/confidence por defecto.
+- Runtime stats/journal ya distinguen `cache-hit`, `viewmodel-hit`, `negative-hit`, `miss`, `stale-discarded` y `readiness-degraded` sin logging ruidoso por request.
+- Hover/completion/signatureHelp/diagnostics ya expanden `ownerType` por jerarquía para descendants custom de `datawindow`/`datawindowchild`/`datastore`, reutilizando `InheritanceGraph` sin scans globales adicionales.
+- `documentAnalysis` ya sanea `containerSignature` antes del primer `;`, y `featureHandlers.ts` solo deja trazas de timings interactivos en primer uso o slow path `>= 50ms`.
 
 ---
 
@@ -247,7 +272,7 @@ Estado actual:
 
 - `knowledge/parsing/utils` usa tipos internos para posiciones/rangos/símbolos documentales.
 - DTOs LSP quedan en el borde de `features/documentSymbols`.
-- `architectureImports.test.ts` protege firewall mínimo entre client, shared, runtime, features y build.
+- `architectureImports.test.ts` protege firewall entre client/server/shared, purity de `shared`, aislamiento de `plugin_old`, build fuera del hot path, presentation sin internals runtime y frontera DataWindow/parsing.
 - `documentSymbols` ejecuta reconciliación explícita entre:
   - `sections/typeBlocks` del parser;
   - facts/scopes del snapshot;
@@ -264,6 +289,7 @@ Estado actual:
 Estado actual:
 
 - `.srd` publica stubs navegables sin parsearse como PowerScript.
+- `analyzeDocument` y `analyzeDocumentStructural` mantienen `.srd` en frontera DataWindow: sin secciones, scopes, logical statements ni control blocks PowerScript.
 - `DataObject = "d_xxx"` resuelve hacia snapshot `.srd` indexado.
 - `dataWindowModel` es modelo canónico único para:
   - bandas;
@@ -274,7 +300,8 @@ Estado actual:
   - controles nombrados;
   - metadata segura de expresiones;
   - referencias SQL del subset seguro.
-- `dataWindowSafeMode`, `dataWindowBindingModel`, signatureHelp, hover, definition, documentSymbols, property paths, completion/diagnostics `.srd` y `dataWindowSqlLineage` reutilizan el mismo backbone.
+- `dataWindowSafeMode`, `dataWindowBindingModel`, `DataWindowFastContext`, adapters de serving, signatureHelp, hover, definition, documentSymbols, property paths, completion/diagnostics `.srd` y `dataWindowSqlLineage` reutilizan el mismo backbone.
+- `DataWindowFastContext` distingue DataWindow control, DataStore, DataWindowChild, `.srd` source y unknown; expone binding/DataObject con confidence/reason, columnas high-confidence, property paths seguros, buffers `DWBuffer` desde catálogo y built-ins owner-aware.
 - Slice avanzado actual cubre:
   - `report(name=... dataobject=...)`;
   - `column.dddw.name`;
@@ -282,6 +309,7 @@ Estado actual:
   - acceso directo `.Object.<control|column|property>`;
   - `GetChild()` sobre child DataWindows deterministas.
 - Slice SQL seguro cubre aliases de `select`, `JOIN ... ON` simples y `WHERE` básico.
+- SQL lineage queda como evidencia read-only ya disponible; no se calcula de forma profunda desde hover/completion/signatureHelp/definition.
 - Expresiones `.srd` incluyen nodos `expression=`/`~t...`, completion segura y warnings conservadores.
 - `datawindow-constants` se sirve como proyección oficial DataWindow owner-scoped sobre enumerados existentes.
 - `datawindow-properties` y `datawindow-expression-functions` viven como dominios separados.
@@ -361,8 +389,8 @@ Guardrails de catálogo:
 
 Estado actual:
 
-- `script/generate_official_function_catalog.cjs` es rail reproducible principal.
-- Wrapper `scripts/` regenera artefactos generated.
+- `scripts/generate_official_function_catalog.cjs` es rail reproducible principal.
+- Wrapper `script/generate_official_function_catalog.cjs` conserva compatibilidad con documentación externa histórica y delega al script canónico plural.
 - Artefactos relevantes:
   - `generated.generated.ts`;
   - `ownerTypes.generated.ts`;
@@ -405,6 +433,7 @@ Estado actual:
   - `returnDocumentation`;
   - documentación de parámetros.
 - `hover.ts`, `completion.ts` y `signatureHelp.ts` consumen el servicio común.
+- En completion, el overlay localizado se aplica en `completionPresentation.ts` durante initial/resolve sin cambiar `symbolId`, `domain` ni lookup keys.
 - Setting `vscPowerSyntax.languageServices.documentationLocale` sincroniza `auto|en|es` desde cliente a servidor.
 - `ServingCache` se segrega por locale efectiva.
 - Report de localización publica cobertura, overlays incompletos, targets recuperados y problemas de authoring.
@@ -586,15 +615,17 @@ Estado actual:
 
 Estado actual:
 
-- `extension.ts` y `server.ts` siguen siendo hotspots principales vigilados.
-- `server.ts` se redujo a bootstrap + composición de controladores runtime.
+- `extension.ts`, `server.ts`, `featureHandlers.ts`, `completion.ts`, `hover.ts`, `signatureHelp.ts`, `definition.ts`, `diagnostics.ts` y los adapters DataWindow siguen siendo hotspots principales vigilados.
+- `server.ts` se redujo a bootstrap + composición de controladores runtime y registro por dominios.
 - Lifecycle/document/features/commands viven en handlers separados:
   - `handlers/lifecycleHandlers.ts`;
   - `handlers/documentHandlers.ts`;
   - `handlers/featureHandlers.ts`;
+  - `handlers/featureHandlerRegistration.ts`;
   - `handlers/buildCommandHandlers.ts`;
   - `handlers/reportCommandHandlers.ts`;
-  - `handlers/runtimeCommandHandlers.ts`.
+  - `handlers/runtimeCommandHandlers.ts`;
+  - `handlers/commandHandlerRegistration.ts`.
 - Orquestación local delegada en:
   - `cache/semanticCacheRuntimeController.ts`;
   - `runtime/runtimeProgressController.ts`;
@@ -603,6 +634,8 @@ Estado actual:
 - LRU de CodeLens vive en `features/codeLensResultCache.ts`.
 - Runtime distribuido desde `dist/client/extension.js` y `dist/server/server.js`.
 - `out/server/server.js` queda solo como fallback de Development, no como dependencia VSIX productiva.
+- `release:verify` ejecuta `npm test`, architecture rapid, docs drift, performance gate, catalog coverage, packaging VSIX, content verification, installed smoke y summary final.
+- `.github/workflows/release-readiness.yml` ejecuta el mismo carril con `xvfb-run -a` y retiene el VSIX `14` días.
 
 ---
 
@@ -613,6 +646,9 @@ Guardrails vigentes:
 - Import firewall por capas.
 - Architecture metrics budgets.
 - Hot path allocation budget.
+- Hot path harness reusable con spies de IO/full parse.
+- Aislamiento `plugin_old` como `Reference-only`, con guard para static import, dynamic `import()` y `require()` desde `src/**`.
+- Payload budgets LSP interactivos por feature.
 - Catalog generator fixtures offline.
 - Catalog consistency report.
 - Catalog coverage verify en CI.
@@ -621,6 +657,7 @@ Guardrails vigentes:
 - Smoke real sobre PFC/OrderEntry para oracle interno de consistencia semántica.
 - Health checker runtime.
 - Workspace-check como dashboard/gate reproducible.
+- Docs drift valida backlog/current-focus/roadmap/done-log/specs, referencias a prompts reales y nombres `.prompt.md` en `.github/prompts`.
 
 ---
 
@@ -661,8 +698,15 @@ Cualquier operación peligrosa debe bloquearse o degradar si `sourceOrigin` no e
 Se recomienda consolidar primero las superficies documentales ya existentes antes de abrir rutas nuevas:
 
 - `docs/localization.md` para localización y overlays del catálogo.
-- `docs/ai-orchestrator.md` y `docs/ai-agents-catalog.md` para tools, context bundles y operación IA.
-- `docs/build/README.md` para build, packaging, VSIX, PBAutoBuild y ORCA.
+- `docs/architecture-implementation-map.md` para el cruce entre capas, owners, flujos, cachés y validación ejecutable.
+- La Parte 2 del `architecture-implementation-map` ya quedó ampliada con fichas módulo a módulo, estado explícito de caches recomendadas, auditoría `cache hit vs cache miss` y backlog `DEVTOOLS-*` derivado, sin promoción automática a `docs/current-focus.md`.
+- `docs/ai-orchestration.md` para ownership, contratos públicos read-only, tools/MCP, safe-edit, validación y seguridad IA.
+- `docs/ai/README.md` y `docs/ai/agent-skill-routing.md` para índice, routing de agents/skills y operación IA.
+- `docs/release.md` para release readiness, VSIX, Marketplace/pre-release, artifact retention y publish policy.
+- `docs/troubleshooting.md` para failure reasons de release, PBAutoBuild, ORCA y external command rails.
+- `docs/legacy-isolation.md` para policy `plugin_old` reference-only y extracción segura de heurísticas.
+- `docs/technical-debt-inventory.md` para deuda técnica categorizada, estados y cleanup receipts.
+- `docs/developer-workflows.md` para build, packaging, VSIX, PBAutoBuild y ORCA.
 - `docs/performance-budget.md` para budgets, gates y observabilidad operativa.
 
 ---
