@@ -1,127 +1,37 @@
 # AGENTS.md — PowerBuilder VS Code Plugin
 
-Reglas obligatorias para cualquier IA, Copilot Agent o automatización que trabaje en este repositorio.
+## Mission
+Build a professional VS Code extension for PowerBuilder 2025/PowerScript with fast discovery, safe semantic analysis, LSP-first architecture, DataWindow awareness and AI-readable evidence.
 
-## 1. Meta maestra
+## Non-negotiables
+- Keep activation and editor hot paths fast: no full workspace scans, heavy parsing, ORCA/PBAutoBuild discovery or large fixture loading during activation.
+- The LSP/server/core layers own semantic truth. The VS Code client stays thin.
+- Prefer incremental indexing, targeted cache invalidation and atomic state updates.
+- Diagnostics, completions and quick fixes based on inference must preserve source origin, confidence and reason code.
+- Do not invent PowerBuilder APIs, DataWindow properties, system constants, ORCA behavior or PBAutoBuild flags.
+- Preserve catalog compatibility: stable IDs, domains, kinds, namespaces and query behavior unless an explicit migration exists.
+- Treat DataWindow generated source as a distinct domain, not as normal PowerScript.
+- Update affected documentation with every code/spec/backlog change.
 
-> El plugin debe descubrir e indexar muy rápido sin bloquear.
+## Read first
+- `docs/current-focus.md`
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/architecture-status.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- The owner document for the touched area.
 
-Todo cambio debe proteger activación rápida, cliente VS Code ligero, servidor LSP como runtime principal, prioridad al archivo activo, hot path sin scans completos, semántica compartida, `sourceOrigin`, `readiness`, `evidence`, `confidence` y documentación viva.
+## Default workflow
+1. Identify scope, owner docs and validation gates.
+2. Inspect existing code, tests and docs before editing.
+3. Implement the smallest safe change.
+4. Add or update tests.
+5. Update affected docs.
+6. Run validation and report exact commands/results.
 
-## 2. Orden de lectura obligatorio
-
-```txt
-1. docs/constitution.md
-2. docs/current-focus.md
-3. docs/backlog.md
-4. specs/<spec-activa>/spec.md
-5. specs/<spec-activa>/tasks.md
-6. specs/<spec-activa>/plan.md
-7. docs/architecture.md
-8. docs/architecture-status.md
-9. Documento propietario del área tocada
-10. docs/testing.md
-11. docs/performance-budget.md si toca runtime/hot path/performance
-```
-
-`docs/done-log.md` es histórico. No usarlo como foco activo.
-
-## 3. Autoridad documental
-
-```txt
-1. docs/constitution.md
-2. docs/architecture.md
-3. specs aprobadas en specs/
-4. docs/architecture-status.md
-5. docs/current-focus.md
-6. docs/backlog.md
-7. docs/roadmap.md
-8. docs/done-log.md
-9. implementación actual
-```
-
-## 4. Reglas obligatorias
-
-La IA debe respetar foco activo, ejecutar specs en orden, no abrir trabajo fuera de foco, no cerrar sin validación, actualizar documentación afectada, registrar deuda nueva, mantener tests verdes y dejar evidencia.
-
-La IA no debe inventar features, saltarse dependencias, cerrar en parcial, ocultar fallos, fingir validaciones, mover a `Done` sin evidencia, modificar IDs generated/manual sin autorización, introducir scans completos en hot path, clonar catálogo completo en serving, parsear `.srd` como PowerScript ni tratar `.pbl/.pbd` como source editable.
-
-## 5. Definition of Done
-
-```txt
-1. Código implementado o decisión no-action documentada.
-2. Tests/validación ejecutados.
-3. Documentación afectada actualizada.
-4. Backlog/current-focus/roadmap alineados.
-5. Done-log actualizado solo si el cierre es real.
-6. Sin deuda crítica oculta.
-7. Sin regresión de performance/hot path.
-8. Sin contradicción documental.
-```
-
-## 6. Validación mínima
-
-```bash
-npm test
-npm run test:docs:drift
-npm run test:architecture:metrics
-npm run test:performance:gate
-npm run package:vsix
-npm run verify:vsix-contents
-npm run package:vsix:list
-npm run test:smoke:installed-vsix
-npm run release:verify
-```
-
-Si un comando no existe o no puede ejecutarse, documentar comando, motivo, impacto y follow-up. No marcar OK.
-
-## 7. Hot path guardrails
-
-Prohibido: workspace scans completos, full catalog clone, `JSON.stringify` masivo, reread global de archivos, reparsing global por feature, DataWindow parsing como PowerScript, ORCA/PBAutoBuild execution, reports pesados sin caps y payloads agent-ready sin budget.
-
-Obligatorio: queries acotadas, result caps, readiness gates, confidence, sourceOrigin, cancellation/yielding, serving cache cuando aplique y degradación honesta.
-
-## 8. Reglas PowerBuilder críticas
-
-- DataWindow `.srd` es sublenguaje, no PowerScript.
-- PBL/PBD binarios no son source editable.
-- ORCA staging no gana a source real.
-- Generated no habilita escritura directa.
-- Rename/code actions requieren `sourceOrigin` confiable.
-- Dynamic calls, strings dinámicos, external DLL/PBX y RPCFUNC degradan confidence.
-- SetTrans y SetTransObject no son equivalentes.
-- SQL embebido y dynamic SQL deben degradar si no son defendibles.
-
-## 9. Documentos propietarios
-
-```txt
-Arquitectura estable: docs/architecture.md
-Estado implementado: docs/architecture-status.md
-Trabajo pendiente: docs/backlog.md
-Foco activo: docs/current-focus.md
-Histórico: docs/done-log.md
-Contexto IA corto: docs/ai-context/powerbuilder-plugin-context.md
-Testing: docs/testing.md
-Performance: docs/performance-budget.md
-Workflows usuario: docs/developer-workflows.md
-Catálogo: docs/catalog/system-catalog-architecture.md
-IA/tools: docs/ai/ai-integration-architecture.md
-Agentes: docs/ai/ai-agents-catalog.md
-Build/VSIX/ORCA/PBAutoBuild: docs/build/README.md y docs/build/orca-pbautobuild-architecture.md
-Reglas/diagnósticos: docs/rules/rules-catalog.md
-```
-
-## 10. Salida obligatoria
-
-```markdown
-# Resultado
-## Trabajo realizado
-## Specs procesadas
-## Código modificado
-## Docs modificadas
-## Tests ejecutados
-## Pendiente
-## Backlog/follow-up
-## Git
-## Siguiente foco
-```
+## Forbidden
+- Broad rewrites without explicit scope.
+- TODO-only implementations.
+- Weakening tests to pass CI.
+- Mandatory CI dependencies on private/local fixtures without a documented gate.
+- Duplicating source-of-truth content across docs.

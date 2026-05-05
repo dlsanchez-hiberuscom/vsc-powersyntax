@@ -1712,7 +1712,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `src/server/knowledge/system/consistency.ts` deja de ser solo un guard estructural y publica `adoption`, un reporte comparativo con métricas globales y por dominio para `generated` frente a `manual-core`, incluyendo `officialCount`, `generatedCount`, `manualCount`, `duplicateCount`, overlays, `scraperErrorCount`, calidad de signatures/appliesTo/ownerTypes/returnType/eventId/parameterDocs y política recomendada;
 - el summary vigente fija `officialCount = 6601`, `generatedCount = 2146`, `manualCount = 1039`, `duplicateCount = 695`, `gapCount = 343`, `overrideCount = 1`, `enrichmentCount = 695`, `candidateCount = 0` y `scraperErrorCount = 0`, con `officialDomainsWithGaps = []` y recomendación `generated-primary-with-manual-overlays`;
 - `test/server/unit/catalogAdoptionDecision.test.ts` y `test/server/unit/catalogConsistency.test.ts` convierten esa decisión en un gate verificable, fijando que el policy baseline siga siendo `generated` como base oficial con overlays manuales explícitos y excepciones solo para dominios sin rail oficial (`datawindow-events`, `operators`, `pronouns`, `system-globals`);
-- `docs/adr/ADR-0001-system-catalog-source-of-truth.md` deja la decisión arquitectónica cerrada, con contexto, opciones evaluadas, evidencia cuantitativa, consecuencias, plan de migración y rollback.
+- `docs/catalog/ADR-0001-system-catalog-source-of-truth.md` deja la decisión arquitectónica cerrada, con contexto, opciones evaluadas, evidencia cuantitativa, consecuencias, plan de migración y rollback.
 
 **Validación registrada:**
 - `npm run test:unit -- --grep "catalogConsistency|catalogAdoptionDecision"`
@@ -1724,7 +1724,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `docs/testing.md`
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 - `docs/rules-catalog.md`
-- `docs/adr/ADR-0001-system-catalog-source-of-truth.md`
+- `docs/catalog/ADR-0001-system-catalog-source-of-truth.md`
 
 ## 1.126 B368. Manual curated overlays, gaps and overrides policy — **Cerrada (knowledge/manual overlay governance 2026-05)**
 

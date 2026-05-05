@@ -1,115 +1,133 @@
 # Docs README — PowerBuilder VS Code Plugin
 
-## 1. Propósito
+## Purpose
 
-Este índice define cómo se navega la documentación canónica del repositorio.
+This document is the **navigation index** for the repository documentation.
 
-Su función es evitar búsquedas ad hoc, reforzar el ownership por área y dejar claro qué documento contiene cada decisión.
+It must not duplicate architecture, backlog, roadmap, AI strategy, technical guide or implementation details. It only answers:
 
----
+- where each kind of information lives;
+- which document owns each decision;
+- what to read before changing code, specs or docs;
+- which legacy/compatibility documents must not be recreated.
 
-## 2. Orden de lectura recomendado
-
-Ruta corta para cambios relevantes:
-
-1. `docs/constitution.md`
-2. `docs/current-focus.md`
-3. `docs/backlog.md`
-4. spec activa en `specs/`
-5. `docs/architecture.md`
-6. `docs/architecture-status.md`
-7. documento propietario del área tocada
-8. `docs/testing.md`
-9. `docs/performance-budget.md` cuando el cambio toca runtime, hot path o budgets
+For documentation rules, see [`documentation-governance.md`](documentation-governance.md).
 
 ---
 
-## 3. Autoridad documental
+## Fast reading paths
 
-En caso de conflicto, manda este orden:
+### Implementing a backlog/spec item
 
-1. `docs/constitution.md`
-2. `docs/architecture.md`
-3. specs aprobadas en `specs/`
-4. `docs/architecture-status.md`
-5. `docs/current-focus.md`
-6. `docs/backlog.md`
-7. `docs/roadmap.md`
-8. `docs/done-log.md`
-9. implementación actual
+1. [`../AGENTS.md`](../AGENTS.md)
+2. [`current-focus.md`](current-focus.md)
+3. [`backlog.md`](backlog.md)
+4. Active spec, if any
+5. [`architecture.md`](architecture.md)
+6. [`architecture-status.md`](architecture-status.md)
+7. Owner document for the affected area
+8. [`testing.md`](testing.md)
+9. [`done-log.md`](done-log.md), only when closing work
 
-`docs/current-focus.md` y `docs/backlog.md` gobiernan el trabajo vivo.
+### Reviewing architecture
 
-`docs/done-log.md` es histórico cerrado y no debe usarse como foco operativo.
+1. [`constitution.md`](constitution.md)
+2. [`architecture.md`](architecture.md)
+3. [`architecture-status.md`](architecture-status.md)
+4. [`performance-budget.md`](performance-budget.md)
+5. Owner domain docs: catalog, DataWindow, runtime, build, rules or AI
 
----
+### Working with AI agents
 
-## 4. Mapa de documentos propietarios
+1. [`../AGENTS.md`](../AGENTS.md)
+2. [`ai/README.md`](ai/README.md)
+3. [`ai/agent-skill-routing.md`](ai/agent-skill-routing.md)
+4. [`ai/lean-token-policy.md`](ai/lean-token-policy.md)
+5. [`ai-context/powerbuilder-plugin-context.md`](ai-context/powerbuilder-plugin-context.md)
 
-| Área | Documento propietario |
-| --- | --- |
-| Reglas no negociables | `docs/constitution.md` |
-| Arquitectura estable | `docs/architecture.md` |
-| Estado implementado | `docs/architecture-status.md` |
-| Trabajo pendiente vivo | `docs/backlog.md` |
-| Foco activo o reposo | `docs/current-focus.md` |
-| Dirección estratégica | `docs/roadmap.md` |
-| Histórico cerrado | `docs/done-log.md` |
-| Modelo operativo | `docs/product-operating-model.md` |
-| Gobernanza documental | `docs/documentation-governance.md` |
-| Flujo SDD | `docs/spec-driven-development.md` |
-| Validación | `docs/testing.md` |
-| Presupuesto de rendimiento | `docs/performance-budget.md` |
-| Workflows de usuario | `docs/developer-workflows.md` |
-| IA y agentes | `docs/ai/README.md`, `AGENTS.md` |
-| Catálogo y localización documental | `docs/catalog/system-catalog-architecture.md`, `docs/catalog/catalog-localization-workflow.md` |
-| Build, VSIX y release | `docs/build/README.md`, `docs/release/release-process.md`, `docs/release/ci-cd-architecture.md` |
-| Core semántico | `docs/core/semantic-core-architecture.md`, `docs/core/query-engine-architecture.md`, `docs/core/source-origin-readiness-confidence.md` |
-| DataWindow | `docs/datawindow/datawindow-architecture.md` |
-| SQL y runtime PowerBuilder | `docs/sql/sql-runtime-architecture.md` |
-| Observabilidad runtime | `docs/runtime/runtime-observability.md` |
-| Reglas diagnósticas | `docs/rules/rules-catalog.md` |
-| Plantillas | `docs/templates/*` |
-| Prompts operativos | `docs/prompts/*` |
+### Working on PowerBuilder semantics
 
----
+1. [`powerbuilder-2025-vscode-plugin-technical-guide.md`](powerbuilder-2025-vscode-plugin-technical-guide.md)
+2. [`architecture.md`](architecture.md)
+3. [`rules/rules-catalog.md`](rules/rules-catalog.md)
+4. [`catalog/system-catalog-architecture.md`](catalog/system-catalog-architecture.md)
+5. [`testing.md`](testing.md)
 
-## 5. Índice por carpeta
+### Working on DataWindow/DataStore
 
-### Raíz de `docs/`
+1. [`datawindow/datawindow-architecture.md`](datawindow/datawindow-architecture.md)
+2. [`powerbuilder-2025-vscode-plugin-technical-guide.md`](powerbuilder-2025-vscode-plugin-technical-guide.md)
+3. [`catalog/system-catalog-architecture.md`](catalog/system-catalog-architecture.md)
+4. [`rules/rules-catalog.md`](rules/rules-catalog.md)
+5. [`performance-budget.md`](performance-budget.md)
 
-- Reglas y arquitectura: `constitution.md`, `architecture.md`, `architecture-status.md`
-- Operación: `product-operating-model.md`, `documentation-governance.md`, `spec-driven-development.md`
-- Estado vivo: `backlog.md`, `current-focus.md`, `roadmap.md`, `done-log.md`
-- Validación y soporte: `testing.md`, `performance-budget.md`, `developer-workflows.md`, `troubleshooting.md`, `support.md`, `contributing.md`
+### Working on build, CI or release
 
-### Subdirectorios propietarios
-
-- `docs/ai/`: contratos de IA, agentes y context bundles
-- `docs/catalog/`: source of truth, overlays y localización documental del catálogo
-- `docs/build/`: carriles build/VSIX/ORCA/PBAutoBuild
-- `docs/release/`: proceso de release y CI/CD
-- `docs/core/`: core semántico, query engine y contratos transversales
-- `docs/datawindow/`: fronteras y modelo DataWindow
-- `docs/sql/`: SQL embebido, runtime y degradación segura
-- `docs/runtime/`: observabilidad, readiness, health y budgets visibles
-- `docs/rules/`: catálogo de diagnósticos y reason codes
-- `docs/templates/`: plantillas canónicas
-- `docs/prompts/`: prompts operativos para auditoría y ejecución guiada
+1. [`build/README.md`](build/README.md)
+2. [`build/orca-pbautobuild-architecture.md`](build/orca-pbautobuild-architecture.md)
+3. [`release/release-readiness.md`](release/release-readiness.md)
+4. [`performance-budget.md`](performance-budget.md)
+5. GitHub workflows in `.github/workflows/`
 
 ---
 
-## 6. Reglas de edición
+## Canonical ownership map
 
-- Modificar primero el documento propietario del área.
-- Sustituir duplicidad larga por resumen corto y enlace.
-- Actualizar `docs/backlog.md`, `docs/current-focus.md`, `docs/roadmap.md` y `docs/done-log.md` cuando cambie el estado real.
-- Ejecutar `npm run test:docs:drift` en toda reorganización documental relevante.
+### Repository operating rules
+
+- [`../AGENTS.md`](../AGENTS.md) owns AI/agent operating rules for the repository.
+- [`../.github/copilot-instructions.md`](../.github/copilot-instructions.md) owns the short Copilot always-on summary.
+- [`documentation-governance.md`](documentation-governance.md) owns documentation governance.
+- [`contributing.md`](contributing.md) owns contribution rules.
+- [`support.md`](support.md) owns support expectations.
+
+### Product, roadmap and execution
+
+- [`constitution.md`](constitution.md) owns non-negotiable product/architecture principles.
+- [`roadmap.md`](roadmap.md) owns product phases and milestone sequencing.
+- [`backlog.md`](backlog.md) owns actionable pending work.
+- [`current-focus.md`](current-focus.md) owns the immediate active focus.
+- [`done-log.md`](done-log.md) owns completed-work history and links to archives.
+
+### Architecture and technical domains
+
+- [`architecture.md`](architecture.md) owns stable architecture.
+- [`architecture-status.md`](architecture-status.md) owns current implementation status.
+- [`powerbuilder-2025-vscode-plugin-technical-guide.md`](powerbuilder-2025-vscode-plugin-technical-guide.md) owns PowerBuilder technical knowledge.
+- [`datawindow/datawindow-architecture.md`](datawindow/datawindow-architecture.md) owns DataWindow/DataStore architecture inside the plugin.
+- [`catalog/system-catalog-architecture.md`](catalog/system-catalog-architecture.md) owns system catalog architecture.
+- [`catalog/ADR-0001-system-catalog-source-of-truth.md`](catalog/ADR-0001-system-catalog-source-of-truth.md) owns the catalog source-of-truth decision.
+- [`rules/rules-catalog.md`](rules/rules-catalog.md) owns diagnostic rules and reason codes.
+- [`performance-budget.md`](performance-budget.md) owns performance budgets and hot-path constraints.
+- [`testing.md`](testing.md) owns test strategy and validation levels.
+
+### AI documentation
+
+- [`ai/README.md`](ai/README.md) owns the AI documentation index.
+- [`ai/ai-strategy.md`](ai/ai-strategy.md) owns stable AI strategy.
+- [`ai/ai-integration-architecture.md`](ai/ai-integration-architecture.md) owns technical AI integration and exposed contracts.
+- [`ai/agent-skill-routing.md`](ai/agent-skill-routing.md) owns agent/skill routing.
+- [`ai/lean-token-policy.md`](ai/lean-token-policy.md) owns token-efficiency policy.
+- [`ai/ai-agents-catalog.md`](ai/ai-agents-catalog.md) may remain only as a compact catalog, not as duplicated agent documentation.
+- [`ai-context/powerbuilder-plugin-context.md`](ai-context/powerbuilder-plugin-context.md) owns the compact AI context pack.
 
 ---
 
-## 7. Estado actual del árbol documental
+## Deprecated compatibility paths
 
-- El repositorio está en reposo operativo: no hay una nueva cadena promovida en `docs/current-focus.md`.
-- `docs/roadmap.md` conserva solo dirección estratégica y reglas de promoción.
-- El detalle histórico vive exclusivamente en `docs/done-log.md`.
+Do not recreate these compatibility pointer documents after references are migrated:
+
+- `docs/ai-strategy.md` → use `docs/ai/ai-strategy.md`
+- `docs/ai-agents-catalog.md` → use `docs/ai/ai-agents-catalog.md` or `docs/ai/agent-skill-routing.md`
+- `docs/rules-catalog.md` → use `docs/rules/rules-catalog.md`
+- `docs/ai/ai-context/powerbuilder-plugin-context.md` → use `docs/ai-context/powerbuilder-plugin-context.md`
+
+---
+
+## Editing rules
+
+- Do not add long content to this index.
+- Add links here only when a new owner document is created.
+- If a document is moved, update this index and all known references in the same change.
+- If a topic appears in multiple places, keep the authoritative explanation in the owner document and replace duplicates with links.
+- Never update only this index when the underlying source of truth changed.

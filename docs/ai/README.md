@@ -1,27 +1,42 @@
-# AI Documentation
+# AI Documentation — PowerBuilder VS Code Plugin
 
-Documentación de IA, agentes, context packs y contratos públicos.
+## Purpose
+This folder documents the AI operating model for the repository. Keep this file as an index only.
 
-## Documentos
+The repository uses English for AI-facing files so agents can consume instructions consistently. Product, architecture, roadmap and general human-facing documentation may remain in Spanish.
 
-- `ai-strategy.md` — visión estratégica IA.
-- `ai-integration-architecture.md` — API pública, tools, context bundles y receipts.
-- `ai-agents-catalog.md` — catálogo de agentes.
-- `../ai-context/powerbuilder-plugin-context.md` — contexto corto para prompts.
+## AI layers
+1. `AGENTS.md` — global AI operating contract.
+2. `.github/copilot-instructions.md` — short Copilot workspace summary.
+3. `.github/instructions/*.instructions.md` — path-scoped rules.
+4. `.github/agents/*.agent.md` — session modes.
+5. `.github/skills/*/SKILL.md` — task capabilities.
+6. `.github/prompts/*.prompt.md` — reusable workflows.
+7. `docs/ai-context/powerbuilder-plugin-context.md` — compact context pack.
 
-## Reglas
+## Documents
+- `agent-skill-routing.md` — which agent/skill/prompt to use.
+- `lean-token-policy.md` — token-efficiency rules and anti-patterns.
 
-- `AGENTS.md` manda operativamente.
-- La IA consume contratos públicos.
-- La IA no accede al dominio interno del core.
-- La IA no inventa foco: usa `docs/current-focus.md` y `docs/backlog.md`.
+## Active agents
+- `planner`
+- `implementer`
+- `reviewer`
+- `docs`
+- `release`
 
-## Ownership
+## Skills
+- `powerbuilder-semantics`
+- `datawindow-analysis`
+- `catalog-maintenance`
+- `performance-hotpath`
+- `testing-validation`
+- `docs-governance`
+- `build-release`
+- `official-research`
 
-```txt
-Estrategia -> ai-strategy.md
-Tools/API -> ai-integration-architecture.md
-Agentes -> ai-agents-catalog.md
-Contexto corto -> ../ai-context/powerbuilder-plugin-context.md
-Reglas raíz -> ../../AGENTS.md
-```
+## Rules
+- Do not duplicate full agent or skill content here.
+- Do not copy the PowerBuilder technical guide here.
+- Do not duplicate architecture decisions here.
+- Update this file only when AI structure changes.
