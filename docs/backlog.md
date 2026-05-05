@@ -71,6 +71,231 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 # 3. Backlog actual
 
 
+## CALLABLE-01 — Separar cabecera callable e instrucción inicial tras `;`
+
+- **Estado:** Open
+- **Prioridad:** P1
+- **Tipo:** parser / semantic-range / hover / callable
+- **Origen:** problema real observado por usuario
+- **Spec:** `specs/CALLABLE-01-callable-header-body-semicolon-split/`
+
+### Síntoma
+
+El hover muestra un `Callable contenedor` contaminado con texto de la primera instrucción ejecutable:
+
+```txt
+Callable contenedor: event pfc_values;call super::pfc_values...
+```
+
+El callable debería identificarse solo como `event pfc_values`, separando el código posterior al `;` como primera instrucción del cuerpo.
+
+### Impacto
+
+- Hover muestra información incorrecta.
+- Contexto semántico de variables locales queda contaminado.
+- Puede afectar currentObjectContext, diagnostics, explain-semantic-query y safe-edit-plan.
+
+### Criterios de cierre
+
+- Cabecera callable corta correctamente en `;`.
+- Texto posterior a `;` se conserva como primera instrucción ejecutable.
+- Hover/local scope muestra callable correcto.
+- Tests focales verdes.
+
+### Validación esperada
+
+```bash
+npm test -- --grep "callable"
+npm test -- --grep "hover"
+npm test -- --grep "currentObjectContext"
+npm run test:docs:drift
+```
+
+---
+
+## DIAG-01 — No marcar cierres de bloque como código inalcanzable
+
+- **Estado:** Open
+- **Prioridad:** P1
+- **Tipo:** diagnostic / control-flow / false-positive
+- **Origen:** problema real observado por usuario
+- **Spec:** `specs/DIAG-01-unreachable-structural-block-closures/`
+
+### Síntoma
+
+El diagnóstico `SD11` marca `END IF` como código inalcanzable cuando está precedido por `RETURN`, aunque `END IF` solo cierra el bloque.
+
+### Impacto
+
+- Falso positivo visible.
+- Ruido en Problems/hover.
+- Reduce confianza en diagnostics.
+
+### Criterios de cierre
+
+- `END IF` después de `RETURN` no genera `SD11`.
+- Otros cierres estructurales soportados tampoco generan `SD11`.
+- Una instrucción ejecutable real después de `RETURN` sigue generando `SD11`.
+- Tests anti-regresión verdes.
+
+### Validación esperada
+
+```bash
+npm test -- --grep "unreachable"
+npm test -- --grep "diagnostics"
+npm run test:docs:drift
+```
+
+---
+
+## DW-01 — Resolver funciones nativas DataWindow en descendants custom
+
+- **Estado:** Open
+- **Prioridad:** P1
+- **Tipo:** semantic / DataWindow / system-catalog / inheritance
+- **Origen:** problema real observado por usuario
+- **Spec:** `specs/DW-01-datawindow-native-members-custom-inheritance/`
+
+### Síntoma
+
+Una variable declarada como tipo custom `u_dw`, donde `u_dw` hereda de `datawindow`, no recibe soporte semántico completo para funciones nativas DataWindow como `GetColumnName()`.
+
+### Impacto
+
+- Falla hover/completion/signatureHelp/definition sobre métodos nativos DataWindow en controles custom.
+- Se pierde soporte en casos PFC/legacy comunes.
+- IA/tools reciben contexto incompleto.
+
+### Criterios de cierre
+
+- `u_dw -> datawindow` se reconoce como herencia transitiva.
+- `idw_requestor.GetColumnName()` se reconoce como función nativa DataWindow.
+- Completion/hover/signatureHelp aplican catálogo DataWindow a descendants custom.
+- No hay scans globales en hot path.
+
+### Validación esperada
+
+```bash
+npm test -- --grep "datawindow"
+npm test -- --grep "hover"
+npm test -- --grep "completion"
+npm test -- --grep "signatureHelp"
+npm run test:docs:drift
+```
+
+---
+
+## HOVER-01 — Rediseñar hover compacto por tipo de símbolo
+
+- **Estado:** Open
+- **Prioridad:** P1
+- **Tipo:** UX / hover / semantic-presentation
+- **Origen:** problema real observado por usuario
+- **Spec:** `specs/HOVER-01-hover-ux-contract/`
+
+### Síntoma
+
+Hover muestra demasiada metadata interna:
+
+```txt
+Origen, Autoridad, Fase, Confianza, Motivo de resolución, Candidatos, Declaration scope, Owner real...
+```
+
+El usuario necesita información útil, compacta y accionable.
+
+### Impacto
+
+- UX ruidosa.
+- Información útil queda enterrada.
+- Metadata interna se confunde con semántica útil.
+
+### Criterios de cierre
+
+- Hover normal usa formato compacto por tipo de símbolo.
+- Metadata interna queda oculta salvo modo diagnóstico/debug o comando explain.
+- Hay contrato documentado para variables, tipos, funciones sistema, funciones usuario, DataWindow, SQL, diagnostics y externos.
+- Tests de render/payload actualizados.
+
+### Validación esperada
+
+```bash
+npm test -- --grep "hover"
+npm run test:docs:drift
+```
+
+---
+
+## HOVER-02 — Optimizar hover para cache/hot path y evitar fallback global innecesario
+
+- **Estado:** Open
+- **Prioridad:** P1
+- **Tipo:** performance / hover / cache / hot-path
+- **Origen:** problema real observado por usuario
+- **Spec:** `specs/HOVER-02-hover-performance-cache-hotpath/`
+
+### Síntoma
+
+Hover se siente lento y en algunos casos muestra resolución por `global-fallback` para símbolos que deberían resolverse desde contexto activo/cache.
+
+### Impacto
+
+- Mala experiencia interactiva.
+- Riesgo de trabajo excesivo en hot path.
+- Posible serving cache incompleto o mal usado.
+
+### Criterios de cierre
+
+- Hover reutiliza active document/hot context/serving cache cuando sea posible.
+- No hay fallback global innecesario para símbolos locales, miembros o tipos ya indexados.
+- Existe test o guard que detecta scans/relecturas globales en hover.
+- Latencia de hover queda dentro de presupuesto.
+
+### Validación esperada
+
+```bash
+npm test -- --grep "hover"
+npm run test:performance:gate
+npm run test:docs:drift
+```
+
+---
+
+## HOVER-AUDIT-01 — Auditoría final end-to-end de hover
+
+- **Estado:** Open
+- **Prioridad:** P1
+- **Tipo:** audit / UX / semantic-hover
+- **Origen:** cierre transversal de HOVER/CALLABLE/DIAG/DW
+- **Spec:** `specs/HOVER-AUDIT-01-hover-end-to-end-acceptance/`
+
+### Objetivo
+
+Validar que el hover final es rápido, compacto, útil y semánticamente correcto en todos los tipos relevantes.
+
+### Criterios de cierre
+
+- Variables locales muestran tipo + scope útil.
+- Miembros muestran visibilidad + tipo + owner útil.
+- Tipos muestran herencia útil.
+- Funciones sistema muestran firma + resumen.
+- Funciones usuario muestran firma + owner/herencia.
+- DataWindow native functions se resuelven vía descendants custom.
+- Diagnostics no muestran falsos positivos conocidos.
+- Metadata debug no aparece por defecto.
+- Explain/debug conserva trazabilidad avanzada fuera del hover normal.
+
+### Validación esperada
+
+```bash
+npm test -- --grep "hover"
+npm test -- --grep "definition"
+npm test -- --grep "completion"
+npm test -- --grep "signatureHelp"
+npm test -- --grep "diagnostics"
+npm run test:performance:gate
+npm run test:docs:drift
+```
+
 ---
 
 # 4. Current execution focus recomendado
