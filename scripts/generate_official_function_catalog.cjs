@@ -1,7 +1,5 @@
 'use strict';
 
-// Compatibility note: the canonical path remains script/generate_official_function_catalog.cjs.
-
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
