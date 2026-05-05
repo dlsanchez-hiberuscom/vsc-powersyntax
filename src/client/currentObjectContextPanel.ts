@@ -66,7 +66,7 @@ class CurrentObjectContextPanelProvider implements vscode.TreeDataProvider<Curre
 
     if (element.type === 'item' && element.target) {
       item.command = {
-        command: 'vscPowerSyntax.openCurrentObjectContextLocation',
+        command: 'powerbuilder.openCurrentObjectContextLocation',
         title: 'Abrir ubicación',
         arguments: [element.target],
       };

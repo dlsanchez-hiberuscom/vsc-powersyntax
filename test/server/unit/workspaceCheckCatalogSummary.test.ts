@@ -1,6 +1,9 @@
 import * as assert from 'assert/strict';
 
-import { buildWorkspaceCheckCatalogSummary } from '../../../src/server/features/workspaceCheckCatalogSummary';
+import {
+  buildWorkspaceCheckCatalogSummary,
+  countCandidateHotPathViolations,
+} from '../../../src/server/features/workspaceCheckCatalogSummary';
 
 suite('unit/workspaceCheckCatalogSummary (B335)', () => {
   test('resume el gate ADR-0001 sobre el catalogo real', () => {
@@ -36,5 +39,21 @@ suite('unit/workspaceCheckCatalogSummary (B335)', () => {
     const second = buildWorkspaceCheckCatalogSummary();
     assert.ok(!second.adrCompliance?.manualPrimaryDomains.includes('mutated'));
     assert.notEqual(second.adrCompliance?.overlayCounts.gap, 999);
+  });
+
+  test('detecta fugas sintéticas de candidates en el conjunto resuelto del hot path', () => {
+    const violations = countCandidateHotPathViolations(
+      [{ id: 'candidate-entry' }],
+      [{
+        id: 'candidate-entry',
+        manualOverlay: {
+          mode: 'candidate',
+          reason: 'synthetic-leak',
+          evidence: ['unit-test'],
+        },
+      }],
+    );
+
+    assert.equal(violations, 1);
   });
 });

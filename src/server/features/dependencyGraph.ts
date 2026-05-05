@@ -6,6 +6,7 @@ import {
   type ApiPowerBuilderDependencyGraphRequest,
 } from '../../shared/publicApi';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import { resolveByLibraryOrder } from '../knowledge/resolution/libraryOrder';
 import { buildSymbolKey } from '../knowledge/symbolKey';
 import { EntityKind, type Entity } from '../knowledge/types';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
@@ -298,7 +299,10 @@ export function buildPowerBuilderDependencyGraph(
     }
     const evidence = toEvidenceList(evidenceKinds);
     const definitions = kb.findAllDefinitions(dependencyKey);
-    const resolvedEntity = definitions.find((entity) => entity.kind === EntityKind.Type) ?? definitions[0];
+    const rankedDefinitions = definitions.length > 1
+      ? resolveByLibraryOrder(definitions, { activeUri: focusEntity.uri, state: workspaceState })
+      : definitions;
+    const resolvedEntity = rankedDefinitions.find((entity) => entity.kind === EntityKind.Type) ?? rankedDefinitions[0];
     const node = resolvedEntity
       ? createEntityNode(
           resolvedEntity,

@@ -17,6 +17,7 @@ import {
 } from '../shared/types';
 import { setAnalysisBackends } from './analysis/analysisCache';
 import { getAnalysisCacheStats } from './analysis/analysisCache';
+import { republishOpenDiagnosticsForDocuments } from './analysis/openDocumentDiagnostics';
 import { provideDefinition } from './features/definition';
 import { provideReferences } from './features/references';
 import { provideReferenceCodeLenses } from './features/codeLensReferences';
@@ -130,6 +131,21 @@ const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
 const runtimeJournal = new RuntimeJournal(160);
+
+function republishOpenDiagnostics(uris?: readonly string[]): void {
+  republishOpenDiagnosticsForDocuments({
+    connection,
+    documents: documents.all(),
+    scheduler,
+    knowledgeBase,
+    systemCatalog,
+    inheritanceGraph,
+    workspaceState,
+    isSemanticallyServedDocument,
+    uris
+  });
+}
+
 const buildOrcaJournal = new BuildOrcaJournalStore(fs, { maxEntries: 128 });
 runtimeJournal.addObserver((event) => {
   buildOrcaJournal.record(event);
@@ -203,6 +219,9 @@ const watcherIntake = createFileWatcherDebouncer({
           clearDiagnostics: (uri) => {
             clearDiagnosticsSummary(uri);
             connection.sendDiagnostics({ uri, diagnostics: [] as Diagnostic[] });
+          },
+          refreshDiagnostics: (uris) => {
+            republishOpenDiagnostics(uris);
           },
           log: (message) => connection.console.log(message)
         });
@@ -641,6 +660,7 @@ registerInitializedHandler({
   getWorkspaceFolders: () => workspaceFolders,
   getCacheStorageUri: () => cacheStorageUri,
   getActiveDocumentUri: () => activeDocumentUri,
+  republishOpenDiagnostics,
   setCacheStore: (store) => {
     semanticCacheRuntimeController.setCacheStore(store);
   },

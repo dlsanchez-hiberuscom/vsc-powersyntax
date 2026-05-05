@@ -218,6 +218,7 @@ let currentObjectContextPanelController: CurrentObjectContextPanelController | u
 let diagnosticsExplainabilityPanelController: DiagnosticsExplainabilityPanelController | undefined;
 let extensionContextRef: vscode.ExtensionContext | undefined;
 let publicApiInstance: VscPowerSyntaxApi | undefined;
+let lastClientStartupFailure: string | undefined;
 const publicApiSingleton = createLazyPublicApi();
 const LAST_PBAUTOBUILD_PROFILE_KEY = 'pbAutoBuild.lastProfile';
 const MAX_SEMANTIC_REPRO_FILES = 20;
@@ -316,6 +317,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     return publicApiSingleton;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    lastClientStartupFailure = message;
     channel.appendLine(
       `[VSC PowerSyntax] ERROR al iniciar el cliente LSP: ${message}`
     );
@@ -325,7 +327,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     );
 
     await stopClient();
-    return undefined;
+    return publicApiSingleton;
   }
 }
 
@@ -439,7 +441,7 @@ function ensureHostInitialized(context: vscode.ExtensionContext): void {
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.name = 'VSC PowerSyntax';
-    statusBarItem.command = 'vscPowerSyntax.openStatusMenu';
+    statusBarItem.command = 'powerbuilder.openStatusMenu';
     context.subscriptions.push(statusBarItem);
     applyProgressVisibility(statusBarItem);
 
@@ -696,6 +698,7 @@ async function startClient(
 
   try {
     await nextClient.start();
+    lastClientStartupFailure = undefined;
 
     if (statusBarItem) {
       const item = statusBarItem;
@@ -1806,7 +1809,10 @@ function createPublicApi(): VscPowerSyntaxApi {
 
 async function executeServerCommand<T>(command: string, args: unknown[] = []): Promise<T> {
   if (!client) {
-    throw new Error('El cliente LSP no está disponible.');
+    const detail = lastClientStartupFailure
+      ? ` Ultimo error de arranque: ${lastClientStartupFailure}`
+      : '';
+    throw new Error(`El cliente LSP no está disponible.${detail}`);
   }
 
   const sendRequest = async (): Promise<T> => {
@@ -2014,7 +2020,7 @@ function renderProgress(item: vscode.StatusBarItem, p: ProgressNotification, sta
   const tooltip = new vscode.MarkdownString(buildStatusTooltipMarkdown(p, stats), true);
   tooltip.isTrusted = true;
   item.tooltip = tooltip;
-  item.command = 'vscPowerSyntax.openStatusMenu';
+  item.command = 'powerbuilder.openStatusMenu';
   item.show();
 }
 
@@ -2991,7 +2997,7 @@ async function runSemanticCacheMaintenance(): Promise<SemanticCacheMaintenanceCo
 async function clearSemanticCache(
   options?: CoreMaintenanceConfirmationOptions
 ): Promise<SemanticCacheClearCommandResult | undefined> {
-  const confirmed = await confirmCoreMaintenanceAction('vscPowerSyntax.clearSemanticCache', options);
+  const confirmed = await confirmCoreMaintenanceAction('powerbuilder.clearSemanticCache', options);
   if (!confirmed) {
     return undefined;
   }
@@ -3105,7 +3111,7 @@ async function rebuildWorkspaceIndex(
     return undefined;
   }
 
-  const confirmed = await confirmCoreMaintenanceAction('vscPowerSyntax.rebuildWorkspaceIndex', options);
+  const confirmed = await confirmCoreMaintenanceAction('powerbuilder.rebuildWorkspaceIndex', options);
   if (!confirmed) {
     return undefined;
   }

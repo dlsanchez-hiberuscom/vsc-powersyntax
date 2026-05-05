@@ -2,49 +2,48 @@
 
 ## 1. Foco activo
 
-Sin backlog activo abierto.
+Sin derivados vivos en la fase activa listada del backlog.
 
-Estado actual: el endurecimiento semántico **AUDIT-04** queda cerrado. El core de resolución ahora respeta estrictamente el orden de Appeon, soporta `::`, `This.`, `Parent.` y aplica filtrado de visibilidad (`public`, `protected`, `private`) en todos los niveles.
+Estado actual: `AUDIT-04-DERIVED-007` queda cerrado como no-action validado. `resolveQualifierType` ya reutilizaba `getDocumentEntities(..., hotContext)` y la suite focal ya fijaba que no debe releer `kb.getEntitiesByUri()` cuando `HotContextCache` dispone de `activeEntities`. Con este cierre, la secuencia de derivados activos listada en backlog queda agotada.
 
-La evidencia cerrada que deja este corte es:
+La evidencia inmediata que deja este cierre es:
 
-- `src/server/knowledge/scopePriority.ts` centraliza la prioridad canonical: `Local -> Shared -> Global -> Instance`.
-- `src/server/knowledge/resolution/semanticQueryService.ts` implementa `::` forzado, resolución calificada porvisibilidad y desambiguación determinista de variables.
-- `src/server/features/completion.ts` alinea el autocompletado con la prioridad de scopes y variables globales.
-- `test/server/unit/scopePriority.test.ts` garantiza la resolución correcta de `Parent.` y desambiguación de shadowing.
+- `semanticQueryService.test` ya valida que `resolveQualifierType` reutiliza `activeEntities` del `HotContextCache` para el documento activo.
+- No quedan ítems `AUDIT-04-DERIVED-*` abiertos en la sección de fase activa del backlog.
+- `docs/backlog.md`, `docs/done-log.md` y `docs/current-focus.md` vuelven a reflejar el cierre completo de la secuencia activa auditada.
 
 ---
 
-## 2. Por qué no hay foco activo
+## 2. Por qué este es el foco activo
 
-- `docs/backlog.md` tiene el ítem `AUDIT-04` marcado como `Done`.
-- El siguiente gran hito (e.g. `AUDIT-01` o `AUDIT-05`) requiere asignación de foco antes de iniciar implementación.
-- Se ha verificado que la suite de tests unitarios está en verde (102 passing).
+- No queda otro derivado activo en la fase listada del backlog.
+- Cualquier foco siguiente debe salir del backlog canónico general o de una nueva priorización explícita, no de esta secuencia ya agotada.
+- El documento mantiene el estado operativo inmediato sin inventar trabajo fuera de backlog.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Registrar el siguiente ítem activo en backlog.
-- Mantener verdes `npm run test:unit`.
-- Corregir sólo regresiones críticas sobre el motor de resolución semántica recién endurecido.
+- No reabrir `AUDIT-04-DERIVED-005`, `006` o `007` salvo regresión nueva observable.
+- Si se abre un foco nuevo, anclarlo primero en el backlog canónico antes de tocar código.
+- Mantener `docs/backlog.md`, `docs/current-focus.md` y `docs/done-log.md` sincronizados con cualquier nueva priorización.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Alterar la lógica de visibilidad o resolución sin una spec que lo justifique.
-- Introducir cambios en DataWindow mientras no se abra `AUDIT-05`.
+- Inventar un nuevo derivado activo sin registro explícito en backlog.
+- Reabrir la secuencia auditada ya cerrada sin una regresión verificable.
 
 ---
 
 ## 5. Criterios para abrir el siguiente foco
 
-- Existe un nuevo ítem `Open` en `docs/backlog.md`.
-- `docs/current-focus.md` apunta al siguiente objetivo de auditoría o feature.
+- Debe existir un ítem activo explícito en backlog o una nueva priorización canónica equivalente.
+- El siguiente derivado vivo del backlog queda promovido explícitamente como foco.
 
 ---
 
 ## 6. Regla final
 
-No se abre una nueva implementación mientras el backlog activo siga vacío y la priorización canónica no haya sido actualizada.
+No se inventa un foco nuevo mientras la sección activa del backlog no lo declare de forma explícita.

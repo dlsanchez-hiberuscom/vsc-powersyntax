@@ -393,7 +393,7 @@ export function buildStatusTooltipMarkdown(
   }
 
   lines.push('');
-  lines.push('[Dashboard](command:vscPowerSyntax.openProjectHealthDashboard) | [Self-test](command:vscPowerSyntax.runRuntimeSelfTest) | [Stats](command:vscPowerSyntax.showStatusStats) | [Salud](command:vscPowerSyntax.showStatusHealth) | [Build](command:vscPowerSyntax.runPbAutoBuild) | [Último build](command:vscPowerSyntax.runLastPbAutoBuild) | [Elegir build](command:vscPowerSyntax.runPbAutoBuildWithPicker) | [Matriz build](command:vscPowerSyntax.openBuildProfileMatrix) | [Cancelar build](command:vscPowerSyntax.cancelPbAutoBuild) | [ORCA](command:vscPowerSyntax.runActiveOrcaScript) | [Cancelar ORCA](command:vscPowerSyntax.cancelOrcaScript) | [Jerarquía](command:vscPowerSyntax.inspectHierarchy) | [Reiniciar](command:vscPowerSyntax.restartServer)');
+  lines.push('[Dashboard](command:powerbuilder.openProjectHealthDashboard) | [Self-test](command:powerbuilder.runRuntimeSelfTest) | [Stats](command:powerbuilder.showStatusStats) | [Salud](command:powerbuilder.showStatusHealth) | [Build](command:powerbuilder.runPbAutoBuild) | [Último build](command:powerbuilder.runLastPbAutoBuild) | [Elegir build](command:powerbuilder.runPbAutoBuildWithPicker) | [Matriz build](command:powerbuilder.openBuildProfileMatrix) | [Cancelar build](command:powerbuilder.cancelPbAutoBuild) | [ORCA](command:powerbuilder.runActiveOrcaScript) | [Cancelar ORCA](command:powerbuilder.cancelOrcaScript) | [Jerarquía](command:powerbuilder.inspectHierarchy) | [Reiniciar](command:powerbuilder.restartServer)');
 
   return lines.join('\n');
 }

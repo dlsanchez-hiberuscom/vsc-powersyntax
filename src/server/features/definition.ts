@@ -19,7 +19,7 @@ export function provideDefinition(
     ?? providePowerScriptDataWindowPropertyDefinition(document, position, kb);
   if (dataWindowDefinition) return dataWindowDefinition;
 
-  const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'definition');
+  const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'definition', 'definition');
   if (!resolved) return null;
 
   const possibleTargets = resolved.targets;

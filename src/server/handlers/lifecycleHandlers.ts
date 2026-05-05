@@ -114,6 +114,7 @@ export interface InitializedHandlerContext {
   getWorkspaceFolders(): string[];
   getCacheStorageUri(): string | null;
   getActiveDocumentUri(): string | null;
+  republishOpenDiagnostics(uris?: readonly string[]): void;
   setCacheStore(store: SemanticCacheStore | null): void;
   buildCacheCheckpointMetadata(): Partial<SemanticCacheCheckpointMetadata>;
   persistServingSnapshot(): Promise<void>;
@@ -203,6 +204,7 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
     getWorkspaceFolders,
     getCacheStorageUri,
     getActiveDocumentUri,
+    republishOpenDiagnostics,
     setCacheStore,
     buildCacheCheckpointMetadata,
     persistServingSnapshot,
@@ -392,6 +394,7 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
             if (!token.isCancelled) {
               const stats = knowledgeBase.getStats();
               const runtimeStatus = buildRuntimeProgressReadiness();
+              republishOpenDiagnostics();
               connection.console.log(`[WORKSPACE] Indexación completada:`);
               connection.console.log(`  - Tiempos: ${formatTiming('indexWorkspace', indexingMs)}`);
               connection.console.log(`  - Entidades en KB: ${stats.totalEntities}`);

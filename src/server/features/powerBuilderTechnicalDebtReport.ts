@@ -247,9 +247,16 @@ function extractStringLiterals(line: string): Array<{ value: string; start: numb
   return literals;
 }
 
+function looksLikeHostEndpoint(value: string): boolean {
+  const trimmed = value.trim();
+
+  return /^(?:localhost|\d{1,3}(?:\.\d{1,3}){3}|[a-z0-9-]+(?:\.[a-z0-9-]+)+)(?::\d+)?(?:\/|$)/i.test(trimmed)
+    || /^(?:localhost|[a-z0-9-]+(?:(?:\.[a-z0-9-]+)*)?):\d+(?:\/|$)/i.test(trimmed);
+}
+
 function redactIntegrationEndpoint(value: string): string {
   try {
-    const parsed = new URL(value);
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `http://${value}`);
     const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
     return `${scheme}://redacted-host/...`;
   } catch {
@@ -286,7 +293,7 @@ function collectModernIntegrationInsight(uri: string, kb: KnowledgeBase): Modern
         continue;
       }
 
-      if (/^https?:\/\//i.test(value)) {
+      if (/^https?:\/\//i.test(value) || looksLikeHostEndpoint(value)) {
         endpoints.add(`integration-endpoint:${redactIntegrationEndpoint(value)}`);
         continue;
       }

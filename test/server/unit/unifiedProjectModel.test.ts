@@ -50,4 +50,32 @@ suite('unit/unifiedProjectModel', () => {
     );
     assert.equal(model.getStats().orphanFiles, 0);
   });
+
+  test('resuelve archivos percent-encoded contra librerías pbproj con espacios', () => {
+    const topology = emptyTopology();
+    topology.projects.push({
+      uri: 'file:///proj/generic_pfc_app.pbproj',
+      name: 'generic_pfc_app',
+      libraries: [
+        'file:///proj/pfc libs/pfcmain.pbl',
+        'file:///proj/pfc libs/pfemain.pbl'
+      ]
+    });
+
+    const files = [
+      'file:///proj/pfc%20libs/pfcmain.pbl/pfc_n_cst_baseattrib.sru',
+      'file:///proj/pfc%20libs/pfemain.pbl/n_base.sru'
+    ];
+    const model = buildUnifiedProjectModel(topology, files);
+
+    assert.equal(
+      model.getProjectForFile('file:///proj/pfc%20libs/pfemain.pbl/n_base.sru')?.projectUri,
+      'file:///proj/generic_pfc_app.pbproj'
+    );
+    assert.deepEqual(model.getFilesForProject('file:///proj/generic_pfc_app.pbproj'), [
+      'file:///proj/pfc libs/pfcmain.pbl/pfc_n_cst_baseattrib.sru',
+      'file:///proj/pfc libs/pfemain.pbl/n_base.sru'
+    ]);
+    assert.equal(model.getStats().orphanFiles, 0);
+  });
 });

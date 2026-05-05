@@ -17,6 +17,8 @@ interface ScopeIndexEntry {
 interface PublishedKnowledgeState {
   globalSymbols: Map<string, Entity[]>;
   entitiesByKind: Map<EntityKind, Entity[]>;
+  entitiesByContainer: Map<string, Entity[]>;
+  typeEntitiesByBaseType: Map<string, Entity[]>;
   documentSymbols: Map<string, Set<string>>;
   entitiesByUri: Map<string, Entity[]>;
   documentScopes: Map<string, Scope[]>;
@@ -44,6 +46,8 @@ function createEmptyState(): PublishedKnowledgeState {
   return {
     globalSymbols: new Map(),
     entitiesByKind: new Map(),
+    entitiesByContainer: new Map(),
+    typeEntitiesByBaseType: new Map(),
     documentSymbols: new Map(),
     entitiesByUri: new Map(),
     documentScopes: new Map(),
@@ -61,6 +65,8 @@ function cloneState(state: PublishedKnowledgeState): PublishedKnowledgeState {
   return {
     globalSymbols: new Map(state.globalSymbols),
     entitiesByKind: new Map(state.entitiesByKind),
+    entitiesByContainer: new Map(state.entitiesByContainer),
+    typeEntitiesByBaseType: new Map(state.typeEntitiesByBaseType),
     documentSymbols: new Map(state.documentSymbols),
     entitiesByUri: new Map(state.entitiesByUri),
     documentScopes: new Map(state.documentScopes),
@@ -110,6 +116,14 @@ function getEntitySourceOrigin(entity: Entity): NonNullable<NonNullable<Entity['
 
 function sortEntitiesBySourcePriority(entities: Entity[]): void {
   entities.sort((left, right) => compareSourceOriginPriority(getEntitySourceOrigin(left), getEntitySourceOrigin(right)));
+}
+
+function normalizeContainerKey(containerName: string | undefined): string {
+  return containerName?.trim().toLowerCase() ?? '';
+}
+
+function normalizeBaseTypeKey(baseTypeName: string | undefined): string {
+  return baseTypeName?.trim().toLowerCase() ?? '';
 }
 
 /**
@@ -377,6 +391,34 @@ export class KnowledgeBase {
     return cloneValue(entities ?? []);
   }
 
+  /**
+   * Devuelve las entidades cuyo owner lógico es un contenedor dado.
+   * Operación O(1) sobre el índice por contenedor; preferir frente a `getAllEntities()`
+   * para cierres de miembros por jerarquía.
+   */
+  getEntitiesByContainer(containerName: string): Entity[] {
+    const normalizedContainer = normalizeContainerKey(containerName);
+    if (!normalizedContainer) {
+      return [];
+    }
+
+    return cloneValue(this.publishedState.entitiesByContainer.get(normalizedContainer) ?? []);
+  }
+
+  /**
+   * Devuelve los tipos cuyo baseType inmediato coincide con el solicitado.
+   * Operación O(1) sobre el índice por baseType; preferir frente a scans
+   * completos cuando sólo se necesitan descendientes directos.
+   */
+  getTypeEntitiesByBaseType(baseTypeName: string): Entity[] {
+    const normalizedBaseType = normalizeBaseTypeKey(baseTypeName);
+    if (!normalizedBaseType) {
+      return [];
+    }
+
+    return cloneValue(this.publishedState.typeEntitiesByBaseType.get(normalizedBaseType) ?? []);
+  }
+
   /** Snapshot semántico publicado de un documento. */
   getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null {
     const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
@@ -581,6 +623,41 @@ export class KnowledgeBase {
       }
     }
 
+    const containers = new Set(
+      existingEntities
+        .map((entity) => normalizeContainerKey(entity.containerName))
+        .filter((containerName) => containerName.length > 0)
+    );
+    for (const containerName of containers) {
+      const entities = state.entitiesByContainer.get(containerName);
+      if (!entities) continue;
+
+      const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
+      if (filtered.length > 0) {
+        state.entitiesByContainer.set(containerName, filtered);
+      } else {
+        state.entitiesByContainer.delete(containerName);
+      }
+    }
+
+    const baseTypes = new Set(
+      existingEntities
+        .filter((entity) => entity.kind === EntityKind.Type)
+        .map((entity) => normalizeBaseTypeKey(entity.baseTypeName))
+        .filter((baseTypeName) => baseTypeName.length > 0)
+    );
+    for (const baseTypeName of baseTypes) {
+      const entities = state.typeEntitiesByBaseType.get(baseTypeName);
+      if (!entities) continue;
+
+      const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
+      if (filtered.length > 0) {
+        state.typeEntitiesByBaseType.set(baseTypeName, filtered);
+      } else {
+        state.typeEntitiesByBaseType.delete(baseTypeName);
+      }
+    }
+
     state.documentSymbols.delete(normalizedUri);
     state.documentScopes.delete(normalizedUri);
     state.entitiesByUri.delete(normalizedUri);
@@ -687,6 +764,8 @@ export class KnowledgeBase {
     const uriEntities: Entity[] = [];
     const touchedGlobalIds = new Set<string>();
     const touchedKinds = new Set<EntityKind>();
+    const touchedContainers = new Set<string>();
+    const touchedBaseTypes = new Set<string>();
 
     for (const fact of facts) {
       const globalBucket = cloneArrayBucket(state.globalSymbols, fact.id, touchedGlobalIds);
@@ -694,6 +773,20 @@ export class KnowledgeBase {
 
       const kindBucket = cloneArrayBucket(state.entitiesByKind, fact.kind, touchedKinds);
       kindBucket.push(fact);
+
+      const containerName = normalizeContainerKey(fact.containerName);
+      if (containerName) {
+        const containerBucket = cloneArrayBucket(state.entitiesByContainer, containerName, touchedContainers);
+        containerBucket.push(fact);
+      }
+
+      if (fact.kind === EntityKind.Type) {
+        const baseTypeName = normalizeBaseTypeKey(fact.baseTypeName);
+        if (baseTypeName) {
+          const baseTypeBucket = cloneArrayBucket(state.typeEntitiesByBaseType, baseTypeName, touchedBaseTypes);
+          baseTypeBucket.push(fact);
+        }
+      }
 
       symbolIds.add(fact.id);
       uriEntities.push(fact);
@@ -710,6 +803,20 @@ export class KnowledgeBase {
       const kindBucket = state.entitiesByKind.get(kind);
       if (kindBucket) {
         sortEntitiesBySourcePriority(kindBucket);
+      }
+    }
+
+    for (const containerName of touchedContainers) {
+      const containerBucket = state.entitiesByContainer.get(containerName);
+      if (containerBucket) {
+        sortEntitiesBySourcePriority(containerBucket);
+      }
+    }
+
+    for (const baseTypeName of touchedBaseTypes) {
+      const baseTypeBucket = state.typeEntitiesByBaseType.get(baseTypeName);
+      if (baseTypeBucket) {
+        sortEntitiesBySourcePriority(baseTypeBucket);
       }
     }
 

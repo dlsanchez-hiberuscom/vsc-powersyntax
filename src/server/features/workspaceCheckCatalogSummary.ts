@@ -6,7 +6,9 @@ import type {
 
 import { buildCatalogConsistencyReport } from '../knowledge/system/consistency';
 import { PB_GENERATED_OFFICIAL_COVERAGE } from '../knowledge/system/generated/officialCoverage.generated';
+import { PB_SYSTEM_SYMBOL_REGISTRY } from '../knowledge/system/registry/registry';
 import { listCatalogPolicyResolvedEntriesForAudit } from '../knowledge/system/services/queryService';
+import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 
 function toConsistencyStatus(summary: {
   duplicates: number;
@@ -80,6 +82,23 @@ function buildAdrComplianceStatus(
   return 'passed';
 }
 
+export function countCandidateHotPathViolations(
+  resolvedEntries: readonly Pick<PbSystemSymbolEntry, 'id'>[],
+  registryEntries: readonly Pick<PbSystemSymbolEntry, 'id' | 'manualOverlay'>[] = PB_SYSTEM_SYMBOL_REGISTRY.entries,
+): number {
+  const candidateIds = new Set(
+    registryEntries
+      .filter((entry) => entry.manualOverlay?.mode === 'candidate')
+      .map((entry) => entry.id)
+  );
+
+  if (candidateIds.size === 0) {
+    return 0;
+  }
+
+  return resolvedEntries.filter((entry) => candidateIds.has(entry.id)).length;
+}
+
 function cloneAdrCompliance(
   summary: ApiWorkspaceCheckCatalogAdrComplianceSummary,
 ): ApiWorkspaceCheckCatalogAdrComplianceSummary {
@@ -108,9 +127,8 @@ export function buildWorkspaceCheckCatalogSummary(): ApiWorkspaceCheckCatalogSum
 
   const report = buildCatalogConsistencyReport();
   const officialCoverageDriftDomains = buildOfficialCoverageDriftDomains(report);
-  const candidateHotPathViolations = listCatalogPolicyResolvedEntriesForAudit()
-    .filter((entry) => entry.manualOverlay?.mode === 'candidate')
-    .length;
+  const resolvedEntries = listCatalogPolicyResolvedEntriesForAudit();
+  const candidateHotPathViolations = countCandidateHotPathViolations(resolvedEntries);
   const adrIssueCount = report.adoption.summary.officialDomainsWithGaps.length
     + officialCoverageDriftDomains.length
     + report.adoption.summary.scraperErrorCount

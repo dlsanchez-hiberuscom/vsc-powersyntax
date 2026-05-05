@@ -19,6 +19,7 @@ import {
 } from '../knowledge/system/localization';
 import { CharType } from '../utils/comments';
 import { resolveDocumentQualifierType } from './queryContext';
+import { getQueryConsumerPolicy } from './queryScopePolicy';
 import {
   DATAWINDOW_BIND_OWNER_TYPES,
   findNearestDataObjectLiteralBinding,
@@ -49,8 +50,9 @@ export function provideSignatureHelp(
     ...(argumentTypes ? { argumentTypes } : {})
   };
   const currentUri = normalizeUri(document.uri);
+  const budgetMs = getQueryConsumerPolicy('signature-help').budgetMs;
   const ownerType = qualifier
-    ? resolveDocumentQualifierType(document, qualifier, position, kb)
+    ? resolveDocumentQualifierType(document, qualifier, position, kb, hotContext)
     : undefined;
 
   const linkedRetrieveSignature = identifier.toLowerCase() === 'retrieve'
@@ -112,7 +114,9 @@ export function provideSignatureHelp(
   const targets = resolveTargetEntityDetailed(context, currentUri, kb, graph, {
     line: position.line,
     hotContext,
-    traceLabel: 'signatureHelp'
+    traceLabel: 'signatureHelp',
+    budgetMs,
+    sourceOriginPolicy: getQueryConsumerPolicy('signature-help')
   }).targets;
   
   if (targets.length > 0) {

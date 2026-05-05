@@ -2,6 +2,7 @@ import * as assert from 'assert/strict';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { ServingCacheFlushCoordinator } from '../../../src/server/cache/servingCacheFlushCoordinator';
 import { buildCurrentObjectContext } from '../../../src/server/features/currentObjectContext';
 import { buildPowerBuilderDependencyGraph } from '../../../src/server/features/dependencyGraph';
@@ -545,6 +546,83 @@ suite('unit/watchedFileIntake', () => {
     assert.equal(getFileIndexState(uri), FileIndexState.Pending);
     const after = getIndexerStatus().byState;
     assert.equal(after[FileIndexState.Pending] - before[FileIndexState.Pending], 1);
+  });
+
+  test('solicita refresh de diagnósticos para documentos abiertos invalidados por un ancestro reindexado', async () => {
+    const fs = new FakeFileSystem();
+    const documentCache = new DocumentCache();
+    const knowledgeBase = new KnowledgeBase();
+    const workspaceState = new WorkspaceState();
+    const hotContextCache = new HotContextCache();
+    const servingCache = new ServingCache();
+    const servingCacheFlushCoordinator = new ServingCacheFlushCoordinator(async () => {});
+    const childUri = 'file:///proj/lib_app.pbl/u_child.sru';
+    const baseUri = 'file:///proj/pfc libs.pbl/pfc_n_base.sru';
+    const childDocument = TextDocument.create(
+      childUri,
+      'powerbuilder',
+      1,
+      [
+        'forward',
+        'global type u_child from pfc_n_base',
+        'end type',
+        'end forward',
+        '',
+        'global type u_child from pfc_n_base',
+        'end type'
+      ].join('\n')
+    );
+    const childAnalysis = analyzeDocument(childDocument, { sourceOrigin: 'pbl-folder-source' });
+    const refreshCalls: Array<readonly string[] | undefined> = [];
+
+    workspaceState.addSourceFile(childUri);
+    workspaceState.addSourceFile(baseUri);
+    documentCache.set(childUri, {
+      version: childDocument.version,
+      facts: childAnalysis.semanticFacts,
+      symbols: [],
+      scopes: childAnalysis.scopes,
+      snapshot: childAnalysis.snapshot
+    });
+    knowledgeBase.upsertDocument(
+      childUri,
+      childAnalysis.semanticFacts,
+      childAnalysis.scopes,
+      childAnalysis.snapshot
+    );
+
+    fs.files.set(
+      baseUri,
+      [
+        'forward',
+        'global type pfc_n_base from nonvisualobject',
+        'end type',
+        'end forward',
+        '',
+        'global type pfc_n_base from nonvisualobject',
+        'end type'
+      ].join('\n')
+    );
+
+    const result = await applyWatchedFileEvents({
+      events: [{ uri: baseUri, kind: 'change' }],
+      fs,
+      documentCache,
+      knowledgeBase,
+      workspaceState,
+      hotContextCache,
+      servingCache,
+      servingCacheFlushCoordinator,
+      isDocumentOpen: (uri) => uri === childUri,
+      getOpenDocument: (uri) => (uri === childUri ? childDocument : undefined),
+      refreshDiagnostics: (uris) => {
+        refreshCalls.push(uris);
+      }
+    });
+
+    assert.equal(result.reindexed, 1);
+    assert.equal(refreshCalls.length, 1);
+    assert.ok(refreshCalls[0]?.includes(childUri), 'El watcher debe pedir refresh para el documento abierto dependiente.');
   });
 
   test('batch pequeño invalida serving cache solo para URIs afectadas', async () => {

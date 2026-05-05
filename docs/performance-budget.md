@@ -132,7 +132,7 @@ Hoy el runtime ya dispone de:
 - backpressure del watcher,
 - refresco incremental de routing/provenance para markers de topología y altas calientes de SR* sin rediscovery completo,
 - diff snapshot-aware con dependencias `DataObject`/`report`/`dddw` y contrato retrieve de `.srd`, de modo que el fan-out incremental alcance solo a los consumidores necesarios sin abrir otro motor de invalidación,
-- policy v2 `queryScopePolicy` por consumer semántico, con `maxScope`, `budgetMs`, `resultCap`, readiness/confidence/fallback y allowances `staging/generated/external` servidos desde un registro único,
+- policy v2 `queryScopePolicy` por consumer semántico, con `maxScope`, `budgetMs`, `resultCap`, readiness/confidence/fallback y allowances `staging/generated/external` servidos desde un registro único, y `semanticQueryService`/`queryTrace` ya proyectan `budget:exceeded` como trace step post-resolución cuando la duración supera ese budget,
 - pool acotado de fuentes para `references`/`rename`/CodeLens con reuso de `maskedText` ya indexado, sin widening a `workspace` cuando la policy del consumer queda en `project` y sin materializar `orca-staging/generated` salvo allowance explícito,
 - mutaciones `upsert/remove` de `KnowledgeBase` con copy-on-write por bucket y consultas/conteos acotados por `kind` para serving y manifest, evitando clonar o recorrer toda la base cuando el hot path ya conoce el subconjunto necesario,
 - guard estructural local/CI sobre hot path para impedir `document.getText().split(...)`, `JSON.stringify`, `getAllEntities`/`exportDocumentRecords`, clonación global del catálogo de sistema y renormalización redundante del workspace en `queryContext`, `completion`, `diagnostics` y `referenceSourcePool`,

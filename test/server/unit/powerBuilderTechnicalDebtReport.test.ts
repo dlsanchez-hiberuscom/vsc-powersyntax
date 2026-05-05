@@ -333,6 +333,43 @@ suite('unit/powerBuilderTechnicalDebtReport (B261)', () => {
     assert.ok(hotspot?.recommendations.some((entry) => /HTTP|REST|JSON|redact/i.test(entry)));
   });
 
+  test('redacta endpoints host:puerto sin esquema cuando el hotspot moderno los expone', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/n_http_hostless_usage.sru';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type n_http_hostless_usage from httpclient',
+      'end type',
+      'end forward',
+      'global type n_http_hostless_usage from httpclient',
+      'restclient inv_rest',
+      'event open();',
+      '  inv_rest.SetRequestUri("localhost:8080/api/orders/42?token=secret")',
+      'end event',
+      'end type',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const report = buildPowerBuilderTechnicalDebtReport(undefined, kb, workspaceState, null);
+    const hotspot = report.hotspots.find((entry) => entry.name === 'n_http_hostless_usage');
+
+    assert.ok(hotspot);
+    assert.ok(hotspot?.evidence.includes('integration-endpoint:http://redacted-host/...'));
+    assert.ok(hotspot?.evidence.every((entry) => !entry.includes('localhost:8080')));
+    assert.ok(hotspot?.evidence.every((entry) => !entry.includes('orders/42')));
+    assert.ok(hotspot?.evidence.every((entry) => !entry.includes('token=secret')));
+  });
+
   test('publica patrones WebBrowser/WebView2 como hotspot visible de interop web', () => {
     const focusUri = 'file:///proj/lib_app.pbl/w_browser_host.srw';
 

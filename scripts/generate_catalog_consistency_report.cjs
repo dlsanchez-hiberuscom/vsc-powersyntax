@@ -90,6 +90,10 @@ function buildMarkdownReport(report, summary) {
   return `${lines.join('\n')}\n`;
 }
 
+function formatDomainList(domains) {
+  return domains.length > 0 ? domains.join(', ') : 'none';
+}
+
 async function main() {
   const { buildCatalogConsistencyReport } = require(path.join(
     repoRoot,
@@ -131,6 +135,28 @@ async function main() {
   console.log(`  adrCompliance: ${payload.summary.adrCompliance?.status ?? 'unknown'}`);
   console.log(`  policy: ${payload.summary.adrCompliance?.recommendedPolicy ?? 'unknown'}`);
   console.log(`  issueCount: ${payload.summary.adrCompliance?.issueCount ?? 0}`);
+
+  const manualPrimaryDomains = payload.summary.adrCompliance?.manualPrimaryDomains ?? [];
+  const officialCoverageDriftDomains = payload.summary.adrCompliance?.officialCoverageDriftDomains ?? [];
+  const candidateHotPathViolations = payload.summary.adrCompliance?.candidateHotPathViolations ?? 0;
+
+  if (manualPrimaryDomains.length > 0) {
+    console.warn(`  manualPrimaryDomains: ${formatDomainList(manualPrimaryDomains)}`);
+  } else {
+    console.log('  manualPrimaryDomains: none');
+  }
+
+  if (officialCoverageDriftDomains.length > 0) {
+    console.warn(`  officialCoverageDriftDomains: ${formatDomainList(officialCoverageDriftDomains)}`);
+  } else {
+    console.log('  officialCoverageDriftDomains: none');
+  }
+
+  if (candidateHotPathViolations > 0) {
+    console.warn(`  candidateHotPathViolations: ${candidateHotPathViolations}`);
+  } else {
+    console.log('  candidateHotPathViolations: 0');
+  }
 }
 
 main().catch(error => {

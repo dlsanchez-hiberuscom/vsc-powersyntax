@@ -136,6 +136,69 @@ suite('unit/currentObjectContext (B217)', () => {
     assert.ok(context.sourceExcerpt?.text.includes('ids_orders.DataObject = &'));
   });
 
+  test('prioriza el ancestro según project routing y library order en pbproj multi-PBL', () => {
+    const preferredBaseUri = 'file:///proj/pfc libs/pfcmain.pbl/pfc_n_base.sru';
+    const shadowBaseUri = 'file:///proj/pfc libs/pfemain.pbl/pfc_n_base.sru';
+    const mainUri = 'file:///proj/pfc libs/app.pbl/n_child.sru';
+
+    workspaceState.addTopologyEntry({
+      kind: 'project',
+      data: {
+        uri: 'file:///proj/generic_pfc_app.pbproj',
+        name: 'generic_pfc_app',
+        libraries: [
+          'file:///proj/pfc libs/pfcmain.pbl',
+          'file:///proj/pfc libs/pfemain.pbl',
+          'file:///proj/pfc libs/app.pbl',
+        ]
+      }
+    });
+
+    setupAnalyzedDocument(preferredBaseUri, [
+      'forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type',
+      'end forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type'
+    ].join('\r\n'));
+
+    setupAnalyzedDocument(shadowBaseUri, [
+      'forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type',
+      'end forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type'
+    ].join('\r\n'));
+
+    const document = setupAnalyzedDocument(mainUri, [
+      'forward',
+      'global type n_child from pfc_n_base',
+      'end type',
+      'end forward',
+      'global type n_child from pfc_n_base',
+      'end type'
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const context = buildCurrentObjectContext(
+      document,
+      undefined,
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.equal(context.objectInfo?.project, 'file:///proj/generic_pfc_app.pbproj');
+    assert.equal(context.ancestorChain?.[0]?.name, 'pfc_n_base');
+    assert.equal(context.ancestorChain?.[0]?.uri, preferredBaseUri);
+    assert.ok(context.relatedFiles?.some((entry) => entry.uri === preferredBaseUri && entry.role === 'ancestor'));
+  });
+
   test('marca ancestros nativos del lenguaje como systemType en la cadena de contexto', () => {
     const document = setupAnalyzedDocument('file:///proj/lib_app.pbl/pfc_n_crypterobject.sru', [
       'forward',

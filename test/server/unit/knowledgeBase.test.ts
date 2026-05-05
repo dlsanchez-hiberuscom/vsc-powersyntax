@@ -161,6 +161,56 @@ suite('unit/knowledge', () => {
       assert.equal(kb.getStats().snapshotDocuments, 1);
     });
 
+    test('indexa entidades por contenedor lógico y limpia el índice al reemplazar un documento', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///w_owner.sru';
+
+      kb.upsertDocument(uri, [
+        { id: 'w_owner', name: 'w_owner', kind: EntityKind.Type, uri, line: 0, character: 0 },
+        { id: 'of_init', name: 'of_init', kind: EntityKind.Function, containerName: 'w_owner', uri, line: 5, character: 0 },
+        { id: 'iv_count', name: 'iv_count', kind: EntityKind.Variable, containerName: 'w_owner', uri, line: 6, character: 0 }
+      ]);
+
+      assert.deepEqual(
+        kb.getEntitiesByContainer('w_owner').map((entity) => entity.name),
+        ['of_init', 'iv_count']
+      );
+
+      kb.upsertDocument(uri, [
+        { id: 'w_owner', name: 'w_owner', kind: EntityKind.Type, uri, line: 0, character: 0 },
+        { id: 'of_run', name: 'of_run', kind: EntityKind.Function, containerName: 'w_owner', uri, line: 9, character: 0 }
+      ]);
+
+      assert.deepEqual(
+        kb.getEntitiesByContainer('w_owner').map((entity) => entity.name),
+        ['of_run']
+      );
+    });
+
+    test('indexa tipos por baseType y limpia el índice al reemplazar un documento', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///u_child.sru';
+
+      kb.upsertDocument(uri, [
+        { id: 'u_child', name: 'u_child', kind: EntityKind.Type, baseTypeName: 'u_base', uri, line: 0, character: 0 }
+      ]);
+
+      assert.deepEqual(
+        kb.getTypeEntitiesByBaseType('u_base').map((entity) => entity.name),
+        ['u_child']
+      );
+
+      kb.upsertDocument(uri, [
+        { id: 'u_child', name: 'u_child', kind: EntityKind.Type, baseTypeName: 'u_other_base', uri, line: 0, character: 0 }
+      ]);
+
+      assert.deepEqual(kb.getTypeEntitiesByBaseType('u_base'), []);
+      assert.deepEqual(
+        kb.getTypeEntitiesByBaseType('u_other_base').map((entity) => entity.name),
+        ['u_child']
+      );
+    });
+
     test('getStats desglosa snapshots por pass y readiness', () => {
       const kb = new KnowledgeBase();
 

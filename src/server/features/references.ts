@@ -116,7 +116,7 @@ export function provideReferences(
   hotContext?: HotContextCache,
   queryContext?: DocumentQueryContext
 ): Location[] {
-  const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'references');
+  const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'references', 'references');
   const word = queryContext?.context?.identifier ?? resolved?.context.identifier ?? getWordAt(document, position);
   if (!word) return [];
   const wordLower = word.toLowerCase();

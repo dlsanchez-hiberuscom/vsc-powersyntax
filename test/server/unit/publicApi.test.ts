@@ -365,7 +365,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(
       descriptor.observability.surfaces.some((surface) => surface.domain === 'support-bundle'
         && surface.exposure === 'offline-export'
-        && surface.command === 'vscPowerSyntax.exportSupportBundle'
+        && surface.command === 'powerbuilder.exportSupportBundle'
         && surface.redaction === 'sanitized')
     );
     assert.ok(

@@ -183,27 +183,25 @@ export class InheritanceGraph {
     if (cached) return [...cached];
 
     const hierarchy = this.getTypeHierarchy(typeName);
-    const hierarchySet = new Set(hierarchy.map((name) => name.toLowerCase()));
     const currentTypeMembers = new Set<string>();
     const ancestorMembers = new Set<string>();
     const collected: Entity[] = [];
 
-    for (const entity of this.kb.getAllEntities()) {
-      if (entity.kind === EntityKind.Type || !entity.containerName) {
-        continue;
-      }
+    for (const ownerName of hierarchy) {
+      const owner = ownerName.trim().toLowerCase();
+      const ownerEntities = this.kb.getEntitiesByContainer(ownerName);
+      for (const entity of ownerEntities) {
+        if (entity.kind === EntityKind.Type || !entity.containerName) {
+          continue;
+        }
 
-      const owner = entity.containerName.trim().toLowerCase();
-      if (!hierarchySet.has(owner)) {
-        continue;
-      }
-
-      collected.push(entity);
-      const key = buildMemberClosureKey(entity);
-      if (owner === normalizedName) {
-        currentTypeMembers.add(key);
-      } else {
-        ancestorMembers.add(key);
+        collected.push(entity);
+        const key = buildMemberClosureKey(entity);
+        if (owner === normalizedName) {
+          currentTypeMembers.add(key);
+        } else {
+          ancestorMembers.add(key);
+        }
       }
     }
 
@@ -264,10 +262,7 @@ export class InheritanceGraph {
 
     const result: string[] = [];
     const seen = new Set<string>();
-    for (const entity of this.kb.getAllEntities()) {
-      if (entity.kind !== EntityKind.Type) continue;
-      const base = entity.baseTypeName?.trim().toLowerCase();
-      if (!base || base !== normalized) continue;
+    for (const entity of this.kb.getTypeEntitiesByBaseType(typeName)) {
       const childNorm = entity.name.trim().toLowerCase();
       if (childNorm && !seen.has(childNorm)) {
         seen.add(childNorm);

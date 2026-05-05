@@ -223,9 +223,20 @@ const QUERY_CONSUMER_POLICIES: Record<QueryConsumerId, QueryConsumerPolicy> = {
 };
 
 const QUERY_CONSUMER_IDS = Object.freeze(Object.keys(QUERY_CONSUMER_POLICIES) as QueryConsumerId[]);
+const QUERY_CONSUMER_POLICIES_BY_LABEL = new Map(
+  Object.values(QUERY_CONSUMER_POLICIES).map((policy) => [policy.label, policy] as const)
+);
 
 export function getQueryConsumerPolicy(consumer: QueryConsumerId): QueryConsumerPolicy {
   return QUERY_CONSUMER_POLICIES[consumer];
+}
+
+export function getQueryConsumerPolicyByLabel(label: string | undefined): QueryConsumerPolicy | null {
+  if (!label) {
+    return null;
+  }
+
+  return QUERY_CONSUMER_POLICIES_BY_LABEL.get(label) ?? null;
 }
 
 export function listQueryConsumerPolicies(): QueryConsumerPolicy[] {

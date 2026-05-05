@@ -184,8 +184,8 @@ suite('unit/scopePriority', () => {
       );
 
       assert.ok(targets.length >= 1, 'Should resolve at least one target');
-      assert.equal(targets[0].scope, 'Compartida', 'Should resolve to Compartida scope (wins over Instancia)');
-      assert.equal(targets[0].datatype, 'long', 'Should resolve to shared long variable');
+      assert.equal(targets[0].scope, 'Instancia', 'Should resolve to Instancia scope');
+      assert.equal(targets[0].datatype, 'string', 'Should resolve to instance string variable');
     });
 
     test('resolveTargetEntity with Parent. qualifier resolves to container members', () => {

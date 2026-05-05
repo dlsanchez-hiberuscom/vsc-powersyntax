@@ -1643,7 +1643,7 @@ const OBSERVABILITY_SURFACES: ReadonlyArray<ApiObservabilitySurfaceDescriptor> =
     domain: 'support-bundle',
     schema: 'SupportBundleManifest',
     exposure: 'offline-export',
-    command: 'vscPowerSyntax.exportSupportBundle',
+    command: 'powerbuilder.exportSupportBundle',
     redaction: 'sanitized',
   },
   {

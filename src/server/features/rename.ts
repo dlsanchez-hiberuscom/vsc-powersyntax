@@ -66,7 +66,7 @@ export function provideRename(
     return { edit: null, reason: preflight.reason };
   }
 
-  const resolvedQueryContext = queryContext ?? createDocumentQueryContext(document, position, kb, graph, hotContext, 'rename');
+  const resolvedQueryContext = queryContext ?? createDocumentQueryContext(document, position, kb, graph, hotContext, 'rename', 'rename');
   const target = resolvedQueryContext.resolvedTargets?.targets[0];
   if (resolvedQueryContext.invocationRisk === 'dynamic' || resolvedQueryContext.invocationRisk === 'fallback') {
     return {

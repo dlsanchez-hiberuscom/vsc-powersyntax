@@ -5,6 +5,7 @@ import { buildHierarchyTree, type HierarchyNode } from './hierarchyTree';
 import { resolveAncestorDescriptor } from './ancestorDescriptor';
 import type { ApiCurrentObjectAncestor } from '../../shared/publicApi';
 import type { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import type { WorkspaceState } from '../workspace/workspaceState';
 
 export interface HierarchyOverrideInfo {
   name: string;
@@ -52,6 +53,11 @@ export interface HierarchyInspectionGraph {
 export interface HierarchyInspectionKnowledge {
   findAllDefinitions(symbolName: string): Entity[];
   getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null;
+}
+
+export interface HierarchyInspectionSelectionOptions {
+  activeUri?: string | null;
+  workspaceState?: WorkspaceState;
 }
 
 function normalizeTypeName(value: string | null | undefined): string {
@@ -182,7 +188,8 @@ export function buildHierarchyInspection(
   focusType: string | null,
   graph: HierarchyInspectionGraph,
   knowledge?: HierarchyInspectionKnowledge,
-  systemCatalog?: SystemCatalog
+  systemCatalog?: SystemCatalog,
+  selection?: HierarchyInspectionSelectionOptions,
 ): HierarchyInspection {
   if (!focusType) {
     return {
@@ -206,7 +213,7 @@ export function buildHierarchyInspection(
 
   const ancestorChain = graph.getAncestors(focusType);
   const ancestorDescriptors = knowledge
-    ? ancestorChain.map((name) => resolveAncestorDescriptor(name, knowledge, systemCatalog))
+    ? ancestorChain.map((name) => resolveAncestorDescriptor(name, knowledge, systemCatalog, selection))
     : ancestorChain.map((name) => ({ name }));
   const closure = graph.getMemberClosure(focusType);
   const inheritedByKey = new Map<string, MemberClosureEntry[]>();

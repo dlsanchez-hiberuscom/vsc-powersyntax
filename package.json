@@ -210,282 +210,282 @@
     ],
     "commands": [
       {
-        "command": "vscPowerSyntax.restartServer",
+        "command": "powerbuilder.restartServer",
         "title": "PowerSyntax: Reiniciar Servidor de Lenguaje",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.inspectHierarchy",
+        "command": "powerbuilder.inspectHierarchy",
         "title": "PowerSyntax: Inspeccionar Jerarquía Activa",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openDataWindowSqlLineage",
+        "command": "powerbuilder.openDataWindowSqlLineage",
         "title": "PowerSyntax: Abrir DataWindow SQL Lineage",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openStatusMenu",
+        "command": "powerbuilder.openStatusMenu",
         "title": "PowerSyntax: Abrir Menú de Estado",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.showStatusStats",
+        "command": "powerbuilder.showStatusStats",
         "title": "PowerSyntax: Mostrar Stats del Runtime",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.showStatusHealth",
+        "command": "powerbuilder.showStatusHealth",
         "title": "PowerSyntax: Mostrar Salud del Runtime",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openProjectHealthDashboard",
+        "command": "powerbuilder.openProjectHealthDashboard",
         "title": "PowerSyntax: Abrir Dashboard de Salud del Proyecto",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openWorkspaceCheck",
+        "command": "powerbuilder.openWorkspaceCheck",
         "title": "PowerSyntax: Check Workspace",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openExtensionUpgradeCompatibilityCheck",
+        "command": "powerbuilder.openExtensionUpgradeCompatibilityCheck",
         "title": "PowerSyntax: Check Extension Upgrade Compatibility",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openCurrentObjectCheck",
+        "command": "powerbuilder.openCurrentObjectCheck",
         "title": "PowerSyntax: Check Current Object",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openObjectCheck",
+        "command": "powerbuilder.openObjectCheck",
         "title": "PowerSyntax: Check Object...",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openExplainDiagnostic",
+        "command": "powerbuilder.openExplainDiagnostic",
         "title": "PowerSyntax: Explain Diagnostic at Cursor",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openExplainSystemSymbol",
+        "command": "powerbuilder.openExplainSystemSymbol",
         "title": "PowerSyntax: Explain System Symbol at Cursor",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openExplainSemanticQuery",
+        "command": "powerbuilder.openExplainSemanticQuery",
         "title": "PowerSyntax: Explain Semantic Query at Cursor",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openCrossProjectSymbolConflicts",
+        "command": "powerbuilder.openCrossProjectSymbolConflicts",
         "title": "PowerSyntax: Abrir Analizador de Conflictos Cross-Project",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openWorkspaceMigrationAssistant",
+        "command": "powerbuilder.openWorkspaceMigrationAssistant",
         "title": "PowerSyntax: Abrir Asistente de Migración de Workspace",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openBuildProfileMatrix",
+        "command": "powerbuilder.openBuildProfileMatrix",
         "title": "PowerSyntax: Abrir Matriz de Perfiles de Build",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openDependencyGraph",
+        "command": "powerbuilder.openDependencyGraph",
         "title": "PowerSyntax: Abrir Grafo de Dependencias PowerBuilder",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openCodeMetrics",
+        "command": "powerbuilder.openCodeMetrics",
         "title": "PowerSyntax: Abrir Métricas Avanzadas de Código PowerBuilder",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openTechnicalDebtReport",
+        "command": "powerbuilder.openTechnicalDebtReport",
         "title": "PowerSyntax: Abrir Informe Técnico de Deuda y Modernización PowerBuilder",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.refreshCurrentObjectContextPanel",
+        "command": "powerbuilder.refreshCurrentObjectContextPanel",
         "title": "PowerSyntax: Refrescar Current Object Context Panel",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.focusCurrentObjectContextPanel",
+        "command": "powerbuilder.focusCurrentObjectContextPanel",
         "title": "PowerSyntax: Mostrar Current Object Context Panel",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openCurrentObjectContextLocation",
+        "command": "powerbuilder.openCurrentObjectContextLocation",
         "title": "PowerSyntax: Abrir Ubicación desde Current Object Context",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.refreshDiagnosticsExplainabilityPanel",
+        "command": "powerbuilder.refreshDiagnosticsExplainabilityPanel",
         "title": "PowerSyntax: Refrescar Diagnostics Explainability",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.focusDiagnosticsExplainabilityPanel",
+        "command": "powerbuilder.focusDiagnosticsExplainabilityPanel",
         "title": "PowerSyntax: Mostrar Diagnostics Explainability",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openDiagnosticsExplainabilityLocation",
+        "command": "powerbuilder.openDiagnosticsExplainabilityLocation",
         "title": "PowerSyntax: Abrir Ubicación desde Diagnostics Explainability",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.refreshObjectExplorer",
+        "command": "powerbuilder.refreshObjectExplorer",
         "title": "PowerSyntax: Refrescar Object Explorer",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.focusObjectExplorerOnCurrentProject",
+        "command": "powerbuilder.focusObjectExplorerOnCurrentProject",
         "title": "PowerSyntax: Fijar Object Explorer en el Proyecto Activo",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.focusObjectExplorerOnCurrentFile",
+        "command": "powerbuilder.focusObjectExplorerOnCurrentFile",
         "title": "PowerSyntax: Fijar Object Explorer en el Archivo Activo",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.clearObjectExplorerFocus",
+        "command": "powerbuilder.clearObjectExplorerFocus",
         "title": "PowerSyntax: Limpiar Foco del Object Explorer",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.openObjectExplorerObject",
+        "command": "powerbuilder.openObjectExplorerObject",
         "title": "PowerSyntax: Abrir Objeto desde Object Explorer",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.runPbAutoBuild",
+        "command": "powerbuilder.runPbAutoBuild",
         "title": "PowerSyntax: Ejecutar PBAutoBuild",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.runLastPbAutoBuild",
+        "command": "powerbuilder.runLastPbAutoBuild",
         "title": "PowerSyntax: Repetir Último Build PBAutoBuild",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.runPbAutoBuildWithPicker",
+        "command": "powerbuilder.runPbAutoBuildWithPicker",
         "title": "PowerSyntax: Elegir Build PBAutoBuild y Ejecutar",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.cancelPbAutoBuild",
+        "command": "powerbuilder.cancelPbAutoBuild",
         "title": "PowerSyntax: Cancelar PBAutoBuild Activo",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.exportPbAutoBuildCiHelper",
+        "command": "powerbuilder.exportPbAutoBuildCiHelper",
         "title": "PowerSyntax: Exportar Helper CI/CD de PBAutoBuild",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.runActiveOrcaScript",
+        "command": "powerbuilder.runActiveOrcaScript",
         "title": "PowerSyntax: Ejecutar Script ORCA Activo",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.cancelOrcaScript",
+        "command": "powerbuilder.cancelOrcaScript",
         "title": "PowerSyntax: Cancelar Script ORCA",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.exportOrcaStaging",
+        "command": "powerbuilder.exportOrcaStaging",
         "title": "PowerSyntax: Exportar PBL Legacy a ORCA Staging",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.importOrcaStaging",
+        "command": "powerbuilder.importOrcaStaging",
         "title": "PowerSyntax: Importar ORCA Staging a PBL Legacy",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.regenerateOrcaLibraries",
+        "command": "powerbuilder.regenerateOrcaLibraries",
         "title": "PowerSyntax: Regenerate Librerías Legacy vía ORCA",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.rebuildOrcaProject",
+        "command": "powerbuilder.rebuildOrcaProject",
         "title": "PowerSyntax: Rebuild Proyecto Legacy vía ORCA",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.exportSemanticReproPack",
+        "command": "powerbuilder.exportSemanticReproPack",
         "title": "PowerSyntax: Exportar Repro Pack Semántico",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.exportSupportBundle",
+        "command": "powerbuilder.exportSupportBundle",
         "title": "PowerSyntax: Exportar Support Bundle Offline",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.exportHealthReport",
+        "command": "powerbuilder.exportHealthReport",
         "title": "PowerSyntax: Exportar Health Report",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.runRuntimeSelfTest",
+        "command": "powerbuilder.runRuntimeSelfTest",
         "title": "PowerSyntax: Ejecutar Runtime Self-Test",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.showMemoryBudgets",
+        "command": "powerbuilder.showMemoryBudgets",
         "title": "PowerSyntax: Mostrar Memory Budgets",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.showIndexingState",
+        "command": "powerbuilder.showIndexingState",
         "title": "PowerSyntax: Mostrar Estado de Indexación",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.showProjectRouting",
+        "command": "powerbuilder.showProjectRouting",
         "title": "PowerSyntax: Mostrar Project Routing",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.showSourceOriginConflicts",
+        "command": "powerbuilder.showSourceOriginConflicts",
         "title": "PowerSyntax: Mostrar Conflictos de sourceOrigin",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.validatePersistentCache",
+        "command": "powerbuilder.validatePersistentCache",
         "title": "PowerSyntax: Validar Cache Persistente",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.clearSemanticCache",
+        "command": "powerbuilder.clearSemanticCache",
         "title": "PowerSyntax: Limpiar Cache Semántica",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.rebuildWorkspaceIndex",
+        "command": "powerbuilder.rebuildWorkspaceIndex",
         "title": "PowerSyntax: Rebuild Workspace Index",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.runSemanticCacheMaintenance",
+        "command": "powerbuilder.runSemanticCacheMaintenance",
         "title": "PowerSyntax: Ejecutar Mantenimiento de Cache Semántica",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.showSettingsGovernance",
+        "command": "powerbuilder.showSettingsGovernance",
         "title": "PowerSyntax: Ver Gobernanza de Settings",
         "category": "VSC PowerSyntax"
       },
       {
-        "command": "vscPowerSyntax.applySettingsProfile",
+        "command": "powerbuilder.applySettingsProfile",
         "title": "PowerSyntax: Aplicar Perfil de Settings",
         "category": "VSC PowerSyntax"
       }
@@ -519,59 +519,59 @@
     "menus": {
       "view/title": [
         {
-          "command": "vscPowerSyntax.focusCurrentObjectContextPanel",
+          "command": "powerbuilder.focusCurrentObjectContextPanel",
           "when": "view == powerbuilderCurrentObjectContext",
           "group": "navigation@1"
         },
         {
-          "command": "vscPowerSyntax.refreshCurrentObjectContextPanel",
+          "command": "powerbuilder.refreshCurrentObjectContextPanel",
           "when": "view == powerbuilderCurrentObjectContext",
           "group": "navigation@2"
         },
         {
-          "command": "vscPowerSyntax.focusDiagnosticsExplainabilityPanel",
+          "command": "powerbuilder.focusDiagnosticsExplainabilityPanel",
           "when": "view == powerbuilderDiagnosticsExplainability",
           "group": "navigation@1"
         },
         {
-          "command": "vscPowerSyntax.refreshDiagnosticsExplainabilityPanel",
+          "command": "powerbuilder.refreshDiagnosticsExplainabilityPanel",
           "when": "view == powerbuilderDiagnosticsExplainability",
           "group": "navigation@2"
         },
         {
-          "command": "vscPowerSyntax.focusObjectExplorerOnCurrentProject",
+          "command": "powerbuilder.focusObjectExplorerOnCurrentProject",
           "when": "view == powerbuilderObjectExplorer",
           "group": "navigation@1"
         },
         {
-          "command": "vscPowerSyntax.focusObjectExplorerOnCurrentFile",
+          "command": "powerbuilder.focusObjectExplorerOnCurrentFile",
           "when": "view == powerbuilderObjectExplorer",
           "group": "navigation@2"
         },
         {
-          "command": "vscPowerSyntax.clearObjectExplorerFocus",
+          "command": "powerbuilder.clearObjectExplorerFocus",
           "when": "view == powerbuilderObjectExplorer",
           "group": "navigation@3"
         },
         {
-          "command": "vscPowerSyntax.refreshObjectExplorer",
+          "command": "powerbuilder.refreshObjectExplorer",
           "when": "view == powerbuilderObjectExplorer",
           "group": "navigation@4"
         }
       ],
       "view/item/context": [
         {
-          "command": "vscPowerSyntax.openCurrentObjectContextLocation",
+          "command": "powerbuilder.openCurrentObjectContextLocation",
           "when": "view == powerbuilderCurrentObjectContext && viewItem == currentObjectContext.item",
           "group": "inline"
         },
         {
-          "command": "vscPowerSyntax.openDiagnosticsExplainabilityLocation",
+          "command": "powerbuilder.openDiagnosticsExplainabilityLocation",
           "when": "view == powerbuilderDiagnosticsExplainability && viewItem == diagnosticsExplainability.item",
           "group": "inline"
         },
         {
-          "command": "vscPowerSyntax.openObjectExplorerObject",
+          "command": "powerbuilder.openObjectExplorerObject",
           "when": "view == powerbuilderObjectExplorer && viewItem == powerbuilderObjectExplorer.object",
           "group": "inline"
         }
@@ -749,6 +749,7 @@
     "build:test": "tsc -b && npm run bundle && tsc -p tsconfig.test.json",
     "migrate:catalog-localization-target-ids": "npm run compile && node ./scripts/migrate_catalog_localization_target_ids.cjs",
     "report:catalog-consistency": "npm run compile && node ./scripts/generate_catalog_consistency_report.cjs",
+    "verify:catalog-coverage": "npm run compile && node ./tools/verify-catalog-coverage.cjs",
     "report:catalog-localization": "npm run compile && node ./scripts/generate_catalog_localization_report.cjs",
     "test": "npm run build:test && vscode-test --label smoke --label unit --label integration",
     "test:smoke": "npm run build:test && vscode-test --label smoke",
@@ -764,7 +765,7 @@
     "package:vsix": "npm run bundle && node -e \"require('fs').mkdirSync('.dist',{recursive:true})\" && vsce package --no-yarn --out ./.dist/vsc-powersyntax.vsix",
     "package:vsix:list": "vsce ls --no-yarn",
     "verify:vsix-contents": "node ./tools/verify-vsix-contents.mjs",
-    "release:verify": "npm test && npm run test:performance:gate && npm run package:vsix && npm run verify:vsix-contents && npm run test:smoke:installed-vsix"
+    "release:verify": "npm test && npm run test:performance:gate && npm run verify:catalog-coverage && npm run package:vsix && npm run verify:vsix-contents && npm run test:smoke:installed-vsix"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",

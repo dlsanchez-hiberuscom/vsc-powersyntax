@@ -123,4 +123,68 @@ suite('unit/dependencyGraph (B252)', () => {
     assert.match(graph.mermaidFlowchart, /flowchart LR/);
     assert.match(graph.mermaidFlowchart, /used-by/);
   });
+
+  test('prioriza el baseType según project routing y library order cuando hay duplicados cross-PBL', () => {
+    const preferredBaseUri = 'file:///proj/pfc libs/pfcmain.pbl/pfc_n_base.sru';
+    const shadowBaseUri = 'file:///proj/pfc libs/pfemain.pbl/pfc_n_base.sru';
+    const focusUri = 'file:///proj/pfc libs/app.pbl/n_child.sru';
+
+    workspaceState.addTopologyEntry({
+      kind: 'project',
+      data: {
+        uri: 'file:///proj/generic_pfc_app.pbproj',
+        name: 'generic_pfc_app',
+        libraries: [
+          'file:///proj/pfc libs/pfcmain.pbl',
+          'file:///proj/pfc libs/pfemain.pbl',
+          'file:///proj/pfc libs/app.pbl',
+        ],
+      },
+    });
+
+    setupAnalyzedDocument(preferredBaseUri, [
+      'forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type',
+      'end forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type',
+    ].join('\r\n'));
+
+    setupAnalyzedDocument(shadowBaseUri, [
+      'forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type',
+      'end forward',
+      'global type pfc_n_base from nonvisualobject',
+      'end type',
+    ].join('\r\n'));
+
+    setupAnalyzedDocument(focusUri, [
+      'forward',
+      'global type n_child from pfc_n_base',
+      'end type',
+      'end forward',
+      'global type n_child from pfc_n_base',
+      'end type',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const graph = buildPowerBuilderDependencyGraph(
+      {
+        uri: focusUri,
+        maxDependencies: 8,
+        maxDependents: 0,
+      },
+      kb,
+      workspaceState,
+    );
+
+    assert.equal(graph.available, true);
+    assert.ok(graph.edges.some((edge) => edge.relation === 'inherits'));
+    const baseNode = graph.nodes.find((node) => node.label === 'pfc_n_base');
+    assert.equal(baseNode?.uri, preferredBaseUri);
+    assert.equal(baseNode?.projectUri, 'file:///proj/generic_pfc_app.pbproj');
+  });
 });

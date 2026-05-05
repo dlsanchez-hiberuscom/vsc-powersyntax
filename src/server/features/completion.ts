@@ -83,7 +83,7 @@ export function provideCompletion(
 
   const enumAssignmentContext = extractEnumeratedAssignmentContext(lineText);
   if (enumAssignmentContext) {
-    const ownerType = resolveDocumentQualifierType(document, enumAssignmentContext.qualifier, position, kb);
+    const ownerType = resolveDocumentQualifierType(document, enumAssignmentContext.qualifier, position, kb, hotContext);
     const enumType = systemCatalog.resolveEnumeratedType(enumAssignmentContext.enumTypeName);
     if (ownerType && enumType) {
       const enumValueItems = createEnumeratedValueCompletionItemsForType(
@@ -127,7 +127,7 @@ export function provideCompletion(
     }
   }
   
-  const queryContext = createDocumentQueryContext(document, position, kb, graph, hotContext, 'completion');
+  const queryContext = createDocumentQueryContext(document, position, kb, graph, hotContext, 'completion', 'completion');
   const { currentUri, documentEntities, currentMainObject } = queryContext;
   const items: CompletionItem[] = [];
 
@@ -135,7 +135,7 @@ export function provideCompletion(
     // -----------------------------------------------------
     // SCENARIO 1: We have a qualifier (e.g. this. , ls_var.)
     // -----------------------------------------------------
-    const varType = resolveDocumentQualifierType(document, qualifier, position, kb);
+    const varType = resolveDocumentQualifierType(document, qualifier, position, kb, hotContext);
     if (varType) {
       let members: Entity[] = [];
 

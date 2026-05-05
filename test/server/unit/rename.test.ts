@@ -296,4 +296,52 @@ end subroutine
     assert.ok(rename.edit?.changes?.[useDoc.uri]);
     assert.equal(rename.edit?.changes?.[stagedDoc.uri], undefined);
   });
+
+  test('rename bloquea targets que solo existen en orca-staging', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+
+    const stagedDoc = TextDocument.create('file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_stage_only.sru', 'powerbuilder', 1, `
+global type n_stage_only from nonvisualobject
+end type
+forward prototypes
+public function integer of_add()
+end prototypes
+public function integer of_add();
+  return 2
+end function
+    `);
+    const useDoc = TextDocument.create('file:///proj/src/u_test.sru', 'powerbuilder', 1, `
+global type u_test from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  n_stage_only calc
+  calc.of_add()
+end subroutine
+    `);
+
+    kb.upsertDocument(stagedDoc.uri, analyzeDocument(stagedDoc, { sourceOrigin: 'orca-staging' }).semanticFacts, analyzeDocument(stagedDoc, { sourceOrigin: 'orca-staging' }).scopes);
+    kb.upsertDocument(useDoc.uri, analyzeDocument(useDoc).semanticFacts, analyzeDocument(useDoc).scopes);
+
+    const lines = useDoc.getText().split(/\r?\n/);
+    const callLine = lines.findIndex((line) => line.includes('calc.of_add()'));
+    const position = Position.create(callLine, lines[callLine].indexOf('of_add') + 1);
+    const rename = provideRename(
+      useDoc,
+      position,
+      'of_total',
+      kb,
+      graph,
+      [
+        { uri: useDoc.uri, content: useDoc.getText() },
+        { uri: stagedDoc.uri, content: stagedDoc.getText() }
+      ]
+    );
+
+    assert.equal(rename.edit, null);
+    assert.match(rename.reason ?? '', /invocationRisk=dynamic/i);
+  });
 });

@@ -34,19 +34,19 @@ suite('unit/coreMaintenanceCommandCatalog (B278)', () => {
     const readOnly = models.filter((model) => model.kind === 'read-only').map((model) => model.command);
 
     assert.deepEqual(confirmable, [
-      'vscPowerSyntax.clearSemanticCache',
-      'vscPowerSyntax.rebuildWorkspaceIndex',
+      'powerbuilder.clearSemanticCache',
+      'powerbuilder.rebuildWorkspaceIndex',
     ]);
-    assert.ok(readOnly.includes('vscPowerSyntax.exportSupportBundle'));
-    assert.ok(readOnly.includes('vscPowerSyntax.exportHealthReport'));
-    assert.ok(readOnly.includes('vscPowerSyntax.runRuntimeSelfTest'));
-    assert.ok(readOnly.includes('vscPowerSyntax.validatePersistentCache'));
+    assert.ok(readOnly.includes('powerbuilder.exportSupportBundle'));
+    assert.ok(readOnly.includes('powerbuilder.exportHealthReport'));
+    assert.ok(readOnly.includes('powerbuilder.runRuntimeSelfTest'));
+    assert.ok(readOnly.includes('powerbuilder.validatePersistentCache'));
   });
 
   test('permite localizar cada command model por id estable', () => {
-    const clear = findCoreMaintenanceCommandModel('vscPowerSyntax.clearSemanticCache');
-    const routing = findCoreMaintenanceCommandModel('vscPowerSyntax.showProjectRouting');
-    const selfTest = findCoreMaintenanceCommandModel('vscPowerSyntax.runRuntimeSelfTest');
+    const clear = findCoreMaintenanceCommandModel('powerbuilder.clearSemanticCache');
+    const routing = findCoreMaintenanceCommandModel('powerbuilder.showProjectRouting');
+    const selfTest = findCoreMaintenanceCommandModel('powerbuilder.runRuntimeSelfTest');
 
     assert.equal(clear?.backlogLabel, 'clear semantic cache');
     assert.equal(clear?.kind, 'confirmable');

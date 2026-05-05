@@ -111,11 +111,21 @@ function collectUniqueActions(steps: TraceStep[]): string[] {
   return actions;
 }
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return typeof value === 'object'
+    && value !== null
+    && 'then' in value
+    && typeof (value as { then?: unknown }).then === 'function';
+}
+
 export function withTrace<T>(label: string, fn: () => T): { result: T; trace: TraceStep[] } {
   const previous = active;
   active = { label, startedAt: Date.now(), steps: [] };
   try {
     const result = fn();
+    if (isPromiseLike(result)) {
+      throw new Error('withTrace no soporta callbacks async; use trazas síncronas o un contexto explícito.');
+    }
     const endedAt = Date.now();
     lastTrace = {
       label,
@@ -143,6 +153,34 @@ export function recordTraceStep(name: string, detail?: unknown): void {
     detail,
     ts: Date.now()
   });
+}
+
+export function appendLastTraceStep(name: string, detail?: unknown): void {
+  if (!lastTrace) return;
+
+  const step: TraceStep = {
+    name,
+    phase: deriveTracePhase(name),
+    action: deriveTraceAction(name),
+    ...(detail !== undefined ? { detail } : {}),
+    ts: Date.now()
+  };
+  const nextSteps = [...lastTrace.steps, step];
+  lastTrace = {
+    ...lastTrace,
+    endedAt: Math.max(lastTrace.endedAt, step.ts),
+    durationMs: Math.max(lastTrace.durationMs, step.ts - lastTrace.startedAt),
+    stepCount: nextSteps.length,
+    phases: collectUniquePhases(nextSteps),
+    actions: collectUniqueActions(nextSteps),
+    lastStepName: step.name,
+    steps: nextSteps
+  };
+
+  const snapshot = getLastTrace();
+  if (snapshot) {
+    emitTraceSnapshot(snapshot);
+  }
 }
 
 export function getLastTrace(): TraceSnapshot | null {

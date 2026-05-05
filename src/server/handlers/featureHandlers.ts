@@ -482,7 +482,7 @@ export function registerDefinitionHandler(context: FeatureHandlerContext): void 
             return cached.result;
           }
 
-          const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'definition');
+          const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'definition', 'definition');
           const readinessDecision = decideFeatureReadiness('definition', runtimeReadiness, {
             latencyOverloaded: isLatencyPressureHigh(),
             resolutionConfidence: queryContext.resolutionConfidence
@@ -537,7 +537,7 @@ export function registerReferencesHandler(context: FeatureHandlerContext): void 
     if (!isSemanticallyServedDocument(document)) return [];
     try {
       hotContextCache.setActive(document.uri, knowledgeBase.version);
-      const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'references');
+      const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'references', 'references');
       const readiness = resolveServingReadiness({
         feature: 'references',
         consumerLabel: 'references',
@@ -598,7 +598,7 @@ export function registerRenameHandlers(context: FeatureHandlerContext): void {
     if (!document) return null;
     if (!isSemanticallyServedDocument(document)) return null;
     hotContextCache.setActive(document.uri, knowledgeBase.version);
-    const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename-prepare');
+    const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename-prepare', 'rename-prepare');
     const readiness = resolveServingReadiness({
       feature: 'rename',
       consumerLabel: 'rename',
@@ -630,7 +630,7 @@ export function registerRenameHandlers(context: FeatureHandlerContext): void {
     if (!document) return null;
     if (!isSemanticallyServedDocument(document)) return null;
     hotContextCache.setActive(document.uri, knowledgeBase.version);
-    const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename');
+    const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'rename', 'rename');
     const readiness = resolveServingReadiness({
       feature: 'rename',
       consumerLabel: 'rename',

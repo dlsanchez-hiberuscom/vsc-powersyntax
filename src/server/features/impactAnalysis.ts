@@ -224,7 +224,7 @@ export async function buildImpactAnalysis(
   const character = typeof request?.character === 'number' ? request.character : undefined;
   const currentContext = buildCurrentObjectContext(document, request, kb, graph, systemCatalog, options);
   const queryContext = line != null && character != null
-    ? createDocumentQueryContext(document, Position.create(line, character), kb, graph, options.hotContext, 'impact-analysis')
+    ? createDocumentQueryContext(document, Position.create(line, character), kb, graph, options.hotContext, 'impact-analysis', 'impact-analysis')
     : null;
   const rootEntity = queryContext?.resolvedTargets?.targets[0]
     ?? queryContext?.currentMainObject

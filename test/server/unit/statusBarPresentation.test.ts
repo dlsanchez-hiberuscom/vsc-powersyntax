@@ -215,15 +215,15 @@ suite('unit/statusBarPresentation (B107)', () => {
     assert.match(tooltip, /ORCA packaging: off · Packaging ORCA de EXE\/PBD\/DLL no está expuesto/);
     assert.match(tooltip, /ORCA run: último ORCA ok · demo\.orca · 220ms/);
     assert.match(tooltip, /Memoria: warning · 80\.0 MiB \/ 128\.0 MiB · document cache 94% · heap 70\.0 MiB/);
-    assert.match(tooltip, /command:vscPowerSyntax.openProjectHealthDashboard/);
-    assert.match(tooltip, /command:vscPowerSyntax.showStatusStats/);
-    assert.match(tooltip, /command:vscPowerSyntax.showStatusHealth/);
-    assert.match(tooltip, /command:vscPowerSyntax.runPbAutoBuild/);
-    assert.match(tooltip, /command:vscPowerSyntax.runLastPbAutoBuild/);
-    assert.match(tooltip, /command:vscPowerSyntax.runPbAutoBuildWithPicker/);
-    assert.match(tooltip, /command:vscPowerSyntax.cancelPbAutoBuild/);
-    assert.match(tooltip, /command:vscPowerSyntax.runActiveOrcaScript/);
-    assert.match(tooltip, /command:vscPowerSyntax.cancelOrcaScript/);
+    assert.match(tooltip, /command:powerbuilder.openProjectHealthDashboard/);
+    assert.match(tooltip, /command:powerbuilder.showStatusStats/);
+    assert.match(tooltip, /command:powerbuilder.showStatusHealth/);
+    assert.match(tooltip, /command:powerbuilder.runPbAutoBuild/);
+    assert.match(tooltip, /command:powerbuilder.runLastPbAutoBuild/);
+    assert.match(tooltip, /command:powerbuilder.runPbAutoBuildWithPicker/);
+    assert.match(tooltip, /command:powerbuilder.cancelPbAutoBuild/);
+    assert.match(tooltip, /command:powerbuilder.runActiveOrcaScript/);
+    assert.match(tooltip, /command:powerbuilder.cancelOrcaScript/);
   });
 
   test('stats report resume readiness, scheduler y caches', () => {

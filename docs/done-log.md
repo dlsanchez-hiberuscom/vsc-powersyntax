@@ -25,6 +25,234 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.184 AUDIT-04-DERIVED-007 — Pasar `HotContextCache` a `resolveQualifierType` — **Cerrada (no-action validated / hot-path reuse / 2026-05)**
+
+**Objetivo:** evitar lecturas redundantes de entidades activas en `resolveQualifierType` cuando el `HotContextCache` ya dispone del contexto del documento activo.
+
+**Resultado registrado:**
+- `resolveQualifierType` ya consumía `getDocumentEntities(currentUri, kb, hotContext)` en vez de leer `kb.getEntitiesByUri(currentUri)` directamente, reutilizando así el helper compartido y el cache activo cuando existe;
+- la suite focal ya interceptaba `kb.getEntitiesByUri()` para el documento activo y confirmaba que `resolveQualifierType` no debe reler entidades activas si `HotContextCache` está disponible;
+- el ítem pendiente era drift documental y no un hot path vivo sin corregir.
+
+**Validación registrada:**
+- `npx mocha --ui tdd out/test/server/unit/semanticQueryService.test.js --grep "resolveQualifierType reutiliza activeEntities del HotContextCache para el documento activo"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.183 AUDIT-04-DERIVED-006 — Instrumentar `budgetMs` con observabilidad en `queryTrace` — **Cerrada (no-action validated / performance observability / 2026-05)**
+
+**Objetivo:** hacer observable `budgetMs` por consumer, emitiendo `budget:exceeded` cuando la resolución semántica supere el budget declarado.
+
+**Resultado registrado:**
+- `semanticQueryService` ya añadía el trace step `budget:exceeded` cuando `lastTrace.durationMs` superaba `options.budgetMs`, incluyendo `budgetMs`, `durationMs` y `exceededByMs` en el detalle;
+- `queryTrace` ya soportaba `appendLastTraceStep()` con recalculo de fases, acciones y `lastStepName`, por lo que la infraestructura post-trace del backlog estaba implementada y cubierta;
+- el ítem pendiente era drift documental: el código y los tests ya cumplían el contrato sin requerir cambios de producto.
+
+**Validación registrada:**
+- `npx mocha --ui tdd out/test/server/unit/queryTrace.test.js out/test/server/unit/semanticQueryService.test.js --grep "appendLastTraceStep agrega pasos post-trace y recalcula metadatos|resolveTargetEntityDetailed anota budget:exceeded cuando supera el budget declarado"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+- `docs/performance-budget.md`
+
+## 1.182 AUDIT-04-DERIVED-005 — Enforce `sourceOrigin` policy por consumer semántico — **Cerrada (contract enforcement / semantic query / 2026-05)**
+
+**Objetivo:** aplicar la policy declarada en `queryScopePolicy` al winner path real de cada consumer, para que `staging/generated/external` no se resuelvan igual en consumers write-risk e informativos.
+
+**Resultado registrado:**
+- `semanticQueryService` acepta ya una policy explícita de `allowStaging/allowGenerated/allowExternal` y la aplica sobre winners, candidate pool y evidence, en vez de dejar el enforcement limitado a `referenceSourcePool`;
+- `queryContext`, `rename`, `hover`, `references`, `signatureHelp`, `currentObjectContext`, `impactAnalysis` y `diagnostics` empujan ahora la misma policy declarada por consumer hasta el resolver compartido, evitando winners incompatibles entre surfaces;
+- `rename` bloquea targets que solo existen en `orca-staging`, mientras los consumers informativos que sí admiten `external` conservan ese carril y `safeEditPlan` sigue estable al heredar el mismo engine vía `impactAnalysis`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticQueryService.test.js out/test/server/unit/rename.test.js --grep "bloquea candidatos orca-staging cuando el consumer no los admite|conserva dependencias externas solo para consumers que las admiten|rename bloquea targets que solo existen en orca-staging|rename no arrastra edits de orca-staging cuando la familia canónica resuelta es la real"`
+- `npx mocha --ui tdd out/test/server/unit/currentObjectContext.test.js out/test/server/unit/signatureHelp.test.js out/test/server/unit/hover.test.js`
+- `npx mocha --ui tdd out/test/server/unit/impactAnalysis.test.js out/test/server/unit/safeEditPlan.test.js out/test/server/unit/safeBatchRefactorPlan.test.js`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.181 AUDIT-04-DERIVED-004 — Revisar/corregir `Parent` qualifier resolution — **Cerrada (no-action validated / semantic correctness / 2026-05)**
+
+**Objetivo:** asegurar que `Parent.variable` sólo resuelva cuando exista evidencia de contenedor visual real y degrade honestamente fuera de ese contexto.
+
+**Resultado registrado:**
+- `documentAnalysis` confirma que un tipo anidado recibe `containerName` desde `type ... within ...`, es decir, desde evidencia sintáctica de nesting visual y no desde un owner lógico arbitrario de tipos raíz;
+- `semanticQueryService` ya resuelve `parent.call()` sobre nested types con `within` y degrada a unresolved/dynamic cuando el type actual no tiene ese contexto;
+- `definition` revalida el mismo contrato desde el consumer navegable, por lo que el backlog mantenía un drift documental y no un bug vivo en la implementación actual.
+
+**Validación registrada:**
+- `npx mocha --ui tdd out/test/server/unit/semanticQueryService.test.js out/test/server/unit/definition.test.js --grep "resolveTargetEntityDetailed resuelve parent.call\(\) desde un type nested|resolveTargetEntityDetailed degrada parent.call\(\) cuando no hay type nested con within|provideDefinition resuelve parent.call\(\) usando el owner real del type nested|provideDefinition no resuelve parent.call\(\) en un root type sin within"`
+- `npx mocha --ui tdd out/test/server/unit/documentAnalysis.test.js`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.180 AUDIT-04-DERIVED-003 — Optimizar `InheritanceGraph.getMemberClosure` — **Cerrada (performance hardening / 2026-05)**
+
+**Objetivo:** eliminar el escaneo O(N) sobre todo el workspace en `getMemberClosure` y `getDirectDescendants` sin abrir stores paralelos inconsistentes ni romper los consumers interactivos.
+
+**Resultado registrado:**
+- `KnowledgeBase` mantiene ahora un índice por baseType inmediato además del índice por contenedor, reutilizable por `InheritanceGraph` con invalidación natural por `semanticEpoch`;
+- `InheritanceGraph.getDirectDescendants()` deja de recorrer `getAllEntities()` y consume el índice por baseType, mientras `getMemberClosure()` conserva el acceso O(1) por contenedor ya exigido por el budget test;
+- `inheritanceGraph`, `currentObjectContext` y el performance gate de CI quedan en verde, confirmando que el hardening no rompe consumers ni budgets interactivos.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/knowledgeBase.test.js out/test/server/unit/inheritanceGraph.descendants.test.js out/test/server/unit/hotPathAllocationBudget.test.js`
+- `npx mocha --ui tdd out/test/server/unit/inheritanceGraph.test.js out/test/server/unit/currentObjectContext.test.js`
+- `npm run test:performance:gate`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.179 AUDIT-04-DERIVED-002 — Consolidar `getDocumentEntities` duplicado — **Cerrada (no-action validated / semantic query hardening / 2026-05)**
+
+**Objetivo:** eliminar la duplicación de `getDocumentEntities` entre `semanticQueryService.ts` y `queryContext.ts` sin perder `queryTrace`, `HotContextCache` ni comportamiento estable en consumers.
+
+**Resultado registrado:**
+- el cierre confirma que `queryContext.ts` ya reutilizaba la implementación única de `getDocumentEntities` exportada por `semanticQueryService.ts`, por lo que el trabajo pendiente estaba en el drift documental y no en una duplicación viva del código;
+- durante la validación se corrigió un bug adyacente en `semanticQueryService.ts` para la resolución unqualified sin aridad explícita, aplicando `hardenCallableCandidates()` antes del rankeo y restaurando la preferencia implementation > prototype esperada por la suite B281;
+- `queryContext`, `semanticQueryService`, `definition` y `hover` quedan revalidados en conjunto, preservando trace, cache activa y resultados de resolución observables por los consumers principales.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/semanticQueryService.test.js --grep "B281 prefiere implementation frente a prototype de la misma firma"`
+- `npx mocha --ui tdd out/test/server/unit/queryContext.test.js out/test/server/unit/semanticQueryService.test.js out/test/server/unit/definition.test.js out/test/server/unit/hover.test.js`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.178 AUDIT-04-DERIVED-010 — PBPROJ library routing and cross-PBL ancestor resolution — **Cerrada (workspace model / semantic correctness / 2026-05)**
+
+**Objetivo:** corregir la carga de `.pbproj`, el routing de librerías declaradas en `<Libraries>`, la indexación de carpetas `.pbl` exportadas y la resolución cross-PBL de ancestors/base types sin dejar falsos negativos semánticos persistentes en documentos abiertos.
+
+**Resultado registrado:**
+- `workspace.test` valida que `discoverWorkspace()` hidrata `.pbproj`, mapea `<Libraries>` con espacios y enruta archivos `SR*` al proyecto declarado, dejando estable el trayecto temprano `.pbproj -> topology -> discovery -> project routing`;
+- `currentObjectContext.test` y `dependencyGraph.test` revalidan que la selección cross-PBL del ancestro/base type respeta `project routing + library order` en escenarios `pbproj` multi-PBL con duplicados;
+- `openDocumentDiagnostics.ts`, `lifecycleHandlers.ts`, `server.ts` y `watchedFileIntake.ts` republican diagnósticos de documentos abiertos tras indexación inicial o reindexación por watcher, eliminando el caso en que SD3 quedaba obsoleto aunque el ancestro ya estuviera indexado en KB.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/workspace.test.js out/test/server/unit/dependencyGraph.test.js out/test/server/unit/openDocumentDiagnostics.test.js out/test/server/unit/watchedFileIntake.test.js --grep "discovery hidrata pbproj con Libraries|prioriza el baseType según project routing y library order cuando hay duplicados cross-PBL|republica diagnósticos abiertos tras indexar un ancestro y limpia un SD3 obsoleto|solicita refresh de diagnósticos para documentos abiertos invalidados por un ancestro reindexado"`
+- `npx mocha --ui tdd out/test/server/unit/currentObjectContext.test.js --grep "prioriza el ancestro según project routing y library order en pbproj multi-PBL"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.177 AUDIT-01 — Installed VSIX, activation and runtime startup hardening — **Cerrada (packaging / activation / installed VSIX 2026-05)**
+
+**Objetivo:** validar que el plugin instalado desde VSIX real activa correctamente, arranca el Language Server, registra comandos y no falla por rutas, packaging o wiring de API pública.
+
+**Resultado registrado:**
+- `src/client/extension.ts` conserva ahora la causa real del último fallo de arranque del cliente LSP y deja exportada la API pública incluso si el startup degrada, evitando que `ext.activate()` colapse a `undefined` y permitiendo diagnóstico accionable desde el carril instalado;
+- el lane productivo sigue arrancando desde `./dist/client/extension.js` con `dist/server/server.js`, y el artefacto recién empaquetado mantiene la surface mínima esperada (`package.json`, runtime dist, syntaxes, icons, readme/license/changelog) sin depender de `out/` ni de runtime suelto;
+- el smoke instalado vuelve a pasar contra `./.dist/vsc-powersyntax.vsix`, revalidando activación, API pública, comandos registrados, defaults de settings y handshake mínimo con el runtime real del VSIX.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npm run package:vsix`
+- `npm run verify:vsix-contents`
+- `npm run test:smoke:installed-vsix`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.176 AUDIT-08 — Documentation, backlog and AI readiness drift audit — **Cerrada (docs alignment / AI readiness 2026-05)**
+
+**Objetivo:** detectar y corregir drift entre backlog, done-log, current-focus, roadmap, docs técnicas y entrypoints de documentación/IA.
+
+**Resultado registrado:**
+- `docs/backlog.md`, `docs/done-log.md` y `docs/current-focus.md` vuelven a converger con el estado real del repo, retirando trabajo claramente cerrado y dejando visible el backlog realmente vivo;
+- `README.md` expone ya como entrypoint público las guías canónicas de `spec-driven-development`, workflows y readiness IA (`ai-orchestrator`, `ai-agents-catalog`, context pack corto), cerrando el gap de descubribilidad documental restante;
+- `npm run test:docs:drift` queda en verde y no se detectan findings adicionales de deriva material en los artefactos canónicos auditados.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
+## 1.175 AUDIT-03 — Hot paths, activation and performance budget audit — **Cerrada (performance / hot-path budgets 2026-05)**
+
+**Objetivo:** detectar operaciones caras o no acotadas en activation, indexing, hover, completion, signatureHelp, diagnostics, semanticTokens, workspace-check, object-check, reports y resolvers DataWindow.
+
+**Resultado registrado:**
+- `npm run test:architecture:metrics` quedó en verde y dejó de señalar `src/client/commandRegistration.ts` como hotspot tras extraer `statusMenuActions.ts` del menú de estado;
+- `npm run test:architecture:rapid` validó el carril rápido sobre PFC/OrderEntry sin regresiones funcionales en las surfaces críticas ya auditadas;
+- `npm run test:performance:gate` mantuvo en verde los budgets interactivos y batch del runtime sin introducir full scans nuevos en hot paths de este corte.
+
+**Validación registrada:**
+- `npm run test:architecture:metrics`
+- `npm run test:architecture:rapid`
+- `npm run test:performance:gate`
+
+**Documentación alineada:**
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- `docs/done-log.md`
+
+## 1.174 AUDIT-07 — Reports and analyzers quality/noise audit — **Cerrada (hardening / reports redaction / 2026-05)**
+
+**Objetivo:** validar que analyzers/reportes recientes aporten señal útil con reason codes, confidence y redaction defendible, sin ruido ni payloads inseguros.
+
+**Resultado registrado:**
+- `powerBuilderTechnicalDebtReport.ts` endurece la redacción de `modern-integration` para endpoints `host:puerto` sin esquema, manteniendo la evidencia `integration-endpoint:*` útil sin filtrar host, path ni query reales;
+- la matriz corta `powerBuilderCodeMetrics` + `powerBuilderTechnicalDebtReport` revalida lifecycle, dependencias nativas (`dll/pbx/unknown`), HTTP/REST/JSON, WebBrowser/WebView2 y riesgo DataWindow sin abrir un segundo rail de scoring;
+- no se detectó otro hallazgo práctico en el slice auditado, por lo que el cierre combina un fix puntual con no-action validado para el resto del audit.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/powerBuilderTechnicalDebtReport.test.js`
+- `npx mocha --ui tdd out/test/server/unit/powerBuilderCodeMetrics.test.js out/test/server/unit/powerBuilderTechnicalDebtReport.test.js`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+
+## 1.173 AUDIT-05 — DataWindow reliability and sublanguage boundary audit — **Cerrada (no-action validated / DataWindow boundary 2026-05)**
+
+**Objetivo:** validar que DataWindow siga siendo un sublenguaje propio, con bindings, property paths, `Describe/Modify`, SQL lineage, DDDW, child DataWindows y reports degradando honestamente sin mezclarse con PowerScript normal.
+
+**Resultado registrado:**
+- no se detectó hueco práctico nuevo: el slice canónico ya cubre parsing read-only de `.srd`, `Describe/Modify/Object/GetChild`, report children, `dddw.name`, safe modes y SQL lineage sin reparsear DataWindow como PowerScript;
+- `hover`, `definition`, `completion` y `diagnostics` mantienen degradación honesta cuando el binding `DataObject` o el child target no son deterministas;
+- la guía técnica canónica y la matriz focal de tests coinciden con el contrato esperado del audit, por lo que el cierre queda como no-action validado y no como implementación adicional.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/dataWindowModel.test.js out/test/server/unit/dataWindowSqlLineage.test.js out/test/server/unit/dataWindowSafeMode.test.js out/test/server/unit/dataWindowLegacySafeMode.test.js out/test/server/unit/hover.test.js out/test/server/unit/definition.test.js out/test/server/unit/completion.test.js out/test/server/unit/diagnostics.test.js --grep "DataWindow|GetChild|Describe|Modify|dddw|report|unit/dataWindow"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+
 ## 1.172 AUDIT-04 — PowerBuilder semantic core correctness audit — **Cerrada (hardening / semantics / PowerBuilder core 2026-05)**
 
 **Objetivo:** validar que el core semántico modela correctamente símbolos PowerBuilder reales: objetos, funciones, eventos, scopes, prototypes, implementations, inheritance, overrides, dynamic calls, external functions, sourceOrigin, queryTrace y consumers.
@@ -36,6 +264,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - Unificada la tabla `VARIABLE_SCOPE_PRIORITY` en un módulo canónico `src/server/knowledge/scopePriority.ts` compartido por `semanticQueryService` e `InheritanceGraph`.
 - Sincronizada la lógica de autocompletado para respetar la prioridad de scopes mediante `sortText` (`0_local`, `1_shared`, `2_global`, `3_instance`) e inclusión de variables globales del KB.
 - Resolución de `Parent.` alineada con el owner lógico (`containerName`), cubriendo casos de controles en ventanas.
+- `invocationRiskModel.test.ts` cubre ya la taxonomía de riesgo defendible consumida por `impactAnalysis`, `dependencyGraph` y `safeEditPlan`, y `queryTrace.ts` rechaza callbacks async para evitar interleaving silencioso en trazas globales.
 
 **Validación registrada:**
 - `npm run test:unit -- --grep "scope|variable|shadow|global|instance|shared|local|parent|This"`
@@ -56,13 +285,15 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 **Resultado registrado:**
 - `generated` sigue siendo la fuente oficial reproducible y `manual` aporta gaps, enrichments, overrides y candidates sin desestabilizar la precedencia.
 - `localization` opera estrictamente como un overlay documental (con fallbacks a inglés) y previene exitosamente la sobreescritura o traducción de identificadores o signatures del runtime.
-- el motor de merge `applyCatalogMergePolicy` filtra eficientemente `candidates`, protegiendo el hot path; el bug de cobertura en el gate de B335 originado por este filtrado se ha derivado a refactor posterior.
-- se añadieron tickets al backlog derivado para fortalecer la automatización en CI y refinar reportes de dominios temporales, manteniendo limpia la fase actual.
-- el reporte de consistencia corrió sin detectar conflictos estructurales, duplicidades inválidas o signatures vacías.
+- `workspaceCheckCatalogSummary.ts` endurece `B335` cruzando el conjunto resuelto del hot path con el registro bruto del catálogo, de modo que una fuga sintética de `candidate` ya falla el gate aunque `applyCatalogMergePolicy` siga filtrando candidates en runtime.
+- `tools/verify-catalog-coverage.cjs` añade el verificador determinista `npm run verify:catalog-coverage` y `package.json` lo encadena dentro de `release:verify` para cortar drift de `officialCoverage` en CI.
+- `scripts/generate_catalog_consistency_report.cjs` imprime ya en consola `manualPrimaryDomains`, `officialCoverageDriftDomains` y `candidateHotPathViolations`, manteniendo visible la provisionalidad `manual-primary` sin abrir otro rail.
+- el reporte de consistencia sigue en verde: sin conflictos estructurales, duplicidades inválidas, signatures vacías, drift de coverage ni candidate leakage real.
 
 **Validación registrada:**
-- `npm run test:unit -- --grep "catalog|generated|manual|overlay|override|enrichment|gap|candidate|consistency"`
-- `npm run test:unit -- --grep "registry|datasets|merge|duplicates|localization|provenance|officialCoverage|generatedCompleteness"`
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/workspaceCheckCatalogSummary.test.js out/test/server/unit/releaseReadinessContract.test.js`
+- `npm run verify:catalog-coverage`
 - `npm run report:catalog-consistency`
 
 **Documentación alineada:**
@@ -71,6 +302,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `docs/testing.md`
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 - `docs/backlog.md`
+- `docs/current-focus.md`
 - `docs/done-log.md`
 
 ## 1.170 AUDIT-02 — Public API, AI tools and command consistency audit — **Cerrada (hardening / public API / AI tooling 2026-05)**
@@ -80,6 +312,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 **Resultado registrado:**
 - mapeo funcional alineado entre `publicApi.ts`, `commandRegistration.ts` y comandos de UI;
 - detectado y documentado comando huérfano `powerbuilder.checkObject` como `AUDIT-02-DERIVED-001` (completado) eliminando la redundancia;
+- consolidado el namespace canónico `powerbuilder.*` en contribuciones/UI/tests manteniendo aliases legacy `vscPowerSyntax.*` solo donde seguían siendo necesarios por compatibilidad;
 - documentados los findings de refactorización en `docs/backlog.md` para evitar debt arquitectónico futuro;
 - validación de test suite completa confirmando la solidez del bridge sin regresiones.
 

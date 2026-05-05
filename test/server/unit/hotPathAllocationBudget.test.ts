@@ -37,6 +37,20 @@ suite('unit/hotPathAllocationBudget (B276)', () => {
     assert.deepEqual(offenders, []);
   });
 
+  test('InheritanceGraph usa el índice por contenedor para cierres de miembros', async () => {
+    const filePath = path.join(REPO_ROOT, 'src/server/knowledge/resolution/InheritanceGraph.ts');
+    const content = await fs.readFile(filePath, 'utf8');
+
+    assert.match(content, /getMemberClosure\(typeName: string\)[\s\S]*?getEntitiesByContainer\(/);
+  });
+
+  test('InheritanceGraph usa el índice por baseType para descendientes directos', async () => {
+    const filePath = path.join(REPO_ROOT, 'src/server/knowledge/resolution/InheritanceGraph.ts');
+    const content = await fs.readFile(filePath, 'utf8');
+
+    assert.match(content, /getDirectDescendants\(typeName: string\)[\s\S]*?getTypeEntitiesByBaseType\(/);
+  });
+
   test('completion y referenceSourcePool no clonan catalogos globales completos por inercia', async () => {
     const offenders = [
       ...(await collectForbiddenMatches([

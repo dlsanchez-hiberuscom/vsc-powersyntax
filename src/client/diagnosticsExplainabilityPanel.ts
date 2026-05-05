@@ -66,7 +66,7 @@ class DiagnosticsExplainabilityPanelProvider implements vscode.TreeDataProvider<
 
     if (element.type === 'item' && element.target) {
       item.command = {
-        command: 'vscPowerSyntax.openDiagnosticsExplainabilityLocation',
+        command: 'powerbuilder.openDiagnosticsExplainabilityLocation',
         title: 'Abrir ubicación del diagnostic',
         arguments: [element.target],
       };

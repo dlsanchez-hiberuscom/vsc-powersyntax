@@ -133,7 +133,7 @@ export function provideHover(
     return dataWindowHover;
   }
 
-  const resolved = resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'hover');
+  const resolved = resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'hover', 'hover');
   if (!resolved) {
     return null;
   }
@@ -163,7 +163,7 @@ export function provideHover(
 
   // 2. Si no hay en el usuario, buscar en el catálogo del sistema (PowerBuilder oficial)
   const ownerType = resolved.context.qualifier
-    ? resolveDocumentQualifierType(document, resolved.context.qualifier, position, kb)
+    ? resolveDocumentQualifierType(document, resolved.context.qualifier, position, kb, hotContext)
     : undefined;
   const ownerScopedSymbol = ownerType
     ? catalog.resolveMemberFunctionForOwner(identifier, [ownerType])

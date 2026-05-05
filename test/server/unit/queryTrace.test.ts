@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict';
-import { annotateLastTraceResolution, getLastTrace, recordTraceStep, subscribeTraceSnapshots, withTrace } from '../../../src/server/knowledge/queryTrace';
+import { annotateLastTraceResolution, appendLastTraceStep, getLastTrace, recordTraceStep, subscribeTraceSnapshots, withTrace } from '../../../src/server/knowledge/queryTrace';
 
 suite('unit/queryTrace (B136)', () => {
   test('captura pasos en orden', () => {
@@ -33,6 +33,19 @@ suite('unit/queryTrace (B136)', () => {
       return 1;
     });
     assert.deepEqual(outer.trace.map((s) => s.name), ['o1', 'o2']);
+  });
+
+  test('withTrace rechaza callbacks async para evitar interleaving sobre active global', () => {
+    withTrace('sync-before-async', () => {
+      recordTraceStep('resolve:start');
+      return 1;
+    });
+
+    assert.throws(
+      () => withTrace('async', () => Promise.resolve(1) as unknown as number),
+      /no soporta callbacks async/i
+    );
+    assert.equal(getLastTrace()?.label, 'sync-before-async');
   });
 
   test('expone la última traza capturada', () => {
@@ -135,5 +148,21 @@ suite('unit/queryTrace (B136)', () => {
     } finally {
       dispose();
     }
+  });
+
+  test('appendLastTraceStep agrega pasos post-trace y recalcula metadatos', () => {
+    withTrace('budget', () => {
+      recordTraceStep('resolve:start');
+      return 1;
+    });
+
+    appendLastTraceStep('budget:exceeded', { budgetMs: 10, durationMs: 25 });
+
+    const trace = getLastTrace();
+    assert.equal(trace?.stepCount, 2);
+    assert.equal(trace?.lastStepName, 'budget:exceeded');
+    assert.deepEqual(trace?.phases, ['resolve', 'budget']);
+    assert.deepEqual(trace?.actions, ['start', 'exceeded']);
+    assert.deepEqual(trace?.steps[1]?.detail, { budgetMs: 10, durationMs: 25 });
   });
 });

@@ -120,7 +120,7 @@ class ObjectExplorerProvider implements vscode.TreeDataProvider<ObjectExplorerNo
     if (element.type === 'object') {
       item.resourceUri = vscode.Uri.parse(element.uri);
       item.command = {
-        command: 'vscPowerSyntax.openObjectExplorerObject',
+        command: 'powerbuilder.openObjectExplorerObject',
         title: 'Abrir objeto',
         arguments: [element],
       };

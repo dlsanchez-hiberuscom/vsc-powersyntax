@@ -35,6 +35,7 @@ import {
 import { EntityKind, ScopeKind } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
 import { buildHierarchyInspection } from './hierarchyInspection';
+import { getQueryConsumerPolicy } from './queryScopePolicy';
 import { getDocumentLineText } from '../utils/documentLineText';
 import {
   DATAWINDOW_BIND_OWNER_TYPES,
@@ -1498,7 +1499,9 @@ function visitScopes(
           inheritanceGraph,
           {
             line: i,
-            traceLabel: 'diagnostics:sd2'
+            traceLabel: 'diagnostics:sd2',
+            budgetMs: getQueryConsumerPolicy('diagnostics-unresolved-callable').budgetMs,
+            sourceOriginPolicy: getQueryConsumerPolicy('diagnostics-unresolved-callable')
           }
         );
         if (resolution.targets.length > 0) continue;

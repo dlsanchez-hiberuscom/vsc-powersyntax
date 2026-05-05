@@ -39,6 +39,7 @@ export interface ApplyWatchedFileEventsOptions {
   isDocumentOpen?: (uri: string) => boolean;
   getOpenDocument?: (uri: string) => TextDocument | undefined;
   clearDiagnostics?: (uri: string) => void;
+  refreshDiagnostics?: (uris?: readonly string[]) => void | Promise<void>;
   log?: (message: string) => void;
 }
 
@@ -144,6 +145,8 @@ export async function applyWatchedFileEvents(
   let routingDirty = false;
   let buildFilesDirty = false;
   let sourceOriginsDirty = false;
+  const diagnosticRefreshUris = new Set<string>();
+  let refreshAllDiagnostics = false;
   const touchedProjects = new Set<string>();
   const projectCandidates = new Set<string>();
   const buildFileCandidates = new Set<string>();
@@ -194,6 +197,9 @@ export async function applyWatchedFileEvents(
           opts.servingCacheFlushCoordinator
         );
       }
+      for (const uri of invalidationPlan.allUris) {
+        diagnosticRefreshUris.add(uri);
+      }
       opts.clearDiagnostics?.(event.uri);
       removed++;
       continue;
@@ -202,7 +208,7 @@ export async function applyWatchedFileEvents(
     const hadSourceFile = opts.workspaceState.hasSourceFile(event.uri);
     opts.workspaceState.addSourceFile(event.uri);
     routingDirty = routingDirty || !hadSourceFile;
-  sourceOriginsDirty = sourceOriginsDirty || !hadSourceFile;
+    sourceOriginsDirty = sourceOriginsDirty || !hadSourceFile;
     projectCandidates.add(event.uri);
     if (opts.isDocumentOpen?.(event.uri)) {
       setFileIndexState(event.uri, FileIndexState.Pending);
@@ -252,6 +258,9 @@ export async function applyWatchedFileEvents(
           opts.servingCacheFlushCoordinator
         );
       }
+      for (const uri of invalidationPlan.allUris) {
+        diagnosticRefreshUris.add(uri);
+      }
       setFileIndexState(event.uri, FileIndexState.Indexed);
       reindexed++;
     } catch (error) {
@@ -290,6 +299,7 @@ export async function applyWatchedFileEvents(
   if (!massive && sourceOriginInvalidatedUris.length > 0) {
     for (const uri of sourceOriginInvalidatedUris) {
       opts.hotContextCache.invalidateForUri(uri);
+      diagnosticRefreshUris.add(uri);
     }
     invalidateServingCacheEntries(
       opts.servingCache,
@@ -300,6 +310,7 @@ export async function applyWatchedFileEvents(
 
   if (routingDirty || buildFilesDirty) {
     opts.workspaceState.refreshProjectRouting();
+    refreshAllDiagnostics = true;
   }
 
   for (const uri of buildFileCandidates) {
@@ -313,6 +324,14 @@ export async function applyWatchedFileEvents(
     const project = opts.workspaceState.getProjectContextForFile(uri);
     if (project) {
       touchedProjects.add(project.projectUri);
+    }
+  }
+
+  if (opts.refreshDiagnostics) {
+    if (refreshAllDiagnostics) {
+      await opts.refreshDiagnostics();
+    } else if (diagnosticRefreshUris.size > 0) {
+      await opts.refreshDiagnostics([...diagnosticRefreshUris].sort());
     }
   }
 

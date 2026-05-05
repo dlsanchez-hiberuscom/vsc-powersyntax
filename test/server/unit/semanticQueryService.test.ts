@@ -1,8 +1,9 @@
 import * as assert from 'assert/strict';
+import { HotContextCache } from '../../../src/server/knowledge/HotContextCache';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { getLastTrace } from '../../../src/server/knowledge/queryTrace';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
-import { resolveTargetEntity, resolveTargetEntityDetailed } from '../../../src/server/knowledge/resolution/semanticQueryService';
+import { resolveQualifierType, resolveTargetEntity, resolveTargetEntityDetailed } from '../../../src/server/knowledge/resolution/semanticQueryService';
 import { EntityKind, ScopeKind } from '../../../src/server/knowledge/types';
 
 suite('unit/semanticQueryService', () => {
@@ -218,6 +219,86 @@ suite('unit/semanticQueryService', () => {
     ));
   });
 
+  test('resolveTargetEntityDetailed bloquea candidatos orca-staging cuando el consumer no los admite', () => {
+    kb.upsertDocument('file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_stage_only.sru', [
+      {
+        id: 'n_stage_only',
+        name: 'n_stage_only',
+        kind: EntityKind.Type,
+        uri: 'file:///proj/.vsc-powersyntax/orca-export/orca-staging/lib_app.pbl-source/n_stage_only.sru',
+        line: 0,
+        character: 0,
+        lineage: {
+          sourceKind: 'document',
+          sourceOrigin: 'orca-staging',
+          authority: 'derived',
+          phase: 'implementation',
+          role: 'implementation',
+          confidence: 'direct'
+        }
+      }
+    ]);
+
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'n_stage_only' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      {
+        line: 20,
+        traceLabel: 'rename',
+        sourceOriginPolicy: {
+          allowStaging: false,
+          allowGenerated: false,
+          allowExternal: false
+        }
+      }
+    );
+
+    assert.equal(resolved.targets.length, 0);
+    assert.equal(resolved.candidatePool.length, 0);
+    assert.equal(resolved.invocationRisk, 'fallback');
+  });
+
+  test('resolveTargetEntityDetailed conserva dependencias externas solo para consumers que las admiten', () => {
+    const hoverResolved = resolveTargetEntityDetailed(
+      { identifier: 'of_external' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      {
+        line: 20,
+        traceLabel: 'hover',
+        sourceOriginPolicy: {
+          allowStaging: false,
+          allowGenerated: false,
+          allowExternal: true
+        }
+      }
+    );
+    const renameResolved = resolveTargetEntityDetailed(
+      { identifier: 'of_external' },
+      'file:///w_main.sru',
+      kb,
+      graph,
+      {
+        line: 20,
+        traceLabel: 'rename',
+        sourceOriginPolicy: {
+          allowStaging: false,
+          allowGenerated: false,
+          allowExternal: false
+        }
+      }
+    );
+
+    assert.equal(hoverResolved.targets.length, 1);
+    assert.equal(hoverResolved.targets[0]?.uri, 'file:///global_external.srf');
+    assert.equal(hoverResolved.invocationKind, 'external-call');
+    assert.equal(renameResolved.targets.length, 0);
+    assert.equal(renameResolved.candidatePool.length, 0);
+  });
+
   test('resolveTargetEntity: unknown returns empty', () => {
     const targets = resolveTargetEntity(
       { identifier: 'of_unknown' },
@@ -286,6 +367,61 @@ suite('unit/semanticQueryService', () => {
       reason: 'qualifier-unresolved',
       qualifier: 'lw_missing'
     }]);
+  });
+
+  test('resolveQualifierType reutiliza activeEntities del HotContextCache para el documento activo', () => {
+    const hotContext = new HotContextCache();
+    hotContext.setActive('file:///w_main.sru', kb.version);
+    hotContext.setActiveEntities(kb.getEntitiesByUri('file:///w_main.sru'));
+
+    const originalGetEntitiesByUri = kb.getEntitiesByUri.bind(kb);
+    let activeEntityReads = 0;
+    (kb as unknown as { getEntitiesByUri: typeof kb.getEntitiesByUri }).getEntitiesByUri = ((uri: string) => {
+      if (uri === 'file:///w_main.sru') {
+        activeEntityReads++;
+        throw new Error('resolveQualifierType no debe reler entidades activas si HotContextCache está disponible');
+      }
+      return originalGetEntitiesByUri(uri);
+    }) as typeof kb.getEntitiesByUri;
+
+    try {
+      const qualifierType = resolveQualifierType('lw_window', 'file:///w_main.sru', kb, 20, kb.findDefinition('w_main') ?? undefined, hotContext);
+      assert.equal(qualifierType, 'w_base');
+      assert.equal(activeEntityReads, 0);
+    } finally {
+      (kb as unknown as { getEntitiesByUri: typeof kb.getEntitiesByUri }).getEntitiesByUri = originalGetEntitiesByUri;
+    }
+  });
+
+  test('resolveTargetEntityDetailed anota budget:exceeded cuando supera el budget declarado', () => {
+    const originalNow = Date.now;
+    let now = 1_000;
+    Date.now = () => {
+      now += 25;
+      return now;
+    };
+
+    try {
+      const resolved = resolveTargetEntityDetailed(
+        { identifier: 'of_SetData' },
+        'file:///w_main.sru',
+        kb,
+        graph,
+        { line: 20, traceLabel: 'hover', budgetMs: 10 }
+      );
+
+      assert.ok(resolved.trace.some((step) => step.name === 'budget:exceeded'));
+      const trace = getLastTrace();
+      const budgetStep = trace?.steps.find((step) => step.name === 'budget:exceeded');
+      assert.equal((budgetStep?.detail as { budgetMs?: number } | undefined)?.budgetMs, 10);
+      assert.ok(((budgetStep?.detail as { durationMs?: number } | undefined)?.durationMs ?? 0) > 10);
+      assert.equal(
+        (budgetStep?.detail as { exceededByMs?: number; durationMs?: number } | undefined)?.exceededByMs,
+        ((budgetStep?.detail as { durationMs?: number } | undefined)?.durationMs ?? 0) - 10
+      );
+    } finally {
+      Date.now = originalNow;
+    }
   });
 
   test('resolveTargetEntityDetailed expone descarte contextual si el qualifier no encuentra miembros', () => {
@@ -484,6 +620,69 @@ suite('unit/semanticQueryService', () => {
     assert.equal(resolved.invocationKind, 'parent-call');
     assert.equal(resolved.invocationRisk, 'safe');
     assert.equal(resolved.resolvedQualifierType, 'w_main');
+  });
+
+  test('resolveTargetEntityDetailed degrada parent.call() cuando no hay type nested con within', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+    const uri = 'file:///w_root_parent.sru';
+
+    const globalScope = {
+      id: 'global',
+      kind: ScopeKind.Global,
+      uri,
+      startLine: 0,
+      endLine: 20,
+      children: [] as any[],
+      symbols: [] as any[]
+    };
+    const mainScope = {
+      id: 'w_root_parent',
+      kind: ScopeKind.Type,
+      uri,
+      startLine: 0,
+      endLine: 20,
+      parent: globalScope,
+      children: [] as any[],
+      symbols: [] as any[]
+    };
+    const openScope = {
+      id: 'w_root_parent.open',
+      kind: ScopeKind.Event,
+      uri,
+      startLine: 10,
+      endLine: 15,
+      parent: mainScope,
+      children: [] as any[],
+      symbols: [] as any[]
+    };
+    globalScope.children.push(mainScope);
+    mainScope.children.push(openScope);
+
+    localKb.upsertDocument(uri, [
+      { id: 'w_root_parent', name: 'w_root_parent', kind: EntityKind.Type, uri, line: 0, character: 0 },
+      { id: 'of_parent', name: 'of_parent', kind: EntityKind.Function, containerName: 'w_root_parent', uri, line: 5, character: 0 },
+      { id: 'open', name: 'open', kind: EntityKind.Event, containerName: 'w_root_parent', uri, line: 10, character: 0 }
+    ], [globalScope]);
+
+    const resolved = resolveTargetEntityDetailed(
+      { identifier: 'of_parent', qualifier: 'parent', separator: '.' },
+      uri,
+      localKb,
+      localGraph,
+      { line: 10, traceLabel: 'definition' }
+    );
+
+    assert.equal(resolved.targets.length, 0);
+    assert.equal(resolved.confidence, 'low');
+    assert.equal(resolved.invocationKind, 'dynamic-call');
+    assert.equal(resolved.invocationRisk, 'dynamic');
+    assert.deepEqual(resolved.evidence, [{
+      kind: 'discarded-context',
+      stage: 'qualifier',
+      reason: 'qualifier-unresolved',
+      qualifier: 'parent'
+    }]);
   });
 
   test('resolveTargetEntityDetailed resuelve ancestor::event sobre el baseType actual', () => {

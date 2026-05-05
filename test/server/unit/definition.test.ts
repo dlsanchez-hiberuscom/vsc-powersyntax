@@ -268,6 +268,55 @@ suite('unit/definition', () => {
     }
   });
 
+  test('provideDefinition no resuelve parent.call() en un root type sin within', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+    const uri = 'file:///w_parent_root.sru';
+
+    const globalScope = {
+      id: 'global',
+      kind: ScopeKind.Global,
+      uri,
+      startLine: 0,
+      endLine: 0,
+      children: [] as any[],
+      symbols: [] as any[]
+    };
+    const mainScope = {
+      id: 'w_parent_root',
+      kind: ScopeKind.Type,
+      uri,
+      startLine: 0,
+      endLine: 0,
+      parent: globalScope,
+      children: [] as any[],
+      symbols: [] as any[]
+    };
+    const openScope = {
+      id: 'w_parent_root.open',
+      kind: ScopeKind.Event,
+      uri,
+      startLine: 0,
+      endLine: 0,
+      parent: mainScope,
+      children: [] as any[],
+      symbols: [] as any[]
+    };
+    globalScope.children.push(mainScope);
+    mainScope.children.push(openScope);
+
+    localKb.upsertDocument(uri, [
+      { id: 'w_parent_root', name: 'w_parent_root', kind: EntityKind.Type, uri, line: 0, character: 0 },
+      { id: 'of_parent', name: 'of_parent', kind: EntityKind.Function, containerName: 'w_parent_root', uri, line: 12, character: 4 },
+      { id: 'open', name: 'open', kind: EntityKind.Event, containerName: 'w_parent_root', uri, line: 0, character: 0 }
+    ], [globalScope]);
+
+    const doc = TextDocument.create(uri, 'powerbuilder', 1, 'parent.of_parent()');
+    const loc = provideDefinition(doc, Position.create(0, 10), localKb, localGraph);
+
+    assert.equal(loc, null);
+  });
+
   test('provideDefinition resuelve ancestor::event al baseType actual', () => {
     const localKb = new KnowledgeBase();
     const localGraph = new InheritanceGraph(localKb);
@@ -370,6 +419,27 @@ suite('unit/definition', () => {
     if (loc && !Array.isArray(loc)) {
       assert.equal(loc.uri, 'file:///w_base_events.srw');
       assert.equal(loc.range.start.line, 3);
+    }
+  });
+
+  test('provideDefinition resuelve this.variable a la instancia actual cuando también existe shared', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+    const uri = 'file:///w_this_var.sru';
+
+    localKb.upsertDocument(uri, [
+      { id: 'w_this_var', name: 'w_this_var', kind: EntityKind.Type, uri, line: 0, character: 0 },
+      { id: 'ls_name_instance', name: 'ls_name', kind: EntityKind.Variable, datatype: 'string', scope: 'Instancia', containerName: 'w_this_var', uri, line: 2, character: 2 },
+      { id: 'ls_name_shared', name: 'ls_name', kind: EntityKind.Variable, datatype: 'long', scope: 'Compartida', containerName: 'w_this_var', uri, line: 3, character: 2 }
+    ]);
+
+    const doc = TextDocument.create(uri, 'powerbuilder', 1, 'this.ls_name');
+    const loc = provideDefinition(doc, Position.create(0, 8), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, uri);
+      assert.equal(loc.range.start.line, 2);
     }
   });
 

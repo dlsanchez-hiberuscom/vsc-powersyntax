@@ -356,7 +356,9 @@ function collectReferencedSymbols(
     const resolved = resolveTargetEntityDetailed(context, document.uri, kb, graph, {
       line,
       hotContext,
-      traceLabel: 'current-object-context'
+      traceLabel: 'current-object-context',
+      budgetMs: getQueryConsumerPolicy('current-object-context').budgetMs,
+      sourceOriginPolicy: getQueryConsumerPolicy('current-object-context')
     });
     const target = resolved.targets[0];
     if (!target) {
@@ -450,7 +452,7 @@ export function buildCurrentObjectContext(
   const line = typeof request?.line === 'number' ? request.line : undefined;
   const character = typeof request?.character === 'number' ? request.character : undefined;
   const queryContext = line != null && character != null
-    ? createDocumentQueryContext(document, Position.create(line, character), kb, graph, options.hotContext, 'current-object-context')
+    ? createDocumentQueryContext(document, Position.create(line, character), kb, graph, options.hotContext, 'current-object-context', 'current-object-context')
     : null;
   const documentEntities = queryContext?.documentEntities?.length
     ? queryContext.documentEntities
@@ -486,7 +488,10 @@ export function buildCurrentObjectContext(
     };
   }
 
-  const hierarchy = buildHierarchyInspection(focusType, graph, kb, systemCatalog);
+  const hierarchy = buildHierarchyInspection(focusType, graph, kb, systemCatalog, {
+    activeUri: document.uri,
+    workspaceState: options.workspaceState,
+  });
   const excerptLineBudget = clamp(
     typeof request?.maxExcerptLines === 'number' ? Math.trunc(request.maxExcerptLines) : DEFAULT_EXCERPT_LINES,
     8,
@@ -535,9 +540,8 @@ export function buildCurrentObjectContext(
   for (const libraryUri of projectContext?.libraries ?? []) {
     addRelatedFile(relatedFiles, relatedSeen, libraryUri, 'library');
   }
-  for (const ancestor of hierarchy.ancestorChain) {
-    const entity = kb.findAllDefinitions(ancestor).find((candidate) => candidate.kind === EntityKind.Type);
-    addRelatedFile(relatedFiles, relatedSeen, entity?.uri, 'ancestor');
+  for (const ancestor of hierarchy.ancestorDescriptors) {
+    addRelatedFile(relatedFiles, relatedSeen, ancestor.uri, 'ancestor');
   }
   for (const binding of dataWindowBindings) {
     addRelatedFile(relatedFiles, relatedSeen, binding.targetUri, 'datawindow');

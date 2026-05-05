@@ -4,47 +4,61 @@ import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
 import { IFileSystem, FileStat } from '../../../src/server/system/fileSystem';
 import { createCancellationSource } from '../../../src/server/runtime/cancellation';
 
+function normalizeTestUri(uri: string): string {
+  return uri.replace(/%[0-9a-f]{2}/gi, (value) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  });
+}
+
 class FakeFileSystem implements IFileSystem {
   private files: Map<string, string> = new Map();
   private dirs: Map<string, string[]> = new Map();
 
   addFile(uri: string) {
-    this.files.set(uri, '');
-    const parent = uri.substring(0, uri.lastIndexOf('/'));
+    const normalizedUri = normalizeTestUri(uri);
+    this.files.set(normalizedUri, '');
+    const parent = normalizedUri.substring(0, normalizedUri.lastIndexOf('/'));
     if (!this.dirs.has(parent)) {
       this.dirs.set(parent, []);
     }
-    this.dirs.get(parent)!.push(uri.substring(uri.lastIndexOf('/') + 1));
+    this.dirs.get(parent)!.push(normalizedUri.substring(normalizedUri.lastIndexOf('/') + 1));
   }
 
   addDir(uri: string) {
-    this.dirs.set(uri, []);
-    const parent = uri.substring(0, uri.lastIndexOf('/'));
+    const normalizedUri = normalizeTestUri(uri);
+    this.dirs.set(normalizedUri, []);
+    const parent = normalizedUri.substring(0, normalizedUri.lastIndexOf('/'));
     if (parent && !this.dirs.has(parent)) {
       this.dirs.set(parent, []);
     }
     if (parent) {
-      this.dirs.get(parent)!.push(uri.substring(uri.lastIndexOf('/') + 1));
+      this.dirs.get(parent)!.push(normalizedUri.substring(normalizedUri.lastIndexOf('/') + 1));
     }
   }
 
   async stat(uri: string): Promise<FileStat | null> {
-    if (this.files.has(uri)) {
+    const normalizedUri = normalizeTestUri(uri);
+    if (this.files.has(normalizedUri)) {
       return { isFile: true, isDirectory: false, mtime: 0, size: 0 };
     }
-    if (this.dirs.has(uri)) {
+    if (this.dirs.has(normalizedUri)) {
       return { isFile: false, isDirectory: true, mtime: 0, size: 0 };
     }
     return null;
   }
 
   async readDirectory(uri: string): Promise<[string, FileStat][]> {
-    const children = this.dirs.get(uri);
+    const normalizedUri = normalizeTestUri(uri);
+    const children = this.dirs.get(normalizedUri);
     if (!children) return [];
 
     return Promise.all(
       children.map(async (child) => {
-        const childUri = `${uri}/${child}`;
+        const childUri = `${normalizedUri}/${child}`;
         const s = await this.stat(childUri);
         return [child, s!] as [string, FileStat];
       })
@@ -52,7 +66,7 @@ class FakeFileSystem implements IFileSystem {
   }
 
   async readFile(uri: string): Promise<string> {
-    return this.files.get(uri) || '';
+    return this.files.get(normalizeTestUri(uri)) || '';
   }
 
   async createDirectory(uri: string): Promise<void> {
@@ -60,12 +74,13 @@ class FakeFileSystem implements IFileSystem {
   }
 
   async writeFile(uri: string, content: string): Promise<void> {
-    this.files.set(uri, content);
-    const parent = uri.substring(0, uri.lastIndexOf('/'));
+    const normalizedUri = normalizeTestUri(uri);
+    this.files.set(normalizedUri, content);
+    const parent = normalizedUri.substring(0, normalizedUri.lastIndexOf('/'));
     if (!this.dirs.has(parent)) {
       this.dirs.set(parent, []);
     }
-    const name = uri.substring(uri.lastIndexOf('/') + 1);
+    const name = normalizedUri.substring(normalizedUri.lastIndexOf('/') + 1);
     if (!this.dirs.get(parent)!.includes(name)) {
       this.dirs.get(parent)!.push(name);
     }
@@ -76,8 +91,9 @@ class FakeFileSystem implements IFileSystem {
   }
 
   async deletePath(uri: string): Promise<void> {
-    this.files.delete(uri);
-    this.dirs.delete(uri);
+    const normalizedUri = normalizeTestUri(uri);
+    this.files.delete(normalizedUri);
+    this.dirs.delete(normalizedUri);
   }
 }
 
@@ -359,6 +375,70 @@ suite('unit/workspace', () => {
 
     assert.equal(state.getProjectRegistry()?.getProjectForFile('file:///proj/lib_app.pbl/u_demo.sru'), 'file:///proj/app.pbt');
     assert.equal(state.getProjectModel()?.getProjectForFile('file:///proj/lib_app.pbl/u_demo.sru')?.projectUri, 'file:///proj/app.pbt');
+  });
+
+  test('discovery hidrata pbproj con Libraries y enruta archivos SR* al proyecto declarado', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///proj');
+    fs.addFile('file:///proj/generic_pfc_app.pbproj');
+    fs.addDir('file:///proj/pfc libs');
+    fs.addDir('file:///proj/pfc libs/pfcmain.pbl');
+    fs.addDir('file:///proj/pfc libs/pfemain.pbl');
+    fs.addDir('file:///proj/pfc libs/app.pbl');
+    fs.addFile('file:///proj/pfc libs/pfcmain.pbl/pfc_n_base.sru');
+    fs.addFile('file:///proj/pfc libs/app.pbl/n_child.sru');
+
+    await fs.writeFile(
+      'file:///proj/generic_pfc_app.pbproj',
+      [
+        '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>',
+        '<Project>',
+        '  <Libraries AppEntry="pfc libs\\app.pbl">',
+        '    <Library Path="pfc libs\\pfcmain.pbl"/>',
+        '    <Library Path="pfc libs\\pfemain.pbl"/>',
+        '    <Library Path="pfc libs\\app.pbl"/>',
+        '  </Libraries>',
+        '</Project>'
+      ].join('\n')
+    );
+
+    await discoverWorkspace(['file:///proj'], fs, state, cancelSource.token);
+    state.refreshProjectRouting();
+
+    assert.deepEqual(state.getTopology().projects, [{
+      uri: 'file:///proj/generic_pfc_app.pbproj',
+      name: 'generic_pfc_app',
+      libraries: [
+        'file:///proj/pfc libs/app.pbl',
+        'file:///proj/pfc libs/pfcmain.pbl',
+        'file:///proj/pfc libs/pfemain.pbl'
+      ]
+    }]);
+    assert.equal(
+      state.getProjectRegistry()?.getProjectForFile('file:///proj/pfc%20libs/app.pbl/n_child.sru'),
+      'file:///proj/generic_pfc_app.pbproj'
+    );
+    assert.equal(
+      state.getProjectModel()?.getProjectForFile('file:///proj/pfc%20libs/pfcmain.pbl/pfc_n_base.sru')?.projectUri,
+      'file:///proj/generic_pfc_app.pbproj'
+    );
+    assert.deepEqual(state.getProjectContextForFile('file:///proj/pfc%20libs/app.pbl/n_child.sru'), {
+      projectUri: 'file:///proj/generic_pfc_app.pbproj',
+      kind: 'project',
+      name: 'generic_pfc_app',
+      libraries: [
+        'file:///proj/pfc libs/app.pbl',
+        'file:///proj/pfc libs/pfcmain.pbl',
+        'file:///proj/pfc libs/pfemain.pbl'
+      ],
+      files: [
+        'file:///proj/pfc libs/app.pbl/n_child.sru',
+        'file:///proj/pfc libs/pfcmain.pbl/pfc_n_base.sru'
+      ]
+    });
   });
 
   test('refreshProjectRouting aísla roots con nombres duplicados sin mezclar proyectos ni librerías', () => {

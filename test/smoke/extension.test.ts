@@ -75,25 +75,25 @@ suite('smoke/extension', () => {
     assert.equal(typeof api!.getWorkspaceMigrationAssistant, 'function');
 
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('vscPowerSyntax.showSettingsGovernance'));
-    assert.ok(commands.includes('vscPowerSyntax.applySettingsProfile'));
-    assert.ok(commands.includes('vscPowerSyntax.openWorkspaceCheck'));
-    assert.ok(commands.includes('vscPowerSyntax.openExtensionUpgradeCompatibilityCheck'));
-    assert.ok(commands.includes('vscPowerSyntax.openCurrentObjectCheck'));
-    assert.ok(commands.includes('vscPowerSyntax.openObjectCheck'));
-    assert.ok(commands.includes('vscPowerSyntax.openExplainDiagnostic'));
+    assert.ok(commands.includes('powerbuilder.showSettingsGovernance'));
+    assert.ok(commands.includes('powerbuilder.applySettingsProfile'));
+    assert.ok(commands.includes('powerbuilder.openWorkspaceCheck'));
+    assert.ok(commands.includes('powerbuilder.openExtensionUpgradeCompatibilityCheck'));
+    assert.ok(commands.includes('powerbuilder.openCurrentObjectCheck'));
+    assert.ok(commands.includes('powerbuilder.openObjectCheck'));
+    assert.ok(commands.includes('powerbuilder.openExplainDiagnostic'));
     assert.ok(commands.includes('powerbuilder.checkWorkspace'));
     assert.ok(commands.includes('powerbuilder.checkCurrentObject'));
     assert.ok(commands.includes('powerbuilder.explainDiagnostic'));
-    assert.ok(commands.includes('vscPowerSyntax.openCrossProjectSymbolConflicts'));
-    assert.ok(commands.includes('vscPowerSyntax.openBuildProfileMatrix'));
-    assert.ok(commands.includes('vscPowerSyntax.openCodeMetrics'));
-    assert.ok(commands.includes('vscPowerSyntax.openTechnicalDebtReport'));
-    assert.ok(commands.includes('vscPowerSyntax.openDataWindowSqlLineage'));
-    assert.ok(commands.includes('vscPowerSyntax.openDependencyGraph'));
-    assert.ok(commands.includes('vscPowerSyntax.openWorkspaceMigrationAssistant'));
-    assert.ok(commands.includes('vscPowerSyntax.focusDiagnosticsExplainabilityPanel'));
-    assert.ok(commands.includes('vscPowerSyntax.refreshDiagnosticsExplainabilityPanel'));
+    assert.ok(commands.includes('powerbuilder.openCrossProjectSymbolConflicts'));
+    assert.ok(commands.includes('powerbuilder.openBuildProfileMatrix'));
+    assert.ok(commands.includes('powerbuilder.openCodeMetrics'));
+    assert.ok(commands.includes('powerbuilder.openTechnicalDebtReport'));
+    assert.ok(commands.includes('powerbuilder.openDataWindowSqlLineage'));
+    assert.ok(commands.includes('powerbuilder.openDependencyGraph'));
+    assert.ok(commands.includes('powerbuilder.openWorkspaceMigrationAssistant'));
+    assert.ok(commands.includes('powerbuilder.focusDiagnosticsExplainabilityPanel'));
+    assert.ok(commands.includes('powerbuilder.refreshDiagnosticsExplainabilityPanel'));
     for (const model of getCoreMaintenanceCommandModels()) {
       assert.ok(commands.includes(model.command), `El comando ${model.command} debería estar registrado`);
     }
@@ -256,53 +256,53 @@ suite('smoke/extension', () => {
       assert.equal((dataWindowSqlLineageToolResult.payload as { available?: boolean }).available, false);
 
       await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('vscPowerSyntax.openDependencyGraph');
+      await vscode.commands.executeCommand('powerbuilder.openDependencyGraph');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Dependency Graph/);
 
       await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('vscPowerSyntax.openCrossProjectSymbolConflicts');
+      await vscode.commands.executeCommand('powerbuilder.openCrossProjectSymbolConflicts');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Cross-Project Symbol Conflicts/);
 
       await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('vscPowerSyntax.openWorkspaceMigrationAssistant');
+      await vscode.commands.executeCommand('powerbuilder.openWorkspaceMigrationAssistant');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Workspace Migration Assistant/);
 
       await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('vscPowerSyntax.openBuildProfileMatrix');
+      await vscode.commands.executeCommand('powerbuilder.openBuildProfileMatrix');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Build Profile Matrix/);
 
       await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('vscPowerSyntax.openCodeMetrics');
+      await vscode.commands.executeCommand('powerbuilder.openCodeMetrics');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Code Metrics/);
 
       await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('vscPowerSyntax.openTechnicalDebtReport');
+      await vscode.commands.executeCommand('powerbuilder.openTechnicalDebtReport');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Technical Debt Report/);
 
       await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('vscPowerSyntax.openDataWindowSqlLineage');
+      await vscode.commands.executeCommand('powerbuilder.openDataWindowSqlLineage');
       assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
       assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /DataWindow SQL Lineage/);
 
-      const memoryReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showMemoryBudgets');
+      const memoryReport = await vscode.commands.executeCommand<string>('powerbuilder.showMemoryBudgets');
       assert.match(memoryReport ?? '', /# Memory Budgets/);
 
-      const indexingReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showIndexingState');
+      const indexingReport = await vscode.commands.executeCommand<string>('powerbuilder.showIndexingState');
       assert.match(indexingReport ?? '', /# Indexing State/);
 
-      const routingReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showProjectRouting');
+      const routingReport = await vscode.commands.executeCommand<string>('powerbuilder.showProjectRouting');
       assert.match(routingReport ?? '', /# Project Routing/);
 
-      const sourceOriginReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.showSourceOriginConflicts');
+      const sourceOriginReport = await vscode.commands.executeCommand<string>('powerbuilder.showSourceOriginConflicts');
       assert.match(sourceOriginReport ?? '', /# SourceOrigin Conflicts/);
 
-      const cacheValidationReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.validatePersistentCache');
+      const cacheValidationReport = await vscode.commands.executeCommand<string>('powerbuilder.validatePersistentCache');
       assert.match(cacheValidationReport ?? '', /# Persistent Cache Validation/);
 
       const exportedSnapshot = await api!.exportSemanticWorkspaceSnapshot({
@@ -416,16 +416,16 @@ suite('smoke/extension', () => {
     assert.equal(typeof (workspaceCheckToolResult.payload as { available?: unknown }).available, 'boolean');
 
     await withStepTimeout(
-      'executeCommand(vscPowerSyntax.openWorkspaceCheck)',
-      vscode.commands.executeCommand('vscPowerSyntax.openWorkspaceCheck'),
+      'executeCommand(powerbuilder.openWorkspaceCheck)',
+      vscode.commands.executeCommand('powerbuilder.openWorkspaceCheck'),
       10000,
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Workspace Check/);
 
     await withStepTimeout(
-      'executeCommand(vscPowerSyntax.openExtensionUpgradeCompatibilityCheck)',
-      vscode.commands.executeCommand('vscPowerSyntax.openExtensionUpgradeCompatibilityCheck'),
+      'executeCommand(powerbuilder.openExtensionUpgradeCompatibilityCheck)',
+      vscode.commands.executeCommand('powerbuilder.openExtensionUpgradeCompatibilityCheck'),
       10000,
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
@@ -479,8 +479,8 @@ suite('smoke/extension', () => {
 
     await vscode.window.showTextDocument(contextDocument, { preview: false });
     await withStepTimeout(
-      'executeCommand(vscPowerSyntax.openCurrentObjectCheck)',
-      vscode.commands.executeCommand('vscPowerSyntax.openCurrentObjectCheck'),
+      'executeCommand(powerbuilder.openCurrentObjectCheck)',
+      vscode.commands.executeCommand('powerbuilder.openCurrentObjectCheck'),
       10000,
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
@@ -537,8 +537,8 @@ suite('smoke/extension', () => {
 
     await vscode.window.showTextDocument(contextDocument, { preview: false });
     await withStepTimeout(
-      'executeCommand(vscPowerSyntax.openExplainDiagnostic)',
-      vscode.commands.executeCommand('vscPowerSyntax.openExplainDiagnostic'),
+      'executeCommand(powerbuilder.openExplainDiagnostic)',
+      vscode.commands.executeCommand('powerbuilder.openExplainDiagnostic'),
       10000,
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
@@ -594,8 +594,8 @@ suite('smoke/extension', () => {
     await vscode.window.showTextDocument(contextDocument, { preview: false });
     editor.selection = new vscode.Selection(0, 3, 0, 3);
     await withStepTimeout(
-      'executeCommand(vscPowerSyntax.openExplainSystemSymbol)',
-      vscode.commands.executeCommand('vscPowerSyntax.openExplainSystemSymbol'),
+      'executeCommand(powerbuilder.openExplainSystemSymbol)',
+      vscode.commands.executeCommand('powerbuilder.openExplainSystemSymbol'),
       10000,
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
@@ -659,8 +659,8 @@ suite('smoke/extension', () => {
     await vscode.window.showTextDocument(contextDocument, { preview: false });
     editor.selection = new vscode.Selection(queryPosition, queryPosition);
     await withStepTimeout(
-      'executeCommand(vscPowerSyntax.openExplainSemanticQuery)',
-      vscode.commands.executeCommand('vscPowerSyntax.openExplainSemanticQuery'),
+      'executeCommand(powerbuilder.openExplainSemanticQuery)',
+      vscode.commands.executeCommand('powerbuilder.openExplainSemanticQuery'),
       10000,
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
@@ -746,7 +746,7 @@ suite('smoke/extension', () => {
     );
     await vscode.window.showTextDocument(contextDocument, { preview: false });
 
-    const runtimeSelfTestReport = await vscode.commands.executeCommand<string>('vscPowerSyntax.runRuntimeSelfTest');
+    const runtimeSelfTestReport = await vscode.commands.executeCommand<string>('powerbuilder.runRuntimeSelfTest');
     assert.match(runtimeSelfTestReport ?? '', /# PowerSyntax Runtime Self-Test/);
     assert.match(runtimeSelfTestReport ?? '', /API pública/);
     assert.match(runtimeSelfTestReport ?? '', /ORCA snapshot/);
@@ -766,26 +766,26 @@ suite('smoke/extension', () => {
           properties?: Record<string, { enum?: string[] }>;
         };
       };
-    }).contributes?.configuration?.properties?.['vscPowerSyntax.profile']?.enum) ?? [];
+    }).contributes?.configuration?.properties?.['powerbuilder.profile']?.enum) ?? [];
     assert.deepEqual(enumValues, ['fast', 'balanced', 'deep-analysis', 'legacy-orca', 'ci-support', 'support-safe']);
 
     const configuration = vscode.workspace.getConfiguration();
-    const previousProfile = configuration.inspect<string>('vscPowerSyntax.profile')?.workspaceValue;
-    const previousFormattingEnabled = configuration.inspect<boolean>('vscPowerSyntax.formatting.enabled')?.workspaceValue;
-    const previousFormatOnSave = configuration.inspect<boolean>('vscPowerSyntax.formatting.formatOnSave')?.workspaceValue;
+    const previousProfile = configuration.inspect<string>('powerbuilder.profile')?.workspaceValue;
+    const previousFormattingEnabled = configuration.inspect<boolean>('powerbuilder.formatting.enabled')?.workspaceValue;
+    const previousFormatOnSave = configuration.inspect<boolean>('powerbuilder.formatting.formatOnSave')?.workspaceValue;
 
     try {
-      await configuration.update('vscPowerSyntax.profile', 'legacy-orca', vscode.ConfigurationTarget.Workspace);
-      await configuration.update('vscPowerSyntax.formatting.enabled', true, vscode.ConfigurationTarget.Workspace);
-      await configuration.update('vscPowerSyntax.formatting.formatOnSave', false, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('powerbuilder.profile', 'legacy-orca', vscode.ConfigurationTarget.Workspace);
+      await configuration.update('powerbuilder.formatting.enabled', true, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('powerbuilder.formatting.formatOnSave', false, vscode.ConfigurationTarget.Workspace);
 
-      await vscode.commands.executeCommand('vscPowerSyntax.showSettingsGovernance');
+      await vscode.commands.executeCommand('powerbuilder.showSettingsGovernance');
 
       assert.equal(vscode.workspace.getConfiguration('vscPowerSyntax').get('profile'), 'legacy-orca');
     } finally {
-      await configuration.update('vscPowerSyntax.profile', previousProfile, vscode.ConfigurationTarget.Workspace);
-      await configuration.update('vscPowerSyntax.formatting.enabled', previousFormattingEnabled, vscode.ConfigurationTarget.Workspace);
-      await configuration.update('vscPowerSyntax.formatting.formatOnSave', previousFormatOnSave, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('powerbuilder.profile', previousProfile, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('powerbuilder.formatting.enabled', previousFormattingEnabled, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('powerbuilder.formatting.formatOnSave', previousFormatOnSave, vscode.ConfigurationTarget.Workspace);
     }
   });
 
@@ -797,8 +797,8 @@ suite('smoke/extension', () => {
 
     await ext!.activate();
 
-    await vscode.commands.executeCommand('vscPowerSyntax.restartServer');
-    await vscode.commands.executeCommand('vscPowerSyntax.restartServer');
+    await vscode.commands.executeCommand('powerbuilder.restartServer');
+    await vscode.commands.executeCommand('powerbuilder.restartServer');
 
     const api = ext!.exports as VscPowerSyntaxApi | undefined;
     assert.ok(api, 'La extensión debería seguir exportando una API pública tras reiniciar');
@@ -817,17 +817,17 @@ suite('smoke/extension', () => {
     assert.ok(api, 'La extensión debería exportar una API pública');
 
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('vscPowerSyntax.runPbAutoBuild'), 'El comando run de PBAutoBuild debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.runLastPbAutoBuild'), 'El comando para repetir el último build PBAutoBuild debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.runPbAutoBuildWithPicker'), 'El comando para elegir build file PBAutoBuild debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.cancelPbAutoBuild'), 'El comando cancel de PBAutoBuild debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.exportPbAutoBuildCiHelper'), 'El comando para exportar el helper CI/CD de PBAutoBuild debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.runPbAutoBuild'), 'El comando run de PBAutoBuild debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.runLastPbAutoBuild'), 'El comando para repetir el último build PBAutoBuild debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.runPbAutoBuildWithPicker'), 'El comando para elegir build file PBAutoBuild debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.cancelPbAutoBuild'), 'El comando cancel de PBAutoBuild debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.exportPbAutoBuildCiHelper'), 'El comando para exportar el helper CI/CD de PBAutoBuild debería estar registrado');
 
     const stats = await api!.getServerStats();
     assert.equal(stats.buildRunner?.state, 'idle');
     assert.ok(stats.buildHealth, 'La API pública debería exponer build health enriquecida');
 
-    await vscode.commands.executeCommand('vscPowerSyntax.cancelPbAutoBuild');
+    await vscode.commands.executeCommand('powerbuilder.cancelPbAutoBuild');
   });
 
   test('puede ejecutar el adapter ORCA legacy sobre el archivo activo', async function () {
@@ -840,12 +840,12 @@ suite('smoke/extension', () => {
     assert.ok(api, 'La extensión debería exportar una API pública');
 
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('vscPowerSyntax.runActiveOrcaScript'), 'El comando ORCA debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.cancelOrcaScript'), 'El comando de cancelación ORCA debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.exportOrcaStaging'), 'El comando de export ORCA a staging debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.importOrcaStaging'), 'El comando de import ORCA desde staging debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.regenerateOrcaLibraries'), 'El comando ORCA de regenerate debería estar registrado');
-    assert.ok(commands.includes('vscPowerSyntax.rebuildOrcaProject'), 'El comando ORCA de rebuild debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.runActiveOrcaScript'), 'El comando ORCA debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.cancelOrcaScript'), 'El comando de cancelación ORCA debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.exportOrcaStaging'), 'El comando de export ORCA a staging debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.importOrcaStaging'), 'El comando de import ORCA desde staging debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.regenerateOrcaLibraries'), 'El comando ORCA de regenerate debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.rebuildOrcaProject'), 'El comando ORCA de rebuild debería estar registrado');
 
     await vscode.workspace.getConfiguration('vscPowerSyntax').update('legacy.orcaPath', process.execPath, vscode.ConfigurationTarget.Workspace);
 
@@ -857,7 +857,7 @@ suite('smoke/extension', () => {
     );
     await vscode.window.showTextDocument(document, { preview: false });
 
-    const result = await vscode.commands.executeCommand<{ snapshot?: { state?: string; scriptUri?: string } }>('vscPowerSyntax.runActiveOrcaScript');
+    const result = await vscode.commands.executeCommand<{ snapshot?: { state?: string; scriptUri?: string } }>('powerbuilder.runActiveOrcaScript');
     assert.ok(result, 'El comando debería devolver un resultado ORCA.');
     assert.equal(result!.snapshot?.state, 'succeeded');
     assert.equal(result!.snapshot?.scriptUri, document.uri.toString());
@@ -881,9 +881,9 @@ suite('smoke/extension', () => {
     await ext!.activate();
 
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('vscPowerSyntax.openProjectHealthDashboard'), 'El comando del dashboard de salud debería estar registrado');
+    assert.ok(commands.includes('powerbuilder.openProjectHealthDashboard'), 'El comando del dashboard de salud debería estar registrado');
 
-    await vscode.commands.executeCommand('vscPowerSyntax.openProjectHealthDashboard');
+    await vscode.commands.executeCommand('powerbuilder.openProjectHealthDashboard');
 
     const editor = vscode.window.activeTextEditor;
     assert.ok(editor, 'El comando debería abrir un editor para el dashboard.');
@@ -909,7 +909,7 @@ suite('smoke/extension', () => {
     );
     await vscode.window.showTextDocument(document, { preview: false });
 
-    const result = await vscode.commands.executeCommand<{ scope: string; objectName?: string }>('vscPowerSyntax.focusObjectExplorerOnCurrentFile');
+    const result = await vscode.commands.executeCommand<{ scope: string; objectName?: string }>('powerbuilder.focusObjectExplorerOnCurrentFile');
     assert.ok(result, 'El comando debería devolver un resultado de foco.');
     assert.equal(result!.scope, 'current-file');
     assert.equal(result!.objectName, 'sample');
@@ -931,7 +931,7 @@ suite('smoke/extension', () => {
     );
     await vscode.window.showTextDocument(document, { preview: false });
 
-    const result = await vscode.commands.executeCommand<{ objectName?: string }>('vscPowerSyntax.focusCurrentObjectContextPanel');
+    const result = await vscode.commands.executeCommand<{ objectName?: string }>('powerbuilder.focusCurrentObjectContextPanel');
     assert.ok(result, 'El comando debería devolver un resultado de foco.');
     assert.equal(result!.objectName, 'sample');
   });
