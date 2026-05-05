@@ -772,26 +772,26 @@ suite('smoke/extension', () => {
           properties?: Record<string, { enum?: string[] }>;
         };
       };
-    }).contributes?.configuration?.properties?.['powerbuilder.profile']?.enum) ?? [];
+    }).contributes?.configuration?.properties?.['vscPowerSyntax.profile']?.enum) ?? [];
     assert.deepEqual(enumValues, ['fast', 'balanced', 'deep-analysis', 'legacy-orca', 'ci-support', 'support-safe']);
 
     const configuration = vscode.workspace.getConfiguration();
-    const previousProfile = configuration.inspect<string>('powerbuilder.profile')?.workspaceValue;
-    const previousFormattingEnabled = configuration.inspect<boolean>('powerbuilder.formatting.enabled')?.workspaceValue;
-    const previousFormatOnSave = configuration.inspect<boolean>('powerbuilder.formatting.formatOnSave')?.workspaceValue;
+    const previousProfile = configuration.inspect<string>('vscPowerSyntax.profile')?.workspaceValue;
+    const previousFormattingEnabled = configuration.inspect<boolean>('vscPowerSyntax.formatting.enabled')?.workspaceValue;
+    const previousFormatOnSave = configuration.inspect<boolean>('vscPowerSyntax.formatting.formatOnSave')?.workspaceValue;
 
     try {
-      await configuration.update('powerbuilder.profile', 'legacy-orca', vscode.ConfigurationTarget.Workspace);
-      await configuration.update('powerbuilder.formatting.enabled', true, vscode.ConfigurationTarget.Workspace);
-      await configuration.update('powerbuilder.formatting.formatOnSave', false, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.profile', 'legacy-orca', vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.enabled', true, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.formatOnSave', false, vscode.ConfigurationTarget.Workspace);
 
       await vscode.commands.executeCommand('powerbuilder.showSettingsGovernance');
 
       assert.equal(vscode.workspace.getConfiguration('vscPowerSyntax').get('profile'), 'legacy-orca');
     } finally {
-      await configuration.update('powerbuilder.profile', previousProfile, vscode.ConfigurationTarget.Workspace);
-      await configuration.update('powerbuilder.formatting.enabled', previousFormattingEnabled, vscode.ConfigurationTarget.Workspace);
-      await configuration.update('powerbuilder.formatting.formatOnSave', previousFormatOnSave, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.profile', previousProfile, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.enabled', previousFormattingEnabled, vscode.ConfigurationTarget.Workspace);
+      await configuration.update('vscPowerSyntax.formatting.formatOnSave', previousFormatOnSave, vscode.ConfigurationTarget.Workspace);
     }
   });
 

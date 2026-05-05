@@ -1,109 +1,116 @@
-# Roadmap — Plugin PowerBuilder 2025 para VS Code
+# Roadmap — PowerBuilder VS Code Plugin
 
-**Documento técnico asociado:**
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+## 1. Propósito
 
----
+Este documento define la dirección estratégica del producto por fases.
 
-## 1. Objetivo de producto
-
-Construir un plugin profesional para PowerBuilder 2025 en VS Code que combine:
-
-1. descubrimiento e indexación muy rápidos sin bloquear;
-2. latencia interactiva baja en el archivo activo;
-3. núcleo semántico fuerte y reutilizable;
-4. buen comportamiento en proyectos grandes y legacy;
-5. valor real para el desarrollador;
-6. automatización/IA solo sobre base madura.
+No es un backlog operativo ni un historial de cierres.
 
 ---
 
-## 2. Meta maestra
+## 2. Cómo se relaciona con backlog, current-focus y done-log
 
-> **El plugin debe descubrir e indexar muy rápido sin bloquear.**
+- `docs/backlog.md` contiene trabajo pendiente vivo.
+- `docs/current-focus.md` fija la cadena activa o el reposo explícito.
+- `docs/done-log.md` conserva solo cierres reales con evidencia.
+- `docs/roadmap.md` describe hacia dónde evoluciona el producto y bajo qué reglas puede promoverse una nueva cadena.
 
-Todo el roadmap se ordena alrededor de esta meta.
-
----
-
-## 3. Principios de producto
-
-Se prioriza siempre:
-
-1. rendimiento percibido;
-2. arquitectura limpia;
-3. separación de responsabilidades;
-4. atomicidad del estado semántico;
-5. incrementalidad fina;
-6. persistencia robusta;
-7. explicabilidad/observabilidad;
-8. validación real sobre corpus grandes;
-9. especialización PowerBuilder;
-10. automatización avanzada al final.
+Si una prioridad cambia de fase o se promueve una cadena nueva, el roadmap debe revisarse.
 
 ---
 
-## 4. Reglas base del producto
+## 3. Estado estratégico actual
 
-- Soportar Workspace y Solution como modos distintos.
-- En Workspace, `ws_objects` es fuente relevante.
-- En Solution, carpetas `*.pbl` con `*.sr*` son fuente canónica.
-- `.pb`, `build` y `_BackupFiles` se ignoran por defecto.
-- Separar parser de contenedor SR* y lenguaje embebido.
-- DataWindow es subdominio propio.
-- PBAutoBuild es backend moderno preferente.
-- ORCA/OrcaScript es integración legacy adicional.
-- Toda decisión semántica relevante debe reflejarse en la guía técnica.
+Estado vigente:
 
----
+```txt
+reposo explicito
+sin nueva cadena promovida
+```
 
-## 5. Equivalencia roadmap/backlog
+La última cadena inmediata y su bloque derivado ya quedaron cerrados con evidencia en `docs/done-log.md`.
 
-| Roadmap | Backlog | Objetivo |
-|---|---|---|
-| Fase A | L0 | Core semántico, readiness y latencia |
-| Fase B | L1 | Persistencia y reanudación |
-| Fase C | L2 + L2.5 | Query engine, serving y entendimiento PowerBuilder |
-| Fase D | L3 | Validación, performance y health |
-| Fase E | L4 | Especialización PowerBuilder |
-| Fase F | L4.5 | Plataforma abierta para automatización segura |
-| Fase G | L5 | Documentación IA-first y workflows que sostienen la automatización |
+No debe abrirse trabajo nuevo hasta que backlog, specs y current-focus promuevan una prioridad canónica nueva o se reabra una regresión verificable.
 
 ---
 
-## 6. Estado actual resumido
+## 4. Fases del producto
 
-### Base ya conseguida
+| Fase | Lane operativo | Objetivo |
+| --- | --- | --- |
+| Fase A | L0 | Core readiness, latencia y activación segura |
+| Fase B | L1 | Persistencia, reanudación y modelo de workspace/proyecto |
+| Fase C | L2 + L2.5 | Query engine, serving seguro y entendimiento semántico PowerBuilder |
+| Fase D | L3 | Validación real, performance y health |
+| Fase E | L4 | DataWindow y especialización PowerBuilder |
+| Fase F | L4.5 | Plataforma read-only y write-safe para API, tools e IA |
+| Fase G | L5 | Documentación IA-first, workflows y gobernanza operativa |
 
-El producto ya dispone de:
+Estas fases derivan de `docs/product-operating-model.md` y no deben duplicar backlog detallado.
 
-- cliente ligero y servidor LSP separados;
-- activación perezosa;
-- symbols/hover/definition/completion/signature help base;
-- backbone semántico inicial;
-- topología Workspace/Solution;
-- visibilidad y herencia base;
-- scheduler, caches y readiness;
-- parser hardening principal;
-- catálogo built-in;
-- tests smoke/unit/integration/performance;
-- query engine unificado operativo;
-- latency governor operativo;
-- API pública mínima;
-- diagnostics snapshot agrupado;
-- hierarchy inspection y CodeLens robustecidos;
-- PowerBuilder Language Knowledge Catalog v2 (keywords, reserved words, primitive datatypes, system object datatypes, pronouns, operators, system globals y enumerated values), con generator oficial/cobertura completa aún abiertos en B319-B321 y backlog derivado B322-B336.
+---
 
-### Lectura estratégica
+## 5. Dirección vigente por fase
 
-La siguiente etapa no es abrir más superficie, sino reforzar:
+### Fases A-D
 
-- evidence;
-- confidence gates;
-- cache semántica estable;
-- validación real;
-- integración completa y gobernada del catálogo oficial;
-- workflows útiles para desarrolladores.
+Base estratégica a preservar:
+
+- cliente ligero y activación perezosa;
+- servidor LSP como runtime principal;
+- readiness, evidence, confidence y sourceOrigin como contrato transversal;
+- budgets, yielding, cancelación y backpressure en hot path.
+
+### Fase E
+
+La especialización DataWindow debe seguir siendo conservadora:
+
+- `.srd` como sublenguaje;
+- lineage y property paths solo cuando exista evidencia defendible;
+- sin simular runtime.
+
+### Fase F
+
+La automatización segura sigue dependiendo de:
+
+- contratos públicos estables;
+- tools read-only acotados;
+- gating explícito para planes write-enabled.
+
+### Fase G
+
+La documentación debe seguir convergiendo a ownership único, sin duplicidad larga y con validación documental repetible.
+
+---
+
+## 6. Regla de promoción
+
+Solo puede promoverse una nueva cadena cuando:
+
+1. exista prioridad viva en `docs/backlog.md`;
+2. `docs/current-focus.md` deje de estar en reposo explícito;
+3. la spec correspondiente exista y esté lista para ejecución;
+4. no se reabra una línea cerrada sin evidencia nueva.
+
+Mientras esas condiciones no se cumplan, el estado correcto es reposo explícito.
+
+---
+
+## 7. Siguiente promoción permitida
+
+No hay una continuidad activa promovida en este momento.
+
+La siguiente promoción válida debe salir del backlog vivo y quedar reflejada también en `docs/current-focus.md` y en la spec correspondiente.
+
+---
+
+## 8. Qué no debe entrar aquí
+
+- checklist operativos diarios;
+- detalle de validación ejecutada;
+- histórico cerrado;
+- listas largas de features implementadas;
+- backlog detallado por ítem.
 
 ---
 

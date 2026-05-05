@@ -205,13 +205,14 @@ Acción: ejecutar `npm run package:vsix`, `npm run package:vsix:list` y `npm run
 
 Si quieres más detalle técnico del proyecto, consulta:
 
+- `docs/README.md`
 - `docs/architecture.md`
 - `docs/spec-driven-development.md`
 - `docs/developer-workflows.md`
-- `docs/ai-orchestrator.md`
-- `docs/ai-agents-catalog.md`
+- `docs/ai/ai-integration-architecture.md`
+- `docs/ai/ai-agents-catalog.md`
 - `docs/ai-context/powerbuilder-plugin-context.md`
-- `docs/localization.md`
+- `docs/catalog/catalog-localization-workflow.md`
 - `docs/roadmap.md`
 - `docs/backlog.md`
 - `docs/current-focus.md`

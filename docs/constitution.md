@@ -214,10 +214,12 @@ En caso de conflicto, manda este orden:
 1. `docs/constitution.md`
 2. `docs/architecture.md`
 3. specs aprobadas en `specs/`
-4. `docs/roadmap.md`
+4. `docs/architecture-status.md`
 5. `docs/current-focus.md`
 6. `docs/backlog.md`
-7. implementación actual
+7. `docs/roadmap.md`
+8. `docs/done-log.md`
+9. implementación actual
 
 El código funcionando no invalida por sí solo una decisión documental vigente.
 Si el código diverge, debe documentarse y corregirse.

@@ -652,9 +652,9 @@ La documentación debe distinguir siempre entre:
 
 - `docs/architecture-status.md` — estado implementado actual y guardrails vigentes.
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` — semántica PowerBuilder y reglas de interpretación.
-- `docs/localization.md` — workflow de overlays y authoring documental del catálogo.
-- `docs/ai-orchestrator.md` — orquestación de tools, context bundles y surfaces IA.
-- `docs/ai-agents-catalog.md` — catálogo operativo de agentes IA del repositorio.
+- `docs/catalog/catalog-localization-workflow.md` — workflow de overlays y authoring documental del catálogo.
+- `docs/ai/ai-integration-architecture.md` — orquestación de tools, context bundles y surfaces IA.
+- `docs/ai/ai-agents-catalog.md` — catálogo operativo de agentes IA del repositorio.
 - `docs/build/README.md` — build, packaging, VSIX, PBAutoBuild y ORCA.
 - `docs/current-focus.md` — foco actual.
 - `docs/backlog.md` — trabajo pendiente.

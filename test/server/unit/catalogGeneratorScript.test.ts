@@ -1,4 +1,5 @@
 import * as assert from 'assert/strict';
+import * as nodeFs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { loadFixture } from '../helpers/fixtureLoader';
@@ -6,6 +7,15 @@ import { loadFixture } from '../helpers/fixtureLoader';
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 
 suite('unit/catalogGeneratorScript', () => {
+  function resolveGeneratorScriptPath(): string {
+    const canonicalPath = path.join(REPO_ROOT, 'scripts', 'generate_official_function_catalog.cjs');
+    if (nodeFs.existsSync(canonicalPath)) {
+      return canonicalPath;
+    }
+
+    return path.join(REPO_ROOT, 'scripts', 'generate_official_function_catalog.cjs');
+  }
+
   function loadJsonFixture<T>(relativePath: string): T {
     return JSON.parse(loadFixture(relativePath)) as T;
   }
@@ -195,12 +205,12 @@ suite('unit/catalogGeneratorScript', () => {
     };
     renderBuilderCall(builderName: string, entry: Record<string, unknown>): string;
   } {
-    const scriptPath = path.join(REPO_ROOT, 'script', 'generate_official_function_catalog.cjs');
+    const scriptPath = resolveGeneratorScriptPath();
     return require(scriptPath);
   }
 
   test('official catalog generator apunta al layout actual del servidor', async () => {
-    const scriptPath = path.join(REPO_ROOT, 'script', 'generate_official_function_catalog.cjs');
+    const scriptPath = resolveGeneratorScriptPath();
     const content = await fs.readFile(scriptPath, 'utf8');
 
     assert.match(content, /out\/server\/knowledge\/system\/services\/queryService/);

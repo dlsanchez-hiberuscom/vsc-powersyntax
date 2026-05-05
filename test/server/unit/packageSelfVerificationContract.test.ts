@@ -19,8 +19,8 @@ suite('unit/packageSelfVerificationContract (B315)', () => {
     assert.match(source, /get\('formatting\.formatOnSave'\), false/);
     assert.match(source, /get\('formatting\.maxDocumentChars'\), 120000/);
     assert.match(source, /get\('formatting\.maxDocumentLines'\), 4000/);
-    assert.match(source, /commands\.includes\('vscPowerSyntax\.openWorkspaceCheck'\)/);
-    assert.match(source, /commands\.includes\('vscPowerSyntax\.openExtensionUpgradeCompatibilityCheck'\)/);
+    assert.match(source, /commands\.includes\('powerbuilder\.openWorkspaceCheck'\)/);
+    assert.match(source, /commands\.includes\('powerbuilder\.openExtensionUpgradeCompatibilityCheck'\)/);
     assert.match(source, /await api!\.getServerStats\(\)/);
     assert.match(source, /await api!\.querySymbols\(/);
     assert.match(source, /await api!\.getCurrentObjectContext\(/);

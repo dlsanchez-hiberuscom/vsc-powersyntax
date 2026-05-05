@@ -1,114 +1,91 @@
-# AI context — PowerBuilder plugin
+# PowerBuilder Plugin — AI Context Pack
 
-Context pack corto para tareas IA sobre este repositorio.
-
-Este documento no sustituye la documentacion propietaria. Si hay conflicto, ganan `docs/constitution.md`, `docs/architecture.md`, `docs/current-focus.md` y el resto de documentos propietarios.
+Context pack compacto para prompts y agentes con budget reducido.
 
 ## Mission
 
-- Mantener un plugin profesional de VS Code para PowerBuilder y PowerScript, no una aplicacion de negocio PowerBuilder.
-- Proteger discovery/indexacion rapida, cliente ligero, LSP separado, prioridad al archivo activo y degradacion segura.
-- Preferir contexto breve, estable y accionable antes que prompts masivos o resumentes ad hoc.
-
-Owner docs: `docs/product-operating-model.md`, `docs/constitution.md`, `docs/current-focus.md`.
+Mantener un plugin profesional de PowerBuilder 2025 para VS Code que descubra e indexe muy rapido sin bloquear.
 
 ## Architecture boundaries
 
-- `src/client/` debe seguir ligero; parsing, semantica, knowledge y trabajo costoso viven en `src/server/`.
-- La IA consume contratos publicos, tools read-only y context packs; no estructuras internas mutables ni atajos fuera de API.
-- No meter IA dentro del core ni en hot paths de serving, discovery, scheduler o indexing.
-- No usar ORCA en hot path y no tratar `orca-staging` como source canonico.
-
-Owner docs: `docs/architecture.md`, `docs/ai-orchestrator.md`, `AGENTS.md`.
+- Cliente VS Code minimo.
+- Servidor LSP como runtime principal.
+- Core semantico agnostico del editor.
+- Features como adaptadores finos sobre consultas compartidas.
+- IA consume contratos publicos, no estructuras internas mutables.
 
 ## PowerBuilder coding rules
 
-- Tratar este repo como plugin/language tooling; los archivos PowerBuilder son corpus, fixtures y evidencia de comportamiento real.
-- Respetar scopes, prototypes, implementations, eventos, herencia, `sourceOrigin`, readiness, evidence y confidence.
-- Empezar por el ancla mas local posible: archivo, simbolo, test, comando o comportamiento fallido.
-- Preferir cambios pequenos y verificables; cerrar siempre con validacion y documentacion alineada.
-
-Owner docs: `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/rules-catalog.md`, `docs/spec-driven-development.md`.
+- `.srd` es un sublenguaje; no tratarlo como PowerScript general.
+- `.pbl` y `.pbd` no son source editable.
+- `orca-staging` no gana a source real.
+- `generated` no habilita escritura directa.
+- Rename y code actions requieren `sourceOrigin` confiable.
+- Dynamic calls, PBX, DLL externas, RPCFUNC y strings dinamicos degradan confidence.
 
 ## SQL formatting rules
 
-- Reutilizar `sqlRegions`, transaction binding y anchors SQL existentes; no abrir un parser SQL general nuevo.
-- Mantener SQL embebido como carril explicable y conservador, con degradacion honesta cuando el binding no sea defendible.
-- No reformatear strings arbitrarios como si fuesen SQL estructurado.
-
-Owner docs: `docs/developer-workflows.md`, `docs/rules-catalog.md`.
+- SQL embebido solo se documenta o analiza cuando el subset es defendible.
+- Dynamic SQL debe degradar con riesgo/confidence, no inventar semantica.
+- No ejecutar SQL ni prometer runtime DBMS desde el editor.
 
 ## DataWindow rules
 
-- DataWindow es un sublenguaje propio; no parsearlo como PowerScript normal.
-- Reutilizar `DataWindowModel`, `retrieveArguments`, lineage y bindings existentes; no duplicar parser por consumer.
-- Si `DataObject` o expresiones son dinamicas, degradar de forma conservadora y explicita.
-
-Owner docs: `docs/developer-workflows.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
+- Resolver solo rails seguros y literal-only cuando aplique.
+- No simular runtime de DataWindow.
+- SQL lineage no debe inventar referencias.
+- `SetTrans` y `SetTransObject` no son equivalentes.
 
 ## Catalog/generated/manual/localization rules
 
-- No cargar el catalogo `generated` o `manual` completo dentro de prompts.
-- `generated` sigue siendo la base oficial; `manual` y `localization` son overlays curados y auditables, no un segundo catalogo paralelo.
-- Para localizacion: `targetId` cuando el ID es estable; `targetKey` cuando hace falta tolerar drift de regeneracion; la reconciliacion del source es offline.
-- Consultar y validar mediante tooling/catalog reports existentes antes de introducir nuevas reglas o ejemplos.
-
-Owner docs: `docs/architecture.md`, `docs/localization.md`, `docs/rules-catalog.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
+- `generated-primary-with-manual-overlays` es la policy vigente.
+- No cambiar IDs generated/manual sin autorizacion explicita.
+- La localizacion es overlay documental; no traduce nombres reales PowerBuilder.
+- No pegar datasets `generated/manual/localization` completos dentro del prompt.
 
 ## Validation commands and tools
 
-- Comprobacion amplia read-only: `workspace-check`, `checkWorkspace()`, comando `PowerSyntax: Check Workspace`.
-- Comprobacion local read-only: `object-check`, `checkObject()`, comandos `PowerSyntax: Check Current Object` y `PowerSyntax: Check Object...`.
-- Comprobacion puntual de diagnostics: `explain-diagnostic`, `explainDiagnostic()`, comando `PowerSyntax: Explain Diagnostic at Cursor`.
-- Comprobacion puntual de simbolos del lenguaje: `explain-system-symbol`, `explainSystemSymbol()`, comando `PowerSyntax: Explain System Symbol at Cursor`.
-- Bundle compacto para tarea IA: `ai-task-context-bundle`, `getAiTaskContextBundle()`, comando `powerbuilder.exportAiTaskContextBundle`.
-- Dry-run declarativo previo a writes: `task-execution-dry-run`, `getTaskExecutionDryRun()`.
-- Replay read-only desde evidencia exportada: `task-replay-bundle`, `replayTaskFromBundle()`.
-- Baseline comun:
-  - `npm run build:test`
-  - `npm run test:unit -- --grep "docs|ai-context|context-budget|documentation"`
-- Si tocas localizacion/catalogo:
-  - `npm run report:catalog-localization`
-  - `npm run migrate:catalog-localization-target-ids`
-- Si el cambio es mas amplio o de release:
-  - `npm run release:verify`
-
-Owner docs: `docs/testing.md`, `README.md`, `docs/localization.md`.
+- `npm run test:docs:drift`
+- `npm test`
+- `npm run test:architecture:metrics`
+- `npm run test:performance:gate`
+- `npm run package:vsix`
+- `workspace-check`
+- `object-check`
+- `explain-diagnostic`
+- `current-object-context`
+- `safe-edit-plan`
 
 ## Recommended AI workflow
 
-1. Leer este pack, `docs/current-focus.md` y la documentacion propietaria minima necesaria.
-2. Si la tarea es amplia, empezar con `workspace-check`; si es local, empezar con `object-check` o un test/comando/simbolo concreto.
-3. Formular una hipotesis local falsable antes del primer cambio.
-4. Hacer el cambio mas pequeno que pruebe esa hipotesis.
-5. Validar inmediatamente con el check mas estrecho disponible.
-6. Actualizar docs vivas y backlog/done-log/current-focus cuando el trabajo se cierre.
-
-Owner docs: `docs/ai-orchestrator.md`, `docs/spec-driven-development.md`, `AGENTS.md`.
+1. Leer `AGENTS.md`, `docs/current-focus.md` y `docs/backlog.md`.
+2. Cargar la spec activa y el documento propietario del area.
+3. Hacer cambios pequenos y validables.
+4. Actualizar docs afectadas en la misma sesion.
+5. Cerrar con evidencia y sin usar `docs/done-log.md` como foco.
 
 ## Do not do
 
-- No tratar el repo como una app PowerBuilder empresarial.
-- No duplicar documentos largos dentro de prompts o dentro de este pack.
-- No pegar datasets `generated/manual/localization` completos en el contexto IA.
-- No abrir features fuera del foco activo sin evidencia o backlog claro.
-- No cerrar trabajo sin validacion, `done-log` y foco alineados.
-- No reimplementar semantica fuera del pipeline/knowledge existente.
+- No inventar features ni alcance.
+- No abrir scans completos en hot path.
+- No cerrar sin validacion ejecutada.
+- No duplicar documentacion larga.
+- No tratar historial como trabajo vivo.
 
 ## Active focus
 
-- Foco actual: `B299 — Agent execution dry-run contract`.
-- El carril inmediato dependiente sigue siendo `B300 — Agent validation receipt` y `B302 — Agent-safe documentation updater policy`.
-- Evidencia read-only ya disponible para el corte IA: `workspace-check`, `object-check`, `explain-diagnostic`, `explain-system-symbol`, `ai-task-context-bundle`, `task-execution-dry-run` y `task-replay-bundle`.
-- La autoridad del foco vivo siempre es `docs/current-focus.md`, no este resumen.
+El foco vivo siempre se delega a `docs/current-focus.md`.
+
+Si `docs/current-focus.md` indica reposo explicito, no abrir una cadena nueva sin respaldo en backlog y spec.
 
 ## Documentation ownership
 
-- Reglas no negociables: `docs/constitution.md`
-- Arquitectura y boundaries: `docs/architecture.md`
-- Foco y secuencia: `docs/current-focus.md`, `docs/backlog.md`, `docs/done-log.md`
-- SDD y cierre: `docs/spec-driven-development.md`
-- Estrategia/orquestacion IA: `docs/ai-strategy.md`, `docs/ai-orchestrator.md`, `docs/ai-agents-catalog.md`
-- Dominio PowerBuilder y workflows: `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/developer-workflows.md`, `docs/rules-catalog.md`, `docs/testing.md`
-
-Contrato de budget: este pack debe seguir siendo pequeno y enlazado. Si empieza a duplicar reglas largas, hay que recortarlo y devolver el detalle al documento propietario correspondiente.
+- Reglas raiz: `AGENTS.md`
+- Arquitectura: `docs/architecture.md`
+- Estado implementado: `docs/architecture-status.md`
+- Trabajo vivo: `docs/backlog.md`
+- Foco vivo: `docs/current-focus.md`
+- Direccion: `docs/roadmap.md`
+- Historico: `docs/done-log.md`
+- IA/tools: `docs/ai/ai-integration-architecture.md`
+- Agentes: `docs/ai/ai-agents-catalog.md`

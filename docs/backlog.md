@@ -183,7 +183,7 @@ completado
 - Automatización write-enabled avanzada sin safe-edit-plan, impact-analysis, receipts y rollback claro.
 - Nuevos dominios de catálogo que reabran `ADR-0001` sin regresión objetiva.
 - Nuevos parsers DataWindow que traten `.srd` como PowerScript normal.
-- Nuevos agentes/skills/prompts que dupliquen reglas ya existentes en `AGENTS.md`, `PROJECT.md` o `docs/ai-orchestration`.
+- Nuevos agentes/skills/prompts que dupliquen reglas ya existentes en `AGENTS.md`, `docs/ai-orchestrator.md` o `docs/ai/ai-integration-architecture.md`.
 
 ---
 

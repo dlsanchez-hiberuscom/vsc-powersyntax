@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { parseTopology } from '../../../src/server/workspace/topology';
+import { resolveRepoRoot } from '../helpers/fixtureLoader';
 
 suite('unit/topology', () => {
   test('parsea .pbw extrayendo .pbt y .pbproj', () => {
@@ -102,7 +103,7 @@ suite('unit/topology', () => {
   });
 
   test('los fixtures de lsp-guards usan markers plausibles consumibles por topology', () => {
-    const fixtureDir = path.join(process.cwd(), 'test', 'fixtures', 'lsp-guards');
+    const fixtureDir = path.join(resolveRepoRoot(), 'test', 'fixtures', 'lsp-guards');
     const pbw = fs.readFileSync(path.join(fixtureDir, 'guard.pbw'), 'utf8');
     const pbt = fs.readFileSync(path.join(fixtureDir, 'guard.pbt'), 'utf8');
     const pbproj = fs.readFileSync(path.join(fixtureDir, 'guard.pbproj'), 'utf8');

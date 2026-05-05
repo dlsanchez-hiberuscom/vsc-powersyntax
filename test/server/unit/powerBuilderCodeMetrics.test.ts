@@ -109,10 +109,17 @@ suite('unit/powerBuilderCodeMetrics (B260)', () => {
     assert.equal(focusObject?.library, 'file:///proj/lib_app.pbl');
     assert.equal(focusObject?.metrics.functions, 2);
     assert.equal(focusObject?.metrics.events, 1);
-    assert.equal(focusObject?.metrics.embeddedSqlStatements, 1);
+    assert.equal(focusObject?.metrics.embeddedSqlStatements, 2);
     assert.equal(focusObject?.metrics.linkedDataWindows, 1);
     assert.equal(focusObject?.metrics.externalDependencies, 1);
     assert.deepEqual(focusObject?.embeddedSqlAnchors, [{
+      startLine: 11,
+      endLine: 11,
+      keyword: 'CONNECT',
+      preview: 'CONNECT USING SQLCA;',
+      confidence: 'high',
+      transactionTarget: 'SQLCA'
+    }, {
       startLine: 14,
       endLine: 16,
       keyword: 'SELECT',

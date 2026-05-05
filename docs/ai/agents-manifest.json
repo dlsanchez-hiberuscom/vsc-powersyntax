@@ -1,0 +1,22 @@
+{
+  "description": "Reworked AI agents and governance docs",
+  "files": [
+    ".github/agents/ai-tools-maintainer.md",
+    ".github/agents/architecture-reviewer.md",
+    ".github/agents/build-release-maintainer.md",
+    ".github/agents/catalog-maintainer.md",
+    ".github/agents/datawindow-maintainer.md",
+    ".github/agents/docs-auditor.md",
+    ".github/agents/docs-maintainer.md",
+    ".github/agents/localization-maintainer.md",
+    ".github/agents/orca-pbautobuild-maintainer.md",
+    ".github/agents/performance-auditor.md",
+    ".github/agents/powerbuilder-semantic-auditor.md",
+    ".github/agents/spec-implementation-agent.md",
+    ".github/agents/vsix-release-auditor.md",
+    "AGENTS.md",
+    "docs/ai/README.md",
+    "docs/ai/ai-agents-catalog.md",
+    "docs/ai/ai-context/powerbuilder-plugin-context.md"
+  ]
+}
