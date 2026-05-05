@@ -1,181 +1,249 @@
-# Spec-Driven Development — PowerBuilder VS Code Plugin
+# Spec-Driven Development (SDD) — Plugin PowerBuilder 2025 para VS Code
 
 ## 1. Propósito
 
-Definir el flujo de trabajo basado en specs para implementar, validar y cerrar cambios en el repositorio.
+Este repositorio usa un enfoque **Spec-Driven Development** ligero, vivo y pragmático.
 
-Este documento es propietario de:
-
-- ciclo backlog → spec → implementación → validación → done-log;
-- estados de specs;
-- criterios de cierre;
-- reglas para dividir trabajo;
-- relación entre specs, backlog, current-focus y roadmap.
+La spec no es decoración: dirige el cambio.
 
 ---
 
-## 2. Principio base
+## 2. Flujo oficial
 
-Toda modificación funcional, arquitectónica u operativa relevante debe estar respaldada por una spec o por una decisión no-action documentada.
-
-No se debe implementar por impulso ni cerrar trabajo sin validación.
-
-Para tareas IA con budget corto, usar `docs/ai-context/powerbuilder-plugin-context.md` como pack compacto y delegar el detalle al documento propietario del área.
-
----
-
-## 3. Flujo SDD
-
-```txt
-1. Backlog identifica trabajo pendiente.
-2. Current Focus promueve el trabajo activo.
-3. Spec define alcance ejecutable.
-4. Tasks divide la ejecución.
-5. Plan define estrategia técnica.
-6. Implementación modifica código/docs/tests.
-7. Validación comprueba criterios.
-8. Done-log registra cierre real.
-9. Backlog/current-focus/roadmap se alinean.
-```
+1. Constitution
+2. Specify
+3. Plan
+4. Tasks
+5. Implement
+6. Validate
+7. Update docs
+8. Close / move to done-log
 
 ---
 
-## 4. Estructura recomendada de spec
+## 3. Autoridad documental
 
-```txt
-specs/<id>-<slug>/
-  spec.md
-  tasks.md
-  plan.md
-```
-
-### `spec.md`
-
-Debe contener:
-
-- objetivo;
-- problema;
-- evidencia;
-- alcance;
-- fuera de alcance;
-- criterios de aceptación;
-- validación;
-- documentación afectada;
-- riesgos.
-
-### `tasks.md`
-
-Debe contener tareas accionables, verificables y marcables.
-
-### `plan.md`
-
-Debe contener estrategia técnica, orden de ejecución, riesgos y validación prevista.
+1. `docs/constitution.md`
+2. `docs/architecture.md`
+3. specs activas en `specs/`
+4. `docs/roadmap.md`
+5. `docs/current-focus.md`
+6. `docs/backlog.md`
+7. implementación actual
 
 ---
 
-## 5. Estados
+## 4. Definition of Ready
 
-```txt
-Open              -> pendiente real
-Partial           -> avance parcial, faltan criterios
-Ready for closure -> código/tests básicos existen, falta cierre final
-Blocked           -> bloqueado por entorno/decisión/dependencia
-Done              -> cerrado con validación y docs
-Superseded        -> absorbido por otra spec
-```
+Una feature está Ready cuando:
 
-`Done` solo es válido si existe evidencia.
-
----
-
-## 6. Definition of Ready
-
-Una spec está lista para ejecución si:
-
-- intención clara;
-- alcance y fuera de alcance claros;
-- criterios verificables;
-- validación definida;
-- documentos afectados identificados;
-- riesgos conocidos;
-- dependencias claras.
+- la spec es clara y acotada;
+- el alcance está definido;
+- el fuera de alcance está definido;
+- la aceptación es verificable;
+- el plan técnico es suficiente;
+- los riesgos principales son entendibles;
+- las tareas son razonables y pequeñas.
 
 ---
 
-## 7. Definition of Done
+## 5. Definition of Done
 
-Una spec está Done solo si:
+Una feature está Done solo cuando:
 
-```txt
-1. Implementación funcional o decisión no-action documentada.
-2. Tests/validación ejecutados.
-3. Documentación afectada actualizada.
-4. Backlog/current-focus/roadmap alineados.
-5. Done-log actualizado con evidencia.
-6. No queda deuda crítica oculta.
-```
+- cumple criterios de aceptación;
+- pasa validación prevista;
+- no degrada injustificadamente la experiencia;
+- documentación viva actualizada;
+- backlog/done-log/current-focus alineados si aplica;
+- no deja deuda crítica oculta sin registrar.
 
 ---
 
-## 8. Reglas de ejecución
+## 6. Documentación viva obligatoria
 
-- Ejecutar specs en el orden indicado por `current-focus.md` y `backlog.md`.
-- No saltar dependencias.
-- No ampliar scope sin actualizar spec/backlog.
-- Si una spec crece demasiado, dividirla.
-- Si algo no se corrige, registrar follow-up.
-- No cerrar con validación pendiente.
+Toda spec debe declarar qué documentación puede verse afectada.
+
+Estructura mínima de una spec activa:
+
+- `spec.md`
+- `plan.md`
+- `tasks.md`
+
+`quickstart.md` es obligatorio solo cuando aporta una validación o ruta de uso reproducible que no cabe claramente en `plan.md`; para slices históricas o documentación retroactiva puede omitirse si `plan.md` declara validación suficiente.
+
+Para specs históricas normalizadas retroactivamente (por ejemplo, las saneadas en `B233`), se acepta reconstruir `spec.md`, `plan.md` y `tasks.md` mínimos siempre que:
+
+- el estado quede explícito como `closed`, `superseded` o `absorbed`;
+- se cite evidencia real observable en el repo actual;
+- y no se reabra artificialmente la feature por ausencia de plantilla antigua.
+
+El número de carpeta en `specs/NNN-*` es un identificador secuencial de spec, no el ID del backlog. Cuando una spec implementa `Bxxx`, debe declararlo explícitamente en título o cuerpo para evitar colisiones como `specs/042-*` frente a `B042`.
+
+Checklist de revisión documental:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/roadmap.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/rules-catalog.md`
+- `docs/developer-workflows.md`
+- `docs/ai-strategy.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+
+Guardrail local de drift documental:
+
+- `npm run test:docs:drift` debe detectar ítems `Done` todavía activos en backlog, entradas duplicadas en `docs/backlog.md` o `docs/done-log.md`, specs sin `spec.md`/`tasks.md` y desalineación entre `docs/current-focus.md` y `docs/roadmap.md`.
+- El mismo rail debe rechazar estados `Done/Closed` todavía presentes en `docs/backlog.md` y entradas canónicas modernas del done-log sin `**Validación registrada:**` o `**Documentación alineada:**`.
+- Este audit protege el cierre canónico de documentación viva; no sustituye una normalización histórica completa de todas las specs antiguas.
+
+Una spec no está Done si la documentación viva afectada no está actualizada.
 
 ---
 
-## 9. Validación mínima por tipo de spec
+## 7. Matriz de documentación afectada
 
-### Documentación
+### Si cambia arquitectura
 
-```bash
-npm run test:docs:drift
-```
+Actualizar:
 
-### Runtime / semántica
+- `architecture.md`
+- `roadmap.md` si cambia fase
+- `backlog.md`
+- specs afectadas
 
-```bash
-npm test
-```
+### Si cambia rendimiento
 
-### Arquitectura
+Actualizar:
 
-```bash
-npm run test:architecture:metrics
-```
+- `performance-budget.md`
+- `testing.md`
+- `backlog.md`
 
-### Performance
+### Si cambia parsing o semántica PowerBuilder
 
-```bash
-npm run test:performance:gate
-```
+Actualizar:
 
-### VSIX / release
+- `powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `rules-catalog.md` si añade diagnóstico
+- `testing.md`
+- `backlog.md`
 
-```bash
-npm run package:vsix
-npm run verify:vsix-contents
-npm run package:vsix:list
-npm run test:smoke:installed-vsix
-```
+### Si cierra trabajo
+
+Actualizar:
+
+- `backlog.md`
+- `done-log.md`
+- `current-focus.md`
+- `roadmap.md` si aplica
+
+### Si afecta IA/agentes
+
+Actualizar:
+
+- `ai-strategy.md`
+- `ai-orchestrator.md`
+- `ai-agents-catalog.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `00-ai-entrypoint.md` si cambia regla global
+
+### Si cambia code actions o quick fixes write-enabled
+
+Actualizar:
+
+- `rules-catalog.md`
+- `developer-workflows.md`
+- `testing.md`
+- `backlog.md`, `done-log.md`, `current-focus.md` y `roadmap.md` si el backlog correspondiente se cierra
+
+Además, la spec debe dejar:
+
+- catálogo versionado por acción;
+- `confidence` mínima, `evidence` y `preview` explícitos;
+- preflight obligatorio y motivos de bloqueo trazables;
+- al menos una smoke Problems/CodeAction sobre un diagnóstico realmente publicado.
+
+### Si cambia catálogo del lenguaje o generator oficial
+
+Actualizar:
+
+- `docs/architecture.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `docs/testing.md`
+- `docs/backlog.md`
+- spec afectada en `specs/`
+
+Además, la spec debe dejar:
+
+- confirmación de compatibilidad de IDs, `kind`, `domain` y `namespace` existentes;
+- pruebas de consistency/kindCounts/domainCounts;
+- nota explícita si `grammar.ts` mantiene Sets rápidos fuera del catálogo rico;
+- ruta de validación para PFC/OrderEntry cuando el cambio afecte consumers visibles.
+
+### Si cambia contratos de ejecución para agentes
+
+Actualizar:
+
+- `ai-orchestrator.md`
+- `ai-agents-catalog.md`
+- `spec-driven-development.md`
+- `testing.md`
+- `architecture.md` si la surface contractual pública cambia
+- `backlog.md`, `done-log.md`, `current-focus.md` y `roadmap.md` si el backlog correspondiente se cierra
+
+Además, la spec debe dejar:
+
+- contrato versionado exportado por el producto, no solo descrito en docs;
+- inputs/outputs, contexto máximo, validación requerida, límites write-enabled, receipts y handoff SDD explícitos;
+- replay read-only desde repro/support bundle cuando la tarea no arranca con el repo completo;
+- dry-run auditable antes de cualquier ejecución write-enabled;
+- `validationReceipt` posterior con `commands`, `results`, `artifacts`, `docsTouched`, `docsPending`, `specsAffected` y `nextFocus`, y ningún cierre canónico mientras `docsPending` no esté vacío.
 
 ---
 
-## 10. Done-log
+## 8. Reglas para IA
 
-Al cerrar una spec, registrar:
+La IA debe:
 
-- ID;
-- fecha;
-- resumen;
-- archivos relevantes;
-- validación ejecutada;
-- evidencia;
-- documentos actualizados;
-- follow-ups si existen.
+- leer `00-ai-entrypoint.md` antes de cambios relevantes;
+- respetar `current-focus.md`;
+- no inventar alcance;
+- no cerrar sin tests/docs;
+- no reimplementar specs cerradas;
+- actualizar documentación viva.
 
-No registrar en done-log trabajo que solo está planificado o parcialmente validado.
+La IA no debe:
+
+- abrir features fuera de foco sin causa;
+- mover items a Done sin done-log;
+- tocar ORCA hot path;
+- meter IA dentro del core;
+- parsear DataWindow como PowerScript.
+
+Guardrail adicional de arquitectura:
+
+- si una spec retira DTOs de transporte/editor del core, debe dejar tipos internos, mappers de borde y un test arquitectónico que impida la reintroducción del acoplamiento.
+- si una spec publica salida LSP derivada de parser + snapshot semántico, debe dejar un reporte o assertions de reconciliación con reason codes antes de ampliar más UX visible.
+
+---
+
+## 9. Cierre de spec
+
+Al cerrar una spec:
+
+1. verificar criterios de aceptación;
+2. ejecutar validación proporcional y conservar `dry-run`/`validationReceipt` cuando aplique;
+3. actualizar documentación afectada;
+4. mover ítems cerrados fuera de backlog;
+5. añadir entrada en done-log;
+6. actualizar current-focus si cambia el foco;
+7. actualizar roadmap si cambia fase;
+8. registrar deuda derivada si queda algo pendiente.

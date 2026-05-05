@@ -660,8 +660,8 @@ Cualquier operación peligrosa debe bloquearse o degradar si `sourceOrigin` no e
 
 Se recomienda consolidar primero las superficies documentales ya existentes antes de abrir rutas nuevas:
 
-- `docs/catalog/catalog-localization-workflow.md` para localización y overlays del catálogo.
-- `docs/ai/ai-integration-architecture.md` y `docs/ai/ai-agents-catalog.md` para tools, context bundles y operación IA.
+- `docs/localization.md` para localización y overlays del catálogo.
+- `docs/ai-orchestrator.md` y `docs/ai-agents-catalog.md` para tools, context bundles y operación IA.
 - `docs/build/README.md` para build, packaging, VSIX, PBAutoBuild y ORCA.
 - `docs/performance-budget.md` para budgets, gates y observabilidad operativa.
 

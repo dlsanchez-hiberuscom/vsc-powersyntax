@@ -25,47 +25,6 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
-## 1.202 AUDIT-DOC-FINAL. Consolidación final de deriva docs-código-tests y cierre release — **Cerrada (docs consolidation / release validation / 2026-05)**
-
-**Objetivo:** cerrar la deriva residual entre documentación canónica, contratos visibles del producto y suites de validación, dejando el repositorio en reposo explícito y con evidencia de release real.
-
-**Resultado registrado:**
-- `docs/README.md` y `docs/roadmap.md` pasan a existir como entrypoints canónicos reales, mientras `docs/constitution.md`, `docs/architecture.md`, `docs/architecture-status.md`, `docs/product-operating-model.md`, `docs/spec-driven-development.md`, `docs/ai/README.md`, `docs/ai/ai-integration-architecture.md`, `docs/runtime/runtime-observability.md`, `docs/catalog/system-catalog-architecture.md`, `docs/build/README.md` y `README.md` quedan reanclados a ownership y rutas vivas del repositorio;
-- se publica la capa de compatibilidad documental mínima requerida por referencias y tests (`docs/ai-context/powerbuilder-plugin-context.md`, `docs/ai/ai-context/powerbuilder-plugin-context.md`, `docs/ai-orchestrator.md`, `docs/ai-agents-catalog.md`, `docs/ai-strategy.md`, `docs/localization.md`, `docs/rules-catalog.md`, `docs/00-ai-entrypoint.md`, `docs/plugin-old-migration-opportunities.md`, `docs/build/orca-pbautobuild-architecture.md`) sin duplicar contenido largo ni abrir otro mapa paralelo;
-- los tests y shims de compatibilidad quedan alineados con el contrato vigente: `test/server/unit/packageSelfVerificationContract.test.ts`, `test/server/unit/catalogGeneratorScript.test.ts`, `test/server/unit/topology.test.ts`, `test/server/unit/powerBuilderCodeMetrics.test.ts`, `test/smoke/extension.test.ts` y `script/generate_official_function_catalog.cjs` absorben la deriva real entre paths, fixtures, embedded SQL defendible y namespace canónico de settings `vscPowerSyntax.*`;
-- `docs/current-focus.md` y `docs/backlog.md` permanecen en reposo explícito sin necesidad de reabrir cadena nueva, y `docs/roadmap.md` queda saneado sin la copia histórica incrustada al final.
-
-**Validación registrada:**
-- `npm run test:docs:drift`
-- `npm run test:architecture:metrics`
-- `npm run test:performance:gate`
-- `npm run package:vsix`
-- `npm run verify:vsix-contents`
-- `npm run package:vsix:list`
-- `npm run test:smoke:installed-vsix`
-- `npm test`
-- `npm run release:verify`
-
-**Documentación alineada:**
-- `AGENTS.md`
-- `README.md`
-- `docs/README.md`
-- `docs/backlog.md`
-- `docs/current-focus.md`
-- `docs/roadmap.md`
-- `docs/done-log.md`
-- `docs/constitution.md`
-- `docs/architecture.md`
-- `docs/architecture-status.md`
-- `docs/spec-driven-development.md`
-- `docs/ai/README.md`
-- `docs/ai/ai-integration-architecture.md`
-- `docs/runtime/runtime-observability.md`
-- `docs/catalog/system-catalog-architecture.md`
-- `docs/build/README.md`
-- `docs/build/orca-pbautobuild-architecture.md`
-- `docs/ai-context/powerbuilder-plugin-context.md`
-
 ## 1.201 BL-07. Guards LSP con markers reales minimalistas — **Cerrada (lsp-guard / realistic markers / 2026-05)**
 
 **Objetivo:** sustituir los fixtures sintéticos usados por la smoke de guards LSP por markers PowerBuilder plausibles y minimalistas, manteniendo el mismo borde de no-serving semántico.
@@ -1712,7 +1671,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `src/server/knowledge/system/consistency.ts` deja de ser solo un guard estructural y publica `adoption`, un reporte comparativo con métricas globales y por dominio para `generated` frente a `manual-core`, incluyendo `officialCount`, `generatedCount`, `manualCount`, `duplicateCount`, overlays, `scraperErrorCount`, calidad de signatures/appliesTo/ownerTypes/returnType/eventId/parameterDocs y política recomendada;
 - el summary vigente fija `officialCount = 6601`, `generatedCount = 2146`, `manualCount = 1039`, `duplicateCount = 695`, `gapCount = 343`, `overrideCount = 1`, `enrichmentCount = 695`, `candidateCount = 0` y `scraperErrorCount = 0`, con `officialDomainsWithGaps = []` y recomendación `generated-primary-with-manual-overlays`;
 - `test/server/unit/catalogAdoptionDecision.test.ts` y `test/server/unit/catalogConsistency.test.ts` convierten esa decisión en un gate verificable, fijando que el policy baseline siga siendo `generated` como base oficial con overlays manuales explícitos y excepciones solo para dominios sin rail oficial (`datawindow-events`, `operators`, `pronouns`, `system-globals`);
-- `docs/catalog/ADR-0001-system-catalog-source-of-truth.md` deja la decisión arquitectónica cerrada, con contexto, opciones evaluadas, evidencia cuantitativa, consecuencias, plan de migración y rollback.
+- `docs/adr/ADR-0001-system-catalog-source-of-truth.md` deja la decisión arquitectónica cerrada, con contexto, opciones evaluadas, evidencia cuantitativa, consecuencias, plan de migración y rollback.
 
 **Validación registrada:**
 - `npm run test:unit -- --grep "catalogConsistency|catalogAdoptionDecision"`
@@ -1724,7 +1683,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `docs/testing.md`
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
 - `docs/rules-catalog.md`
-- `docs/catalog/ADR-0001-system-catalog-source-of-truth.md`
+- `docs/adr/ADR-0001-system-catalog-source-of-truth.md`
 
 ## 1.126 B368. Manual curated overlays, gaps and overrides policy — **Cerrada (knowledge/manual overlay governance 2026-05)**
 
@@ -1759,7 +1718,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `generatedCompleteness.generated.ts` queda con `missingCount = 0` en `global-functions`, `object-functions`, `datawindow-functions`, `keywords`, `reserved-words`, `datatypes`, `enumerated-types`, `enumerated-values`, `system-object-datatypes`, `system-events` y `statements`.
 
 **Validación registrada:**
-- `node ./scripts/generate_official_function_catalog.cjs`
+- `node ./script/generate_official_function_catalog.cjs`
 - `npm run test:unit -- --grep catalogGeneratorScript`
 - `npm run test:unit -- --grep catalogV2`
 - `npm run test:unit -- --grep catalogConsistency`
@@ -1784,7 +1743,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `catalogV2`, `catalogConsistency` y `catalogProvenanceAudit` se revalidan tras la regeneración, dejando listo el siguiente cambio de source-of-truth de `B367` sobre un rail regresivo ya estabilizado.
 
 **Validación registrada:**
-- `node ./scripts/generate_official_function_catalog.cjs`
+- `node ./script/generate_official_function_catalog.cjs`
 - `npm run test:unit -- --grep catalogGeneratorScript`
 - `npm run test:unit -- --grep catalogV2`
 - `npm run test:unit -- --grep catalogConsistency`
@@ -1808,7 +1767,7 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - `src/server/knowledge/system/services/queryService.ts` prioriza el overlay oficial enriquecido de `system-object-datatypes` en `resolveDatatype()` y `resolveLanguageSymbol()` cuando aporta más estructura que la entrada curada base, evitando que tipos runtime como `PDFDocumentProperties` sigan resolviendo sólo contra la versión manual mínima.
 
 **Validación registrada:**
-- `node ./scripts/generate_official_function_catalog.cjs`
+- `node ./script/generate_official_function_catalog.cjs`
 - `npm run test:unit -- --grep catalogGeneratorScript`
 - `npm run test:unit -- --grep "catalogV2|catalogConsistency|catalogProvenanceAudit"`
 

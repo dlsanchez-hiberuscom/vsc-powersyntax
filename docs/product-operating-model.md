@@ -116,10 +116,10 @@ Cada tipo de información vive en un único documento propietario:
 - Rendimiento → `performance-budget.md`
 - Validación → `testing.md`
 - Proceso SDD → `spec-driven-development.md`
-- Visión IA → `ai/ai-strategy.md`
-- Orquestación IA → `ai/ai-integration-architecture.md`
-- Catálogo de agentes → `ai/ai-agents-catalog.md`
-- Diagnósticos → `rules/rules-catalog.md`
+- Visión IA → `ai-strategy.md`
+- Orquestación IA → `ai-orchestrator.md`
+- Catálogo de agentes → `ai-agents-catalog.md`
+- Diagnósticos → `rules-catalog.md`
 - Workflows de usuario → `developer-workflows.md`
 - Ideas aprovechables de `plugin_old` → `plugin-old-migration-opportunities.md`
 
