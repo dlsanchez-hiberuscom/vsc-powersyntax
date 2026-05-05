@@ -92,20 +92,28 @@ export function registerClientCommands(
   context: vscode.ExtensionContext,
   dependencies: ClientCommandRegistrationDependencies,
 ): void {
-  pushRegistrations(context, buildCoreCommands(dependencies));
-  pushRegistrations(context, buildPanelCommands(dependencies));
-  pushRegistrations(context, buildReportCommands(dependencies));
-  pushRegistrations(context, buildStatusCommands(dependencies));
-  pushRegistrations(context, buildBuildAndOrcaCommands(dependencies));
-  pushRegistrations(context, buildSupportAndMaintenanceCommands(dependencies));
+  pushRegistrations(context, buildClientCommandRegistrations(dependencies));
 }
 
-function pushRegistrations(
-  context: vscode.ExtensionContext,
-  registrations: readonly ClientCommandRegistration[],
-): void {
-  const expanded: ClientCommandRegistration[] = [];
+export function buildClientCommandRegistrations(
+  dependencies: ClientCommandRegistrationDependencies,
+): readonly ClientCommandRegistration[] {
+  return [
+    ...buildCoreCommands(dependencies),
+    ...buildPanelCommands(dependencies),
+    ...buildReportCommands(dependencies),
+    ...buildStatusCommands(dependencies),
+    ...buildBuildAndOrcaCommands(dependencies),
+    ...buildSupportAndMaintenanceCommands(dependencies),
+  ];
+}
+
+export function expandClientCommandIds(
+  registrations: readonly Pick<ClientCommandRegistration, 'id'>[],
+): string[] {
+  const expanded: string[] = [];
   const seen = new Set<string>();
+
   for (const registration of registrations) {
     const ids = registration.id.startsWith(LEGACY_CLIENT_COMMAND_PREFIX)
       ? [`${CANONICAL_CLIENT_COMMAND_PREFIX}${registration.id.slice(LEGACY_CLIENT_COMMAND_PREFIX.length)}`, registration.id]
@@ -115,13 +123,34 @@ function pushRegistrations(
       if (seen.has(id)) {
         continue;
       }
+
       seen.add(id);
-      expanded.push({ id, handler: registration.handler });
+      expanded.push(id);
+    }
+  }
+
+  return expanded;
+}
+
+function pushRegistrations(
+  context: vscode.ExtensionContext,
+  registrations: readonly ClientCommandRegistration[],
+): void {
+  const handlersById = new Map<string, ClientCommandRegistration['handler']>();
+  for (const registration of registrations) {
+    const ids = registration.id.startsWith(LEGACY_CLIENT_COMMAND_PREFIX)
+      ? [`${CANONICAL_CLIENT_COMMAND_PREFIX}${registration.id.slice(LEGACY_CLIENT_COMMAND_PREFIX.length)}`, registration.id]
+      : [registration.id];
+
+    for (const id of ids) {
+      if (!handlersById.has(id)) {
+        handlersById.set(id, registration.handler);
+      }
     }
   }
 
   context.subscriptions.push(
-    ...expanded.map(({ id, handler }) => vscode.commands.registerCommand(id, handler)),
+    ...[...handlersById.entries()].map(([id, handler]) => vscode.commands.registerCommand(id, handler)),
   );
 }
 

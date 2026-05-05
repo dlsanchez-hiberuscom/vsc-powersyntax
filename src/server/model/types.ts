@@ -67,6 +67,7 @@ export interface SymbolFact {
   access?: string;
   returnType?: string;
   isExternal?: boolean;
+  externalCallableKind?: 'library' | 'rpcfunc';
   externalLibraryName?: string;
   externalAlias?: string;
   externalDependencyKind?: 'dll' | 'pbx' | 'unknown';

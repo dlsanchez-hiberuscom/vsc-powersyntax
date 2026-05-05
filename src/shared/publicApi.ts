@@ -2177,7 +2177,20 @@ export interface ApiCurrentObjectContextRequest {
 export interface ApiEmbeddedSqlAnchor {
   startLine: number;
   endLine: number;
-  keyword: 'SELECT' | 'UPDATE' | 'INSERT' | 'DELETE' | 'EXECUTE';
+  keyword:
+    | 'SELECT'
+    | 'UPDATE'
+    | 'INSERT'
+    | 'DELETE'
+    | 'EXECUTE'
+    | 'CONNECT'
+    | 'DECLARE'
+    | 'FETCH'
+    | 'OPEN'
+    | 'CLOSE'
+    | 'PREPARE'
+    | 'COMMIT'
+    | 'ROLLBACK';
   preview: string;
   confidence: 'high' | 'medium' | 'low';
   transactionTarget?: string;

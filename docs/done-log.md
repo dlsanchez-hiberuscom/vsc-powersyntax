@@ -25,6 +25,366 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.201 BL-07. Guards LSP con markers reales minimalistas — **Cerrada (lsp-guard / realistic markers / 2026-05)**
+
+**Objetivo:** sustituir los fixtures sintéticos usados por la smoke de guards LSP por markers PowerBuilder plausibles y minimalistas, manteniendo el mismo borde de no-serving semántico.
+
+**Resultado registrado:**
+- `test/fixtures/lsp-guards/guard.pbw`, `guard.pbt`, `guard.pbproj`, `guard.pbsln` y `guard.pbl` dejan de contener PowerScript disfrazado y pasan a usar shapes mínimos plausibles para workspace/target/project/solution/library;
+- `test/server/unit/topology.test.ts` valida que esos mismos fixtures son consumibles por `parseTopology()` para workspace, target, project y solution, mientras `.pbl` sigue sin parseo topológico como fuente servible;
+- `test/smoke/lsp-guards.extension.test.ts` sigue demostrando que, incluso forzando un lenguaje servido por el cliente, los markers y `.pbl` no reciben `Document Symbols` ni diagnostics, de modo que discovery/topología y borde LSP permanecen alineados.
+
+**Validación registrada:**
+- `npx tsc -p tsconfig.test.json`
+- `npx mocha --ui tdd out/test/server/unit/topology.test.js`
+- `npm run test:smoke -- --grep "lsp-guards"`
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `specs/434-bl-07-lsp-guards-realistic-markers/spec.md`
+
+## 1.200 BL-06. Gate de evidencia para conditional compilation — **Cerrada (parser-governance / evidence gate / 2026-05)**
+
+**Objetivo:** mantener una policy explícita de no-soporte productivo para conditional compilation mientras no exista corpus activo defendible, dejando un detector read-only y tests sentinel reutilizables.
+
+**Resultado registrado:**
+- `src/server/parsing/conditionalCompilationGate.ts` añade detección pura de `#IF/#ELSEIF/#ELSE/#END IF/#define` y variantes con `$`, apoyada en `stripCommentsSmart()` para ignorar histórico comentado sin tocar parser, semántica ni serving;
+- `test/server/unit/conditionalCompilationGate.test.ts` fija el caso positivo de marcadores activos y el caso negativo de comentarios/strings históricos, mientras `test/server/unit/powerbuilderParserResilienceFuzz.test.ts` refuerza que el histórico real de corpus no se promueve a sintaxis activa;
+- `docs/testing.md`, la guía técnica de PowerBuilder, backlog, current-focus y roadmap dejan explícito que esto es un gate de evidencia y no una promesa de soporte productivo de conditional compilation.
+
+**Validación registrada:**
+- `npx tsc -p tsconfig.test.json`
+- `npx mocha --ui tdd out/test/server/unit/conditionalCompilationGate.test.js out/test/server/unit/powerbuilderParserResilienceFuzz.test.js`
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+- `specs/433-bl-06-conditional-compilation-evidence-gate/spec.md`
+
+## 1.199 BL-05. Extender safe model de DataWindow — **Cerrada (datawindow / literal column access / 2026-05)**
+
+**Objetivo:** ampliar el safe model DataWindow para cubrir edición/lectura de columnas literales y variantes con `DWBuffer` sin simular runtime ni abrir un motor paralelo.
+
+**Resultado registrado:**
+- `src/server/features/dataWindowColumnAccess.ts` añade un resolver literal-only para `GetItem*`, `SetItem*` y `SetItemStatus`, reutilizando `dataWindowBindingModel` y `dataWindowModel` para navegar a `table-column` cuando el `DataObject` resuelve de forma literal y única;
+- `src/server/features/definition.ts` y `src/server/features/hover.ts` consumen ese rail nuevo sin tocar el query engine general, de modo que definition/hover navegan columnas DataWindow en APIs de edición/lectura y conservan degradación nula en roots dinámicos;
+- `test/server/unit/definition.test.ts` y `test/server/unit/hover.test.ts` fijan el caso positivo con `DWBuffer` y el caso negativo con `DataObject` dinámico, mientras `docs/testing.md`, backlog, roadmap y current-focus quedan alineados con la promoción a `BL-06`.
+
+**Validación registrada:**
+- `npx tsc -p tsconfig.test.json`
+- `npx mocha --ui tdd out/test/server/unit/definition.test.js out/test/server/unit/hover.test.js`
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `specs/432-bl-05-datawindow-column-safe-access/spec.md`
+
+## 1.198 BL-04. Profundizar superficie native, external, RPCFUNC y PBNI — **Cerrada (native-external / rpcfunc distinction / 2026-05)**
+
+**Objetivo:** reforzar el tratamiento de external functions, DLL/PBX, `RPCFUNC` y stored procedures sin prometer implementación PowerScript interna.
+
+**Resultado registrado:**
+- el parser distingue `LIBRARY` y `RPCFUNC` dentro del mismo rail seguro de callables sin implementación interna;
+- hover, diagnostics y el `powerBuilderTechnicalDebtReport` proyectan `RPCFUNC` como stored procedure DBMS sin degradarlo a `unknown`, mientras PBX sigue siendo la evidencia visible del impacto PBNI/runtime;
+- rename y references bloquean/degradan `RPCFUNC` igual que las dependencias nativas externas, manteniendo la degradación segura y evitando navegación ficticia.
+
+**Validación registrada:**
+- `npx tsc -p tsconfig.test.json`
+- `npx mocha --ui tdd out/test/server/unit/externalFunctions.test.js out/test/server/unit/rename.test.js out/test/server/unit/references.test.js out/test/server/unit/hoverFormat.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/powerBuilderTechnicalDebtReport.test.js`
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `specs/431-bl-04-native-external-rpcfunc-surface/spec.md`
+
+## 1.197 GOV-01. Gate de prioridad y readiness antes de abrir nuevo código — **Cerrada (governance / priority gate / 2026-05)**
+
+**Objetivo:** impedir que el repositorio vuelva a abrir trabajo disperso sin respetar la cadena de cierre inmediato, el bloque derivado de auditoría y la secuencia posterior de planificación.
+
+**Resultado registrado:**
+- la cadena inmediata `VSIX-01 → AUDIT-VSIX → DOC-01 → DOC-02 → AUDIT-DOC` y el bloque derivado `BL-01 → BL-02 → BL-03 → BL-08` ya quedaron cerrados con evidencia y fuera del backlog activo;
+- la secuencia posterior `SYM-01 → LOC-01 → CAT-01 → GOV-01` quedó absorbida con specs, done-log y `docs-drift` en verde, sin colisión entre IDs `BL-*` heredados y planes `SYM/LOC/CAT/GOV`;
+- la regla de promoción queda fijada: no abrir código nuevo fuera de backlog/roadmap/current-focus/specs, y la continuidad canónica pasa a `BL-04 → BL-05 → BL-06 → BL-07`.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/424-bl-08-priority-chain-and-readiness-gate/spec.md`
+
+## 1.196 CAT-01. Plan de catálogo, ownership y source-of-truth siguiente — **Cerrada (planning / catalog ownership / 2026-05)**
+
+**Objetivo:** ordenar la siguiente ola P1 del catálogo sin reabrir ADR-0001 ni ensanchar el hot path interactivo.
+
+**Resultado registrado:**
+- el siguiente slice P1 queda acotado a ownership e identidad de dominios excepción, reforzando `generated-primary-with-manual-overlays` y manteniendo el foco en los únicos dominios `manual-primary` permitidos y en colisiones de identidad capaces de degradar consistency/adoption;
+- quedan fijados los no-go: no reabrir la decisión de source-of-truth, no mezclar catálogo con localización y no ensanchar query/serving interactivo mientras el baseline runtime siga cubierto por `catalogV2`, `catalogConsistency`, `catalogAdoptionDecision` y `systemCatalogQueryHardening`;
+- la validación focal futura queda definida sobre consistency, adoption, provenance, identity y reporting antes de tocar generator o runtime.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `specs/423-bl-03-catalog-follow-up-plan/spec.md`
+
+## 1.195 LOC-01. Plan de localización documental del catálogo y consumers — **Cerrada (planning / localization rail / 2026-05)**
+
+**Objetivo:** ordenar el siguiente slice P1 de localización documental y authoring sin duplicar identidad semántica ni abrir overlays paralelos.
+
+**Resultado registrado:**
+- el siguiente slice P1 queda priorizado en authoring incremental guiado por `report:catalog-localization`, reforzando el rail español actual y reconciliando `targetId`/`targetKey` cuando el audit detecte drift recuperable;
+- quedan fijados los no-go: no traducir anchors técnicos ni identidad semántica, no duplicar entries por idioma y no abrir cambios de runtime mientras `documentationService`, `documentationLocale` y `catalogLocalization` sigan cubriendo el rail visible;
+- la validación focal futura queda definida sobre audit, locale consumers y migración offline, evitando abrir un rail paralelo de localización.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `docs/localization.md`
+- `docs/testing.md`
+- `specs/422-bl-02-localization-follow-up-plan/spec.md`
+
+## 1.194 SYM-01. Plan de mejora de symbols, references y rename — **Cerrada (planning / symbols follow-up / 2026-05)**
+
+**Objetivo:** dejar priorizado el siguiente slice P1 de symbols/references/rename tras estabilizar el tramo VSIX/docs y el bloque derivado de auditoría.
+
+**Resultado registrado:**
+- el primer slice elegido queda acotado a coherencia project-scoped de `workspaceSymbols`, `references`, `rename` y `crossProjectSymbolConflicts` en mixed roots, apoyándose en `referenceSourcePool` y en los fences de `sourceOrigin` ya existentes;
+- los no-go explícitos quedan fijados: no widening a `workspace` sin routing, no rename sobre `orca-staging/generated` y no edición cuando la evidencia siga en `dynamic|fallback|external|source-origin-conflict`;
+- la validación focal futura queda definida antes de tocar runtime interactivo, evitando abrir varias sublíneas de symbols a la vez.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `docs/testing.md`
+- `specs/421-bl-01-symbols-follow-up-plan/spec.md`
+
+## 1.193 BL-08. Corregir deriva documental ORCA/PBAutoBuild — **Cerrada (docs build / ownership gate / 2026-05)**
+
+**Objetivo:** cerrar la deriva documental residual del carril ORCA/PBAutoBuild declarando un documento propietario suficiente y retirando la necesidad de rutas especializadas inexistentes.
+
+**Resultado registrado:**
+- `docs/build/README.md` declara ya de forma explícita que es el documento propietario actual del carril build/release/ORCA/PBAutoBuild mientras no exista contenido especializado que justifique otra partición;
+- no quedan referencias activas a documentos especializados inexistentes del carril build, y arquitectura/estado arquitectónico siguen apuntando a superficies reales;
+- el gate documental derivado queda absorbido con `docs-drift` verde y libera la promoción de la secuencia posterior `SYM-01 → LOC-01 → CAT-01 → GOV-01`.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/build/README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/430-bl-08-orca-pbautobuild-doc-drift/spec.md`
+
+## 1.192 BL-03. Ampliar modelo de SQL embebido y dynamic SQL — **Cerrada (semantic SQL / embedded statements / 2026-05)**
+
+**Objetivo:** ampliar el modelo seguro de SQL embebido para cubrir más statements oficiales sin fingir semántica cuando no exista evidencia.
+
+**Resultado registrado:**
+- `findSqlRegions()` detecta ahora de forma conservadora `CONNECT`, `DECLARE`, `FETCH`, `OPEN`, `CLOSE`, `PREPARE`, `COMMIT` y `ROLLBACK` además del subset previo, manteniendo el cierre por `;` y evitando falsos positivos sobre llamadas normales con paréntesis;
+- `ApiEmbeddedSqlAnchor` publica ese conjunto ampliado de keywords sin abrir un parser SQL general ni prometer resolución profunda de SQL dinámico complejo;
+- `currentObjectContext` proyecta los nuevos anchors reales de SQL embebido y sigue ignorando llamadas normales como `open(w_child)`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/sqlRegions.test.js out/test/server/unit/currentObjectContext.test.js --grep "SQL|embedded SQL|sqlRegions"`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/429-bl-03-embedded-dynamic-sql-coverage/spec.md`
+
+## 1.191 BL-02. Alinear corpus público documentado con estado real — **Cerrada (corpus validation / public slots alignment / 2026-05)**
+
+**Objetivo:** alinear la documentación del corpus público con lo realmente materializado localmente, evitando claims sobre fixtures ausentes y dejando trazado qué slots siguen siendo opcionales.
+
+**Resultado registrado:**
+- `publicCorpusPaths.ts` declara explícitamente el conjunto materializado del checkout base y deja `legacy-pbl-dump` como único slot público obligatorio hoy;
+- `test/corpora/README.md` separa slots públicos materializados de slots opcionales no materializados por defecto, en vez de presentarlos todos como si ya existieran localmente;
+- `publicCorpusDocumentation.test.ts` impide que el README vuelva a promocionar como materializados slots públicos que sigan ausentes en `fixtures-local/public/`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/publicCorpusDocumentation.test.js`
+
+**Documentación alineada:**
+- `test/corpora/README.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/428-bl-02-public-corpus-alignment/spec.md`
+
+## 1.190 BL-01. Normalizar taxonomía de archivos y artifacts PowerBuilder — **Cerrada (ecosystem discovery / artifact taxonomy / 2026-05)**
+
+**Objetivo:** ampliar y normalizar la taxonomía de artefactos PowerBuilder reconocidos explícitamente por el producto, incluyendo `pbg`, `pbr` y `psr`, sin servirlos como PowerScript ni romper el hot path.
+
+**Resultado registrado:**
+- `powerbuilderFiles.ts` clasifica ahora `pbg` como build/support, `pbr` como resource y `psr` como report, manteniéndolos fuera del carril source/semantic/marker;
+- `discovery.ts` registra estos artefactos como categorías explícitas del workspace (`artifact-pbg-file`, `artifact-pbr-file`, `artifact-psr-file`) sin parsearlos como PowerScript ni afectar el scheduling cooperativo;
+- los tests focales confirman tanto la clasificación no servible como la aparición de estos artefactos en `WorkspaceState.getDiscoveryArtifactSummary()`.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/powerbuilderFiles.test.js out/test/server/unit/workspace.test.js`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/427-bl-01-powerbuilder-artifact-taxonomy/spec.md`
+
+## 1.189 AUDIT-DOC. Cierre post-auditoría de deriva documental canónica — **Cerrada (audit closure / docs drift / 2026-05)**
+
+**Objetivo:** cerrar con evidencia la deriva documental detectada tras el barrido read-only, sin volver a dejar backlog, foco o roadmap desacoplados.
+
+**Resultado registrado:**
+- la deriva detectada en backlog/current-focus/roadmap y referencias de build quedó absorbida por la cadena `DOC-01` y `DOC-02` sin reabrir ítems cerrados ni dejar placeholders en los artefactos canónicos;
+- `docs-drift-audit.cjs` permaneció verde con todos los cierres inmediatos ya movidos a `docs/done-log.md`, confirmando que el relevo hacia el backlog derivado puede hacerse sin pérdida de coherencia;
+- la auditoría documental queda cerrada y deja `BL-01` como siguiente foco vivo en la continuidad pedida por el usuario.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/425-audit-doc-post-audit-documentation-closure/spec.md`
+
+## 1.188 DOC-02. Mapa documental canónico de build, packaging, VSIX, PBAutoBuild y ORCA — **Cerrada (docs alignment / build-release map / 2026-05)**
+
+**Objetivo:** consolidar una entrada documental única del carril build/release y retirar referencias rotas hacia documentación inexistente.
+
+**Resultado registrado:**
+- `docs/build/README.md` actúa ya como documento propietario del carril build/release/VSIX/PBAutoBuild/ORCA y concentra qué superficie existe, dónde vive y qué comandos la validan;
+- `docs/architecture.md` y `docs/architecture-status.md` dejaron de apuntar a documentos rotos y ahora referencian superficies reales como `docs/build/README.md`, `docs/localization.md`, `docs/ai-orchestrator.md` y `docs/ai-agents-catalog.md`;
+- se decide no abrir todavía un documento especializado vacío de ORCA/PBAutoBuild mientras el mapa actual siga siendo suficiente y verificable.
+
+**Validación registrada:**
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/build/README.md`
+- `docs/architecture.md`
+- `docs/architecture-status.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/420-doc-02-build-doc-map-and-broken-references/spec.md`
+
+## 1.187 DOC-01. Realineación canónica de backlog, foco y continuidad — **Cerrada (docs alignment / canonical continuity / 2026-05)**
+
+**Objetivo:** reanclar backlog, current-focus y roadmap a una misma cadena activa canónica usando los IDs pedidos por el usuario y manteniendo verde la auditoría documental.
+
+**Resultado registrado:**
+- `tools/docs-drift-audit.cjs` y `docsDriftAudit.test.ts` aceptan IDs canónicos no `B###`, evitando falsos errores cuando la continuidad activa usa IDs como `VSIX-01`, `DOC-01` o `BL-01`;
+- `docs/backlog.md`, `docs/current-focus.md` y `docs/roadmap.md` quedaron alineados sobre una misma continuidad viva y pudieron promover el foco siguiente sin dejar placeholders ni focos agotados;
+- los guards documentales quedaron verdes con `findings: 0`, permitiendo mover el trabajo activo a `DOC-02` sin deriva entre artefactos canónicos.
+
+**Validación registrada:**
+- `npx mocha --ui tdd out/test/server/unit/docsDriftAudit.test.js out/test/server/unit/docsLifecycleGuard.test.js`
+- `npm run test:docs:drift`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/419-doc-01-canonical-doc-realignment/spec.md`
+
+## 1.186 AUDIT-VSIX. Cierre post-fix del fallo real del VSIX instalado — **Cerrada (audit closure / installed-vsix evidence / 2026-05)**
+
+**Objetivo:** cerrar con trazabilidad completa la auditoría del fallo real del VSIX instalado sin degradar el lane release.
+
+**Resultado registrado:**
+- la causa raíz queda trazada a la doble titularidad de `powerbuilder.inspectHierarchy`: comando UI del cliente registrado por la extensión y anunciado también por el servidor en `executeCommandProvider.commands`, lo que disparaba `startFailed` en el VSIX instalado;
+- el guard `commandOwnership` ya verifica IDs expandidos duplicados y el no solapamiento cliente/servidor, y ahora además puede ejecutarse directamente con `npx mocha --ui tdd ...` en Node puro sin depender del módulo `vscode`;
+- la lane release del VSIX instalado permaneció verde tras repetir packaging, verificación de contenidos, listado de superficie y smoke instalada.
+
+**Validación registrada:**
+- `npx mocha --ui tdd out/test/server/unit/commandOwnership.test.js`
+- `npm run package:vsix`
+- `npm run verify:vsix-contents`
+- `npm run package:vsix:list`
+- `npm run test:smoke:installed-vsix`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+- `specs/418-vsix-01-installed-vsix-hardening/spec.md`
+- `specs/426-audit-vsix-post-fix-evidence-closure/spec.md`
+
+## 1.185 VSIX-01. Hardening del VSIX instalado y del arranque real del runtime — **Cerrada (regression hardening / installed-vsix startup / 2026-05)**
+
+**Objetivo:** cerrar canónicamente la regresión real del VSIX instalado, conservando la separación cliente/servidor de comandos y la verificación del arranque real del runtime empaquetado.
+
+**Resultado registrado:**
+- `SERVER_EXECUTE_COMMANDS` dejó de anunciar comandos UI del cliente como `powerbuilder.inspectHierarchy`, evitando que el cliente LSP del VSIX instalado vuelva a registrar IDs ya existentes durante `ExecuteCommandFeature.initialize`;
+- la smoke instalada quedó endurecida para fallar si reaparecen `readiness=error`, `startFailed`, `already exists` o `couldn't create connection`, manteniendo el arranque real del runtime empaquetado como contrato de cierre;
+- el guard unitario de ownership confirma tanto la deduplicación de IDs expandidos como el aislamiento entre comandos cliente y `executeCommandProvider` del servidor.
+
+**Validación registrada:**
+- `npx mocha --ui tdd out/test/server/unit/commandOwnership.test.js`
+- `npm run package:vsix`
+- `npm run verify:vsix-contents`
+- `npm run package:vsix:list`
+- `npm run test:smoke:installed-vsix`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/build/README.md`
+- `docs/done-log.md`
+- `specs/418-vsix-01-installed-vsix-hardening/spec.md`
+
 ## 1.184 AUDIT-04-DERIVED-007 — Pasar `HotContextCache` a `resolveQualifierType` — **Cerrada (no-action validated / hot-path reuse / 2026-05)**
 
 **Objetivo:** evitar lecturas redundantes de entidades activas en `resolveQualifierType` cuando el `HotContextCache` ya dispone del contexto del documento activo.

@@ -2,7 +2,7 @@
  * SQL embedded regions (Spec 041 / B090).
  *
  * Detecta regiones de SQL embebido en PowerScript. Heurística:
- * una línea que comienza por SELECT/UPDATE/INSERT/DELETE/EXECUTE
+ * una línea que comienza por un statement SQL embebido conocido
  * abre la región; el `;` final la cierra.
  *
  * @module parsing/sqlRegions
@@ -13,10 +13,23 @@ import { maskDocument } from './codeMasking';
 export interface SqlRegion {
   startLine: number;
   endLine: number;
-  keyword: 'SELECT' | 'UPDATE' | 'INSERT' | 'DELETE' | 'EXECUTE';
+  keyword:
+    | 'SELECT'
+    | 'UPDATE'
+    | 'INSERT'
+    | 'DELETE'
+    | 'EXECUTE'
+    | 'CONNECT'
+    | 'DECLARE'
+    | 'FETCH'
+    | 'OPEN'
+    | 'CLOSE'
+    | 'PREPARE'
+    | 'COMMIT'
+    | 'ROLLBACK';
 }
 
-const RE_START = /^\s*(SELECT|UPDATE|INSERT|DELETE|EXECUTE)\b/i;
+const RE_START = /^\s*(SELECT|UPDATE|INSERT|DELETE|EXECUTE|CONNECT|DECLARE|FETCH|OPEN|CLOSE|PREPARE|COMMIT|ROLLBACK)\b(?!\s*\()/i;
 
 export function findSqlRegions(content: string): SqlRegion[] {
   const masked = maskDocument(content).split(/\r?\n/);

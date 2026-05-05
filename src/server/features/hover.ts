@@ -21,6 +21,7 @@ import {
   type DocumentationLocale,
 } from '../knowledge/system/localization';
 import { EntityKind } from '../knowledge/types';
+import { providePowerScriptDataWindowColumnHover } from './dataWindowColumnAccess';
 import { provideDataWindowLegacyHover } from './dataWindowLegacySafeMode';
 import { providePowerScriptDataWindowPropertyHover } from './dataWindowPropertyPaths';
 import { buildHierarchyInspection } from './hierarchyInspection';
@@ -128,7 +129,8 @@ export function provideHover(
   documentationLocale: DocumentationLocale = 'en'
 ): Hover | null {
   const dataWindowHover = provideDataWindowLegacyHover(document, position)
-    ?? providePowerScriptDataWindowPropertyHover(document, position, kb);
+    ?? providePowerScriptDataWindowPropertyHover(document, position, kb)
+    ?? providePowerScriptDataWindowColumnHover(document, position, kb);
   if (dataWindowHover) {
     return dataWindowHover;
   }

@@ -1,4 +1,7 @@
 import * as assert from 'assert/strict';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 import { parseTopology } from '../../../src/server/workspace/topology';
 
 suite('unit/topology', () => {
@@ -96,5 +99,55 @@ suite('unit/topology', () => {
     if (r?.kind === 'target') {
       assert.equal(r.data.libraries[0], 'file:///proj/shared.pbl');
     }
+  });
+
+  test('los fixtures de lsp-guards usan markers plausibles consumibles por topology', () => {
+    const fixtureDir = path.join(process.cwd(), 'test', 'fixtures', 'lsp-guards');
+    const pbw = fs.readFileSync(path.join(fixtureDir, 'guard.pbw'), 'utf8');
+    const pbt = fs.readFileSync(path.join(fixtureDir, 'guard.pbt'), 'utf8');
+    const pbproj = fs.readFileSync(path.join(fixtureDir, 'guard.pbproj'), 'utf8');
+    const pbsln = fs.readFileSync(path.join(fixtureDir, 'guard.pbsln'), 'utf8');
+    const pbl = fs.readFileSync(path.join(fixtureDir, 'guard.pbl'), 'utf8');
+
+    assert.ok(!/global\s+type/i.test(pbw));
+    assert.ok(!/global\s+type/i.test(pbt));
+    assert.ok(!/global\s+type/i.test(pbproj));
+    assert.ok(!/global\s+type/i.test(pbsln));
+    assert.ok(!/global\s+type/i.test(pbl));
+
+    const workspace = parseTopology('file:///workspace/guard.pbw', pbw);
+    assert.equal(workspace?.kind, 'workspace');
+    if (workspace?.kind === 'workspace') {
+      assert.deepEqual(workspace.data.targets, [
+        'file:///workspace/guard.pbt',
+        'file:///workspace/guard.pbproj',
+      ]);
+    }
+
+    const target = parseTopology('file:///workspace/guard.pbt', pbt);
+    assert.equal(target?.kind, 'target');
+    if (target?.kind === 'target') {
+      assert.deepEqual(target.data.libraries, [
+        'file:///workspace/guard_app.pbl',
+        'file:///workspace/shared/guard_common.pbl',
+      ]);
+    }
+
+    const project = parseTopology('file:///workspace/guard.pbproj', pbproj);
+    assert.equal(project?.kind, 'project');
+    if (project?.kind === 'project') {
+      assert.deepEqual(project.data.libraries, [
+        'file:///workspace/guard_app.pbl',
+        'file:///workspace/shared/guard_common.pbl',
+      ]);
+    }
+
+    const solution = parseTopology('file:///workspace/guard.pbsln', pbsln);
+    assert.equal(solution?.kind, 'solution');
+    if (solution?.kind === 'solution') {
+      assert.deepEqual(solution.data.projects, ['file:///workspace/guard.pbproj']);
+    }
+
+    assert.equal(parseTopology('file:///workspace/guard.pbl', pbl), null);
   });
 });

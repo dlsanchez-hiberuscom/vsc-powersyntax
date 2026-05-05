@@ -386,6 +386,41 @@ end subroutine
     );
   });
 
+  test('degrada referencias de RPCFUNC a la declaración stored procedure', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+
+    const document = TextDocument.create('file:///u_tx.sru', 'powerbuilder', 1, `
+global type u_tx from transaction
+end type
+forward prototypes
+public subroutine sp_update_status(long al_id, string as_status) rpcfunc alias for "sp_update_status";
+public subroutine of_test()
+end prototypes
+public subroutine of_test();
+  sp_update_status(1, "A")
+end subroutine
+    `);
+
+    const analysis = analyzeDocument(document);
+    kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
+
+    const lines = document.getText().split(/\r?\n/);
+    const callLine = lines.findIndex((line) => line.includes('sp_update_status(1, "A")'));
+    const refs = provideReferences(
+      document,
+      Position.create(callLine, lines[callLine].indexOf('sp_update_status') + 1),
+      kb,
+      graph,
+      [{ uri: document.uri, content: document.getText() }]
+    );
+
+    assert.deepEqual(
+      refs.map((ref) => `${ref.uri}:${ref.range.start.line}`).sort(),
+      ['file:///u_tx.sru:4']
+    );
+  });
+
   test('no devuelve ocurrencias textuales sin declaraciones cuando existe riesgo dinámico', () => {
     const kb = new KnowledgeBase();
     const graph = new InheritanceGraph(kb);

@@ -377,29 +377,22 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Bloque pedido por el usuario — continuidad pendiente de siguiente backlog activo**
+**Bloque pedido por el usuario — continuidad completada**
+
+Cadena activa obligatoria:
+
+```txt
+completado
+```
 
 Con foco en:
 
-- tomar `B308` como cierre ya consolidado: external functions + `native-dependency` alimentan `technical debt report`, health y support bundle con distinción `dll/pbx/unknown`, aliases, consumers y evidencia de riesgo/impacto PBX-PBNI/ORCA sin cargar binarios;
-- tomar `B306` como cierre ya consolidado: `code metrics`, `technical debt report`, health, support bundle y contrato público ya reflejan HTTPClient/REST/JSON con `integration-surface:*`, `integration-pattern:*`, `integration-endpoint:*` redactado e `integration-risk:redaction-required` sin abrir un segundo motor;
-- tomar `B307` como cierre ya consolidado: `code metrics`, `technical debt report`, health, soporte Markdown y support bundle ya reflejan WebBrowser/WebView2 mediante `webBrowserUsages`, `web-ui-surface:*`, `web-ui-pattern:*` y `web-ui-risk:no-content-inspection`, sin inspeccionar contenido web remoto;
-- tomar `B309` como cierre ya consolidado: discovery y `workspaceMigrationAssistant` ya distinguen metadata SCM/policy files y outputs locales (`.git`, `.svn`, `.gitignore`, `.gitattributes`, `.scc`, `.pb`, `build`, `_backupfiles`) para explicar qué se ignora y qué no debe competir con source/build canónico;
-- tomar `B313` como cierre ya consolidado: `workspaceMigrationAssistant` y `support bundle` ya recomiendan limpieza manual de ruido local, staging ORCA, caches persistentes y drift de snapshots/settings mediante `workspace-cleanup-advisor.json`, sin borrar nada por defecto;
-- tomar `B385` como cierre ya consolidado: `package.json`, `tools/esbuild.mjs` y el cliente ya publican/arrancan el runtime desde `dist/**`, el fallback `out/**` queda limitado a desarrollo local y el VSIX real ya se genera/lista sin `node_modules` runtime suelto;
-- tomar `B386` como cierre ya consolidado: `package.json.files`, `verify:vsix-contents`, `package:vsix:list` y el test contractual `vsixPackageSurfaceContract` ya blindan la surface publicable del VSIX sin mezclarla con los fallos preexistentes del resto del carril release;
-- tomar `B387` como cierre ya consolidado: la smoke instalada del VSIX, `release:verify`, el workflow `release-readiness` y la documentación de release ya quedan alineados con `dist/**`, mientras los fallos globales remanentes siguen trazados como bloqueos preexistentes fuera del slice release;
-- tomar `B298` como cierre ya consolidado: `workspace-check` ya expone el modo `upgrade`, el comando `Check Extension Upgrade Compatibility` y warnings explícitos para `cache policy/runtime persistente`, settings legacy, `apiVersion/schemaVersion` y artefactos locales, todo reutilizando el mismo rail read-only con validación sobre fixtures legacy;
-- tomar `B315` como cierre ya consolidado: la smoke instalada del VSIX ya auto-verifica activación, comandos, handshake mínimo con runtime/LSP, defaults de settings y descriptor/API pública, todo cableado dentro de `release:verify` sin abrir otro harness;
-- tomar `B316` como cierre ya consolidado: `tools/docs-drift-audit.cjs`, `npm run test:docs:drift` y `test/server/unit/docsDriftAudit.test.ts` ya detectan drift canónico entre backlog/done-log/specs/foco vivo y dejaron corregidos `B329`, `B361` duplicado y la spec `377` incompleta sin abrir surface runtime nueva;
-- tomar `B317` como cierre ya consolidado: el mismo audit documental ya rechaza estados `Done/Closed` todavía presentes en backlog y entradas canónicas modernas del done-log sin validación o documentación alineada, dejando además saneado el formato de `B358-B363` sin abrir otro checker paralelo;
-- tomar `B314` como cierre ya consolidado: `build-orca-snapshot.json` clasifica ya fallos comunes de build/ORCA (`missing-tool`, `invalid-env`, `compile-errors`, `stale-staging`, `source-conflict`, `packaging-disabled`) usando stats read-only, problemas ya parseados y el `build-orca-journal` persistido, sin abrir otra API ni otro checker;
-- tomar `B340` como cierre ya consolidado: `manual/tooling/` publica `tooling-symbols` bajo `powerbuilder-tooling` y `resolveLanguageSymbol()` lo mantiene fuera del hot path interactivo, de modo que ORCA/PBAutoBuild quedan modelados sólo para docs/health/build surfaces sin contaminar PowerScript/DataWindow;
-- tomar `B284` como cierre ya consolidado: `explainSemanticQuery()` publica un explain plan legible sobre `queryContext` + `ResolvedTargetInfo` + `queryTrace`, lo sirve también por tool `explain-semantic-query` y por comando Markdown, y deja visibles phases/candidates/discards/winner/`sourceOrigin` sin abrir un segundo motor de resolución;
-- tomar `B286` como cierre ya consolidado: `frameworkKnowledgePackPolicy` publica la policy ligera donde el source real del workspace gana, `frameworkKnowledgeConflict` se proyecta en `querySymbols/currentObjectContext/impactAnalysis/safeEditPlan` y `object-check` + el panel del objeto lo hacen visible sin alterar la selección real del winner;
-- tomar el dashboard ADR-0001 del catálogo como cierre ya consolidado: `workspaceCheckCatalogSummary.ts` publica `adrCompliance` sobre el consistency report real, `workspaceCheckReport.ts` puede fallar el `workspace-check` si detecta drift contractual y `npm run report:catalog-consistency` deja snapshot JSON/Markdown determinista bajo `artifacts/catalog/` sin meter este gate en el hot path;
-- mantener verde el carril build/legacy/runtime/architecture/visible-contract ya cerrado en `B198`, `B195`, `B267`, `B268`, `B273` y `B277`;
-- registrar el siguiente ítem activo en backlog/spec/focus/roadmap antes de abrir nueva implementación.
+- consolidar el cierre ya ejecutado de la cadena inmediata previa sin reabrir backlog activo para ítems ya movidos a `done-log`;
+- consolidar el cierre ya ejecutado del bloque derivado inicial sin reabrir taxonomías o claims documentales ya absorbidos por la clasificación compartida y el contrato real del corpus público;
+- reanclar backlog/current-focus/roadmap a la cadena documental restante sin placeholders ni focos agotados;
+- consolidar `docs/build/README.md` como mapa canónico del carril build/packaging/VSIX/PBAutoBuild/ORCA y retirar referencias rotas;
+- registrar que el safe model DataWindow literal-only, el gate read-only de conditional compilation y los markers plausibles de guards LSP ya quedaron cerrados con evidencia;
+- mantener el gate documental de continuidad antes de abrir código nuevo fuera de la cadena derivada completada.
 
 ### Trabajo paralelo permitido
 

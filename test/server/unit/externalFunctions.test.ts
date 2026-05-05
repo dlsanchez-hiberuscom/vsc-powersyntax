@@ -16,6 +16,7 @@ suite('unit/externalFunctions (B073)', () => {
     assert.ok(r);
     assert.equal(r?.kind, 'subroutine');
     assert.equal(r?.name, 'Bar');
+    assert.equal(r?.externalCallableKind, 'library');
     assert.equal(r?.alias, 'BarA');
   });
 
@@ -36,5 +37,24 @@ suite('unit/externalFunctions (B073)', () => {
     assert.equal(classifyExternalLibrary('kernel32.dll'), 'dll');
     assert.equal(classifyExternalLibrary('native_driver.pbx'), 'pbx');
     assert.equal(classifyExternalLibrary('libcustom.so'), 'unknown');
+  });
+
+  test('function ... rpcfunc alias for', () => {
+    const r = parseExternalFunction('function long sp_update(long al_id) rpcfunc alias for "sp_update_customer"');
+    assert.ok(r);
+    assert.equal(r?.kind, 'function');
+    assert.equal(r?.name, 'sp_update');
+    assert.equal(r?.returnType, 'long');
+    assert.equal(r?.externalCallableKind, 'rpcfunc');
+    assert.equal(r?.library, undefined);
+    assert.equal(r?.alias, 'sp_update_customer');
+  });
+
+  test('subroutine ... rpcfunc', () => {
+    const r = parseExternalFunction('subroutine sp_recalculate(long al_id) rpcfunc');
+    assert.ok(r);
+    assert.equal(r?.kind, 'subroutine');
+    assert.equal(r?.name, 'sp_recalculate');
+    assert.equal(r?.externalCallableKind, 'rpcfunc');
   });
 });

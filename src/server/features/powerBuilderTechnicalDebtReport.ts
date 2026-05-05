@@ -105,6 +105,7 @@ interface ObjectDiagnosticsIndex {
 interface ExternalDependencyInsight {
   total: number;
   byKind: Record<'dll' | 'pbx' | 'unknown', number>;
+  rpcfuncCount: number;
   aliases: string[];
 }
 
@@ -155,6 +156,7 @@ function collectExternalDependencyInsight(uri: string, objectName: string, kb: K
     return {
       total: 0,
       byKind: { dll: 0, pbx: 0, unknown: 0 },
+      rpcfuncCount: 0,
       aliases: [],
     };
   }
@@ -162,8 +164,17 @@ function collectExternalDependencyInsight(uri: string, objectName: string, kb: K
   const dependencies = snapshot.symbols.filter((symbol) => isOwnedCallable(symbol, objectName) && symbol.isExternal === true);
   const aliases = new Set<string>();
   const byKind: ExternalDependencyInsight['byKind'] = { dll: 0, pbx: 0, unknown: 0 };
+  let rpcfuncCount = 0;
 
   for (const dependency of dependencies) {
+    if (dependency.externalCallableKind === 'rpcfunc') {
+      rpcfuncCount += 1;
+      if (dependency.externalAlias) {
+        aliases.add(dependency.externalAlias);
+      }
+      continue;
+    }
+
     const kind = dependency.externalDependencyKind ?? 'unknown';
     byKind[kind] += 1;
     if (dependency.externalAlias) {
@@ -174,6 +185,7 @@ function collectExternalDependencyInsight(uri: string, objectName: string, kb: K
   return {
     total: dependencies.length,
     byKind,
+    rpcfuncCount,
     aliases: [...aliases].sort((left, right) => left.localeCompare(right)),
   };
 }
@@ -370,7 +382,7 @@ function buildHotspotRecommendations(categories: readonly PowerBuilderTechnicalD
     recommendations.add('Revisar bindings DataObject/Retrieve y fijar targets antes de cambios estructurales.');
   }
   if (categories.includes('external-dependency')) {
-    recommendations.add('Inventariar DLL/PBX externas, validar su disponibilidad/portabilidad y documentar su despliegue fuera del carril ORCA cuando aplique.');
+    recommendations.add('Inventariar DLL/PBX externas y RPCFUNC/stored procedures, validar su disponibilidad/portabilidad y documentar su despliegue o contrato DBMS cuando aplique.');
   }
   if (categories.includes('modern-integration')) {
     recommendations.add('Revisar contratos HTTP/REST/JSON y mantener redaction por defecto antes de automatizar cambios o ampliar soporte.');
@@ -596,6 +608,10 @@ export function buildPowerBuilderTechnicalDebtReport(
       }
       for (const alias of externalDependencyInsight.aliases) {
         evidence.add(`external-alias:${alias}`);
+      }
+      if (externalDependencyInsight.rpcfuncCount > 0) {
+        evidence.add(`external-rpcfunc=${externalDependencyInsight.rpcfuncCount}`);
+        evidence.add('external-risk:dbms-rpc-surface');
       }
       if (externalDependencyInsight.byKind.pbx > 0) {
         evidence.add('external-risk:pbni-runtime-surface');

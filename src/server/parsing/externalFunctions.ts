@@ -12,7 +12,8 @@ export interface ExternalFunctionDecl {
   kind: 'function' | 'subroutine';
   returnType?: string;
   name: string;
-  library: string;
+  externalCallableKind: 'library' | 'rpcfunc';
+  library?: string;
   alias?: string;
 }
 
@@ -40,6 +41,14 @@ const RE_SUB = new RegExp(
   `^\\s*(?:public|private|protected)?\\s*subroutine\\s+(${PB_IDENTIFIER_SOURCE})\\s*\\([^)]*\\)\\s+library\\s+"([^"]+)"(?:\\s+alias\\s+for\\s+"([^"]+)")?`,
   'i'
 );
+const RE_FN_RPCFUNC = new RegExp(
+  `^\\s*(?:public|private|protected)?\\s*function\\s+(${TYPE_REFERENCE_SOURCE})\\s+(${PB_IDENTIFIER_SOURCE})\\s*\\([^)]*\\)\\s+rpcfunc(?:\\s+alias\\s+for\\s+"([^"]+)")?`,
+  'i'
+);
+const RE_SUB_RPCFUNC = new RegExp(
+  `^\\s*(?:public|private|protected)?\\s*subroutine\\s+(${PB_IDENTIFIER_SOURCE})\\s*\\([^)]*\\)\\s+rpcfunc(?:\\s+alias\\s+for\\s+"([^"]+)")?`,
+  'i'
+);
 
 export function parseExternalFunction(line: string): ExternalFunctionDecl | null {
   let m = RE_FN.exec(line);
@@ -48,6 +57,7 @@ export function parseExternalFunction(line: string): ExternalFunctionDecl | null
       kind: 'function',
       returnType: m[1],
       name: m[2],
+      externalCallableKind: 'library',
       library: m[3],
       alias: m[4]
     };
@@ -57,8 +67,28 @@ export function parseExternalFunction(line: string): ExternalFunctionDecl | null
     return {
       kind: 'subroutine',
       name: m[1],
+      externalCallableKind: 'library',
       library: m[2],
       alias: m[3]
+    };
+  }
+  m = RE_FN_RPCFUNC.exec(line);
+  if (m) {
+    return {
+      kind: 'function',
+      returnType: m[1],
+      name: m[2],
+      externalCallableKind: 'rpcfunc',
+      alias: m[3]
+    };
+  }
+  m = RE_SUB_RPCFUNC.exec(line);
+  if (m) {
+    return {
+      kind: 'subroutine',
+      name: m[1],
+      externalCallableKind: 'rpcfunc',
+      alias: m[2]
     };
   }
   return null;

@@ -108,6 +108,12 @@ suite('smoke/extension', () => {
     if (!wasActiveBefore) {
       const stats = await api!.getServerStats();
       assert.ok(stats && typeof stats === 'object', 'La API pública debería devolver estadísticas del servidor');
+      assert.notEqual(stats?.readiness?.state, 'error', 'La extensión no debería quedar en readiness=error tras activar el runtime.');
+      assert.doesNotMatch(
+        stats?.readiness?.detail ?? '',
+        /startfailed|already exists|couldn't create connection/i,
+        'La smoke de activación no debería tolerar un arranque LSP degradado por duplicidad de comandos.'
+      );
 
       const symbols = await api!.querySymbols({ query: '', limit: 3 });
       assert.ok(Array.isArray(symbols), 'La API pública debería devolver un array al consultar símbolos');

@@ -253,13 +253,56 @@ suite('unit/currentObjectContext (B217)', () => {
     );
 
     assert.equal(context.available, true);
-    assert.equal(context.embeddedSqlAnchors?.length, 1);
+    assert.equal(context.embeddedSqlAnchors?.length, 2);
     assert.deepEqual(context.embeddedSqlAnchors?.[0], {
+      startLine: 8,
+      endLine: 8,
+      keyword: 'CONNECT',
+      preview: ' CONNECT USING SQLCA;'.trimStart(),
+      confidence: 'high',
+      transactionTarget: 'SQLCA'
+    });
+    assert.deepEqual(context.embeddedSqlAnchors?.[1], {
       startLine: 9,
       endLine: 11,
       keyword: 'SELECT',
       preview: ' SELECT order_id INTO :ll_order_id FROM sales_order;'.trimStart(),
       confidence: 'high',
+      transactionTarget: 'SQLCA'
+    });
+  });
+
+  test('expone anchors para statements SQL adicionales sin confundir llamadas normales', () => {
+    const document = setupAnalyzedDocument('file:///proj/lib_app.pbl/w_sql_commit.srw', [
+      'forward',
+      'global type w_sql_commit from window',
+      'end type',
+      'end forward',
+      'global type w_sql_commit from window',
+      'end type',
+      'event open();',
+      '  COMMIT USING SQLCA;',
+      '  open(w_child)',
+      'end event'
+    ].join('\r\n'));
+
+    const context = buildCurrentObjectContext(
+      document,
+      { line: 7, character: 2 },
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.equal(context.embeddedSqlAnchors?.length, 1);
+    assert.deepEqual(context.embeddedSqlAnchors?.[0], {
+      startLine: 7,
+      endLine: 7,
+      keyword: 'COMMIT',
+      preview: ' COMMIT USING SQLCA;'.trimStart(),
+      confidence: 'medium',
       transactionTarget: 'SQLCA'
     });
   });

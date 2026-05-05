@@ -23,7 +23,6 @@ export const SERVER_EXECUTE_COMMANDS = [
   'powerbuilder.showStats',
   'powerbuilder.workspaceCheckCatalogSummary',
   'powerbuilder.objectInfo',
-  'powerbuilder.inspectHierarchy',
   'powerbuilder.querySymbols',
   'powerbuilder.crossProjectSymbolConflicts',
   'powerbuilder.workspaceMigrationAssistant',
@@ -40,20 +39,10 @@ export const SERVER_EXECUTE_COMMANDS = [
   'powerbuilder.applySpecDrivenPblUpdate',
   'powerbuilder.applySpecDrivenPblUpdateBatch',
   'powerbuilder.semanticWorkspaceManifest',
-  'powerbuilder.runSemanticCacheMaintenance',
-  'powerbuilder.validatePersistentCache',
-  'powerbuilder.clearSemanticCache',
   'powerbuilder.formatDocument',
   'powerbuilder.listPbAutoBuildBuildFiles',
   'powerbuilder.listPbAutoBuildBuildInventory',
-  'powerbuilder.runPbAutoBuild',
-  'powerbuilder.cancelPbAutoBuild',
   'powerbuilder.runOrcaScript',
-  'powerbuilder.cancelOrcaScript',
-  'powerbuilder.exportOrcaStaging',
-  'powerbuilder.importOrcaStaging',
-  'powerbuilder.regenerateOrcaLibraries',
-  'powerbuilder.rebuildOrcaProject',
 ] as const;
 
 export interface InitializeHandlerContext {

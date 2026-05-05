@@ -83,6 +83,8 @@ export interface Entity {
   ownerName?: string;
   /** Indica si el símbolo proviene de una declaración externa. */
   isExternal?: boolean;
+  /** Distingue DLL/PBX (`library`) de stored procedures DBMS (`rpcfunc`). */
+  externalCallableKind?: 'library' | 'rpcfunc';
   /** Nombre de la librería externa (DLL) cuando aplica. */
   externalLibraryName?: string;
   /** Alias nativo declarado mediante `alias for`, cuando aplica. */

@@ -173,7 +173,33 @@ suite('unit/diagnostics', () => {
       kind: 'native-dependency',
       dependencyKind: 'dll',
       library: 'kernel32.dll',
-      alias: 'OfExternal'
+      alias: 'OfExternal',
+      externalCallableKind: 'library'
+    });
+  });
+
+  test('validateSemantics informa declaraciones RPCFUNC sin implementación interna', () => {
+    const source = [
+      'global type u_tx from transaction',
+      'end type',
+      'forward prototypes',
+      'public subroutine sp_update_status(long al_id, string as_status) rpcfunc alias for "sp_update_status";',
+      'end prototypes'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_rpcfunc.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    const external = diagnostics.find((diag) => diag.message.includes("La declaración RPCFUNC 'sp_update_status'"));
+
+    assert.ok(external, 'Esperaba un diagnóstico informativo para la declaración RPCFUNC.');
+    assert.equal(external?.severity, DiagnosticSeverity.Information);
+    assert.equal(external?.code, DIAGNOSTIC_CODES.nativeDependency);
+    assert.deepEqual(external?.data, {
+      kind: 'native-dependency',
+      dependencyKind: 'rpcfunc',
+      library: undefined,
+      alias: 'sp_update_status',
+      externalCallableKind: 'rpcfunc'
     });
   });
 

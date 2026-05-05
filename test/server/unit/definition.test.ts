@@ -681,6 +681,95 @@ suite('unit/definition', () => {
     }
   });
 
+  test('provideDefinition navega GetItemString con columna literal al column= del DataWindow enlazado', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_customer_getitem.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_customer_getitem.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(column=(type=char(40) update=yes name=status dbname="customer.status") retrieve="SELECT status FROM customer")',
+      ].join('\r\n')
+    );
+
+    const analysis = analyzeFreshDocument(dataWindowDocument);
+    localKb.upsertDocument(dataWindowDocument.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+
+    const document = TextDocument.create(
+      'file:///w_probe_getitem_definition.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_probe_getitem_definition from window',
+        '  datawindow dw_customer',
+        'end type',
+        '',
+        'event open();',
+        '  dw_customer.DataObject = "d_customer_getitem"',
+        '  dw_customer.GetItemString(1, "status", Primary!, TRUE)',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const lines = document.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('GetItemString'));
+    const loc = provideDefinition(document, Position.create(lineIndex, lines[lineIndex].indexOf('status') + 2), localKb, localGraph);
+
+    assert.ok(loc && !Array.isArray(loc));
+    if (loc && !Array.isArray(loc)) {
+      assert.equal(loc.uri, 'file:///d_customer_getitem.srd');
+      assert.equal(loc.range.start.line, 3);
+    }
+  });
+
+  test('provideDefinition no resuelve columnas DataWindow cuando el DataObject es dinámico', () => {
+    const localKb = new KnowledgeBase();
+    const localGraph = new InheritanceGraph(localKb);
+
+    const dataWindowDocument = TextDocument.create(
+      'file:///d_customer_getitem_dynamic.srd',
+      'powerbuilder',
+      1,
+      [
+        '$PBExportHeader$d_customer_getitem_dynamic.srd',
+        'release 39;',
+        'datawindow(units=0)',
+        'table(column=(type=char(40) update=yes name=status dbname="customer.status") retrieve="SELECT status FROM customer")',
+      ].join('\r\n')
+    );
+
+    const analysis = analyzeFreshDocument(dataWindowDocument);
+    localKb.upsertDocument(dataWindowDocument.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
+
+    const document = TextDocument.create(
+      'file:///w_probe_getitem_dynamic_definition.srw',
+      'powerbuilder',
+      1,
+      [
+        'global type w_probe_getitem_dynamic_definition from window',
+        '  datawindow dw_customer',
+        'end type',
+        '',
+        'string ls_dataobject',
+        'event open();',
+        '  ls_dataobject = "d_customer_getitem_dynamic"',
+        '  dw_customer.DataObject = ls_dataobject',
+        '  dw_customer.GetItemString(1, "status", Primary!, TRUE)',
+        'end event'
+      ].join('\r\n')
+    );
+
+    const lineIndex = document.getText().split(/\r?\n/).findIndex((line) => line.includes('GetItemString'));
+    const loc = provideDefinition(document, Position.create(lineIndex, 29), localKb, localGraph);
+
+    assert.equal(loc, null);
+  });
+
   test('provideDefinition navega GetChild(state_id, dwc_state) al DataWindow hijo verificado', () => {
     const localKb = new KnowledgeBase();
     const localGraph = new InheritanceGraph(localKb);

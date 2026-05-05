@@ -10,6 +10,7 @@ import { InheritanceGraph } from '../../../src/server/knowledge/resolution/Inher
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import type { Scope } from '../../../src/server/knowledge/types';
 import { maskDocument } from '../../../src/server/parsing/codeMasking';
+import { findConditionalCompilationMarkers } from '../../../src/server/parsing/conditionalCompilationGate';
 import { splitStatements, type LogicalStatement } from '../../../src/server/parsing/statementSplitter';
 
 type FuzzSeed = {
@@ -244,6 +245,11 @@ suite('unit/powerbuilderParserResilienceFuzz (B272)', () => {
     assert.ok(
       analysis.logicalStatements.some((statement) => /Constant ulong FIONBIO = 2147772030/i.test(statement.text)),
       `${label}: el codigo real posterior al comentario debe seguir visible.`
+    );
+    assert.deepEqual(
+      findConditionalCompilationMarkers(source),
+      [],
+      `${label}: el detector no debe promover histórico comentado a sintaxis activa.`
     );
 
     const kb = new KnowledgeBase();

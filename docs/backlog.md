@@ -67,51 +67,111 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - ...
 ```
 
+### 2.1. Evidencia requerida para `Ready for closure`
+
+Un ítem solo puede estar en `Ready for closure` si incluye evidencia de validación ejecutada o referencia explícita al artefacto donde vive esa evidencia.
+
+Si solo lista `Validación esperada`, debe permanecer en `Open`.
+
+Formato recomendado:
+
+```md
+**Validación ejecutada:**
+- `comando`: OK/FAIL/SKIPPED
+- evidencia: ruta, log, artefacto o resumen
+```
+
+### 2.2. Regla de ejecución inmediata
+
+La cadena obligatoria pedida por el usuario sigue siendo:
+
+```txt
+VSIX-01 → AUDIT-VSIX → DOC-01 → DOC-02 → AUDIT-DOC
+```
+
+Estado actual de esa cadena:
+
+- `VSIX-01`: cerrada con evidencia real en `docs/done-log.md`.
+- `AUDIT-VSIX`: cerrada con evidencia real en `docs/done-log.md`.
+- `DOC-01`: cerrada con evidencia real en `docs/done-log.md`.
+- `DOC-02`: cerrada con evidencia real en `docs/done-log.md`.
+- `AUDIT-DOC`: cerrada con evidencia real en `docs/done-log.md`.
+- Siguiente bloque promovible: `BL-01 → BL-02 → BL-03 → BL-08`.
+
+Mientras la cadena activa restante no esté cerrada con evidencia real, ningún agente debe avanzar a trabajo de symbols, localización, catálogo o nuevas mejoras.
+
+Orden obligatorio de cierre inmediato:
+
+```txt
+VSIX-01 → AUDIT-VSIX → DOC-01 → DOC-02 → AUDIT-DOC
+```
+
+Solo cuando esa cadena esté `Done` o explícitamente cerrada con evidencia, se podrá promover el siguiente bloque:
+
+```txt
+BL-01 → BL-02 → BL-03 → BL-08
+```
+
+Después, si procede, se podrá promover la planificación posterior:
+
+```txt
+SYM-01 → LOC-01 → CAT-01 → GOV-01
+completado
+```
+
+No se debe saltar de `Ready for closure` a `Done` sin validación ejecutada y documentada.
+
 ---
 
-# 3. L8 — Core Hardening / Bug Hunting / Release Stabilization
+# 3. Backlog actual
 
-## 3.1. Principio general
+## 3.1. Cierre inmediato P0/P1
+## 3.2. Backlog derivado de auditoría PowerBuilder 0-54
 
-Durante esta fase, la prioridad no es añadir nuevas capacidades, sino reforzar el core existente:
+Estos ítems proceden de la auditoría read-only contra la guía PowerBuilder 0-54. No sustituyen a los planes `SYM/LOC/CAT/GOV`. Representan gaps reales detectados.
 
-```txt
-- activación real desde VSIX;
-- estabilidad del Language Server;
-- coherencia API/tools/commands;
-- rendimiento en hot paths;
-- precisión semántica PowerBuilder;
-- fiabilidad DataWindow;
-- consistencia generated/manual/localization;
-- calidad de reports/analyzers;
-- documentación y backlog sin drift;
-- utilidad real para agentes IA sin inflar tokens.
-```
+Sin ítems activos en este bloque derivado.
 
-Regla de ejecución:
+---
 
-```txt
-No crear nuevas specs funcionales salvo que la auditoría detecte un bug, riesgo o gap arquitectónico real.
-Los hallazgos deben clasificarse como Critical / High / Medium / Low.
-Los bugs pequeños y seguros pueden corregirse dentro de la auditoría.
-Los cambios grandes deben ir a fix queue o nueva spec justificada.
-```
+## 3.3. Planificación posterior de symbols, localización, catálogo y governance
+
+Estos ítems no sustituyen al backlog derivado de auditoría. No deben promoverse hasta cerrar o absorber la cadena inmediata y los P1 derivados de auditoría.
 
 ---
 
 # 4. Current execution focus recomendado
 
-## Fase activa — Auditorías/derivados vivos
+## Cierre inmediato
 
 ```txt
-Sin derivados activos.
+completado
 ```
 
-## Secuencia cerrada reciente
+## Siguiente cadena P1 derivada de auditoría PowerBuilder 0-54
 
 ```txt
-AUDIT-02 → AUDIT-03 → AUDIT-04 → AUDIT-06 → AUDIT-05 → AUDIT-07 → AUDIT-08 → AUDIT-01
+completado
 ```
+
+## Planificación posterior P1/P2
+
+```txt
+completado
+```
+
+## Siguiente cadena activa
+
+```txt
+completado
+```
+
+## Regla de promoción
+
+- No abrir implementación fuera de la cadena activa.
+- No abrir trabajo nuevo fuera de la siguiente cadena promovida sin backlog/current-focus/roadmap/specs alineados.
+- `AUDIT-DOC` acompaña el cierre, pero no sustituye el orden principal.
+- Un ítem `Ready for closure` no pasa a `Done` sin validación ejecutada y entrada de `done-log.md`.
 
 ---
 
@@ -127,53 +187,12 @@ AUDIT-02 → AUDIT-03 → AUDIT-04 → AUDIT-06 → AUDIT-05 → AUDIT-07 → AU
 
 ---
 
-# 6. Backlog derivado
-
-Durante las auditorías, registrar aquí únicamente hallazgos reales que no se corrijan dentro de la propia auditoría.
-
-Formato recomendado:
-
-```md
-## AUDIT-XX-DERIVED — <título>
-- **Estado:** Open
-- **Track:** hardening / ...
-- **Prioridad:** Critical | High | Medium | Low
-- **Origen:** AUDIT-XX
-- **Tipo:** bugfix | refactor | consolidation | test-hardening | performance-hardening | docs-alignment | governance
-- **Objetivo:**
-- **Razón técnica:**
-- **Evidencia encontrada:**
-- **Alcance:**
-- **No es una nueva feature porque:**
-- **Compatibilidad:**
-- **Riesgos:**
-- **Plan recomendado:**
-- **Criterios de cierre verificables:**
-- **Validación esperada:**
-- **Docs afectadas:**
-```
-
----
-
-## 6.1. Reglas permanentes del backlog derivado
-
-- Mantener DataWindow como sublenguaje propio y evitar cualquier parser DataWindow como PowerScript normal.
-- Mantener ORCA fuera del hot path y detrás de policy/feature flags cuando implique write-enabled o packaging.
-- Mantener la política de localización como overlay de documentación, nunca como duplicación de entries por idioma.
-- Mantener `generated` como source-of-truth oficial según `ADR-0001`.
-- Mantener `manual` solo como gaps/enrichments/overrides/candidates.
-- Mantener `candidate` fuera del hot path.
-- Mantener framework knowledge packs por debajo del source real del workspace.
-- Mantener tools IA con payloads acotados, `reasonCodes`, `confidence`, `available/reason` y truncado honesto cuando aplique.
-
----
-
-# 7. Criterio de salida de la fase de auditorías
+# 6. Criterio de salida de la fase de auditorías
 
 La fase de auditorías podrá considerarse cerrada cuando:
 
 ```txt
-1. AUDIT-01..AUDIT-08 estén Done o explícitamente cerradas con no-action decisions.
+1. No queden auditorías activas P0/P1 sin plan, spec o decisión explícita.
 2. No queden Critical/High sin plan.
 3. El VSIX instalado active correctamente.
 4. API/tools/commands estén alineados.
@@ -185,4 +204,5 @@ La fase de auditorías podrá considerarse cerrada cuando:
 10. Reports/analyzers no generen ruido masivo ni payloads excesivos.
 11. Docs/backlog/current-focus/done-log estén alineados.
 ```
-    
+
+Las auditorías históricas `AUDIT-01..AUDIT-08` quedan como trazabilidad histórica si viven en `done-log.md` o specs cerradas. No deben bloquear la fase activa salvo que una revisión posterior las reabra con evidencia.

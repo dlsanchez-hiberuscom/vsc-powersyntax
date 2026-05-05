@@ -3,7 +3,10 @@ import { IFileSystem } from '../system/fileSystem';
 import { WorkspaceState } from './workspaceState';
 import { parsePbAutoBuildBuildFileCandidate } from './pbAutoBuildBuildFiles';
 import { parseTopology } from './topology';
-import { POWERBUILDER_SOURCE_EXTENSIONS } from '../../shared/powerbuilderFiles';
+import {
+  getPowerBuilderArtifactKind,
+  type PowerBuilderArtifactKind,
+} from '../../shared/powerbuilderFiles';
 
 const IGNORED_DIRECTORIES = new Set([
   '.git',
@@ -31,8 +34,11 @@ const DISCOVERY_ARTIFACT_FILES = new Map<string, string>([
   ['.gitignore', 'scm-gitignore-file'],
   ['.gitattributes', 'scm-gitattributes-file'],
 ]);
-
-const PB_SOURCE_EXTENSIONS = new Set<string>(POWERBUILDER_SOURCE_EXTENSIONS);
+const POWERBUILDER_DISCOVERY_ARTIFACTS: Partial<Record<PowerBuilderArtifactKind, string>> = {
+  'build-support': 'artifact-pbg-file',
+  'resource': 'artifact-pbr-file',
+  'report': 'artifact-psr-file',
+};
 
 export type DiscoveryProgressHandler = (current: number, total: number) => void;
 
@@ -107,10 +113,18 @@ async function walkDirectory(
   for (const file of files) {
     if (token.isCancelled) return;
 
+    const powerBuilderKind = getPowerBuilderArtifactKind(file.entryUri);
     const artifactKind = DISCOVERY_ARTIFACT_FILES.get(file.lowerName)
       ?? (file.lowerName.endsWith('.scc') ? 'scm-scc-file' : undefined);
     if (artifactKind) {
       state.recordDiscoveryArtifact(artifactKind, file.entryUri);
+    }
+
+    const powerBuilderArtifactKind = powerBuilderKind
+      ? POWERBUILDER_DISCOVERY_ARTIFACTS[powerBuilderKind]
+      : undefined;
+    if (powerBuilderArtifactKind) {
+      state.recordDiscoveryArtifact(powerBuilderArtifactKind, file.entryUri);
     }
 
     // Detección de roots
@@ -130,11 +144,8 @@ async function walkDirectory(
       await tryParseTopology(file.entryUri, fs, state);
     } else if (file.lowerName.endsWith('.json')) {
       await tryParseBuildFile(file.entryUri, fs, state);
-    } else {
-      const extMatch = file.lowerName.match(/\.[^.]+$/);
-      if (extMatch && PB_SOURCE_EXTENSIONS.has(extMatch[0])) {
-        state.addSourceFile(file.entryUri);
-      }
+    } else if (powerBuilderKind === 'source') {
+      state.addSourceFile(file.entryUri);
     }
   }
 

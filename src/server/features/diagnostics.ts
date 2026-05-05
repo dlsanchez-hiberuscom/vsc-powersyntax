@@ -571,19 +571,25 @@ function checkExternalDependencies(
       continue;
     }
 
+    const isRpcFunction = fact.externalCallableKind === 'rpcfunc';
+    const message = isRpcFunction
+      ? `La declaración RPCFUNC '${fact.name}' apunta a un stored procedure DBMS${fact.externalAlias ? ` (alias '${fact.externalAlias}')` : ''} y no tiene implementación interna navegable.`
+      : `La declaración externa '${fact.name}' apunta a la dependencia nativa '${fact.externalLibraryName ?? 'unknown'}' y no tiene implementación interna navegable.`;
+
     diagnostics.push(withDiagnosticCode({
       severity: DiagnosticSeverity.Information,
       range: Range.create(
         Position.create(fact.line, fact.character),
         Position.create(fact.line, fact.character + fact.name.length)
       ),
-      message: `La declaración externa '${fact.name}' apunta a la dependencia nativa '${fact.externalLibraryName ?? 'unknown'}' y no tiene implementación interna navegable.`,
+      message,
       source: DIAGNOSTIC_SOURCE,
       data: {
         kind: 'native-dependency',
-        dependencyKind: fact.externalDependencyKind ?? 'unknown',
+        dependencyKind: fact.externalCallableKind === 'rpcfunc' ? 'rpcfunc' : (fact.externalDependencyKind ?? 'unknown'),
         library: fact.externalLibraryName,
-        alias: fact.externalAlias
+        alias: fact.externalAlias,
+        externalCallableKind: fact.externalCallableKind ?? 'library'
       }
     }, DIAGNOSTIC_CODES.nativeDependency));
   }

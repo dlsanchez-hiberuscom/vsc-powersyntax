@@ -1,13 +1,4 @@
-forward global type u_guard from nonvisualobject
-end type
-
-global type u_guard from nonvisualobject
-end type
-
-forward prototypes
-public function integer of_answer ()
-end prototypes
-
-public function integer of_answer ();
-  return 42
-end function
+Save Format v3.0(19990112)
+@begin Libraries
+"guard_app.pbl;shared/guard_common.pbl"
+@end;

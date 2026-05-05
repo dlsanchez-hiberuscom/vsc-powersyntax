@@ -3,6 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
+import { providePowerScriptDataWindowColumnDefinition } from './dataWindowColumnAccess';
 import { provideDataWindowLegacyDefinition } from './dataWindowLegacySafeMode';
 import { providePowerScriptDataWindowPropertyDefinition } from './dataWindowPropertyPaths';
 import { resolveDocumentQueryTargets, type DocumentQueryContext } from './queryContext';
@@ -16,7 +17,8 @@ export function provideDefinition(
   queryContext?: DocumentQueryContext
 ): Location | Location[] | null {
   const dataWindowDefinition = provideDataWindowLegacyDefinition(document, position, kb)
-    ?? providePowerScriptDataWindowPropertyDefinition(document, position, kb);
+    ?? providePowerScriptDataWindowPropertyDefinition(document, position, kb)
+    ?? providePowerScriptDataWindowColumnDefinition(document, position, kb);
   if (dataWindowDefinition) return dataWindowDefinition;
 
   const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'definition', 'definition');

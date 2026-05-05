@@ -177,6 +177,44 @@ end subroutine
     assert.match(rename.reason ?? '', /dependencias nativas externas/i);
   });
 
+  test('bloquea rename sobre RPCFUNC sin implementación interna', () => {
+    const kb = new KnowledgeBase();
+    const graph = new InheritanceGraph(kb);
+
+    const document = TextDocument.create('file:///u_tx.sru', 'powerbuilder', 1, `
+global type u_tx from transaction
+end type
+forward prototypes
+public function long sp_update_customer(long al_id) rpcfunc alias for "sp_update_customer";
+public subroutine of_test()
+end prototypes
+public subroutine of_test();
+  sp_update_customer(1)
+end subroutine
+    `);
+
+    const analysis = analyzeDocument(document);
+    kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes);
+
+    const lines = document.getText().split(/\r?\n/);
+    const callLine = lines.findIndex((line) => line.includes('sp_update_customer(1)'));
+    const position = Position.create(callLine, lines[callLine].indexOf('sp_update_customer') + 1);
+    const rename = provideRename(
+      document,
+      position,
+      'sp_update_customer_v2',
+      kb,
+      graph,
+      [{ uri: document.uri, content: document.getText() }],
+      undefined,
+      undefined,
+      createDocumentQueryContext(document, position, kb, graph)
+    );
+
+    assert.equal(rename.edit, null);
+    assert.match(rename.reason ?? '', /dependencias nativas externas/i);
+  });
+
   test('bloquea rename cuando detecta referencias dinámicas en strings', () => {
     const kb = new KnowledgeBase();
     const graph = new InheritanceGraph(kb);

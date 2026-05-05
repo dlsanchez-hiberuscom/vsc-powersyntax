@@ -84,6 +84,8 @@ export function formatUserHover(entity: Entity, resolution?: HoverResolutionSumm
     out.push('*(Prototype)*');
   } else if (enriched.implementationKind === 'on-handler') {
     out.push('*(On-handler)*');
+  } else if (enriched.isExternal && enriched.externalCallableKind === 'rpcfunc') {
+    out.push('*(RPCFUNC stored procedure declaration)*');
   } else if (enriched.implementationKind === 'external-function') {
     out.push('*(External function declaration)*');
   } else if (enriched.isPrototype === false &&
@@ -99,6 +101,10 @@ export function formatUserHover(entity: Entity, resolution?: HoverResolutionSumm
 
   if (enriched.isExternal && enriched.externalDependencyKind) {
     out.push(`**Native dependency kind:** \`${enriched.externalDependencyKind}\``);
+  }
+
+  if (enriched.isExternal && enriched.externalCallableKind === 'rpcfunc') {
+    out.push('**External callable kind:** `rpcfunc`');
   }
 
   if (enriched.isExternal && enriched.externalAlias) {

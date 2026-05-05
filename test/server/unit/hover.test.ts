@@ -382,6 +382,73 @@ end event
     assert.ok(value.includes('SELECT id, name FROM customer'));
   });
 
+  test('provideHover resuelve SetItemStatus con columna literal y buffer seguro del DataWindow enlazado', () => {
+    setupAnalyzedDocument('file:///d_customer_setitemstatus.srd', [
+      '$PBExportHeader$d_customer_setitemstatus.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=char(40) update=yes name=status dbname="customer.status") retrieve="SELECT status FROM customer")'
+    ].join('\r\n'));
+    const doc = setupAnalyzedDocument('file:///w_setitemstatus_hover.srw', [
+      'global type w_setitemstatus_hover from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_customer.DataObject = "d_customer_setitemstatus"',
+      '  dw_customer.SetItemStatus(1, "status", Primary!, DataModified!)',
+      'end event'
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('SetItemStatus'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('status') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.ok(hover);
+    const value = (hover?.contents as any).value as string;
+    assert.ok(value.includes('status'));
+    assert.ok(value.includes('SetItemStatus'));
+    assert.ok(value.includes('Primary!'));
+    assert.ok(value.includes('d_customer_setitemstatus'));
+  });
+
+  test('provideHover no resuelve columnas DataWindow cuando el DataObject es dinámico', () => {
+    setupAnalyzedDocument('file:///d_customer_setitemstatus_dynamic.srd', [
+      '$PBExportHeader$d_customer_setitemstatus_dynamic.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=char(40) update=yes name=status dbname="customer.status") retrieve="SELECT status FROM customer")'
+    ].join('\r\n'));
+    const doc = setupAnalyzedDocument('file:///w_setitemstatus_dynamic_hover.srw', [
+      'global type w_setitemstatus_dynamic_hover from window',
+      'end type',
+      '',
+      'string ls_dataobject',
+      'event open();',
+      '  ls_dataobject = "d_customer_setitemstatus_dynamic"',
+      '  dw_customer.DataObject = ls_dataobject',
+      '  dw_customer.SetItemStatus(1, "status", Primary!, DataModified!)',
+      'end event'
+    ].join('\r\n'));
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('SetItemStatus'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('status') + 2),
+      kb,
+      catalog,
+      graph,
+    );
+
+    assert.equal(hover, null);
+  });
+
   test('provideHover resuelve rutas anidadas de report child hacia Table.Select', () => {
     setupAnalyzedDocument('file:///d_parent.srd', [
       '$PBExportHeader$d_parent.srd',

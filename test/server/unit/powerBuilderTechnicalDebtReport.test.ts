@@ -148,10 +148,24 @@ suite('unit/powerBuilderTechnicalDebtReport (B261)', () => {
     assert.ok(hotspot?.evidence.some((entry) => entry.includes('dynamic-sql:prepare')));
     assert.ok(hotspot?.evidence.some((entry) => entry.includes('sql-anchor:select:16-18')));
     assert.deepEqual(hotspot?.embeddedSqlAnchors, [{
+      startLine: 11,
+      endLine: 11,
+      keyword: 'CONNECT',
+      preview: 'CONNECT USING SQLCA;',
+      confidence: 'high',
+      transactionTarget: 'SQLCA'
+    }, {
       startLine: 15,
       endLine: 17,
       keyword: 'SELECT',
       preview: 'SELECT order_id INTO :ll_order_id FROM sales_order;',
+      confidence: 'high',
+      transactionTarget: 'SQLCA'
+    }, {
+      startLine: 19,
+      endLine: 19,
+      keyword: 'PREPARE',
+      preview: 'prepare sqlsa from :ls_sql;',
       confidence: 'high',
       transactionTarget: 'SQLCA'
     }]);
@@ -277,6 +291,43 @@ suite('unit/powerBuilderTechnicalDebtReport (B261)', () => {
     assert.ok(hotspot?.evidence.includes('external-build-impact:manual-native-deployment'));
     assert.ok(hotspot?.evidence.includes('external-risk:pbni-runtime-surface'));
     assert.ok(hotspot?.evidence.includes('external-orca-impact:manual-pbx-packaging'));
+  });
+
+  test('publica evidencia separada para RPCFUNC sin degradarlo a unknown', () => {
+    const focusUri = 'file:///proj/lib_app.pbl/u_tx.sru';
+
+    workspaceState.addTopologyEntry({
+      kind: 'target',
+      data: {
+        uri: 'file:///proj/app.pbt',
+        name: 'app',
+        libraries: ['file:///proj/lib_app.pbl'],
+      },
+    });
+
+    setupAnalyzedDocument(focusUri, [
+      'global type u_tx from transaction',
+      'end type',
+      'forward prototypes',
+      'function long sp_count_customer() rpcfunc alias for "sp_count_customer"',
+      'end prototypes',
+      'event open();',
+      '  sp_count_customer()',
+      'end event',
+    ].join('\r\n'));
+
+    workspaceState.refreshProjectRouting();
+
+    const report = buildPowerBuilderTechnicalDebtReport(undefined, kb, workspaceState, null);
+    const hotspot = report.hotspots.find((entry) => entry.name === 'u_tx');
+
+    assert.ok(hotspot);
+    assert.ok(hotspot?.categories.includes('external-dependency'));
+    assert.equal(hotspot?.metrics.externalDependencies, 1);
+    assert.ok(hotspot?.evidence.includes('external-consumers=1'));
+    assert.ok(hotspot?.evidence.includes('external-rpcfunc=1'));
+    assert.ok(hotspot?.evidence.includes('external-risk:dbms-rpc-surface'));
+    assert.ok(!hotspot?.evidence.includes('external-kind:unknown=1'));
   });
 
   test('publica integración HTTP/REST/JSON como hotspot moderno visible', () => {

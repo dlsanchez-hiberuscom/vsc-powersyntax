@@ -36,6 +36,7 @@ suite('unit/hoverFormat (B103)', () => {
   test('muestra tipo y alias de dependencia nativa', () => {
     const md = formatUserHover(fn({
       isExternal: true,
+      externalCallableKind: 'library',
       externalLibraryName: 'native_driver.pbx',
       externalDependencyKind: 'pbx',
       externalAlias: 'PBXEntry'
@@ -43,6 +44,18 @@ suite('unit/hoverFormat (B103)', () => {
 
     assert.match(md, /pbx/);
     assert.match(md, /PBXEntry/);
+  });
+
+  test('muestra etiqueta explícita para RPCFUNC', () => {
+    const md = formatUserHover(fn({
+      isExternal: true,
+      externalCallableKind: 'rpcfunc',
+      externalAlias: 'sp_update_customer'
+    }));
+
+    assert.match(md, /RPCFUNC stored procedure declaration/);
+    assert.match(md, /rpcfunc/);
+    assert.match(md, /sp_update_customer/);
   });
 
   test('muestra container', () => {

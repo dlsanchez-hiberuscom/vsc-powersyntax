@@ -18,10 +18,11 @@ function countOccurrences(values) {
 }
 
 const CANONICAL_DONE_LOG_SEQUENCE_MIN = 1160;
+const BACKLOG_ID_PATTERN = '(?:B\\d+|[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)';
 
 function parseBacklogSections(content) {
   const normalized = normalizeText(content);
-  const matches = [...normalized.matchAll(/^##\s+(B\d+)\s+—\s+(.+)$/gm)];
+  const matches = [...normalized.matchAll(new RegExp(`^##\\s+(${BACKLOG_ID_PATTERN})\\s+—\\s+(.+)$`, 'gm'))];
   return matches.map((match, index) => {
     const start = match.index ?? 0;
     const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length;
@@ -47,7 +48,7 @@ function isActiveBacklogSection(section) {
 
 function parseDoneLogEntries(content) {
   const normalized = normalizeText(content);
-  const matches = [...normalized.matchAll(/^##\s+(\d+\.\d+)\s+(B\d+)\.(.+)$/gm)];
+  const matches = [...normalized.matchAll(new RegExp(`^##\\s+(\\d+\\.\\d+)\\s+(${BACKLOG_ID_PATTERN})\\.(.+)$`, 'gm'))];
   return matches.map((match, index) => {
     const start = match.index ?? 0;
     const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length;
@@ -66,16 +67,16 @@ function parseDoneLogIds(content) {
 
 function parseCurrentFocusId(content) {
   const normalized = normalizeText(content);
-  const focusMatch = normalized.match(/##\s+1\.\s+Foco activo[\s\S]*?`(B\d+)\s+—/i);
+  const focusMatch = normalized.match(new RegExp(`##\\s+1\\.\\s+Foco activo[\\s\\S]*?\`(${BACKLOG_ID_PATTERN})\\s+—`, 'i'));
   if (focusMatch) {
     return focusMatch[1];
   }
 
-  return normalized.match(/`(B\d+)`/)?.[1];
+  return normalized.match(new RegExp(`\`(${BACKLOG_ID_PATTERN})\``, 'i'))?.[1];
 }
 
 function parseRoadmapFocusId(content) {
-  return normalizeText(content).match(/continuidad\s+`?(B\d+)`?/i)?.[1];
+  return normalizeText(content).match(new RegExp(`continuidad\\s+\`?(${BACKLOG_ID_PATTERN})\`?`, 'i'))?.[1];
 }
 
 function buildFinding(code, severity, message, detail, evidence) {

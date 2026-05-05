@@ -42,14 +42,21 @@ Motivo:
 - permite validar el plugin también sobre el formato **Solution**;
 - sirve para comprobar que el descubrimiento de proyecto funciona bien en ambos formatos.
 
-## Matriz pública reproducible
+## Slots públicos materializados actualmente
 
 | Categoría | Repositorios públicos recomendados | Fixture local recomendado | Uso principal |
 |---|---|---|---|
 | PFC 2025 Workspace | `OpenSourcePFCLibraries/2025-Workspace` | `fixtures-local/pfc/2025-Workspace` | smoke/performance sobre workspace real |
 | PFC 2025 Solution | `OpenSourcePFCLibraries/2025-Solution` | `fixtures-local/pfc/2025-Solution` | discovery y extension smoke sobre solution real |
-| DataWindow examples | `Appeon/PowerBuilder-Dw2Doc-Example`, `sebkirche/PowerBuilder-DataWindow`, `thansuoi113` DataWindow examples | `fixtures-local/public/datawindow-examples` | parser/links/hover DataWindow |
 | PBL dump examples | `gmai2006/powerbuilder-pbl-dump`, `rwxce/pb-toolkit`, `Hucxy/PBDWEDIT` | `fixtures-local/public/legacy-pbl-dump` | regresión sobre fuente legacy exportada |
+
+## Slots públicos opcionales no materializados por defecto
+
+Estos slots siguen siendo recomendados para validaciones futuras, pero **no forman parte del checkout local base** ni deben asumirse presentes en tests, docs de performance o workflows repetibles mientras no se materialicen explícitamente.
+
+| Categoría | Repositorios públicos recomendados | Slot local opcional | Uso principal |
+|---|---|---|---|
+| DataWindow examples | `Appeon/PowerBuilder-Dw2Doc-Example`, `sebkirche/PowerBuilder-DataWindow`, `thansuoi113` DataWindow examples | `fixtures-local/public/datawindow-examples` | parser/links/hover DataWindow |
 | ORCA/build examples | `Appeon/PowerBuilder-AutoBuild-Sales-Example`, `zrh535/pborca`, `zhj149/PowerBuilder-ORCA` | `fixtures-local/public/orca-build-examples` | flujos de build y staging separados del hot path |
 | Native/PBNI examples | `informaticon/cpp-pbni-framework`, `bruce-armstrong/pbnismtp`, `arnd-schmidt/pbwebview2` | `fixtures-local/public/native-pbni-examples` | detección de dependencias nativas y límites de rename/reference |
 | Modern JSON/WebView2 examples | `LEXBLAS/jsonapi`, `Appeon/PowerBuilder-Graph-Example-WebView2`, `lxb320124/pbidea` | `fixtures-local/public/modern-integrations` | JSON, WebView2 y código dinámico |
@@ -86,10 +93,15 @@ fixtures-local/
     2025-Solution/
   public/
     legacy-pbl-dump/
-    datawindow-examples/
-    orca-build-examples/
-    native-pbni-examples/
-    modern-integrations/
+```
+
+Slots opcionales no materializados por defecto:
+
+```text
+fixtures-local/public/datawindow-examples/
+fixtures-local/public/orca-build-examples/
+fixtures-local/public/native-pbni-examples/
+fixtures-local/public/modern-integrations/
 ```
 
 ## Flujo recomendado
@@ -98,7 +110,7 @@ fixtures-local/
 2. Clonar o copiar `2025-Solution` en `fixtures-local/pfc/2025-Solution`.
 3. Clonar al menos un dump público de PBL en `fixtures-local/public/legacy-pbl-dump`.
 4. Si se dispone de una app enterprise local reproducible, ubicarla en `fixtures-local/STD_FC_OrderEntry` o un slot equivalente fuera de Git.
-5. Añadir DataWindow / ORCA-build / native / modern integrations solo cuando la validación del área lo necesite.
+5. Añadir DataWindow / ORCA-build / native / modern integrations solo cuando la validación del área lo necesite y documentar entonces su materialización real.
 6. Mantener estos corpus fuera de Git y documentar localmente commit o tag si se usan para comparar regresiones.
 
 ## Qué validar con este corpus

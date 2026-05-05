@@ -146,6 +146,9 @@ suite('unit/workspace', () => {
     fs.addFile('file:///workspace/.gitignore');
     fs.addFile('file:///workspace/.gitattributes');
     fs.addFile('file:///workspace/vssver.scc');
+    fs.addFile('file:///workspace/app.pbg');
+    fs.addFile('file:///workspace/resources.pbr');
+    fs.addFile('file:///workspace/report.psr');
     fs.addDir('file:///workspace/.git');
     fs.addFile('file:///workspace/.git/config');
     fs.addDir('file:///workspace/.svn');
@@ -165,6 +168,9 @@ suite('unit/workspace', () => {
     assert.equal(summary['scm-gitignore-file']?.count ?? 0, 1);
     assert.equal(summary['scm-gitattributes-file']?.count ?? 0, 1);
     assert.equal(summary['scm-scc-file']?.count ?? 0, 1);
+    assert.equal(summary['artifact-pbg-file']?.count ?? 0, 1);
+    assert.equal(summary['artifact-pbr-file']?.count ?? 0, 1);
+    assert.equal(summary['artifact-psr-file']?.count ?? 0, 1);
     assert.equal(summary['artifact-build-dir']?.count ?? 0, 1);
     assert.equal(summary['artifact-backup-dir']?.count ?? 0, 1);
     assert.equal(summary['artifact-pb-dir']?.count ?? 0, 1);

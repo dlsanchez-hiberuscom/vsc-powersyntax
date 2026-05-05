@@ -44,6 +44,7 @@ export function internEntity(entity: Entity, intern: InternString): Entity {
     ...(entity.implementationKind !== undefined ? { implementationKind: intern(entity.implementationKind) as Entity['implementationKind'] } : {}),
     ...(entity.returnType !== undefined ? { returnType: intern(entity.returnType) } : {}),
     ...(entity.ownerName !== undefined ? { ownerName: intern(entity.ownerName) } : {}),
+    ...(entity.externalCallableKind !== undefined ? { externalCallableKind: intern(entity.externalCallableKind) as Entity['externalCallableKind'] } : {}),
     ...(entity.externalLibraryName !== undefined ? { externalLibraryName: intern(entity.externalLibraryName) } : {}),
     ...(entity.externalAlias !== undefined ? { externalAlias: intern(entity.externalAlias) } : {}),
     ...(entity.externalDependencyKind !== undefined ? { externalDependencyKind: intern(entity.externalDependencyKind) as Entity['externalDependencyKind'] } : {}),

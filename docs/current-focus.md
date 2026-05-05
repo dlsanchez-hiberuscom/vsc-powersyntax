@@ -2,48 +2,60 @@
 
 ## 1. Foco activo
 
-Sin derivados vivos en la fase activa listada del backlog.
+`completado`
 
-Estado actual: `AUDIT-04-DERIVED-007` queda cerrado como no-action validado. `resolveQualifierType` ya reutilizaba `getDocumentEntities(..., hotContext)` y la suite focal ya fijaba que no debe releer `kb.getEntitiesByUri()` cuando `HotContextCache` dispone de `activeEntities`. Con este cierre, la secuencia de derivados activos listada en backlog queda agotada.
+Cadena obligatoria vigente:
 
-La evidencia inmediata que deja este cierre es:
+```txt
+completado
+```
 
-- `semanticQueryService.test` ya valida que `resolveQualifierType` reutiliza `activeEntities` del `HotContextCache` para el documento activo.
-- No quedan ítems `AUDIT-04-DERIVED-*` abiertos en la sección de fase activa del backlog.
-- `docs/backlog.md`, `docs/done-log.md` y `docs/current-focus.md` vuelven a reflejar el cierre completo de la secuencia activa auditada.
+Cierres inmediatos ya consolidados:
+
+```txt
+cadena inmediata y bloque derivado completados con evidencia real
+```
+
+Auditorías transversales activas:
+
+```txt
+ninguna en la cadena inmediata
+```
 
 ---
 
 ## 2. Por qué este es el foco activo
 
-- No queda otro derivado activo en la fase listada del backlog.
-- Cualquier foco siguiente debe salir del backlog canónico general o de una nueva priorización explícita, no de esta secuencia ya agotada.
-- El documento mantiene el estado operativo inmediato sin inventar trabajo fuera de backlog.
+- La cadena inmediata previa ya quedó cerrada con evidencia real y ya no debe reaparecer como backlog activo.
+- El bloque derivado de auditoría y la secuencia posterior de planificación ya quedaron absorbidos y cerrados con evidencia canónica.
+- Los tres subcortes recientes del backlog derivado también quedaron cerrados: safe model DataWindow literal-only, gate de evidence para conditional compilation y markers plausibles para guards LSP. La cadena derivada actual queda completada.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- No reabrir `AUDIT-04-DERIVED-005`, `006` o `007` salvo regresión nueva observable.
-- Si se abre un foco nuevo, anclarlo primero en el backlog canónico antes de tocar código.
-- Mantener `docs/backlog.md`, `docs/current-focus.md` y `docs/done-log.md` sincronizados con cualquier nueva priorización.
+- Mantener verde el lane VSIX instalado y sus guards focales como línea base ya cerrada.
+- Mantener backlog/current-focus/roadmap/specs sin focos fantasma tras completar la cadena derivada actual.
+- No abrir un siguiente backlog sin promoción canónica explícita.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Inventar un nuevo derivado activo sin registro explícito en backlog.
-- Reabrir la secuencia auditada ya cerrada sin una regresión verificable.
+- Trabajo fuera de una cadena nueva explícitamente promovida.
+- Implementación de symbols/localización/catálogo fuera de los planes P1 ya abiertos.
+- Ampliaciones ORCA/PBAutoBuild ajenas al mapa documental o al lane release.
+- Reabrir focos auditados previos sin regresión nueva verificable.
 
 ---
 
-## 5. Criterios para abrir el siguiente foco
+## 5. Siguiente paso recomendado
 
-- Debe existir un ítem activo explícito en backlog o una nueva priorización canónica equivalente.
-- El siguiente derivado vivo del backlog queda promovido explícitamente como foco.
+- Revisar y promover la siguiente cadena sólo si existe prioridad canónica nueva en backlog/roadmap.
+- No reabrir ítems cerrados sin regresión verificable o evidencia nueva.
 
 ---
 
 ## 6. Regla final
 
-No se inventa un foco nuevo mientras la sección activa del backlog no lo declare de forma explícita.
+No se abre código nuevo fuera de una cadena promovida explícitamente sin registrarlo antes en backlog, roadmap y specs.
