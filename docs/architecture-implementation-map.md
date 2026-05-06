@@ -16,6 +16,7 @@ Fuentes principales usadas para este mapa:
 - [architecture-status.md](architecture-status.md)
 - [testing.md](testing.md)
 - [performance-budget.md](performance-budget.md)
+- [symbol-system.md](symbol-system.md)
 - [current-focus.md](current-focus.md)
 - [backlog.md](backlog.md)
 - [package.json](../package.json)
@@ -54,6 +55,7 @@ Reglas de lectura:
 | Indexación incremental | [src/server/indexer/workspaceIndexer.ts](../src/server/indexer/workspaceIndexer.ts) | pases structural/enriched, yielding, partial mode, prioridad al activo | Implementado |
 | Parsing y análisis | [src/server/parsing](../src/server/parsing), [src/server/analysis](../src/server/analysis) | DocumentModel, section machine, snapshots, análisis documental, scheduler diagnóstico | Implementado |
 | Knowledge backbone | [src/server/knowledge](../src/server/knowledge) | KnowledgeBase atómica, semanticEpoch, caches, query service, system catalog | Implementado |
+| Sistema de símbolos | [symbol-system.md](symbol-system.md), [src/server/knowledge/symbolKey.ts](../src/server/knowledge/symbolKey.ts), [src/server/features/semanticQueryFacade.ts](../src/server/features/semanticQueryFacade.ts) | Identidad, owners, sourceOrigin/confidence, consumers LSP, enrichments y localización presentation-only | Implementado con roadmap |
 | Features semánticas | [src/server/features](../src/server/features) | hover, completion, definition, references, rename, diagnostics, DataWindow, reports | Implementado |
 | Presentación server-side | [src/server/presentation](../src/server/presentation) | ViewModels y formatters LSP/AI read-only para completion, definition, diagnostics, semantic tokens y AI context | Implementado |
 | Persistencia y caché | [src/server/cache](../src/server/cache) | checkpoint, journal, restore, flush coordinado, runtime cache controller | Implementado |
@@ -130,6 +132,7 @@ Notas de ownership:
 
 - el split `generated + manual + localization` es deliberado y gobernado por [ADR-0001-system-catalog-source-of-truth.md](adr/ADR-0001-system-catalog-source-of-truth.md), no una duplicación accidental;
 - el contrato de `sourceOrigin` sale de [src/shared/sourceOrigin.ts](../src/shared/sourceOrigin.ts) y cruza workspace, knowledge, serving y API pública.
+- el modelo conceptual de símbolos, owners, consumers, enrichments e i18n vive en [symbol-system.md](symbol-system.md); este mapa sólo conserva rutas y flujos verificables.
 
 ### 4.6 Features semánticas, DataWindow y reporting
 
@@ -322,6 +325,7 @@ El release lane ya queda versionado también como workflow visible en `.github/w
 | No existe `docs/build/README.md` en el snapshot | ausencia del archivo; release vive en [release.md](release.md), workflow local en [developer-workflows.md](developer-workflows.md) y fallos operativos en [troubleshooting.md](troubleshooting.md) | No se abre nuevo árbol `docs/build` mientras esos owners cubran el contrato sin duplicación |
 | No hay script `lint` en [package.json](../package.json) | scripts reales inspeccionados | La validación final no puede incluir lint salvo que se añada ese carril |
 | `plugin_old` sigue versionado | [plugin_old](../plugin_old), [legacy-isolation.md](legacy-isolation.md), [technical-debt-inventory.md](technical-debt-inventory.md) | Superficie legacy útil y `Reference-only`; retirada futura requiere spec, receipt y pruebas |
+| Taxonomía completa de semantic tokens aún no tiene ADR propio | [symbol-system.md](symbol-system.md), [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | No bloquea el runtime actual; nuevos token types/modifiers deben entrar por spec y tests focales |
 
 ## 12. Testing ejecutable, gaps y backlog derivado no promovido
 

@@ -25,6 +25,51 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.218 BLOQUE 13. Multi-Audit Final, Symbol System & Catalog Localization Roadmap — **Cerrado (multi-audit / symbols / catalog-localization / 2026-05)**
+
+**Objetivo:** cerrar la macroauditoría final multi-surface, verificar el estado factual de legacy/deuda interna, documentar el sistema de símbolos y el workflow de localización del catálogo, y dejar backlog/focus/roadmap alineados sin abrir features nuevas.
+
+**Resultado registrado:**
+- [docs/symbol-system.md](symbol-system.md) queda como owner canónico del modelo conceptual de símbolo, sources, owners, consumers LSP, confidence/sourceOrigin, enrichments, i18n, DataWindow, semantic tokens y regression matrix;
+- [docs/bloque13-multi-audit-report.md](bloque13-multi-audit-report.md) fija el snapshot factual de la auditoría final, sus 18 pasadas obligatorias, gaps derivados y el siguiente slice recomendado;
+- [docs/localization.md](localization.md) incorpora el roadmap factual de cobertura `es` por dominio y la regla de progreso basada en overlays íntegros, anchors técnicos y métricas antes/después;
+- [docs/testing.md](testing.md), [docs/performance-budget.md](performance-budget.md) y [docs/release.md](release.md) quedan alineados con el carril real de símbolos/localización, budgets de payload/cache y la lane adicional requerida cuando cambian overlays del catálogo;
+- [docs/plugin-old-migration-opportunities.md](plugin-old-migration-opportunities.md), [docs/architecture.md](architecture.md), [docs/architecture-status.md](architecture-status.md), [docs/architecture-implementation-map.md](architecture-implementation-map.md) y [docs/ai-context/powerbuilder-plugin-context.md](ai-context/powerbuilder-plugin-context.md) quedan enlazados al owner nuevo y dejan explícito que `plugin_old` sigue siendo `Reference-only`;
+- [docs/backlog.md](backlog.md) reemplaza el bloque macro por follow-ups derivados y priorizados, con `SYMBOL-MODEL-01` como primer slice recomendado; [docs/current-focus.md](current-focus.md) y [docs/roadmap.md](roadmap.md) promueven ese slice y sacan la auditoría final del foco activo;
+- [docs/ai-orchestrator.md](ai-orchestrator.md) y [docs/ai-agents-catalog.md](ai-agents-catalog.md) se restauran como compatibility entries mínimos hacia [docs/ai-orchestration.md](ai-orchestration.md) para mantener verde la gobernanza AI sin duplicar ownership;
+- el bloque se cierra sin cambios de runtime: el resultado es documental, de auditoría, de backlog y de validación sobre surfaces ya existentes.
+
+**Validación registrada:**
+- `npm run compile` (`tsc -b`, exit code 0)
+- `npm run test:unit -- --grep "unit/(aiCustomizationGovernance|aiContextDocs)"` (`6 passing`, exit code 0)
+- `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"` (`9 passing`, exit code 0)
+- `npm run report:catalog-localization` (`locales: es`, `incompleteOverlays: 0`, `invalidParameterTargets: 0`, `recoveredTargetIds: 0`, `orphanOverlays: 0`, exit code 0)
+- `npm run migrate:catalog-localization-target-ids` (`No hay targetIds recuperados por targetKey. No hace falta migracion.`, exit code 0)
+- `npm run test:docs:drift` (`passed`; `findings: []`, `currentFocusId: SYMBOL-MODEL-01`, `roadmapFocusId: SYMBOL-MODEL-01`, exit code 0)
+- `npm run test:architecture:rapid` (`smoke 3 passing`, `performance 7 passing`, architecture rapid gate passed, exit code 0)
+- `npm run test:performance:gate` (`4 passing`; budgets dentro de objetivo, exit code 0)
+- `npm run test:unit` (`1201 passing`, exit code 0)
+- `npm test` (`unit 1201 passing`, `integration 4 passing`, exit code 0)
+
+**Documentación alineada:**
+- `docs/symbol-system.md`
+- `docs/bloque13-multi-audit-report.md`
+- `docs/localization.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/release.md`
+- `docs/plugin-old-migration-opportunities.md`
+- `docs/architecture.md`
+- `docs/architecture-status.md`
+- `docs/architecture-implementation-map.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
 ## 1.217 BLOQUE 12. Legacy Isolation, Technical Debt & Controlled Cleanup — **Cerrado (legacy-isolation / technical-debt / cleanup-policy / 2026-05)**
 
 **Objetivo:** fijar una frontera explícita para `plugin_old`, registrar deuda técnica con estados claros y reforzar cleanup controlado sin retirar superficies útiles ni introducir dependencias legacy en runtime.

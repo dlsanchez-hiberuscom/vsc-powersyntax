@@ -173,6 +173,7 @@ Estado actual:
 - `buildConflictFamilyKey` como agregación relajada para conflictos cross-project/cross-library.
 - `KnowledgeBase` publica mutaciones con copy-on-write por bucket.
 - `workspaceSymbols`, API symbols, completion global y manifest semántico consumen consultas/conteos acotados.
+- [symbol-system.md](symbol-system.md) queda como owner documental del modelo conceptual de símbolo, sources, consumers, confidence/sourceOrigin, enrichments, localización y roadmap derivado.
 
 Metadata contractual de símbolo ya publicada:
 
@@ -691,6 +692,10 @@ Mantener `.srd` como sublenguaje separado y evitar reparsers por feature.
 
 Cualquier operación peligrosa debe bloquearse o degradar si `sourceOrigin` no es confiable.
 
+### 26.8 Riesgo de symbol enrichment sin owner
+
+Los enrichments futuros de símbolos deben entrar por [symbol-system.md](symbol-system.md), `SemanticQueryFacade`, `SystemCatalog`, `DataWindowFastContext` o `src/server/presentation` según corresponda. No deben reabrir providers con lógica paralela ni cargar documentación larga en completion initial.
+
 ---
 
 ## 27. Próximas recomendaciones documentales
@@ -698,6 +703,7 @@ Cualquier operación peligrosa debe bloquearse o degradar si `sourceOrigin` no e
 Se recomienda consolidar primero las superficies documentales ya existentes antes de abrir rutas nuevas:
 
 - `docs/localization.md` para localización y overlays del catálogo.
+- `docs/symbol-system.md` para modelo conceptual de símbolos, sources, consumers, enrichments, i18n y regression matrix.
 - `docs/architecture-implementation-map.md` para el cruce entre capas, owners, flujos, cachés y validación ejecutable.
 - La Parte 2 del `architecture-implementation-map` ya quedó ampliada con fichas módulo a módulo, estado explícito de caches recomendadas, auditoría `cache hit vs cache miss` y backlog `DEVTOOLS-*` derivado, sin promoción automática a `docs/current-focus.md`.
 - `docs/ai-orchestration.md` para ownership, contratos públicos read-only, tools/MCP, safe-edit, validación y seguridad IA.

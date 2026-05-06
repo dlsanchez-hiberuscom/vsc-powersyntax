@@ -87,6 +87,18 @@ Reglas de uso:
 - Los cambios de documentación de estado deben acabar con `npm run test:docs:drift`; los cierres de bloque deben registrar además el carril funcional o arquitectónico que justificó el cierre.
 - El output de fallos debe permitir actuar: feature, escenario, budget o referencia documental afectada.
 
+### 3.7 Matriz símbolo/localización
+
+[symbol-system.md](symbol-system.md) es el owner de la matriz de regresión para símbolos, enrichments, i18n, DataWindow y semantic tokens. Los cambios de documentación/backlog de esa superficie deben ejecutar `npm run test:docs:drift`. Los cambios de catálogo/localización deben sumar:
+
+```bash
+npm run test:unit -- --grep "catalogLocalization|catalogConsistency"
+npm run report:catalog-localization
+npm run migrate:catalog-localization-target-ids
+```
+
+Si el cambio toca consumers visibles de símbolos, añadir `npm run test:unit` y, cuando haya impacto en payload/cache/hot path, `npm run test:performance:gate`.
+
 ---
 
 ## 4. Tipos de prueba

@@ -58,6 +58,8 @@ Build a professional VS Code extension for PowerBuilder 2025/PowerScript with fa
 - `docs/architecture.md` owns normative architecture.
 - `docs/architecture-status.md` owns implemented status.
 - `docs/architecture-implementation-map.md` owns the bridge to real code paths and validation anchors.
+- `docs/symbol-system.md` owns symbol identity, owners, consumers, enrichments, i18n and regression matrix.
+- `docs/localization.md` owns catalog localization workflow and coverage roadmap.
 - `docs/testing.md` owns the validation strategy.
 - `docs/developer-workflows.md` owns operational workflows.
 - `docs/ai/README.md` owns the AI documentation index.

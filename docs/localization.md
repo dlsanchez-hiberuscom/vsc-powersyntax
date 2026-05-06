@@ -70,6 +70,21 @@ npm run migrate:catalog-localization-target-ids
 6. Resto generated.
 ```
 
+## 5.1 Roadmap de cobertura `es`
+
+Estado factual tras Bloque 13, tomado de [catalogLocalizationReport.generated.md](../artifacts/catalog/catalogLocalizationReport.generated.md):
+
+| Dominio | Cobertura actual | Prioridad | Criterio de avance |
+| --- | ---: | --- | --- |
+| `global-functions` | `3/285` revisados (`1.05%`) | P1 | Ampliar funciones/eventos visibles con `reviewed: true` sólo si no generan incomplete/invalid/orphan. |
+| `datawindow-functions` y `datawindow-properties` | `0%` | P1 | Cubrir DataWindow core sin traducir anchors, property paths ni nombres reales. |
+| `system-object-datatypes` | `0%` | P2 | Priorizar tipos runtime/visual principales ya estabilizados por catálogo. |
+| `enumerated-types` / `enumerated-values` | `0%` | P2 | Mantener enum values con `!` sin traducir; traducir sólo documentación. |
+| `statements`, `keywords`, `reserved-words` | `0%` | P2 | Localizar ayuda contextual, no lexemas del lenguaje. |
+| resto generated/manual | `0%` | P3 | Avanzar por uso real y cobertura visible, no por masa de entradas. |
+
+Cada incremento debe registrar cobertura antes/después, dominios tocados, issues resueltos y comandos ejecutados. La localización de nuevos idiomas queda `Planned`: debe reutilizar el mismo contrato de overlays y no abrir símbolos duplicados por locale.
+
 ---
 
 ## 6. Guía de estilo

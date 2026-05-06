@@ -156,3 +156,23 @@ Clasificación vigente tras revisar `plugin_old` frente a la arquitectura actual
 - **No portar:** provider host cliente, singleton indexes sin versionado, symbol keys sin sourceOrigin, ORCA directo y cualquier lógica que reconstruya semántica fuera de `KnowledgeBase`/snapshots/query service.
 
 La sesión actual sigue sin portar código legacy masivo: `B342` absorbió linked editing, `B344` fijó el frente DataWindow `report -> column -> dddw` sobre el backbone nuevo y el resto queda clasificado para slices posteriores.
+
+---
+
+## 7. Auditoría 2026-05-06 — Bloque 13
+
+Conclusión vigente:
+
+> Existen oportunidades puntuales, pero ninguna habilita port masivo ni dependencia runtime desde `plugin_old`.
+
+Evidencia revisada:
+
+- `src/**` no contiene imports estáticos, dynamic `import()` ni `require()` hacia `plugin_old/**`.
+- Las menciones de `legacy` en el plugin actual corresponden a ORCA/PBAutoBuild, compatibilidad pública, corpora de prueba o documentación de deuda controlada.
+- Los patrones aprovechables siguen siendo los ya clasificados: gramática centralizada, metadata de símbolos, visibilidad avanzada, semantic occurrences y apoyo DataWindow, siempre rediseñados sobre [symbol-system.md](symbol-system.md), `SemanticQueryFacade`, `KnowledgeBase`, `DataWindowFastContext` y `src/server/presentation`.
+
+Decisión:
+
+- Mantener `plugin_old` como referencia histórica bajo [legacy-isolation.md](legacy-isolation.md).
+- Cualquier extracción futura requiere spec, owner moderno, tests focales, docs y prueba de que no se reintroduce un rail paralelo.
+- No hay retirada física recomendada dentro de Bloque 13.

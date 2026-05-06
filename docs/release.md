@@ -75,6 +75,10 @@ PBAutoBuild and ORCA are optional external rails. They are not release prerequis
 
 Use [docs/troubleshooting.md](troubleshooting.md) for PBAutoBuild/ORCA failure classification and [docs/developer-workflows.md](developer-workflows.md) for day-to-day build commands.
 
+## Catalog Localization Changes
+
+`npm run release:verify` gates catalog coverage through `verify:catalog-coverage`, but it does not automatically regenerate the localization report. Changes under [src/server/knowledge/system/localization](../src/server/knowledge/system/localization) must separately run the localization lane from [localization.md](localization.md): focused unit grep, `report:catalog-localization` and `migrate:catalog-localization-target-ids` dry-run before release evidence is considered complete.
+
 ## Pre-Release Cleanup Checklist
 
 Before sharing or publishing a candidate VSIX, verify:

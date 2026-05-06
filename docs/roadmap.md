@@ -377,20 +377,14 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Bloque pedido por el usuario — continuidad `BLOQUE-13`**
-
-Cadena activa obligatoria:
-
-```txt
-.github/prompts/implement-spec.bloque13.prompt.md
-```
+**Siguiente slice recomendado — continuidad `SYMBOL-MODEL-01`**
 
 Con foco en:
 
-- ejecutar la auditoría final multi-surface sin reabrir ítems movidos a `done-log`;
-- revisar sistema de símbolos, catálogo y localización con dueños existentes antes de crear nuevos dominios;
-- mantener `plugin_old` como reference-only según [legacy-isolation.md](legacy-isolation.md) y registrar deuda nueva en [technical-debt-inventory.md](technical-debt-inventory.md) o backlog derivado;
-- mantener el gate documental de continuidad antes de abrir código nuevo fuera de la cadena promovida.
+- formalizar el contrato canónico de símbolos sobre [symbol-system.md](symbol-system.md) sin reescribir el runtime;
+- conectar `buildSymbolKey`, `SemanticQueryFacade`, sourceOrigin/confidence y consumers LSP con acceptance criteria ejecutables;
+- mantener `plugin_old` como reference-only según [legacy-isolation.md](legacy-isolation.md) y registrar cualquier extracción futura como spec dedicada;
+- no abrir slices de localización, semantic tokens o DataWindow enrichments hasta cerrar o promover explícitamente el contrato base.
 
 ### Trabajo paralelo permitido
 

@@ -658,6 +658,7 @@ La documentación debe distinguir siempre entre:
 
 - `docs/architecture-status.md` — estado implementado actual y guardrails vigentes.
 - `docs/architecture-implementation-map.md` — mapa puente entre capas, código real, flujos, cachés y validación.
+- `docs/symbol-system.md` — modelo conceptual de símbolos, sources, consumers, enrichments, i18n y regression matrix.
 - `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` — semántica PowerBuilder y reglas de interpretación.
 - `docs/localization.md` — workflow de overlays y authoring documental del catálogo.
 - `docs/ai/README.md` — entrypoint actual de orquestación IA, estructura y ownership.
