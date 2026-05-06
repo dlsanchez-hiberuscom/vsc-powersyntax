@@ -6,5 +6,10 @@ export const PB_MANUAL_CORE_INTEGRATION_FILESYSTEM_CATEGORIES = [
 ] as const;
 
 export const PB_MANUAL_CORE_INTEGRATION_FILESYSTEM_TYPES: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'FileSystem', category: 'Filesystem', summary: 'Subsistema de acceso al sistema de archivos desde el runtime.' }),
+  systemObjectDatatype({
+    name: 'FileSystem',
+    category: 'Filesystem',
+    summary: 'Filesystem access subsystem from the runtime.',
+    manualOverlay: { mode: 'override', reason: 'Hardening FileSystem documentation.', evidence: ['manual-core:integration:filesystem:filesystem'] },
+  }),
 ];

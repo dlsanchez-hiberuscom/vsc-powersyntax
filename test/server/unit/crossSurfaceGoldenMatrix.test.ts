@@ -84,8 +84,8 @@ suite('unit/crossSurfaceGoldenMatrix (B273)', () => {
         { text: 'ids_orders', type: 'variable' },
         { text: 'ids_orders', type: 'variable' },
         { text: 'of_inherited', type: 'function' },
-        { text: 'w_context', type: 'type' },
-        { text: 'w_context', type: 'type' },
+        { text: 'w_context', type: 'class' },
+        { text: 'w_context', type: 'class' },
       ],
       currentObjectContext: {
         object: 'w_context',

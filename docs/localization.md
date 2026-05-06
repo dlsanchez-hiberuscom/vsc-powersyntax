@@ -278,3 +278,39 @@ npm run migrate:catalog-localization-target-ids
 ```
 
 El reporte generado debe quedar con `schemaIssues = 0`, `orphanOverlays = 0`, `invalidParameterTargets = 0`, `recoveredTargetIds = 0` y `missingFieldsByDomain` consistente con el estado factual del dominio tocado. Si además el cambio toca consumers visibles o locale runtime, sumar las validaciones de `B373`.
+
+---
+
+## 10. Hallazgo de auditoría: manual/** en español (2026-05-06)
+
+> [!CAUTION]
+> La auditoría `CATALOG-MANUAL-LOCALIZATION-AUDIT` detectó que **todo `manual/**` tiene `summary`, `documentation` y `category` en español**. Esto causa que cuando `locale = en`, los consumers (hover, completion, signatureHelp) muestren texto español al usuario.
+
+### Estado factual
+
+- ~1200+ entries en `manual/**` con texto visible en español.
+- 29+ categorías españolas usadas como keys lógicas.
+- `localization/es/**` solo cubre entries de `generated/`, no de `manual/`.
+- No existe estructura espejo `localization/es/{core,datawindow,...}/`.
+
+### Política objetivo
+
+```
+manual/**         = overrides/enrichments en INGLÉS canónico
+localization/es/**= overlay español visible, sin cambiar identidad técnica
+```
+
+### Plan de migración
+
+```
+1. CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01  — Formalizar política EN-base
+2. CATALOG-MANUAL-CATEGORIES-KEYS-01       — Normalizar categorías a keys EN
+3. CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01 — Crear estructura espejo es/
+4. CATALOG-MANUAL-EN-MIGRATION             — Migrar por dominio: core, DW, visual, runtime, language, integration, tooling
+```
+
+Cada slice de migración debe:
+- Preservar el texto ES original como overlay en `localization/es/` antes de sobrescribir con EN.
+- Mantener el baseline en 0 incomplete / 0 invalid / 0 recovered / 0 orphan.
+- Registrar cobertura antes/después.
+- No cambiar IDs, names, signatures, parameterNames, datatypes ni anchors técnicos.

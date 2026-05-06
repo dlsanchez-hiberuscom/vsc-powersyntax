@@ -2,15 +2,15 @@ import { PbSystemSymbolEntry } from '../../types';
 import { systemObjectDatatype } from '../common';
 
 export const PB_MANUAL_CORE_TEXT_CONTROL_CATEGORIES = [
-  'Controles de texto',
+  'Text controls',
 ] as const;
 
 export const PB_MANUAL_CORE_TEXT_CONTROLS: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'EditMask', category: 'Controles de texto', summary: 'Control de edición con máscara.' }),
-  systemObjectDatatype({ name: 'InkEdit', category: 'Controles de texto', summary: 'Control de tinta y escritura manuscrita.' }),
-  systemObjectDatatype({ name: 'MultiLineEdit', category: 'Controles de texto', summary: 'Control de edición multilínea.' }),
-  systemObjectDatatype({ name: 'RichTextEdit', category: 'Controles de texto', summary: 'Editor visual de texto enriquecido.' }),
-  systemObjectDatatype({ name: 'SingleLineEdit', category: 'Controles de texto', summary: 'Control de edición de una sola línea.' }),
-  systemObjectDatatype({ name: 'StaticHyperLink', category: 'Controles de texto', summary: 'Hipervínculo visual estático.' }),
-  systemObjectDatatype({ name: 'StaticText', category: 'Controles de texto', summary: 'Texto visual estático.' }),
+  systemObjectDatatype({ name: 'EditMask', category: 'Text controls', summary: 'Masked edit control.' }),
+  systemObjectDatatype({ name: 'InkEdit', category: 'Text controls', summary: 'Ink and handwriting edit control.' }),
+  systemObjectDatatype({ name: 'MultiLineEdit', category: 'Text controls', summary: 'Multi-line edit control.' }),
+  systemObjectDatatype({ name: 'RichTextEdit', category: 'Text controls', summary: 'Visual rich text editor.' }),
+  systemObjectDatatype({ name: 'SingleLineEdit', category: 'Text controls', summary: 'Single-line edit control.' }),
+  systemObjectDatatype({ name: 'StaticHyperLink', category: 'Text controls', summary: 'Visual static hyperlink.' }),
+  systemObjectDatatype({ name: 'StaticText', category: 'Text controls', summary: 'Visual static text.' }),
 ];

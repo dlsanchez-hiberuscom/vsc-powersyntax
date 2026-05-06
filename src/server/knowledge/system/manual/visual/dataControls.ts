@@ -2,24 +2,24 @@ import { PbSystemSymbolEntry } from '../../types';
 import { systemObjectDatatype } from '../common';
 
 export const PB_MANUAL_CORE_DATA_CONTROL_CATEGORIES = [
-  'Controles de datos/UI',
+  'Data/UI controls',
 ] as const;
 
 export const PB_MANUAL_CORE_DATA_CONTROLS: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'Animation', category: 'Controles de datos/UI', summary: 'Control visual para animaciones integradas.' }),
-  systemObjectDatatype({ name: 'CheckBox', category: 'Controles de datos/UI', summary: 'Control visual de casilla de verificación.' }),
-  systemObjectDatatype({ name: 'CommandButton', category: 'Controles de datos/UI', summary: 'Botón de comando visual.' }),
-  systemObjectDatatype({ name: 'DatePicker', category: 'Controles de datos/UI', summary: 'Selector visual de fecha.' }),
-  systemObjectDatatype({ name: 'GroupBox', category: 'Controles de datos/UI', summary: 'Contenedor visual para agrupar controles.' }),
-  systemObjectDatatype({ name: 'HProgressBar', category: 'Controles de datos/UI', summary: 'Barra de progreso horizontal.' }),
-  systemObjectDatatype({ name: 'HScrollBar', category: 'Controles de datos/UI', summary: 'Barra de desplazamiento horizontal.' }),
-  systemObjectDatatype({ name: 'HTrackBar', category: 'Controles de datos/UI', summary: 'Trackbar horizontal visual.' }),
-  systemObjectDatatype({ name: 'InkPicture', category: 'Controles de datos/UI', summary: 'Control visual para imágenes de tinta.' }),
-  systemObjectDatatype({ name: 'MonthCalendar', category: 'Controles de datos/UI', summary: 'Calendario mensual visual.' }),
-  systemObjectDatatype({ name: 'PictureButton', category: 'Controles de datos/UI', summary: 'Botón visual con imagen.' }),
-  systemObjectDatatype({ name: 'RadioButton', category: 'Controles de datos/UI', summary: 'Control visual de opción única.' }),
-  systemObjectDatatype({ name: 'VProgressBar', category: 'Controles de datos/UI', summary: 'Barra de progreso vertical.' }),
-  systemObjectDatatype({ name: 'VScrollBar', category: 'Controles de datos/UI', summary: 'Barra de desplazamiento vertical.' }),
-  systemObjectDatatype({ name: 'VTrackBar', category: 'Controles de datos/UI', summary: 'Trackbar vertical visual.' }),
-  systemObjectDatatype({ name: 'WebBrowser', category: 'Controles de datos/UI', summary: 'Control visual de navegador embebido.' }),
+  systemObjectDatatype({ name: 'Animation', category: 'Data/UI controls', summary: 'Visual control for embedded animations.' }),
+  systemObjectDatatype({ name: 'CheckBox', category: 'Data/UI controls', summary: 'Visual check box control.' }),
+  systemObjectDatatype({ name: 'CommandButton', category: 'Data/UI controls', summary: 'Visual command button.' }),
+  systemObjectDatatype({ name: 'DatePicker', category: 'Data/UI controls', summary: 'Visual date picker control.' }),
+  systemObjectDatatype({ name: 'GroupBox', category: 'Data/UI controls', summary: 'Visual container for grouping controls.' }),
+  systemObjectDatatype({ name: 'HProgressBar', category: 'Data/UI controls', summary: 'Horizontal progress bar.' }),
+  systemObjectDatatype({ name: 'HScrollBar', category: 'Data/UI controls', summary: 'Horizontal scroll bar.' }),
+  systemObjectDatatype({ name: 'HTrackBar', category: 'Data/UI controls', summary: 'Visual horizontal track bar.' }),
+  systemObjectDatatype({ name: 'InkPicture', category: 'Data/UI controls', summary: 'Visual control for ink images.' }),
+  systemObjectDatatype({ name: 'MonthCalendar', category: 'Data/UI controls', summary: 'Visual month calendar.' }),
+  systemObjectDatatype({ name: 'PictureButton', category: 'Data/UI controls', summary: 'Visual button with image.' }),
+  systemObjectDatatype({ name: 'RadioButton', category: 'Data/UI controls', summary: 'Visual single-option radio button.' }),
+  systemObjectDatatype({ name: 'VProgressBar', category: 'Data/UI controls', summary: 'Vertical progress bar.' }),
+  systemObjectDatatype({ name: 'VScrollBar', category: 'Data/UI controls', summary: 'Vertical scroll bar.' }),
+  systemObjectDatatype({ name: 'VTrackBar', category: 'Data/UI controls', summary: 'Visual vertical track bar.' }),
+  systemObjectDatatype({ name: 'WebBrowser', category: 'Data/UI controls', summary: 'Visual embedded web browser control.' }),
 ];

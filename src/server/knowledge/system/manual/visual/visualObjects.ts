@@ -2,16 +2,16 @@ import { PbSystemSymbolEntry } from '../../types';
 import { systemObjectDatatype } from '../common';
 
 export const PB_MANUAL_CORE_VISUAL_OBJECT_CATEGORIES = [
-  'Objetos visuales',
+  'Visual objects',
 ] as const;
 
 export const PB_MANUAL_CORE_VISUAL_OBJECTS: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'Window', category: 'Objetos visuales', summary: 'Ventana de la interfaz de usuario.' }),
-  systemObjectDatatype({ name: 'MDIFrame', category: 'Objetos visuales', summary: 'Ventana marco MDI que hospeda hojas, toolbars y menús.' }),
-  systemObjectDatatype({ name: 'MDIClient', category: 'Objetos visuales', summary: 'Área cliente MDI que contiene las hojas hijas dentro del marco.' }),
-  systemObjectDatatype({ name: 'DataWindow', category: 'Objetos visuales', summary: 'Control DataWindow visual.', lookupAliases: ['dw'] }),
-  systemObjectDatatype({ name: 'Menu', category: 'Objetos visuales', summary: 'Menú de la interfaz de usuario.' }),
-  systemObjectDatatype({ name: 'MenuCascade', category: 'Objetos visuales', summary: 'Elemento de menú en cascada que expone un submenú.' }),
-  systemObjectDatatype({ name: 'UserObject', category: 'Objetos visuales', summary: 'Base de user objects visuales.' }),
-  systemObjectDatatype({ name: 'PowerServerLabel', category: 'Objetos visuales', summary: 'Etiqueta visual especializada para PowerServer.' }),
+  systemObjectDatatype({ name: 'Window', category: 'Visual objects', summary: 'User interface window.' }),
+  systemObjectDatatype({ name: 'MDIFrame', category: 'Visual objects', summary: 'MDI frame window that hosts sheets, toolbars and menus.' }),
+  systemObjectDatatype({ name: 'MDIClient', category: 'Visual objects', summary: 'MDI client area that contains child sheets within the frame.' }),
+  systemObjectDatatype({ name: 'DataWindow', category: 'Visual objects', summary: 'Visual DataWindow control.', lookupAliases: ['dw'] }),
+  systemObjectDatatype({ name: 'Menu', category: 'Visual objects', summary: 'User interface menu.' }),
+  systemObjectDatatype({ name: 'MenuCascade', category: 'Visual objects', summary: 'Cascading menu item that exposes a submenu.' }),
+  systemObjectDatatype({ name: 'UserObject', category: 'Visual objects', summary: 'Base for visual user objects.' }),
+  systemObjectDatatype({ name: 'PowerServerLabel', category: 'Visual objects', summary: 'Specialized visual label for PowerServer.' }),
 ];

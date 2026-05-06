@@ -6,6 +6,16 @@ export const PB_MANUAL_CORE_INTEGRATION_REST_CATEGORIES = [
 ] as const;
 
 export const PB_MANUAL_CORE_INTEGRATION_REST_TYPES: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'RESTClient', category: 'JSON / HTTP / OAuth / REST', summary: 'Cliente REST no visual.' }),
-  systemObjectDatatype({ name: 'WSConnection', category: 'JSON / HTTP / OAuth / REST', summary: 'Conexión no visual a servicios web.' }),
+  systemObjectDatatype({
+    name: 'RESTClient',
+    category: 'JSON / HTTP / OAuth / REST',
+    summary: 'Non-visual REST client.',
+    manualOverlay: { mode: 'override', reason: 'Hardening RESTClient documentation.', evidence: ['manual-core:integration:rest:restclient'] },
+  }),
+  systemObjectDatatype({
+    name: 'WSConnection',
+    category: 'JSON / HTTP / OAuth / REST',
+    summary: 'Non-visual connection to web services.',
+    manualOverlay: { mode: 'override', reason: 'Hardening WSConnection documentation.', evidence: ['manual-core:integration:rest:wsconnection'] },
+  }),
 ];

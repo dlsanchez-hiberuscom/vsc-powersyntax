@@ -25,6 +25,29 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.237 CATALOG-MANUAL-LOCALIZATION-BASE-EN — **Cerrado (symbols / catalog / localization / manual-en / 2026-05)**
+
+**Objetivo:** completar la migración a inglés canónico para los overlays manuales de `visual`, `runtime` y `tooling`, manteniendo la infraestructura de localización `es` paralela, normalizando las keys de categoría y garantizando que las entries sin review pasen el gate CI (B132).
+
+**Resultado registrado:**
+- `docs/localization.md` incluye la política manual-base-en formal.
+- `manual/visual/*`, `manual/runtime/*` y `manual/tooling/*` convertidos a inglés canónico con categorías estables (ej. `Visual objects`, `System objects`, `Tooling`).
+- Creada estructura mirror `localization/es/{visual,runtime,tooling}/` para hospedar los overlays localizados.
+- Todos los overlays parciales se flaggean con `reviewed: false` para respetar la validación de schema (`schemaIssues: 0`) según requerimientos arquitectónicos, permitiendo completitud incremental.
+- Tests de catálogo (`catalogLocalization.test.ts`, `catalogConsistency.test.ts`, `visualCatalogDatatypes.test.ts`, `runtimeCatalogDatatypes.test.ts`, `publicCorpusDocumentation.test.ts`) endurecidos y sincronizados con los changes, eliminando reportes de drift documental.
+
+**Validación registrada:**
+- `npm run test:unit` (`1235 passing`, exit code 0)
+- `npm run report:catalog-localization` (`schemaVersion: 1.0.0`, `schemaIssues = 0`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/localization.md`
+- `docs/done-log.md`
+
 ## 1.236 SYMBOL-FRAMEWORKS-01 — **Cerrado (symbols / framework packs / advisory / 2026-05)**
 
 **Objetivo:** añadir enrichments PFC/STD sólo advisory, con `source`, `confidence`, fallback y evidencia real, sin convertir metadata de framework en autoridad sobre el símbolo del workspace.

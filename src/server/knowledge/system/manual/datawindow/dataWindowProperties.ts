@@ -2,7 +2,7 @@ import { PbSystemSymbolEntry } from '../../types';
 import { dataWindowProperty } from '../common';
 
 export const PB_MANUAL_CORE_DATAWINDOW_PROPERTY_CATEGORIES = [
-    'Metadatos',
+    'Metadata',
     'SQL',
     'Dropdown',
 ] as const;
@@ -24,50 +24,55 @@ function defineDataWindowPropertyEntries(
         category: descriptor.category,
         summary: descriptor.summary,
         signatures: [{ label: descriptor.signature }],
+        manualOverlay: {
+            mode: 'override',
+            reason: 'Enforces curated documentation for core DataWindow properties.',
+            evidence: [`manual-core:datawindow-properties:property:datawindow:member:${descriptor.name.toLowerCase()}`],
+        },
     }));
 }
 
 export const PB_MANUAL_CORE_DATAWINDOW_PROPERTIES = defineDataWindowPropertyEntries([
     {
         name: 'DataWindow',
-        category: 'Metadatos',
-        summary: 'Namespace raiz de propiedades describe/modify para el DataWindow enlazado.',
+        category: 'Metadata',
+        summary: 'Root namespace for describe/modify properties of the bound DataWindow.',
         signature: 'DataWindow',
     },
     {
         name: 'DataWindow.Syntax',
-        category: 'Metadatos',
-        summary: 'Sintaxis serializada completa del DataWindow enlazado.',
+        category: 'Metadata',
+        summary: 'Complete serialized syntax of the bound DataWindow.',
         signature: 'DataWindow.Syntax',
     },
     {
         name: 'DataWindow.DataObject',
-        category: 'Metadatos',
-        summary: 'Nombre del DataObject actualmente enlazado al control o DataStore.',
+        category: 'Metadata',
+        summary: 'Name of the DataObject currently bound to the control or DataStore.',
         signature: 'DataWindow.DataObject',
     },
     {
         name: 'DataWindow.Table',
         category: 'SQL',
-        summary: 'Namespace de metadatos de tabla y retrieval del DataWindow enlazado.',
+        summary: 'Table and retrieval metadata namespace of the bound DataWindow.',
         signature: 'DataWindow.Table',
     },
     {
         name: 'DataWindow.Table.Select',
         category: 'SQL',
-        summary: 'Sentencia SQL de retrieval resuelta para el DataWindow enlazado.',
+        summary: 'Resolved SQL retrieval statement for the bound DataWindow.',
         signature: 'DataWindow.Table.Select',
     },
     {
         name: 'dddw',
         category: 'Dropdown',
-        summary: 'Namespace de metadatos del DropDownDataWindow asociado a una columna.',
+        summary: 'Metadata namespace of the DropDownDataWindow associated with a column.',
         signature: 'dddw',
     },
     {
         name: 'dddw.name',
         category: 'Dropdown',
-        summary: 'Nombre del DataWindow hijo asociado a la columna mediante dddw.name.',
+        summary: 'Name of the child DataWindow associated with the column via dddw.name.',
         signature: 'dddw.name',
     },
 ]);

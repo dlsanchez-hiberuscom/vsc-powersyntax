@@ -13,11 +13,11 @@ suite('unit/visualCatalogDatatypes (B358)', () => {
 
   test('tipos visuales avanzados resuelven con categoría coherente y viven en PB_BUILTIN_TYPES', () => {
     const expected = [
-      ['MDIFrame', 'Objetos visuales'],
-      ['MDIClient', 'Objetos visuales'],
-      ['MenuCascade', 'Objetos visuales'],
-      ['RibbonApplicationMenu', 'Controles Ribbon'],
-      ['RibbonPanelItem', 'Controles Ribbon'],
+      ['MDIFrame', 'Visual objects'],
+      ['MDIClient', 'Visual objects'],
+      ['MenuCascade', 'Visual objects'],
+      ['RibbonApplicationMenu', 'Ribbon controls'],
+      ['RibbonPanelItem', 'Ribbon controls'],
       ['OLEControl', 'OLE visual'],
       ['WindowActiveX', 'OLE visual'],
     ] as const;
@@ -34,7 +34,7 @@ suite('unit/visualCatalogDatatypes (B358)', () => {
   test('Application queda clasificado como tipo runtime/system y no como visual', () => {
     const dt = catalog.resolveDatatype('Application');
     assert.ok(dt, 'debe resolver Application');
-    assert.equal(dt?.category, 'Objetos de sistema');
+    assert.equal(dt?.category, 'System objects');
   });
 
   test('owner groups y ancestros nativos cubren visuales avanzados', () => {

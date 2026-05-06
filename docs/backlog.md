@@ -128,6 +128,86 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 ---
 
+## CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01 — English base language policy for manual/**
+
+- **Estado:** Open.
+- **Prioridad:** P1.
+- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
+- **Evidencia:** Todo `manual/**` tiene `summary`, `documentation`, `category` en español. Cuando `locale = en`, los consumers (hover, completion, signatureHelp) muestran texto español al usuario.
+- **Riesgo:** Sin política formalizada, cada migración posterior inventa criterios ad-hoc y puede introducir inconsistencias.
+- **Objetivo:** Documentar en `docs/localization.md` la política final de idioma: `manual/**` = inglés canónico; `localization/es/**` = overlay español. Crear checklist de migración reutilizable.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - `docs/localization.md` incluye sección de política manual-base-en.
+  - Checklist documentado para migrar un archivo manual.
+  - No hay cambios en código.
+- **Docs:** `docs/localization.md`.
+- **Tests:** N/A (doc-only).
+
+---
+
+## CATALOG-MANUAL-CATEGORIES-KEYS-01 — Normalize Spanish categories to stable English keys
+
+- **Estado:** Done.
+- **Prioridad:** P1.
+- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
+- **Evidencia:** 29+ categorías en español usadas como keys lógicas (`'Controles de lista'`, `'Objetos no visuales'`, `'Ventana'`, `'Archivo'`, `'Interacción'`, `'Reflexión'`, `'Datos'`, etc.) en `manual/visual/*`, `manual/runtime/*`, `manual/core/*`, `manual/language/*`, `manual/datawindow/*`.
+- **Riesgo:** Si se migra texto visible sin normalizar keys primero, consumers que agrupan por `category` se rompen o quedan inconsistentes.
+- **Objetivo:** Convertir todas las categorías a keys estables inglés/enum-like. Mover los labels localizados a `presentation/terminology.ts` o `localization/es/`.
+- **Depends on:** `CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01`.
+- **Acceptance criteria:**
+  - Todas las `category:` en `manual/**` son strings ingleses estables.
+  - Los labels ES se preservan en `presentation/terminology.ts` como `category-*` keys.
+  - No se rompe ningún consumer que filtre por category.
+  - Tests de catálogo verdes.
+  - Reporte antes/después.
+- **Docs:** `docs/localization.md`, `docs/symbol-system.md`.
+- **Tests:** `npm run test:unit -- --grep "catalogConsistency"`, `npm run report:catalog-localization`.
+
+---
+
+## CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01 — Create es/ mirror structure for manual/** domains
+
+- **Estado:** Done.
+- **Prioridad:** P1.
+- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
+- **Evidencia:** `localization/es/` solo contiene overlays para `generated/` entries. No hay subdirectorios para core, datawindow, integration, language, runtime, tooling, visual.
+- **Riesgo:** Sin estructura espejo, los overlays ES para manual entries quedan sin owner ni organización clara.
+- **Objetivo:** Crear la estructura de directorios `localization/es/{core,datawindow,integration,language,runtime,tooling,visual}/` con archivos índice vacíos y registro en `localization/es/index.ts`.
+- **Depends on:** `CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01`.
+- **Acceptance criteria:**
+  - Directorios creados con `index.ts` que exporta arrays vacíos.
+  - `localization/es/index.ts` importa y agrega todos los subdominios.
+  - Compila sin errores.
+  - Reporte de localización sigue en 0 issues.
+- **Docs:** `docs/localization.md`.
+- **Tests:** `npm run compile`, `npm run report:catalog-localization`.
+
+---
+
+## CATALOG-MANUAL-EN-MIGRATION — Per-domain English migration and ES overlay creation
+
+- **Estado:** Partial.
+- **Prioridad:** P1.
+- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
+- **Evidencia:** Auditoría completa en `specs/CATALOG-MANUAL-LOCALIZATION-AUDIT/`.
+- **Riesgo:** ~1200+ entries con texto visible español en locale=en.
+- **Objetivo:** Paraguas para la migración EN por dominio y creación de overlays ES. Specs individuales: `CATALOG-MANUAL-CORE-TO-EN-01`, `CATALOG-MANUAL-DW-TO-EN-01`, `CATALOG-MANUAL-VISUAL-TO-EN-01`, `CATALOG-MANUAL-RUNTIME-TO-EN-01`, `CATALOG-MANUAL-LANGUAGE-TO-EN-01`, `CATALOG-MANUAL-INTEGRATION-TO-EN-01`, `CATALOG-MANUAL-TOOLING-TO-EN-01` con sus mirrors `CATALOG-LOCALIZATION-ES-MIRROR-*-01`.
+- **Depends on:** `CATALOG-MANUAL-CATEGORIES-KEYS-01`, `CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01`.
+- **Acceptance criteria:**
+  - Todo `manual/**` en inglés canónico.
+  - Overlays ES completos para dominios con documentación visible.
+  - 0 issues en reporte de localización.
+  - locale=en no muestra texto español.
+- **Docs:** `docs/localization.md`, spec individual por dominio.
+- **Tests:** `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"`, `npm run report:catalog-localization`.
+
+**Pendiente exacto:**
+- Ejecutar por dominio en el orden: core, datawindow, visual, runtime, language, integration, tooling.
+- Cada slice debe preservar el texto ES original como overlay antes de sobrescribir con EN.
+
+---
+
 # 4. Current execution focus recomendado
 
 ## Estado actual

@@ -2,61 +2,69 @@
 
 ## 1. Foco activo
 
-`CATALOG-LOCALIZATION-DOMAINS-01 — Localization coverage by domain`
+`CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01 — English base language policy for manual/**`
 
 Cadena obligatoria vigente:
 
 ```txt
-docs/backlog.md -> CATALOG-LOCALIZATION-DOMAINS-01
+docs/backlog.md -> CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01
+                -> CATALOG-MANUAL-CATEGORIES-KEYS-01
+                -> CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01
+                -> CATALOG-MANUAL-EN-MIGRATION (per-domain)
 ```
 
-Estado de continuidad tras cerrar el slice framework-specific:
+Estado de continuidad tras la auditoría de localización:
 
 ```txt
-`SYMBOL-FRAMEWORKS-01` quedó cerrado añadiendo packs advisory PFC/STD sobre el rail existente de framework knowledge packs, con source explícito, confidence/fallback proyectados por surface y validación gated con fixtures locales; el backlog operativo vuelve a `CATALOG-LOCALIZATION-DOMAINS-01` como pendiente parcial vigente.
+CATALOG-MANUAL-LOCALIZATION-AUDIT detectó que todo `manual/**` tiene texto visible en español. Cuando `locale = en`, hover, completion y signatureHelp muestran texto español al usuario. Esto es un bug crítico de UX que requiere migración sistemática a inglés base + creación de overlays ES.
 ```
 
 Auditorías transversales activas:
 
 ```txt
-ninguna
+CATALOG-MANUAL-LOCALIZATION-AUDIT — Complete. Backlog items generados.
 ```
 
 ---
 
 ## 2. Por qué este foco está activo
 
-- `SYMBOL-FRAMEWORKS-01` ya quedó cubierto sin abrir otro motor semántico: PFC/STD entran por knowledge packs advisory, el símbolo real del workspace sigue siendo la autoridad y el manifest usa fallback curado sólo cuando el owner type no existe en el system catalog.
-- `CATALOG-LOCALIZATION-DOMAINS-01` permanece `Partial` con pendiente exacto visible: `datawindow-properties` sigue en `0/7` y el resto de dominios `generated` todavía necesita decisión de alcance con baseline antes/después.
-- `CATALOG-LOCALIZATION-ES-01` sigue siendo el paraguas de cobertura `es`; volver a `CATALOG-LOCALIZATION-DOMAINS-01` evita inventar una cadena nueva mientras el backlog activo todavía conserva este frente abierto.
+- La auditoría de localización reveló que **~1200+ entries en `manual/**`** tienen `summary`, `documentation` y `category` en español, causando que `locale = en` muestre texto español a usuarios angloparlantes.
+- Las categorías españolas se usan como keys lógicas (`'Controles de lista'`, `'Objetos no visuales'`, etc.), creando un riesgo estructural si se migran textos sin normalizar keys primero.
+- `CATALOG-LOCALIZATION-DOMAINS-01` sigue `Partial` pero su avance real depende de resolver primero la base EN de `manual/**`.
+- `CATALOG-LOCALIZATION-ES-01` conserva el rail `es` con 31 overlays revisados, 0 issues, pero solo cubre `generated/` entries.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Abrir el siguiente corte documental visible para `datawindow-properties` y decidir con evidencia qué dominios `generated` pendientes merecen slice explícito.
-- Mantener el baseline `es` en `0 incomplete / 0 invalid / 0 recovered / 0 orphan` y usar `targetId`/`targetKey` con reportes antes/después.
-- Tratar `SYMBOL-FRAMEWORKS-01` como cerrado: sólo se reabre por regresión demostrada, no para ampliar heurísticas sin nuevo slice promovido.
+- Formalizar la política EN-base en `docs/localization.md` (`CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01`).
+- Normalizar categorías españolas a keys estables ingleses (`CATALOG-MANUAL-CATEGORIES-KEYS-01`).
+- Crear estructura espejo `localization/es/{core,datawindow,...}/` (`CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01`).
+- Ejecutar migración EN por dominio empezando por visual (más pequeño) o core (más impactante).
+- Mantener el baseline `es` en `0 incomplete / 0 invalid / 0 recovered / 0 orphan`.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Reabrir `SYMBOL-FRAMEWORKS-01`, `SYMBOL-DOCS-EXAMPLES-01` o cualquiera de los slices de cobertura ya cerrados salvo regresión demostrada o cambio explícito de alcance.
-- Promocionar heurísticas PFC/STD a autoridad semántica del runtime base o del catálogo oficial.
-- Traducir keywords, reserved words, `signatureLabel`, `parameterName`, datatypes reales o cualquier anchor técnico del catálogo.
-- Traducir anchors técnicos o modificar identidad semántica del catálogo bajo pretexto de enrichment.
-- Reabrir resolvers semánticos, `KnowledgeBase`, `DataWindowFastContext`, parsers o composition roots sin evidencia de bloqueo real para el slice de localización por dominios.
+- Abrir nuevos dominios de cobertura `es` sin resolver primero la base EN de `manual/**`.
+- Reabrir resolvers semánticos, parsers o composition roots sin evidencia de bloqueo.
+- Traducir keywords, reserved words, `signatureLabel`, `parameterName`, datatypes reales o cualquier anchor técnico.
+- Añadir texto español nuevo en `manual/**` bajo cualquier pretexto.
 
 ---
 
 ## 5. Siguiente paso recomendado
 
-- abrir el siguiente corte de cobertura visible de `CATALOG-LOCALIZATION-DOMAINS-01` con baseline y reportes reales, empezando por `datawindow-properties` o dejando fuera con evidencia el resto `generated` pendiente.
-- conservar `SYMBOL-FRAMEWORKS-01` como slice cerrado y usar la revisión global del Bloque 2 sólo después de decidir qué pendiente documental/localización sigue realmente viva.
+- Ejecutar `CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01` (doc-only, sin cambios de código).
+- Seguir con `CATALOG-MANUAL-CATEGORIES-KEYS-01` para normalizar las 29+ categorías españolas.
+- En paralelo, crear la estructura espejo (`CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01`).
+- Primera migración de dominio: `manual/visual/` (67 entries, dominio acotado, buen candidato de práctica).
 
 ---
 
 ## 6. Regla final
 
 No se marca ningún bloque como cerrado sin código, pruebas, docs y validación final reproducible.
+

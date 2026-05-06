@@ -164,18 +164,18 @@ suite('unit/runtimeCatalogDatatypes (B359)', () => {
 
   test('tipos runtime e integration representativos resuelven con categorías coherentes', () => {
     const expected = [
-      ['Application', 'Objetos de sistema'],
+      ['Application', 'System objects'],
       ['HTTPClient', 'JSON / HTTP / OAuth / REST'],
       ['JSONParser', 'JSON / HTTP / OAuth / REST'],
-      ['BatchDataObjects', 'Objetos no visuales'],
+      ['BatchDataObjects', 'Non-visual objects'],
       ['PDFDocument', 'PDF'],
       ['PDFPage', 'PDF'],
       ['SMTPClient', 'Correo'],
       ['MimeMessage', 'Correo'],
       ['TraceTreeRoutine', 'Profiling y trazas'],
       ['ResourceResponse', 'JSON / HTTP / OAuth / REST'],
-      ['DataStore', 'Objetos no visuales'],
-      ['Transaction', 'Objetos no visuales'],
+      ['DataStore', 'Non-visual objects'],
+      ['Transaction', 'Non-visual objects'],
     ] as const;
 
     for (const [typeName, category] of expected) {

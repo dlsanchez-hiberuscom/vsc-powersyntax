@@ -2,17 +2,17 @@ import { PbSystemSymbolEntry } from '../../types';
 import { systemObjectDatatype } from '../common';
 
 export const PB_MANUAL_CORE_DRAWING_CONTROL_CATEGORIES = [
-  'Controles de dibujo',
+  'Drawing controls',
 ] as const;
 
 export const PB_MANUAL_CORE_DRAWING_CONTROLS: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'Graph', category: 'Controles de dibujo', summary: 'Control visual para gráficos y charts.' }),
-  systemObjectDatatype({ name: 'grAxis', category: 'Controles de dibujo', summary: 'Configuración de ejes para un control Graph.' }),
-  systemObjectDatatype({ name: 'grDispAttr', category: 'Controles de dibujo', summary: 'Atributos de visualización para elementos de un Graph.' }),
-  systemObjectDatatype({ name: 'Line', category: 'Controles de dibujo', summary: 'Objeto visual de línea.' }),
-  systemObjectDatatype({ name: 'Oval', category: 'Controles de dibujo', summary: 'Objeto visual ovalado.' }),
-  systemObjectDatatype({ name: 'Picture', category: 'Controles de dibujo', summary: 'Control visual de imagen.' }),
-  systemObjectDatatype({ name: 'PictureHyperLink', category: 'Controles de dibujo', summary: 'Hipervínculo visual basado en imagen.' }),
-  systemObjectDatatype({ name: 'Rectangle', category: 'Controles de dibujo', summary: 'Objeto visual rectangular.' }),
-  systemObjectDatatype({ name: 'RoundRectangle', category: 'Controles de dibujo', summary: 'Objeto visual rectangular con esquinas redondeadas.' }),
+  systemObjectDatatype({ name: 'Graph', category: 'Drawing controls', summary: 'Visual control for graphs and charts.' }),
+  systemObjectDatatype({ name: 'grAxis', category: 'Drawing controls', summary: 'Axis configuration for a Graph control.' }),
+  systemObjectDatatype({ name: 'grDispAttr', category: 'Drawing controls', summary: 'Display attributes for Graph elements.' }),
+  systemObjectDatatype({ name: 'Line', category: 'Drawing controls', summary: 'Visual line object.' }),
+  systemObjectDatatype({ name: 'Oval', category: 'Drawing controls', summary: 'Visual oval object.' }),
+  systemObjectDatatype({ name: 'Picture', category: 'Drawing controls', summary: 'Visual image control.' }),
+  systemObjectDatatype({ name: 'PictureHyperLink', category: 'Drawing controls', summary: 'Visual image-based hyperlink.' }),
+  systemObjectDatatype({ name: 'Rectangle', category: 'Drawing controls', summary: 'Visual rectangle object.' }),
+  systemObjectDatatype({ name: 'RoundRectangle', category: 'Drawing controls', summary: 'Visual rounded rectangle object.' }),
 ];

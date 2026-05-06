@@ -2,18 +2,18 @@ import { PbSystemSymbolEntry } from '../../types';
 import { systemObjectDatatype } from '../common';
 
 export const PB_MANUAL_CORE_LIST_CONTROL_CATEGORIES = [
-  'Controles de lista',
+  'List controls',
 ] as const;
 
 export const PB_MANUAL_CORE_LIST_CONTROLS: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'DropDownListBox', category: 'Controles de lista', summary: 'Lista desplegable visual.' }),
-  systemObjectDatatype({ name: 'DropDownPictureListBox', category: 'Controles de lista', summary: 'Lista desplegable visual con imágenes.' }),
-  systemObjectDatatype({ name: 'ListBox', category: 'Controles de lista', summary: 'Lista visual de selección.' }),
-  systemObjectDatatype({ name: 'ListView', category: 'Controles de lista', summary: 'Control visual de lista detallada.' }),
-  systemObjectDatatype({ name: 'ListViewItem', category: 'Controles de lista', summary: 'Ítem de un control ListView.' }),
-  systemObjectDatatype({ name: 'PictureListBox', category: 'Controles de lista', summary: 'Lista visual con imágenes.' }),
-  systemObjectDatatype({ name: 'Tab', category: 'Controles de lista', summary: 'Control visual con pestañas.' }),
-  systemObjectDatatype({ name: 'TabbedBar', category: 'Controles de lista', summary: 'Barra de pestañas visual para navegación entre páginas.' }),
-  systemObjectDatatype({ name: 'TreeView', category: 'Controles de lista', summary: 'Control visual jerárquico.' }),
-  systemObjectDatatype({ name: 'TreeViewItem', category: 'Controles de lista', summary: 'Ítem de un control TreeView.' }),
+  systemObjectDatatype({ name: 'DropDownListBox', category: 'List controls', summary: 'Visual drop-down list box.' }),
+  systemObjectDatatype({ name: 'DropDownPictureListBox', category: 'List controls', summary: 'Visual drop-down list box with images.' }),
+  systemObjectDatatype({ name: 'ListBox', category: 'List controls', summary: 'Visual selection list box.' }),
+  systemObjectDatatype({ name: 'ListView', category: 'List controls', summary: 'Visual detailed list control.' }),
+  systemObjectDatatype({ name: 'ListViewItem', category: 'List controls', summary: 'Item within a ListView control.' }),
+  systemObjectDatatype({ name: 'PictureListBox', category: 'List controls', summary: 'Visual list box with images.' }),
+  systemObjectDatatype({ name: 'Tab', category: 'List controls', summary: 'Visual tabbed control.' }),
+  systemObjectDatatype({ name: 'TabbedBar', category: 'List controls', summary: 'Visual tabbed bar for page navigation.' }),
+  systemObjectDatatype({ name: 'TreeView', category: 'List controls', summary: 'Visual hierarchical tree control.' }),
+  systemObjectDatatype({ name: 'TreeViewItem', category: 'List controls', summary: 'Item within a TreeView control.' }),
 ];

@@ -7,7 +7,7 @@ import { getMaterializedPublicCorpusSlots } from '../helpers/publicCorpusPaths';
 
 function extractSection(content: string, heading: string): string {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = content.match(new RegExp(`## ${escapedHeading}\\n\\n([\\s\\S]*?)(?:\\n## |$)`));
+  const match = content.match(new RegExp(`## ${escapedHeading}\\r?\\n\\r?\\n([\\s\\S]*?)(?:\\r?\\n## |$)`));
   return match?.[1] ?? '';
 }
 
