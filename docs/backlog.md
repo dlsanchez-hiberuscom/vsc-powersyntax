@@ -118,6 +118,22 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - [ ] integration (English manual base: ok. ES overlays: partial)
 - [ ] tooling (English manual base: ok. ES overlays: 100%)
 
+
+---
+
+## PLUGIN-INFRASTRUCTURE-NLS-01 — Plugin UI and Logic Internationalization (NLS)
+
+- **Estado:** Open.
+- **Prioridad:** P1.
+- **Origen:** Auditoría de Internacionalización (Conversación c736c88a).
+- **Evidencia:** Mezcla de idiomas en `package.json`, notificaciones hardcoded en español en `extension.ts` y mensajes de diagnóstico (linter) no localizables.
+- **Objetivo:** Implementar `vscode-nls` para separar los literales de la lógica.
+- **Pendiente exacto:**
+  - **package.json**: Mover comandos, settings y descripciones a `package.nls.json`.
+  - **Client/Server Strings**: Externalizar logs, notificaciones y nombres de canales de salida.
+  - **Linter Messages**: Mover los mensajes de error de `diagnostics.ts` y `documentAnalysis.ts` a un catálogo de mensajes localizable.
+  - **Metadata Labels**: Traducir etiquetas de análisis como "Argumento", "Instancia", "Resumen", etc.
+
 ---
 
 # 4. Backlog derivado — Errores reales capturados en runtime
