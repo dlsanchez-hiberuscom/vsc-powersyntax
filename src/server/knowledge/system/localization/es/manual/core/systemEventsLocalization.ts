@@ -154,4 +154,77 @@ export const systemEventsLocalization: PbSystemSymbolLocalizationOverlay[] = [
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'Key', ownerTypes: ['window'] },
         text: { summary: 'Se dispara cuando el usuario pulsa una tecla mientras el control tiene el foco.' },
     },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'MenuChanged', ownerTypes: ['window'] },
+        text: { summary: 'Se dispara cuando la ribbon bar de una ventana MDI o MDIHelp se inicializa o se reconstruye.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'SystemKey', ownerTypes: ['window'] },
+        text: { summary: 'Se dispara cuando el usuario pulsa Alt o Alt junto con otra tecla fuera de un DataWindow o RichTextEdit.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'ToolbarMoved', ownerTypes: ['window'] },
+        text: { summary: 'Se dispara en una ventana MDI cuando el usuario mueve la FrameBar o la SheetBar.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'HotLinkAlarm', ownerTypes: ['window'] },
+        text: { 
+            summary: 'Se dispara tras recibir datos nuevos de una aplicación servidor DDE.',
+            obsoleteMessage: 'Evento DDE obsoleto; se mantiene por compatibilidad.'
+        },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'RemoteExec', ownerTypes: ['window'] },
+        text: { 
+            summary: 'Se dispara cuando una aplicación cliente DDE envía un comando.',
+            obsoleteMessage: 'Evento DDE obsoleto; se mantiene por compatibilidad.'
+        },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'RemoteHotLinkStart', ownerTypes: ['window'] },
+        text: { 
+            summary: 'Se dispara cuando un cliente DDE solicita iniciar un hot link.',
+            obsoleteMessage: 'Evento DDE obsoleto; se mantiene por compatibilidad.'
+        },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'RemoteHotLinkStop', ownerTypes: ['window'] },
+        text: { 
+            summary: 'Se dispara cuando un cliente DDE solicita terminar un hot link.',
+            obsoleteMessage: 'Evento DDE obsoleto; se mantiene por compatibilidad.'
+        },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'RemoteRequest', ownerTypes: ['window'] },
+        text: { 
+            summary: 'Se dispara cuando un cliente DDE solicita datos.',
+            obsoleteMessage: 'Evento DDE obsoleto; se mantiene por compatibilidad.'
+        },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'RemoteSend', ownerTypes: ['window'] },
+        text: { 
+            summary: 'Se dispara cuando un cliente DDE ha enviado datos.',
+            obsoleteMessage: 'Evento DDE obsoleto; se mantiene por compatibilidad.'
+        },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'RightClicked', ownerTypes: ['treeview', 'listview', 'tab'] },
+        text: { summary: 'Se dispara cuando el usuario hace clic con el botón derecho sobre el control.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'RightDoubleClicked', ownerTypes: ['treeview', 'listview', 'tab'] },
+        text: { summary: 'Se dispara cuando el usuario hace doble clic con el botón derecho sobre el control.' },
+    },
 ];

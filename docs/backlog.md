@@ -108,10 +108,10 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 **Status por dominio:**
 - [x] runtime (Done: systemGlobals, reflection, profiling, errors, ole, mail)
-- [ ] core (English manual base: ok. ES overlays: partial 6%)
-- [ ] datawindow (English manual base: ok. ES overlays: partial 70%)
-- [ ] visual (English manual base: ok. ES overlays: partial 92%)
-- [ ] language (English manual base: ok. ES overlays: partial)
+- [ ] core (English manual base: ok. ES overlays: partial 10% - Audit clean)
+- [ ] datawindow (English manual base: ok. ES overlays: partial 70% - Audit clean)
+- [ ] visual (English manual base: ok. ES overlays: partial 61% - Audit clean)
+- [ ] language (English manual base: ok. ES overlays: partial 71% - Audit clean)
 - [ ] integration (English manual base: ok. ES overlays: partial)
 - [ ] tooling (English manual base: ok. ES overlays: 100%)
 

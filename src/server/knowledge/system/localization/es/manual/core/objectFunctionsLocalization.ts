@@ -1,124 +1,393 @@
 import { PbSystemSymbolLocalizationOverlay } from '../../../../types';
+import {
+    EVENT_CAPABLE_OBJECT_TYPES,
+    FOCUSABLE_OBJECT_TYPES,
+    REDRAWABLE_OBJECT_TYPES,
+    VISUAL_OBJECT_TYPES,
+} from '../../../../manual/ownerTypes/visualOwnerTypes';
+
 /**
  * Spanish localization for core object functions.
  * Reviewed: false - Initial migration from canonical source.
  */
 export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = [
+    // --- Common Grouped Functions (Matching Canonical Manual Groups) ---
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetFocus', ownerTypes: ['checkbox', 'commandbutton', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask', 'inkedit', 'listbox', 'listview', 'mdiclient', 'mdiframe', 'monthcalendar', 'multilineedit', 'picturebutton', 'picturelistbox', 'radiobutton', 'richtextedit', 'singlelineedit', 'tab', 'tabbedbar', 'treeview', 'webbrowser'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetFocus', ownerTypes: FOCUSABLE_OBJECT_TYPES },
         text: { summary: 'Transfiere el foco de entrada al objeto visual.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Show', ownerTypes: ['animation', 'checkbox', 'commandbutton', 'datawindow', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask', 'graph', 'graxis', 'grdispattr', 'groupbox', 'hprogressbar', 'hscrollbar', 'htrackbar', 'inkedit', 'inkpicture', 'line', 'listbox', 'listview', 'listviewitem', 'mdiclient', 'mdiframe', 'menu', 'menucascade', 'monthcalendar', 'multilineedit', 'olecontrol', 'olecustomcontrol', 'oval', 'picture', 'picturebutton', 'picturehyperlink', 'picturelistbox', 'powerserverlabel', 'radiobutton', 'rectangle', 'ribbonapplicationbuttonitem', 'ribbonapplicationmenu', 'ribbonbar', 'ribboncategoryitem', 'ribboncheckboxitem', 'ribboncomboboxitem', 'ribbongroupitem', 'ribbonitem', 'ribbonlargebuttonitem', 'ribbonmenu', 'ribbonmenuitem', 'ribbonpanelitem', 'ribbonsmallbuttonitem', 'ribbontabbuttonitem', 'richtextedit', 'roundrectangle', 'singlelineedit', 'statichyperlink', 'statictext', 'tab', 'tabbedbar', 'treeview', 'treeviewitem', 'userobject', 'vprogressbar', 'vscrollbar', 'vtrackbar', 'webbrowser', 'window', 'windowactivex'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Show', ownerTypes: VISUAL_OBJECT_TYPES },
         text: { summary: 'Hace que el objeto sea visible en la interfaz.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Hide', ownerTypes: ['animation', 'checkbox', 'commandbutton', 'datawindow', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask', 'graph', 'graxis', 'grdispattr', 'groupbox', 'hprogressbar', 'hscrollbar', 'htrackbar', 'inkedit', 'inkpicture', 'line', 'listbox', 'listview', 'listviewitem', 'mdiclient', 'mdiframe', 'menu', 'menucascade', 'monthcalendar', 'multilineedit', 'olecontrol', 'olecustomcontrol', 'oval', 'picture', 'picturebutton', 'picturehyperlink', 'picturelistbox', 'powerserverlabel', 'radiobutton', 'rectangle', 'ribbonapplicationbuttonitem', 'ribbonapplicationmenu', 'ribbonbar', 'ribboncategoryitem', 'ribboncheckboxitem', 'ribboncomboboxitem', 'ribbongroupitem', 'ribbonitem', 'ribbonlargebuttonitem', 'ribbonmenu', 'ribbonmenuitem', 'ribbonpanelitem', 'ribbonsmallbuttonitem', 'ribbontabbuttonitem', 'richtextedit', 'roundrectangle', 'singlelineedit', 'statichyperlink', 'statictext', 'tab', 'tabbedbar', 'treeview', 'treeviewitem', 'userobject', 'vprogressbar', 'vscrollbar', 'vtrackbar', 'webbrowser', 'window', 'windowactivex'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Hide', ownerTypes: VISUAL_OBJECT_TYPES },
         text: { summary: 'Oculta el objeto de la interfaz.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Move', ownerTypes: ['animation', 'checkbox', 'commandbutton', 'datawindow', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask', 'graph', 'graxis', 'grdispattr', 'groupbox', 'hprogressbar', 'hscrollbar', 'htrackbar', 'inkedit', 'inkpicture', 'line', 'listbox', 'listview', 'listviewitem', 'mdiclient', 'mdiframe', 'menu', 'menucascade', 'monthcalendar', 'multilineedit', 'olecontrol', 'olecustomcontrol', 'oval', 'picture', 'picturebutton', 'picturehyperlink', 'picturelistbox', 'powerserverlabel', 'radiobutton', 'rectangle', 'ribbonapplicationbuttonitem', 'ribbonapplicationmenu', 'ribbonbar', 'ribboncategoryitem', 'ribboncheckboxitem', 'ribboncomboboxitem', 'ribbongroupitem', 'ribbonitem', 'ribbonlargebuttonitem', 'ribbonmenu', 'ribbonmenuitem', 'ribbonpanelitem', 'ribbonsmallbuttonitem', 'ribbontabbuttonitem', 'richtextedit', 'roundrectangle', 'singlelineedit', 'statichyperlink', 'statictext', 'tab', 'tabbedbar', 'treeview', 'treeviewitem', 'userobject', 'vprogressbar', 'vscrollbar', 'vtrackbar', 'webbrowser', 'window', 'windowactivex'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Move', ownerTypes: VISUAL_OBJECT_TYPES },
         text: { summary: 'Cambia la posición del objeto a las coordenadas indicadas.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Resize', ownerTypes: ['animation', 'checkbox', 'commandbutton', 'datawindow', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask', 'graph', 'graxis', 'grdispattr', 'groupbox', 'hprogressbar', 'hscrollbar', 'htrackbar', 'inkedit', 'inkpicture', 'line', 'listbox', 'listview', 'listviewitem', 'mdiclient', 'mdiframe', 'menu', 'menucascade', 'monthcalendar', 'multilineedit', 'olecontrol', 'olecustomcontrol', 'oval', 'picture', 'picturebutton', 'picturehyperlink', 'picturelistbox', 'powerserverlabel', 'radiobutton', 'rectangle', 'ribbonapplicationbuttonitem', 'ribbonapplicationmenu', 'ribbonbar', 'ribboncategoryitem', 'ribboncheckboxitem', 'ribboncomboboxitem', 'ribbongroupitem', 'ribbonitem', 'ribbonlargebuttonitem', 'ribbonmenu', 'ribbonmenuitem', 'ribbonpanelitem', 'ribbonsmallbuttonitem', 'ribbontabbuttonitem', 'richtextedit', 'roundrectangle', 'singlelineedit', 'statichyperlink', 'statictext', 'tab', 'tabbedbar', 'treeview', 'treeviewitem', 'userobject', 'vprogressbar', 'vscrollbar', 'vtrackbar', 'webbrowser', 'window', 'windowactivex'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Resize', ownerTypes: VISUAL_OBJECT_TYPES },
         text: { summary: 'Cambia las dimensiones del objeto.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerX', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit', 'window', 'listbox', 'tab', 'listview', 'treeview'] },
-        text: { summary: 'Devuelve la coordenada X del puntero relativa al objeto.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerY', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit', 'window', 'listbox', 'tab', 'listview', 'treeview'] },
-        text: { summary: 'Devuelve la coordenada Y del puntero relativa al objeto.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetParent', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit', 'listbox', 'tab', 'listview', 'treeview'] },
-        text: { summary: 'Devuelve una referencia al objeto padre.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetRedraw', ownerTypes: ['datawindow', 'graph', 'listview', 'mdiclient', 'mdiframe', 'picture', 'ribbonbar', 'tab', 'tabbedbar', 'treeview', 'webbrowser', 'window', 'windowactivex', 'listbox'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetRedraw', ownerTypes: REDRAWABLE_OBJECT_TYPES },
         text: { summary: 'Habilita o deshabilita el repintado automático del objeto.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PostEvent', ownerTypes: ['animation', 'application', 'checkbox', 'commandbutton', 'datawindow', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask', 'graph', 'graxis', 'grdispattr', 'groupbox', 'hprogressbar', 'hscrollbar', 'htrackbar', 'inkedit', 'inkpicture', 'line', 'listbox', 'listview', 'listviewitem', 'mdiclient', 'mdiframe', 'menu', 'menucascade', 'monthcalendar', 'multilineedit', 'nonvisualobject', 'olecontrol', 'olecustomcontrol', 'oval', 'picture', 'picturebutton', 'picturehyperlink', 'picturelistbox', 'powerserverlabel', 'radiobutton', 'rectangle', 'ribbonapplicationbuttonitem', 'ribbonapplicationmenu', 'ribbonbar', 'ribboncategoryitem', 'ribboncheckboxitem', 'ribboncomboboxitem', 'ribbongroupitem', 'ribbonitem', 'ribbonlargebuttonitem', 'ribbonmenu', 'ribbonmenuitem', 'ribbonpanelitem', 'ribbonsmallbuttonitem', 'ribbontabbuttonitem', 'richtextedit', 'roundrectangle', 'singlelineedit', 'statichyperlink', 'statictext', 'tab', 'tabbedbar', 'treeview', 'treeviewitem', 'userobject', 'vprogressbar', 'vscrollbar', 'vtrackbar', 'webbrowser', 'window', 'windowactivex'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PostEvent', ownerTypes: EVENT_CAPABLE_OBJECT_TYPES },
         text: { summary: 'Añade un evento a la cola de mensajes para ejecución diferida.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TriggerEvent', ownerTypes: ['animation', 'application', 'checkbox', 'commandbutton', 'datawindow', 'datepicker', 'dropdownlistbox', 'dropdownpicturelistbox', 'editmask', 'graph', 'graxis', 'grdispattr', 'groupbox', 'hprogressbar', 'hscrollbar', 'htrackbar', 'inkedit', 'inkpicture', 'line', 'listbox', 'listview', 'listviewitem', 'mdiclient', 'mdiframe', 'menu', 'menucascade', 'monthcalendar', 'multilineedit', 'nonvisualobject', 'olecontrol', 'olecustomcontrol', 'oval', 'picture', 'picturebutton', 'picturehyperlink', 'picturelistbox', 'powerserverlabel', 'radiobutton', 'rectangle', 'ribbonapplicationbuttonitem', 'ribbonapplicationmenu', 'ribbonbar', 'ribboncategoryitem', 'ribboncheckboxitem', 'ribboncomboboxitem', 'ribbongroupitem', 'ribbonitem', 'ribbonlargebuttonitem', 'ribbonmenu', 'ribbonmenuitem', 'ribbonpanelitem', 'ribbonsmallbuttonitem', 'ribbontabbuttonitem', 'richtextedit', 'roundrectangle', 'singlelineedit', 'statichyperlink', 'statictext', 'tab', 'tabbedbar', 'treeview', 'treeviewitem', 'userobject', 'vprogressbar', 'vscrollbar', 'vtrackbar', 'webbrowser', 'window', 'windowactivex'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TriggerEvent', ownerTypes: EVENT_CAPABLE_OBJECT_TYPES },
         text: { summary: 'Ejecuta inmediatamente un evento en el objeto.' },
     },
+
+    // --- Control-Specific Functions (Splitting to match Canonical Manual) ---
+
+    // ClassName
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ClassName', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit', 'window', 'listbox', 'tab', 'listview', 'treeview'] },
-        text: { summary: 'Devuelve el nombre de la clase del objeto.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ClassName', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve el nombre de la clase asignado al control ListBox.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TypeOf', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit', 'window', 'listbox', 'tab', 'listview', 'treeview'] },
-        text: { summary: 'Devuelve el tipo enumerado del objeto.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ClassName', ownerTypes: ['tab'] },
+        text: { summary: 'Devuelve el nombre de la clase asignado al control Tab.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetContextService', ownerTypes: ['window', 'listbox', 'tab', 'listview', 'treeview'] },
-        text: { summary: 'Crea una referencia a un servicio de contexto específico.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ClassName', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve el nombre de la clase asignado al control ListView.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'AddItem', ownerTypes: ['listbox', 'listview'] },
-        text: { summary: 'Añade un elemento a la lista o control.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ClassName', ownerTypes: ['treeview'] },
+        text: { summary: 'Devuelve el nombre de la clase asignado al control TreeView.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DeleteItem', ownerTypes: ['listbox', 'listview', 'treeview'] },
-        text: { summary: 'Elimina un elemento de la lista o control.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ClassName', ownerTypes: ['window'] },
+        text: { summary: 'Devuelve el nombre de la clase asignado a la ventana.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItem', ownerTypes: ['listbox', 'listview', 'treeview'] },
-        text: { summary: 'Inserta un elemento en una posición específica.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ClassName', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
+        text: { summary: 'Devuelve el nombre de la clase del control de edición.' },
+    },
+
+    // TypeOf
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TypeOf', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve el tipo enumerado del objeto ListBox.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Reset', ownerTypes: ['listbox', 'listview', 'treeview'] },
-        text: { summary: 'Elimina todos los elementos del control.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TypeOf', ownerTypes: ['tab'] },
+        text: { summary: 'Devuelve el tipo enumerado del objeto Tab.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TotalItems', ownerTypes: ['listbox', 'listview', 'treeview'] },
-        text: { summary: 'Devuelve el número total de elementos en el control.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TypeOf', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve el tipo enumerado del objeto ListView.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectedIndex', ownerTypes: ['listbox', 'listview'] },
-        text: { summary: 'Devuelve el índice del elemento seleccionado.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TypeOf', ownerTypes: ['treeview'] },
+        text: { summary: 'Devuelve el tipo enumerado del objeto TreeView.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectedItem', ownerTypes: ['listbox', 'listview'] },
-        text: { summary: 'Devuelve el texto del elemento seleccionado.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TypeOf', ownerTypes: ['window'] },
+        text: { summary: 'Devuelve el tipo enumerado de la ventana.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetItem', ownerTypes: ['listview', 'treeview'] },
-        text: { summary: 'Recupera las propiedades de un elemento o nodo.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TypeOf', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
+        text: { summary: 'Devuelve el tipo enumerado del control de edición.' },
+    },
+
+    // PointerX & PointerY
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerX', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve la posición X del puntero relativa al ListBox.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetItem', ownerTypes: ['listview', 'treeview'] },
-        text: { summary: 'Establece las propiedades de un elemento o nodo.' },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerX', ownerTypes: ['tab'] },
+        text: { summary: 'Devuelve la posición X del puntero relativa al Tab.' },
     },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerX', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve la posición X del puntero relativa al ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerX', ownerTypes: ['treeview'] },
+        text: { summary: 'Devuelve la posición X del puntero relativa al TreeView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerX', ownerTypes: ['window'] },
+        text: { summary: 'Devuelve la posición X del puntero relativa a la ventana.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerX', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
+        text: { summary: 'Devuelve la posición X del puntero relativa al control de edición.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerY', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve la posición Y del puntero relativa al ListBox.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerY', ownerTypes: ['tab'] },
+        text: { summary: 'Devuelve la posición Y del puntero relativa al Tab.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerY', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve la posición Y del puntero relativa al ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerY', ownerTypes: ['treeview'] },
+        text: { summary: 'Devuelve la posición Y del puntero relativa al TreeView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerY', ownerTypes: ['window'] },
+        text: { summary: 'Devuelve la posición Y del puntero relativa a la ventana.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'PointerY', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
+        text: { summary: 'Devuelve la posición Y del puntero relativa al control de edición.' },
+    },
+
+    // GetParent
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetParent', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve el objeto padre del ListBox.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetParent', ownerTypes: ['tab'] },
+        text: { summary: 'Devuelve el objeto padre del Tab.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetParent', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve el objeto padre del ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetParent', ownerTypes: ['treeview'] },
+        text: { summary: 'Devuelve el objeto padre del TreeView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetParent', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
+        text: { summary: 'Devuelve el objeto padre del control de edición.' },
+    },
+
+    // GetContextService
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetContextService', ownerTypes: ['window'] },
+        text: { summary: 'Crea una referencia a un servicio de contexto para la ventana.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetContextService', ownerTypes: ['tab'] },
+        text: { summary: 'Crea una referencia a un servicio de contexto para el Tab.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetContextService', ownerTypes: ['listview'] },
+        text: { summary: 'Crea una referencia a un servicio de contexto para el ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetContextService', ownerTypes: ['treeview'] },
+        text: { summary: 'Crea una referencia a un servicio de contexto para el TreeView.' },
+    },
+
+    // AddItem
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'AddItem', ownerTypes: ['listbox'] },
+        text: { summary: 'Añade un elemento al final del ListBox.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'AddItem', ownerTypes: ['listview'] },
+        text: { summary: 'Añade un elemento al ListView.' },
+    },
+
+    // DeleteItem & DeleteItems
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DeleteItem', ownerTypes: ['listview'] },
+        text: { summary: 'Elimina un elemento del ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DeleteItem', ownerTypes: ['treeview'] },
+        text: { summary: 'Elimina un nodo del TreeView y todos sus descendientes.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DeleteItems', ownerTypes: ['listview'] },
+        text: { summary: 'Elimina todos los elementos del ListView.' },
+    },
+
+    // InsertItem
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItem', ownerTypes: ['listbox'] },
+        text: { summary: 'Inserta un elemento en la posición especificada del ListBox.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItem', ownerTypes: ['listview'] },
+        text: { summary: 'Inserta un elemento en la posición especificada del ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItem', ownerTypes: ['treeview'] },
+        text: { summary: 'Inserta un nodo en una posición y nivel específicos del árbol.' },
+    },
+
+    // Reset
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Reset', ownerTypes: ['listbox'] },
+        text: { summary: 'Elimina todos los elementos del ListBox.' },
+    },
+
+    // TotalItems
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TotalItems', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve el número total de elementos en el ListBox.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TotalItems', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve el número total de elementos en el ListView.' },
+    },
+
+    // SelectedIndex & SelectedItem
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectedIndex', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve el índice del primer elemento seleccionado en el ListBox.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectedIndex', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve el índice del primer elemento seleccionado en el ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectedItem', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve el texto del primer elemento seleccionado en el ListBox.' },
+    },
+
+    // SelectItem
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectItem', ownerTypes: ['listbox'] },
+        text: { summary: 'Selecciona un elemento en el ListBox por texto o índice.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectItem', ownerTypes: ['treeview'] },
+        text: { summary: 'Selecciona programáticamente un nodo del TreeView.' },
+    },
+
+    // GetItem & SetItem
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetItem', ownerTypes: ['listview'] },
+        text: { summary: 'Recupera las propiedades de un elemento del ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetItem', ownerTypes: ['treeview'] },
+        text: { summary: 'Recupera la información asociada a un nodo del TreeView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetItem', ownerTypes: ['listview'] },
+        text: { summary: 'Actualiza los valores de un elemento del ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetItem', ownerTypes: ['treeview'] },
+        text: { summary: 'Actualiza la información asociada a un nodo del TreeView.' },
+    },
+
+    // TotalSelected
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TotalSelected', ownerTypes: ['listbox'] },
+        text: { summary: 'Devuelve cuántos elementos están seleccionados en el ListBox.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TotalSelected', ownerTypes: ['listview'] },
+        text: { summary: 'Devuelve cuántos elementos están seleccionados en el ListView.' },
+    },
+
+    // Print
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Print', ownerTypes: ['window'] },
+        text: { summary: 'Imprime el contenido de la ventana.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Print', ownerTypes: ['tab'] },
+        text: { summary: 'Imprime el contenido actual del control Tab.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Print', ownerTypes: ['listview'] },
+        text: { summary: 'Imprime el contenido del control ListView.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Print', ownerTypes: ['treeview'] },
+        text: { summary: 'Imprime el contenido del control TreeView.' },
+    },
+
+    // SetRedraw (ListBox special case)
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetRedraw', ownerTypes: ['listbox'] },
+        text: { summary: 'Suspende o reactiva el repintado automático del ListBox.' },
+    },
+
+    // --- Window Specific Functions ---
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'GetActiveSheet', ownerTypes: ['window'] },
@@ -204,6 +473,8 @@ export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SaveDockingState', ownerTypes: ['window'] },
         text: { summary: 'Persiste el layout acoplado actual de la ventana en un archivo.' },
     },
+
+    // --- ListBox Specific ---
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DirList', ownerTypes: ['listbox'] },
@@ -213,16 +484,6 @@ export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DirSelect', ownerTypes: ['listbox'] },
         text: { summary: 'Recupera la selección actual del ListBox en una variable.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'FindItem', ownerTypes: ['listbox', 'treeview'] },
-        text: { summary: 'Busca el siguiente elemento o nodo que cumple los criterios.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectItem', ownerTypes: ['listbox', 'treeview'] },
-        text: { summary: 'Selecciona un elemento o nodo por texto, índice o handle.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
@@ -249,91 +510,22 @@ export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Top', ownerTypes: ['listbox'] },
         text: { summary: 'Devuelve el índice del elemento visible en la parte superior.' },
     },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TotalSelected', ownerTypes: ['listbox', 'listview'] },
-        text: { summary: 'Devuelve cuántos elementos están seleccionados.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'CloseTab', ownerTypes: ['tab'] },
-        text: { summary: 'Cierra una página abierta dinámicamente dentro del Tab.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'MoveTab', ownerTypes: ['tab'] },
-        text: { summary: 'Reordena una pestaña a una nueva posición.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'OpenTab', ownerTypes: ['tab'] },
-        text: { summary: 'Abre un user object como página del control Tab.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'OpenTabWithParm', ownerTypes: ['tab'] },
-        text: { summary: 'Abre una página del Tab y pasa un parámetro inicial.' },
-    },
+
+    // --- Tab Specific ---
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectTab', ownerTypes: ['tab'] },
         text: { summary: 'Selecciona programáticamente una página del Tab.' },
     },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TabPostEvent', ownerTypes: ['tab'] },
-        text: { summary: 'Publica un evento en las colas de todas las páginas del Tab.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TabTriggerEvent', ownerTypes: ['tab'] },
-        text: { summary: 'Dispara un evento sobre todas las páginas del Tab.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'AddColumn', ownerTypes: ['listview'] },
-        text: { summary: 'Agrega una columna al modo report del ListView.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'AddLargePicture', ownerTypes: ['listview'] },
-        text: { summary: 'Agrega una imagen a la lista de iconos grandes del ListView.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'AddSmallPicture', ownerTypes: ['listview'] },
-        text: { summary: 'Agrega una imagen a la lista de iconos pequeños del ListView.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'AddStatePicture', ownerTypes: ['listview'] },
-        text: { summary: 'Agrega una imagen a la lista de estados del ListView.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Arrange', ownerTypes: ['listview'] },
-        text: { summary: 'Reorganiza los elementos del ListView en vista de iconos.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DeleteColumns', ownerTypes: ['listview'] },
-        text: { summary: 'Elimina todas las columnas del ListView.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'DeleteItems', ownerTypes: ['listview', 'treeview'] },
-        text: { summary: 'Elimina todos los elementos del control.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'EditLabel', ownerTypes: ['listview', 'treeview'] },
-        text: { summary: 'Inicia la edición de la etiqueta de un elemento.' },
-    },
+
+    // --- ListView Specific ---
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'TotalColumns', ownerTypes: ['listview'] },
         text: { summary: 'Devuelve el número total de columnas en el ListView.' },
     },
+
+    // --- TreeView Specific ---
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'CollapseItem', ownerTypes: ['treeview'] },
@@ -349,69 +541,36 @@ export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'ExpandItem', ownerTypes: ['treeview'] },
         text: { summary: 'Despliega un nodo del árbol.' },
     },
+
+    // --- Editable Text Controls (Shared Groups) ---
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItemFirst', ownerTypes: ['treeview'] },
-        text: { summary: 'Inserta un nodo como el primer hijo de un padre.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItemLast', ownerTypes: ['treeview'] },
-        text: { summary: 'Inserta un nodo como el último hijo de un padre.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItemNext', ownerTypes: ['treeview'] },
-        text: { summary: 'Inserta un nodo inmediatamente después de otro.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'InsertItemSort', ownerTypes: ['treeview'] },
-        text: { summary: 'Inserta un nodo hijo manteniendo el orden alfabético.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetDropHighlight', ownerTypes: ['treeview'] },
-        text: { summary: 'Resalta un nodo como objetivo de una operación drag & drop.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SetLevelPictures', ownerTypes: ['treeview'] },
-        text: { summary: 'Asocia imágenes a un nivel específico del árbol.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Print', ownerTypes: ['window', 'listbox', 'tab', 'listview', 'treeview'] },
-        text: { summary: 'Imprime el contenido del control o ventana.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Copy', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Copy', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
         text: { summary: 'Copia el texto seleccionado al portapapeles.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Cut', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Cut', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
         text: { summary: 'Corta el texto seleccionado al portapapeles.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Paste', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Paste', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
         text: { summary: 'Pega el contenido del portapapeles.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Undo', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Undo', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
         text: { summary: 'Deshace la última operación de edición.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Clear', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Clear', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
         text: { summary: 'Elimina el texto seleccionado.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectText', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectText', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
         text: { summary: 'Selecciona una porción de texto.' },
         parameters: [
             { signatureLabel: 'SelectText(start, length)', parameterName: 'start', documentation: 'Posición inicial del texto a seleccionar.' },
@@ -420,7 +579,7 @@ export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectedText', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
+        targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectedText', ownerTypes: ['singlelineedit', 'editmask', 'multilineedit'] },
         text: { summary: 'Devuelve el texto seleccionado.' },
     },
     {

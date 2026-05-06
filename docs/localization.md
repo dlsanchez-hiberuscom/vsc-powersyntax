@@ -91,7 +91,7 @@ Campos visibles permitidos en la overlay localizada actual:
 - `summary`
 - `documentation`
 - `usageNotes`
-- `obsoleteMessage`
+- `obsoleteMessage` (MUST be inside the `text` object for system symbols)
 - `returnDocumentation`
 - `parameterDocumentation`
 - `category` cuando sea UX-visible
@@ -202,6 +202,7 @@ No añadir un overlay cuando:
 - el único resultado sería duplicar en español una frase oficial sin contexto útil ni mejora visible;
 - falta evidencia oficial suficiente para redactar explicación curada sin inventar comportamiento;
 - el overlay seguiría saliendo como `schemaIssue`, `incomplete`, `invalidParameterTarget`, `recoveredTargetId` pendiente o huérfano y no piensas corregirlo en el mismo corte.
+- **Diferencia de agrupamiento**: no agrupar en un solo overlay lo que el manual canónico define por separado (ej: `ClassName` definido para `listbox` y `treeview` de forma independiente). El reporte publicará `orphanOverlays` si el `ownerTypes` del overlay no coincide exactamente con el del target canónico.
 
 ---
 
