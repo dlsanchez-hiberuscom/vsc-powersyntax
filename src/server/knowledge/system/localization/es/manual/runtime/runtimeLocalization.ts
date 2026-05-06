@@ -34,4 +34,95 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_RUNTIME = [
 	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'DynamicStagingArea' }, text: { summary: 'Área de staging para SQL dinámico.', documentation: 'DynamicStagingArea is a PowerBuilder system object that stores information for use in dynamic SQL statements. The DynamicStagingArea object is the only connection between the execution of a statement and a Transaction object and is used internally by PowerBuilder. You cannot access information in DynamicStagingArea, and there are no properties associated with DynamicStagingArea. PowerBuilder provides a global DynamicStagingArea variable named SQLSA that you can use when you need a DynamicStagingArea variable. If necessary, you can declare and create additional variables of this type using this system object as the datatype. For more information about using dynamic SQL, see the section called “Using dynamic SQL” in PowerScript Reference .' } },
 	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Environment' }, text: { summary: 'Información del entorno de ejecución.', documentation: 'The Environment object is a system structure used to hold information about the computing platform the PowerBuilder application is running on. You populate the Environment object using the GetEnvironment function. The Environment object has no events. For more information about the GetEnvironment function, see the section called “GetEnvironment” in PowerScript Reference .' } },
 	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Message' }, text: { summary: 'Objeto global para paso de mensajes entre objetos.', documentation: 'The Message object is used to process events that are not defined by PowerBuilder, to communicate parameters between windows when you open and close them, and to specify whether optional parameters are used in TriggerEvent or PostEvent. You can also customize your own version of the Message object by defining a class user object inherited from the built-in Message object. For more information about creating a custom Message object, see the section called “Working with User Objects” in Users Guide .' } },
+
+	// — System globals —
+	{
+		locale: 'es', reviewed: false, source: 'manual-curated',
+		targetKey: { domain: 'system-globals', kind: 'system-global', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'SQLCA' },
+		text: { summary: 'Objeto global de transacción por defecto (tipo Transaction). Conecta y gestiona la base de datos.' }
+	},
+	{
+		locale: 'es', reviewed: false, source: 'manual-curated',
+		targetKey: { domain: 'system-globals', kind: 'system-global', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'SQLSA' },
+		text: { summary: 'Objeto global DynamicStagingArea para SQL dinámico formato 3 y 4.' }
+	},
+	{
+		locale: 'es', reviewed: false, source: 'manual-curated',
+		targetKey: { domain: 'system-globals', kind: 'system-global', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'SQLDA' },
+		text: { summary: 'Objeto global DynamicDescriptionArea para SQL dinámico formato 4.' }
+	},
+	{
+		locale: 'es', reviewed: false, source: 'manual-curated',
+		targetKey: { domain: 'system-globals', kind: 'system-global', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Error' },
+		text: { summary: 'Objeto global de error del sistema. Recibe información cuando ocurre un error no capturado por try/catch.' }
+	},
+	{
+		locale: 'es', reviewed: false, source: 'manual-curated',
+		targetKey: { domain: 'system-globals', kind: 'system-global', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Message' },
+		text: { summary: 'Objeto global para paso de mensajes entre objetos, usado con OpenWithParm, CloseWithReturn, etc.' }
+	},
+
+	// — Reflection objects —
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'ClassDefinition' }, text: { summary: 'Definición de clase para reflexión.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'EnumerationDefinition' }, text: { summary: 'Definición de enumeración para reflexión.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'EnumerationItemDefinition' }, text: { summary: 'Ítem de enumeración para reflexión.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Function_Object' }, text: { summary: 'Objeto de función para reflexión runtime.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'PBDOM_CharacterData' }, text: { summary: 'Nodo DOM de datos de carácter.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'PBDOM_Object' }, text: { summary: 'Objeto base del DOM XML en PowerBuilder.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'PBDOM_Text' }, text: { summary: 'Nodo de texto del DOM XML en PowerBuilder.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'ScriptDefinition' }, text: { summary: 'Definición de script para reflexión.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'SimpleTypeDefinition' }, text: { summary: 'Definición simple de tipo para reflexión.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'VariableDefinition' }, text: { summary: 'Definición de variable para reflexión.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'VariableCardinalityDefinition' }, text: { summary: 'Definición de cardinalidad para variables y arrays.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TypeDefinition' }, text: { summary: 'Definición de tipo para reflexión.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TypeObject' }, text: { summary: 'Objeto de tipo para reflexión.' } },
+	// — Profiling objects —
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'ProfileLine' }, text: { summary: 'Línea perfilada dentro del subsistema de profiling.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'ProfileCall' }, text: { summary: 'Traza de llamada dentro del subsistema de profiling.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'ProfileClass' }, text: { summary: 'Clase perfilada dentro del subsistema de profiling.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'ProfileRoutine' }, text: { summary: 'Rutina perfilada dentro del subsistema de profiling.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Profiling' }, text: { summary: 'Objeto no visual para profiling runtime.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceActivityNode' }, text: { summary: 'Nodo de actividad dentro de una captura de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceBeginEnd' }, text: { summary: 'Traza de inicio y fin de actividad.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceFile' }, text: { summary: 'Traza persistida en archivo.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceObject' }, text: { summary: 'Traza asociada a un objeto runtime.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceRoutine' }, text: { summary: 'Traza asociada a una rutina.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceUser' }, text: { summary: 'Traza asociada a actividad de usuario.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceESQL' }, text: { summary: 'Traza ESQL dentro de una sesión de profiling.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceGarbageCollect' }, text: { summary: 'Traza de recolección de basura del runtime.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceLine' }, text: { summary: 'Traza de línea ejecutada.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTree' }, text: { summary: 'Árbol no visual de trazas runtime.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeError' }, text: { summary: 'Nodo de error dentro del árbol de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeESQL' }, text: { summary: 'Nodo ESQL dentro del árbol de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeGarbageCollect' }, text: { summary: 'Nodo de garbage collection dentro del árbol de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeLine' }, text: { summary: 'Nodo de línea dentro del árbol de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeNode' }, text: { summary: 'Nodo base del árbol de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeObject' }, text: { summary: 'Nodo de objeto dentro del árbol de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeRoutine' }, text: { summary: 'Nodo de rutina dentro del árbol de trazas.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'TraceTreeUser' }, text: { summary: 'Nodo de usuario dentro del árbol de trazas.' } },
+	// — OLE objects —
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'OLEObject' }, text: { summary: 'Objeto OLE Automation genérico.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'OLEStorage' }, text: { summary: 'Almacenamiento OLE Structured Storage.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'OLEStream' }, text: { summary: 'Flujo dentro de un OLE Storage.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'OLETxnObject' }, text: { summary: 'Objeto transaccional OLE no visual.' } },
+
+	// — Mail objects —
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'MailSession' }, text: { summary: 'Sesión de correo MAPI/SMTP del runtime.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'SMTPClient' }, text: { summary: 'Cliente SMTP no visual para envío programático de correo.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'MailFileDescription' }, text: { summary: 'Descriptor de archivo adjunto para el subsistema de correo.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'MailMessage' }, text: { summary: 'Mensaje de correo manipulable desde el runtime.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'MailRecipient' }, text: { summary: 'Destinatario de correo no visual.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'MimeMessage' }, text: { summary: 'Mensaje MIME manipulable desde el runtime.' } },
+
+	// — Error objects —
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Exception' }, text: { summary: 'Excepción runtime interoperable con try/catch.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'RuntimeError' }, text: { summary: 'Error en tiempo de ejecución.' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Throwable' }, text: { summary: 'Base de excepciones (try/catch/throw).' } },
+	{ locale: 'es', reviewed: false, source: 'manual-curated', targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Error' }, text: { summary: 'Objeto global de error del sistema.' } },
 ] as const satisfies readonly PbSystemSymbolLocalizationOverlay[];
+
+
+
+
+
+

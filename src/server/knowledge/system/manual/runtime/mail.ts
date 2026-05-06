@@ -2,14 +2,14 @@ import { PbSystemSymbolEntry } from '../../types';
 import { systemObjectDatatype } from '../common';
 
 export const PB_MANUAL_CORE_RUNTIME_MAIL_CATEGORIES = [
-  'Correo',
+  'Mail',
 ] as const;
 
 export const PB_MANUAL_CORE_RUNTIME_MAIL_TYPES: readonly PbSystemSymbolEntry[] = [
-  systemObjectDatatype({ name: 'MailFileDescription', category: 'Correo', summary: 'Descriptor de archivo adjunto para el subsistema de correo.' }),
-  systemObjectDatatype({ name: 'MailMessage', category: 'Correo', summary: 'Mensaje de correo manipulable desde el runtime.' }),
-  systemObjectDatatype({ name: 'MailRecipient', category: 'Correo', summary: 'Destinatario de correo no visual.' }),
-  systemObjectDatatype({ name: 'MailSession', category: 'Correo', summary: 'Sesión de correo MAPI/SMTP del runtime.' }),
-  systemObjectDatatype({ name: 'MimeMessage', category: 'Correo', summary: 'Mensaje MIME manipulable desde el runtime.' }),
-  systemObjectDatatype({ name: 'SMTPClient', category: 'Correo', summary: 'Cliente SMTP no visual para envío programático de correo.' }),
-];
+  systemObjectDatatype({ name: 'MailFileDescription', category: 'Mail', summary: 'Attachment file descriptor for the mail subsystem.' }),
+  systemObjectDatatype({ name: 'MailMessage', category: 'Mail', summary: 'Mail message manipulable from runtime.' }),
+  systemObjectDatatype({ name: 'MailRecipient', category: 'Mail', summary: 'Non-visual mail recipient.' }),
+  systemObjectDatatype({ name: 'MailSession', category: 'Mail', summary: 'Runtime MAPI/SMTP mail session.' }),
+  systemObjectDatatype({ name: 'MimeMessage', category: 'Mail', summary: 'MIME message manipulable from runtime.' }),
+  systemObjectDatatype({ name: 'SMTPClient', category: 'Mail', summary: 'Non-visual SMTP client for programmatic email sending.' }),
+];

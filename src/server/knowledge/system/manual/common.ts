@@ -42,10 +42,10 @@ function defineManualEntry(
         dataset: entry.dataset ?? 'manual-core',
         source,
         sourceUrl: entry.sourceUrl ?? defaultSourceUrl,
-        // Por defecto, las entradas manual-core se consideran 'enrichment'
-        // cuando no especifican explicitamente un overlay. Esto permite
-        // que los manual overlays aporten enriquecimientos editoriales
-        // (p. ej. categoría) sobre las entradas generadas.
+        // By default, manual-core entries are considered 'enrichment'
+        // when they don't explicitly specify an overlay. This allows
+        // manual overlays to provide editorial enrichments
+        // (e.g. category) over generated entries.
         manualOverlay: entry.manualOverlay ?? {
             mode: 'override',
             reason: 'Curated manual-core entry with localization priority.',
@@ -136,7 +136,7 @@ export function statement(args: Omit<ManualSymbolArgs, 'ownerTypes'>): PbSystemS
     }, POWERSCRIPT_REFERENCE, POWERSCRIPT_REFERENCE_URL);
 }
 
-// -- Factorias para catalog v2: language constructs --
+// -- Factories for catalog v2: language constructs --
 
 type LanguageSymbolArgs = {
     name: string;

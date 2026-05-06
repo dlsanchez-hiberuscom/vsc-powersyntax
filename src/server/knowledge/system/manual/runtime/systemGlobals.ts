@@ -2,16 +2,16 @@ import { PbSystemSymbolEntry } from '../../types';
 import { systemGlobal } from '../common';
 
 export const PB_MANUAL_CORE_SYSTEM_GLOBAL_CATEGORIES = [
-    'Transacción',
-    'SQL dinámico',
-    'Mensajes',
+    'Transaction',
+    'Dynamic SQL',
+    'Messages',
 ] as const;
 
 export const PB_MANUAL_CORE_SYSTEM_GLOBALS: readonly PbSystemSymbolEntry[] = [
     systemGlobal({
         name: 'SQLCA',
-        category: 'Transacción',
-        summary: 'Objeto global de transacción por defecto (tipo Transaction). Conecta y gestiona la base de datos.',
+        category: 'Transaction',
+        summary: 'Default global transaction object (Transaction type). Connects to and manages the database.',
         lookupAliases: ['sqlca'],
         signatures: [{ label: 'SQLCA : Transaction' }],
         valueType: 'Transaction',
@@ -19,34 +19,35 @@ export const PB_MANUAL_CORE_SYSTEM_GLOBALS: readonly PbSystemSymbolEntry[] = [
     }),
     systemGlobal({
         name: 'SQLSA',
-        category: 'SQL dinámico',
-        summary: 'Objeto global DynamicStagingArea para SQL dinámico formato 3 y 4.',
+        category: 'Dynamic SQL',
+        summary: 'Global DynamicStagingArea object for Format 3 and 4 dynamic SQL.',
         signatures: [{ label: 'SQLSA : DynamicStagingArea' }],
         valueType: 'DynamicStagingArea',
         risk: 'legacy',
     }),
     systemGlobal({
         name: 'SQLDA',
-        category: 'SQL dinámico',
-        summary: 'Objeto global DynamicDescriptionArea para SQL dinámico formato 4.',
+        category: 'Dynamic SQL',
+        summary: 'Global DynamicDescriptionArea object for Format 4 dynamic SQL.',
         signatures: [{ label: 'SQLDA : DynamicDescriptionArea' }],
         valueType: 'DynamicDescriptionArea',
         risk: 'legacy',
     }),
     systemGlobal({
         name: 'Error',
-        category: 'Mensajes',
-        summary: 'Objeto global de error del sistema. Recibe información cuando ocurre un error no capturado por try/catch.',
+        category: 'Messages',
+        summary: 'Global system error object. Receives information when an error not caught by try/catch occurs.',
         signatures: [{ label: 'Error : Error' }],
         valueType: 'Error',
         risk: 'dynamic',
     }),
     systemGlobal({
         name: 'Message',
-        category: 'Mensajes',
-        summary: 'Objeto global para paso de mensajes entre objetos, usado con OpenWithParm, CloseWithReturn, etc.',
+        category: 'Messages',
+        summary: 'Global object for message passing between objects, used with OpenWithParm, CloseWithReturn, etc.',
         signatures: [{ label: 'Message : Message' }],
         valueType: 'Message',
         risk: 'dynamic',
     }),
 ];
+

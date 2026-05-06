@@ -71,35 +71,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # 3. Backlog actual
 
-## CATALOG-LOCALIZATION-ES-01 — Spanish localization anchors and coverage slices
-
-- **Estado:** Done.
-- **Prioridad:** P1.
-- **Origen:** Bloque 13+14 / CATALOG-LOCALIZATION-01..03.
-- **Objetivo:** 100% integridad del catálogo de localización es.
-- **Acceptance criteria:**
-  - 0 incomplete / 0 invalid / 0 recovered / 0 orphan.
-  - 0 schema issues.
-  - Parámetros documentados para MessageBox, SelectText, Scroll, Modify.
-  - Sincronización completa con firmas base.
-- **Docs:** `docs/localization.md`.
-- **Tests:** `npm run report:catalog-localization`.
-
----
-
-## CATALOG-LOCALIZATION-DOMAINS-01 — Localization coverage by domain
-
-- **Estado:** Done.
-- **Prioridad:** P2.
-- **Objetivo:** Estabilizar cobertura por dominios y garantizar integridad.
-- **Acceptance criteria:**
-  - 100% cumplimiento de esquema en todos los dominios activos.
-  - Auditoría final ejecutada con éxito.
-- **Docs:** `docs/localization.md`.
-- **Tests:** `npm run report:catalog-localization`.
-
----
-
 ## CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01 — English base language policy for manual/**
 
 - **Estado:** Open.
@@ -115,30 +86,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
   - No hay cambios en código.
 - **Docs:** `docs/localization.md`.
 - **Tests:** N/A (doc-only).
-
----
-
-## CATALOG-MANUAL-CATEGORIES-KEYS-01 — Normalize Spanish categories to stable English keys
-
-- **Estado:** Done.
-- **Prioridad:** P1.
-- **Objetivo:** Convertir categorías a keys inglesas estables.
-- **Acceptance criteria:**
-  - Categorías en manual/** en inglés.
-  - 0 regresiones en resolución.
-- **Docs:** `docs/localization.md`.
-
----
-
-## CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01 — Create es/ mirror structure for manual/** domains
-
-- **Estado:** Done.
-- **Prioridad:** P1.
-- **Objetivo:** Estructura espejo para overlays manuales.
-- **Acceptance criteria:**
-  - Estructura creada y registrada.
-- **Docs:** `docs/localization.md`.
-- **Tests:** `npm run compile`, `npm run report:catalog-localization`.
 
 ---
 
@@ -159,9 +106,15 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Docs:** `docs/localization.md`, spec individual por dominio.
 - **Tests:** `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"`, `npm run report:catalog-localization`.
 
-**Pendiente exacto:**
-- Ejecutar por dominio en el orden: core, datawindow, visual, runtime, language, integration, tooling.
-- Cada slice debe preservar el texto ES original como overlay antes de sobrescribir con EN.
+**Status por dominio:**
+- [x] runtime (Done: systemGlobals, reflection, profiling, errors, ole, mail)
+- [ ] core (English manual base: ok. ES overlays: partial 6%)
+- [ ] datawindow (English manual base: ok. ES overlays: partial 70%)
+- [ ] visual (English manual base: ok. ES overlays: partial 92%)
+- [ ] language (English manual base: ok. ES overlays: partial)
+- [ ] integration (English manual base: ok. ES overlays: partial)
+- [ ] tooling (English manual base: ok. ES overlays: 100%)
+
 
 ---
 
