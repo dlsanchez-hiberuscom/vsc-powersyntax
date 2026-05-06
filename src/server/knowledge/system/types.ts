@@ -88,6 +88,7 @@ export interface PbSystemManualOverlayTargetKey {
     invocation: PbSystemSymbolInvocation;
     name: string;
     ownerTypes?: readonly string[];
+    enumValueOf?: string;
 }
 
 export interface PbSystemManualOverlay {

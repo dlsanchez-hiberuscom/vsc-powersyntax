@@ -4,8 +4,8 @@ import { enumeratedType, enumeratedValue } from '../../common';
 const PB_MANUAL_CORE_ENUMERATED_CATEGORIES = [
     'DataWindow',
     'UI',
-    'Archivo',
-    'Ventana',
+    'File',
+    'Window',
 ] as const;
 
 export const PB_MANUAL_CORE_ENUMERATED_TYPE_CATEGORIES = PB_MANUAL_CORE_ENUMERATED_CATEGORIES;
@@ -66,6 +66,7 @@ type EnumValueArgs = {
     documentation?: string;
     enumNumericValue?: number;
     enumValueMeaning?: string;
+    manualOverlay?: { mode: 'override'; reason: string; evidence: string[] };
 };
 
 function enumValue(args: EnumValueArgs): PbSystemSymbolEntry {
@@ -80,296 +81,296 @@ function stripBang(name: string): string {
 
 const SAVE_AS_TYPE_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'Excel!': {
-        summary: 'Exporta el contenido del DataWindow en formato Excel legacy.',
-        documentation: 'Valor de SaveAsType usado para guardar datos en formato compatible con Excel.',
-        enumValueMeaning: 'Formato Excel legacy.',
+        summary: 'Exports DataWindow content in legacy Excel format.',
+        documentation: 'SaveAsType value used to save data in Excel-compatible format.',
+        enumValueMeaning: 'Legacy Excel format.',
     },
     'Text!': {
-        summary: 'Exporta el contenido del DataWindow como texto.',
-        documentation: 'Formato de texto plano. Puede combinarse con el argumento de codificación en APIs compatibles.',
-        enumValueMeaning: 'Texto plano.',
+        summary: 'Exports DataWindow content as text.',
+        documentation: 'Plain text format. Can be combined with the encoding argument in compatible APIs.',
+        enumValueMeaning: 'Plain text.',
     },
     'CSV!': {
-        summary: 'Exporta el contenido del DataWindow como CSV.',
-        documentation: 'Formato de valores separados por comas. Es habitual para intercambio de datos tabulares.',
+        summary: 'Exports DataWindow content as CSV.',
+        documentation: 'Comma-separated values format. Common for tabular data exchange.',
         enumValueMeaning: 'CSV.',
     },
     'SQLInsert!': {
-        summary: 'Exporta el contenido como sentencias SQL INSERT.',
-        documentation: 'Genera sentencias INSERT a partir de los datos del DataWindow.',
-        enumValueMeaning: 'Sentencias SQL INSERT.',
+        summary: 'Exports content as SQL INSERT statements.',
+        documentation: 'Generates INSERT statements from DataWindow data.',
+        enumValueMeaning: 'SQL INSERT statements.',
     },
     'Clipboard!': {
-        summary: 'Exporta el contenido al portapapeles.',
-        documentation: 'Usado cuando el destino de la exportación es el Clipboard.',
-        enumValueMeaning: 'Portapapeles.',
+        summary: 'Exports content to the clipboard.',
+        documentation: 'Used when the export destination is the Clipboard.',
+        enumValueMeaning: 'Clipboard.',
     },
     'PSReport!': {
-        summary: 'Exporta el contenido como reporte PowerSoft.',
-        documentation: 'Formato de reporte útil especialmente para DataWindows de tipo composite report.',
+        summary: 'Exports content as PowerSoft report.',
+        documentation: 'Report format useful especially for composite report DataWindows.',
         enumValueMeaning: 'PowerSoft Report.',
     },
     'PDF!': {
-        summary: 'Exporta el contenido del DataWindow como PDF.',
-        documentation: 'Formato PDF para salida documental.',
+        summary: 'Exports DataWindow content as PDF.',
+        documentation: 'PDF format for document output.',
         enumValueMeaning: 'PDF.',
     },
     'XML!': {
-        summary: 'Exporta el contenido del DataWindow como XML.',
-        documentation: 'Formato XML basado en la plantilla XML configurada para el DataWindow.',
+        summary: 'Exports DataWindow content as XML.',
+        documentation: 'XML format based on the configured XML template for the DataWindow.',
         enumValueMeaning: 'XML.',
     },
     'XSLFO!': {
-        summary: 'Exporta el contenido del DataWindow como XSL-FO.',
-        documentation: 'Formato XSL Formatting Objects.',
+        summary: 'Exports DataWindow content as XSL-FO.',
+        documentation: 'XSL Formatting Objects format.',
         enumValueMeaning: 'XSL-FO.',
     },
     'XLSX!': {
-        summary: 'Exporta el contenido del DataWindow como XLSX.',
-        documentation: 'Formato Excel moderno basado en Office Open XML.',
+        summary: 'Exports DataWindow content as XLSX.',
+        documentation: 'Modern Excel format based on Office Open XML.',
         enumValueMeaning: 'Excel XLSX.',
     },
     'XLSB!': {
-        summary: 'Exporta el contenido del DataWindow como XLSB.',
-        documentation: 'Formato binario de Excel.',
+        summary: 'Exports DataWindow content as XLSB.',
+        documentation: 'Excel binary format.',
         enumValueMeaning: 'Excel Binary Workbook.',
     },
 };
 
-const DW_ITEM_STATUS_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumNumericValue' | 'enumValueMeaning'>>> = {
+const DW_ITEM_STATUS_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumNumericValue' | 'enumValueMeaning' | 'manualOverlay'>>> = {
     'NotModified!': {
-        summary: 'Fila o columna sin modificaciones.',
-        documentation: 'Indica que el dato conserva su estado original dentro del DataWindow.',
+        summary: 'Unmodified row or column.',
+        documentation: 'Indicates that the data retains its original state within the DataWindow.',
         enumNumericValue: 0,
-        enumValueMeaning: 'Sin modificar.',
+        enumValueMeaning: 'Unmodified.',
     },
     'DataModified!': {
-        summary: 'Dato existente modificado.',
-        documentation: 'Indica que una fila o columna existente ha sido modificada.',
+        summary: 'Modified existing data.',
+        documentation: 'Indicates that an existing row or column has been modified.',
         enumNumericValue: 1,
-        enumValueMeaning: 'Dato modificado.',
+        enumValueMeaning: 'Data modified.',
     },
     'New!': {
-        summary: 'Fila nueva sin modificaciones posteriores.',
-        documentation: 'Indica una fila insertada que todavía no ha sido modificada después de su creación.',
+        summary: 'New row without subsequent modifications.',
+        documentation: 'Indicates an inserted row that has not yet been modified after its creation.',
         enumNumericValue: 2,
-        enumValueMeaning: 'Fila nueva.',
+        enumValueMeaning: 'New row.',
     },
     'NewModified!': {
-        summary: 'Fila nueva modificada.',
-        documentation: 'Indica una fila nueva que además ha recibido modificaciones.',
+        summary: 'Modified new row.',
+        documentation: 'Indicates a new row that has also received modifications.',
         enumNumericValue: 3,
-        enumValueMeaning: 'Fila nueva modificada.',
+        enumValueMeaning: 'Modified new row.',
     },
 };
 
 const DW_BUFFER_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumNumericValue' | 'enumValueMeaning'>>> = {
     'Primary!': {
-        summary: 'Buffer principal del DataWindow.',
-        documentation: 'Representa las filas activas del DataWindow, es decir, filas que no han sido eliminadas ni filtradas.',
+        summary: 'Primary DataWindow buffer.',
+        documentation: 'Represents active DataWindow rows, i.e., rows that have not been deleted or filtered.',
         enumNumericValue: 0,
-        enumValueMeaning: 'Datos activos en el buffer principal.',
+        enumValueMeaning: 'Active data in the primary buffer.',
     },
     'Delete!': {
-        summary: 'Buffer de filas eliminadas del DataWindow.',
-        documentation: 'Representa filas eliminadas del DataWindow que todavía no se han confirmado en la base de datos.',
+        summary: 'Deleted DataWindow rows buffer.',
+        documentation: 'Represents DataWindow rows deleted that have not yet been confirmed in the database.',
         enumNumericValue: 1,
-        enumValueMeaning: 'Datos pendientes de borrado.',
+        enumValueMeaning: 'Data pending deletion.',
     },
     'Filter!': {
-        summary: 'Buffer de filas filtradas del DataWindow.',
-        documentation: 'Representa filas retiradas de la vista activa mediante filtros del DataWindow.',
+        summary: 'Filtered DataWindow rows buffer.',
+        documentation: 'Represents rows removed from the active view using DataWindow filters.',
         enumNumericValue: 2,
-        enumValueMeaning: 'Datos filtrados fuera de la vista activa.',
+        enumValueMeaning: 'Data filtered out of the active view.',
     },
 };
 
 const DW_CONFLICT_RESOLUTION_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumNumericValue' | 'enumValueMeaning'>>> = {
     'FailOnAnyConflict!': {
-        summary: 'Falla si existe cualquier conflicto al sincronizar cambios.',
-        documentation: 'Impide aplicar cambios si los datos del DataWindow origen han cambiado desde que se capturó su estado.',
+        summary: 'Fails if any conflict exists when synchronizing changes.',
+        documentation: 'Prevents applying changes if source DataWindow data has changed since its state was captured.',
         enumNumericValue: 0,
-        enumValueMeaning: 'No permite cambios parciales ante conflictos.',
+        enumValueMeaning: 'Does not allow partial changes on conflicts.',
     },
     'AllowPartialChanges!': {
-        summary: 'Permite aplicar cambios no conflictivos.',
-        documentation: 'Aplica los cambios que no están en conflicto durante la sincronización de DataWindows.',
+        summary: 'Allows applying non-conflicting changes.',
+        documentation: 'Applies changes that are not in conflict during DataWindow synchronization.',
         enumNumericValue: 1,
-        enumValueMeaning: 'Permite actualización parcial.',
+        enumValueMeaning: 'Allows partial update.',
     },
 };
 
 const BORDER_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'NoBorder!': {
-        summary: 'Sin borde visual.',
-        documentation: 'Indica que el control o superficie compatible no muestra borde.',
-        enumValueMeaning: 'Sin borde.',
+        summary: 'No visual border.',
+        documentation: 'Indicates that the control or compatible surface shows no border.',
+        enumValueMeaning: 'No border.',
     },
     'StyleBox!': {
-        summary: 'Borde de estilo caja.',
-        documentation: 'Representa un borde rectangular simple.',
-        enumValueMeaning: 'Caja.',
+        summary: 'Box-style border.',
+        documentation: 'Represents a simple rectangular border.',
+        enumValueMeaning: 'Box.',
     },
     'StyleLowered!': {
-        summary: 'Borde con apariencia hundida.',
-        documentation: 'Representa un borde visual con efecto rebajado.',
-        enumValueMeaning: 'Hundido.',
+        summary: 'Lowered appearance border.',
+        documentation: 'Represents a visual border with a lowered effect.',
+        enumValueMeaning: 'Lowered.',
     },
     'StyleRaised!': {
-        summary: 'Borde con apariencia elevada.',
-        documentation: 'Representa un borde visual con efecto elevado.',
-        enumValueMeaning: 'Elevado.',
+        summary: 'Raised appearance border.',
+        documentation: 'Represents a visual border with a raised effect.',
+        enumValueMeaning: 'Raised.',
     },
     'StyleShadowBox!': {
-        summary: 'Borde de caja con sombra.',
-        documentation: 'Representa un borde rectangular con efecto de sombra.',
-        enumValueMeaning: 'Caja con sombra.',
+        summary: 'Shadow box border.',
+        documentation: 'Represents a rectangular border with a shadow effect.',
+        enumValueMeaning: 'Shadow box.',
     },
 };
 
 const ALIGNMENT_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'Left!': {
-        summary: 'Alineación a la izquierda.',
-        documentation: 'Alinea el texto o contenido hacia el lado izquierdo en controles compatibles.',
-        enumValueMeaning: 'Izquierda.',
+        summary: 'Left alignment.',
+        documentation: 'Aligns text or content to the left side in compatible controls.',
+        enumValueMeaning: 'Left.',
     },
     'Center!': {
-        summary: 'Alineación centrada.',
-        documentation: 'Centra el texto o contenido en controles compatibles.',
-        enumValueMeaning: 'Centro.',
+        summary: 'Centered alignment.',
+        documentation: 'Centers text or content in compatible controls.',
+        enumValueMeaning: 'Center.',
     },
     'Right!': {
-        summary: 'Alineación a la derecha.',
-        documentation: 'Alinea el texto o contenido hacia el lado derecho en controles compatibles.',
-        enumValueMeaning: 'Derecha.',
+        summary: 'Right alignment.',
+        documentation: 'Aligns text or content to the right side in compatible controls.',
+        enumValueMeaning: 'Right.',
     },
     'Justify!': {
-        summary: 'Alineación justificada.',
-        documentation: 'Distribuye el texto para ajustar los márgenes en controles compatibles.',
-        enumValueMeaning: 'Justificado.',
+        summary: 'Justified alignment.',
+        documentation: 'Distributes text to adjust margins in compatible controls.',
+        enumValueMeaning: 'Justified.',
     },
 };
 
 const WINDOW_TYPE_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'Main!': {
-        summary: 'Ventana principal.',
-        documentation: 'Indica una ventana principal de la aplicación.',
+        summary: 'Main window.',
+        documentation: 'Indicates a main application window.',
         enumValueMeaning: 'Main window.',
     },
     'Response!': {
-        summary: 'Ventana de respuesta.',
-        documentation: 'Indica una ventana modal de respuesta.',
+        summary: 'Response window.',
+        documentation: 'Indicates a modal response window.',
         enumValueMeaning: 'Response window.',
     },
     'Child!': {
-        summary: 'Ventana hija.',
-        documentation: 'Indica una ventana hija dependiente de otra ventana.',
+        summary: 'Child window.',
+        documentation: 'Indicates a child window dependent on another window.',
         enumValueMeaning: 'Child window.',
     },
     'Popup!': {
-        summary: 'Ventana popup.',
-        documentation: 'Indica una ventana emergente.',
+        summary: 'Popup window.',
+        documentation: 'Indicates a popup window.',
         enumValueMeaning: 'Popup window.',
     },
     'MDI!': {
-        summary: 'Ventana MDI.',
-        documentation: 'Indica una ventana de interfaz de documentos múltiples.',
+        summary: 'MDI window.',
+        documentation: 'Indicates a multiple-document interface window.',
         enumValueMeaning: 'MDI frame.',
     },
     'MDIHelp!': {
-        summary: 'Ventana MDI con ayuda.',
-        documentation: 'Indica una ventana MDI preparada para escenarios de ayuda.',
+        summary: 'MDI window with help.',
+        documentation: 'Indicates an MDI window prepared for help scenarios.',
         enumValueMeaning: 'MDI help frame.',
     },
 };
 
 const WINDOW_STATE_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'Normal!': {
-        summary: 'Estado normal de ventana.',
-        documentation: 'La ventana se muestra en su tamaño y posición normales.',
+        summary: 'Normal window state.',
+        documentation: 'The window is shown in its normal size and position.',
         enumValueMeaning: 'Normal.',
     },
     'Maximized!': {
-        summary: 'Estado maximizado de ventana.',
-        documentation: 'La ventana se muestra maximizada.',
-        enumValueMeaning: 'Maximizada.',
+        summary: 'Maximized window state.',
+        documentation: 'The window is shown maximized.',
+        enumValueMeaning: 'Maximized.',
     },
     'Minimized!': {
-        summary: 'Estado minimizado de ventana.',
-        documentation: 'La ventana se muestra minimizada.',
-        enumValueMeaning: 'Minimizada.',
+        summary: 'Minimized window state.',
+        documentation: 'The window is shown minimized.',
+        enumValueMeaning: 'Minimized.',
     },
 };
 
 const FILE_ACCESS_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'FileRead!': {
-        summary: 'Acceso de solo lectura.',
-        documentation: 'Abre el archivo para operaciones de lectura.',
-        enumValueMeaning: 'Lectura.',
+        summary: 'Read-only access.',
+        documentation: 'Opens the file for read operations.',
+        enumValueMeaning: 'Read.',
     },
     'FileWrite!': {
-        summary: 'Acceso de solo escritura.',
-        documentation: 'Abre el archivo para operaciones de escritura.',
-        enumValueMeaning: 'Escritura.',
+        summary: 'Write-only access.',
+        documentation: 'Opens the file for write operations.',
+        enumValueMeaning: 'Write.',
     },
     'FileReadWrite!': {
-        summary: 'Acceso de lectura y escritura.',
-        documentation: 'Abre el archivo para operaciones de lectura y escritura.',
-        enumValueMeaning: 'Lectura y escritura.',
+        summary: 'Read and write access.',
+        documentation: 'Opens the file for read and write operations.',
+        enumValueMeaning: 'Read and write.',
     },
 };
 
 const FILE_MODE_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'LineMode!': {
-        summary: 'Modo de archivo por líneas.',
-        documentation: 'Las operaciones de E/S se realizan por líneas.',
-        enumValueMeaning: 'Modo línea.',
+        summary: 'Line-by-line file mode.',
+        documentation: 'I/O operations are performed by lines.',
+        enumValueMeaning: 'Line mode.',
     },
     'StreamMode!': {
-        summary: 'Modo de archivo como flujo.',
-        documentation: 'Las operaciones de E/S se realizan como flujo continuo.',
-        enumValueMeaning: 'Modo flujo.',
+        summary: 'Stream file mode.',
+        documentation: 'I/O operations are performed as a continuous stream.',
+        enumValueMeaning: 'Stream mode.',
     },
 };
 
 const ENCODING_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'EncodingANSI!': {
-        summary: 'Codificación ANSI.',
-        documentation: 'Usa codificación ANSI al leer o escribir texto en APIs compatibles.',
+        summary: 'ANSI encoding.',
+        documentation: 'Uses ANSI encoding when reading or writing text in compatible APIs.',
         enumValueMeaning: 'ANSI.',
     },
     'EncodingUTF8!': {
-        summary: 'Codificación UTF-8.',
-        documentation: 'Usa codificación UTF-8 al leer o escribir texto en APIs compatibles.',
+        summary: 'UTF-8 encoding.',
+        documentation: 'Uses UTF-8 encoding when reading or writing text in compatible APIs.',
         enumValueMeaning: 'UTF-8.',
     },
     'EncodingUTF16LE!': {
-        summary: 'Codificación UTF-16 little endian.',
-        documentation: 'Usa codificación UTF-16 little endian al leer o escribir texto en APIs compatibles.',
+        summary: 'UTF-16 little endian encoding.',
+        documentation: 'Uses UTF-16 little endian encoding when reading or writing text in compatible APIs.',
         enumValueMeaning: 'UTF-16 LE.',
     },
     'EncodingUTF16BE!': {
-        summary: 'Codificación UTF-16 big endian.',
-        documentation: 'Usa codificación UTF-16 big endian al leer o escribir texto en APIs compatibles.',
+        summary: 'UTF-16 big endian encoding.',
+        documentation: 'Uses UTF-16 big endian encoding when reading or writing text in compatible APIs.',
         enumValueMeaning: 'UTF-16 BE.',
     },
 };
 
 const SEEK_TYPE_VALUE_DETAILS: Readonly<Record<string, Pick<EnumValueArgs, 'summary' | 'documentation' | 'enumValueMeaning'>>> = {
     'FromBeginning!': {
-        summary: 'Desplazamiento desde el inicio del archivo.',
-        documentation: 'Interpreta el desplazamiento relativo desde el inicio del archivo.',
-        enumValueMeaning: 'Desde el inicio.',
+        summary: 'Offset from the beginning of the file.',
+        documentation: 'Interprets the relative offset from the beginning of the file.',
+        enumValueMeaning: 'From beginning.',
     },
     'FromCurrent!': {
-        summary: 'Desplazamiento desde la posición actual del archivo.',
-        documentation: 'Interpreta el desplazamiento relativo desde la posición actual del archivo.',
-        enumValueMeaning: 'Desde la posición actual.',
+        summary: 'Offset from the current file position.',
+        documentation: 'Interprets the relative offset from the current file position.',
+        enumValueMeaning: 'From current position.',
     },
     'FromEnd!': {
-        summary: 'Desplazamiento desde el final del archivo.',
-        documentation: 'Interpreta el desplazamiento relativo desde el final del archivo.',
-        enumValueMeaning: 'Desde el final.',
+        summary: 'Offset from the end of the file.',
+        documentation: 'Interprets the relative offset from the end of the file.',
+        enumValueMeaning: 'From end.',
     },
 };
 
@@ -385,11 +386,16 @@ function createValues(
         return enumValue({
             name,
             category,
-            summary: detail?.summary ?? `Valor ${stripBang(name)} de ${enumValueOf}.`,
+            summary: detail?.summary ?? `${stripBang(name)} value of ${enumValueOf}.`,
             documentation: detail?.documentation,
             enumValueOf,
             enumNumericValue: detail?.enumNumericValue,
             enumValueMeaning: detail?.enumValueMeaning,
+            manualOverlay: {
+                mode: 'override',
+                reason: (detail as any)?.manualOverlay?.reason ?? `Hardening ${name} enumeration value documentation.`,
+                evidence: (detail as any)?.manualOverlay?.evidence ?? [`manual-core:language:enums:values:${name.toLowerCase().replace('!', '')}`]
+            }
         });
     });
 }
@@ -399,110 +405,124 @@ export const PB_MANUAL_CORE_ENUMERATED_TYPES: readonly PbSystemSymbolEntry[] = [
     enumeratedType({
         name: 'SaveAsType',
         category: 'DataWindow',
-        summary: 'Tipo enumerado de formatos de exportación de DataWindow.',
-        documentation: 'Se usa como datatype en operaciones SaveAs y otras APIs que eligen un formato de salida concreto.',
+        summary: 'Enumerated type for DataWindow export formats.',
+        documentation: 'Used as a datatype in SaveAs operations and other APIs that choose a specific output format.',
         allowedInParameters: ['saveastype'],
         enumValues: SAVE_AS_TYPE_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening SaveAsType documentation.', evidence: ['manual-core:language:enums:saveastype'] }
     }),
     enumeratedType({
         name: 'DWItemStatus',
         category: 'DataWindow',
-        summary: 'Tipo enumerado para el estado de fila o columna del DataWindow.',
-        documentation: 'Distingue filas nuevas, modificadas o sin cambios dentro del motor DataWindow.',
+        summary: 'Enumerated type for DataWindow row or column status.',
+        documentation: 'Distinguishes new, modified, or unchanged rows within the DataWindow engine.',
         allowedInParameters: ['status'],
         enumValues: DW_ITEM_STATUS_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening DWItemStatus documentation.', evidence: ['manual-core:language:enums:dwitemstatus'] }
     }),
     enumeratedType({
         name: 'DWBuffer',
         category: 'DataWindow',
-        summary: 'Tipo enumerado para seleccionar el buffer de filas de un DataWindow.',
-        documentation: 'Se usa en métodos DataWindow que leen, mueven o consultan filas dentro de un buffer específico.',
+        summary: 'Enumerated type to select a DataWindow row buffer.',
+        documentation: 'Used in DataWindow methods that read, move, or query rows within a specific buffer.',
         allowedInParameters: ['dwbuffer', 'movebuffer', 'targetbuffer'],
         enumValues: DW_BUFFER_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening DWBuffer documentation.', evidence: ['manual-core:language:enums:dwbuffer'] }
     }),
     enumeratedType({
         name: 'DWConflictResolution',
         category: 'DataWindow',
-        summary: 'Tipo enumerado para resolver conflictos al sincronizar cambios de DataWindow.',
-        documentation: 'Se usa en APIs de sincronización de cambios de DataWindow para decidir si fallar ante cualquier conflicto o aplicar cambios no conflictivos.',
+        summary: 'Enumerated type to resolve conflicts when synchronizing DataWindow changes.',
+        documentation: 'Used in DataWindow change synchronization APIs to decide whether to fail on any conflict or apply non-conflicting changes.',
         enumValues: DW_CONFLICT_RESOLUTION_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening DWConflictResolution documentation.', evidence: ['manual-core:language:enums:dwconflictresolution'] }
     }),
 
     // — UI —
     enumeratedType({
         name: 'Border',
         category: 'UI',
-        summary: 'Tipo enumerado para estilos de borde visual.',
-        documentation: 'Se usa en propiedades y APIs visuales que seleccionan el estilo de borde de controles, ventanas y superficies compatibles.',
+        summary: 'Enumerated type for visual border styles.',
+        documentation: 'Used in visual properties and APIs that select the border style of controls, windows, and compatible surfaces.',
         enumValues: BORDER_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening Border documentation.', evidence: ['manual-core:language:enums:border'] }
     }),
     enumeratedType({
         name: 'BorderStyle',
         category: 'UI',
-        summary: 'Tipo enumerado para estilo de borde de controles.',
-        documentation: 'Se usa en propiedades BorderStyle de controles que permiten seleccionar una representación visual del borde.',
+        summary: 'Enumerated type for control border style.',
+        documentation: 'Used in BorderStyle properties of controls that allow selecting a visual representation of the border.',
         enumValues: BORDER_STYLE_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening BorderStyle documentation.', evidence: ['manual-core:language:enums:borderstyle'] }
     }),
     enumeratedType({
         name: 'Alignment',
         category: 'UI',
-        summary: 'Tipo enumerado para alineación de texto.',
-        documentation: 'Se usa para alinear texto o contenido dentro de controles y superficies que admiten alineación horizontal.',
+        summary: 'Enumerated type for text alignment.',
+        documentation: 'Used to align text or content within controls and surfaces that support horizontal alignment.',
         enumValues: ALIGNMENT_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening Alignment documentation.', evidence: ['manual-core:language:enums:alignment'] }
     }),
     enumeratedType({
         name: 'FillPattern',
         category: 'UI',
-        summary: 'Tipo enumerado para patrón de relleno gráfico.',
-        documentation: 'Se usa para seleccionar el patrón de relleno de fondos, áreas y series gráficas que aceptan constantes FillPattern. Los valores oficiales completos deben provenir del rail generated de B361/B366.',
+        summary: 'Enumerated type for graphic fill pattern.',
+        documentation: 'Used to select the fill pattern of backgrounds, areas, and graphic series that accept FillPattern constants. Full official values should come from the B361/B366 generated rail.',
+        manualOverlay: { mode: 'override', reason: 'Hardening FillPattern documentation.', evidence: ['manual-core:language:enums:fillpattern'] }
     }),
 
     // — Ventana —
     enumeratedType({
         name: 'WindowType',
-        category: 'Ventana',
-        summary: 'Tipo enumerado para la clase de ventana PowerBuilder.',
-        documentation: 'Distingue ventanas principales, hijas, popup y MDI en APIs y eventos que dependen de la clase de ventana.',
+        category: 'Window',
+        summary: 'Enumerated type for PowerBuilder window class.',
+        documentation: 'Distinguishes main, child, popup, and MDI windows in APIs and events that depend on the window class.',
         enumValues: WINDOW_TYPE_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening WindowType documentation.', evidence: ['manual-core:language:enums:windowtype'] }
     }),
     enumeratedType({
         name: 'WindowState',
-        category: 'Ventana',
-        summary: 'Tipo enumerado para el estado visual de una ventana.',
-        documentation: 'Representa si una ventana está normal, maximizada o minimizada en propiedades y lógica de presentación.',
+        category: 'Window',
+        summary: 'Enumerated type for visual state of a window.',
+        documentation: 'Represents whether a window is normal, maximized, or minimized in properties and presentation logic.',
         enumValues: WINDOW_STATE_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening WindowState documentation.', evidence: ['manual-core:language:enums:windowstate'] }
     }),
 
     // — Archivo —
     enumeratedType({
         name: 'FileAccess',
-        category: 'Archivo',
-        summary: 'Tipo enumerado para el modo de acceso a un archivo.',
-        documentation: 'Controla si una API de archivo abre el recurso en lectura, escritura o lectura y escritura.',
+        category: 'File',
+        summary: 'Enumerated type for file access mode.',
+        documentation: 'Controls whether a file API opens the resource in read, write, or read-write mode.',
         enumValues: FILE_ACCESS_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening FileAccess documentation.', evidence: ['manual-core:language:enums:fileaccess'] }
     }),
     enumeratedType({
         name: 'FileMode',
-        category: 'Archivo',
-        summary: 'Tipo enumerado para el modo de apertura de un archivo.',
-        documentation: 'Indica si las operaciones de E/S trabajan por líneas o como flujo continuo.',
+        category: 'File',
+        summary: 'Enumerated type for file open mode.',
+        documentation: 'Indicates whether I/O operations work by lines or as a continuous stream.',
         enumValues: FILE_MODE_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening FileMode documentation.', evidence: ['manual-core:language:enums:filemode'] }
     }),
     enumeratedType({
         name: 'Encoding',
-        category: 'Archivo',
-        summary: 'Tipo enumerado para la codificación de archivo.',
-        documentation: 'Selecciona la codificación usada al leer o escribir texto con APIs de archivo compatibles.',
+        category: 'File',
+        summary: 'Enumerated type for file encoding.',
+        documentation: 'Selects the encoding used when reading or writing text with compatible file APIs.',
         allowedInParameters: ['encoding'],
         enumValues: ENCODING_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening Encoding documentation.', evidence: ['manual-core:language:enums:encoding'] }
     }),
     enumeratedType({
         name: 'SeekType',
-        category: 'Archivo',
-        summary: 'Tipo enumerado para el origen de desplazamiento en operaciones FileSeek.',
-        documentation: 'Se usa para indicar si un desplazamiento de archivo se calcula desde el inicio, la posición actual o el final del archivo.',
+        category: 'File',
+        summary: 'Enumerated type for the offset origin in FileSeek operations.',
+        documentation: 'Used to indicate whether a file offset is calculated from the beginning, the current position, or the end of the file.',
         allowedInParameters: ['origin'],
         enumValues: SEEK_TYPE_VALUES,
+        manualOverlay: { mode: 'override', reason: 'Hardening SeekType documentation.', evidence: ['manual-core:language:enums:seektype'] }
     }),
 ];
 
@@ -528,13 +548,13 @@ export const PB_MANUAL_CORE_ENUMERATED_VALUES: readonly PbSystemSymbolEntry[] = 
     // — UI / Alignment —
     ...createValues(ALIGNMENT_VALUES, 'UI', 'Alignment', ALIGNMENT_VALUE_DETAILS),
 
-    // — Ventana —
-    ...createValues(WINDOW_TYPE_VALUES, 'Ventana', 'WindowType', WINDOW_TYPE_VALUE_DETAILS),
-    ...createValues(WINDOW_STATE_VALUES, 'Ventana', 'WindowState', WINDOW_STATE_VALUE_DETAILS),
+    // — Window —
+    ...createValues(WINDOW_TYPE_VALUES, 'Window', 'WindowType', WINDOW_TYPE_VALUE_DETAILS),
+    ...createValues(WINDOW_STATE_VALUES, 'Window', 'WindowState', WINDOW_STATE_VALUE_DETAILS),
 
-    // — Archivo —
-    ...createValues(FILE_ACCESS_VALUES, 'Archivo', 'FileAccess', FILE_ACCESS_VALUE_DETAILS),
-    ...createValues(FILE_MODE_VALUES, 'Archivo', 'FileMode', FILE_MODE_VALUE_DETAILS),
-    ...createValues(ENCODING_VALUES, 'Archivo', 'Encoding', ENCODING_VALUE_DETAILS),
-    ...createValues(SEEK_TYPE_VALUES, 'Archivo', 'SeekType', SEEK_TYPE_VALUE_DETAILS),
+    // — File —
+    ...createValues(FILE_ACCESS_VALUES, 'File', 'FileAccess', FILE_ACCESS_VALUE_DETAILS),
+    ...createValues(FILE_MODE_VALUES, 'File', 'FileMode', FILE_MODE_VALUE_DETAILS),
+    ...createValues(ENCODING_VALUES, 'File', 'Encoding', ENCODING_VALUE_DETAILS),
+    ...createValues(SEEK_TYPE_VALUES, 'File', 'SeekType', SEEK_TYPE_VALUE_DETAILS),
 ];

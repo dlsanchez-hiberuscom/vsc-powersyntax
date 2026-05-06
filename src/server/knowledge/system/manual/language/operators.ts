@@ -2,33 +2,108 @@ import { PbSystemSymbolEntry } from '../../types';
 import { operator } from '../common';
 
 export const PB_MANUAL_CORE_OPERATOR_CATEGORIES = [
-    'Aritmético',
-    'Comparación',
-    'Asignación',
-    'Cadena',
+    'Arithmetic',
+    'Comparison',
+    'Assignment',
+    'String',
 ] as const;
 
 export const PB_MANUAL_CORE_OPERATORS: readonly PbSystemSymbolEntry[] = [
-    // — Aritmético —
-    operator({ name: '+', category: 'Aritmético', summary: 'Suma o concatenación.' }),
-    operator({ name: '-', category: 'Aritmético', summary: 'Resta o negación.' }),
-    operator({ name: '*', category: 'Aritmético', summary: 'Multiplicación.' }),
-    operator({ name: '/', category: 'Aritmético', summary: 'División.' }),
-    operator({ name: '^', category: 'Aritmético', summary: 'Exponenciación.' }),
+    // — Arithmetic —
+    operator({
+        name: '+',
+        category: 'Arithmetic',
+        summary: 'Addition or concatenation.',
+        manualOverlay: { mode: 'override', reason: 'Hardening + operator documentation.', evidence: ['manual-core:language:operators:plus'] }
+    }),
+    operator({
+        name: '-',
+        category: 'Arithmetic',
+        summary: 'Subtraction or negation.',
+        manualOverlay: { mode: 'override', reason: 'Hardening - operator documentation.', evidence: ['manual-core:language:operators:minus'] }
+    }),
+    operator({
+        name: '*',
+        category: 'Arithmetic',
+        summary: 'Multiplication.',
+        manualOverlay: { mode: 'override', reason: 'Hardening * operator documentation.', evidence: ['manual-core:language:operators:multiply'] }
+    }),
+    operator({
+        name: '/',
+        category: 'Arithmetic',
+        summary: 'Division.',
+        manualOverlay: { mode: 'override', reason: 'Hardening / operator documentation.', evidence: ['manual-core:language:operators:divide'] }
+    }),
+    operator({
+        name: '^',
+        category: 'Arithmetic',
+        summary: 'Exponentiation.',
+        manualOverlay: { mode: 'override', reason: 'Hardening ^ operator documentation.', evidence: ['manual-core:language:operators:power'] }
+    }),
 
-    // — Comparación —
-    operator({ name: '=', category: 'Comparación', summary: 'Igualdad o asignación.' }),
-    operator({ name: '<>', category: 'Comparación', summary: 'Desigualdad.' }),
-    operator({ name: '<', category: 'Comparación', summary: 'Menor que.' }),
-    operator({ name: '>', category: 'Comparación', summary: 'Mayor que.' }),
-    operator({ name: '<=', category: 'Comparación', summary: 'Menor o igual que.' }),
-    operator({ name: '>=', category: 'Comparación', summary: 'Mayor o igual que.' }),
+    // — Comparison —
+    operator({
+        name: '=',
+        category: 'Comparison',
+        summary: 'Equality or assignment.',
+        manualOverlay: { mode: 'override', reason: 'Hardening = operator documentation.', evidence: ['manual-core:language:operators:equal'] }
+    }),
+    operator({
+        name: '<>',
+        category: 'Comparison',
+        summary: 'Inequality.',
+        manualOverlay: { mode: 'override', reason: 'Hardening <> operator documentation.', evidence: ['manual-core:language:operators:notequal'] }
+    }),
+    operator({
+        name: '<',
+        category: 'Comparison',
+        summary: 'Less than.',
+        manualOverlay: { mode: 'override', reason: 'Hardening < operator documentation.', evidence: ['manual-core:language:operators:less'] }
+    }),
+    operator({
+        name: '>',
+        category: 'Comparison',
+        summary: 'Greater than.',
+        manualOverlay: { mode: 'override', reason: 'Hardening > operator documentation.', evidence: ['manual-core:language:operators:greater'] }
+    }),
+    operator({
+        name: '<=',
+        category: 'Comparison',
+        summary: 'Less than or equal to.',
+        manualOverlay: { mode: 'override', reason: 'Hardening <= operator documentation.', evidence: ['manual-core:language:operators:lessequal'] }
+    }),
+    operator({
+        name: '>=',
+        category: 'Comparison',
+        summary: 'Greater than or equal to.',
+        manualOverlay: { mode: 'override', reason: 'Hardening >= operator documentation.', evidence: ['manual-core:language:operators:greaterequal'] }
+    }),
 
-    // — Asignación —
-    operator({ name: '+=', category: 'Asignación', summary: 'Suma y asignación.' }),
-    operator({ name: '-=', category: 'Asignación', summary: 'Resta y asignación.' }),
-    operator({ name: '*=', category: 'Asignación', summary: 'Multiplicación y asignación.' }),
+    // — Assignment —
+    operator({
+        name: '+=',
+        category: 'Assignment',
+        summary: 'Addition and assignment.',
+        manualOverlay: { mode: 'override', reason: 'Hardening += operator documentation.', evidence: ['manual-core:language:operators:plusassign'] }
+    }),
+    operator({
+        name: '-=',
+        category: 'Assignment',
+        summary: 'Subtraction and assignment.',
+        manualOverlay: { mode: 'override', reason: 'Hardening -= operator documentation.', evidence: ['manual-core:language:operators:minusassign'] }
+    }),
+    operator({
+        name: '*=',
+        category: 'Assignment',
+        summary: 'Multiplication and assignment.',
+        manualOverlay: { mode: 'override', reason: 'Hardening *= operator documentation.', evidence: ['manual-core:language:operators:multiplyassign'] }
+    }),
 
-    // — Cadena —
-    operator({ name: '&', category: 'Cadena', summary: 'Continuación de línea.' }),
+    // — String —
+    operator({
+        name: '&',
+        category: 'String',
+        summary: 'Line continuation.',
+        manualOverlay: { mode: 'override', reason: 'Hardening & operator documentation.', evidence: ['manual-core:language:operators:continuation'] }
+    }),
 ];
