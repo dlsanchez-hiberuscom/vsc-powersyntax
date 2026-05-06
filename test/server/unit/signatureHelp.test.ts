@@ -74,6 +74,19 @@ suite('unit/signatureHelp', () => {
     assert.match(String(result.signatures[0].parameters?.[0].documentation), /Numero del que quieres obtener el valor absoluto/i);
   });
 
+  test('localiza la ayuda de firma del catalogo para helpers built-in del slice visible', () => {
+    const doc = setupDocument('file:///test_signature_setnull_locale.srw', 'string ls_value\nSetNull(');
+
+    const pos = Position.create(1, 8);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph, undefined, 'es');
+
+    assert.ok(result);
+    assert.strictEqual(result.signatures.length > 0, true);
+    assert.match(String(result.signatures[0].documentation), /propagar un null real/i);
+    assert.match(String(result.signatures[0].documentation), /Devuelve 1 si lo consigue/i);
+    assert.match(String(result.signatures[0].parameters?.[0].documentation), /Variable compatible que quieres dejar explicitamente en null/i);
+  });
+
   test('proyecta documentación enum para parámetros de sistema inferidos desde la firma', () => {
     const doc = setupDocument('file:///test_signature_enum.sru', `
 global type test_signature_enum from nonvisualobject
@@ -311,6 +324,35 @@ end subroutine
     assert.strictEqual(signature?.parameters?.length, 2);
     assert.strictEqual(signature?.parameters?.[0].label, 'accept?');
     assert.match(String(signature?.parameters?.[0].documentation), /AcceptText/i);
+  });
+
+  test('localiza la firma DataWindow de Update con retorno y parametros visibles', () => {
+    const doc = setupDocument('file:///test_dw_signature_update_locale.sru', `
+global type w_tx_sig_update_locale from window
+  datastore ids_orders
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  ids_orders.Update(
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('ids_orders.Update('));
+    const pos = Position.create(lineIndex, lines[lineIndex].length);
+    const result = provideSignatureHelp(doc, pos, kb, systemCatalog, graph, undefined, 'es');
+
+    assert.ok(result);
+    const signature = result.signatures.find((entry) => entry.label === 'Update(accept?, resetflag?)');
+    assert.ok(signature);
+    assert.match(String(signature?.documentation), /persistir los cambios acumulados/i);
+    assert.match(String(signature?.documentation), /actualizacion termina correctamente/i);
+    assert.match(String(signature?.parameters?.[0].documentation), /deja ese paso bajo control explicito del caller/i);
+    assert.match(String(signature?.parameters?.[1].documentation), /flujos de commit o rollback manual/i);
   });
 
   test('no hace fallback plano para GetChild sobre DataWindowChild tipado', () => {

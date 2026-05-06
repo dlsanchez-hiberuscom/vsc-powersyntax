@@ -22,6 +22,28 @@ function dedupeEntries(entries: readonly PbSystemSymbolEntry[]): PbSystemSymbolE
   return result;
 }
 
+function dedupeStrings(values: readonly string[] | undefined): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values ?? []) {
+    const candidate = value.trim();
+    if (candidate.length === 0) {
+      continue;
+    }
+
+    const normalized = candidate.toLowerCase();
+    if (seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    result.push(candidate);
+  }
+
+  return result;
+}
+
 function buildSymbolSamples(
   entries: readonly PbSystemSymbolEntry[],
   spotlightSymbols: readonly string[] | undefined,
@@ -53,6 +75,41 @@ function buildSymbolSamples(
   return samples;
 }
 
+function buildAdvisorySymbolSamples(
+  members: readonly string[],
+  events: readonly string[],
+  spotlightSymbols: readonly string[] | undefined,
+): string[] {
+  const entries = dedupeStrings([...events, ...members]);
+  const byNormalizedName = new Map(entries.map((entry) => [entry.toLowerCase(), entry]));
+  const samples: string[] = [];
+  const seen = new Set<string>();
+
+  for (const symbolName of spotlightSymbols ?? []) {
+    const entry = byNormalizedName.get(symbolName.trim().toLowerCase());
+    if (!entry || seen.has(entry)) {
+      continue;
+    }
+
+    seen.add(entry);
+    samples.push(entry);
+  }
+
+  for (const entry of [...entries].sort((left, right) => left.localeCompare(right))) {
+    if (samples.length >= 6) {
+      break;
+    }
+    if (seen.has(entry)) {
+      continue;
+    }
+
+    seen.add(entry);
+    samples.push(entry);
+  }
+
+  return samples;
+}
+
 function resolvePackEntries(
   systemCatalog: SystemCatalog,
   ownerTypes: readonly string[],
@@ -69,6 +126,10 @@ function resolvePackSummary(
   definition: CuratedFrameworkKnowledgePackDefinition,
 ): ApiFrameworkKnowledgePackSummary {
   const entries = resolvePackEntries(systemCatalog, definition.ownerTypes);
+  const advisoryMembers = dedupeStrings(definition.advisoryMembers);
+  const advisoryEvents = dedupeStrings(definition.advisoryEvents);
+  const advisorySymbols = dedupeStrings([...advisoryEvents, ...advisoryMembers]);
+  const hasCatalogEntries = entries.all.length > 0;
 
   return {
     id: definition.id,
@@ -76,10 +137,12 @@ function resolvePackSummary(
     title: definition.title,
     summary: definition.summary,
     ownerTypes: [...definition.ownerTypes],
-    symbolCount: entries.all.length,
-    memberCount: entries.members.length,
-    eventCount: entries.events.length,
-    symbolSamples: buildSymbolSamples(entries.all, definition.spotlightSymbols),
+    symbolCount: hasCatalogEntries ? entries.all.length : advisorySymbols.length,
+    memberCount: hasCatalogEntries ? entries.members.length : advisoryMembers.length,
+    eventCount: hasCatalogEntries ? entries.events.length : advisoryEvents.length,
+    symbolSamples: hasCatalogEntries
+      ? buildSymbolSamples(entries.all, definition.spotlightSymbols)
+      : buildAdvisorySymbolSamples(advisoryMembers, advisoryEvents, definition.spotlightSymbols),
     source: definition.source,
     ...(definition.sourceUrl ? { sourceUrl: definition.sourceUrl } : {}),
   };

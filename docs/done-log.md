@@ -25,6 +25,459 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.236 SYMBOL-FRAMEWORKS-01 — **Cerrado (symbols / framework packs / advisory / 2026-05)**
+
+**Objetivo:** añadir enrichments PFC/STD sólo advisory, con `source`, `confidence`, fallback y evidencia real, sin convertir metadata de framework en autoridad sobre el símbolo del workspace.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/frameworkKnowledgePackPolicy.ts](../src/server/knowledge/system/frameworkKnowledgePackPolicy.ts) amplía el modelo curado con `advisoryMembers` y `advisoryEvents` y registra dos familias mínimas corpus-backed: `pfc-response-dwsrv` y `std-controller-shells`, ambas con `source` explícito y sin portar runtime legacy;
+- [src/server/knowledge/system/frameworkKnowledgePacks.ts](../src/server/knowledge/system/frameworkKnowledgePacks.ts) añade el fallback de summary para owner types framework-specific ausentes del system catalog oficial, reutilizando samples curados en el manifest sin promocionarlos a símbolos reales;
+- [test/server/unit/frameworkKnowledgePacks.test.ts](../test/server/unit/frameworkKnowledgePacks.test.ts), [test/server/unit/workspaceSymbols.test.ts](../test/server/unit/workspaceSymbols.test.ts) y [test/server/unit/currentObjectContext.test.ts](../test/server/unit/currentObjectContext.test.ts) fijan el rail visible: el símbolo real del workspace sigue ganando, los packs se publican como advisory y el corpus local PFC/STD sólo se usa de forma gated con skip honesto cuando falta.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/(frameworkKnowledgePacks|workspaceSymbols|currentObjectContext)"` (`24 passing`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = CATALOG-LOCALIZATION-DOMAINS-01`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/symbol-system.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.235 SYMBOL-DOCS-EXAMPLES-01 — **Cerrado (symbols / docs / examples / 2026-05)**
+
+**Objetivo:** documentar ejemplos breves de overlays, enrichments y payloads sin copiar catálogos completos ni abrir un documento paralelo de reglas.
+
+**Resultado registrado:**
+- [docs/localization.md](localization.md) añade ejemplos mínimos de `overlay localizado` y `targetId/targetKey recovery`, usando shapes cortas y anchors reales (`targetKey`, `source`, `reviewed`) sin duplicar datasets `generated/manual/localization` completos;
+- [docs/symbol-system.md](symbol-system.md) añade ejemplos mínimos de `manual-curated enrichment`, `confidence/sourceOrigin` y `completion resolve enrichment`, todos en shape simplificada y enlazados a las reglas ya descritas por los owners canónicos;
+- [docs/ai-context/powerbuilder-plugin-context.md](ai-context/powerbuilder-plugin-context.md) queda alineado con un recordatorio compacto de dónde viven esos ejemplos, evitando duplicar su contenido dentro del AI context bootstrap.
+
+**Validación registrada:**
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = SYMBOL-FRAMEWORKS-01`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/localization.md`
+- `docs/symbol-system.md`
+- `docs/ai-context/powerbuilder-plugin-context.md`
+- `docs/done-log.md`
+
+## 1.234 SYMBOL-CATALOG-STATEMENTS-ENRICH-P2 — **Cerrado (symbols / catalog / statements / localization / 2026-05)**
+
+**Objetivo:** enriquecer `statements`, `keywords` y `reserved-words` visibles sin traducir los lexemas reales del lenguaje ni tocar anchors técnicos del catálogo.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/localization/es/generatedStatementLocalization.ts](../src/server/knowledge/system/localization/es/generatedStatementLocalization.ts) añade overlays `es` revisados para `IF...THEN`, `CHOOSE CASE`, `FOR...NEXT`, `IF`, `FOR`, `TRUE`, `FALSE` y `NOT`, todos anclados por `targetKey`, con documentación visible localizada y preservando `name`, `signatureLabel`, `parameterName`, `sourceUrl` y el resto de la identidad canónica del símbolo;
+- [test/server/unit/catalogLocalization.test.ts](../test/server/unit/catalogLocalization.test.ts) endurece el slice runtime de `statements`, `keywords` y `reserved-words`, exige ya cobertura mínima en los tres dominios y mantiene `0` `incompleteOverlays`, `schemaIssues`, `invalidParameterTargets`, `recoveredTargetIds` y `orphanOverlays`;
+- [test/server/unit/completion.test.ts](../test/server/unit/completion.test.ts) fija que `completion resolve` localiza `FOR` y `TRUE` sin traducir los lexemas reales ni inflar `completion initial`, mientras los greps transversales de `keyword|reserved` revalidan semantic tokens, catálogo y completion contextual;
+- el reporte vivo de localización sube el locale `es` de `23` a `31` overlays revisados y abre cobertura limpia en `statements` (`3/16`, `18.75%`), `keywords` (`2/60`, `3.33%`) y `reserved-words` (`3/48`, `6.25%`) sin reabrir la taxonomía de `semanticTokens` ni la identidad semántica del catálogo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization"` (`13 passing`, exit code 0)
+- `npm run test:unit -- --grep "keyword|reserved|catalogLocalization|catalogConsistency"` (`33 passing`, exit code 0)
+- `npm run report:catalog-localization` (`schemaVersion: 1.0.0`, `incompleteOverlays = 0`, `schemaIssues = 0`, `orphanOverlays = 0`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = CATALOG-LOCALIZATION-DOMAINS-01`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/localization.md`
+- `docs/symbol-system.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.233 SYMBOL-CATALOG-DATATYPES-ENRICH-P2 — **Cerrado (symbols / catalog / datatypes / localization / 2026-05)**
+
+**Objetivo:** enriquecer `system-object-datatypes` visibles sin traducir nombres reales de datatypes ni tocar anchors técnicos del catálogo.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/localization/es/generatedDatatypeLocalization.ts](../src/server/knowledge/system/localization/es/generatedDatatypeLocalization.ts) añade overlays `es` revisados para `DataStore`, `DataWindowChild`, `Transaction`, `HTTPClient` y `RESTClient`, todos anclados por `targetKey`, con documentación visible localizada y preservando `name`, `signatureLabel`, `parameterName`, `sourceUrl` y el resto de la identidad canónica del datatype;
+- [test/server/unit/catalogLocalization.test.ts](../test/server/unit/catalogLocalization.test.ts) endurece el slice runtime de `system-object-datatypes` y el reporte live, exigiendo ya cobertura mínima del dominio y manteniendo `0` `incompleteOverlays`, `schemaIssues`, `invalidParameterTargets`, `recoveredTargetIds` y `orphanOverlays`;
+- [test/server/unit/documentationService.test.ts](../test/server/unit/documentationService.test.ts) fija el serving visible del slice para `DataStore` y `HTTPClient`, mientras `systemCatalog` revalida que el runtime base del catálogo sigue intacto y que la localización sólo sustituye texto visible;
+- el reporte vivo de localización sube el locale `es` de `18` a `23` overlays revisados y abre cobertura limpia en `system-object-datatypes` (`5/224`, `2.23%`) sin reabrir resolución semántica, completion ni identity keys del catálogo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization"` (`12 passing`, exit code 0)
+- `npm run test:unit -- --grep "documentationService"` (`8 passing`, exit code 0)
+- `npm run test:unit -- --grep "systemCatalog"` (`24 passing`, exit code 0)
+- `npm run test:unit -- --grep "catalogConsistency"` (`3 passing`, exit code 0)
+- `npm run report:catalog-localization` (`schemaVersion: 1.0.0`, `incompleteOverlays = 0`, `schemaIssues = 0`, `orphanOverlays = 0`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = SYMBOL-CATALOG-STATEMENTS-ENRICH-P2`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/localization.md`
+- `docs/symbol-system.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.232 SYMBOL-CATALOG-ENUMS-ENRICH-P2 — **Cerrado (symbols / catalog / enums / localization / 2026-05)**
+
+**Objetivo:** enriquecer `enumerated-types` y `enumerated-values` visibles sin traducir enum values con `!` ni tocar anchors técnicos del catálogo.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/localization/es/generatedEnumLocalization.ts](../src/server/knowledge/system/localization/es/generatedEnumLocalization.ts) añade overlays `es` revisados para `SaveAsType`, `FillPattern`, `SecureProtocol`, `Text!` y `Primary!`, todos anclados por `targetKey`, con documentación visible localizada y preservando `name`, `signatureLabel`, `parameterName`, enum values reales y `obsoleteMessage` cuando la entry canónica lo exige;
+- [test/server/unit/catalogLocalization.test.ts](../test/server/unit/catalogLocalization.test.ts) endurece el slice runtime de enums y el reporte live, exigiendo cobertura mínima en `enumerated-types` / `enumerated-values` y manteniendo `0` `incompleteOverlays`, `schemaIssues`, `invalidParameterTargets`, `recoveredTargetIds` y `orphanOverlays`;
+- [test/server/unit/documentationService.test.ts](../test/server/unit/documentationService.test.ts) fija el serving visible del slice enum para `SaveAsType` y `Primary!`, mientras el grep transversal `enum` revalida completion, hover, signatureHelp, diagnostics y semantic tokens sobre el contexto enumerado ya compartido;
+- el reporte vivo de localización sube el locale `es` de `13` a `18` overlays revisados y abre cobertura limpia en `enumerated-types` (`3/37`, `8.11%`) y `enumerated-values` (`2/245`, `0.82%`) sin reabrir lógica de contexto ni identidad semántica del catálogo.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization"` (`11 passing`, exit code 0)
+- `npm run test:unit -- --grep "documentationService"` (`7 passing`, exit code 0)
+- `npm run test:unit -- --grep "enum"` (`31 passing`, exit code 0)
+- `npm run test:unit -- --grep "catalogConsistency"` (`3 passing`, exit code 0)
+- `npm run report:catalog-localization` (`schemaVersion: 1.0.0`, `incompleteOverlays = 0`, `schemaIssues = 0`, `orphanOverlays = 0`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = SYMBOL-CATALOG-DATATYPES-ENRICH-P2`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/localization.md`
+- `docs/symbol-system.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.231 SYMBOL-TOKENS-01 — **Cerrado (symbols / semantic-tokens / taxonomy / 2026-05)**
+
+**Objetivo:** fijar la taxonomía visible de semantic tokens como contrato explícito, con token types/modifiers defendibles y sin dependencia de texto localizado.
+
+**Resultado registrado:**
+- [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) publica ya el contrato explícito del legend: usa sólo token types estándar (`type`, `class`, `function`, `method`, `property`, `variable`, `parameter`, `event`, `enumMember`, `keyword`), mantiene `defaultLibrary/local/instance/global` como modifiers visibles del repo y separa `class` frente a `type` para tipos de workspace/runtime sin abrir token types custom ni depender de locale/presentation strings;
+- el mismo cierre endurece la clasificación runtime para `system-type`/object datatypes (`window`, `DataStore`, `DataWindowChild`, etc.) y deja `enum values` con `!` como `enumMember`, manteniendo `dynamic/unknown` fuera de la tokenización fuerte;
+- [src/server/analysis/documentAnalysis.ts](../src/server/analysis/documentAnalysis.ts) preserva ahora `shared/global` inline dentro de `type variables`, evitando que semantic tokens y cualquier consumer del snapshot pierdan el scope real por depender sólo de la cabecera de sección;
+- [test/server/unit/semanticTokens.test.ts](../test/server/unit/semanticTokens.test.ts) fija el contrato completo con rangos/modifiers explícitos sobre `class/type`, `parameter`, `local`, `instance`, `shared/global`, built-ins del catálogo y enum values con `!`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "Semantic Tokens"` (`4 passing`, exit code 0)
+- `npm run test:performance:gate` (`passed`, `synthetic-hot-semanticTokens = 5.46ms / 100.00ms`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = SYMBOL-CATALOG-ENUMS-ENRICH-P2`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/symbol-system.md`
+- `docs/testing.md`
+- `docs/architecture-status.md`
+- `docs/architecture-implementation-map.md`
+- `docs/done-log.md`
+
+## 1.230 SYMBOL-DW-01 — **Cerrado (symbols / datawindow / fast-context / 2026-05)**
+
+**Objetivo:** definir enrichments DataWindow sobre `DataWindowFastContext` con `confidence/sourceOrigin` explícitos y sin tratar `.srd` como PowerScript normal.
+
+**Resultado registrado:**
+- [src/server/features/dataWindowFastContext.ts](../src/server/features/dataWindowFastContext.ts) queda consolidado como vista rápida segura para `DataWindow control`, `DataStore variable`, `DataWindowChild`, `DataObject literal`, `column`, `computed field`, `property path`, `buffer` y `dynamic/unknown binding`, reutilizando `dataWindowModel` y `dataWindowBindingModel` en lugar de abrir reparsers locales en consumers interactivos;
+- el cierre añade `computedFields` modelados desde `expressions` del `.srd`, con dependencias seguras y `sourceOrigin: 'datawindow-model'`, sin inventar resultados fuertes cuando el binding es dinámico o ambiguo;
+- [test/server/unit/dataWindowFastContext.test.ts](../test/server/unit/dataWindowFastContext.test.ts) fija ya el contrato completo del fast context, incluyendo degradación honesta para `dynamic/unknown`, ausencia de IO/reanálisis en hot path y el nuevo caso de `computed field` enlazado por `DataObject`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "dataWindow"` (`19 passing`, exit code 0)
+- `npm run test:architecture:rapid` (`passed`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = SYMBOL-TOKENS-01`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/symbol-system.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.229 SYMBOL-I18N-TERMS-01 — **Cerrado (symbols / i18n / presentation / 2026-05)**
+
+**Objetivo:** crear un glosario estable español/inglés para presentation/enrichments sin traducir anchors técnicos ni reintroducir hardcodes visibles en providers.
+
+**Resultado registrado:**
+- [src/server/presentation/terminology.ts](../src/server/presentation/terminology.ts) materializa el owner canónico del glosario con keys estables, términos mínimos para `function`, `event`, `variable`, `parameter`, `return value`, `DataWindow`, `DataStore`, `DataWindowChild`, `transaction`, `ancestor`, `override`, `scope`, `source origin`, `confidence`, `deprecated`, `inferred`, `ambiguous` y `unknown`, más fallback de locale `en/es` reutilizable;
+- [src/server/features/hoverViewModel.ts](../src/server/features/hoverViewModel.ts), [src/server/features/hover.ts](../src/server/features/hover.ts), [src/server/features/hoverFormat.ts](../src/server/features/hoverFormat.ts) y [src/server/presentation/completionPresentation.ts](../src/server/presentation/completionPresentation.ts) dejan de ensamblar labels visibles repetidos ad hoc y pasan a reutilizar el glosario para headings, warnings y bloques de detalle en hover/completion-resolve, manteniendo identidad semántica y anchors reales intactos;
+- [test/server/unit/presentationTerminology.test.ts](../test/server/unit/presentationTerminology.test.ts) fija el contrato del glosario, el fallback de locale y la localización visible de hover/completion, mientras [test/server/unit/hoverFormat.test.ts](../test/server/unit/hoverFormat.test.ts) y [test/server/unit/presentationContracts.test.ts](../test/server/unit/presentationContracts.test.ts) siguen protegiendo los consumers existentes sin abrir una surface paralela.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "presentationTerminology|hoverFormat|presentationContracts"` (`26 passing`, exit code 0)
+- `npm run test:unit` (`1224 passing`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = CATALOG-LOCALIZATION-ES-01`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/symbol-system.md`
+- `docs/localization.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.228 SYMBOL-QUALITY-01 — **Cerrado (symbols / regression-matrix / i18n / 2026-05)**
+
+**Objetivo:** consolidar una regression matrix compacta y trazable para symbols, enrichments y localization sin reabrir runtime ni duplicar surfaces ya existentes.
+
+**Resultado registrado:**
+- [test/server/unit/symbolQualityRegressionMatrix.test.ts](../test/server/unit/symbolQualityRegressionMatrix.test.ts) fija una matriz única y compacta para `built-in function`, `user function`, `event`, `local variable`, `instance variable`, `shared/global variable`, `parameter`, `inherited`, `ambiguous`, `unknown`, `DataWindow column/property`, `overlay localized` y `completion resolve enrichment`;
+- la suite congela además validaciones explícitas de `sourceOrigin`, `confidence`, `reasonCodes`, `i18n fallback` y `payload budget`, reutilizando runtime real (`completion`, `definition`, `diagnostics`, `documentationService`, `semanticQueryService`) en lugar de abrir una arquitectura paralela;
+- [docs/symbol-system.md](../docs/symbol-system.md) y [docs/testing.md](../docs/testing.md) quedan actualizados para que el baseline visible de calidad viva en una suite concreta y no dependa solo de cobertura dispersa entre `crossSurfaceGoldenMatrix`, `powerbuilderSemanticGolden`, `completion` y `documentationService`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "symbolQualityRegressionMatrix"` (`1 passing`, exit code 0)
+- `npm run test:unit` (`1221 passing`, exit code 0)
+- `npm test` (`1221 passing` en unit + `4 passing` en integration visibles, exit code 0)
+- `npm run test:performance:gate` (`4 passing`; todos los budgets reportados como `ok`, exit code 0)
+- `npm run test:docs:drift` (`status: passed`, `currentFocusId = roadmapFocusId = SYMBOL-I18N-TERMS-01`, exit code 0)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/symbol-system.md`
+- `docs/testing.md`
+- `docs/done-log.md`
+
+## 1.227 SYMBOL-CATALOG-DW-ENRICH-P1 — **Cerrado (symbols / catalog / localization / datawindow / 2026-05)**
+
+**Objetivo:** abrir el primer corte pequeño y defendible de enrichments/localización `es` para DataWindow core sin tocar identity, property paths, enum values ni anchors técnicos.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/localization/es/generatedFunctionLocalization.ts](../src/server/knowledge/system/localization/es/generatedFunctionLocalization.ts) añade overlays `es` revisados para `Describe`, `Retrieve`, `SetItemStatus`, `SetTransObject` y `Update`, todos con `source: 'manual-curated'`, `reviewed: true` y `targetKey` canónico sobre `datawindow-functions`;
+- el rail `es` de `datawindow-functions` pasa de `0/302` a `5/302` overlays revisados (`0%` -> `1.66%`) y el total del locale `es` sube a `13` overlays sin `incompleteOverlays`, `missingFieldsByDomain`, `invalidParameterTargets`, `recoveredTargetIds`, `schemaIssues` ni `orphans`, según el reporte vivo del catálogo;
+- [test/server/unit/catalogLocalization.test.ts](../test/server/unit/catalogLocalization.test.ts), [test/server/unit/documentationService.test.ts](../test/server/unit/documentationService.test.ts), [test/server/unit/hover.test.ts](../test/server/unit/hover.test.ts), [test/server/unit/completion.test.ts](../test/server/unit/completion.test.ts) y [test/server/unit/signatureHelp.test.ts](../test/server/unit/signatureHelp.test.ts) congelan el contrato del slice DataWindow: overlays member-scoped con anchors canónicos, documentation service localizado, hover/completion/signatureHelp visibles y budgets intactos.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization|documentationService|hover|completion|signatureHelp"` (`128 passing`, exit code 0)
+- `npm run test:unit -- --grep "dataWindow|catalogLocalization|catalogConsistency|documentationService"` (`37 passing`, exit code 0)
+- `npm run report:catalog-localization` (`overlays es: 13`, `datawindow-functions: 5/302`, `schemaIssues: 0`, `invalidParameterTargets: 0`, exit code 0)
+- `npm run migrate:catalog-localization-target-ids` (`No hay targetIds recuperados por targetKey. No hace falta migracion.`, exit code 0)
+- `npm run test:performance:gate` (`passed`, exit code 0)
+- `npm run test:docs:drift` (`passed`, con `currentFocusId = roadmapFocusId = SYMBOL-CATALOG-DW-ENRICH-P1` antes de la promoción documental, exit code 0)
+
+**Documentación alineada:**
+- `docs/localization.md`
+- `docs/symbol-system.md`
+- `docs/architecture-status.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.226 SYMBOL-CATALOG-BUILTINS-ENRICH-P1 — **Cerrado (symbols / catalog / localization / builtins / 2026-05)**
+
+**Objetivo:** iniciar la capa de enriquecimiento visible con un corte pequeño y defendible de built-ins globales de alto uso, sin tocar identidad, anchors técnicos ni firmas reales.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/localization/es/generatedFunctionLocalization.ts](../src/server/knowledge/system/localization/es/generatedFunctionLocalization.ts) añade overlays `es` revisados para `IsNull`, `SetNull`, `Len`, `Lower` y `Upper`, todos con `source: 'manual-curated'`, `reviewed: true` y `targetKey` canónico sobre `global-functions`;
+- el rail `es` de `global-functions` pasa de `3/285` a `8/285` overlays revisados (`1.05%` -> `2.81%`) sin `incompleteOverlays`, `missingFieldsByDomain`, `invalidParameterTargets`, `recoveredTargetIds`, `schemaIssues` ni `orphans`, según el reporte vivo del catálogo;
+- [test/server/unit/catalogLocalization.test.ts](../test/server/unit/catalogLocalization.test.ts), [test/server/unit/documentationService.test.ts](../test/server/unit/documentationService.test.ts), [test/server/unit/hover.test.ts](../test/server/unit/hover.test.ts), [test/server/unit/completion.test.ts](../test/server/unit/completion.test.ts) y [test/server/unit/signatureHelp.test.ts](../test/server/unit/signatureHelp.test.ts) congelan el contrato del slice: anchors técnicos intactos, documentation service localizado y consumers visibles con summary/documentation/usage/return localizados sin inflar `completion initial`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization|catalogConsistency|documentationService|hover|completion|signatureHelp"` (`126 passing`, exit code 0)
+- `npm run report:catalog-localization` (`overlays es: 8`, `global-functions: 8/285`, `schemaIssues: 0`, `invalidParameterTargets: 0`, exit code 0)
+- `npm run migrate:catalog-localization-target-ids` (`No hay targetIds recuperados por targetKey. No hace falta migracion.`, exit code 0)
+
+**Documentación alineada:**
+- `docs/localization.md`
+- `docs/symbol-system.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.225 SYMBOL-PRESENTATION-01 — **Cerrado (symbols / presentation / lsp-viewmodels / 2026-05)**
+
+**Objetivo:** consolidar ViewModels server-side para presentar símbolos enriquecidos en hover/completion/signatureHelp/diagnostics/semantic tokens sin duplicar resolución semántica.
+
+**Resultado registrado:**
+- [src/server/presentation/viewModels.ts](../src/server/presentation/viewModels.ts), [src/server/presentation/hoverPresentation.ts](../src/server/presentation/hoverPresentation.ts) y [src/server/presentation/signatureHelpPresentation.ts](../src/server/presentation/signatureHelpPresentation.ts) publican ahora `SymbolHoverViewModel`, `SymbolCompletionViewModel`, `SymbolSignatureViewModel`, `SymbolDiagnosticViewModel` y `SymbolSemanticTokenViewModel`, con payload policies explícitas para hover/signatureHelp dentro de la capa presentation;
+- [src/server/features/hoverViewModel.ts](../src/server/features/hoverViewModel.ts), [src/server/features/hoverFormat.ts](../src/server/features/hoverFormat.ts) y [src/server/features/signatureHelp.ts](../src/server/features/signatureHelp.ts) conservan la resolución semántica y el ensamblado del modelo, pero delegan el shape/formatter visible en `src/server/presentation` en lugar de mantener DTOs LSP dispersos por feature;
+- [src/server/presentation/index.ts](../src/server/presentation/index.ts) expone la capa consolidada y [test/server/unit/presentationContracts.test.ts](../test/server/unit/presentationContracts.test.ts) congela el contrato nuevo junto con los guards ya existentes de completion/definition/diagnostics/semantic tokens;
+- el cierre mantiene `completion initial` y `completion resolve` como modelos diferenciados y no reabre `KnowledgeBase`, parser, filesystem, discovery ni stores semánticos desde presentation.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/presentationContracts|unit/signatureHelp|unit/hover"` (`63 passing`, exit code 0)
+- `npm run test:unit` (`passed`, exit code 0)
+- `npm run test:performance:gate` (`passed`, exit code 0)
+- `npm run test:docs:drift` (`passed`, exit code 0)
+
+**Documentación alineada:**
+- `docs/symbol-system.md`
+- `docs/architecture-status.md`
+- `docs/architecture-implementation-map.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.224 SYMBOL-PERF-01 — **Cerrado (symbols / performance / interactive-serving / 2026-05)**
+
+**Objetivo:** proteger velocidad y budgets interactivos al añadir enrichments/traducciones sobre símbolos ya resueltos.
+
+**Resultado registrado:**
+- [src/server/features/completion.ts](../src/server/features/completion.ts) publica ya `resolveCompletionItemResult(...)`, separando resolve exitoso de miss reutilizable sin inflar `completion initial` ni duplicar resolución semántica;
+- [src/server/handlers/featureHandlers.ts](../src/server/handlers/featureHandlers.ts) y [src/server/server.ts](../src/server/server.ts) añaden negative cache explícita para misses seguros de `completion-resolve`, particionada por locale/contexto y sujeta a invalidación por documento, epoch, locale, watcher intake, shutdown y pressure policy;
+- [test/server/unit/completion.test.ts](../test/server/unit/completion.test.ts), [test/server/unit/cacheKeyContract.test.ts](../test/server/unit/cacheKeyContract.test.ts) y [test/server/unit/interactiveServingPipeline.test.ts](../test/server/unit/interactiveServingPipeline.test.ts) congelan el contrato nuevo: lista inicial compacta, resolve lazy, segregación por locale/contexto, budgets separados y reutilización del negative lane sin reejecutar provider;
+- el cierre mantiene verdes los guardrails ya existentes de payload, no IO/no workspace scan/no full parse y el gate de performance corpus-driven sin introducir scans globales ni parse completo por request interactiva.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "unit/completion|unit/cacheKeyContract|unit/interactiveServingPipeline"` (`44 passing`, exit code 0)
+- `npm run test:docs:drift` (`passed`, exit code 0)
+- `npm run test:performance:gate` (`passed`, exit code 0)
+- `npm run test:architecture:rapid` (`passed`, exit code 0)
+- `npm run test:unit` (`passed`, exit code 0)
+
+**Documentación alineada:**
+- `docs/symbol-system.md`
+- `docs/performance-budget.md`
+- `docs/testing.md`
+- `docs/architecture-status.md`
+- `docs/architecture-implementation-map.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.223 SYMBOL-GENERATED-ENRICHMENT-AUTHORING-01 — **Cerrado (symbols / catalog / enrichment-authoring / 2026-05)**
+
+**Objetivo:** fijar el workflow operativo para authoring incremental de enrichments/manual-curated sobre la base generada y la schema de localización ya cerradas.
+
+**Resultado registrado:**
+- [docs/localization.md](localization.md) publica ya el workflow incremental completo: baseline por dominio, elección de prioridad, authoring con `source`/`reviewed` explícitos, uso de `targetId`/`targetKey`, rerun de validaciones, cobertura antes/después y criterio real para promocionar `reviewed: true`;
+- [docs/localization.md](localization.md) fija además cuándo una explicación puede considerarse `manual-curated` y cuándo no debe añadirse un overlay por falta de evidencia o por romper anchors/schema;
+- [docs/symbol-system.md](symbol-system.md) enlaza el workflow de authoring con la policy de capas y la schema runtime ya cerradas, evitando que el proceso quede repartido en heurísticas implícitas;
+- el workflow queda anclado al tooling real ya existente: [scripts/generate_catalog_localization_report.cjs](../scripts/generate_catalog_localization_report.cjs), [scripts/migrate_catalog_localization_target_ids.cjs](../scripts/migrate_catalog_localization_target_ids.cjs) y el report vivo `buildCatalogConsistencyReport().localization`.
+
+**Validación registrada:**
+- `npm run report:catalog-localization` (`schemaVersion: 1.0.0`, `schemaIssues: 0`, `orphanOverlays: 0`, exit code 0)
+- `npm run test:docs:drift` (`passed`, exit code 0)
+
+**Documentación alineada:**
+- `docs/localization.md`
+- `docs/symbol-system.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.222 SYMBOL-GENERATED-ENRICHMENT-SCHEMA-01 — **Cerrado (symbols / catalog / enrichment-schema / 2026-05)**
+
+**Objetivo:** materializar un schema estricto para enrichments/generated/localization, con anchors canónicos, metadata obligatoria y reporting reproducible para authoring.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/localization/schema.ts](../src/server/knowledge/system/localization/schema.ts) fija `schemaVersion = 1.0.0`, metadata obligatoria (`source`, `reviewed`), anchors válidos (`targetId`/`targetKey`), fields documentales actuales y slots reservados del schema;
+- [src/server/knowledge/system/types.ts](../src/server/knowledge/system/types.ts) vuelve `source` y `reviewed` parte explícita del contrato de `PbSystemSymbolLocalizationOverlay`;
+- [src/server/knowledge/system/localization/localizationResolver.ts](../src/server/knowledge/system/localization/localizationResolver.ts) publica `schemaIssues` (`missing-source`, `missing-reviewed`, `reviewed-with-issues`) y `missingFieldsByDomain`, además de seguir resolviendo `targetId`/`targetKey` contra la entry runtime canónica;
+- [src/server/knowledge/system/consistency.ts](../src/server/knowledge/system/consistency.ts) y [scripts/generate_catalog_localization_report.cjs](../scripts/generate_catalog_localization_report.cjs) propagan `schemaVersion`, `schemaIssues` y `missingFieldsByDomain` al audit serializado en `artifacts/catalog/`;
+- [test/server/unit/catalogLocalization.test.ts](../test/server/unit/catalogLocalization.test.ts) y [test/server/unit/documentationService.test.ts](../test/server/unit/documentationService.test.ts) fijan el contrato estricto, incluyendo metadata requerida, `reviewed: true => sin issues` y preservación de anchors técnicos.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization|documentationService"` (`12 passing`, exit code 0)
+- `npm run test:unit -- --grep "catalogLocalization|catalogConsistency|catalogV2"` (`70 passing`, exit code 0)
+- `npm run report:catalog-localization` (`schemaVersion: 1.0.0`, `schemaIssues: 0`, `missingFieldsByDomain: 0`, exit code 0)
+- `npm run test:docs:drift` (`passed`, exit code 0)
+
+**Documentación alineada:**
+- `docs/symbol-system.md`
+- `docs/localization.md`
+- `docs/testing.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.221 SYMBOL-GENERATED-ENRICHMENT-LAYER-01 — **Cerrado (symbols / catalog / enrichment-layer / 2026-05)**
+
+**Objetivo:** fijar la capa de enrichment del catálogo generado sin alterar identidad semántica ni convertir manual/localization en fuentes primarias.
+
+**Resultado registrado:**
+- [src/server/knowledge/system/policy.ts](../src/server/knowledge/system/policy.ts) introduce el owner runtime explícito de la policy de capas del catálogo: `generated base -> manual curated enrichment -> localization overlay -> presentation formatter`, con conflict policy `generated-primary-with-manual-overlays`, campos visibles enriquecibles, anchors bloqueados, provenance por capa y exposición por surface;
+- [src/server/knowledge/system/registry/registry.ts](../src/server/knowledge/system/registry/registry.ts) deja de conservar wording provisional previo a `B369` en el auto-clasificado de overlays manuales solapados con `generated`;
+- [test/server/unit/systemCatalogQueryHardening.test.ts](../test/server/unit/systemCatalogQueryHardening.test.ts) congela el contrato exportado, mantiene el guard contra wording provisional antiguo y fija que completion initial siga compacto mientras completion resolve expone enrichment visible de forma lazy;
+- [test/server/unit/documentationService.test.ts](../test/server/unit/documentationService.test.ts) fija que la localización solo cambie documentación visible y preserve anchors técnicos (`name`, `normalizedName`, `signatures.label`, `parameterName`, `sourceUrl`);
+- [docs/symbol-system.md](symbol-system.md) y [docs/localization.md](localization.md) pasan a documentar explícitamente capas, campos permitidos, anchors bloqueados, provenance y surfaces visibles alineadas con `ADR-0001`.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "systemCatalogQueryHardening|documentationService"` (`13 passing`, exit code 0)
+- `npm run test:unit -- --grep "catalogConsistency|systemCatalog|documentationService"` (`31 passing`, exit code 0)
+- `npm run test:docs:drift` (`passed`, exit code 0)
+
+**Documentación alineada:**
+- `docs/symbol-system.md`
+- `docs/localization.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.220 SYMBOL-MODEL-01 — **Cerrado (symbols / canonical-model / semantic-facade / 2026-05)**
+
+**Objetivo:** formalizar el contrato canónico mínimo de símbolo sobre surfaces ya existentes, sin crear un segundo store semántico ni reabrir la cadena runtime del catálogo.
+
+**Resultado registrado:**
+- [src/server/knowledge/resolution/resolvedSemanticModels.ts](../src/server/knowledge/resolution/resolvedSemanticModels.ts) publica `CanonicalSymbolModel` como base de `ResolvedSymbolModel`, incorporando `identityKey` exacta vía `buildSymbolKey(...)`, `normalizedName` y shape mínima reutilizable (`declarationScope`, `implementationKind`, `signature`, `returnType`, `parameterCount`, `fileObjectName`, `containerSignature`, `scope` y `datatype` cuando aplica);
+- [src/server/features/semanticQueryFacade.ts](../src/server/features/semanticQueryFacade.ts) sigue actuando como fachada read-only y ahora expone ese contrato canónico desde `resolveTargetSymbol(...)` y `resolveCallable(...)` sin introducir stores ni resolución paralela;
+- [src/server/presentation/definitionPresentation.ts](../src/server/presentation/definitionPresentation.ts) deja de construir un símbolo reducido manualmente y consume `toResolvedSymbolModel(...)`, manteniendo presentation alineada con el contrato canónico;
+- [test/server/unit/semanticQueryFacade.test.ts](../test/server/unit/semanticQueryFacade.test.ts) fija `identityKey`, `normalizedName` y la shape mínima del símbolo publicado por la fachada;
+- [docs/symbol-system.md](symbol-system.md), [docs/architecture-implementation-map.md](architecture-implementation-map.md) y [docs/architecture-status.md](architecture-status.md) dejan explícito que el contrato canónico ya está materializado server-side;
+- [docs/ai-orchestrator.md](ai-orchestrator.md) y [docs/ai-agents-catalog.md](ai-agents-catalog.md) se restauran como compatibility entries mínimos porque el repo todavía mantiene referencias históricas y tests que los consumen durante la validación global.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "semanticQueryFacade"` (`5 passing`, exit code 0)
+- `npm run test:docs:drift` (`passed`, exit code 0)
+- `npm run test:architecture:rapid` (`smoke 3 passing`, `performance 7 passing`, gate passed, exit code 0)
+- `npm run test:unit -- --grep "aiCustomizationGovernance|aiContextDocs"` (`6 passing`, exit code 0)
+- `npm run test:unit` (`1201 passing`, exit code 0)
+
+**Documentación alineada:**
+- `docs/symbol-system.md`
+- `docs/architecture-implementation-map.md`
+- `docs/architecture-status.md`
+- `docs/ai-orchestrator.md`
+- `docs/ai-agents-catalog.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.219 SYMBOL-I18N-ENRICHMENT-AUDIT-01 — **Cerrado (symbols / i18n / localization / enrichment-audit / 2026-05)**
+
+**Objetivo:** revalidar con evidencia de código y carriles reales la separación `identity -> generated -> manual -> localization -> presentation -> LSP payload` antes de abrir la cadena de enrichments del Bloque 2.
+
+**Resultado registrado:**
+- [docs/symbol-i18n-enrichment-audit-01-report.md](symbol-i18n-enrichment-audit-01-report.md) fija la evidencia revisada, el estado factual, los hallazgos y la matriz de validación de la auditoría específica;
+- la auditoría confirma que `generated` sigue siendo la base reproducible, `manual-core` funciona como overlay curado gobernado, `documentationService` aplica localización presentation-only y `SystemCatalog` no crea símbolos duplicados por locale;
+- el workflow de localización queda verificado en runtime con `overlayCount=3`, `targetKeyCount=3`, `reviewedCount=3`, `targetIdCount=0`, `orphanCount=0`, `incompleteOverlays=0`, `invalidParameterTargets=0`, `recoveredTargetIds=0` y `orphanOverlays=0`;
+- el único gap P1 detectado durante la auditoría fue drift documental entre backlog/current-focus/roadmap, corregido dentro del mismo slice sin cambios de runtime;
+- [docs/backlog.md](backlog.md), [docs/current-focus.md](current-focus.md) y [docs/roadmap.md](roadmap.md) vuelven a promover `SYMBOL-MODEL-01` como primer slice del Bloque 2 tras cerrar esta auditoría;
+- la auditoría se cierra sin features nuevas ni cambios de identidad del catálogo; la cola derivada ya existente en backlog se considera suficiente para continuar.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "catalogLocalization|catalogConsistency|documentationService|completion|hover|signatureHelp"` (`114 passing`, exit code 0)
+- `npm run report:catalog-localization` (`locales: es`, `incompleteOverlays: 0`, `invalidParameterTargets: 0`, `recoveredTargetIds: 0`, `orphanOverlays: 0`, exit code 0)
+- `npm run migrate:catalog-localization-target-ids` (`No hay targetIds recuperados por targetKey. No hace falta migracion.`, exit code 0)
+- `npm run test:docs:drift` (`passed`, exit code 0)
+- `npm run test:architecture:rapid` (`smoke 3 passing`, `performance 7 passing`, gate passed, exit code 0)
+- `npm run test:performance:gate` (`4 passing`, budgets dentro de objetivo, exit code 0)
+
+**Documentación alineada:**
+- `docs/symbol-i18n-enrichment-audit-01-report.md`
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/roadmap.md`
+- `docs/done-log.md`
+
 ## 1.218 BLOQUE 13. Multi-Audit Final, Symbol System & Catalog Localization Roadmap — **Cerrado (multi-audit / symbols / catalog-localization / 2026-05)**
 
 **Objetivo:** cerrar la macroauditoría final multi-surface, verificar el estado factual de legacy/deuda interna, documentar el sistema de símbolos y el workflow de localización del catálogo, y dejar backlog/focus/roadmap alineados sin abrir features nuevas.

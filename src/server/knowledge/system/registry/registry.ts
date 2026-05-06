@@ -1,4 +1,5 @@
 import { buildSystemSymbolIndexes } from '../indexes/buildIndexes';
+import { PB_SYSTEM_CATALOG_CONFLICT_POLICY } from '../policy';
 import {
     PbSystemSymbolEntry,
     PbSystemSymbolDatasetSlice,
@@ -38,7 +39,7 @@ function resolveManualOverlays(entries: readonly PbSystemSymbolEntry[]): readonl
             manualOverlay: hasGeneratedMatch
                 ? {
                     mode: 'enrichment',
-                    reason: 'Legacy manual-core entry overlaps the generated official catalog and remains classified as curated enrichment until B369 defines final adoption policy.',
+                    reason: `Legacy manual-core entry overlaps the generated official catalog and remains classified as curated enrichment under ${PB_SYSTEM_CATALOG_CONFLICT_POLICY}.`,
                     evidence: [`generated-overlap:${logicalKey}`],
                     sourceUrl: entry.sourceUrl,
                     reviewedBy: 'B368',

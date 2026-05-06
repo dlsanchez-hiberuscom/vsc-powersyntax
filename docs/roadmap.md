@@ -377,14 +377,17 @@ Para un equipo pequeño:
 
 ### Prioridad inmediata
 
-**Siguiente slice recomendado — continuidad `SYMBOL-MODEL-01`**
+**Siguiente slice recomendado — continuidad `CATALOG-LOCALIZATION-DOMAINS-01`**
 
 Con foco en:
 
-- formalizar el contrato canónico de símbolos sobre [symbol-system.md](symbol-system.md) sin reescribir el runtime;
-- conectar `buildSymbolKey`, `SemanticQueryFacade`, sourceOrigin/confidence y consumers LSP con acceptance criteria ejecutables;
-- mantener `plugin_old` como reference-only según [legacy-isolation.md](legacy-isolation.md) y registrar cualquier extracción futura como spec dedicada;
-- no abrir slices de localización, semantic tokens o DataWindow enrichments hasta cerrar o promover explícitamente el contrato base.
+- mantener `SYMBOL-FRAMEWORKS-01` cerrado como rail advisory: PFC/STD ya entran por knowledge packs curados, con fallback de summary cuando el owner type no vive en el system catalog y sin abrir otra política de winner;
+- abrir el siguiente corte visible de cobertura `es` por dominio, empezando por `datawindow-properties` o dejando fuera con evidencia el resto `generated` pendiente;
+- reutilizar el baseline ya documentado del rail `es` y de los ejemplos mínimos sin abrir documentos paralelos ni reescribir owners canónicos;
+- mantener los budgets, stale guards, caches por locale y negative caches ya cerrados en `SYMBOL-PERF-01` y la política `plugin_old` reference-only según [legacy-isolation.md](legacy-isolation.md);
+- no abrir una cadena nueva antes de decidir si el pendiente real del Bloque 2 sigue siendo localización por dominios o si corresponde ya una revisión global final con evidencia ejecutada.
+
+`SYMBOL-I18N-ENRICHMENT-AUDIT-01`, `SYMBOL-MODEL-01`, `SYMBOL-GENERATED-ENRICHMENT-LAYER-01`, `SYMBOL-GENERATED-ENRICHMENT-SCHEMA-01`, `SYMBOL-GENERATED-ENRICHMENT-AUTHORING-01`, `SYMBOL-PERF-01`, `SYMBOL-PRESENTATION-01`, `SYMBOL-CATALOG-BUILTINS-ENRICH-P1`, `SYMBOL-CATALOG-DW-ENRICH-P1`, `SYMBOL-QUALITY-01`, `SYMBOL-I18N-TERMS-01`, `SYMBOL-DW-01`, `SYMBOL-TOKENS-01`, `SYMBOL-CATALOG-ENUMS-ENRICH-P2`, `SYMBOL-CATALOG-DATATYPES-ENRICH-P2`, `SYMBOL-CATALOG-STATEMENTS-ENRICH-P2`, `SYMBOL-DOCS-EXAMPLES-01` y `SYMBOL-FRAMEWORKS-01` quedaron cerrados y registrados en [done-log.md](done-log.md); `CATALOG-LOCALIZATION-DOMAINS-01` vuelve a ser el foco operativo explícito mientras el backlog activo siga dejando pendiente cobertura por dominios.
 
 ### Trabajo paralelo permitido
 

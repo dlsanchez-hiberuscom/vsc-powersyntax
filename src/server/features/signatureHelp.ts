@@ -18,6 +18,14 @@ import {
   type DocumentationLocale,
 } from '../knowledge/system/localization';
 import { CharType } from '../utils/comments';
+import {
+  buildSymbolSignatureViewModel,
+  formatSymbolSignatureViewModel,
+} from '../presentation/signatureHelpPresentation';
+import type {
+  SignatureHelpViewModelSource,
+  SymbolSignatureViewModel as SignatureHelpViewModel,
+} from '../presentation/viewModels';
 import { resolveDocumentQualifierType } from './queryContext';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import {
@@ -27,22 +35,28 @@ import {
 import { buildLinkedDataWindowRetrieveSignatureAdapter } from './dataWindowServingAdapters';
 import type { PbSystemSymbolEntry, PbSystemSymbolSignature } from '../knowledge/system/types';
 
-export type SignatureHelpViewModelSource = 'system-catalog' | 'workspace' | 'datawindow-binding';
+export type { SignatureHelpViewModelSource, SignatureHelpViewModel };
 
-export interface SignatureHelpViewModel {
-  signatures: SignatureInformation[];
-  activeSignature: number;
-  activeParameter: number;
-  source: SignatureHelpViewModelSource;
-  reason: string;
-}
+type SignatureHelpViewModelInput = Omit<SignatureHelpViewModel, 'feature' | 'payloadPolicy'>
+  & Partial<Pick<SignatureHelpViewModel, 'feature' | 'payloadPolicy'>>;
 
-export function formatSignatureHelpViewModel(viewModel: SignatureHelpViewModel): SignatureHelp {
-  return {
-    signatures: viewModel.signatures,
-    activeSignature: viewModel.activeSignature,
-    activeParameter: viewModel.activeParameter,
-  };
+export function formatSignatureHelpViewModel(viewModel: SignatureHelpViewModelInput): SignatureHelp {
+  let normalized: SignatureHelpViewModel;
+  if (viewModel.feature === 'signatureHelp' && viewModel.payloadPolicy) {
+    normalized = viewModel as SignatureHelpViewModel;
+  } else {
+    normalized = buildSymbolSignatureViewModel({
+      signatures: viewModel.signatures,
+      activeSignature: viewModel.activeSignature,
+      activeParameter: viewModel.activeParameter,
+      source: viewModel.source,
+      reason: viewModel.reason,
+      ...(viewModel.locale ? { locale: viewModel.locale } : {}),
+      ...(viewModel.resolvedCallable ? { resolvedCallable: viewModel.resolvedCallable } : {}),
+    });
+  }
+
+  return formatSymbolSignatureViewModel(normalized);
 }
 
 function createSignatureHelpFromViewModel(
@@ -51,13 +65,12 @@ function createSignatureHelpFromViewModel(
   source: SignatureHelpViewModelSource,
   reason: string,
 ): SignatureHelp {
-  return formatSignatureHelpViewModel({
+  return formatSignatureHelpViewModel(buildSymbolSignatureViewModel({
     signatures,
-    activeSignature: 0,
     activeParameter,
     source,
     reason,
-  });
+  }));
 }
 
 export function provideSignatureHelp(

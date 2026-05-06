@@ -4,9 +4,65 @@ import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { setAnalysisBackends } from '../../../src/server/analysis/analysisCache';
-import { provideSemanticTokens, getSemanticTokensLegend } from '../../../src/server/features/semanticTokens';
+import {
+  getSemanticTokensLegend,
+  POWERBUILDER_SEMANTIC_TOKEN_CONTRACT,
+  provideSemanticTokens,
+} from '../../../src/server/features/semanticTokens';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { EntityKind } from '../../../src/server/knowledge/types';
+
+interface DecodedToken {
+  line: number;
+  char: number;
+  len: number;
+  type: string;
+  mods: number;
+  text: string;
+}
+
+function decodeTokens(code: string, data: readonly number[], legend: ReturnType<typeof getSemanticTokensLegend>): DecodedToken[] {
+  const decoded: DecodedToken[] = [];
+  const lines = code.split(/\r?\n/);
+  let currentLine = 0;
+  let currentChar = 0;
+
+  for (let i = 0; i < data.length; i += 5) {
+    const deltaLine = data[i];
+    const deltaChar = data[i + 1];
+    const len = data[i + 2];
+    const typeIdx = data[i + 3];
+    const mods = data[i + 4];
+
+    if (deltaLine > 0) {
+      currentLine += deltaLine;
+      currentChar = deltaChar;
+    } else {
+      currentChar += deltaChar;
+    }
+
+    decoded.push({
+      line: currentLine,
+      char: currentChar,
+      len,
+      type: legend.tokenTypes[typeIdx],
+      mods,
+      text: lines[currentLine]?.substring(currentChar, currentChar + len) ?? '',
+    });
+  }
+
+  return decoded;
+}
+
+function modifierMask(legend: ReturnType<typeof getSemanticTokensLegend>, modifier: string): number {
+  const modifierIndex = legend.tokenModifiers.indexOf(modifier);
+  assert.ok(modifierIndex >= 0, `Modifier ${modifier} should exist in the legend.`);
+  return 1 << modifierIndex;
+}
+
+function findTokensByText(tokens: readonly DecodedToken[], text: string): DecodedToken[] {
+  return tokens.filter((token) => token.text.toLowerCase() === text.toLowerCase());
+}
 
 suite('Semantic Tokens', () => {
   let kb: KnowledgeBase;
@@ -42,7 +98,14 @@ suite('Semantic Tokens', () => {
     ]);
   });
 
-  test('Should color local variables, parameters and distinguish from native types (B051)', () => {
+  test('Should publish standard token types and keep PowerBuilder-specific modifiers explicit', () => {
+    assert.deepEqual(POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.customTokenTypes, []);
+    assert.deepEqual(POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.customTokenModifiers, ['defaultLibrary', 'local', 'instance', 'global']);
+    assert.equal(POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.sharedVariableModifier, 'global');
+    assert.equal(POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.dynamicDataWindowBindingPolicy, 'skip');
+  });
+
+  test('Should map classes, native types, parameters and variable scopes to explicit token ranges and modifiers', () => {
     const code = `
 forward
 global type w_main from window
@@ -60,6 +123,8 @@ on w_main.destroy
 end on
 
 type variables
+  shared string is_shared
+  global string gs_name
   string is_name
 end variables
 
@@ -68,8 +133,10 @@ forward prototypes
 end prototypes
 
 public function string of_test (string as_param);
+  DataStore ids_orders
+  w_main lw_self
   String ls_local
-  ls_local = as_param + is_name
+  ls_local = as_param + is_name + is_shared + gs_name
   MessageBox("Hi", ls_local)
   return ls_local
 end function
@@ -81,58 +148,68 @@ end function
 
     assert.ok(tokens, 'Should return semantic tokens');
     assert.ok(tokens.data.length > 0, 'Should have token data');
+    const decoded = decodeTokens(code, tokens.data, legend);
+    const declarationMask = modifierMask(legend, 'declaration');
+    const defaultLibraryMask = modifierMask(legend, 'defaultLibrary');
+    const localMask = modifierMask(legend, 'local');
+    const instanceMask = modifierMask(legend, 'instance');
+    const globalMask = modifierMask(legend, 'global');
 
-    // Mapearemos los tokens a algo legible para el test
-    const decoded: { line: number, char: number, len: number, type: string, mods: number }[] = [];
-    let currentLine = 0;
-    let currentChar = 0;
+    const objectDeclaration = findTokensByText(decoded, 'w_main').find((token) => (token.mods & declarationMask) !== 0);
+    assert.ok(objectDeclaration, 'Should find the type declaration token for w_main.');
+    assert.equal(objectDeclaration?.type, 'class');
 
-    for (let i = 0; i < tokens.data.length; i += 5) {
-      const deltaLine = tokens.data[i];
-      const deltaChar = tokens.data[i + 1];
-      const len = tokens.data[i + 2];
-      const typeIdx = tokens.data[i + 3];
-      const mods = tokens.data[i + 4];
+    const systemBaseType = findTokensByText(decoded, 'window')[0];
+    assert.ok(systemBaseType, 'Should find the base system type token for window.');
+    assert.equal(systemBaseType.type, 'class');
+    assert.ok((systemBaseType.mods & defaultLibraryMask) !== 0, 'window should be marked as defaultLibrary.');
 
-      if (deltaLine > 0) {
-        currentLine += deltaLine;
-        currentChar = deltaChar;
-      } else {
-        currentChar += deltaChar;
-      }
+    const dataStoreType = findTokensByText(decoded, 'DataStore')[0];
+    assert.ok(dataStoreType, 'Should find the DataStore type token.');
+    assert.equal(dataStoreType.type, 'class');
+    assert.ok((dataStoreType.mods & defaultLibraryMask) !== 0, 'DataStore should be marked as defaultLibrary.');
 
-      decoded.push({
-        line: currentLine,
-        char: currentChar,
-        len,
-        type: legend.tokenTypes[typeIdx],
-        mods
-      });
-    }
+    const stringTokens = findTokensByText(decoded, 'String');
+    assert.ok(stringTokens.length >= 2, 'Should find String in the signature and local declaration.');
+    assert.ok(stringTokens.every((token) => token.type === 'type'), 'Native String should stay mapped to the type token.');
+    assert.ok(stringTokens.every((token) => (token.mods & defaultLibraryMask) !== 0), 'Native String should be marked as defaultLibrary.');
 
-    const lines = code.split(/\r?\n/);
-
-    // Comprobamos la declaración y uso de as_param
-    const paramTokens = decoded.filter(t => t.line < lines.length && lines[t.line].substring(t.char, t.char + t.len).toLowerCase() === 'as_param');
+    const paramTokens = findTokensByText(decoded, 'as_param');
     assert.ok(paramTokens.length >= 2, 'Should find at least declaration and usage of as_param');
     assert.strictEqual(paramTokens[0].type, 'parameter', 'as_param should be a parameter');
     assert.strictEqual(paramTokens[1].type, 'parameter', 'as_param usage should be a parameter');
+    assert.ok((paramTokens[0].mods & declarationMask) !== 0, 'Parameter declaration should keep declaration modifier.');
+    assert.ok((paramTokens[0].mods & localMask) !== 0, 'Parameter declaration should keep local modifier.');
 
-    // Comprobamos ls_local
-    const localTokens = decoded.filter(t => t.line < lines.length && lines[t.line].substring(t.char, t.char + t.len).toLowerCase() === 'ls_local');
+    const localTokens = findTokensByText(decoded, 'ls_local');
     assert.ok(localTokens.length >= 2, 'Should find at least declaration and usage of ls_local');
     assert.strictEqual(localTokens[0].type, 'variable', 'ls_local should be a variable');
+    assert.ok((localTokens[0].mods & declarationMask) !== 0, 'Local declaration should keep declaration modifier.');
+    assert.ok((localTokens[0].mods & localMask) !== 0, 'Local declaration should keep local modifier.');
+    assert.ok((localTokens[1].mods & localMask) !== 0, 'Local usage should keep local modifier.');
 
-    // Comprobamos B051 (tipo String como type, no function)
-    const stringTokens = decoded.filter(t => t.line < lines.length && lines[t.line].substring(t.char, t.char + t.len).toLowerCase() === 'string');
-    for (const t of stringTokens) {
-      assert.strictEqual(t.type, 'type', 'String native type should be colored as a type (B051 fix)');
-    }
+    const instanceTokens = findTokensByText(decoded, 'is_name');
+    assert.ok(instanceTokens.length >= 2, 'Should find the declaration and usage of is_name.');
+    assert.equal(instanceTokens[0].type, 'variable');
+    assert.ok((instanceTokens[0].mods & declarationMask) !== 0, 'Instance declaration should keep declaration modifier.');
+    assert.ok((instanceTokens[0].mods & instanceMask) !== 0, 'Instance declaration should keep instance modifier.');
+    assert.equal(instanceTokens[1].type, 'property', 'Instance usage should be projected as property.');
+    assert.ok((instanceTokens[1].mods & instanceMask) !== 0, 'Instance usage should keep instance modifier.');
 
-    // Comprobamos MessageBox
-    const mbTokens = decoded.filter(t => t.line < lines.length && lines[t.line].substring(t.char, t.char + t.len).toLowerCase() === 'messagebox');
+    const sharedTokens = findTokensByText(decoded, 'is_shared');
+    assert.ok(sharedTokens.length >= 2, 'Should find the declaration and usage of is_shared.');
+    assert.ok((sharedTokens[0].mods & globalMask) !== 0, 'Shared declaration should use the public global modifier contract.');
+    assert.ok((sharedTokens[1].mods & globalMask) !== 0, 'Shared usage should use the public global modifier contract.');
+
+    const globalTokens = findTokensByText(decoded, 'gs_name');
+    assert.ok(globalTokens.length >= 2, 'Should find the declaration and usage of gs_name.');
+    assert.ok((globalTokens[0].mods & globalMask) !== 0, 'Global declaration should keep global modifier.');
+    assert.ok((globalTokens[1].mods & globalMask) !== 0, 'Global usage should keep global modifier.');
+
+    const mbTokens = findTokensByText(decoded, 'MessageBox');
     assert.ok(mbTokens.length >= 1, 'MessageBox should be colored');
     assert.strictEqual(mbTokens[0].type, 'function', 'MessageBox is a function');
+    assert.ok((mbTokens[0].mods & defaultLibraryMask) !== 0, 'MessageBox should be marked as defaultLibrary.');
   });
 
   test('Should color enumerated values with bang suffix as enumMember', () => {
@@ -152,41 +229,13 @@ end function
 
     const document = TextDocument.create('file:///n_enum_tokens.sru', 'powerbuilder', 1, code);
     const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
-
-    const decoded: { line: number, char: number, len: number, type: string, mods: number }[] = [];
-    let currentLine = 0;
-    let currentChar = 0;
-
-    for (let i = 0; i < tokens.data.length; i += 5) {
-      const deltaLine = tokens.data[i];
-      const deltaChar = tokens.data[i + 1];
-      const len = tokens.data[i + 2];
-      const typeIdx = tokens.data[i + 3];
-      const mods = tokens.data[i + 4];
-
-      if (deltaLine > 0) {
-        currentLine += deltaLine;
-        currentChar = deltaChar;
-      } else {
-        currentChar += deltaChar;
-      }
-
-      decoded.push({
-        line: currentLine,
-        char: currentChar,
-        len,
-        type: legend.tokenTypes[typeIdx],
-        mods,
-      });
-    }
-
-    const lines = code.split(/\r?\n/);
-    const enumTokens = decoded.filter((token) =>
-      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'FromBeginning!'
-    );
+    const decoded = decodeTokens(code, tokens.data, legend);
+    const defaultLibraryMask = modifierMask(legend, 'defaultLibrary');
+    const enumTokens = decoded.filter((token) => token.text === 'FromBeginning!');
 
     assert.ok(enumTokens.length >= 1, 'FromBeginning! should be colored');
     assert.equal(enumTokens[0].type, 'enumMember');
+    assert.ok((enumTokens[0].mods & defaultLibraryMask) !== 0, 'Enum values should be marked as defaultLibrary.');
   });
 
   test('Should color catalog-driven keywords, globals, pronouns and functions without resolver pesado', () => {
@@ -208,62 +257,26 @@ end function
 
     const document = TextDocument.create('file:///n_catalog_tokens.sru', 'powerbuilder', 1, code);
     const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
+    const decoded = decodeTokens(code, tokens.data, legend);
+    const defaultLibraryMask = modifierMask(legend, 'defaultLibrary');
+    const globalMask = modifierMask(legend, 'global');
 
-    const decoded: { line: number, char: number, len: number, type: string, mods: number }[] = [];
-    let currentLine = 0;
-    let currentChar = 0;
-
-    for (let i = 0; i < tokens.data.length; i += 5) {
-      const deltaLine = tokens.data[i];
-      const deltaChar = tokens.data[i + 1];
-      const len = tokens.data[i + 2];
-      const typeIdx = tokens.data[i + 3];
-      const mods = tokens.data[i + 4];
-
-      if (deltaLine > 0) {
-        currentLine += deltaLine;
-        currentChar = deltaChar;
-      } else {
-        currentChar += deltaChar;
-      }
-
-      decoded.push({
-        line: currentLine,
-        char: currentChar,
-        len,
-        type: legend.tokenTypes[typeIdx],
-        mods,
-      });
-    }
-
-    const lines = code.split(/\r?\n/);
-    const defaultLibraryMask = 1 << 2;
-    const globalMask = 1 << 5;
-
-    const ifTokens = decoded.filter((token) =>
-      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len).toLowerCase() === 'if'
-    );
+    const ifTokens = findTokensByText(decoded, 'if');
     assert.ok(ifTokens.length >= 1, 'if debe colorearse como keyword catalog-driven.');
     assert.equal(ifTokens[0].type, 'keyword');
 
-    const isValidTokens = decoded.filter((token) =>
-      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'IsValid'
-    );
+    const isValidTokens = findTokensByText(decoded, 'IsValid');
     assert.ok(isValidTokens.length >= 1, 'IsValid debe colorearse como función del sistema.');
     assert.equal(isValidTokens[0].type, 'function');
     assert.ok((isValidTokens[0].mods & defaultLibraryMask) !== 0, 'IsValid debe marcarse como defaultLibrary.');
 
-    const sqlcaTokens = decoded.filter((token) =>
-      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'SQLCA'
-    );
+    const sqlcaTokens = findTokensByText(decoded, 'SQLCA');
     assert.ok(sqlcaTokens.length >= 1, 'SQLCA debe colorearse como system global.');
     assert.equal(sqlcaTokens[0].type, 'variable');
     assert.ok((sqlcaTokens[0].mods & defaultLibraryMask) !== 0, 'SQLCA debe marcarse como defaultLibrary.');
     assert.ok((sqlcaTokens[0].mods & globalMask) !== 0, 'SQLCA debe marcarse como global.');
 
-    const thisTokens = decoded.filter((token) =>
-      token.line < lines.length && lines[token.line].substring(token.char, token.char + token.len) === 'This'
-    );
+    const thisTokens = findTokensByText(decoded, 'This');
     assert.ok(thisTokens.length >= 1, 'This debe colorearse como pronoun del sistema.');
     assert.equal(thisTokens[0].type, 'variable');
     assert.ok((thisTokens[0].mods & defaultLibraryMask) !== 0, 'This debe marcarse como defaultLibrary.');

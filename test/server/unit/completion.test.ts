@@ -2,7 +2,12 @@ import * as assert from 'assert';
 import { Position, CompletionItemKind } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { isCompletionItemResolveData, provideCompletion, resolveCompletionItem } from '../../../src/server/features/completion';
+import {
+  isCompletionItemResolveData,
+  provideCompletion,
+  resolveCompletionItem,
+  resolveCompletionItemResult,
+} from '../../../src/server/features/completion';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { HotContextCache } from '../../../src/server/knowledge/HotContextCache';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
@@ -162,6 +167,70 @@ end subroutine
     assert.ok(estimateLspPayloadBytes(resolved) < 4 * 1024);
   });
 
+  test('resolve localiza built-ins adicionales del slice visible sin inflar completion initial', () => {
+    const doc = setupDocument('file:///test_completion_len_locale.sru', `
+global type test_completion_len_locale from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  le
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'le');
+    const items = provideCompletion(doc, Position.create(lineIndex, 4), kb, systemCatalog, graph, undefined, undefined, 'es');
+    assert.ok(items);
+
+    const lenItem = items.find((item) => item.label === 'Len');
+    assert.ok(lenItem);
+    assert.equal(lenItem.documentation, undefined);
+    assert.ok(isCompletionItemResolveData(lenItem.data));
+    assert.equal(lenItem.data.locale, 'es');
+
+    const resolved = resolveCompletionItem(lenItem, kb, systemCatalog, 'es');
+    assert.match(String(resolved.detail), /Len/i);
+    assert.match(String(resolved.documentation), /medir texto visible o buffers binarios/i);
+    assert.match(String(resolved.documentation), /Len cuenta caracteres y no incluye el terminador null/i);
+    assert.ok(estimateLspPayloadBytes(items) < 64 * 1024);
+    assert.ok(estimateLspPayloadBytes(resolved) < 4 * 1024);
+  });
+
+  test('resolve localiza DataWindow core en completion resolve sin duplicar items', () => {
+    const doc = setupDocument('file:///test_completion_dw_retrieve_locale.sru', `
+global type test_completion_dw_retrieve_locale from window
+  datastore ids_orders
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  ids_orders.Ret
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'ids_orders.Ret');
+    const items = provideCompletion(doc, Position.create(lineIndex, lines[lineIndex].length), kb, systemCatalog, graph, undefined, undefined, 'es');
+    assert.ok(items);
+
+    const retrieveItems = items.filter((item) => item.label === 'Retrieve');
+    assert.strictEqual(retrieveItems.length, 1);
+    assert.strictEqual(retrieveItems[0].documentation, undefined);
+    assert.ok(isCompletionItemResolveData(retrieveItems[0].data));
+    assert.strictEqual(retrieveItems[0].data.locale, 'es');
+
+    const resolved = resolveCompletionItem(retrieveItems[0], kb, systemCatalog, 'es');
+    assert.match(String(resolved.detail), /Retrieve/i);
+    assert.match(String(resolved.documentation), /buffer primario del DataWindow, DataStore o DataWindowChild/i);
+    assert.match(String(resolved.documentation), /fuente de datos es External/i);
+    assert.match(String(resolved.documentation), /numero de filas visibles en el buffer primario/i);
+    assert.ok(estimateLspPayloadBytes(items) < 64 * 1024);
+    assert.ok(estimateLspPayloadBytes(resolved) < 4 * 1024);
+  });
+
   test('mantiene ranking contextual local, argumentos, instancia y built-ins', () => {
     const doc = setupDocument('file:///test_completion_rank_matrix.sru', `
 global type test_completion_rank_matrix from nonvisualobject
@@ -227,6 +296,41 @@ end subroutine
     assert.strictEqual(resolveCompletionItem(item, kb, systemCatalog), item);
   });
 
+  test('expone misses de completion resolve como resultado negativo reutilizable', () => {
+    const doc = setupDocument('file:///test_completion_resolve_negative.sru', `
+global type test_completion_resolve_negative from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  ab
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.trim() === 'ab');
+    const items = provideCompletion(doc, Position.create(lineIndex, 4), kb, systemCatalog, graph, undefined, undefined, 'es');
+    assert.ok(items);
+
+    const absItem = items.find((item) => item.label === 'Abs');
+    assert.ok(absItem);
+    assert.ok(isCompletionItemResolveData(absItem.data));
+
+    const missingItem = {
+      ...absItem,
+      data: {
+        ...absItem.data,
+        symbolId: 'system.callable.abs.missing',
+      },
+    };
+    const resolution = resolveCompletionItemResult(missingItem, kb, systemCatalog, 'es');
+
+    assert.strictEqual(resolution.item, missingItem);
+    assert.strictEqual(resolution.resolved, false);
+    assert.strictEqual(resolution.negativeReason, 'unresolved');
+  });
+
   test('debe sugerir reserved words, pronouns, system globals y enumerated values desde el catálogo contextual', () => {
     const doc = setupDocument('file:///test_catalog_contextual_completion.sru', `
 global type test_catalog_contextual_completion from nonvisualobject
@@ -265,6 +369,50 @@ end subroutine
     const saveAsTypeItem = enumItems?.find((item) => item.label === 'SaveAsType');
     assert.ok(saveAsTypeItem);
     assert.strictEqual(saveAsTypeItem?.kind, CompletionItemKind.Enum);
+  });
+
+  test('resolve localiza keywords y reserved words sin traducir lexemas reales', () => {
+    const doc = setupDocument('file:///test_completion_keyword_reserved_locale.sru', `
+global type test_completion_keyword_reserved_locale from nonvisualobject
+end type
+forward prototypes
+public subroutine of_test()
+end prototypes
+public subroutine of_test()
+  fo
+  tr
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const keywordLine = lines.findIndex((line) => line.trim() === 'fo');
+    const reservedLine = lines.findIndex((line) => line.trim() === 'tr');
+
+    const keywordItems = provideCompletion(doc, Position.create(keywordLine, 4), kb, systemCatalog, graph, undefined, undefined, 'es');
+    const reservedItems = provideCompletion(doc, Position.create(reservedLine, 4), kb, systemCatalog, graph, undefined, undefined, 'es');
+    assert.ok(keywordItems);
+    assert.ok(reservedItems);
+
+    const forItem = keywordItems.find((item) => item.label === 'FOR');
+    const trueItem = reservedItems.find((item) => item.label === 'TRUE');
+    assert.ok(forItem);
+    assert.ok(trueItem);
+    assert.equal(forItem?.documentation, undefined);
+    assert.equal(trueItem?.documentation, undefined);
+    assert.ok(isCompletionItemResolveData(forItem?.data));
+    assert.ok(isCompletionItemResolveData(trueItem?.data));
+    assert.equal(forItem?.data.locale, 'es');
+    assert.equal(trueItem?.data.locale, 'es');
+
+    const resolvedFor = resolveCompletionItem(forItem!, kb, systemCatalog, 'es');
+    const resolvedTrue = resolveCompletionItem(trueItem!, kb, systemCatalog, 'es');
+    assert.match(String(resolvedFor.detail), /FOR/i);
+    assert.match(String(resolvedFor.documentation), /inicio del bloque iterativo/i);
+    assert.match(String(resolvedTrue.detail), /TRUE/i);
+    assert.match(String(resolvedTrue.documentation), /resultado booleano verdadero/i);
+    assert.ok(estimateLspPayloadBytes(keywordItems) < 64 * 1024);
+    assert.ok(estimateLspPayloadBytes(resolvedFor) < 4 * 1024);
+    assert.ok(estimateLspPayloadBytes(resolvedTrue) < 4 * 1024);
   });
 
   test('prioriza símbolos locales frente a system globals homónimos y deduplica resultados', () => {

@@ -1,5 +1,16 @@
 export { PB_SYSTEM_SYMBOL_LOCALIZATION_ES } from './es';
 export {
+  PB_SYSTEM_SYMBOL_LOCALIZATION_EVENT_FIELDS,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_PARAMETER_FIELDS,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_PROVENANCE_SIGNALS,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_QUALITY_SIGNALS,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_REQUIRED_METADATA_FIELDS,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_RESERVED_SCHEMA_FIELDS,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_SCHEMA_VERSION,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_TARGET_ANCHORS,
+  PB_SYSTEM_SYMBOL_LOCALIZATION_TEXT_FIELDS,
+} from './schema';
+export {
   createDocumentationService,
   getDisplayDocumentation,
   getDisplayObsoleteMessage,
@@ -29,6 +40,7 @@ export type {
   PbLocalizedEventReturnCodeDocumentation,
   PbSystemSymbolLocalizationIncompleteOverlay,
   PbSystemSymbolLocalizationInvalidParameterTarget,
+  PbSystemSymbolLocalizationMissingFieldsByDomain,
   PbLocalizedParameterDocumentation,
   PbSystemSymbolLocalizationMissingField,
   PbLocalizedText,
@@ -41,5 +53,7 @@ export type {
   PbSystemSymbolLocalizationOrphanReason,
   PbSystemSymbolLocalizationOverlay,
   PbSystemSymbolLocalizationOverlaySource,
+  PbSystemSymbolLocalizationSchemaIssue,
+  PbSystemSymbolLocalizationSchemaIssueCode,
   PbSystemSymbolLocalizationTargetKey,
 } from './types';

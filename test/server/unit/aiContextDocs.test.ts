@@ -38,9 +38,7 @@ suite('unit/aiContextDocs (B378)', () => {
   test('context pack sigue referenciado desde la documentacion canonica', () => {
     const ownerDocs = [
       'AGENTS.md',
-      'docs/ai-agents-catalog.md',
       'docs/ai-orchestration.md',
-      'docs/ai-orchestrator.md',
       'docs/ai-strategy.md',
       'docs/developer-workflows.md',
       'docs/spec-driven-development.md',

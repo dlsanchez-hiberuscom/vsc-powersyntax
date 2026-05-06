@@ -334,4 +334,47 @@ suite('unit/currentObjectContext (B217)', () => {
     assert.ok(context.frameworkKnowledgeConflict?.matchedOwnerTypes.includes('webbrowser'));
     assert.ok(context.frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'appeon-webbrowser-webview2'));
   });
+
+  test('hereda knowledge packs framework-specific desde ancestros del grafo local', () => {
+    setupAnalyzedDocument('file:///proj/std_fc_pb_base_e.pbl/wn_controller_master.srw', [
+      'forward',
+      'global type wn_controller_master from window',
+      'end type',
+      'end forward',
+      'global type wn_controller_master from window',
+      'end type'
+    ].join('\r\n'));
+
+    setupAnalyzedDocument('file:///proj/oes_main.pbl/wn_controller_orderentry_e.srw', [
+      'forward',
+      'global type wn_controller_orderentry_e from wn_controller_master',
+      'end type',
+      'end forward',
+      'global type wn_controller_orderentry_e from wn_controller_master',
+      'end type'
+    ].join('\r\n'));
+
+    const document = setupAnalyzedDocument('file:///proj/oes_main.pbl/wn_controller_orderentry_custom.srw', [
+      'forward',
+      'global type wn_controller_orderentry_custom from wn_controller_orderentry_e',
+      'end type',
+      'end forward',
+      'global type wn_controller_orderentry_custom from wn_controller_orderentry_e',
+      'end type'
+    ].join('\r\n'));
+
+    const context = buildCurrentObjectContext(
+      document,
+      undefined,
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.equal(context.frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.ok(context.frameworkKnowledgeConflict?.matchedOwnerTypes.includes('wn_controller_master'));
+    assert.ok(context.frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'std-controller-shells'));
+  });
 });

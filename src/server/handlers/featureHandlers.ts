@@ -13,7 +13,13 @@ import { provideLinkedEditingRanges } from '../features/linkedEditing';
 import { provideReferences, type ReferenceSource } from '../features/references';
 import { provideRename } from '../features/rename';
 import { provideSignatureHelp } from '../features/signatureHelp';
-import { isCompletionItemResolveData, provideCompletion, resolveCompletionItem } from '../features/completion';
+import {
+  isCompletionItemResolveData,
+  provideCompletion,
+  resolveCompletionItemResult,
+  type CompletionResolveNegativeReason,
+  type CompletionItemResolveResult,
+} from '../features/completion';
 import { provideWorkspaceSymbols } from '../features/workspaceSymbols';
 import { provideSemanticTokens } from '../features/semanticTokens';
 import { decideFeatureReadiness } from '../features/featureReadiness';
@@ -120,6 +126,8 @@ export interface FeatureHandlerContext {
   cacheHoverViewModelWithMemoryPressure(key: string, value: HoverViewModel): void;
   getHoverNegativeCacheEntry(key: string): { reason: HoverNegativeReason } | undefined;
   cacheHoverNegativeWithMemoryPressure(key: string, value: { reason: HoverNegativeReason }): void;
+  getCompletionResolveNegativeCacheEntry(key: string): { reason: CompletionResolveNegativeReason } | undefined;
+  cacheCompletionResolveNegativeWithMemoryPressure(key: string, value: { reason: CompletionResolveNegativeReason }): void;
   isDefinitionCacheEntry(value: unknown): value is DefinitionCacheEntry;
   collectReferenceSourcesForQuery(
     document: TextDocument,
@@ -481,6 +489,8 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
     isLatencyPressureHigh,
     recordInteractiveLatency,
     cacheServingResultWithMemoryPressure,
+    getCompletionResolveNegativeCacheEntry,
+    cacheCompletionResolveNegativeWithMemoryPressure,
     isSemanticallyServedDocument,
   } = context;
 
@@ -616,6 +626,8 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
     isLatencyPressureHigh,
     recordInteractiveLatency,
     cacheServingResultWithMemoryPressure,
+    getCompletionResolveNegativeCacheEntry,
+    cacheCompletionResolveNegativeWithMemoryPressure,
     isSemanticallyServedDocument,
   } = context;
 
@@ -769,6 +781,18 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
             locale: documentationLocale,
             context: contextKey,
           });
+          const completionResolveNegativeCacheKey = buildInteractiveServingCacheKey({
+            cacheClass: 'negative',
+            feature: 'completion-resolve',
+            pressureClass: 'negative',
+            uri: data.uri,
+            documentVersion: data.documentVersion,
+            kbVersion: data.kbVersion,
+            semanticEpoch: data.semanticEpoch,
+            sourceOrigin: data.sourceOrigin,
+            locale: documentationLocale,
+            context: contextKey,
+          });
 
           return runInteractiveServingPipeline({
             feature: 'completion-resolve',
@@ -810,7 +834,29 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
             cancellationToken: token,
             ensureRuntimeMemoryPressureRelief,
             getCachedResult: () => servingCache.get(cacheKey) as CompletionItem | undefined,
-            execute: () => resolveCompletionItem(item, knowledgeBase, systemCatalog, documentationLocale),
+            resolveEarlyResult: () => {
+              if (!getCompletionResolveNegativeCacheEntry(completionResolveNegativeCacheKey)) {
+                return undefined;
+              }
+
+              return {
+                handled: true,
+                reason: 'negative-hit',
+                result: item,
+                skipCacheWrite: true,
+              } as const;
+            },
+            resolve: () => resolveCompletionItemResult(item, knowledgeBase, systemCatalog, documentationLocale),
+            onResolved: (resolved) => {
+              const result = resolved as CompletionItemResolveResult;
+              if (!result.resolved && result.negativeReason) {
+                cacheCompletionResolveNegativeWithMemoryPressure(completionResolveNegativeCacheKey, {
+                  reason: result.negativeReason,
+                });
+              }
+            },
+            format: (resolved) => (resolved as CompletionItemResolveResult).item,
+            shouldWriteCache: (_result, resolved) => (resolved as CompletionItemResolveResult).resolved,
             writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
             onBlocked: (message) => connection.console.warn(message),
             onComputed: (_result, telemetry) => {

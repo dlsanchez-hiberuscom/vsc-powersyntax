@@ -17,6 +17,7 @@ import {
   type CompletionPresentationKind,
   type CompletionResolveViewModel,
 } from './viewModels';
+import { getPresentationTerm } from './terminology';
 
 function mapCompletionKind(kind: CompletionPresentationKind): CompletionItemKind {
   switch (kind) {
@@ -250,19 +251,19 @@ function buildSystemCompletionDocumentation(
   blocks.push(documentation ?? summary);
 
   if (entry.signatures.length > 0) {
-    blocks.push(`Signatures:\n${entry.signatures.map((signature) => `- ${signature.label}`).join('\n')}`);
+    blocks.push(`${getPresentationTerm('signatures-label', documentationLocale)}:\n${entry.signatures.map((signature) => `- ${signature.label}`).join('\n')}`);
   }
 
   if (returnDocumentation) {
-    blocks.push(`Returns:\n${returnDocumentation}`);
+    blocks.push(`${getPresentationTerm('returns-label', documentationLocale)}:\n${returnDocumentation}`);
   }
 
   if (usageNotes.length > 0) {
-    blocks.push(`Notes:\n${usageNotes.map((note) => `- ${note}`).join('\n')}`);
+    blocks.push(`${getPresentationTerm('notes-label', documentationLocale)}:\n${usageNotes.map((note) => `- ${note}`).join('\n')}`);
   }
 
   if (obsoleteMessage) {
-    blocks.push(`Obsolete:\n${obsoleteMessage}`);
+    blocks.push(`${getPresentationTerm('obsolete-label', documentationLocale)}:\n${obsoleteMessage}`);
   }
 
   return blocks.join('\n\n');

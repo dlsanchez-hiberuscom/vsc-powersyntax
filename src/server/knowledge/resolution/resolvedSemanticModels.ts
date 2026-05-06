@@ -1,5 +1,6 @@
 import type { SourceOrigin } from '../../../shared/sourceOrigin';
 import type { Entity, EntityKind } from '../types';
+import { buildSymbolKey } from '../symbolKey';
 import type {
   QueryAmbiguityKind,
   QueryReasonCode,
@@ -9,19 +10,32 @@ import type {
 
 export type SemanticResolutionConfidence = QueryResolutionConfidence | 'unknown';
 
-export interface ResolvedSymbolModel {
+export interface CanonicalSymbolModel {
   identity: string;
+  identityKey: string;
   name: string;
+  normalizedName: string;
   kind: EntityKind;
   uri: string;
   line: number;
   character: number;
   owner?: string;
+  fileObjectName?: string;
+  containerSignature?: string;
+  scope?: Entity['scope'];
+  declarationScope?: Entity['declarationScope'];
+  implementationKind?: Entity['implementationKind'];
+  datatype?: string;
+  signature?: string;
+  parameterCount?: number;
+  returnType?: string;
   sourceOrigin?: SourceOrigin;
   confidence: SemanticResolutionConfidence;
   reasonCodes: QueryReasonCode[];
   ambiguityKind?: QueryAmbiguityKind;
 }
+
+export interface ResolvedSymbolModel extends CanonicalSymbolModel {}
 
 export interface ResolvedSymbolSet {
   symbols: ResolvedSymbolModel[];
@@ -52,23 +66,45 @@ export interface ResolvedEnumContextModel {
   reasonCodes: QueryReasonCode[];
 }
 
-export function toResolvedSymbolModel(
+export function toCanonicalSymbolModel(
   entity: Entity,
   resolution?: ResolvedTargetInfo | null,
-): ResolvedSymbolModel {
+): CanonicalSymbolModel {
+  const parameterCount = typeof entity.parameterCount === 'number'
+    ? entity.parameterCount
+    : entity.parameters?.length;
+
   return {
     identity: entity.id,
+    identityKey: buildSymbolKey(entity),
     name: entity.name,
+    normalizedName: entity.id,
     kind: entity.kind,
     uri: entity.uri,
     line: entity.line,
     character: entity.character,
     ...(entity.containerName ?? entity.ownerName ? { owner: entity.containerName ?? entity.ownerName } : {}),
+    ...(entity.fileObjectName ? { fileObjectName: entity.fileObjectName } : {}),
+    ...(entity.containerSignature ? { containerSignature: entity.containerSignature } : {}),
+    ...(entity.scope ? { scope: entity.scope } : {}),
+    ...(entity.declarationScope ? { declarationScope: entity.declarationScope } : {}),
+    ...(entity.implementationKind ? { implementationKind: entity.implementationKind } : {}),
+    ...(entity.datatype ? { datatype: entity.datatype } : {}),
+    ...(entity.signature ?? entity.signatureLabel ? { signature: entity.signature ?? entity.signatureLabel } : {}),
+    ...(parameterCount !== undefined ? { parameterCount } : {}),
+    ...(entity.returnType ? { returnType: entity.returnType } : {}),
     ...(entity.lineage?.sourceOrigin ? { sourceOrigin: entity.lineage.sourceOrigin } : {}),
     confidence: resolution?.confidence ?? 'unknown',
     reasonCodes: resolution?.reasonCodes ?? [],
     ...(resolution?.ambiguityKind ? { ambiguityKind: resolution.ambiguityKind } : {}),
   };
+}
+
+export function toResolvedSymbolModel(
+  entity: Entity,
+  resolution?: ResolvedTargetInfo | null,
+): ResolvedSymbolModel {
+  return toCanonicalSymbolModel(entity, resolution);
 }
 
 export function toResolvedSymbolSet(resolution: ResolvedTargetInfo | null): ResolvedSymbolSet {

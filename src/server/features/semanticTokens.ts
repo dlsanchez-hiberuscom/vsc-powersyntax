@@ -6,6 +6,7 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { EntityKind, Scope, ScopeKind } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 import {
@@ -18,7 +19,7 @@ import type { SemanticTokenViewModelEntry } from '../presentation/viewModels';
 // Legends
 // ---------------------------------------------------------------------------
 
-const TOKEN_TYPES = [
+export const POWERBUILDER_SEMANTIC_TOKEN_TYPES = [
   'type',
   'class',
   'function',
@@ -31,7 +32,7 @@ const TOKEN_TYPES = [
   'keyword'
 ] as const;
 
-const TOKEN_MODIFIERS = [
+export const POWERBUILDER_SEMANTIC_TOKEN_MODIFIERS = [
   'declaration',
   'readonly',
   'defaultLibrary',
@@ -40,10 +41,17 @@ const TOKEN_MODIFIERS = [
   'global'
 ] as const;
 
+export const POWERBUILDER_SEMANTIC_TOKEN_CONTRACT = {
+  customTokenTypes: [] as const,
+  customTokenModifiers: ['defaultLibrary', 'local', 'instance', 'global'] as const,
+  sharedVariableModifier: 'global' as const,
+  dynamicDataWindowBindingPolicy: 'skip' as const,
+} as const;
+
 export function getSemanticTokensLegend(): SemanticTokensLegend {
   return {
-    tokenTypes: [...TOKEN_TYPES],
-    tokenModifiers: [...TOKEN_MODIFIERS]
+    tokenTypes: [...POWERBUILDER_SEMANTIC_TOKEN_TYPES],
+    tokenModifiers: [...POWERBUILDER_SEMANTIC_TOKEN_MODIFIERS]
   };
 }
 
@@ -112,30 +120,56 @@ function toSemanticTokenViewModelEntry(token: TokenEntry): SemanticTokenViewMode
   };
 }
 
+function getVariableScopeModifier(scope: 'Local' | 'Instancia' | 'Global' | 'Compartida' | 'Argumento' | undefined): number {
+  if (scope === 'Local' || scope === 'Argumento') {
+    return MODIFIER_MASK.local;
+  }
+
+  if (scope === 'Instancia') {
+    return MODIFIER_MASK.instance;
+  }
+
+  if (scope === 'Global' || scope === 'Compartida') {
+    return MODIFIER_MASK.global;
+  }
+
+  return 0;
+}
+
+function getDeclarationTokenType(kind: EntityKind): number | undefined {
+  switch (kind) {
+    case EntityKind.Variable:
+      return TYPE_INDEX.variable;
+    case EntityKind.Function:
+    case EntityKind.Subroutine:
+      return TYPE_INDEX.function;
+    case EntityKind.Event:
+      return TYPE_INDEX.event;
+    case EntityKind.Type:
+      return TYPE_INDEX.class;
+    default:
+      return undefined;
+  }
+}
+
+function getCatalogTypeToken(entry: PbSystemSymbolEntry): Pick<TokenEntry, 'type' | 'mods'> {
+  return {
+    type: entry.kind === 'system-type' ? TYPE_INDEX.class : TYPE_INDEX.type,
+    mods: MODIFIER_MASK.defaultLibrary,
+  };
+}
+
 function emitDeclarations(snapshot: SemanticDocumentSnapshot, tokens: TokenEntry[]): void {
   for (const fact of snapshot.symbols) {
-    let tokenType: number;
+    const tokenType = getDeclarationTokenType(fact.kind);
+    if (tokenType === undefined) {
+      continue;
+    }
+
     let modifiers = MODIFIER_MASK.declaration;
 
-    switch (fact.kind) {
-      case EntityKind.Variable:
-        tokenType = TYPE_INDEX.variable;
-        if (fact.scope === 'Local') modifiers |= MODIFIER_MASK.local;
-        else if (fact.scope === 'Instancia') modifiers |= MODIFIER_MASK.instance;
-        else if (fact.scope === 'Global' || fact.scope === 'Compartida') modifiers |= MODIFIER_MASK.global;
-        break;
-      case EntityKind.Function:
-      case EntityKind.Subroutine:
-        tokenType = TYPE_INDEX.function;
-        break;
-      case EntityKind.Event:
-        tokenType = TYPE_INDEX.event;
-        break;
-      case EntityKind.Type:
-        tokenType = TYPE_INDEX.type;
-        break;
-      default:
-        continue;
+    if (fact.kind === EntityKind.Variable) {
+      modifiers |= getVariableScopeModifier(fact.scope);
     }
 
     if (fact.access && fact.access.includes('readonly')) {
@@ -160,10 +194,10 @@ function emitDeclarations(snapshot: SemanticDocumentSnapshot, tokens: TokenEntry
 
         if (symbol.scope === 'Argumento') {
           tokenType = TYPE_INDEX.parameter;
-          modifiers |= MODIFIER_MASK.local;
+          modifiers |= getVariableScopeModifier(symbol.scope);
         } else if (symbol.scope === 'Local') {
           tokenType = TYPE_INDEX.variable;
-          modifiers |= MODIFIER_MASK.local;
+          modifiers |= getVariableScopeModifier(symbol.scope);
         }
 
         tokens.push({
@@ -273,7 +307,7 @@ function emitUsages(
         let modifiers = 0;
 
         if (target.kind === EntityKind.Type) {
-          tokenType = TYPE_INDEX.type;
+          tokenType = TYPE_INDEX.class;
         } else if (target.kind === EntityKind.Function || target.kind === EntityKind.Subroutine) {
           tokenType = TYPE_INDEX.function;
         } else if (target.kind === EntityKind.Event) {
@@ -281,9 +315,12 @@ function emitUsages(
         } else if (target.kind === EntityKind.Variable) {
           if (target.scope === 'Instancia') {
             tokenType = TYPE_INDEX.property;
-            modifiers |= MODIFIER_MASK.instance;
-          } else if (target.scope === 'Global' || target.scope === 'Compartida') {
-            modifiers |= MODIFIER_MASK.global;
+          }
+
+          modifiers |= getVariableScopeModifier(target.scope);
+
+          if (target.scope === 'Instancia') {
+            modifiers &= ~MODIFIER_MASK.global;
           }
         }
 
@@ -323,11 +360,14 @@ function resolveCatalogToken(
     };
   }
 
-  if (systemCatalog.resolveDatatype(identifier) || systemCatalog.resolveEnumeratedType(identifier)) {
-    return {
-      type: TYPE_INDEX.type,
-      mods: MODIFIER_MASK.defaultLibrary,
-    };
+  const datatypeEntry = systemCatalog.resolveDatatype(identifier);
+  if (datatypeEntry) {
+    return getCatalogTypeToken(datatypeEntry);
+  }
+
+  const enumeratedTypeEntry = systemCatalog.resolveEnumeratedType(identifier);
+  if (enumeratedTypeEntry) {
+    return getCatalogTypeToken(enumeratedTypeEntry);
   }
 
   if (systemCatalog.resolveSystemGlobal(identifier) || systemCatalog.resolvePronoun(identifier)) {

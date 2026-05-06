@@ -83,6 +83,14 @@ export interface CompletionProviderContext {
   sourceOrigin?: SourceOrigin | 'unknown';
 }
 
+export type CompletionResolveNegativeReason = 'unresolved';
+
+export interface CompletionItemResolveResult {
+  item: CompletionItem;
+  resolved: boolean;
+  negativeReason?: CompletionResolveNegativeReason;
+}
+
 export type CompletionItemResolveData = CompletionResolveDataBase & (
   | {
       source: 'system';
@@ -545,18 +553,31 @@ export function resolveCompletionItem(
   systemCatalog: SystemCatalog,
   documentationLocale: DocumentationLocale = 'en',
 ): CompletionItem {
+  return resolveCompletionItemResult(item, kb, systemCatalog, documentationLocale).item;
+}
+
+export function resolveCompletionItemResult(
+  item: CompletionItem,
+  kb: KnowledgeBase,
+  systemCatalog: SystemCatalog,
+  documentationLocale: DocumentationLocale = 'en',
+): CompletionItemResolveResult {
   const data = isCompletionItemResolveData(item.data) ? item.data : null;
   if (!data) {
-    return item;
+    return { item, resolved: false };
   }
 
   if (data.source === 'system') {
     const entry = resolveSystemCompletionEntry(systemCatalog, data);
-    return entry ? enrichSystemCompletionItem(item, entry, documentationLocale) : item;
+    return entry
+      ? { item: enrichSystemCompletionItem(item, entry, documentationLocale), resolved: true }
+      : { item, resolved: false, negativeReason: 'unresolved' };
   }
 
   const entity = resolveEntityCompletionEntry(kb, data);
-  return entity ? enrichEntityCompletionItem(item, entity) : item;
+  return entity
+    ? { item: enrichEntityCompletionItem(item, entity), resolved: true }
+    : { item, resolved: false, negativeReason: 'unresolved' };
 }
 
 function resolveSystemCompletionEntry(

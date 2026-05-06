@@ -101,6 +101,47 @@ suite('unit/workspaceSymbols', () => {
     assert.ok(symbols[0].frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'appeon-webbrowser-webview2'));
   });
 
+  test('queryApiSymbols anota packs advisory PFC y STD cuando el type hereda de ancestros framework-specific', () => {
+    kb.upsertDocument('file:///proj/pfc libs/w_security_login.srw', [
+      {
+        id: 'w_security_login',
+        name: 'w_security_login',
+        kind: EntityKind.Type,
+        uri: 'file:///proj/pfc libs/w_security_login.srw',
+        line: 1,
+        character: 0,
+        baseTypeName: 'w_response',
+        lineage: {
+          sourceOrigin: 'pbl-folder-source',
+          confidence: 'direct'
+        }
+      }
+    ]);
+    kb.upsertDocument('file:///proj/std_fc_pb_base_e.pbl/wn_controller_orderentry_e.srw', [
+      {
+        id: 'wn_controller_orderentry_e',
+        name: 'wn_controller_orderentry_e',
+        kind: EntityKind.Type,
+        uri: 'file:///proj/std_fc_pb_base_e.pbl/wn_controller_orderentry_e.srw',
+        line: 1,
+        character: 0,
+        baseTypeName: 'wn_controller_master',
+        lineage: {
+          sourceOrigin: 'pbl-folder-source',
+          confidence: 'direct'
+        }
+      }
+    ]);
+
+    const pfcSymbols = queryApiSymbols('security_login', kb, 5);
+    const stdSymbols = queryApiSymbols('controller_orderentry', kb, 5);
+
+    assert.equal(pfcSymbols[0].frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.ok(pfcSymbols[0].frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'pfc-response-dwsrv'));
+    assert.equal(stdSymbols[0].frameworkKnowledgeConflict?.state, 'workspace-wins');
+    assert.ok(stdSymbols[0].frameworkKnowledgeConflict?.packs.some((pack) => pack.id === 'std-controller-shells'));
+  });
+
   test('workspace/api symbols incluyen el stub type publicado por un .srd', () => {
     const document = TextDocument.create(
       'file:///d_customer.srd',

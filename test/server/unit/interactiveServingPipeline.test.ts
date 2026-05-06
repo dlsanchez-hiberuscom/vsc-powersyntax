@@ -334,4 +334,53 @@ suite('unit/interactiveServingPipeline', () => {
     assert.equal(cacheWrites, 0);
     assert.deepEqual(tracker.snapshot().features.hover?.reasons, { 'negative-hit': 1 });
   });
+
+  test('negative-hit reutiliza completion-resolve miss sin reejecutar provider', () => {
+    const tracker = new InteractiveServingStatsTracker();
+    const staleGuard = new InteractiveServingStaleGuard();
+    let executeCalls = 0;
+    let cacheWrites = 0;
+
+    const originalItem = { label: 'Abs' };
+    const state = {
+      feature: 'completion-resolve' as const,
+      uri: 'file:///a.sru',
+      documentVersion: 1,
+      kbVersion: 3,
+      semanticEpoch: 4,
+      sourceOrigin: 'workspace-ws_objects' as const,
+      locale: 'es',
+      contextKey: 'system:abs',
+    };
+
+    const result = runInteractiveServingPipeline({
+      feature: 'completion-resolve',
+      cacheKey: 'completion-resolve-negative-hit',
+      readiness: { action: 'allow', reason: 'ready', blockedResult: originalItem },
+      requestState: state,
+      readCurrentState: () => state,
+      staleGuard,
+      runtimeJournal: new RuntimeJournal(8),
+      interactiveServingStats: tracker,
+      getCachedResult: () => undefined,
+      resolveEarlyResult: () => ({
+        handled: true,
+        reason: 'negative-hit',
+        result: originalItem,
+        skipCacheWrite: true,
+      }),
+      execute: () => {
+        executeCalls++;
+        return { label: 'Abs', documentation: 'resolved' };
+      },
+      writeCache: () => {
+        cacheWrites++;
+      },
+    });
+
+    assert.equal(result, originalItem);
+    assert.equal(executeCalls, 0);
+    assert.equal(cacheWrites, 0);
+    assert.deepEqual(tracker.snapshot().features['completion-resolve']?.reasons, { 'negative-hit': 1 });
+  });
 });

@@ -25,8 +25,10 @@ import type {
   PbSystemSymbolLocalizationDomainCoverage,
   PbSystemSymbolLocalizationIncompleteOverlay,
   PbSystemSymbolLocalizationInvalidParameterTarget,
+  PbSystemSymbolLocalizationMissingFieldsByDomain,
   PbSystemSymbolLocalizationOrphan,
   PbSystemSymbolLocalizationRecoveredTargetId,
+  PbSystemSymbolLocalizationSchemaIssue,
 } from './localization';
 
 export interface CatalogDomainProvenanceSummary {
@@ -127,11 +129,14 @@ export interface CatalogAdoptionDecisionReport {
 }
 
 export interface CatalogLocalizationAudit {
+  schemaVersion: string;
   locales: Partial<Record<PbCatalogLocale, PbSystemSymbolLocalizationLocaleSummary>>;
   domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolDomain, PbSystemSymbolLocalizationDomainCoverage>>>>;
   incompleteOverlays: readonly PbSystemSymbolLocalizationIncompleteOverlay[];
+  missingFieldsByDomain: readonly PbSystemSymbolLocalizationMissingFieldsByDomain[];
   invalidParameterTargets: readonly PbSystemSymbolLocalizationInvalidParameterTarget[];
   recoveredTargetIds: readonly PbSystemSymbolLocalizationRecoveredTargetId[];
+  schemaIssues: readonly PbSystemSymbolLocalizationSchemaIssue[];
   orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
 }
 

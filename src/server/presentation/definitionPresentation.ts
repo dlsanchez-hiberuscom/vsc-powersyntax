@@ -1,5 +1,6 @@
 import { Location } from 'vscode-languageserver/node';
 
+import { toResolvedSymbolModel } from '../knowledge/resolution/resolvedSemanticModels';
 import type { ResolvedTargetInfo } from '../knowledge/resolution/semanticQueryService';
 import type { DefinitionViewModel } from './viewModels';
 
@@ -15,16 +16,7 @@ export function buildDefinitionViewModel(
     confidence: resolved?.confidence ?? (locations.length > 0 ? 'high' : 'unknown'),
     reasonCodes: resolved?.reasonCodes ?? [],
     ...(resolved?.targets[0] ? {
-      resolvedSymbol: {
-        identity: resolved.targets[0].id,
-        name: resolved.targets[0].name,
-        kind: resolved.targets[0].kind,
-        uri: resolved.targets[0].uri,
-        line: resolved.targets[0].line,
-        character: resolved.targets[0].character,
-        confidence: resolved.confidence,
-        reasonCodes: resolved.reasonCodes,
-      },
+      resolvedSymbol: toResolvedSymbolModel(resolved.targets[0], resolved),
     } : {}),
   };
 }

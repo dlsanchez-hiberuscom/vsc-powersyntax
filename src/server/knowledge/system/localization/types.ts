@@ -37,6 +37,22 @@ export interface PbResolvedSystemSymbolLocalizationOverlay extends PbSystemSymbo
   readonly targetEntryId: string;
 }
 
+export type PbSystemSymbolLocalizationSchemaIssueCode =
+  | 'missing-source'
+  | 'missing-reviewed'
+  | 'reviewed-with-issues';
+
+export interface PbSystemSymbolLocalizationSchemaIssue {
+  readonly locale: PbCatalogLocale;
+  readonly code: PbSystemSymbolLocalizationSchemaIssueCode;
+  readonly targetId?: string;
+  readonly targetKey?: PbSystemSymbolLocalizationTargetKey;
+  readonly targetEntryId?: string;
+  readonly targetName?: string;
+  readonly domain?: PbSystemSymbolDomain;
+  readonly details?: readonly string[];
+}
+
 export interface PbSystemSymbolLocalizationLocaleSummary {
   readonly overlayCount: number;
   readonly targetIdCount: number;
@@ -92,22 +108,34 @@ export interface PbSystemSymbolLocalizationRecoveredTargetId {
   readonly targetKey?: PbSystemSymbolLocalizationTargetKey;
 }
 
+export interface PbSystemSymbolLocalizationMissingFieldsByDomain {
+  readonly locale: PbCatalogLocale;
+  readonly domain: PbSystemSymbolDomain;
+  readonly fieldCounts: Partial<Record<PbSystemSymbolLocalizationMissingField, number>>;
+}
+
 export interface PbSystemSymbolLocalizationIndex {
+  readonly schemaVersion: string;
   readonly locales: ReadonlyMap<PbCatalogLocale, ReadonlyMap<string, PbResolvedSystemSymbolLocalizationOverlay>>;
   readonly localeSummaries: Partial<Record<PbCatalogLocale, PbSystemSymbolLocalizationLocaleSummary>>;
   readonly domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolDomain, PbSystemSymbolLocalizationDomainCoverage>>>>;
   readonly incompleteOverlays: readonly PbSystemSymbolLocalizationIncompleteOverlay[];
+  readonly missingFieldsByDomain: readonly PbSystemSymbolLocalizationMissingFieldsByDomain[];
   readonly invalidParameterTargets: readonly PbSystemSymbolLocalizationInvalidParameterTarget[];
   readonly recoveredTargetIds: readonly PbSystemSymbolLocalizationRecoveredTargetId[];
+  readonly schemaIssues: readonly PbSystemSymbolLocalizationSchemaIssue[];
   readonly overlayCount: number;
   readonly orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
 }
 
 export interface PbSystemSymbolLocalizationCatalogReport {
+  readonly schemaVersion: string;
   readonly locales: Partial<Record<PbCatalogLocale, PbSystemSymbolLocalizationLocaleSummary>>;
   readonly domainCoverage: Partial<Record<PbCatalogLocale, Partial<Record<PbSystemSymbolDomain, PbSystemSymbolLocalizationDomainCoverage>>>>;
   readonly incompleteOverlays: readonly PbSystemSymbolLocalizationIncompleteOverlay[];
+  readonly missingFieldsByDomain: readonly PbSystemSymbolLocalizationMissingFieldsByDomain[];
   readonly invalidParameterTargets: readonly PbSystemSymbolLocalizationInvalidParameterTarget[];
   readonly recoveredTargetIds: readonly PbSystemSymbolLocalizationRecoveredTargetId[];
+  readonly schemaIssues: readonly PbSystemSymbolLocalizationSchemaIssue[];
   readonly orphanOverlays: readonly PbSystemSymbolLocalizationOrphan[];
 }

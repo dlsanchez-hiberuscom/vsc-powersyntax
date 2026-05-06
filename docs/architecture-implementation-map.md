@@ -57,7 +57,7 @@ Reglas de lectura:
 | Knowledge backbone | [src/server/knowledge](../src/server/knowledge) | KnowledgeBase atómica, semanticEpoch, caches, query service, system catalog | Implementado |
 | Sistema de símbolos | [symbol-system.md](symbol-system.md), [src/server/knowledge/symbolKey.ts](../src/server/knowledge/symbolKey.ts), [src/server/features/semanticQueryFacade.ts](../src/server/features/semanticQueryFacade.ts) | Identidad, owners, sourceOrigin/confidence, consumers LSP, enrichments y localización presentation-only | Implementado con roadmap |
 | Features semánticas | [src/server/features](../src/server/features) | hover, completion, definition, references, rename, diagnostics, DataWindow, reports | Implementado |
-| Presentación server-side | [src/server/presentation](../src/server/presentation) | ViewModels y formatters LSP/AI read-only para completion, definition, diagnostics, semantic tokens y AI context | Implementado |
+| Presentación server-side | [src/server/presentation](../src/server/presentation) | `Symbol*ViewModel` y formatters LSP/AI read-only para hover, completion, signatureHelp, definition, diagnostics, semantic tokens y AI context | Implementado |
 | Persistencia y caché | [src/server/cache](../src/server/cache) | checkpoint, journal, restore, flush coordinado, runtime cache controller | Implementado |
 | Runtime y budgets | [src/server/runtime](../src/server/runtime) | scheduler, backpressure, memory budgets, pressure policy, runtime journal, health | Implementado |
 | Build y legacy rails | [src/server/build](../src/server/build), [src/client/build](../src/client/build) | PBAutoBuild, ORCA, export/import staging, CI helper, failure classification | Implementado |
@@ -140,7 +140,7 @@ Superficies principales:
 
 - Hot path: [src/server/features/hover.ts](../src/server/features/hover.ts), [src/server/features/completion.ts](../src/server/features/completion.ts), [src/server/features/signatureHelp.ts](../src/server/features/signatureHelp.ts), [src/server/features/definition.ts](../src/server/features/definition.ts), [src/server/features/references.ts](../src/server/features/references.ts), [src/server/features/rename.ts](../src/server/features/rename.ts), [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts), [src/server/features/documentSymbols.ts](../src/server/features/documentSymbols.ts), [src/server/features/workspaceSymbols.ts](../src/server/features/workspaceSymbols.ts).
 - Policies: [src/server/features/queryScopePolicy.ts](../src/server/features/queryScopePolicy.ts), [src/server/features/queryContext.ts](../src/server/features/queryContext.ts), [src/server/features/servingReadiness.ts](../src/server/features/servingReadiness.ts), [src/server/features/featureReadiness.ts](../src/server/features/featureReadiness.ts).
-- Presentación: [src/server/presentation/viewModels.ts](../src/server/presentation/viewModels.ts), [src/server/presentation/completionPresentation.ts](../src/server/presentation/completionPresentation.ts), [src/server/presentation/definitionPresentation.ts](../src/server/presentation/definitionPresentation.ts), [src/server/presentation/diagnosticPresentation.ts](../src/server/presentation/diagnosticPresentation.ts), [src/server/presentation/semanticTokenPresentation.ts](../src/server/presentation/semanticTokenPresentation.ts), [src/server/presentation/aiContextPresentation.ts](../src/server/presentation/aiContextPresentation.ts). Esta capa no consulta `KnowledgeBase`, parser, filesystem ni discovery; recibe modelos ya resueltos y devuelve DTOs LSP/read models compactos.
+- Presentación: [src/server/presentation/viewModels.ts](../src/server/presentation/viewModels.ts), [src/server/presentation/hoverPresentation.ts](../src/server/presentation/hoverPresentation.ts), [src/server/presentation/completionPresentation.ts](../src/server/presentation/completionPresentation.ts), [src/server/presentation/signatureHelpPresentation.ts](../src/server/presentation/signatureHelpPresentation.ts), [src/server/presentation/definitionPresentation.ts](../src/server/presentation/definitionPresentation.ts), [src/server/presentation/diagnosticPresentation.ts](../src/server/presentation/diagnosticPresentation.ts), [src/server/presentation/semanticTokenPresentation.ts](../src/server/presentation/semanticTokenPresentation.ts), [src/server/presentation/aiContextPresentation.ts](../src/server/presentation/aiContextPresentation.ts). Esta capa no consulta `KnowledgeBase`, parser, filesystem ni discovery; recibe modelos ya resueltos y devuelve DTOs LSP/read models compactos.
 - DataWindow: [src/server/features/dataWindowModel.ts](../src/server/features/dataWindowModel.ts), [src/server/features/dataWindowBindingModel.ts](../src/server/features/dataWindowBindingModel.ts), [src/server/features/dataWindowFastContext.ts](../src/server/features/dataWindowFastContext.ts), [src/server/features/dataWindowServingAdapters.ts](../src/server/features/dataWindowServingAdapters.ts), [src/server/features/dataWindowColumnAccess.ts](../src/server/features/dataWindowColumnAccess.ts), [src/server/features/dataWindowPropertyPaths.ts](../src/server/features/dataWindowPropertyPaths.ts), [src/server/features/dataWindowSafeMode.ts](../src/server/features/dataWindowSafeMode.ts), [src/server/features/dataWindowSqlLineage.ts](../src/server/features/dataWindowSqlLineage.ts).
 - Reports y planificación segura: [src/server/features/currentObjectContext.ts](../src/server/features/currentObjectContext.ts), [src/server/features/impactAnalysis.ts](../src/server/features/impactAnalysis.ts), [src/server/features/safeEditPlan.ts](../src/server/features/safeEditPlan.ts), [src/server/features/safeBatchRefactorPlan.ts](../src/server/features/safeBatchRefactorPlan.ts), [src/server/features/workspaceMigrationAssistant.ts](../src/server/features/workspaceMigrationAssistant.ts), [src/server/features/powerBuilderCodeMetrics.ts](../src/server/features/powerBuilderCodeMetrics.ts), [src/server/features/powerBuilderTechnicalDebtReport.ts](../src/server/features/powerBuilderTechnicalDebtReport.ts).
 
@@ -190,7 +190,7 @@ Superficies principales:
 Observaciones:
 
 - hover, completion, signature help y definition comparten gating y ServingCache;
-- completion sirve una lista inicial ligera y difiere documentación/detalle enriquecido a `completionItem/resolve` con stale guard y budget propio;
+- hover y signature help delegan el formatter visible a `src/server/presentation`, mientras completion sirve una lista inicial ligera y difiere documentación/detalle enriquecido a `completionItem/resolve` con stale guard y budget propio;
 - definition ya acepta `systemCatalog` para built-ins y owner chains DataWindow.
 
 ### 5.5 References, rename, CodeLens y planning seguro
@@ -325,7 +325,6 @@ El release lane ya queda versionado también como workflow visible en `.github/w
 | No existe `docs/build/README.md` en el snapshot | ausencia del archivo; release vive en [release.md](release.md), workflow local en [developer-workflows.md](developer-workflows.md) y fallos operativos en [troubleshooting.md](troubleshooting.md) | No se abre nuevo árbol `docs/build` mientras esos owners cubran el contrato sin duplicación |
 | No hay script `lint` en [package.json](../package.json) | scripts reales inspeccionados | La validación final no puede incluir lint salvo que se añada ese carril |
 | `plugin_old` sigue versionado | [plugin_old](../plugin_old), [legacy-isolation.md](legacy-isolation.md), [technical-debt-inventory.md](technical-debt-inventory.md) | Superficie legacy útil y `Reference-only`; retirada futura requiere spec, receipt y pruebas |
-| Taxonomía completa de semantic tokens aún no tiene ADR propio | [symbol-system.md](symbol-system.md), [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | No bloquea el runtime actual; nuevos token types/modifiers deben entrar por spec y tests focales |
 
 ## 12. Testing ejecutable, gaps y backlog derivado no promovido
 
@@ -625,6 +624,7 @@ Responsabilidades reales:
 
 - mantener `label`, `kind`, `sortText`, `insertText` y `textEdit` estables entre lista inicial y resolve;
 - diferir documentación localizada y detalles más ricos fuera del payload inicial;
+- reutilizar misses seguros mediante negative cache por locale/contexto cuando `completion-resolve` no puede materializar payload nuevo;
 - rechazar items sin `data` propia devolviendo el item original.
 
 No debe hacer:
@@ -646,6 +646,7 @@ Dependencias:
 Caches usadas:
 
 - `ServingCache` con key estructurada `completion-resolve` y contexto por item (`system:<id>` o `entity:<uri>:<id>:<line>:<character>`).
+- `PresentationCache` negativa para misses seguros de `completion-resolve`, segregada por locale/contexto y alineada con el mismo contrato de invalidación estructurada.
 
 Modelo de invalidación:
 
@@ -669,8 +670,9 @@ Payload risk:
 
 Tests existentes:
 
-- [test/server/unit/completion.test.ts](../test/server/unit/completion.test.ts): lista inicial ligera, resolve localizado, fallback sin `data`.
-- [test/server/unit/interactiveServingPipeline.test.ts](../test/server/unit/interactiveServingPipeline.test.ts): métricas y payload budget separados para `completion-resolve`.
+- [test/server/unit/completion.test.ts](../test/server/unit/completion.test.ts): lista inicial ligera, resolve localizado, fallback sin `data` y misses reutilizables.
+- [test/server/unit/cacheKeyContract.test.ts](../test/server/unit/cacheKeyContract.test.ts): segregación por locale/contexto para el negative lane de `completion-resolve`.
+- [test/server/unit/interactiveServingPipeline.test.ts](../test/server/unit/interactiveServingPipeline.test.ts): métricas, payload budget separado y negative-hit para `completion-resolve`.
 - [test/server/unit/presentationContracts.test.ts](../test/server/unit/presentationContracts.test.ts): separación estructural entre lista inicial, resolve enriquecido y overlay localizado sin cambiar identidad del símbolo.
 
 Tests faltantes:
@@ -4007,12 +4009,13 @@ Archivos reales:
 
 Entry points:
 
+- `localization/schema.ts`
 - `documentationService.ts`
 - índice de locale `es`.
 
 Responsabilidades reales:
 
-- servir `summary`, docs, notas de uso y docs de parámetros con fallback `es -> en`.
+- fijar schema estricta del overlay (`source`, `reviewed`, anchors `targetId|targetKey`, slots reservados y `schemaVersion`), publicar `schemaIssues`/`missingFieldsByDomain` en el audit y servir `summary`, docs, notas de uso y docs de parámetros con fallback `es -> en`.
 
 No debe hacer:
 
@@ -4028,6 +4031,7 @@ Consumidores:
 Dependencias:
 
 - `SystemCatalog`
+- `localizationResolver.ts`
 - `documentationService.ts`
 
 Caches usadas:
@@ -6132,11 +6136,13 @@ Qué debería cachear:
 Qué existe hoy:
 
 - `SystemCatalog` y `queryService.ts` sirven búsquedas owner-aware sobre índices preconstruidos.
+- `system/policy.ts` fija el contrato explícito de capas (`generated base -> manual curated enrichment -> localization overlay -> presentation formatter`), campos visibles enriquecibles, anchors bloqueados y exposición por surface sin abrir otro store semántico.
 
 Evidencia en código:
 
 - [src/server/knowledge/system/SystemCatalog.ts](../src/server/knowledge/system/SystemCatalog.ts)
 - [src/server/knowledge/system/services/queryService.ts](../src/server/knowledge/system/services/queryService.ts)
+- [src/server/knowledge/system/policy.ts](../src/server/knowledge/system/policy.ts)
 
 Impacto:
 
@@ -6867,6 +6873,7 @@ Archivo real:
 
 Modelos publicados:
 
+- `CanonicalSymbolModel`
 - `ResolvedSymbolModel`
 - `ResolvedSymbolSet`
 - `ResolvedReceiverModel`
@@ -6885,7 +6892,7 @@ Tests existentes:
 
 Estado:
 
-- implemented as server-side common result model.
+- implemented as server-side common result model, con `identityKey` exacta (`buildSymbolKey`), `normalizedName` y shape mínima (`declarationScope`, `implementationKind`, `signature`, `returnType`, `parameterCount`) para facade y presentation.
 
 ### Symbol resolution
 

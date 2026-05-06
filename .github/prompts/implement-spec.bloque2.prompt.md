@@ -1,345 +1,472 @@
-# BLOQUE 2 — Hover Ultra-Fast & Developer-Useful UX
 
-> Objetivo: convertir `hover` en una feature extremadamente rápida, compacta, estable y realmente útil para desarrolladores PowerBuilder, apoyada en la capa de serving del Bloque 1, sin duplicar semántica ni reabrir un segundo motor de resolución.
-
----
-
-## Base técnica y patrones aplicados
-
-Este bloque se basa en los hallazgos de `docs/architecture-implementation-map.md`:
-
-- `hover` está implementado en `src/server/features/hover.ts`, con formateo en `src/server/features/hoverFormat.ts` y wiring en `src/server/handlers/featureHandlers.ts`.
-- `hover` ya usa `ServingCache` por feature, URI, posición, `kbVersion` y locale.
-- `hover` usa `HotContextCache`, `KnowledgeBase`, `SystemCatalog`, `InheritanceGraph`, `semanticQueryService`, `queryContext` y `documentationService`.
-- `hover` tiene `queryScopePolicy` con budget de 50 ms, scope `active-object` y `resultCap = 8`.
-- En cache hit, el camino ya es rápido.
-- En cache miss, `hover` recompone resolución semántica, documentación localizada y Markdown final.
-- No existe `HoverViewModel cache` separado.
-- No existe `NegativeHoverCache`.
-- El formateo visible está parcialmente repartido entre `hover.ts`, `hoverFormat.ts` y `documentationService.ts`.
-- El payload risk de `hover` es medio: ya es compacto, pero todavía no hay contrato formal por tipo de símbolo.
-
-Patrones externos aplicados:
-
-- **LSP Hover como respuesta compacta:** el objeto Hover debe devolver contenido y, opcionalmente, un rango; el contenido debe estar preparado para renderizarse sin incluir dumps internos ni estructuras pesadas.
-- **VS Code consulta hover bajo demanda:** el editor dispara hover al pasar sobre símbolos; por eso el path debe ser extremadamente barato y cancelable/stale-safe.
-- **ViewModel separado de semántica:** el resultado visible debe ser un modelo de presentación derivado, no una fuente semántica nueva.
-- **Negative cache segura:** los misses repetidos sobre whitespace, comentarios, strings, keywords o símbolos no resolubles deben evitar recomputación, pero siempre invalidando por documento/epoch/locale.
-- **UX por tipo de símbolo:** el hover debe responder rápido a “qué es”, “tipo/firma”, “origen/scope” y “confianza si no es alta”, evitando información interna.
+> Objetivo: ejecutar **todas las specs restantes del backlog de Symbols + Generated Enrichment + Catalog Localization**, una a una, en orden estricto, después de haber completado o dejado correctamente cerrada/Partial la spec `SYMBOL-I18N-ENRICHMENT-AUDIT-01`.
+>
+> Este prompt está diseñado para evitar que el agente se pare a mitad, abra trabajo fuera de orden, cierre sin validación o deje backlog/docs desalineados.
 
 ---
 
-## Cadena recomendada — Bloque 2
+## Spec previa obligatoria
 
-Orden obligatorio dentro del bloque:
-
-1. `DEVTOOLS-HOVER-01` — Contrato compacto de HoverViewModel por tipo de símbolo.
-2. `DEVTOOLS-HOVER-02` — HoverFastPath con cache de HoverViewModel.
-3. `DEVTOOLS-HOVER-03` — Negative hover cache segura.
-4. `DEVTOOLS-HOVER-04` — Hover UX regression matrix y payload contract.
-5. `DEVTOOLS-HOVER-05` — Hover docs/debug hooks sin ruido en hot path.
-
----
-
-# FASE A — Contrato visible y modelo de presentación
-
-## DEVTOOLS-HOVER-01 — Contrato compacto de HoverViewModel por tipo de símbolo
-
-- **Priority:** P1.
-- **Status:** Open.
-- **Area:** UX, hover, presentation, serving.
-- **Problem:**
-  - El hover ya es más compacto que antes, pero no existe un contrato explícito de presentación por tipo de símbolo.
-  - El resultado visible se construye entre `hover.ts`, `hoverFormat.ts` y `documentationService.ts`, lo que dificulta cachear presentación final y mantener UX estable.
-- **Goal:**
-  - Definir `HoverViewModel` o equivalente como modelo de presentación compacto, estable, cacheable y libre de ownership semántico.
-- **Acceptance criteria:**
-  - Existe un contrato `HoverViewModel` o equivalente.
-  - El contrato es estrictamente de presentación: no almacena verdad semántica global ni sustituye `KnowledgeBase`, `SemanticQueryService`, `SystemCatalog` o `DataWindowModel`.
-  - El contrato define salida visible para, al menos:
-    - variable local;
-    - argumento;
-    - instance/shared/global variable;
-    - función/evento;
-    - inherited member;
-    - built-in PowerBuilder;
-    - enumerated value/type;
-    - DataWindow/DataStore method;
-    - DataWindow column/property;
-    - SQL/transaction-related symbol si aplica;
-    - dynamic/ambiguous symbol;
-    - unknown/unresolved symbol.
-  - Cada tipo de hover define:
-    - línea principal;
-    - tipo/firma si aplica;
-    - scope/origen;
-    - owner/ancestor si aporta valor;
-    - breve documentación útil si existe;
-    - confidence/warning solo si no es alta o si hay ambigüedad real.
-  - El hover no muestra JSON, dumps internos, rutas largas, metadata de arquitectura interna ni evidence extensa.
-  - El contrato contempla `locale` sin duplicar identidad semántica ni traducir nombres reales de PowerBuilder.
-  - No aumenta payload ni coste del hot path.
-- **Implementation notes:**
-  - Crear tipos puros para `HoverViewModel`, `HoverKind`, `HoverConfidence` y bloques visibles.
-  - Mantener `hoverFormat.ts` como formatter de `HoverViewModel` a LSP Hover o `MarkupContent`.
-  - `documentationService.ts` debe seguir siendo proveedor de texto/documentación, no owner del modelo visible.
-  - Evitar meter lógica de resolución en `HoverViewModel`.
-- **Tests:**
-  - `npm run test:unit`
-  - `npm run test:docs:drift`
-  - `npm run test:architecture:rapid`
-- **Suggested test coverage:**
-  - Hover de variable local.
-  - Hover de argumento.
-  - Hover de función/evento con firma.
-  - Hover de inherited member.
-  - Hover de built-in PowerBuilder.
-  - Hover de enumerated value con `!`.
-  - Hover de DataWindow/DataStore method.
-  - Hover de DataWindow column/property con binding fiable.
-  - Hover ambiguous con confidence visible.
-  - Unknown/unresolved sin ruido.
-- **Docs:**
-  - `docs/architecture-implementation-map.md`
-  - `docs/testing.md`
-  - `docs/performance-budget.md`
-- **Dependencies:**
-  - `DEVTOOLS-HOTPATH-01`
-  - `DEVTOOLS-HOTPATH-02`
-- **Risk:** medio; compactar demasiado puede ocultar información útil, y modelar demasiado puede duplicar semántica.
-- **Exit criteria:**
-  - El contrato de hover visible está definido, testeado y listo para ser cacheado por `DEVTOOLS-HOVER-02`.
-
----
-
-## DEVTOOLS-HOVER-04 — Hover UX regression matrix y payload contract
-
-- **Priority:** P2.
-- **Status:** Open.
-- **Area:** UX, hover, testing, payload.
-- **Problem:**
-  - Sin una matriz UX, cada mejora de hover puede cambiar el contenido visible de forma accidental.
-  - El payload de hover puede crecer al añadir documentación, owner chains o warnings.
-- **Goal:**
-  - Crear una matriz de regresión visible para hover por tipo de símbolo y un contrato de payload compacto.
-- **Acceptance criteria:**
-  - Existe una matriz de casos de hover por tipo de símbolo.
-  - Cada caso especifica qué bloques son obligatorios, opcionales y prohibidos.
-  - Existen tests snapshot o assertions estructurales del contenido visible.
-  - Existe un presupuesto de payload para hover documentado en `docs/performance-budget.md`.
-  - Se valida que el hover no muestra metadata interna ni evidence larga salvo casos explícitos.
-  - Los tests son robustos frente a cambios menores de wording; preferir assertions por bloques/campos sobre snapshots frágiles si es posible.
-- **Implementation notes:**
-  - Añadir test helpers para inspeccionar `HoverViewModel` antes del render LSP.
-  - Si se usa Markdown, limitar bloques y evitar tablas grandes.
-  - El presupuesto debe diferenciar hover normal de hover ambiguous/warning.
-- **Tests:**
-  - `npm run test:unit`
-  - `npm run test:performance:gate`
-  - `npm run test:docs:drift`
-- **Docs:**
-  - `docs/testing.md`
-  - `docs/performance-budget.md`
-  - `docs/architecture-implementation-map.md`
-- **Dependencies:**
-  - `DEVTOOLS-HOVER-01`
-  - `DEVTOOLS-HOTPATH-04`
-- **Risk:** medio; tests demasiado rígidos pueden frenar mejoras UX legítimas.
-- **Exit criteria:**
-  - Cambios accidentales de contenido/payload de hover quedan detectados por tests o gates.
-
----
-
-# FASE B — Fast path y cache de presentación
-
-## DEVTOOLS-HOVER-02 — HoverFastPath con cache de HoverViewModel
-
-- **Priority:** P1.
-- **Status:** Open.
-- **Area:** performance, hover, serving-cache, presentation-cache.
-- **Problem:**
-  - `hover` ya usa `ServingCache`, pero en cache miss recompone resolución, documentación y Markdown final.
-  - No existe una cache explícita de `HoverViewModel`, por lo que no hay separación limpia entre resolución semántica y presentación cacheable.
-- **Goal:**
-  - Servir hover caliente desde un modelo de presentación final compacto sin duplicar semántica.
-- **Acceptance criteria:**
-  - Existe `HoverFastPath` o equivalente integrado con `InteractiveServingPipeline`.
-  - Existe cache explícita de `HoverViewModel` o equivalente defendible.
-  - El cache hit devuelve hover sin IO, sin workspace scan, sin full parse y sin reformat pesado.
-  - El cache miss reutiliza `SemanticQueryService`, `KnowledgeBase`, `SystemCatalog`, `InheritanceGraph`, `HotContextCache` y `ActiveDocumentServingSnapshot` si existe.
-  - No crea un segundo motor semántico ni copia semántica global.
-  - La key incluye como mínimo URI, documentVersion cuando aplique, `kbVersion/semanticEpoch`, sourceOrigin, locale, feature, position/range o symbol id.
-  - La invalidación cubre cambio de URI, cambio de documento, cambio de KB/epoch, cambio de locale y pressure policy.
-  - El resultado visible respeta el contrato de `DEVTOOLS-HOVER-01`.
-  - La instrumentación de `DEVTOOLS-HOTPATH-01` distingue hit de `ServingCache`, hit de `HoverViewModel cache`, miss y formatter cost.
-- **Implementation notes:**
-  - Diseñar como capa encima de la resolución actual, no como reimplementación.
-  - Mantener `ServingCache` como cache LSP final o integrarlo mediante `ServingCacheRouter` si Bloque 1 ya lo cerró.
-  - Evitar que `HoverViewModel cache` duplique payload LSP completo si `ServingCache` ya guarda la response final; decidir y documentar si cachea ViewModel, response final o ambas con política de admission.
-  - No implementar `NegativeHoverCache` en esta spec salvo preparación de keys.
-- **Tests:**
-  - `npm run test:unit`
-  - `npm run test:performance:gate`
-  - `npm run test:architecture:rapid`
-  - `npm run test:docs:drift`
-- **Suggested test coverage:**
-  - Cache hit de HoverViewModel.
-  - Cache miss con generación de ViewModel.
-  - Invalidación por documentVersion.
-  - Invalidación por `semanticEpoch`.
-  - Invalidación por locale.
-  - No stale hover tras cambio de documento.
-  - No IO/no workspace scan/no full parse en hit.
-  - Formatter no se ejecuta en hit si el ViewModel/render final está cacheado.
-- **Docs:**
-  - `docs/architecture-implementation-map.md`
-  - `docs/testing.md`
-  - `docs/performance-budget.md`
-- **Dependencies:**
-  - `DEVTOOLS-HOVER-01`
-  - `DEVTOOLS-SERVING-01`
-  - `DEVTOOLS-SERVING-04`
-  - `DEVTOOLS-HOTPATH-01`
-  - `DEVTOOLS-HOTPATH-02`
-- **Risk:** medio-alto; una key incompleta puede servir hovers stale y una cache mal diseñada puede duplicar memoria sin mejorar latencia.
-- **Exit criteria:**
-  - Hover caliente es servido desde una ruta de presentación cacheada, medible y sin recomputación semántica innecesaria.
-
----
-
-## DEVTOOLS-HOVER-05 — Hover docs/debug hooks sin ruido en hot path
-
-- **Priority:** P3.
-- **Status:** Open.
-- **Area:** hover, observability, developer-experience.
-- **Problem:**
-  - Al optimizar hover, puede ser difícil diagnosticar por qué un hover fue cache hit, cache miss, ambiguous, unknown o degraded.
-  - Añadir logs directos al hot path puede introducir ruido o coste.
-- **Goal:**
-  - Proporcionar observabilidad read-only para hover sin logging ruidoso ni coste apreciable.
-- **Acceptance criteria:**
-  - Existe una forma read-only de inspeccionar el último estado de hover o sus métricas agregadas mediante runtime journal/stats ya existentes.
-  - No hay logs por request en consola salvo modo debug explícito.
-  - La información incluye reason simple: `cache-hit`, `viewmodel-hit`, `miss`, `negative-hit`, `stale-discarded`, `readiness-degraded`, `unknown`.
-  - La información no expone payload completo, contenido sensible ni dumps semánticos grandes.
-  - El support bundle o runtime health puede incluir resumen agregado si procede.
-- **Implementation notes:**
-  - Preferir contadores y últimos eventos resumidos frente a trazas por request.
-  - No crear una UI nueva; reutilizar runtime stats/journal si existen.
-- **Tests:**
-  - `npm run test:unit`
-  - `npm run test:docs:drift`
-- **Docs:**
-  - `docs/testing.md`
-  - `docs/architecture-implementation-map.md`
-- **Dependencies:**
-  - `DEVTOOLS-HOTPATH-01`
-  - `DEVTOOLS-HOVER-02`
-- **Risk:** bajo-medio; observabilidad excesiva puede contaminar hot path o soporte.
-- **Exit criteria:**
-  - El comportamiento de hover optimizado se puede diagnosticar sin logs ruidosos.
-
----
-
-# FASE C — Negative cache segura
-
-## DEVTOOLS-HOVER-03 — Negative hover cache segura
-
-- **Priority:** P2.
-- **Status:** Open.
-- **Area:** performance, hover, negative-cache.
-- **Problem:**
-  - Los misses defendibles de hover en whitespace, comentarios, strings, keywords, separadores o símbolos no resolubles pueden recomputarse repetidamente.
-  - No existe `NegativeHoverCache`.
-- **Goal:**
-  - Cachear resultados negativos seguros para evitar recomputación sin ocultar resultados válidos tras cambios.
-- **Acceptance criteria:**
-  - Existe `NegativeHoverCache` o equivalente.
-  - Cubre al menos whitespace, comentarios, strings, keywords, separadores y unresolved defendible.
-  - La key incluye URI, documentVersion, `kbVersion/semanticEpoch`, sourceOrigin, locale y position/range.
-  - Se invalida por cambio de documento, URI, KB/epoch, sourceOrigin y locale.
-  - No tapa resultados válidos posteriores tras cambios del documento o de la KB.
-  - No guarda negativos para casos de baja confianza que podrían resolverse con una dependencia semántica ya en progreso, salvo que el estado sea claramente stale/versionado.
-  - La instrumentación distingue `negative-hit` de `normal-miss`.
-  - Tests cubren misses repetidos y rematerialización tras cambio.
-- **Implementation notes:**
-  - Mantener TTL corto o invalidación estricta por version/epoch.
-  - No cachear negative results si la causa fue readiness temporal o background indexing no listo, salvo que la key incluya readiness state y sea seguro.
-  - Preferir negativos por token/range, no solo por posición cruda, para evitar inconsistencias al mover cursor dentro del mismo token.
-- **Tests:**
-  - `npm run test:unit`
-  - `npm run test:performance:gate`
-  - `npm run test:docs:drift`
-- **Suggested test coverage:**
-  - Repetir hover sobre whitespace usa negative cache.
-  - Repetir hover sobre comentario usa negative cache.
-  - Repetir hover sobre string literal usa negative cache.
-  - Cambio de documento invalida negative cache.
-  - Cambio de KB/epoch invalida negative cache.
-  - Un símbolo que aparece tras editar deja de ser negative.
-  - Readiness temporal no crea negative permanente.
-- **Docs:**
-  - `docs/architecture-implementation-map.md`
-  - `docs/testing.md`
-  - `docs/performance-budget.md`
-- **Dependencies:**
-  - `DEVTOOLS-HOVER-02`
-  - `DEVTOOLS-HOTPATH-03`
-  - `DEVTOOLS-SERVING-04`
-- **Risk:** medio; una negative cache demasiado agresiva puede ocultar hovers válidos tras cambios pequeños.
-- **Exit criteria:**
-  - Hover evita recomputar misses seguros y mantiene corrección tras cambios.
-
----
-
-## Resultado esperado al cerrar el Bloque 2
-
-Al cerrar este bloque deben cumplirse todas estas condiciones:
+Antes de empezar, verifica el estado de:
 
 ```text
-1. Existe un contrato HoverViewModel claro, compacto y testeado.
-2. Hover visible está definido por tipo de símbolo.
-3. Hover no muestra JSON, dumps internos, rutas largas ni metadata irrelevante.
-4. HoverFastPath sirve hits sin IO, workspace scan, full parse ni formatter caro.
-5. HoverViewModel cache o equivalente está integrado con la serving layer.
-6. NegativeHoverCache evita misses repetidos seguros.
-7. La instrumentación distingue cache-hit, viewmodel-hit, miss, negative-hit y stale-discarded.
-8. La invalidación cubre URI, documentVersion, semanticEpoch/kbVersion, sourceOrigin y locale.
-9. Los tests cubren UX, payload, hit/miss, negative cache y stale safety.
-10. docs/backlog/testing/performance-budget/architecture-implementation-map quedan alineados.
+SYMBOL-I18N-ENRICHMENT-AUDIT-01 — Macroauditoría de i18n, localization y enrichment layers
+```
+
+Reglas:
+
+- Si está `Done`, continúa con la secuencia.
+- Si está `Partial`, lee el pendiente exacto y decide si bloquea alguna spec posterior.
+- Si no existe reporte final, no empieces specs dependientes: primero deja el gap en backlog/current-focus.
+- Si la auditoría detectó blockers P1/P0 no resueltos, no los ignores.
+
+---
+
+## Reglas duras globales
+
+- NO preguntes.
+- NO pares hasta terminar la secuencia posible.
+- Ejecuta las specs **una a una** y en el orden definido en este prompt.
+- NO abras una spec si sus dependencias no están satisfechas.
+- NO ejecutes specs P2/P3 si queda una P1 bloqueante relacionada.
+- NO implementes features fuera del backlog.
+- NO cambies generated IDs/domains/kinds/namespaces/lookupKeys/signatures/parameterName/sourceUrl.
+- NO traduzcas anchors técnicos:
+  - `name`
+  - `id`
+  - `lookupKeys`
+  - `normalizedName`
+  - `ownerTypes`
+  - `domain`
+  - `kind`
+  - `namespace`
+  - `invocation`
+  - `signatures.label`
+  - `parameterName`
+  - `datatypes`
+  - `enum values`
+  - `sourceUrl`
+- NO traduzcas nombres reales de funciones, variables, objetos, columnas, DataObjects ni controles.
+- NO inventes firmas ni documentación built-in.
+- NO metas documentación larga en `completion initial`.
+- NO hagas IO/workspace scan/full parse en hot path para enrichments.
+- NO dupliques reglas entre documentos.
+- Cada regla debe tener owner documental claro.
+- Cada spec cerrada debe tener código real si aplica, tests/validación, docs actualizadas y done-log si queda `Done`.
+- Si una spec no puede cerrarse, déjala como `Partial` con pendiente exacto.
+- Todo gap nuevo debe terminar en backlog con evidencia, riesgo, plan, validación, docs y tests.
+
+---
+
+## Orden estricto de ejecución
+
+Ejecuta en este orden:
+
+```text
+10. SYMBOL-I18N-TERMS-01
+11. SYMBOL-CATALOG-DW-ENRICH-P1
+12. SYMBOL-DW-01
+13. SYMBOL-TOKENS-01
+14. SYMBOL-CATALOG-ENUMS-ENRICH-P2
+15. SYMBOL-CATALOG-DATATYPES-ENRICH-P2
+16. SYMBOL-CATALOG-STATEMENTS-ENRICH-P2
+17. CATALOG-LOCALIZATION-DOMAINS-01
+18. SYMBOL-DOCS-EXAMPLES-01
+19. SYMBOL-FRAMEWORKS-01
+```
+
+Si una spec del listado no existe en `docs/backlog.md`, no la inventes silenciosamente. Añádela sólo si el backlog recomendado o la auditoría previa la justifican, con origen, evidencia, prioridad, acceptance criteria, docs y tests.
+
+---
+
+# FASE 0 — Preparación común antes de cada spec
+
+Antes de cada spec:
+
+1. Lee `docs/backlog.md`.
+2. Lee `docs/current-focus.md`.
+3. Lee `docs/roadmap.md` si existe.
+4. Lee `docs/done-log.md`.
+5. Lee `docs/symbol-system.md`.
+6. Lee `docs/localization.md` o `docs/catalog-localization-workflow.md` si existe.
+7. Lee `docs/architecture-implementation-map.md`.
+8. Lee `docs/testing.md`.
+9. Lee `docs/performance-budget.md`.
+10. Revisa dependencias de la spec.
+11. Verifica que la spec sigue siendo necesaria.
+12. Promueve la spec a current-focus sólo si vas a ejecutarla.
+
+---
+
+# FASE 10 — SYMBOL-I18N-TERMS-01
+
+## Objetivo
+
+Crear glosario estable español/inglés para presentation/enrichments.
+
+## Términos mínimos
+
+```text
+function
+event
+variable
+parameter
+return value
+DataWindow
+DataStore
+DataWindowChild
+transaction
+ancestor
+override
+scope
+source origin
+confidence
+deprecated
+inferred
+ambiguous
+unknown
+```
+
+## Cierre
+
+```bash
+npm run test:unit
+npm run test:docs:drift
 ```
 
 ---
 
-## Current focus recomendado si se decide activar este bloque
+# FASE 11 — SYMBOL-CATALOG-DW-ENRICH-P1
+
+## Objetivo
+
+Enriquecer documentación visible de DataWindow core sin modificar anchors, property paths ni identidad.
+
+## Reglas
+
+- Seleccionar DataWindow functions/properties/core entries de alto impacto.
+- Mantener DataWindow names, property paths y enum values intactos.
+- Traducir/enriquecer sólo documentación visible.
+- Añadir targetKey si la entry procede de generated inestable.
+- Validar performance de hover/completion/signatureHelp.
+- Registrar cobertura antes/después.
+
+## Cierre
+
+```bash
+npm run test:unit -- --grep "dataWindow|catalogLocalization|catalogConsistency|documentationService"
+npm run report:catalog-localization
+npm run test:performance:gate
+npm run test:docs:drift
+```
+
+---
+
+# FASE 12 — SYMBOL-DW-01
+
+## Objetivo
+
+Definir enrichments DataWindow sobre `DataWindowFastContext`.
+
+## Debe cubrir
+
+```text
+DataWindow control
+DataStore variable
+DataWindowChild
+DataObject literal
+column
+computed field
+property path
+buffer
+dynamic/unknown binding
+```
+
+## Reglas
+
+- Confidence/sourceOrigin obligatorio.
+- No parsear `.srd` como PowerScript normal.
+- Dynamic/unknown no debe generar falsos positivos fuertes.
+
+## Cierre
+
+```bash
+npm run test:unit -- --grep "dataWindow"
+npm run test:architecture:rapid
+npm run test:docs:drift
+```
+
+---
+
+# FASE 13 — SYMBOL-TOKENS-01
+
+## Objetivo
+
+Definir mapping explícito de símbolos PowerBuilder a token types/modifiers.
+
+## Reglas
+
+- Semantic tokens no dependen de texto traducido.
+- Decidir tipos estándar VS Code vs custom token types.
+- Documentar mapping y límites.
+- Crear tests de rangos/modifiers.
+
+## Cierre
+
+```bash
+npm run test:unit -- --grep "semanticTokens"
+npm run test:performance:gate
+npm run test:docs:drift
+```
+
+---
+
+# FASE 14 — SYMBOL-CATALOG-ENUMS-ENRICH-P2
+
+## Objetivo
+
+Enriquecer documentación visible de enumerated types/values sin traducir enum values.
+
+## Reglas
+
+- Mantener valores con `!` intactos.
+- Traducir sólo explicación/summary/usageNotes.
+- Validar contexto esperado de enums en completion/signatureHelp/diagnostics si aplica.
+
+## Cierre
+
+```bash
+npm run test:unit -- --grep "enum|catalogLocalization|catalogConsistency"
+npm run test:docs:drift
+```
+
+---
+
+# FASE 15 — SYMBOL-CATALOG-DATATYPES-ENRICH-P2
+
+## Objetivo
+
+Enriquecer datatypes principales del sistema sin traducir datatypes reales.
+
+## Reglas
+
+- Mantener datatypes en original.
+- Enriquecer descripción visible.
+- Añadir usage notes sólo si existe evidencia.
+- Validar hover/completion si estos datatypes son visibles.
+
+## Cierre
+
+```bash
+npm run test:unit -- --grep "catalogLocalization|catalogConsistency|systemCatalog"
+npm run test:docs:drift
+```
+
+---
+
+# FASE 16 — SYMBOL-CATALOG-STATEMENTS-ENRICH-P2
+
+## Objetivo
+
+Enriquecer ayuda contextual de statements, keywords y reserved words sin traducir lexemas.
+
+## Reglas
+
+- Mantener keywords/reserved words originales.
+- Traducir sólo ayuda visible.
+- SemanticTokens no dependen de textos localizados.
+- Validar completion/hover si aplica.
+
+## Cierre
+
+```bash
+npm run test:unit -- --grep "keyword|reserved|catalogLocalization|catalogConsistency"
+npm run test:docs:drift
+```
+
+---
+
+# FASE 17 — CATALOG-LOCALIZATION-DOMAINS-01
+
+## Objetivo
+
+Avanzar cobertura por dominios completos con métricas antes/después.
+
+## Dominios
+
+```text
+global-functions
+DataWindow core
+system object datatypes
+enumerated types/values
+statements/reserved words
+resto generated
+```
+
+## Cierre
+
+```bash
+npm run report:catalog-localization
+npm run migrate:catalog-localization-target-ids
+npm run test:docs:drift
+```
+
+---
+
+# FASE 18 — SYMBOL-DOCS-EXAMPLES-01
+
+## Objetivo
+
+Documentar ejemplos breves de overlays, enrichments y payloads sin copiar catálogos completos.
+
+## Ejemplos mínimos
+
+```text
+overlay localizado
+enrichment manual-curated
+confidence/sourceOrigin
+completion resolve enrichment
+targetId/targetKey recovery
+```
+
+## Cierre
+
+```bash
+npm run test:docs:drift
+```
+
+---
+
+# FASE 19 — SYMBOL-FRAMEWORKS-01
+
+## Objetivo
+
+Añadir enrichments PFC/STD sólo advisory.
+
+## Reglas
+
+- Nunca autoridad sobre símbolo real.
+- Declarar source, confidence, tests y fallback.
+- No portar código legacy.
+- Usar corpus/fixtures locales sólo si existen.
+- Si corpus no existe, skip honesto; no inventar resultados.
+
+## Cierre
+
+```bash
+npm run test:unit
+npm run test:docs:drift
+```
+
+---
+
+# Revisión final global obligatoria
+
+Cuando termines todas las specs posibles:
+
+1. Relee `docs/backlog.md`.
+2. Relee `docs/current-focus.md`.
+3. Relee `docs/roadmap.md`.
+4. Relee `docs/done-log.md`.
+5. Relee `docs/symbol-system.md`.
+6. Relee `docs/localization.md`.
+7. Relee `docs/testing.md`.
+8. Relee `docs/performance-budget.md`.
+9. Relee `docs/architecture-implementation-map.md`.
+10. Verifica que no quedan specs ejecutadas sin estado correcto.
+11. Verifica que no queda spec `Done` sin validación/done-log.
+12. Verifica que no queda spec `Partial` sin pendiente exacto.
+13. Verifica que no hay contradicciones entre docs.
+14. Verifica que no hay reglas duplicadas sin owner.
+15. Verifica que no hay anchors traducidos.
+16. Verifica que `completion initial` sigue compacto.
+17. Verifica que enrichment pesado va a resolve/hover cacheable/offline.
+18. Verifica que todos los gaps quedan en backlog.
+19. Ejecuta validaciones finales reales disponibles.
+20. Genera reporte final.
+
+---
+
+## Validaciones finales esperadas
+
+Ejecuta las disponibles:
+
+```bash
+npm run compile
+npm run test:unit -- --grep "catalogLocalization|catalogConsistency|documentationService|completion|hover|signatureHelp"
+npm run report:catalog-localization
+npm run migrate:catalog-localization-target-ids
+npm run test:docs:drift
+npm run test:architecture:rapid
+npm run test:performance:gate
+npm run test:unit
+npm test
+```
+
+Si alguna no existe o falla por entorno, registra:
+
+```text
+comando
+resultado
+motivo
+impacto
+follow-up
+```
+
+---
+
+## Reporte final obligatorio
+
+Genera un reporte final con esta estructura:
 
 ```markdown
-# Current Focus — Hover Ultra-Fast & Developer-Useful UX
+# Symbols, Generated Enrichment & Catalog Localization Execution Report
 
-## Scope
+## 1. Specs ejecutadas
 
-- DEVTOOLS-HOVER-01
-- DEVTOOLS-HOVER-02
+## 2. Specs cerradas como Done
 
-## Optional within same focus only if previous items are closed
+## 3. Specs dejadas como Partial y pendiente exacto
 
-- DEVTOOLS-HOVER-03
+## 4. Specs bloqueadas y motivo
 
-## Explicitly out of scope
+## 5. Cambios de código
 
-- completionItem/resolve
-- CompletionListViewModel cache
-- ActiveDocumentServingSnapshot global redesign
-- DataWindowFastContext
-- resolver consolidation broad refactor
-- new parser or DataWindow parser changes
+## 6. Cambios de documentación
 
-## Exit criteria
+## 7. Cambios de backlog/current-focus/roadmap/done-log
 
-- HoverViewModel contract implemented and tested.
-- HoverFastPath uses cache of presentation or equivalent.
-- Hot path remains no IO/no workspace scan/no full parse.
-- Hover payload and UX contract documented.
+## 8. Validaciones ejecutadas
+
+## 9. Validaciones no ejecutadas y motivo
+
+## 10. Gaps nuevos detectados
+
+## 11. Backlog derivado creado
+
+## 12. Riesgos pendientes
+
+## 13. Siguiente slice recomendado
 ```
 
 ---
+
+## Criterio de cierre global
+
+Sólo puedes cerrar la secuencia si:
+
+```text
+1. Cada spec ejecutada tiene estado correcto.
+2. Las specs Done tienen tests/docs/done-log.
+3. Las specs Partial tienen pendiente exacto.
+4. No quedan blockers P1 sin backlog.
+5. No hay anchors técnicos traducidos.
+6. No hay cambios no autorizados en generated identity.
+7. completion initial sigue compacto.
+8. Los enrichments pesados son lazy/cacheados/offline.
+9. Docs están alineadas y sin duplicación crítica.
+10. Backlog/current-focus/roadmap/done-log están sincronizados.
+11. Reporte final existe.
+```
+
+Si no se cumple todo, no declares cierre total. Declara cierre parcial y lista exactamente lo pendiente.

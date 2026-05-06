@@ -72,13 +72,4 @@ suite('unit/aiCustomizationGovernance (Bloque 10)', () => {
 
     assert.deepEqual(invalid, []);
   });
-
-  test('compatibility entries apuntan al owner canonico y tienen condicion de retiro', () => {
-    for (const relativePath of ['docs/ai-orchestrator.md', 'docs/ai-agents-catalog.md']) {
-      const source = readWorkspaceFile(relativePath);
-      assert.match(source, /compatibilidad/i);
-      assert.ok(source.includes('docs/ai-orchestration.md'));
-      assert.match(source, /retir/i, `${relativePath} debe indicar retiro futuro`);
-    }
-  });
 });

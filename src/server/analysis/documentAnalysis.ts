@@ -592,6 +592,10 @@ function collectFactsAndScopes(
 
         const variable = matchVariableDeclaration(line);
         if (variable) {
+          const modifiers = variable.modifiers?.toLowerCase() ?? '';
+          if (modifiers.includes('global')) scope = 'Global';
+          else if (modifiers.includes('shared')) scope = 'Compartida';
+
           facts.push({
             name: variable.name,
             kind: 'variable',

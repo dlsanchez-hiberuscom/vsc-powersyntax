@@ -1,4 +1,4 @@
-import type { DiagnosticSeverity, Range } from 'vscode-languageserver/node';
+import type { DiagnosticSeverity, Range, SignatureInformation } from 'vscode-languageserver/node';
 
 import type { SourceOrigin } from '../../shared/sourceOrigin';
 import type {
@@ -30,6 +30,57 @@ export interface PresentationPayloadPolicyViewModel {
   compact: boolean;
   forbiddenBlocks: Array<'json-dump' | 'internal-paths' | 'long-evidence' | 'workspace-scan-results'>;
   budgetBytes?: number;
+}
+
+export type HoverPresentationKind =
+  | 'local-variable'
+  | 'argument'
+  | 'instance-variable'
+  | 'shared-variable'
+  | 'global-variable'
+  | 'function'
+  | 'event'
+  | 'inherited-member'
+  | 'built-in'
+  | 'enumerated-type'
+  | 'enumerated-value'
+  | 'datawindow-method'
+  | 'datawindow-column'
+  | 'datawindow-property'
+  | 'sql-symbol'
+  | 'dynamic'
+  | 'unknown';
+
+export interface HoverBlockViewModel {
+  kind: 'context' | 'documentation' | 'warning' | 'details';
+  lines: string[];
+}
+
+export interface SymbolHoverViewModel {
+  feature: 'hover';
+  kind: HoverPresentationKind;
+  title?: string;
+  signature?: string;
+  summary?: string;
+  blocks: HoverBlockViewModel[];
+  confidence?: PresentationConfidence;
+  locale?: DocumentationLocale;
+  preformattedMarkdown?: string;
+  payloadPolicy: PresentationPayloadPolicyViewModel;
+}
+
+export type SignatureHelpViewModelSource = 'system-catalog' | 'workspace' | 'datawindow-binding';
+
+export interface SymbolSignatureViewModel {
+  feature: 'signatureHelp';
+  signatures: SignatureInformation[];
+  activeSignature: number;
+  activeParameter: number;
+  source: SignatureHelpViewModelSource;
+  reason: string;
+  locale?: DocumentationLocale;
+  resolvedCallable?: ResolvedCallableModel;
+  payloadPolicy: PresentationPayloadPolicyViewModel;
 }
 
 export type CompletionPresentationKind =
@@ -152,3 +203,9 @@ export function buildCompactPayloadPolicy(
     ...(budgetBytes !== undefined ? { budgetBytes } : {}),
   };
 }
+
+export type SymbolCompletionViewModel = CompletionListViewModel | CompletionResolveViewModel;
+
+export type SymbolDiagnosticViewModel = DiagnosticMessageViewModel;
+
+export type SymbolSemanticTokenViewModel = SemanticTokensViewModel;

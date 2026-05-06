@@ -39,6 +39,10 @@ El repositorio ya materializa un primer corte operativo de una arquitectura IA-f
 - tool bridge read-only/write-enabled controlado;
 - rails ORCA/PBAutoBuild separados;
 - catálogo PowerBuilder gobernado por generated-primary-with-manual-overlays.
+- el contrato de capas visible del catálogo (`generated -> manual enrichment -> localization -> presentation`) ya vive explícitamente en `src/server/knowledge/system/policy.ts`.
+- la localización documental del catálogo ya expone schema estricta (`source`, `reviewed`, `schemaIssues`, `missingFieldsByDomain`) desde `src/server/knowledge/system/localization/schema.ts` y `localizationResolver.ts`.
+- el rail `es` ya cubre `global-functions` (`8/285`) y el primer slice de `datawindow-functions` (`5/302`) sin issues de schema, invalid anchors ni orphan overlays.
+- `DataWindowFastContext` ya proyecta `computedFields` seguros desde `dataWindowModel`, con dependencias y `sourceOrigin` explícitos, sin reparsear `.srd` como PowerScript normal ni abrir IO en hot path.
 
 ---
 
@@ -225,10 +229,11 @@ Cierre relevante del carril devtools LSP:
 - `definition` ya abre members nativos DataWindow sobre descendants custom hacia la documentación oficial del catálogo usando owner chain jerárquico, sin depender de `InheritanceGraph.getMembers()` como única fuente;
 - hover quedó protegido con guards explícitos contra `workspace fallback` innecesario cuando la resolución ya es `member-hierarchy` local o owner-scoped de catálogo en descendants custom de DataWindow;
 - completion publica lista inicial ligera y difiere documentación/detalle enriquecido con `completionItem/resolve`, payload budget propio y stale discard separado;
-- signatureHelp materializa `SignatureHelpViewModel` ligero antes de adaptar al DTO LSP;
+- signatureHelp materializa `SymbolSignatureViewModel` ligero dentro de `src/server/presentation` antes de adaptar al DTO LSP;
 - definition usa key estructurada de `ActiveDocumentServingSnapshot` y stale guard antes de publicar misses;
-- `src/server/presentation` ya concentra ViewModels/formatters puros para completion, definition, diagnostics, semantic tokens y AI context, sin imports a IO, discovery, parser ni stores semánticos runtime;
+- `src/server/presentation` ya concentra `SymbolHoverViewModel`, `SymbolCompletionViewModel`, `SymbolSignatureViewModel`, `SymbolDiagnosticViewModel`, `SymbolSemanticTokenViewModel` y sus formatters puros, sin imports a IO, discovery, parser ni stores semánticos runtime;
 - `documentSymbols` y `semanticTokens` tienen decisión explícita `no-cache final` / respuesta `full` mientras el snapshot caliente mantenga coste bajo;
+- `semanticTokens` publica además una taxonomía explícita basada en token types estándar, mantiene `defaultLibrary/local/instance/global` como modifiers visibles del contrato y no depende de locale ni texto localizado; `documentAnalysis` preserva ya `shared/global` inline dentro de `type variables` para no degradar esa proyección visible;
 - CodeLens mantiene `resolveProvider = false` con `CodeLensResultCache` especializado y prueba contractual de capabilities;
 - el gate ejecutable `test:performance:gate` cerró este carril con `legacy-public-active-hover = 5.00ms / 50.00ms`, manteniendo el hot path interactivo dentro de presupuesto real.
 
@@ -246,18 +251,18 @@ Estado actual:
 - `ServingCache` ya particiona por feature y publica `hit/miss/eviction` por feature en stats/runtime health.
 - `InteractiveServingPipeline` centraliza readiness, payload budget, stale guard, metrics y cache lookup/write para `hover`, `completion`, `completion-resolve` y `signatureHelp`; definition usa wrapper equivalente con key estructurada y stale guard.
 - `ActiveDocumentServingSnapshot` ya materializa una vista read-only del activo con token, scope, query context, receiver, binding, hot members, texto de línea y masking reutilizable entre features.
-- Hover ya tiene `HoverViewModel cache` y `NegativeHoverCache` con invalidación por documento, epoch, locale, `sourceOrigin`, watcher intake, shutdown y pressure policy.
+- Hover ya tiene `HoverViewModel cache` y `NegativeHoverCache`, y `completion-resolve` añade ahora un negative cache específico para misses seguros; ambos se invalidan por documento, epoch, locale, `sourceOrigin`, watcher intake, shutdown y pressure policy.
 - `references`, `rename` y CodeLens apoyados en candidate pool compartido y acotado por query/proyecto.
 - Reuso de líneas y `maskedText` publicados por snapshot.
 - `queryContext` y diagnostics de línea única leen solo la línea activa.
 - Completion consume listas read-only segmentadas del catálogo del sistema y sirve documentación enriquecida sólo en `completionItem/resolve`.
-- Completion, definition, diagnostics y semantic tokens delegan la adaptación final a `src/server/presentation`; los providers siguen resolviendo contexto, pero no poseen DTOs LSP complejos ni wording/payload final.
+- Hover, completion, signatureHelp, definition, diagnostics y semantic tokens delegan ya la adaptación final a `src/server/presentation`; los providers siguen resolviendo contexto, pero no poseen DTOs LSP complejos ni wording/payload final.
 - `referenceSourcePool` reutiliza URIs normalizadas del workspace.
 - `hotPathAllocationBudget.test.ts` fija ausencia de `JSON.stringify`, `getAllEntities` y `exportDocumentRecords` en features vigiladas.
 - `interactiveHotPathGuards.test.ts` fija `no IO / no workspace scan / no full parse` para `hover`, `completion`, `signatureHelp`, `definition`, `documentSymbols` y `semanticTokens` con snapshot caliente.
 - `SemanticQueryFacade` ofrece una entrada read-only para contexto posicional, target symbol, receiver type, callable, inheritance, enum context y catálogo owner-aware, coordinando `queryContext`, `semanticQueryService`, `InheritanceGraph`, `SystemCatalog`, `enumeratedContext` y `dataWindowBindingModel` sin crear otro store semántico.
 - `hover` y `definition` ya consumen `SemanticQueryFacade`; otros providers deben migrarse sólo por slices focales con pruebas visibles.
-- `resolvedSemanticModels.ts` define modelos server-side neutrales (`ResolvedSymbol*`, `ResolvedReceiver`, `ResolvedCallable`, `ResolvedEnumContext`) con confidence/reason/sourceOrigin sin Markdown ni DTO LSP.
+- `resolvedSemanticModels.ts` define modelos server-side neutrales (`CanonicalSymbolModel`, `ResolvedSymbol*`, `ResolvedReceiver`, `ResolvedCallable`, `ResolvedEnumContext`) con `identityKey` exacta, confidence/reason/sourceOrigin y shape mínima reusable sin Markdown ni DTO LSP.
 - Linked editing reutiliza `queryContext` + `references` y solo publica sobre Local/Argument con resolución semántica única.
 - Formatter conservador configurable corre en servidor LSP mediante `powerbuilder.formatDocument`.
 - Hover normal ya sirve un payload compacto y accionable: contexto útil por tipo de símbolo, warnings reales y sin metadata interna de provenance/confidence por defecto.
@@ -436,7 +441,7 @@ Estado actual:
 - `hover.ts`, `completion.ts` y `signatureHelp.ts` consumen el servicio común.
 - En completion, el overlay localizado se aplica en `completionPresentation.ts` durante initial/resolve sin cambiar `symbolId`, `domain` ni lookup keys.
 - Setting `vscPowerSyntax.languageServices.documentationLocale` sincroniza `auto|en|es` desde cliente a servidor.
-- `ServingCache` se segrega por locale efectiva.
+- `ServingCache` y los negative caches interactivos se segregan por locale efectiva.
 - Report de localización publica cobertura, overlays incompletos, targets recuperados y problemas de authoring.
 
 ---
@@ -656,6 +661,7 @@ Guardrails vigentes:
 - Snapshot fixtures versionadas para contratos públicos.
 - Tests de compatibilidad de semantic snapshot/support bundle/public contract/read-only bridge.
 - Smoke real sobre PFC/OrderEntry para oracle interno de consistencia semántica.
+- Knowledge packs framework-specific PFC/STD reutilizan el mismo rail advisory de `B248/B286`: summary con fallback curado cuando el owner type no vive en el system catalog, surfaces read-only coherentes y fixtures locales siempre gated con skip honesto.
 - Health checker runtime.
 - Workspace-check como dashboard/gate reproducible.
 - Docs drift valida backlog/current-focus/roadmap/done-log/specs, referencias a prompts reales y nombres `.prompt.md` en `.github/prompts`.

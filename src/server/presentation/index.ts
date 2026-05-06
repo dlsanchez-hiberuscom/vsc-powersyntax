@@ -2,5 +2,8 @@ export * from './aiContextPresentation';
 export * from './completionPresentation';
 export * from './definitionPresentation';
 export * from './diagnosticPresentation';
+export * from './hoverPresentation';
 export * from './semanticTokenPresentation';
+export * from './signatureHelpPresentation';
+export * from './terminology';
 export * from './viewModels';

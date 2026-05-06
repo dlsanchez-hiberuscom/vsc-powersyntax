@@ -6,13 +6,16 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createSemanticQueryFacade } from '../../../src/server/features/semanticQueryFacade';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
+import { buildSymbolKey } from '../../../src/server/knowledge/symbolKey';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
+import type { Entity } from '../../../src/server/knowledge/types';
 import { EntityKind } from '../../../src/server/knowledge/types';
 
 suite('unit/semanticQueryFacade', () => {
   let kb: KnowledgeBase;
   let graph: InheritanceGraph;
   let systemCatalog: SystemCatalog;
+  let setDataEntity: Entity;
 
   setup(() => {
     kb = new KnowledgeBase();
@@ -35,6 +38,31 @@ suite('unit/semanticQueryFacade', () => {
         returnType: 'integer',
       },
     ]);
+    setDataEntity = {
+      id: 'of_setdata_main',
+      name: 'of_SetData',
+      kind: EntityKind.Function,
+      containerName: 'w_main',
+      fileObjectName: 'w_main',
+      uri: 'file:///w_main.sru',
+      line: 6,
+      character: 2,
+      signature: 'public function integer of_SetData(string as_value) returns integer',
+      parameters: [{ label: 'string as_value' }],
+      parameterCount: 1,
+      returnType: 'integer',
+      implementationKind: 'function',
+      declarationScope: 'member',
+      lineage: {
+        sourceKind: 'document',
+        sourceOrigin: 'solution-source',
+        authority: 'derived',
+        phase: 'implementation',
+        role: 'implementation',
+        confidence: 'direct',
+      },
+    };
+
     kb.upsertDocument('file:///w_main.sru', [
       { id: 'w_main', name: 'w_main', kind: EntityKind.Type, baseTypeName: 'w_base', uri: 'file:///w_main.sru', line: 0, character: 0 },
       {
@@ -43,35 +71,20 @@ suite('unit/semanticQueryFacade', () => {
         kind: EntityKind.Variable,
         datatype: 'n_service',
         containerName: 'w_main',
+        fileObjectName: 'w_main',
         uri: 'file:///w_main.sru',
         line: 2,
         character: 2,
+        scope: 'Instancia',
+        declarationScope: 'member',
+        implementationKind: 'instance-var',
       },
-      {
-        id: 'of_setdata_main',
-        name: 'of_SetData',
-        kind: EntityKind.Function,
-        containerName: 'w_main',
-        uri: 'file:///w_main.sru',
-        line: 6,
-        character: 2,
-        signature: 'public function integer of_SetData(string as_value) returns integer',
-        parameters: [{ label: 'string as_value' }],
-        returnType: 'integer',
-        lineage: {
-          sourceKind: 'document',
-          sourceOrigin: 'solution-source',
-          authority: 'derived',
-          phase: 'implementation',
-          role: 'implementation',
-          confidence: 'direct',
-        },
-      },
+      setDataEntity,
     ]);
     kb.endBatchUpdate();
   });
 
-  test('resolveTargetSymbol conserva target, confidence, reason y sourceOrigin del query engine', () => {
+  test('resolveTargetSymbol materializa identityKey y shape canonica sobre el facade read-only', () => {
     const document = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, 'of_SetData("x")');
     const facade = createSemanticQueryFacade({ kb, graph, systemCatalog });
 
@@ -83,7 +96,16 @@ suite('unit/semanticQueryFacade', () => {
     assert.equal(resolved.confidence, 'high');
     assert.deepEqual(resolved.reasonCodes, ['member-hierarchy']);
     assert.equal(resolved.targetCount, 1);
+    assert.equal(resolved.symbols[0].identity, setDataEntity.id);
+    assert.equal(resolved.symbols[0].identityKey, buildSymbolKey(setDataEntity));
     assert.equal(resolved.symbols[0].name, 'of_SetData');
+    assert.equal(resolved.symbols[0].normalizedName, setDataEntity.id);
+    assert.equal(resolved.symbols[0].signature, setDataEntity.signature);
+    assert.equal(resolved.symbols[0].parameterCount, 1);
+    assert.equal(resolved.symbols[0].returnType, 'integer');
+    assert.equal(resolved.symbols[0].implementationKind, 'function');
+    assert.equal(resolved.symbols[0].declarationScope, 'member');
+    assert.equal(resolved.symbols[0].fileObjectName, 'w_main');
     assert.equal(resolved.symbols[0].sourceOrigin, 'solution-source');
     assert.equal(resolved.symbols[0].owner, 'w_main');
   });
@@ -112,6 +134,7 @@ suite('unit/semanticQueryFacade', () => {
 
     const callables = facade.resolveCallable(document, Position.create(0, 5), { consumer: 'signature-help' });
     assert.equal(callables.length, 1);
+    assert.equal(callables[0].symbol.identityKey, buildSymbolKey(setDataEntity));
     assert.equal(callables[0].symbol.name, 'of_SetData');
     assert.deepEqual(callables[0].parameterLabels, ['string as_value']);
     assert.equal(callables[0].returnType, 'integer');

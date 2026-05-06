@@ -2,18 +2,18 @@
 
 ## 1. Foco activo
 
-`SYMBOL-MODEL-01 — Canonical symbol model and facade contract`
+`CATALOG-LOCALIZATION-DOMAINS-01 — Localization coverage by domain`
 
 Cadena obligatoria vigente:
 
 ```txt
-docs/backlog.md#symbol-model-01--canonical-symbol-model-and-facade-contract
+docs/backlog.md -> CATALOG-LOCALIZATION-DOMAINS-01
 ```
 
-Estado de continuidad tras la auditoría final:
+Estado de continuidad tras cerrar el slice framework-specific:
 
 ```txt
-cadena de auditorías Bloque 13 cerrada; el siguiente trabajo promovido es el primer slice derivado para formalizar contrato canónico de símbolos sobre los owners ya existentes, sin reabrir runtime ni catálogo fuera de spec.
+`SYMBOL-FRAMEWORKS-01` quedó cerrado añadiendo packs advisory PFC/STD sobre el rail existente de framework knowledge packs, con source explícito, confidence/fallback proyectados por surface y validación gated con fixtures locales; el backlog operativo vuelve a `CATALOG-LOCALIZATION-DOMAINS-01` como pendiente parcial vigente.
 ```
 
 Auditorías transversales activas:
@@ -26,33 +26,34 @@ ninguna
 
 ## 2. Por qué este foco está activo
 
-- El usuario promovió explícitamente la cadena de prompts de Bloques 3-13.
-- Los Bloques 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 y 13 quedaron cerrados y movidos a `done-log.md` con validación registrada.
-- La auditoría final dejó como primer follow-up accionable el contrato canónico de símbolos y facade, documentado en [symbol-system.md](symbol-system.md).
+- `SYMBOL-FRAMEWORKS-01` ya quedó cubierto sin abrir otro motor semántico: PFC/STD entran por knowledge packs advisory, el símbolo real del workspace sigue siendo la autoridad y el manifest usa fallback curado sólo cuando el owner type no existe en el system catalog.
+- `CATALOG-LOCALIZATION-DOMAINS-01` permanece `Partial` con pendiente exacto visible: `datawindow-properties` sigue en `0/7` y el resto de dominios `generated` todavía necesita decisión de alcance con baseline antes/después.
+- `CATALOG-LOCALIZATION-ES-01` sigue siendo el paraguas de cobertura `es`; volver a `CATALOG-LOCALIZATION-DOMAINS-01` evita inventar una cadena nueva mientras el backlog activo todavía conserva este frente abierto.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Ejecutar `SYMBOL-MODEL-01` con cambios pequeños, pruebas focales y docs afectadas.
-- Mantener verdes los carriles existentes de legacy isolation, docs drift, architecture rapid y performance mientras se avanza.
-- No abrir slices posteriores de localización, semantic tokens o DataWindow enrichments hasta cerrar el contrato base o promoverlos explícitamente.
+- Abrir el siguiente corte documental visible para `datawindow-properties` y decidir con evidencia qué dominios `generated` pendientes merecen slice explícito.
+- Mantener el baseline `es` en `0 incomplete / 0 invalid / 0 recovered / 0 orphan` y usar `targetId`/`targetKey` con reportes antes/después.
+- Tratar `SYMBOL-FRAMEWORKS-01` como cerrado: sólo se reabre por regresión demostrada, no para ampliar heurísticas sin nuevo slice promovido.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Reabrir la auditoría final ya cerrada sin evidencia nueva.
-- Mezclar trabajo posterior dentro del mismo diff si el cambio no tiene validación acotada.
-- Introducir scans, IO o parse completo en hot paths interactivos.
-- Reabrir resolvers semánticos, `KnowledgeBase`, `DataWindowFastContext`, parsers, composition roots, testing gates o la capa `presentation` sin spec focal y guard explícito.
+- Reabrir `SYMBOL-FRAMEWORKS-01`, `SYMBOL-DOCS-EXAMPLES-01` o cualquiera de los slices de cobertura ya cerrados salvo regresión demostrada o cambio explícito de alcance.
+- Promocionar heurísticas PFC/STD a autoridad semántica del runtime base o del catálogo oficial.
+- Traducir keywords, reserved words, `signatureLabel`, `parameterName`, datatypes reales o cualquier anchor técnico del catálogo.
+- Traducir anchors técnicos o modificar identidad semántica del catálogo bajo pretexto de enrichment.
+- Reabrir resolvers semánticos, `KnowledgeBase`, `DataWindowFastContext`, parsers o composition roots sin evidencia de bloqueo real para el slice de localización por dominios.
 
 ---
 
 ## 5. Siguiente paso recomendado
 
-- Diseñar el contrato `CanonicalSymbol` mínimo, su relación con `buildSymbolKey`, sourceOrigin/confidence y los consumidores LSP que deben entrar por `SemanticQueryFacade`.
-- Ejecutar validación focal después de cada corte y actualizar [done-log.md](done-log.md) sólo al cerrar el slice.
+- abrir el siguiente corte de cobertura visible de `CATALOG-LOCALIZATION-DOMAINS-01` con baseline y reportes reales, empezando por `datawindow-properties` o dejando fuera con evidencia el resto `generated` pendiente.
+- conservar `SYMBOL-FRAMEWORKS-01` como slice cerrado y usar la revisión global del Bloque 2 sólo después de decidir qué pendiente documental/localización sigue realmente viva.
 
 ---
 

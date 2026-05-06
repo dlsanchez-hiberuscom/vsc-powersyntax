@@ -32,6 +32,7 @@ Build a professional VS Code extension for PowerBuilder 2025/PowerScript with fa
 - The system catalog is generated-primary with manual and localization overlays.
 - No pegar datasets `generated/manual/localization` completos dentro del prompt.
 - Cite the owner doc or query the runtime surface instead of copying large catalog payloads.
+- Minimal overlay and recovery examples now live in `docs/localization.md`; simplified payload/enrichment examples live in `docs/symbol-system.md`.
 
 ## Validation commands and tools
 - Prefer `workspace-check` for repo-level claims and `object-check` for object-level claims.

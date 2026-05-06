@@ -21,6 +21,8 @@ import {
   buildDataWindowModel,
   buildDataWindowModelFromSnapshot,
   type DataWindowModel,
+  type DataWindowExpressionDependency,
+  type DataWindowExpressionNode,
   type DataWindowRetrieveArgument,
   type DataWindowTableColumnNode,
 } from './dataWindowModel';
@@ -57,6 +59,22 @@ export interface DataWindowFastBufferView {
   enumType: 'DWBuffer';
 }
 
+export interface DataWindowFastComputedFieldDependencyView {
+  name: string;
+  kind: DataWindowExpressionDependency['kind'];
+  sourceOrigin: 'datawindow-model';
+}
+
+export interface DataWindowFastComputedFieldView {
+  name: string;
+  controlType: 'compute';
+  propertyName: string;
+  expressionText: string;
+  staticValue?: string;
+  dependencies: DataWindowFastComputedFieldDependencyView[];
+  sourceOrigin: 'datawindow-model';
+}
+
 export interface DataWindowFastBindingView {
   targetName?: string;
   receiverKind: DataWindowReceiverKind;
@@ -84,6 +102,7 @@ export interface DataWindowFastContext {
   binding: DataWindowFastBindingView;
   dataObjectName?: string;
   columns: DataWindowFastColumnView[];
+  computedFields: DataWindowFastComputedFieldView[];
   propertyPaths: string[];
   buffers: DataWindowFastBufferView[];
   builtIns: readonly PbSystemSymbolEntry[];
@@ -146,6 +165,9 @@ export function createDataWindowFastContext(options: CreateDataWindowFastContext
   const columns = binding.confidence === 'high' || binding.confidence === 'medium' || isDataWindowSource
     ? toFastColumns(model?.tableColumns ?? [])
     : [];
+  const computedFields = binding.confidence === 'high' || binding.confidence === 'medium' || isDataWindowSource
+    ? toFastComputedFields(model?.expressions ?? [])
+    : [];
   const propertyPaths = binding.confidence === 'unknown' && !isDataWindowSource
     ? []
     : listKnownSafeDataWindowPropertyPaths();
@@ -167,6 +189,7 @@ export function createDataWindowFastContext(options: CreateDataWindowFastContext
     binding,
     ...(dataObjectName ? { dataObjectName } : {}),
     columns,
+    computedFields,
     propertyPaths,
     buffers,
     builtIns,
@@ -453,6 +476,24 @@ function toFastColumns(columns: readonly DataWindowTableColumnNode[]): DataWindo
     ...(column.dbName ? { dbName: column.dbName } : {}),
     sourceOrigin: 'datawindow-model',
   }));
+}
+
+function toFastComputedFields(expressions: readonly DataWindowExpressionNode[]): DataWindowFastComputedFieldView[] {
+  return expressions
+    .filter((expression) => expression.controlType === 'compute')
+    .map((expression) => ({
+      name: expression.ownerName ?? expression.name,
+      controlType: 'compute',
+      propertyName: expression.propertyName,
+      expressionText: expression.expressionText,
+      ...(expression.staticValue !== undefined ? { staticValue: expression.staticValue } : {}),
+      dependencies: expression.dependencies.map((dependency) => ({
+        name: dependency.name,
+        kind: dependency.kind,
+        sourceOrigin: 'datawindow-model',
+      })),
+      sourceOrigin: 'datawindow-model',
+    }));
 }
 
 function listOfficialDwBuffers(systemCatalog: SystemCatalog): DataWindowFastBufferView[] {

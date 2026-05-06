@@ -179,7 +179,52 @@ suite('unit/dataWindowFastContext (Bloque 6)', () => {
     assert.equal(context.binding.dynamic, true);
     assert.deepEqual(context.binding.reasonCodes, ['dataobject-dynamic-expression']);
     assert.deepEqual(context.columns, []);
+    assert.deepEqual(context.computedFields, []);
     assert.deepEqual(context.propertyPaths, ['DataWindow.DataObject', 'DataWindow.Syntax', 'DataWindow.Table.Select', 'dddw.name']);
+  });
+
+  test('expone computed fields del DataWindow enlazado con dependencias seguras y sourceOrigin explicito', () => {
+    setupAnalyzedDocument('file:///d_compute_fast.srd', [
+      '$PBExportHeader$d_compute_fast.srd',
+      'release 39;',
+      'datawindow(units=0)',
+      'table(column=(type=decimal(18,2) name=adjusted_hours dbname="emp.adjusted_hours")',
+      ' column=(type=decimal(18,2) name=rate dbname="emp.rate") retrieve="SELECT adjusted_hours, rate FROM emp")',
+      'compute(band=detail name=cc_total expression="adjusted_hours * rate")',
+    ].join('\r\n'));
+    const document = setupAnalyzedDocument('file:///w_compute_fast.srw', [
+      'global type w_compute_fast from window',
+      'end type',
+      '',
+      'event open();',
+      '  dw_compute.DataObject = "d_compute_fast"',
+      '  dw_compute.Retrieve()',
+      'end event',
+    ].join('\r\n'));
+
+    const context = createDataWindowFastContext({
+      document,
+      position: Position.create(5, 15),
+      kb,
+      graph,
+      systemCatalog,
+      receiverName: 'dw_compute',
+      receiverType: 'datawindow',
+      sourceOrigin: 'workspace-ws_objects',
+    });
+
+    assert.equal(context.binding.confidence, 'high');
+    assert.deepEqual(context.computedFields, [{
+      name: 'cc_total',
+      controlType: 'compute',
+      propertyName: 'expression',
+      expressionText: 'adjusted_hours * rate',
+      dependencies: [
+        { name: 'adjusted_hours', kind: 'table-column', sourceOrigin: 'datawindow-model' },
+        { name: 'rate', kind: 'table-column', sourceOrigin: 'datawindow-model' },
+      ],
+      sourceOrigin: 'datawindow-model',
+    }]);
   });
 
   test('usa cache caliente sin IO ni reanalisis completo', () => {

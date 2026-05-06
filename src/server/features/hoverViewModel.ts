@@ -4,45 +4,18 @@ import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 import type { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { EntityKind, type Entity } from '../knowledge/types';
 import type { QueryAmbiguityKind, QueryReasonCode, QueryResolutionConfidence } from '../knowledge/resolution/semanticQueryService';
+import { buildSymbolHoverViewModel } from '../presentation/hoverPresentation';
+import { getPresentationTerm, resolvePresentationTerminologyLocale } from '../presentation/terminology';
+import type {
+  HoverBlockViewModel as HoverViewModelBlock,
+  HoverPresentationKind as HoverKind,
+  PresentationConfidence as HoverConfidence,
+  SymbolHoverViewModel as HoverViewModel,
+} from '../presentation/viewModels';
 
-export type HoverKind =
-  | 'local-variable'
-  | 'argument'
-  | 'instance-variable'
-  | 'shared-variable'
-  | 'global-variable'
-  | 'function'
-  | 'event'
-  | 'inherited-member'
-  | 'built-in'
-  | 'enumerated-type'
-  | 'enumerated-value'
-  | 'datawindow-method'
-  | 'datawindow-column'
-  | 'datawindow-property'
-  | 'sql-symbol'
-  | 'dynamic'
-  | 'unknown';
-
-export type HoverConfidence = 'high' | 'medium' | 'low';
+export type { HoverKind, HoverConfidence, HoverViewModelBlock, HoverViewModel };
 
 export type HoverNegativeReason = 'whitespace' | 'comment' | 'string' | 'keyword' | 'separator' | 'unresolved';
-
-export interface HoverViewModelBlock {
-  kind: 'context' | 'documentation' | 'warning' | 'details';
-  lines: string[];
-}
-
-export interface HoverViewModel {
-  kind: HoverKind;
-  title?: string;
-  signature?: string;
-  summary?: string;
-  blocks: HoverViewModelBlock[];
-  confidence?: HoverConfidence;
-  locale?: DocumentationLocale;
-  preformattedMarkdown?: string;
-}
 
 export interface HoverResolutionSummary {
   confidence?: QueryResolutionConfidence;
@@ -53,11 +26,11 @@ export interface HoverResolutionSummary {
 }
 
 const KIND_NAME: Record<string, string> = {
-  Type: 'Type',
-  Function: 'Function',
-  Subroutine: 'Subroutine',
-  Event: 'Event',
-  Variable: 'Variable',
+  Type: 'type',
+  Function: 'function',
+  Subroutine: 'subroutine',
+  Event: 'event',
+  Variable: 'variable',
 };
 
 function sanitizeCallableSignature(signature?: string): string | undefined {
@@ -69,111 +42,123 @@ function sanitizeCallableSignature(signature?: string): string | undefined {
   return sanitized && sanitized.length > 0 ? sanitized : undefined;
 }
 
-function buildEntityHeading(entity: Entity): string {
+function buildEntityHeading(entity: Entity, locale: DocumentationLocale): string {
   if (entity.kind === EntityKind.Variable) {
     if (entity.declarationScope === 'parameter' || entity.scope === 'Argumento') {
-      return `**Argument** \`${entity.name}\``;
+      return `**${getPresentationTerm('argument', locale)}** \`${entity.name}\``;
     }
     if (entity.declarationScope === 'local' || entity.scope === 'Local') {
-      return `**Local variable** \`${entity.name}\``;
+      return `**${getPresentationTerm('local-variable', locale)}** \`${entity.name}\``;
     }
     if (entity.scope === 'Compartida') {
-      return `**Shared variable** \`${entity.name}\``;
+      return `**${getPresentationTerm('shared-variable', locale)}** \`${entity.name}\``;
     }
     if (entity.scope === 'Global') {
-      return `**Global variable** \`${entity.name}\``;
+      return `**${getPresentationTerm('global-variable', locale)}** \`${entity.name}\``;
     }
     if (entity.lineage?.role === 'inherited') {
-      return `**Inherited variable** \`${entity.name}\``;
+      return `**${getPresentationTerm('inherited-variable', locale)}** \`${entity.name}\``;
     }
-    return `**Instance variable** \`${entity.name}\``;
+    return `**${getPresentationTerm('instance-variable', locale)}** \`${entity.name}\``;
   }
 
   if (entity.kind === EntityKind.Type) {
-    return `**Type** \`${entity.name}\``;
+    return `**${getPresentationTerm('type', locale)}** \`${entity.name}\``;
   }
 
   if (entity.isExternal && entity.kind === EntityKind.Function) {
-    return `**External function** \`${entity.name}\``;
+    return `**${getPresentationTerm('external-function', locale)}** \`${entity.name}\``;
   }
 
   if (entity.isExternal && entity.kind === EntityKind.Subroutine) {
-    return `**External subroutine** \`${entity.name}\``;
+    return `**${getPresentationTerm('external-subroutine', locale)}** \`${entity.name}\``;
   }
 
-  const kindName = KIND_NAME[entity.kind] ?? 'Symbol';
+  const kindName = getPresentationTerm(
+    (KIND_NAME[entity.kind] as Parameters<typeof getPresentationTerm>[0] | undefined) ?? 'symbol',
+    locale,
+  );
   if (entity.lineage?.role === 'inherited') {
-    return `**Inherited ${kindName.toLowerCase()}** \`${entity.name}\``;
+    if (entity.kind === EntityKind.Function) {
+      return `**${getPresentationTerm('inherited-function', locale)}** \`${entity.name}\``;
+    }
+    if (entity.kind === EntityKind.Event) {
+      return `**${getPresentationTerm('inherited-event', locale)}** \`${entity.name}\``;
+    }
+    if (entity.kind === EntityKind.Subroutine) {
+      return `**${getPresentationTerm('inherited-subroutine', locale)}** \`${entity.name}\``;
+    }
+    return `**${getPresentationTerm('inherited', locale)} ${kindName.toLowerCase()}** \`${entity.name}\``;
   }
 
   return `**${kindName}** \`${entity.name}\``;
 }
 
-function buildEntityContextLines(entity: Entity): string[] {
+function buildEntityContextLines(entity: Entity, locale: DocumentationLocale): string[] {
   const lines: string[] = [];
 
   if (entity.access && entity.declarationScope !== 'local' && entity.declarationScope !== 'parameter') {
-    lines.push(`**Access:** \`${entity.access}\``);
+    lines.push(`**${getPresentationTerm('access-label', locale)}:** \`${entity.access}\``);
   }
 
   if (entity.kind === EntityKind.Type && entity.baseTypeName) {
-    lines.push(`**Inherits:** \`${entity.name} -> ${entity.baseTypeName}\``);
-    lines.push(`Hereda de: ${entity.baseTypeName}`);
+    lines.push(`**${getPresentationTerm('inherits-label', locale)}:** \`${entity.name} -> ${entity.baseTypeName}\``);
+    lines.push(`${getPresentationTerm('inherits-label', 'es')}: ${entity.baseTypeName}`);
     return lines;
   }
 
   if (entity.declarationScope === 'local' || entity.declarationScope === 'parameter') {
     const callableSignature = sanitizeCallableSignature(entity.containerSignature);
     if (callableSignature) {
-      lines.push(`**Scope:** \`${callableSignature}\``);
+      lines.push(`**${getPresentationTerm('scope', locale)}:** \`${callableSignature}\``);
     } else if (entity.containerName) {
-      lines.push(`**Scope:** \`${entity.containerName}\``);
+      lines.push(`**${getPresentationTerm('scope', locale)}:** \`${entity.containerName}\``);
     }
   } else if (entity.ownerName) {
-    lines.push(`**Defined in:** \`${entity.ownerName}\``);
+    lines.push(`**${getPresentationTerm('defined-in-label', locale)}:** \`${entity.ownerName}\``);
   } else if (entity.containerName) {
-    lines.push(`**Defined in:** \`${entity.containerName}\``);
+    lines.push(`**${getPresentationTerm('defined-in-label', locale)}:** \`${entity.containerName}\``);
   }
 
   if (entity.lineage?.inheritedFrom && entity.kind !== EntityKind.Type) {
-    lines.push(`**Inherited from:** \`${entity.lineage.inheritedFrom}\``);
+    lines.push(`**${getPresentationTerm('inherited-from-label', locale)}:** \`${entity.lineage.inheritedFrom}\``);
   }
 
   return lines;
 }
 
-function buildExternalWarning(entity: Entity): string | null {
+function buildExternalWarning(entity: Entity, locale: DocumentationLocale): string | null {
   if (!entity.isExternal) {
     return null;
   }
 
   if (entity.externalCallableKind === 'rpcfunc') {
-    return 'Warning: external stored procedure declaration. Runtime behavior is not validated.';
+    return getPresentationTerm('warning-external-stored-procedure', locale);
   }
 
-  return 'Warning: external/native call. Runtime behavior is not validated.';
+  return getPresentationTerm('warning-external-call', locale);
 }
 
-function buildResolutionWarning(resolution?: HoverResolutionSummary): string | null {
+function buildResolutionWarning(resolution: HoverResolutionSummary | undefined, locale: DocumentationLocale): string | null {
   if (!resolution) {
     return null;
   }
 
   if (resolution.ambiguous) {
     return resolution.ambiguityKind === 'global-fallback'
-      ? 'Warning: ambiguous target resolved through workspace fallback.'
-      : 'Warning: ambiguous target; multiple candidates match the current context.';
+      ? getPresentationTerm('warning-ambiguous-fallback', locale)
+      : getPresentationTerm('warning-ambiguous-target', locale);
   }
 
   switch (resolution.reasonCode) {
     case 'global-fallback':
-      return 'Warning: resolved using workspace fallback; inherited members may be incomplete.';
+      return getPresentationTerm('warning-workspace-fallback', locale);
     default:
       break;
   }
 
   if (resolution.confidence === 'low') {
-    return 'Warning: low-confidence resolution.';
+    return getPresentationTerm('warning-low-confidence', locale);
   }
 
   return null;
@@ -244,27 +229,28 @@ function collectEffectiveEnumeratedTypeValues(
   return Array.from(values);
 }
 
-function formatSystemSymbolRisk(risk: NonNullable<PbSystemSymbolEntry['risk']>): string {
+function formatSystemSymbolRisk(risk: NonNullable<PbSystemSymbolEntry['risk']>, locale: DocumentationLocale): string {
   switch (risk) {
     case 'safe':
-      return 'seguro';
+      return getPresentationTerm('risk-safe', locale);
     case 'dynamic':
-      return 'dinamico';
+      return getPresentationTerm('risk-dynamic', locale);
     case 'deprecated':
-      return 'deprecated';
+      return getPresentationTerm('risk-deprecated', locale);
     case 'legacy':
-      return 'legacy';
+      return getPresentationTerm('risk-legacy', locale);
     case 'external':
-      return 'externo';
+      return getPresentationTerm('risk-external', locale);
   }
 }
 
 export function buildUserHoverViewModel(
   entity: Entity,
   resolution?: HoverResolutionSummary,
-  options: { detailLines?: string[] } = {}
+  options: { detailLines?: string[]; locale?: string } = {}
 ): HoverViewModel {
   const enriched = enrichEntity(entity);
+  const locale = resolvePresentationTerminologyLocale(options.locale);
   const access = enriched.access ? `${enriched.access} ` : '';
 
   let signature: string;
@@ -278,7 +264,7 @@ export function buildUserHoverViewModel(
   }
 
   const blocks: HoverViewModelBlock[] = [];
-  const contextLines = buildEntityContextLines(enriched);
+  const contextLines = buildEntityContextLines(enriched, locale);
   if (contextLines.length > 0) {
     blocks.push({ kind: 'context', lines: contextLines });
   }
@@ -287,8 +273,8 @@ export function buildUserHoverViewModel(
     blocks.push({ kind: 'details', lines: options.detailLines });
   }
 
-  const externalWarning = buildExternalWarning(enriched);
-  const resolutionWarning = buildResolutionWarning(resolution);
+  const externalWarning = buildExternalWarning(enriched, locale);
+  const resolutionWarning = buildResolutionWarning(resolution, locale);
   const warnings = [externalWarning, resolutionWarning].filter((line): line is string => Boolean(line));
   if (warnings.length > 0) {
     blocks.push({ kind: 'warning', lines: warnings });
@@ -298,9 +284,9 @@ export function buildUserHoverViewModel(
     blocks.push({ kind: 'documentation', lines: [enriched.documentation] });
   }
 
-  return {
+  return buildSymbolHoverViewModel({
     kind: classifyUserHoverKind(enriched),
-    title: buildEntityHeading(enriched),
+    title: buildEntityHeading(enriched, locale),
     signature,
     blocks,
     confidence: resolution?.ambiguous || resolution?.confidence === 'low'
@@ -308,7 +294,8 @@ export function buildUserHoverViewModel(
       : resolution?.confidence === 'medium'
         ? 'medium'
         : 'high',
-  };
+    locale,
+  });
 }
 
 export function buildSystemHoverViewModel(
@@ -316,6 +303,7 @@ export function buildSystemHoverViewModel(
   catalog: SystemCatalog,
   documentationLocale: DocumentationLocale,
 ): HoverViewModel {
+  const labelLocale: DocumentationLocale = 'es';
   const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
   const displaySummary = getDisplaySummary(symbol, documentationLocale);
   const displayDocumentation = getDisplayDocumentation(symbol, documentationLocale);
@@ -326,13 +314,13 @@ export function buildSystemHoverViewModel(
   const warningLines: string[] = [];
 
   if (symbol.obsolete) {
-    warningLines.push(`**⚠️ OBSOLETO:** ${displayObsoleteMessage || 'Evita usar esta función.'}`);
+    warningLines.push(`**⚠️ ${getPresentationTerm('obsolete-label', labelLocale).toUpperCase()}:** ${displayObsoleteMessage || getPresentationTerm('deprecated-default-message', labelLocale)}`);
     if (symbol.replacement) {
-      warningLines.push(`> *Usa \`${symbol.replacement}\` en su lugar.*`);
+      warningLines.push(`> *${getPresentationTerm('use-instead', labelLocale)} \`${symbol.replacement}\`.*`);
     }
   }
   if (symbol.risk) {
-    warningLines.push(`**Riesgo de uso:** ${formatSystemSymbolRisk(symbol.risk)}`);
+    warningLines.push(`**${getPresentationTerm('risk-of-use-label', labelLocale)}:** ${formatSystemSymbolRisk(symbol.risk, labelLocale)}`);
   }
   if (warningLines.length > 0) {
     blocks.push({ kind: 'warning', lines: warningLines });
@@ -342,7 +330,7 @@ export function buildSystemHoverViewModel(
   if (symbol.signatures && symbol.signatures.length > 0) {
     const mainSig = symbol.signatures[0];
     if (mainSig.parameters && mainSig.parameters.length > 0) {
-      detailLines.push('**Parámetros:**');
+      detailLines.push(`**${getPresentationTerm('parameters-label', labelLocale)}:**`);
       for (const parameter of mainSig.parameters) {
         const parameterDocumentation = getDisplayParameterDocumentation(
           symbol,
@@ -355,31 +343,31 @@ export function buildSystemHoverViewModel(
     }
   }
   if (displayReturnDocumentation) {
-    detailLines.push(`**Retorno:** ${displayReturnDocumentation}`);
+    detailLines.push(`**${getPresentationTerm('returns-label', labelLocale)}:** ${displayReturnDocumentation}`);
   }
   if (displayUsageNotes.length > 0) {
-    detailLines.push('**Notas de uso:**');
+    detailLines.push(`**${getPresentationTerm('usage-notes-label', labelLocale)}:**`);
     for (const usageNote of displayUsageNotes) {
       detailLines.push(`* ${usageNote}`);
     }
   }
   if (symbol.appliesTo && symbol.appliesTo.length > 0) {
-    detailLines.push(`**Se aplica a:** ${symbol.appliesTo.join(', ')}`);
+    detailLines.push(`**${getPresentationTerm('applies-to-label', labelLocale)}:** ${symbol.appliesTo.join(', ')}`);
   }
   if (symbol.kind === 'enumerated-type' && effectiveEnumValues.length > 0) {
-    detailLines.push(`**Valores:** ${effectiveEnumValues.join(', ')}`);
+    detailLines.push(`**${getPresentationTerm('values-label', labelLocale)}:** ${effectiveEnumValues.join(', ')}`);
   }
   if (symbol.kind === 'enumerated-value' && symbol.enumValueOf) {
-    detailLines.push(`**Tipo:** ${symbol.enumValueOf}`);
+    detailLines.push(`**${getPresentationTerm('type', labelLocale)}:** ${symbol.enumValueOf}`);
     if (symbol.enumNumericValue !== undefined) {
-      detailLines.push(`**Valor numérico:** ${symbol.enumNumericValue}`);
+      detailLines.push(`**${getPresentationTerm('numeric-value-label', labelLocale)}:** ${symbol.enumNumericValue}`);
     }
     if (symbol.enumValueMeaning) {
-      detailLines.push(`**Significado:** ${symbol.enumValueMeaning}`);
+      detailLines.push(`**${getPresentationTerm('meaning-label', labelLocale)}:** ${symbol.enumValueMeaning}`);
     }
   }
   if (symbol.sourceUrl) {
-    detailLines.push(`[📚 Documentación Oficial Appeon](${symbol.sourceUrl})`);
+    detailLines.push(`[📚 ${getPresentationTerm('official-documentation-label', labelLocale)}](${symbol.sourceUrl})`);
   }
   if (detailLines.length > 0) {
     blocks.push({ kind: 'details', lines: detailLines });
@@ -388,14 +376,14 @@ export function buildSystemHoverViewModel(
     blocks.push({ kind: 'documentation', lines: [displayDocumentation] });
   }
 
-  return {
+  return buildSymbolHoverViewModel({
     kind: classifySystemHoverKind(symbol),
     signature: symbol.signatures?.[0]?.label ?? symbol.name,
     summary: displaySummary,
     blocks,
     confidence: 'high',
     locale: documentationLocale,
-  };
+  });
 }
 
 export function buildLanguageHoverViewModel(
@@ -403,6 +391,7 @@ export function buildLanguageHoverViewModel(
   catalog: SystemCatalog,
   documentationLocale: DocumentationLocale,
 ): HoverViewModel {
+  const labelLocale: DocumentationLocale = 'es';
   const effectiveEnumValues = collectEffectiveEnumeratedTypeValues(symbol, catalog);
   const displaySummary = getDisplaySummary(symbol, documentationLocale);
   const displayDocumentation = getDisplayDocumentation(symbol, documentationLocale);
@@ -410,18 +399,18 @@ export function buildLanguageHoverViewModel(
   const detailLines: string[] = [];
 
   if (symbol.category) {
-    detailLines.push(`**Categoría:** ${symbol.category}`);
+    detailLines.push(`**${getPresentationTerm('category-label', labelLocale)}:** ${symbol.category}`);
   }
   if (symbol.kind === 'enumerated-type' && effectiveEnumValues.length > 0) {
-    detailLines.push(`**Valores:** ${effectiveEnumValues.join(', ')}`);
+    detailLines.push(`**${getPresentationTerm('values-label', labelLocale)}:** ${effectiveEnumValues.join(', ')}`);
   }
   if (symbol.kind === 'enumerated-value' && symbol.enumValueOf) {
-    detailLines.push(`**Tipo:** ${symbol.enumValueOf}`);
+    detailLines.push(`**${getPresentationTerm('type', labelLocale)}:** ${symbol.enumValueOf}`);
     if (symbol.enumNumericValue !== undefined) {
-      detailLines.push(`**Valor numérico:** ${symbol.enumNumericValue}`);
+      detailLines.push(`**${getPresentationTerm('numeric-value-label', labelLocale)}:** ${symbol.enumNumericValue}`);
     }
     if (symbol.enumValueMeaning) {
-      detailLines.push(`**Significado:** ${symbol.enumValueMeaning}`);
+      detailLines.push(`**${getPresentationTerm('meaning-label', labelLocale)}:** ${symbol.enumValueMeaning}`);
     }
   }
   if (detailLines.length > 0) {
@@ -431,7 +420,7 @@ export function buildLanguageHoverViewModel(
     blocks.push({ kind: 'documentation', lines: [displayDocumentation] });
   }
 
-  return {
+  return buildSymbolHoverViewModel({
     kind: symbol.kind === 'enumerated-type'
       ? 'enumerated-type'
       : symbol.kind === 'enumerated-value'
@@ -442,14 +431,14 @@ export function buildLanguageHoverViewModel(
     blocks,
     confidence: 'high',
     locale: documentationLocale,
-  };
+  });
 }
 
 export function buildPreformattedHoverViewModel(kind: HoverKind, markdown: string): HoverViewModel {
-  return {
+  return buildSymbolHoverViewModel({
     kind,
     blocks: [],
     preformattedMarkdown: markdown,
     confidence: kind === 'unknown' ? 'low' : 'high',
-  };
+  });
 }

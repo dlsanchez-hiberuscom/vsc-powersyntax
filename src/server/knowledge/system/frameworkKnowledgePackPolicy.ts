@@ -15,6 +15,8 @@ export interface CuratedFrameworkKnowledgePackDefinition {
   source: string;
   sourceUrl?: string;
   spotlightSymbols?: readonly string[];
+  advisoryMembers?: readonly string[];
+  advisoryEvents?: readonly string[];
 }
 
 export const CURATED_FRAMEWORK_KNOWLEDGE_PACKS: readonly CuratedFrameworkKnowledgePackDefinition[] = [
@@ -47,6 +49,28 @@ export const CURATED_FRAMEWORK_KNOWLEDGE_PACKS: readonly CuratedFrameworkKnowled
     source: 'VSC PowerSyntax curated framework pack',
     sourceUrl: 'https://docs.appeon.com/pb2025/powerscript_reference/index.html',
     spotlightSymbols: ['CategoryExpanded', 'CategoryCollapsed', 'CategorySelectionChanged', 'MenuChanged'],
+  },
+  {
+    id: 'pfc-response-dwsrv',
+    version: '1.0.0',
+    title: 'PFC Response / DW services',
+    summary: 'Pack advisory para ancestros PFC w_response y n_cst_dwsrv detectados en corpus local, con hooks de respuesta y servicios DataWindow frecuentes.',
+    ownerTypes: ['w_response', 'pfc_w_response', 'n_cst_dwsrv', 'pfc_n_cst_dwsrv', 'n_cst_dwsrv_property', 'pfc_n_cst_dwsrv_property'],
+    source: 'VSC PowerSyntax curated framework pack (fixtures-local/pfc advisory evidence)',
+    spotlightSymbols: ['pfc_FilterDlg', 'of_SetFilter', 'of_Filter', 'pfc_PostOpen'],
+    advisoryMembers: ['of_Filter', 'of_GetFilter', 'of_SetFilter', 'of_SetVisibleOnly'],
+    advisoryEvents: ['pfc_FilterDlg', 'pfc_PostOpen'],
+  },
+  {
+    id: 'std-controller-shells',
+    version: '1.0.0',
+    title: 'STD Controller shells',
+    summary: 'Pack advisory para shells STD wn_controller_master, mu_controller_master y dialogs oe_* detectados en OrderEntry.',
+    ownerTypes: ['wn_controller_master', 'mu_controller_master', 'wn_messagebox_master'],
+    source: 'VSC PowerSyntax curated framework pack (fixtures-local/STD_FC_OrderEntry advisory evidence)',
+    spotlightSymbols: ['oe_PostOpen', 'oe_Documentation', 'mi_Retrieve', 'mi_Toolbar'],
+    advisoryMembers: ['mi_Retrieve', 'mi_Print', 'mi_Toolbar'],
+    advisoryEvents: ['oe_PostOpen', 'oe_Documentation', 'oe_PostConstructor', 'oe_Resize'],
   },
 ];
 

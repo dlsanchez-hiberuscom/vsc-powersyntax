@@ -90,4 +90,25 @@ suite('unit/cacheKeyContract', () => {
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, rangeEndCharacter: 15 }));
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, context: 'messageboxa' }));
   });
+
+  test('versiona negative cache de completion-resolve por locale y contexto', () => {
+    const base = {
+      cacheClass: 'negative' as const,
+      feature: 'completion-resolve' as const,
+      pressureClass: 'negative' as const,
+      uri: 'file:///w_main.srw',
+      documentVersion: 3,
+      kbVersion: 7,
+      semanticEpoch: 11,
+      sourceOrigin: 'workspace-ws_objects' as const,
+      locale: 'es',
+      context: 'system:abs',
+    };
+
+    const stable = buildInteractiveServingCacheKey(base);
+
+    assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, locale: 'en' }));
+    assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, context: 'system:messagebox' }));
+    assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, semanticEpoch: 12 }));
+  });
 });

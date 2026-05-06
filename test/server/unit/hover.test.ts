@@ -124,6 +124,53 @@ suite('unit/hover', () => {
     assert.match(value, /Evita usarlo en rutas de cambio de foco sensibles/i);
   });
 
+  test('provideHover localiza helpers built-in del slice visible actual', () => {
+    const doc = TextDocument.create('file:///test_hover_len_locale.sru', 'powerbuilder', 1, '  Len("Hola")  ');
+
+    const hover = provideHover(doc, Position.create(0, 4), kb, catalog, graph, undefined, 'es');
+
+    assert.ok(hover, 'Hover no debería ser null');
+    const value = (hover?.contents as any).value as string;
+    assert.match(value, /longitud de una cadena o blob/i);
+    assert.match(value, /medir texto visible o buffers binarios/i);
+    assert.match(value, /Len cuenta caracteres y no incluye el terminador null/i);
+  });
+
+  test('provideHover localiza DataWindow core del slice visible actual', () => {
+    const doc = setupAnalyzedDocument('file:///w_tx_hover_settransobject_locale.sru', `
+global type w_tx_hover_settransobject_locale from window
+  datastore ids_orders
+end type
+
+forward prototypes
+public subroutine of_test()
+end prototypes
+
+public subroutine of_test()
+  ids_orders.SetTransObject(SQLCA)
+end subroutine
+    `);
+
+    const lines = doc.getText().split(/\r?\n/);
+    const lineIndex = lines.findIndex((line) => line.includes('ids_orders.SetTransObject(SQLCA)'));
+    const hover = provideHover(
+      doc,
+      Position.create(lineIndex, lines[lineIndex].indexOf('SetTransObject') + 2),
+      kb,
+      catalog,
+      graph,
+      undefined,
+      'es',
+    );
+
+    assert.ok(hover, 'Hover no deberia ser null para ids_orders.SetTransObject(SQLCA).');
+    const value = (hover?.contents as any).value as string;
+    assert.match(value, /transaction object explicito/i);
+    assert.match(value, /reutilice un transaction object administrado por tu codigo/i);
+    assert.match(value, /sigue siendo responsable de CONNECT, COMMIT y ROLLBACK/i);
+    assert.match(value, /asociacion se realiza correctamente/i);
+  });
+
   test('provideHover resuelve system types modernos del catálogo runtime', () => {
     const doc = setupAnalyzedDocument('file:///n_http_hover.sru', [
       'forward',

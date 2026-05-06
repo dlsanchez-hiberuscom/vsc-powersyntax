@@ -1,6 +1,6 @@
 import * as assert from 'assert/strict';
 
-import { CompletionItemKind, DiagnosticSeverity, Location, Position, Range } from 'vscode-languageserver/node';
+import { CompletionItemKind, DiagnosticSeverity, Location, Position, Range, SignatureInformation } from 'vscode-languageserver/node';
 
 import { EntityKind, type Entity } from '../../../src/server/knowledge/types';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
@@ -9,6 +9,8 @@ import {
   buildCompletionListViewModel,
   buildDefinitionViewModel,
   buildDiagnosticMessageViewModel,
+  buildSymbolHoverViewModel,
+  buildSymbolSignatureViewModel,
   buildEntityCompletionItemViewModel,
   buildEntityCompletionResolveViewModel,
   buildSemanticTokensViewModel,
@@ -20,6 +22,8 @@ import {
   formatCompletionResolveViewModel,
   formatDefinitionViewModel,
   formatDiagnosticMessageViewModel,
+  formatSymbolHoverMarkdown,
+  formatSymbolSignatureViewModel,
   formatSemanticTokensViewModel,
 } from '../../../src/server/presentation';
 
@@ -131,5 +135,44 @@ suite('unit/presentationContracts (Bloque 7)', () => {
     assert.equal(viewModel.payloadPolicy.compact, true);
     assert.deepEqual(viewModel.sections[0].blocks[0].lines, ['Objeto actual w_main']);
     assert.equal(formatted.sourceOrigin, 'workspace-ws_objects');
+  });
+
+  test('SymbolHoverViewModel se construye en presentation y conserva payload policy compacta', () => {
+    const viewModel = buildSymbolHoverViewModel({
+      kind: 'built-in',
+      title: '**Function** `Abs`',
+      signature: 'Abs ( number )',
+      summary: 'Devuelve el valor absoluto.',
+      blocks: [{ kind: 'documentation', lines: ['Numero del que quieres obtener el valor absoluto.'] }],
+      confidence: 'high',
+      locale: 'es',
+    });
+
+    const markdown = formatSymbolHoverMarkdown(viewModel);
+
+    assert.equal(viewModel.feature, 'hover');
+    assert.equal(viewModel.payloadPolicy.feature, 'hover');
+    assert.equal(viewModel.payloadPolicy.budgetBytes, 4 * 1024);
+    assert.match(markdown, /Abs \( number \)/);
+    assert.match(markdown, /Numero del que quieres obtener el valor absoluto/i);
+  });
+
+  test('SymbolSignatureViewModel se construye en presentation sin recomponer firmas', () => {
+    const signature = SignatureInformation.create('Abs ( n )', 'doc');
+    const viewModel = buildSymbolSignatureViewModel({
+      signatures: [signature],
+      activeParameter: 0,
+      source: 'system-catalog',
+      reason: 'unit-test',
+      locale: 'es',
+    });
+    const formatted = formatSymbolSignatureViewModel(viewModel);
+
+    assert.equal(viewModel.feature, 'signatureHelp');
+    assert.equal(viewModel.payloadPolicy.feature, 'signatureHelp');
+    assert.equal(viewModel.payloadPolicy.budgetBytes, 12 * 1024);
+    assert.strictEqual(formatted.signatures[0], signature);
+    assert.equal(formatted.activeSignature, 0);
+    assert.equal(formatted.activeParameter, 0);
   });
 });

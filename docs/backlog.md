@@ -71,113 +71,60 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # 3. Backlog actual
 
-## SYMBOL-MODEL-01 — Canonical symbol model and facade contract
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** Bloque 13 / `SYMBOL-BACKLOG-01`.
-- **Acceptance criteria:** definir contrato `CanonicalSymbol` documental o runtime mínimo, sourceOrigin/confidence/reasonCodes comunes, relación con `buildSymbolKey`, y mapa de consumidores que deben entrar por `SemanticQueryFacade` o owners existentes.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/architecture-implementation-map.md](architecture-implementation-map.md).
-- **Tests:** `npm run test:unit`, `npm run test:architecture:rapid`, `npm run test:docs:drift`.
-
-## SYMBOL-PERF-01 — Symbol enrichment cache and payload budgets
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** Bloque 13 / `SYMBOL-AUDIT-04`.
-- **Acceptance criteria:** proteger completion initial compacto, enrichment lazy en resolve/hover, cache por locale, negative cache para unknown/ambiguous y receipts para reports grandes.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/performance-budget.md](performance-budget.md), [docs/testing.md](testing.md).
-- **Tests:** `npm run test:performance:gate`, `npm run test:architecture:rapid`, `npm run test:unit`.
-
-## SYMBOL-PRESENTATION-01 — Symbol ViewModels for LSP consumers
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** Bloque 13 / `SYMBOL-PRESENTATION-01`.
-- **Acceptance criteria:** consolidar ViewModels para hover/completion/signatureHelp/diagnostics/semanticTokens sin mover resolución semántica a presentation y manteniendo i18n/payload budget.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/architecture-status.md](architecture-status.md).
-- **Tests:** `npm run test:unit`, `npm run test:performance:gate` si cambia hot path.
-
-## SYMBOL-CATALOG-01 — Built-in catalog enrichment foundation
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** Bloque 13 / `SYMBOL-CATALOG-01` y `SYMBOL-CATALOG-02`.
-- **Acceptance criteria:** documentar y, si procede, materializar schema de enrichment para built-ins y user/project symbols sin cambiar IDs/domains/kinds ni inventar firmas.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/localization.md](localization.md), [docs/adr/ADR-0001-system-catalog-source-of-truth.md](adr/ADR-0001-system-catalog-source-of-truth.md).
-- **Tests:** `npm run test:unit -- --grep "catalogV2|catalogConsistency|catalogAdoptionDecision|catalogProvenanceAudit|systemCatalogQueryHardening"`, `npm run test:docs:drift`.
-
 ## CATALOG-LOCALIZATION-ES-01 — Spanish localization anchors and coverage slices
 
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
-- **Origen:** Bloque 13 / `CATALOG-LOCALIZATION-01..03`.
-- **Acceptance criteria:** aumentar cobertura `es` por dominio usando `targetId`/`targetKey` correctos, `reviewed: true` sólo sin incomplete/invalid/recovered/orphan, y reporte antes/después.
-- **Docs:** [docs/localization.md](localization.md), [docs/symbol-system.md](symbol-system.md).
-- **Tests:** `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"`, `npm run report:catalog-localization`, `npm run migrate:catalog-localization-target-ids`, `npm run test:docs:drift`.
+- **Origen:** Bloque 13+14 / CATALOG-LOCALIZATION-01..03.
+- **Depends on:** puede avanzar en paralelo si sólo añade overlays documentales; si toca consumption/enrichment, depende de `SYMBOL-I18N-ENRICHMENT-AUDIT-01`.
+- **Objetivo:** aumentar cobertura `es` por dominio respetando anchors y trazabilidad.
+- **Acceptance criteria:**
+  - Usar `targetId`/`targetKey` correctos.
+  - `reviewed: true` sólo sin incomplete/invalid/recovered/orphan.
+  - Mantener nombres reales, signatureLabel y parameterName en original.
+  - Reporte antes/después.
+  - Ejecutar migrador dry-run.
+- **Docs:** `docs/localization.md`, `docs/symbol-system.md`.
+- **Tests:**
+  ```bash
+  npm run test:unit -- --grep "catalogLocalization|catalogConsistency"
+  npm run report:catalog-localization
+  npm run migrate:catalog-localization-target-ids
+  npm run test:docs:drift
+  ```
 
-## SYMBOL-QUALITY-01 — Symbol and i18n regression matrix
+**Pendiente exacto:**
+- ampliar cobertura `es` desde el baseline actual de `31` overlays revisados (`global-functions: 8/285`, `datawindow-functions: 5/302`, `enumerated-types: 3/37`, `enumerated-values: 2/245`, `system-object-datatypes: 5/224`, `statements: 3/16`, `keywords: 2/60`, `reserved-words: 3/48`) hacia `datawindow-properties` y el resto de dominios `generated` todavia sin slice visible;
+- reutilizar el glosario estable de `src/server/presentation/terminology.ts` para labels visibles compartidos sin volver a hardcodes en consumers;
+- seguir dejando el audit en `0 incomplete / 0 invalid / 0 recovered / 0 orphan` en cada dominio nuevo que se abra.
 
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** Bloque 13 / `SYMBOL-QUALITY-01`.
-- **Acceptance criteria:** fixtures para built-in, user function, event, local/instance/shared/global variables, parameter, inherited, ambiguous, unknown, DataWindow column/property, overlay localized y completion resolve enrichment.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/testing.md](testing.md).
-- **Tests:** `npm run test:unit`, `npm test`, `npm run test:performance:gate`, `npm run test:docs:drift` según alcance.
-
-## SYMBOL-I18N-TERMS-01 — Spanish/English terminology catalog
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Origen:** Bloque 13 / `SYMBOL-I18N-02`.
-- **Acceptance criteria:** glosario estable para function, event, variable, parameter, return value, DataWindow, DataStore, DataWindowChild, transaction, ancestor, override, scope, source origin, confidence, deprecated, inferred, ambiguous y unknown.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/localization.md](localization.md).
-- **Tests:** `npm run test:unit`, `npm run test:docs:drift` cuando se materialice en presentation.
-
-## SYMBOL-DW-01 — DataWindow symbol enrichment model
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Origen:** Bloque 13 / `SYMBOL-DW-01`.
-- **Acceptance criteria:** definir enrichments de DataWindow control, DataStore variable, DataWindowChild, DataObject literal, column, computed field, property path, buffer y binding dynamic/unknown sobre `DataWindowFastContext`.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/architecture-status.md](architecture-status.md).
-- **Tests:** `npm run test:unit -- --grep "dataWindow"`, `npm run test:architecture:rapid`.
-
-## SYMBOL-TOKENS-01 — Semantic tokens taxonomy contract
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Origen:** Bloque 13 / `SYMBOL-SEMANTIC-TOKENS-01`.
-- **Acceptance criteria:** mapping explícito de símbolos PowerBuilder a token types/modifiers VS Code, decisión sobre custom tokens y pruebas de rangos/modifiers.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), posible ADR si se añaden token types nuevos.
-- **Tests:** `npm run test:unit -- --grep "semanticTokens"`, `npm run test:performance:gate` si cambia hot path.
+---
 
 ## CATALOG-LOCALIZATION-DOMAINS-01 — Localization coverage by domain
 
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P2.
-- **Origen:** Bloque 13 / roadmap de cobertura `es`.
-- **Acceptance criteria:** slices de cobertura por `global-functions`, DataWindow core, system object datatypes, enumerated types/values, statements/reserved words y resto generated, con métricas antes/después.
-- **Docs:** [docs/localization.md](localization.md), [docs/symbol-system.md](symbol-system.md).
+- **Origen:** Bloque 13+14 / roadmap `es`.
+- **Depends on:** `CATALOG-LOCALIZATION-ES-01`.
+- **Objetivo:** avanzar cobertura por dominios completos con métricas antes/después.
+- **Acceptance criteria:**
+  - Slices por:
+    - global-functions;
+    - DataWindow core;
+    - system object datatypes;
+    - enumerated types/values;
+    - statements/reserved words;
+    - resto generated.
+  - Métricas antes/después.
+  - No anchors traducidos.
+  - No reviewed con issues pendientes.
+- **Docs:** `docs/localization.md`, `docs/symbol-system.md`.
 - **Tests:** `npm run report:catalog-localization`, `npm run migrate:catalog-localization-target-ids`, `npm run test:docs:drift`.
 
-## SYMBOL-DOCS-EXAMPLES-01 — Symbol and localization examples
-
-- **Estado:** Open.
-- **Prioridad:** P3.
-- **Origen:** Bloque 13 / `AUDIT-IMPROVEMENTS-02`.
-- **Acceptance criteria:** ejemplos breves de authoring de overlays, interpreting confidence/sourceOrigin y reading symbol payloads sin copiar catálogos generados completos.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/localization.md](localization.md), [docs/ai-context/powerbuilder-plugin-context.md](ai-context/powerbuilder-plugin-context.md).
-- **Tests:** `npm run test:docs:drift`.
-
-## SYMBOL-FRAMEWORKS-01 — Framework-specific symbol enrichments
-
-- **Estado:** Open.
-- **Prioridad:** P3.
-- **Origen:** Bloque 13 / `SYMBOL-BACKLOG-01`.
-- **Acceptance criteria:** enrichments PFC/STD sólo advisory, nunca autoridad sobre símbolo real; deben declarar source, confidence, tests y fallback.
-- **Docs:** [docs/symbol-system.md](symbol-system.md), [docs/architecture-status.md](architecture-status.md).
-- **Tests:** `npm run test:unit`, corpus/smoke gated si usa fixtures locales.
+  **Pendiente exacto:**
+  - mantener como baseline ya consolidado `31` overlays `es` revisados sobre `global-functions`, `datawindow-functions`, `enumerated-types`, `enumerated-values`, `system-object-datatypes`, `statements`, `keywords` y `reserved-words`;
+  - abrir el siguiente corte de cobertura visible para `datawindow-properties` (`0/7`) y decidir con evidencia si el `resto generated` pendiente (`datatypes`, `object-functions`, `system-events`, `system-globals`, `operators`, `pronouns`, `datawindow-constants`, `datawindow-events`, `datawindow-expression-functions`, `tooling-symbols`) entra como nuevas slices o queda fuera del alcance inmediato del Bloque 2;
+  - seguir dejando el rail con `0 incomplete / 0 invalid / 0 recovered / 0 orphan` y sin `schemaIssues` antes de volver a promover el item a `Done`.
 
 ---
 
@@ -186,7 +133,7 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 ## Estado actual
 
 ```txt
-SYMBOL-MODEL-01 — Canonical symbol model and facade contract
+CATALOG-LOCALIZATION-DOMAINS-01 — Localization coverage by domain
 ```
 
 ## Regla de promoción
@@ -195,6 +142,7 @@ SYMBOL-MODEL-01 — Canonical symbol model and facade contract
 - Mantener verdes `docs:drift`, `test:performance:gate` y la matriz transversal ya cerrada antes de mover foco a otra fase.
 - `AUDIT-DOC` acompaña el cierre, pero no sustituye el orden principal.
 - Un ítem `Ready for closure` no pasa a `Done` sin validación ejecutada y entrada de `done-log.md`.
+- `SYMBOL-MODEL-01` no se promueve mientras `SYMBOL-I18N-ENRICHMENT-AUDIT-01` siga `Open` o `Partial` con pendiente bloqueante.
 
 ---
 

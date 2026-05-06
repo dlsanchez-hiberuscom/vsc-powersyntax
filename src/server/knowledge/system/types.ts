@@ -134,11 +134,11 @@ export interface PbSystemSymbolLocalizationOverlay {
     readonly targetId?: string;
     readonly targetKey?: PbSystemSymbolLocalizationTargetKey;
     readonly locale: PbCatalogLocale;
+    readonly source: PbSystemSymbolLocalizationOverlaySource;
+    readonly reviewed: boolean;
     readonly text?: PbLocalizedText;
     readonly parameters?: readonly PbLocalizedParameterDocumentation[];
     readonly eventReturnCodes?: readonly PbLocalizedEventReturnCodeDocumentation[];
-    readonly reviewed?: boolean;
-    readonly source?: PbSystemSymbolLocalizationOverlaySource;
 }
 
 export interface PbSystemSymbolSignatureParameter {

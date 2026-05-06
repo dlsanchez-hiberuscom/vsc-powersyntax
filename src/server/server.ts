@@ -86,6 +86,7 @@ import { createFileWatcherDebouncer } from './system/fileWatcherDebouncer';
 import { applyWatchedFileEvents } from './workspace/watchedFileIntake';
 import { toWatchedFsEvent } from './workspace/watchedFileChangeBridge';
 import { findPowerBuilderIdentifierSpan } from './utils/pbIdentifier';
+import type { CompletionResolveNegativeReason } from './features/completion';
 import type { HoverNegativeReason, HoverViewModel } from './features/hoverViewModel';
 import {
   registerAuxiliaryFeatureHandlers,
@@ -127,10 +128,12 @@ const interactiveServingStats = new InteractiveServingStatsTracker(64);
 const servingStaleGuard = new InteractiveServingStaleGuard();
 const hoverViewModelCache = new PresentationCache<HoverViewModel>(128);
 const hoverNegativeCache = new PresentationCache<{ reason: HoverNegativeReason }>(256);
+const completionResolveNegativeCache = new PresentationCache<{ reason: CompletionResolveNegativeReason }>(256);
 
 function invalidateHoverPresentationCaches(uri?: string): void {
   hoverViewModelCache.invalidate(uri);
   hoverNegativeCache.invalidate(uri);
+  completionResolveNegativeCache.invalidate(uri);
 }
 
 function republishOpenDiagnostics(uris?: readonly string[]): void {
@@ -386,7 +389,10 @@ function ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy {
     return policy;
   }
 
-  if ((servingCache.size() === 0 && hoverViewModelCache.size() === 0 && hoverNegativeCache.size() === 0)
+  if ((servingCache.size() === 0
+      && hoverViewModelCache.size() === 0
+      && hoverNegativeCache.size() === 0
+      && completionResolveNegativeCache.size() === 0)
     || lastMemoryPressureReliefReason === policy.reason) {
     return policy;
   }
@@ -453,6 +459,19 @@ function cacheHoverNegativeWithMemoryPressure(key: string, value: { reason: Hove
   }
 
   hoverNegativeCache.set(key, value);
+  invalidateRuntimeMemoryPressureSample();
+}
+
+function cacheCompletionResolveNegativeWithMemoryPressure(
+  key: string,
+  value: { reason: CompletionResolveNegativeReason }
+): void {
+  const policy = ensureRuntimeMemoryPressureRelief();
+  if (!policy.allowServingCacheWrites) {
+    return;
+  }
+
+  completionResolveNegativeCache.set(key, value);
   invalidateRuntimeMemoryPressureSample();
 }
 
@@ -722,6 +741,8 @@ const featureHandlerContext = {
   cacheHoverViewModelWithMemoryPressure,
   getHoverNegativeCacheEntry: (key: string) => hoverNegativeCache.get(key),
   cacheHoverNegativeWithMemoryPressure,
+  getCompletionResolveNegativeCacheEntry: (key: string) => completionResolveNegativeCache.get(key),
+  cacheCompletionResolveNegativeWithMemoryPressure,
   isDefinitionCacheEntry,
   collectReferenceSourcesForQuery,
   wordAt,

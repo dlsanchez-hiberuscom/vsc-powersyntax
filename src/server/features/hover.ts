@@ -253,6 +253,7 @@ export function buildHoverPresentationResult(
         targetCount: resolved.targets.length,
       }, {
         detailLines: [...lifecycleLines, ...dataWindowLines],
+        locale: documentationLocale,
       }),
       cacheToken,
     };
