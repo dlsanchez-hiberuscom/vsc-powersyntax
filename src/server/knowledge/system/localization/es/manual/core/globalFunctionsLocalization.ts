@@ -85,4 +85,12 @@ export const globalFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
             obsoleteMessage: 'La familia *W quedó obsoleta en favor de las funciones Unicode estándar.'
         },
     },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'global-functions', kind: 'callable', namespace: 'powerscript', invocation: 'global', name: 'TrimW' },
+        text: { 
+            summary: 'Versión heredada Unicode de Trim.',
+            obsoleteMessage: 'La familia *W quedó obsoleta en favor de las funciones Unicode estándar.'
+        },
+    },
 ];

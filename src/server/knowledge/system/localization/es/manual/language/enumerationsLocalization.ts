@@ -123,273 +123,273 @@ export const enumerationsLocalization: PbSystemSymbolLocalizationOverlay[] = [
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Excel!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow en formato Excel legacy.' },
+        text: { summary: 'Exporta el contenido del DataWindow en formato Excel legacy.', documentation: 'Exporta el contenido del DataWindow en formato Excel legacy.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Text!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow como texto.' },
+        text: { summary: 'Exporta el contenido del DataWindow como texto.', documentation: 'Exporta el contenido del DataWindow como texto.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'CSV!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow como CSV.' },
+        text: { summary: 'Exporta el contenido del DataWindow como CSV.', documentation: 'Exporta el contenido del DataWindow como CSV.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'SQLInsert!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido como sentencias SQL INSERT.' },
+        text: { summary: 'Exporta el contenido como sentencias SQL INSERT.', documentation: 'Exporta el contenido como sentencias SQL INSERT.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Clipboard!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido al portapapeles.' },
+        text: { summary: 'Exporta el contenido al portapapeles.', documentation: 'Exporta el contenido al portapapeles.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'PSReport!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido como reporte PowerSoft.' },
+        text: { summary: 'Exporta el contenido como reporte PowerSoft.', documentation: 'Exporta el contenido como reporte PowerSoft.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'PDF!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow como PDF.' },
+        text: { summary: 'Exporta el contenido del DataWindow como PDF.', documentation: 'Exporta el contenido del DataWindow como PDF.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'XML!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow como XML.' },
+        text: { summary: 'Exporta el contenido del DataWindow como XML.', documentation: 'Exporta el contenido del DataWindow como XML.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'XSLFO!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow como XSL-FO.' },
+        text: { summary: 'Exporta el contenido del DataWindow como XSL-FO.', documentation: 'Exporta el contenido del DataWindow como XSL-FO.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'XLSX!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow como XLSX.' },
+        text: { summary: 'Exporta el contenido del DataWindow como XLSX.', documentation: 'Exporta el contenido del DataWindow como XLSX.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'XLSB!', enumValueOf: 'SaveAsType' },
-        text: { summary: 'Exporta el contenido del DataWindow como XLSB.' },
+        text: { summary: 'Exporta el contenido del DataWindow como XLSB.', documentation: 'Exporta el contenido del DataWindow como XLSB.' },
     },
 
     // DWItemStatus
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'NotModified!', enumValueOf: 'DWItemStatus' },
-        text: { summary: 'Fila o columna sin modificaciones.' },
+        text: { summary: 'Fila o columna sin modificaciones.', documentation: 'Fila o columna sin modificaciones.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'DataModified!', enumValueOf: 'DWItemStatus' },
-        text: { summary: 'Dato existente modificado.' },
+        text: { summary: 'Dato existente modificado.', documentation: 'Dato existente modificado.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'New!', enumValueOf: 'DWItemStatus' },
-        text: { summary: 'Fila nueva sin modificaciones posteriores.' },
+        text: { summary: 'Fila nueva sin modificaciones posteriores.', documentation: 'Fila nueva sin modificaciones posteriores.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'NewModified!', enumValueOf: 'DWItemStatus' },
-        text: { summary: 'Fila nueva modificada.' },
+        text: { summary: 'Fila nueva modificada.', documentation: 'Fila nueva modificada.' },
     },
 
     // DWBuffer
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Primary!', enumValueOf: 'DWBuffer' },
-        text: { summary: 'Buffer principal del DataWindow.' },
+        text: { summary: 'Buffer principal del DataWindow.', documentation: 'Buffer principal del DataWindow.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Delete!', enumValueOf: 'DWBuffer' },
-        text: { summary: 'Buffer de filas eliminadas del DataWindow.' },
+        text: { summary: 'Buffer de filas eliminadas del DataWindow.', documentation: 'Buffer de filas eliminadas del DataWindow.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Filter!', enumValueOf: 'DWBuffer' },
-        text: { summary: 'Buffer de filas filtradas del DataWindow.' },
+        text: { summary: 'Buffer de filas filtradas del DataWindow.', documentation: 'Buffer de filas filtradas del DataWindow.' },
     },
 
     // DWConflictResolution
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'FailOnAnyConflict!', enumValueOf: 'DWConflictResolution' },
-        text: { summary: 'Falla si existe cualquier conflicto al sincronizar cambios.' },
+        text: { summary: 'Falla si existe cualquier conflicto al sincronizar cambios.', documentation: 'Falla si existe cualquier conflicto al sincronizar cambios.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'AllowPartialChanges!', enumValueOf: 'DWConflictResolution' },
-        text: { summary: 'Permite aplicar cambios no conflictivos.' },
+        text: { summary: 'Permite aplicar cambios no conflictivos.', documentation: 'Permite aplicar cambios no conflictivos.' },
     },
 
     // Border
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'NoBorder!', enumValueOf: 'Border' },
-        text: { summary: 'Sin borde visual.' },
+        text: { summary: 'Sin borde visual.', documentation: 'Sin borde visual.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'StyleBox!', enumValueOf: 'Border' },
-        text: { summary: 'Borde de estilo caja.' },
+        text: { summary: 'Borde de estilo caja.', documentation: 'Borde de estilo caja.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'StyleLowered!', enumValueOf: 'Border' },
-        text: { summary: 'Borde con apariencia hundida.' },
+        text: { summary: 'Borde con apariencia hundida.', documentation: 'Borde con apariencia hundida.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'StyleRaised!', enumValueOf: 'Border' },
-        text: { summary: 'Borde con apariencia elevada.' },
+        text: { summary: 'Borde con apariencia elevada.', documentation: 'Borde con apariencia elevada.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'StyleShadowBox!', enumValueOf: 'Border' },
-        text: { summary: 'Borde de caja con sombra.' },
+        text: { summary: 'Borde de caja con sombra.', documentation: 'Borde de caja con sombra.' },
     },
 
     // Alignment
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Left!', enumValueOf: 'Alignment' },
-        text: { summary: 'Alineación a la izquierda.' },
+        text: { summary: 'Alineación a la izquierda.', documentation: 'Alineación a la izquierda.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Center!', enumValueOf: 'Alignment' },
-        text: { summary: 'Alineación centrada.' },
+        text: { summary: 'Alineación centrada.', documentation: 'Alineación centrada.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Right!', enumValueOf: 'Alignment' },
-        text: { summary: 'Alineación a la derecha.' },
+        text: { summary: 'Alineación a la derecha.', documentation: 'Alineación a la derecha.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Justify!', enumValueOf: 'Alignment' },
-        text: { summary: 'Alineación justificada.' },
+        text: { summary: 'Alineación justificada.', documentation: 'Alineación justificada.' },
     },
 
     // WindowType
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Main!', enumValueOf: 'WindowType' },
-        text: { summary: 'Ventana principal.' },
+        text: { summary: 'Ventana principal.', documentation: 'Ventana principal.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Response!', enumValueOf: 'WindowType' },
-        text: { summary: 'Ventana de respuesta.' },
+        text: { summary: 'Ventana de respuesta.', documentation: 'Ventana de respuesta.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Child!', enumValueOf: 'WindowType' },
-        text: { summary: 'Ventana hija.' },
+        text: { summary: 'Ventana hija.', documentation: 'Ventana hija.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Popup!', enumValueOf: 'WindowType' },
-        text: { summary: 'Ventana popup.' },
+        text: { summary: 'Ventana popup.', documentation: 'Ventana popup.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'MDI!', enumValueOf: 'WindowType' },
-        text: { summary: 'Ventana MDI.' },
+        text: { summary: 'Ventana MDI.', documentation: 'Ventana MDI.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'MDIHelp!', enumValueOf: 'WindowType' },
-        text: { summary: 'Ventana MDI con ayuda.' },
+        text: { summary: 'Ventana MDI con ayuda.', documentation: 'Ventana MDI con ayuda.' },
     },
 
     // WindowState
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Normal!', enumValueOf: 'WindowState' },
-        text: { summary: 'Estado normal de ventana.' },
+        text: { summary: 'Estado normal de ventana.', documentation: 'Estado normal de ventana.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Maximized!', enumValueOf: 'WindowState' },
-        text: { summary: 'Estado maximizado de ventana.' },
+        text: { summary: 'Estado maximizado de ventana.', documentation: 'Estado maximizado de ventana.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Minimized!', enumValueOf: 'WindowState' },
-        text: { summary: 'Estado minimizado de ventana.' },
+        text: { summary: 'Estado minimizado de ventana.', documentation: 'Estado minimizado de ventana.' },
     },
 
     // FileAccess
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'FileRead!', enumValueOf: 'FileAccess' },
-        text: { summary: 'Acceso de solo lectura.' },
+        text: { summary: 'Acceso de solo lectura.', documentation: 'Acceso de solo lectura.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'FileWrite!', enumValueOf: 'FileAccess' },
-        text: { summary: 'Acceso de solo escritura.' },
+        text: { summary: 'Acceso de solo escritura.', documentation: 'Acceso de solo escritura.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'FileReadWrite!', enumValueOf: 'FileAccess' },
-        text: { summary: 'Acceso de lectura y escritura.' },
+        text: { summary: 'Acceso de lectura y escritura.', documentation: 'Acceso de lectura y escritura.' },
     },
 
     // FileMode
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'LineMode!', enumValueOf: 'FileMode' },
-        text: { summary: 'Modo de archivo por líneas.' },
+        text: { summary: 'Modo de archivo por líneas.', documentation: 'Modo de archivo por líneas.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'StreamMode!', enumValueOf: 'FileMode' },
-        text: { summary: 'Modo de archivo como flujo.' },
+        text: { summary: 'Modo de archivo como flujo.', documentation: 'Modo de archivo como flujo.' },
     },
 
     // Encoding
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'EncodingANSI!', enumValueOf: 'Encoding' },
-        text: { summary: 'Codificación ANSI.' },
+        text: { summary: 'Codificación ANSI.', documentation: 'Codificación ANSI.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'EncodingUTF8!', enumValueOf: 'Encoding' },
-        text: { summary: 'Codificación UTF-8.' },
+        text: { summary: 'Codificación UTF-8.', documentation: 'Codificación UTF-8.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'EncodingUTF16LE!', enumValueOf: 'Encoding' },
-        text: { summary: 'Codificación UTF-16 little endian.' },
+        text: { summary: 'Codificación UTF-16 little endian.', documentation: 'Codificación UTF-16 little endian.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'EncodingUTF16BE!', enumValueOf: 'Encoding' },
-        text: { summary: 'Codificación UTF-16 big endian.' },
+        text: { summary: 'Codificación UTF-16 big endian.', documentation: 'Codificación UTF-16 big endian.' },
     },
 
     // SeekType
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'FromBeginning!', enumValueOf: 'SeekType' },
-        text: { summary: 'Desplazamiento desde el inicio del archivo.' },
+        text: { summary: 'Desplazamiento desde el inicio del archivo.', documentation: 'Desplazamiento desde el inicio del archivo.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'FromCurrent!', enumValueOf: 'SeekType' },
-        text: { summary: 'Desplazamiento desde la posición actual del archivo.' },
+        text: { summary: 'Desplazamiento desde la posición actual del archivo.', documentation: 'Desplazamiento desde la posición actual del archivo.' },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'FromEnd!', enumValueOf: 'SeekType' },
-        text: { summary: 'Desplazamiento desde el final del archivo.' },
+        text: { summary: 'Desplazamiento desde el final del archivo.', documentation: 'Desplazamiento desde el final del archivo.' },
     },
 ];

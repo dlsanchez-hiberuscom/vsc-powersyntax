@@ -103,4 +103,615 @@ export const dataWindowExpressionFunctionsLocalization: PbSystemSymbolLocalizati
             returnDocumentation: 'El tipo de dato de la columna o expresión.',
         },
     },
+
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabAvg' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabAvgDec' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabCount' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabMax' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabMaxDec' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabMin' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabMinDec' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabSum' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CrosstabSumDec' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CumulativePercent' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CumulativeSum' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'First' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Large' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Last' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Max' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Median' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Min' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Mode' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Percent' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Small' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'StDev' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'StDevP' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Var' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'VarP' },
+        text: { summary: 'Función de agregación oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Case' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsDate' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsExpanded' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsNull' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsNumber' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsRowModified' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsRowNew' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsSelected' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'IsTime' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Page' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'PageAbs' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'PageAcross' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'PageCountAcross' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'ProfileInt' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'ProfileString' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RowHeight' },
+        text: { summary: 'Función oficial de contexto o estado disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Date' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'DateTime' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Day' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'DayName' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'DayNumber' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'DaysAfter' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Hour' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Minute' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Month' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Now' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RelativeDate' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RelativeTime' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Second' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'SecondsAfter' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Time' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Today' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Year' },
+        text: { summary: 'Función oficial de fecha y hora disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Abs' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'ACos' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'ASin' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'ATan' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Ceiling' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Cos' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Dec' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Exp' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Fact' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Int' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Integer' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Log' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'LogTen' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Long' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Mod' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Number' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Pi' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Rand' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Real' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Round' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Sign' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Sin' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Sqrt' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Tan' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Truncate' },
+        text: { summary: 'Función numérica oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Asc' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'AscA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Char' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'CharA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Fill' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'FillA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Left' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'LeftA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'LastPos' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'LeftTrim' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Len' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'LenA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Lower' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Match' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Mid' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'MidA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Pos' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'PosA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Replace' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'ReplaceA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RichText' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RichTextFile' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Right' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RightA' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RightTrim' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Space' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'String' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'StripRTF' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Trim' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Upper' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'WordCap' },
+        text: { summary: 'Función de texto oficial disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Bitmap' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'FontHeight' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'GetPaintDC' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'GetPaintRectHeight' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'GetPaintRectWidth' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'GetPaintRectX' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'GetPaintRectY' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'Paint' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-expression-functions', kind: 'callable', namespace: 'datawindow-expression', invocation: 'global', name: 'RGB' },
+        text: { summary: 'Función oficial visual o de diseño disponible en expresiones de DataWindow.' },
+    },
 ];

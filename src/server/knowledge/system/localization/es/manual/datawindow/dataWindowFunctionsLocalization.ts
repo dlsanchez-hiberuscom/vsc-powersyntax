@@ -1079,22 +1079,34 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CanUndo', ownerTypes: ['datawindow'] },
-        text: { summary: 'Indica si el edit control actual del DataWindow puede deshacer la última edición.' },
+        text: {
+            summary: 'Indica si el edit control actual del DataWindow puede deshacer la última edición.',
+            returnDocumentation: 'Boolean. Devuelve true si la última edición se puede deshacer y false en caso contrario.',
+        },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Clear', ownerTypes: ['datawindow'] },
-        text: { summary: 'Borra el texto seleccionado en el edit control activo del DataWindow.' },
+        text: {
+            summary: 'Borra el texto seleccionado en el edit control activo del DataWindow.',
+            returnDocumentation: 'Integer. Devuelve 1 si tiene éxito y -1 si ocurre un error.',
+        },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Copy', ownerTypes: ['datawindow'] },
-        text: { summary: 'Copia al portapapeles el texto seleccionado del edit control activo.' },
+        text: {
+            summary: 'Copia al portapapeles el texto seleccionado del edit control activo.',
+            returnDocumentation: 'Integer. Devuelve el número de caracteres copiados o -1 si ocurre un error.',
+        },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Cut', ownerTypes: ['datawindow'] },
-        text: { summary: 'Corta el texto seleccionado del edit control activo y lo envía al portapapeles.' },
+        text: {
+            summary: 'Corta el texto seleccionado del edit control activo y lo envía al portapapeles.',
+            returnDocumentation: 'Integer. Devuelve el número de caracteres cortados o -1 si ocurre un error.',
+        },
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
@@ -1241,5 +1253,53 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectTextWord', ownerTypes: ['datawindow'] },
         text: { summary: 'Selecciona la palabra actual en un DataWindow con presentación RichText.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStyleFillPattern', ownerTypes: ['datawindow', 'datastore'] },
+        text: { summary: 'Devuelve el patrón de relleno configurado para un punto de datos.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ObjectAtPointerSeries', ownerTypes: ['datawindow'] },
+        text: { summary: 'Devuelve la serie gráfica situada bajo el puntero.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GroupCalc', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
+        text: { summary: 'Recalcula los cortes de grupo del DataWindow tras cambios en los datos.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'RowsMove', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
+        text: { summary: 'Mueve un rango de filas entre buffers o entre DataWindows compatibles.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRedraw', ownerTypes: ['datawindow'] },
+        text: { summary: 'Activa o desactiva el repintado automático del control DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemNumber', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
+        text: { summary: 'Obtiene datos numéricos desde uno de los buffers del DataWindow.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetValue', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
+        text: { summary: 'Cambia un valor concreto de la lista de valores o code table de una columna.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ExportRowAsJson', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
+        text: { summary: 'Exporta una fila concreta del DataWindow a una cadena JSON.' },
+    },
+    {
+        locale: 'es', reviewed: false, source: 'manual-curated',
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Paste', ownerTypes: ['datawindow'] },
+        text: {
+            summary: 'Pega el contenido del portapapeles en el edit control activo.',
+            returnDocumentation: 'Integer. Devuelve el número de caracteres pegados o -1 si ocurre un error.',
+        },
     },
 ];

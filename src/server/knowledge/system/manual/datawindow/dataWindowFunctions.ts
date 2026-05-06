@@ -1063,8 +1063,8 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     }),
     dataWindowFunction({
         name: 'RowsMove',
-        category: 'Datos',
-        summary: 'Mueve un rango de filas entre buffers o entre DataWindows compatibles.',
+        category: 'Data',
+        summary: 'Moves a range of rows between buffers or between compatible DataWindows.',
         signatures: [{ label: 'RowsMove(startrow, endrow, movebuffer, targetdw, beforerow, targetbuffer)' }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
@@ -1306,8 +1306,8 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     }),
     dataWindowFunction({
         name: 'GetItemNumber',
-        category: 'Datos',
-        summary: 'Obtiene datos numéricos desde uno de los buffers del DataWindow.',
+        category: 'Data',
+        summary: 'Retrieves numeric data from one of the DataWindow buffers.',
         signatures: [{ label: 'GetItemNumber(row, column, dwbuffer?, originalvalue?)' }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
@@ -1777,8 +1777,8 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     }),
     dataWindowFunction({
         name: 'ImportClipboard',
-        category: 'Datos',
-        summary: 'Importa filas o contenido desde el portapapeles al DataWindow.',
+        category: 'Data',
+        summary: 'Imports rows or content from the clipboard to the DataWindow.',
         signatures: [{ label: 'ImportClipboard()' }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_FUNCTION_OWNER_TYPES,
@@ -2165,7 +2165,7 @@ export const PB_MANUAL_CORE_DATAWINDOW_FUNCTIONS: readonly PbSystemSymbolEntry[]
     dataWindowFunction({
         name: 'SetTabOrder',
         category: 'Layout',
-        summary: 'Cambia el tab order de una columna en un DataWindow visual.',
+        summary: 'Changes the tab order of a column in a visual DataWindow.',
         signatures: [{ label: 'SetTabOrder(column, taborder)' }],
         appliesTo: PB_MANUAL_CORE_DATAWINDOW_VISUAL_APPLIES_TO,
         ownerTypes: PB_MANUAL_CORE_DATAWINDOW_VISUAL_OWNER_TYPES,

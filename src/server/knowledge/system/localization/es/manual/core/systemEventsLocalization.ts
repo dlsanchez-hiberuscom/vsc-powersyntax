@@ -63,6 +63,11 @@ export const systemEventsLocalization: PbSystemSymbolLocalizationOverlay[] = [
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'Resize', ownerTypes: ['window'] },
         text: { summary: 'Se dispara cuando el usuario o el sistema cambia el tamaño del objeto.' },
+        parameters: [
+            { signatureLabel: 'Resize(sizetype, newwidth, newheight)', parameterName: 'sizetype', documentation: 'UnsignedLong por valor. El tipo de cambio de tamaño (restaurado, minimizado, etc.).' },
+            { signatureLabel: 'Resize(sizetype, newwidth, newheight)', parameterName: 'newwidth', documentation: 'Integer por valor. El nuevo ancho del área cliente en unidades PowerBuilder.' },
+            { signatureLabel: 'Resize(sizetype, newwidth, newheight)', parameterName: 'newheight', documentation: 'Integer por valor. El nuevo alto del área cliente en unidades PowerBuilder.' },
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
@@ -113,13 +118,17 @@ export const systemEventsLocalization: PbSystemSymbolLocalizationOverlay[] = [
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'Other', ownerTypes: ['window'] },
         text: { summary: 'Evento genérico que captura mensajes de Windows no manejados por otros eventos específicos.' },
+        parameters: [
+            { signatureLabel: 'Other(wparam, lparam)', parameterName: 'wparam', documentation: 'UnsignedLong por valor. El primer parámetro del mensaje de Windows.' },
+            { signatureLabel: 'Other(wparam, lparam)', parameterName: 'lparam', documentation: 'Long por valor. El segundo parámetro del mensaje de Windows.' },
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'SystemError' },
         text: { summary: 'Evento global del objeto Application que se dispara ante errores fatales de ejecución.' },
     },
-{
+    {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'CloseQuery', ownerTypes: ['window'] },
         text: { summary: 'Se dispara antes de cerrar la ventana, permitiendo al programa vetar el cierre.' },
@@ -133,31 +142,40 @@ export const systemEventsLocalization: PbSystemSymbolLocalizationOverlay[] = [
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'Show', ownerTypes: ['window'] },
         text: { summary: 'Se dispara cuando el objeto se hace visible.' },
+        parameters: [
+            { signatureLabel: 'Show(show, status)', parameterName: 'show', documentation: 'Boolean por valor. Indica si la ventana se está mostrando (siempre true en este evento).' },
+            { signatureLabel: 'Show(show, status)', parameterName: 'status', documentation: 'Long por valor. El estado de la ventana y su relación con el objeto padre.' },
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'MouseMove', ownerTypes: ['window'] },
         text: { summary: 'Se dispara mientras el puntero del mouse se desplaza sobre el control.' },
+        parameters: [
+            { signatureLabel: 'MouseMove(flags, xpos, ypos)', parameterName: 'flags', documentation: 'UnsignedLong por valor. Los botones del mouse y teclas modificadoras pulsados.' },
+            { signatureLabel: 'MouseMove(flags, xpos, ypos)', parameterName: 'xpos', documentation: 'Integer por valor. La posición X del puntero en píxeles.' },
+            { signatureLabel: 'MouseMove(flags, xpos, ypos)', parameterName: 'ypos', documentation: 'Integer por valor. La posición Y del puntero en píxeles.' },
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'MouseUp', ownerTypes: ['window'] },
         text: { summary: 'Se dispara cuando el usuario suelta el botón izquierdo del mouse.' },
+        parameters: [
+            { signatureLabel: 'MouseUp(flags, xpos, ypos)', parameterName: 'flags', documentation: 'UnsignedLong por valor. Los botones del mouse y teclas modificadoras pulsados.' },
+            { signatureLabel: 'MouseUp(flags, xpos, ypos)', parameterName: 'xpos', documentation: 'Integer por valor. La posición X del puntero en píxeles.' },
+            { signatureLabel: 'MouseUp(flags, xpos, ypos)', parameterName: 'ypos', documentation: 'Integer por valor. La posición Y del puntero en píxeles.' },
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'MouseDown', ownerTypes: ['window'] },
         text: { summary: 'Se dispara cuando el usuario pulsa el botón izquierdo del mouse.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'SelectionChanged', ownerTypes: ['listbox', 'tab', 'treeview'] },
-        text: { summary: 'Se dispara cuando cambia el elemento seleccionado.' },
-    },
-    {
-        locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'system-events', kind: 'event', namespace: 'object', invocation: 'member', name: 'SelectionChanging', ownerTypes: ['tab', 'treeview'] },
-        text: { summary: 'Se dispara antes de cambiar la selección.' },
+        parameters: [
+            { signatureLabel: 'MouseDown(flags, xpos, ypos)', parameterName: 'flags', documentation: 'UnsignedLong por valor. Los botones del mouse y teclas modificadoras pulsados.' },
+            { signatureLabel: 'MouseDown(flags, xpos, ypos)', parameterName: 'xpos', documentation: 'Integer por valor. La posición X del puntero en píxeles.' },
+            { signatureLabel: 'MouseDown(flags, xpos, ypos)', parameterName: 'ypos', documentation: 'Integer por valor. La posición Y del puntero en píxeles.' },
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
