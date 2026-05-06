@@ -1,6 +1,7 @@
 import { finalizeSystemSymbolEntry } from '../normalization';
 import {
     PbSystemManualOverlay,
+    PbSystemSymbolDataset,
     PbSystemSymbolEntry,
     PbSystemSymbolEntryDraft,
     PbSystemSymbolSignature,
@@ -27,17 +28,18 @@ type ManualSymbolArgs = {
     lookupAliases?: readonly string[];
     sourceUrl?: string;
     risk?: 'safe' | 'dynamic' | 'deprecated' | 'legacy' | 'external';
+    dataset?: PbSystemSymbolEntry['dataset'];
     manualOverlay?: PbSystemManualOverlay;
 };
 
 function defineManualEntry(
-    entry: Omit<PbSystemSymbolEntryDraft, 'dataset' | 'source'>,
+    entry: Omit<PbSystemSymbolEntryDraft, 'dataset' | 'source'> & { dataset?: PbSystemSymbolDataset },
     source: string,
     defaultSourceUrl?: string,
 ): PbSystemSymbolEntry {
     const draft: PbSystemSymbolEntryDraft = {
         ...entry,
-        dataset: 'manual-core',
+        dataset: entry.dataset ?? 'manual-core',
         source,
         sourceUrl: entry.sourceUrl ?? defaultSourceUrl,
         // Por defecto, las entradas manual-core se consideran 'enrichment'
@@ -45,8 +47,8 @@ function defineManualEntry(
         // que los manual overlays aporten enriquecimientos editoriales
         // (p. ej. categoría) sobre las entradas generadas.
         manualOverlay: entry.manualOverlay ?? {
-            mode: 'enrichment',
-            reason: 'manual-core default enrichment',
+            mode: 'override',
+            reason: 'Curated manual-core entry with localization priority.',
             evidence: ['manual-core'],
         },
     };

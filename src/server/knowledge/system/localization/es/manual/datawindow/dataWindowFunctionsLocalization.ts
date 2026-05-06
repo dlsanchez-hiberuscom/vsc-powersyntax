@@ -503,12 +503,15 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
-        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Modify', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
+        targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Modify', ownerTypes: ['datawindow', 'datastore', 'datawindowchild'] },
         text: {
             summary: 'Modifica un objeto DataWindow mediante una cadena que contiene sentencias de modificación.',
             documentation: 'Permite cambiar dinámicamente propiedades del objeto DataWindow, como filtros, ordenación o atributos visuales de los controles.',
             returnDocumentation: 'String. Devuelve una cadena vacía si tiene éxito o un mensaje de error si falla.',
         },
+        parameters: [
+            { signatureLabel: 'Modify(modstring)', parameterName: 'modstring', documentation: 'Cadena con las sentencias de modificación (ej. "control.prop=value").' }
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',

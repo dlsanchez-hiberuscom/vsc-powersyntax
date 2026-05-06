@@ -19,9 +19,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'Abs ( n )',
-        parameterName: 'n',
-        documentation: 'Numero del que quieres obtener el valor absoluto.',
+        signatureLabel: 'Abs(number)',
+        parameterName: 'number',
+        documentation: 'Valor numérico del que quieres obtener el valor absoluto.',
       },
     ],
   },
@@ -47,9 +47,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'DayName ( date )',
+        signatureLabel: 'DayName(date)',
         parameterName: 'date',
-        documentation: 'Fecha cuyo nombre de dia quieres obtener.',
+        documentation: 'Fecha de la que quieres conocer el nombre del día.',
       },
     ],
   },
@@ -77,9 +77,29 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'MessageBox ( title, text {, icon {, button {, default } } } )',
+        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
         parameterName: 'title',
         documentation: 'Titulo visible en la barra del cuadro de mensaje.',
+      },
+      {
+        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
+        parameterName: 'text',
+        documentation: 'Texto principal que se muestra al usuario.',
+      },
+      {
+        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
+        parameterName: 'icon?',
+        documentation: 'Icono opcional para el cuadro de mensaje.',
+      },
+      {
+        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
+        parameterName: 'button?',
+        documentation: 'Conjunto opcional de botones.',
+      },
+      {
+        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
+        parameterName: 'default?',
+        documentation: 'Boton predeterminado opcional.',
       },
     ],
   },
@@ -105,9 +125,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'IsNull ( any )',
-        parameterName: 'any',
-        documentation: 'Variable o expresion cuyo valor quieres comprobar para saber si es null.',
+        signatureLabel: 'IsNull(value)',
+        parameterName: 'value',
+        documentation: 'Variable o expresion que quieres verificar si es NULL.',
       },
     ],
   },
@@ -133,9 +153,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'SetNull ( anyvariable )',
-        parameterName: 'anyvariable',
-        documentation: 'Variable compatible que quieres dejar explicitamente en null.',
+        signatureLabel: 'SetNull(variable)',
+        parameterName: 'variable',
+        documentation: 'Variable a la que quieres asignar el valor NULL.',
       },
     ],
   },
@@ -161,8 +181,8 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'Len ( stringorblob )',
-        parameterName: 'stringorblob',
+        signatureLabel: 'Len(value)',
+        parameterName: 'value',
         documentation: 'Cadena o blob cuya longitud quieres conocer.',
       },
     ],
@@ -185,9 +205,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'Lower ( string )',
-        parameterName: 'string',
-        documentation: 'Cadena que quieres convertir a minusculas.',
+        signatureLabel: 'Lower(value)',
+        parameterName: 'value',
+        documentation: 'Cadena que quieres convertir a minúsculas.',
       },
     ],
   },
@@ -209,9 +229,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'Upper ( string )',
-        parameterName: 'string',
-        documentation: 'Cadena que quieres convertir a mayusculas.',
+        signatureLabel: 'Upper(value)',
+        parameterName: 'value',
+        documentation: 'Cadena que quieres convertir a mayúsculas.',
       },
     ],
   },

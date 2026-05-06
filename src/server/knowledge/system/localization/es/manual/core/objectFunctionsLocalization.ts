@@ -278,6 +278,10 @@ export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'SelectText', ownerTypes: ['editmask', 'multilineedit', 'singlelineedit'] },
         text: { summary: 'Selecciona una porción de texto.' },
+        parameters: [
+            { signatureLabel: 'SelectText(start, length)', parameterName: 'start', documentation: 'Posición inicial del texto a seleccionar.' },
+            { signatureLabel: 'SelectText(start, length)', parameterName: 'length', documentation: 'Número de caracteres a seleccionar.' }
+        ],
     },
     {
         locale: 'es', reviewed: false, source: 'manual-curated',
@@ -303,6 +307,9 @@ export const objectFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
         locale: 'es', reviewed: false, source: 'manual-curated',
         targetKey: { domain: 'object-functions', kind: 'callable', namespace: 'object', invocation: 'member', name: 'Scroll', ownerTypes: ['editmask', 'multilineedit'] },
         text: { summary: 'Desplaza el contenido vertical u horizontalmente.' },
+        parameters: [
+            { signatureLabel: 'Scroll(lines)', parameterName: 'lines', documentation: 'Número de líneas a desplazar; positivo hacia abajo, negativo hacia arriba.' }
+        ],
     },
 {
         locale: 'es', reviewed: false, source: 'manual-curated',

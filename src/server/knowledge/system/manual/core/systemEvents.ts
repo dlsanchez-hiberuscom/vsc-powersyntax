@@ -36,18 +36,28 @@ const TREEVIEW_CONTROL_SOURCE_URL = 'https://docs.appeon.com/pb2025/objects_and_
 function defineSystemEventEntries(
     descriptors: readonly SystemEventDescriptor[],
 ): readonly PbSystemSymbolEntry[] {
-    return descriptors.map(descriptor => systemEvent({
-        name: descriptor.name,
-        category: descriptor.category,
-        summary: descriptor.summary,
-        signatures: [{ label: descriptor.signature }],
-        appliesTo: descriptor.appliesTo,
-        ownerTypes: descriptor.ownerTypes,
-        obsolete: descriptor.obsolete,
-        obsoleteMessage: descriptor.obsoleteMessage,
-        replacement: descriptor.replacement,
-        sourceUrl: descriptor.sourceUrl,
-    }));
+    return descriptors.map(descriptor => {
+        const paramsMatch = descriptor.signature.match(/\(([^)]+)\)/);
+        const parameters = paramsMatch 
+            ? paramsMatch[1].split(',').map(p => ({ label: p.trim().replace('?', '') }))
+            : undefined;
+            
+        return systemEvent({
+            name: descriptor.name,
+            category: descriptor.category,
+            summary: descriptor.summary,
+            signatures: [{ 
+                label: descriptor.signature,
+                parameters
+            }],
+            appliesTo: descriptor.appliesTo,
+            ownerTypes: descriptor.ownerTypes,
+            obsolete: descriptor.obsolete,
+            obsoleteMessage: descriptor.obsoleteMessage,
+            replacement: descriptor.replacement,
+            sourceUrl: descriptor.sourceUrl,
+        });
+    });
 }
 
 const PB_MANUAL_CORE_SYSTEM_EVENTS_MF_08B = defineSystemEventEntries([
@@ -118,7 +128,7 @@ const PB_MANUAL_CORE_SYSTEM_EVENTS_MF_08B = defineSystemEventEntries([
         name: 'MouseDown',
         category: 'Interaction',
         summary: 'Fires when the user presses the left button in a free area of the window.',
-        signature: 'MouseDown()',
+        signature: 'MouseDown(flags, xpos, ypos)',
         appliesTo: WINDOW_SYSTEM_EVENT_APPLIES_TO,
         ownerTypes: WINDOW_SYSTEM_EVENT_OWNER_TYPES,
         sourceUrl: WINDOW_CONTROL_SOURCE_URL,
@@ -127,7 +137,7 @@ const PB_MANUAL_CORE_SYSTEM_EVENTS_MF_08B = defineSystemEventEntries([
         name: 'MouseMove',
         category: 'Interaction',
         summary: 'Fires when the pointer moves inside the window.',
-        signature: 'MouseMove()',
+        signature: 'MouseMove(flags, xpos, ypos)',
         appliesTo: WINDOW_SYSTEM_EVENT_APPLIES_TO,
         ownerTypes: WINDOW_SYSTEM_EVENT_OWNER_TYPES,
         sourceUrl: WINDOW_CONTROL_SOURCE_URL,
@@ -136,7 +146,7 @@ const PB_MANUAL_CORE_SYSTEM_EVENTS_MF_08B = defineSystemEventEntries([
         name: 'MouseUp',
         category: 'Interaction',
         summary: 'Fires when the user releases the left button in a free area of the window.',
-        signature: 'MouseUp()',
+        signature: 'MouseUp(flags, xpos, ypos)',
         appliesTo: WINDOW_SYSTEM_EVENT_APPLIES_TO,
         ownerTypes: WINDOW_SYSTEM_EVENT_OWNER_TYPES,
         sourceUrl: WINDOW_CONTROL_SOURCE_URL,
@@ -148,7 +158,7 @@ const PB_MANUAL_CORE_SYSTEM_EVENTS_MF_08C = defineSystemEventEntries([
         name: 'Other',
         category: 'System',
         summary: 'Fires when a Windows message occurs that does not correspond to a PowerBuilder event.',
-        signature: 'Other()',
+        signature: 'Other(wparam, lparam)',
         appliesTo: WINDOW_SYSTEM_EVENT_APPLIES_TO,
         ownerTypes: WINDOW_SYSTEM_EVENT_OWNER_TYPES,
         sourceUrl: WINDOW_CONTROL_SOURCE_URL,
@@ -357,7 +367,13 @@ export const PB_MANUAL_CORE_SYSTEM_EVENTS: readonly PbSystemSymbolEntry[] = [
         name: 'Show',
         category: 'Lifecycle',
         summary: 'Fires just before a window is displayed on screen via Show.',
-        signatures: [{ label: 'Show()' }],
+        signatures: [{ 
+            label: 'Show(show, status)',
+            parameters: [
+                { label: 'show' },
+                { label: 'status' }
+            ]
+        }],
         appliesTo: WINDOW_SYSTEM_EVENT_APPLIES_TO,
         ownerTypes: WINDOW_SYSTEM_EVENT_OWNER_TYPES,
         sourceUrl: WINDOW_CONTROL_SOURCE_URL,
@@ -426,7 +442,14 @@ export const PB_MANUAL_CORE_SYSTEM_EVENTS: readonly PbSystemSymbolEntry[] = [
         name: 'Resize',
         category: 'System',
         summary: 'Fires when the window is opened or resized by user action or script.',
-        signatures: [{ label: 'Resize()' }],
+        signatures: [{ 
+            label: 'Resize(sizetype, newwidth, newheight)',
+            parameters: [
+                { label: 'sizetype' },
+                { label: 'newwidth' },
+                { label: 'newheight' }
+            ]
+        }],
         appliesTo: WINDOW_SYSTEM_EVENT_APPLIES_TO,
         ownerTypes: WINDOW_SYSTEM_EVENT_OWNER_TYPES,
         sourceUrl: WINDOW_CONTROL_SOURCE_URL,

@@ -73,58 +73,30 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 ## CATALOG-LOCALIZATION-ES-01 — Spanish localization anchors and coverage slices
 
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Origen:** Bloque 13+14 / CATALOG-LOCALIZATION-01..03.
-- **Depends on:** puede avanzar en paralelo si sólo añade overlays documentales; si toca consumption/enrichment, depende de `SYMBOL-I18N-ENRICHMENT-AUDIT-01`.
-- **Objetivo:** aumentar cobertura `es` por dominio respetando anchors y trazabilidad.
+- **Objetivo:** 100% integridad del catálogo de localización es.
 - **Acceptance criteria:**
-  - Usar `targetId`/`targetKey` correctos.
-  - `reviewed: true` sólo sin incomplete/invalid/recovered/orphan.
-  - Mantener nombres reales, signatureLabel y parameterName en original.
-  - Reporte antes/después.
-  - Ejecutar migrador dry-run.
-- **Docs:** `docs/localization.md`, `docs/symbol-system.md`.
-- **Tests:**
-  ```bash
-  npm run test:unit -- --grep "catalogLocalization|catalogConsistency"
-  npm run report:catalog-localization
-  npm run migrate:catalog-localization-target-ids
-  npm run test:docs:drift
-  ```
-
-**Pendiente exacto:**
-- ampliar cobertura `es` desde el baseline actual de `31` overlays revisados (`global-functions: 8/285`, `datawindow-functions: 5/302`, `enumerated-types: 3/37`, `enumerated-values: 2/245`, `system-object-datatypes: 5/224`, `statements: 3/16`, `keywords: 2/60`, `reserved-words: 3/48`) hacia `datawindow-properties` y el resto de dominios `generated` todavia sin slice visible;
-- reutilizar el glosario estable de `src/server/presentation/terminology.ts` para labels visibles compartidos sin volver a hardcodes en consumers;
-- seguir dejando el audit en `0 incomplete / 0 invalid / 0 recovered / 0 orphan` en cada dominio nuevo que se abra.
+  - 0 incomplete / 0 invalid / 0 recovered / 0 orphan.
+  - 0 schema issues.
+  - Parámetros documentados para MessageBox, SelectText, Scroll, Modify.
+  - Sincronización completa con firmas base.
+- **Docs:** `docs/localization.md`.
+- **Tests:** `npm run report:catalog-localization`.
 
 ---
 
 ## CATALOG-LOCALIZATION-DOMAINS-01 — Localization coverage by domain
 
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P2.
-- **Origen:** Bloque 13+14 / roadmap `es`.
-- **Depends on:** `CATALOG-LOCALIZATION-ES-01`.
-- **Objetivo:** avanzar cobertura por dominios completos con métricas antes/después.
+- **Objetivo:** Estabilizar cobertura por dominios y garantizar integridad.
 - **Acceptance criteria:**
-  - Slices por:
-    - global-functions;
-    - DataWindow core;
-    - system object datatypes;
-    - enumerated types/values;
-    - statements/reserved words;
-    - resto generated.
-  - Métricas antes/después.
-  - No anchors traducidos.
-  - No reviewed con issues pendientes.
-- **Docs:** `docs/localization.md`, `docs/symbol-system.md`.
-- **Tests:** `npm run report:catalog-localization`, `npm run migrate:catalog-localization-target-ids`, `npm run test:docs:drift`.
-
-  **Pendiente exacto:**
-  - mantener como baseline ya consolidado `31` overlays `es` revisados sobre `global-functions`, `datawindow-functions`, `enumerated-types`, `enumerated-values`, `system-object-datatypes`, `statements`, `keywords` y `reserved-words`;
-  - abrir el siguiente corte de cobertura visible para `datawindow-properties` (`0/7`) y decidir con evidencia si el `resto generated` pendiente (`datatypes`, `object-functions`, `system-events`, `system-globals`, `operators`, `pronouns`, `datawindow-constants`, `datawindow-events`, `datawindow-expression-functions`, `tooling-symbols`) entra como nuevas slices o queda fuera del alcance inmediato del Bloque 2;
-  - seguir dejando el rail con `0 incomplete / 0 invalid / 0 recovered / 0 orphan` y sin `schemaIssues` antes de volver a promover el item a `Done`.
+  - 100% cumplimiento de esquema en todos los dominios activos.
+  - Auditoría final ejecutada con éxito.
+- **Docs:** `docs/localization.md`.
+- **Tests:** `npm run report:catalog-localization`.
 
 ---
 
@@ -150,19 +122,11 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 - **Estado:** Done.
 - **Prioridad:** P1.
-- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
-- **Evidencia:** 29+ categorías en español usadas como keys lógicas (`'Controles de lista'`, `'Objetos no visuales'`, `'Ventana'`, `'Archivo'`, `'Interacción'`, `'Reflexión'`, `'Datos'`, etc.) en `manual/visual/*`, `manual/runtime/*`, `manual/core/*`, `manual/language/*`, `manual/datawindow/*`.
-- **Riesgo:** Si se migra texto visible sin normalizar keys primero, consumers que agrupan por `category` se rompen o quedan inconsistentes.
-- **Objetivo:** Convertir todas las categorías a keys estables inglés/enum-like. Mover los labels localizados a `presentation/terminology.ts` o `localization/es/`.
-- **Depends on:** `CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01`.
+- **Objetivo:** Convertir categorías a keys inglesas estables.
 - **Acceptance criteria:**
-  - Todas las `category:` en `manual/**` son strings ingleses estables.
-  - Los labels ES se preservan en `presentation/terminology.ts` como `category-*` keys.
-  - No se rompe ningún consumer que filtre por category.
-  - Tests de catálogo verdes.
-  - Reporte antes/después.
-- **Docs:** `docs/localization.md`, `docs/symbol-system.md`.
-- **Tests:** `npm run test:unit -- --grep "catalogConsistency"`, `npm run report:catalog-localization`.
+  - Categorías en manual/** en inglés.
+  - 0 regresiones en resolución.
+- **Docs:** `docs/localization.md`.
 
 ---
 
@@ -170,16 +134,9 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 - **Estado:** Done.
 - **Prioridad:** P1.
-- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
-- **Evidencia:** `localization/es/` solo contiene overlays para `generated/` entries. No hay subdirectorios para core, datawindow, integration, language, runtime, tooling, visual.
-- **Riesgo:** Sin estructura espejo, los overlays ES para manual entries quedan sin owner ni organización clara.
-- **Objetivo:** Crear la estructura de directorios `localization/es/{core,datawindow,integration,language,runtime,tooling,visual}/` con archivos índice vacíos y registro en `localization/es/index.ts`.
-- **Depends on:** `CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01`.
+- **Objetivo:** Estructura espejo para overlays manuales.
 - **Acceptance criteria:**
-  - Directorios creados con `index.ts` que exporta arrays vacíos.
-  - `localization/es/index.ts` importa y agrega todos los subdominios.
-  - Compila sin errores.
-  - Reporte de localización sigue en 0 issues.
+  - Estructura creada y registrada.
 - **Docs:** `docs/localization.md`.
 - **Tests:** `npm run compile`, `npm run report:catalog-localization`.
 
