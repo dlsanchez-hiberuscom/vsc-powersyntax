@@ -1,6 +1,6 @@
-import type { PbSystemSymbolLocalizationOverlay } from '../../types';
+import type { PbSystemSymbolLocalizationOverlay } from '../../../../types';
 
-export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_TOOLING = [
+export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	{
 		locale: 'es',
 		reviewed: false,
@@ -129,4 +129,4 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_TOOLING = [
 			documentation: 'Se usa por el rail legacy ORCA al preparar export/import/rebuild sin abrir un segundo motor semántico.',
 		},
 	},
-] as const satisfies readonly PbSystemSymbolLocalizationOverlay[];
+];

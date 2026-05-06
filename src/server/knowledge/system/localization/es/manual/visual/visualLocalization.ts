@@ -1,4 +1,4 @@
-import type { PbSystemSymbolLocalizationOverlay } from '../../types';
+import type { PbSystemSymbolLocalizationOverlay } from '../../../../types';
 
 /**
  * Spanish localization overlays for manual visual domain entries.

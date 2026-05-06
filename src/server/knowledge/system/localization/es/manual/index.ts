@@ -1,7 +1,7 @@
 import type { PbSystemSymbolLocalizationOverlay } from '../../types';
-import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_TOOLING } from './toolingLocalization';
-import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_VISUAL } from './visualLocalization';
-import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_RUNTIME } from './runtimeLocalization';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_TOOLING } from './tooling';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_VISUAL } from './visual';
+import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_RUNTIME } from './runtime';
 import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_CORE } from './core';
 import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_DATAWINDOW } from './datawindow';
 import { PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_INTEGRATION } from './integration';
