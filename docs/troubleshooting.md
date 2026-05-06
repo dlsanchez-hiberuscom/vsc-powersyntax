@@ -1,69 +1,502 @@
-# Troubleshooting
+# Troubleshooting — Plugin PowerBuilder 2025 para VS Code
 
-## Owner
+## 1. Propósito
 
-This document owns operational failure interpretation for release, PBAutoBuild, ORCA and external command rails. It complements [docs/release.md](release.md), [docs/developer-workflows.md](developer-workflows.md), [docs/architecture-status.md](architecture-status.md) and [docs/testing.md](testing.md).
+Este documento define cómo diagnosticar y resolver problemas del plugin profesional de PowerBuilder 2025 para VS Code.
 
-## General Rules
+Debe responder a una pregunta:
 
-- External tools are optional and must run only through explicit commands, tasks, reports or release lanes.
-- Missing PowerBuilder IDE, PBAutoBuild or ORCA must not degrade normal language features.
-- Do not run external commands from startup, file open, hover, completion, signature help, definition or diagnostics hot paths.
-- Use configured paths or documented environment variables; do not hardcode local installation paths.
-- Redact tokens, passwords, PATs, source-control credentials and sensitive paths before showing logs or adding support bundle data.
-- Respect Workspace Trust and Restricted Mode before running external commands.
+> Cuando algo falla, ¿qué síntomas buscamos, qué datos recogemos, qué validaciones hacemos y qué solución o workaround aplicamos?
 
-## Release And VSIX
+El proceso de release vive en `docs/release.md`. Los flujos de desarrollo viven en `docs/developer-workflows.md`. La estrategia de pruebas vive en `docs/testing.md`.
 
-| Symptom | Check first | Likely reason code | Action |
-| --- | --- | --- | --- |
-| `release:verify` fails before package | `npm test` output | `test-failed` | Fix the failing suite before packaging. |
-| Architecture rapid fails | `artifacts/performance/architecture-rapid-gate.json` | `architecture-gate-failed` | Inspect smoke/performance subsection and avoid release packaging. |
-| Docs drift fails | `npm run test:docs:drift` JSON output | `docs-drift` | Align backlog/current-focus/done-log/prompts/specs. |
-| VSIX missing | `.dist/vsc-powersyntax.vsix` | `vsix-missing` | Run `npm run package:vsix`. |
-| VSIX contains forbidden files | `npm run verify:vsix-contents` | `vsix-surface-invalid` | Fix `package.json` `files` or build output before release. |
-| Installed smoke fails | `smoke-installed` label output | `installed-smoke-failed` | Treat package as broken even if `vsce package` succeeded. |
+---
 
-## PBAutoBuild
+## 2. Principios de troubleshooting
 
-| Symptom | Check first | Likely reason code | Action |
-| --- | --- | --- | --- |
-| Tool not found | `vscPowerSyntax.build.pbAutoBuildPath`, `PB_AUTOBUILD_PATH` | `tool-missing` | Configure `PBAutoBuild250.exe` explicitly or install the tool. |
-| Unsupported platform | OS/runtime status | `unsupported-platform` | Treat PBAutoBuild as unavailable on non-supported hosts. |
-| Build JSON missing | build files inventory | `config-json-missing` | Select or create a usable build JSON before running. |
-| Build JSON invalid | build health report | `config-json-invalid` | Fix JSON schema/paths before invoking the runner. |
-| Source control auth failure | redacted log summary | `source-control-auth-failure` | Reconfigure credentials outside repo/logs. |
-| Runtime/toolkit missing | build health/support matrix | `runtime-missing` | Install required runtime/toolkit for the chosen build mode. |
-| Compile failure | mapped build problems | `compile-error` | Open mapped Problems entries when source mapping is reliable. |
-| Deploy failure | error log summary | `deploy-error` | Inspect redacted error log and deployment target configuration. |
-| Timeout or cancel | runner state | `timeout` or `cancelled` | Adjust timeout or rerun after checking long-running steps. |
+### 2.1. Diagnosticar por capas
 
-PBAutoBuild modes must stay explicit. JSON `/f` and PBC `/pbc` use validated arguments, not arbitrary shell strings. Password encryption `/p` may be documented for users, but passwords must never be captured in logs or committed configuration.
+Todo problema debe ubicarse primero en una capa:
 
-## ORCA
+```text
+VS Code Client
+Language Client
+Language Server
+Workspace discovery
+Parser / Indexer
+Symbol Graph / Semantic Facade
+Cache Layer
+Provider LSP
+Diagnostics
+DataWindow
+ORCA / PBAutoBuild
+Packaging / Release
+```
 
-| Symptom | Check first | Likely reason code | Action |
-| --- | --- | --- | --- |
-| ORCA unavailable | `vscPowerSyntax.legacy.orcaPath`, `PB_ORCA_PATH` | `orca-tool-missing` | Configure the executable explicitly. |
-| Session DLL missing | `vscPowerSyntax.legacy.orcaSessionDll`, `PB_ORCA_DLL`, `pborc250.dll` fallback | `orca-session-missing` | Configure or install the compatible session DLL. |
-| Export blocked | `.vsc-powersyntax/orca-export/state/last-export.state` | `orca-export-blocked` | Review source root, aliases and generated script path. |
-| Import blocked | `last-import-ledger.json`, source fingerprints | `stale-staging` | Re-export staging and verify source drift before import. |
-| Backup missing | ORCA ledger | `backup-missing` | Do not retry write-enabled import without a valid backup. |
-| Packaging requested | ORCA packaging policy | `packaging-disabled` | EXE/PBD/DLL packaging is not exposed without a dedicated feature flag. |
-| Runner failed | ORCA runner output | `orca-runner-failed` | Use the redacted log and generated script as evidence. |
+### 2.2. Reproducir antes de corregir
 
-ORCA is an advanced optional rail. It must not become a runtime dependency for discovery, indexing, hover, completion, diagnostics, definition or read-only DataWindow analysis.
+Siempre que sea posible, reducir el fallo a fixture mínimo o pasos reproducibles.
 
-## Support Bundles And Logs
+### 2.3. No ocultar fallbacks
 
-Support bundles should include summaries, reason codes, manifests and redacted excerpts. They should not include credentials, PATs, passwords, full private source dumps or massive logs by default.
+Si el plugin degrada una feature por falta de datos, timeout, cache miss o herramienta externa ausente, debe registrarlo de forma observable.
 
-Useful artifacts:
+### 2.4. No publicar resultados obsoletos
 
-- `.dist/vsc-powersyntax.vsix`
-- `artifacts/performance/architecture-rapid-gate.json`
-- `artifacts/performance/performance-budget-gate.json`
-- `.vsc-powersyntax/runtime/build-orca-journal.json`
-- `.vsc-powersyntax/orca-export/state/last-export.state`
-- `.vsc-powersyntax/orca-export/state/last-import-ledger.json`
-- `tools/pbautobuild-ci/<perfil>`
+En problemas de diagnostics, semantic tokens, hover o completion, confirmar siempre versión de documento, invalidación y cache.
+
+### 2.5. Convertir fallos recurrentes en tests
+
+Todo bug reproducible que afecte una capa crítica debe terminar protegido por test si se corrige.
+
+---
+
+## 3. Datos mínimos para reportar una incidencia
+
+```text
+versión del plugin
+versión de VS Code
+sistema operativo
+workspace/proyecto usado
+formato PowerBuilder detectado
+archivo afectado
+pasos para reproducir
+resultado esperado
+resultado actual
+logs del cliente
+logs del servidor
+si aplica: support bundle o extracto sanitizado
+```
+
+No incluir código propietario o datos sensibles sin sanitizar.
+
+---
+
+## 4. Problemas de activación
+
+### Síntomas
+
+- La extensión no se activa.
+- Los comandos no aparecen.
+- Las vistas/status del plugin no aparecen.
+- No se inicia Language Client.
+
+### Causas probables
+
+- Workspace no detectado como PowerBuilder.
+- Activation events demasiado restrictivos.
+- Error en manifest/contribuciones.
+- Fallo de dependencias o empaquetado.
+- Error en `extension.ts` o composition root del cliente.
+
+### Validaciones
+
+```text
+[ ] Confirmar que hay ficheros/formato PowerBuilder reconocible.
+[ ] Revisar Output/Console del Extension Host.
+[ ] Verificar comandos registrados.
+[ ] Verificar que el Language Client se crea.
+[ ] Comprobar errores de package/manifest.
+```
+
+### Soluciones habituales
+
+- Abrir una carpeta/workspace que contenga estructura PowerBuilder válida.
+- Ejecutar comando explícito del plugin si existe.
+- Revisar activation events y contribuciones.
+- Reinstalar dependencias o reconstruir extensión.
+
+---
+
+## 5. Problemas de Language Server
+
+### Síntomas
+
+- El servidor no arranca.
+- El servidor se cierra al abrir un fichero.
+- No hay respuestas LSP.
+- El output muestra errores del servidor.
+
+### Causas probables
+
+- Error de bootstrap en `server.ts`.
+- Handler registrado incorrectamente.
+- Excepción no controlada en parser/indexer/provider.
+- Configuración inválida.
+- Incompatibilidad de transporte o inicialización.
+
+### Validaciones
+
+```text
+[ ] Revisar logs del servidor.
+[ ] Confirmar initialize/initialized.
+[ ] Abrir fichero mínimo.
+[ ] Reproducir con fixture pequeño.
+[ ] Separar si falla bootstrap, document sync o provider.
+```
+
+### Soluciones habituales
+
+- Reducir caso a fixture mínimo.
+- Añadir guardas de error en handler/provider.
+- Validar configuración de inicio.
+- Ejecutar tests de smoke e integration del servidor.
+
+---
+
+## 6. Problemas de workspace discovery
+
+### Síntomas
+
+- No se detectan targets/projects/libraries.
+- El workspace tarda demasiado en abrir.
+- Se indexan carpetas incorrectas.
+- No aparecen símbolos globales.
+
+### Causas probables
+
+- Formato de workspace no soportado o incompleto.
+- Exclusiones configuradas incorrectamente.
+- File watcher no emite eventos esperados.
+- Discovery mezcla detección con análisis pesado.
+- Paths relativos/absolutos mal normalizados.
+
+### Validaciones
+
+```text
+[ ] Revisar estructura del workspace.
+[ ] Confirmar ficheros PBW/PBT/PBL/PBSLN/PBPROJ/SR* si aplica.
+[ ] Revisar excludes.
+[ ] Medir tiempo de discovery.
+[ ] Confirmar si se hizo full scan o incremental.
+```
+
+### Soluciones habituales
+
+- Añadir soporte de formato detectado.
+- Corregir normalización de paths.
+- Separar discovery de indexación profunda.
+- Forzar refresh controlado del índice.
+
+---
+
+## 7. Problemas de parser/indexer
+
+### Síntomas
+
+- Hover/completion no reconocen símbolos.
+- Definition/references fallan.
+- Diagnostics inconsistentes.
+- Errores al editar scripts incompletos.
+
+### Causas probables
+
+- Parser no tolera documento incompleto.
+- Rangos inestables.
+- Indexer no invalida lo necesario.
+- Símbolos eliminados no se limpian.
+- Symbol graph queda desactualizado.
+
+### Validaciones
+
+```text
+[ ] Reproducir con script mínimo.
+[ ] Confirmar versión de documento.
+[ ] Revisar AST/modelo parcial.
+[ ] Revisar símbolos indexados.
+[ ] Confirmar invalidación tras edición.
+```
+
+### Soluciones habituales
+
+- Añadir recuperación tolerante en parser.
+- Añadir tests de rangos y edición incompleta.
+- Ajustar invalidación incremental.
+- Limpiar símbolos al borrar/renombrar.
+
+---
+
+## 8. Problemas de hover/completion/signature
+
+### Síntomas
+
+- Hover no aparece.
+- Hover muestra información pobre o incorrecta.
+- Completion es lento o irrelevante.
+- Signature help no detecta argumentos.
+
+### Causas probables
+
+- No hay snapshot válido.
+- Cache miss dispara trabajo caro.
+- Semantic facade no resuelve símbolo/callable.
+- Provider usa regex local en vez de resolución semántica.
+- Catálogo built-in incompleto.
+
+### Validaciones
+
+```text
+[ ] Confirmar posición y documento.
+[ ] Revisar RequestContext.
+[ ] Revisar cache hit/miss.
+[ ] Revisar resolución semántica.
+[ ] Confirmar fallback usado.
+[ ] Medir latencia según performance-budget.md.
+```
+
+### Soluciones habituales
+
+- Corregir resolver semántico.
+- Añadir/ajustar cache de ViewModel.
+- Añadir negative cache si aplica.
+- Enriquecer catálogo built-in si falta símbolo.
+- Añadir fixture y test del caso.
+
+---
+
+## 9. Problemas de diagnostics
+
+### Síntomas
+
+- Diagnostics no aparecen.
+- Diagnostics aparecen con retraso excesivo.
+- Diagnostics quedan obsoletos tras editar.
+- Severidad/rango/fuente incorrectos.
+
+### Causas probables
+
+- Scheduler no cancela análisis anterior.
+- Cache de diagnostics no valida versión.
+- Parser/indexer desactualizado.
+- Mezcla de fuentes sintácticas, semánticas, DataWindow o build.
+- Mapping incorrecto de errores externos.
+
+### Validaciones
+
+```text
+[ ] Confirmar documentVersion.
+[ ] Confirmar fuente del diagnóstico.
+[ ] Revisar scheduler/cancelación.
+[ ] Revisar cache de diagnostics.
+[ ] Confirmar rango y severidad.
+[ ] Reproducir con fixture mínimo.
+```
+
+### Soluciones habituales
+
+- Invalidar diagnostics por versión/fuente.
+- Cancelar análisis obsoleto.
+- Separar engines de diagnostics.
+- Ajustar mapping de errores.
+- Añadir tests contra diagnostics obsoletos.
+
+---
+
+## 10. Problemas de rendimiento
+
+### Síntomas
+
+- VS Code se ralentiza.
+- Hover/completion tardan demasiado.
+- Indexación consume demasiado tiempo.
+- Memoria crece sin estabilizar.
+- File watcher o discovery generan demasiados eventos.
+
+### Causas probables
+
+- Lectura de disco en hot path.
+- Reparseo/reindexación excesiva.
+- Cache sin invalidación o evicción.
+- Trabajo global por una request local.
+- Integración externa bloqueante.
+
+### Validaciones
+
+```text
+[ ] Identificar hot path.
+[ ] Medir duración.
+[ ] Revisar cache hit/miss.
+[ ] Revisar invalidación.
+[ ] Confirmar si hubo I/O en hot path.
+[ ] Comparar con docs/performance-budget.md.
+```
+
+### Soluciones habituales
+
+- Mover trabajo pesado fuera del hot path.
+- Introducir snapshot/cache con contrato.
+- Reducir invalidación global.
+- Añadir fallback parcial.
+- Añadir performance smoke test.
+
+---
+
+## 11. Problemas de DataWindow
+
+### Síntomas
+
+- No se resuelve DataWindow referenciada.
+- No aparecen columnas/controles.
+- Diagnostics DataWindow incorrectos.
+- Hover/completion se ralentizan con DataWindows.
+
+### Causas probables
+
+- Extractor no localiza source DataWindow.
+- Modelo DW no cacheado o invalidado incorrectamente.
+- Binding PowerScript ↔ DataWindow incompleto.
+- Análisis SQL profundo ejecutado en hot path.
+
+### Validaciones
+
+```text
+[ ] Confirmar referencia DW desde PowerScript.
+[ ] Confirmar source/hash DW.
+[ ] Revisar DataWindow model cache.
+[ ] Revisar binding resolver.
+[ ] Medir latencia.
+```
+
+### Soluciones habituales
+
+- Corregir extractor/model parser.
+- Cachear modelo por source/hash.
+- Separar safe mode de análisis avanzado.
+- Añadir fixture DataWindow.
+
+---
+
+## 12. Problemas de ORCA/PBAutoBuild
+
+### Síntomas
+
+- Herramienta no encontrada.
+- Build falla sin diagnostics útiles.
+- ORCA bloquea o produce error de sesión.
+- La salida externa no se mapea correctamente.
+
+### Causas probables
+
+- Herramienta no instalada o no localizada.
+- Configuración incorrecta.
+- Runner bloqueante.
+- Parser de salida incompleto.
+- Error mapper insuficiente.
+
+### Validaciones
+
+```text
+[ ] Confirmar disponibilidad de herramienta.
+[ ] Confirmar path/configuración.
+[ ] Revisar exit code.
+[ ] Revisar stdout/stderr sanitizado.
+[ ] Confirmar mapping a diagnostics.
+[ ] Probar fake/mock si es desarrollo.
+```
+
+### Soluciones habituales
+
+- Mejorar locator/configuración.
+- Añadir timeout/cancelación.
+- Corregir parser de salida.
+- Degradar si herramienta no está disponible.
+- Añadir tests con fake/mock.
+
+---
+
+## 13. Problemas de release/instalación
+
+### Síntomas
+
+- El paquete no instala.
+- La extensión instala pero no activa.
+- Faltan archivos empaquetados.
+- Funciona en desarrollo pero no en paquete.
+
+### Causas probables
+
+- Manifest/package incompleto.
+- Artefacto generado desde estado sucio.
+- Archivos necesarios excluidos del paquete.
+- Diferencias entre Extension Development Host y paquete instalado.
+
+### Validaciones
+
+```text
+[ ] Generar artefacto desde limpio.
+[ ] Instalar paquete localmente.
+[ ] Verificar archivos incluidos.
+[ ] Ejecutar smoke post-install.
+[ ] Revisar release checklist.
+```
+
+### Soluciones habituales
+
+- Corregir package/manifest.
+- Incluir recursos necesarios.
+- Repetir release desde estado limpio.
+- Añadir smoke post-package.
+
+---
+
+## 14. Support bundle
+
+Cuando un problema no sea reproducible localmente, se debe recopilar un paquete de soporte sanitizado.
+
+Contenido recomendado:
+
+```text
+versión plugin
+versión VS Code
+sistema operativo
+settings relevantes
+logs cliente
+logs servidor
+métodos LSP afectados
+errores recientes
+métricas de performance si aplica
+estructura de workspace sanitizada
+```
+
+No incluir fuentes propietarias sin sanitizar.
+
+---
+
+## 15. Plantilla de incidencia
+
+```markdown
+## Síntoma
+
+## Entorno
+
+- Plugin:
+- VS Code:
+- OS:
+- Workspace/formato PB:
+
+## Pasos para reproducir
+
+1.
+2.
+3.
+
+## Resultado esperado
+
+## Resultado actual
+
+## Logs / métricas
+
+## Workaround
+
+## Clasificación probable
+
+- Cliente / Servidor / Workspace / Parser / Cache / Provider / Diagnostics / DataWindow / ORCA / PBAutoBuild / Release
+```
+
+---
+
+## 16. Relación con backlog y tests
+
+Si un problema es reproducible y requiere cambio, debe crearse o actualizarse trabajo accionable en `docs/backlog.md` o en una spec bajo `docs/specs/`.
+
+Si se corrige, debe añadirse prueba de regresión cuando sea posible.

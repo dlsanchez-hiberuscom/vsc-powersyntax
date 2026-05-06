@@ -2,547 +2,468 @@
 
 ## 1. Propósito
 
-Este documento describe workflows reales que el plugin debe soportar para ser útil a programadores PowerBuilder.
+Este documento define los **flujos operativos de desarrollo** del plugin profesional de PowerBuilder 2025 para VS Code.
 
-Sirve para priorizar features visibles contra valor profesional real, no contra demos aisladas.
+Debe responder a una pregunta:
 
----
+> ¿Qué pasos debe seguir un desarrollador para abrir, modificar, probar, depurar y validar el plugin de forma segura y consistente?
 
-## 2. Workflow 1 — Abrir proyecto y obtener valor rápido
-
-El usuario abre un workspace o solution.
-
-El plugin debe:
-
-1. detectar modo: Workspace, Solution, mixed o PBL-only;
-2. mostrar en la status bar el proyecto activo y el estado real de discovery/indexing;
-3. priorizar archivo activo;
-4. permitir abrir desde esa status bar un dashboard read-only de salud del proyecto reutilizando stats, manifest y build health ya publicados, incluyendo la matriz oficial de soporte por modo/surface y un enterprise health score explicable;
-5. exponer un Object Explorer read-only por proyecto/librería/kind con foco opcional en proyecto o archivo activo;
-6. servir Document Symbols y Hover cuanto antes;
-7. exponer desde esa status bar accesos rápidos a stats, salud del runtime y build;
-8. continuar indexando en background.
-
-Valor:
-
-- el usuario no espera a que el workspace completo termine;
-- y la status bar deja de ser decorativa porque sirve como punto de mantenimiento, observabilidad y acceso al dashboard de salud.
-
-Estado actual:
-
-- el discovery ya distingue `PBL-only` cuando solo aparecen roots `.pbl`;
-- el project model y el Object Explorer proyectan esas librerías como nodos read-only sin requerir `.pbt/.pbproj` ni staging.
-- en multi-root, `project routing`, `semanticWorkspaceManifest` y Object Explorer aíslan proyectos/librerías homónimos por URI real, sin colapsarlos por label visible.
-
-Contrato visible actual publicado por el health report:
-
-- el dashboard y el health report proyectan un enterprise health score explicable por readiness, diagnostics, build, ORCA, cache, sourceOrigin, performance y support matrix, sin abrir otro motor de health;
-- `Workspace`, `Solution` y target `.pbt` se proyectan como superficies soportadas del producto.
-- `pbl-only`, source plain-text/exportado, staging ORCA y `DataWindow .srd` se proyectan como superficies read-only con límites explícitos y degradación honesta.
-- `PBAutoBuild` queda condicionado al tooling detectado, mientras PowerServer/PowerClient se reflejan como build files validados por el mismo carril JSON compartido.
+La arquitectura objetivo vive en `docs/architecture.md`. La estrategia de pruebas vive en `docs/testing.md`. Los presupuestos de rendimiento viven en `docs/performance-budget.md`. El trabajo accionable vive en `docs/backlog.md` y el foco inmediato en `docs/current-focus.md`.
 
 ---
 
-## 3. Workflow 2 — Entender el objeto actual
+## 2. Principios de trabajo
 
-El usuario abre una ventana, user object o función.
+### 2.1. Trabajar desde el foco activo
 
-El plugin debe mostrar, mediante el Current Object Context Panel read-only:
+Antes de modificar código o documentación, revisar:
 
-- tipo de objeto;
-- librería/proyecto;
-- ancestor;
-- variables visibles;
-- funciones/eventos;
-- anchors de SQL embebido con keyword, rango, `confidence` y transaction target cuando el binding es defendible;
-- readiness;
-- sourceOrigin;
-- diagnostics relevantes.
+```text
+docs/current-focus.md
+docs/backlog.md
+docs/architecture-status.md
+```
 
-Además, cuando haga falta un veredicto corto y accionable para esa unidad, el usuario o agente debe poder ejecutar `PowerSyntax: Check Current Object`, `PowerSyntax: Check Object...`, `checkObject()` o el tool read-only `object-check` para resumir diagnostics, herencia, dependencias, bindings DataWindow, SQL embebido y safe-edit signals sin releer todo el workspace.
+El objetivo es evitar trabajar sobre tareas fuera de foco o reabrir decisiones ya cerradas.
 
-Si la pregunta es todavía más local y gira alrededor de un diagnostic concreto ya publicado, debe poder ejecutar además `PowerSyntax: Explain Diagnostic at Cursor`, `explainDiagnostic()` o el tool read-only `explain-diagnostic` para obtener una explicación compacta con `diagnostic.code`, `reasonCode`, evidencia mínima y safe fix sugerido cuando el runtime ya lo pueda defender.
+### 2.2. Cambios pequeños, validables y documentados
 
-Si la duda gira alrededor de un símbolo del lenguaje o del catálogo runtime, debe poder ejecutar además `PowerSyntax: Explain System Symbol at Cursor`, `explainSystemSymbol()` o el tool read-only `explain-system-symbol` para obtener summary, signatures, enum info, provenance y fallback localizado sin cargar el catálogo completo.
+Cada cambio debe poder explicarse, probarse y documentarse. Si un cambio afecta arquitectura, testing, performance, IA o workflows, se deben actualizar los documentos correspondientes.
 
-Si la duda gira alrededor de por qué una resolución semántica eligió un target concreto o quedó ambigua, debe poder ejecutar además `PowerSyntax: Explain Semantic Query at Cursor`, `explainSemanticQuery()` o el tool read-only `explain-semantic-query` para recibir un explain plan legible con fases, candidatos, descartes, winner, `confidence`, `sourceOrigin` y coste aproximado sin abrir otro rail semántico paralelo.
+### 2.3. Separar operación de diseño
 
-Si la tarea IA ya combina troubleshooting, verificación de foco y preparación de cambio, debe poder pedir además `getAiTaskContextBundle()`, el tool `ai-task-context-bundle` o el comando de automatización `powerbuilder.exportAiTaskContextBundle` para recibir un bundle compacto con `object-check`, `currentObjectContext`, `safeEditPlan`, `dependencyGraph` y explainability puntual bajo budget explícito, en vez de concatenar llamadas y contexto masivo a mano.
+Este documento explica **cómo trabajar**. No debe convertirse en arquitectura, backlog, roadmap ni testing profundo.
 
----
+### 2.4. No tocar históricos congelados salvo instrucción explícita
 
-## 4. Workflow 3 — Navegar herencia
+Durante la fase actual de normalización documental, no modificar:
 
-El usuario quiere saber de dónde viene una función/evento.
+```text
+docs/done-log.md
+docs/architecture-implementation-map.md
+```
 
-El plugin debe permitir:
-
-- ver cadena de ancestros;
-- navegar al script del ancestro;
-- ver overrides;
-- ver descendientes;
-- ver evidence/confidence de la resolución.
+Pueden consultarse como histórico/evidencia, pero no normalizarse todavía.
 
 ---
 
-## 5. Workflow 4 — Entender DataWindows usadas
+## 3. Flujo 1 — Preparar entorno de desarrollo
 
-El usuario está en una ventana con DataWindow controls.
+### Objetivo
 
-El plugin debe poder:
+Dejar el repositorio listo para compilar, probar y depurar el plugin.
 
-- detectar `DataObject = "d_xxx"`;
-- navegar al `.srd`;
-- mostrar columnas/args básicos;
-- derivar ese resumen, los `retrieveArguments` y la especialización de `Retrieve(...)` desde el mismo `DataWindowModel` canónico, sin un parser local por workflow;
-- navegar `Describe/Modify(...)` cuando la ruta apunta a `DataWindow.Table.Select`, `report(...)` o `dddw.name` resolubles;
-- seguir child DataWindows por `report(name=... dataobject=...)` y dropdowns `dddw.name` sin mezclar `.srd` con PowerScript normal;
-- proyectar un lineage SQL read-only que encadene `retrieve` raíz, report children y dropdown children resolubles desde bindings reales o desde el `.srd` activo;
-- ofrecer completion segura y diagnósticos conservadores sobre property paths DataWindow reconocibles, sin abrir completion genérica dentro de strings arbitrarios;
-- completar además funciones oficiales de expresión DataWindow dentro de `.srd` (`CurrentRow`, `If`, `Sum`, etc.) desde el dominio `datawindow-expression-functions`, sin mezclar ese vocabulario con PowerScript general fuera de expresiones defendibles;
-- detectar `Retrieve`/`Update`;
-- degradar si el DataObject es dinámico.
+### Pasos
 
----
+1. Clonar o actualizar el repositorio.
+2. Instalar dependencias.
+3. Revisar versión de Node/npm requerida por el proyecto.
+4. Ejecutar typecheck/build inicial.
+5. Ejecutar smoke tests mínimos.
+6. Abrir VS Code en modo desarrollo si aplica.
 
-## 6. Workflow 5 — Ejecutar build
+### Validación mínima
 
-El usuario quiere compilar desde VS Code.
+```text
+- El proyecto instala dependencias sin error.
+- El código compila o typecheck pasa.
+- Los tests rápidos pasan.
+- La extensión puede arrancar en Extension Development Host si aplica.
+```
 
-El plugin debe:
+### Documentos relacionados
 
-- detectar y mostrar disponibilidad de PBAutoBuild por configuración, entorno o candidatos por defecto sin lanzar build;
-- descubrir JSON de build;
-- validar rutas/secrets;
-- lanzar build out-of-process;
-- mostrar logs;
-- publicar errores en Problems Panel si hay source fiable.
-
-Estado actual:
-
-- la capability detection read-only ya es visible en status/health del cliente;
-- discovery/validación read-only de build files JSON ya está cerrada en servidor y refresca incrementalmente por watcher;
-- la matriz read-only de perfiles y validación de entorno ya está cerrada por comando/API/tool, combinando inventory completo, último profile recordado y build health sin disparar builds;
-- el runner out-of-process ya está cerrado y expone comandos run/cancel con estado mínimo visible en status/stats/journal;
-- el parser de logs y Problems Panel ya están cerrados con publicación separada de problemas de build cuando hay mapeo fiable;
-- la health unificada del build moderno ya está cerrada y se reutiliza en status, menú y health report;
-- la UX final de perfiles/comandos ya está cerrada con último build recordado y selección explícita de build file utilizable;
-- el último build profile recordado y la matriz read-only distinguen roots homónimos por `buildFileUri`, aunque el label visible del JSON se repita.
-- el helper CI/CD ya está cerrado como bundle neutral y versionable en `tools/pbautobuild-ci/<perfil>` sin acoplar la extensión a un proveedor concreto.
-- el carril legacy ORCA ya tiene adapter base out-of-process y capability detection read-only visible en status/health; el comando del script activo consume `vscPowerSyntax.legacy.orcaPath` o `PB_ORCA_PATH` sin autodetección difusa por instalaciones locales, el export controlado a `.vsc-powersyntax/orca-export/orca-staging` usa `vscPowerSyntax.legacy.orcaSessionDll`, `PB_ORCA_DLL` o `pborc250.dll` para dejar source indexable sin tocar la PBL original, `vscPowerSyntax.importOrcaStaging` reutiliza ese último export persistido para ejecutar preflight, verificar drift del source real rastreado, hacer backup binario, correr `import-from-staging.orc` y dejar `last-import-ledger.json`, `vscPowerSyntax.regenerateOrcaLibraries` / `vscPowerSyntax.rebuildOrcaProject` reutilizan el mismo rail seguro para mantenimiento legacy sin abrir un segundo motor, la API pública `applySpecDrivenPblUpdate()` encadena safe edit plan + export fresco + edits explícitos sobre staging + import seguro sobre ese mismo rail, `applySpecDrivenPblUpdateBatch()` coordina múltiples PBL de forma secuencial con `stopOnError`, y el servidor persiste la secuencia técnica reciente de build/ORCA en `.vsc-powersyntax/runtime/build-orca-journal.json` además de publicarla por `showStats`.
-- `B340` añade un dominio curado `tooling-symbols` (`powerbuilder-tooling`) para ORCA, PBAutoBuild, env vars y settings de tooling, reutilizable por surfaces de docs/health/build sin dejar que ese vocabulario entre en la resolución interactiva de lenguaje.
+```text
+docs/testing.md
+docs/performance-budget.md
+```
 
 ---
 
-## 7. Workflow 6 — Preparar contexto para IA
+## 4. Flujo 2 — Abrir un workspace PowerBuilder y validar activación
 
-El usuario quiere que una IA modifique o revise código PowerBuilder.
+### Objetivo
 
-El plugin debe poder generar contexto read-only:
+Comprobar que el plugin detecta correctamente un proyecto PowerBuilder y arranca sus componentes básicos.
 
-- current object context;
-- dependencies;
-- cross-project conflicts;
-- workspace migration assistant;
-- references;
-- diagnostics;
-- ancestor chain;
-- DataWindow bindings;
-- sourceOrigin;
-- evidence/confidence;
-- invocationRisk y riskReasons para bloquear automatización insegura.
+### Pasos
 
-Estado actual:
+1. Abrir un workspace fixture o proyecto real controlado.
+2. Verificar que la extensión se activa solo cuando corresponde.
+3. Verificar que el cliente VS Code arranca el Language Client.
+4. Verificar que el Language Server inicia sin errores críticos.
+5. Abrir un fichero PowerScript.
+6. Comprobar logs básicos de activación, discovery y sincronización de documento.
 
-- `docs/ai-context/powerbuilder-plugin-context.md` fija ya el pack corto de arranque para tareas IA: resume boundaries, reglas PowerBuilder, validación y ownership documental sin arrastrar documentación masiva ni datasets `generated/manual/localization` completos dentro del prompt.
-- el plugin ya puede exportar un repro pack semántico reproducible desde el editor activo, capturando `currentObjectContext`, `impactAnalysis`, `safeEditPlan`, `semanticWorkspaceManifest`, `serverStats`, diagnostics visibles y copias de archivos relacionados bajo `tools/semantic-repros`.
-- los diagnostics incluidos en ese contexto y en snapshots ya exponen `diagnostic.code` estable; tooling nuevo debe consumir ese campo y no parsear `source` como contrato primario.
-- la API pública v2 ya expone descriptor contractual, bridge read-only por tools, snapshot semántico exportable/importable, settings governance observable con perfiles `fast|balanced|deep-analysis|legacy-orca|ci-support|support-safe`, knowledge packs curados y safe batch refactor planning sin abrir un segundo motor en cliente.
-- `workspace-check` ya soporta también el modo `upgrade` y el comando `PowerSyntax: Check Extension Upgrade Compatibility`, reutilizando el mismo rail read-only para revisar drift de settings, estado persistente del runtime, schema/API version y ruido local del workspace antes de comparar versiones.
-- el cliente ya expone además un Diagnostics Explainability Panel read-only sobre los diagnostics emitidos, reutilizando el mismo contrato estable de `diagnostic.code`.
-- el cliente y la API pública exponen ya `explain-diagnostic` como surface compacta read-only para troubleshooting guiado de un diagnostic individual sin releer archivos enteros ni reconstruir el contexto a mano.
-- `impactAnalysis`, `safeEditPlan`, `dependencyGraph` y code actions ya exponen `invocationRisk` uniforme para que la automatización diferencie llamadas seguras, heredadas, fallback, dinámicas o externas antes de proponer cambios.
-- desde `B312`, cuando el riesgo dinámico viene de SQL defendible, `riskReasons` añade `dynamic-sql:n` sin perder `dynamic-strings:n`; si el SQL no es demostrable, el runtime degrada de forma honesta y no inventa un subtipo específico.
-- `querySymbols`, `currentObjectContext`, `impactAnalysis`, `safeEditPlan` y `object-check` ya hacen visible la policy de knowledge packs: el source real del workspace gana, los packs quedan advisory y las surfaces read-only exponen matched owner types + `sourceOrigin` + `confidence` sin tocar el hot path.
-- la API pública y el read-only bridge exponen ya `task-execution-dry-run` / `getTaskExecutionDryRun()` para exigir plan, impacto, archivos, tests, docs y bloqueos antes de cualquier write-enabled.
-- `applySpecDrivenPblUpdate()` y `applySpecDrivenPblUpdateBatch()` devuelven ya `validationReceipt` con `commands`, `results`, `artifacts`, `docsTouched`, `docsPending`, `specsAffected` y `nextFocus`.
-- el cliente y la API pública exponen ya `task-replay-bundle` / `replayTaskFromBundle()` para rehidratar contexto mínimo desde semantic repro pack o support bundle saneado sin requerir el repo completo.
+### Validación mínima
 
-Automatización write-enabled solo debe llegar después de dry-run contractual, confidence gates, validación suficiente y `validationReceipt` explícito.
+```text
+- La extensión se activa en workspace PowerBuilder.
+- El servidor LSP arranca.
+- El documento se sincroniza.
+- No aparecen errores críticos en output/logs.
+- La activación no bloquea perceptiblemente VS Code.
+```
 
 ---
 
-## 8. Workflow 7 — Cambiar topología o scripts en caliente
+## 5. Flujo 3 — Desarrollar una feature LSP
 
-El usuario crea, modifica o elimina `targets/projects/solutions` o añade SR* nuevos mientras sigue trabajando.
+### Objetivo
 
-El plugin debe:
+Añadir o modificar una feature como hover, completion, signature help, definition, references, diagnostics, document symbols o semantic tokens.
 
-- absorber cambios en `.pbw`, `.pbt`, `.pbproj`, `.pbsln` y build files JSON sin exigir rediscovery completo;
-- refrescar `project routing`, `sourceOrigin` y el catálogo read-only de build files cuando entren SR* nuevos o cambie la topología;
-- tratar `.pbw/.pbt/.pbproj/.pbsln` y `.pbl` como inputs de topología/discovery, no como documentos semánticos PowerScript aunque un override de lenguaje intente forzar ese camino;
-- mantener status/readiness coherentes mientras el watcher procesa el batch;
-- degradar de forma segura si un marker no puede reprocesarse.
+### Pasos
 
-Estado actual:
+1. Revisar arquitectura objetivo de providers en `docs/architecture.md`.
+2. Revisar estado actual en `docs/architecture-status.md`.
+3. Confirmar si existe trabajo accionable en `docs/backlog.md`.
+4. Implementar cambios en provider/formatter/result model sin duplicar resolución semántica.
+5. Consumir `RequestContext`, `SemanticQueryFacade` y caches cuando aplique.
+6. Añadir o actualizar tests según `docs/testing.md`.
+7. Validar budgets si afecta hot path.
+8. Actualizar documentación afectada.
 
-- `WorkspaceState`, watcher y indexador recalculan `sourceOrigin` según el marker topológico más cercano, no según un modo global del workspace;
-- el export ORCA a staging elige además el workspace folder correcto cuando hay varias raíces abiertas y mantiene los aliases ligados a la librería legacy original del root correcto.
+### Validación mínima
 
----
-
-## 9. Workflow 8 — Normalizar scripts sin romper constructs reales
-
-El usuario quiere normalizar un script PowerBuilder soportado de forma manual o al guardar.
-
-El plugin debe:
-
-- ofrecer un formatter conservador y configurable para documentos PowerScript soportados;
-- respetar strings y comentarios;
-- no tratar DataWindow como PowerScript normal;
-- permitir `formatOnSave` delegando el cálculo al servidor LSP o degradando por presupuesto explícito, sin introducir un motor semántico paralelo ni peso extra en el hot path del cliente.
+```text
+- El provider no reimplementa resolución global si ya existe en la fachada semántica.
+- El handler LSP sigue siendo fino.
+- Hay test unitario/contract/integration según riesgo.
+- No se rompe budget de performance si es hot path.
+- La documentación afectada queda alineada.
+```
 
 ---
 
-## 10. Workflow 9 — Preparar release y revisar marketplace readiness
+## 6. Flujo 4 — Modificar parser, indexer o symbol graph
 
-El mantenedor quiere validar una release sin improvisacion de ultima hora.
+### Objetivo
 
-El plugin y su repo deben poder:
+Cambiar la base semántica sin romper navegación, diagnostics ni providers LSP.
 
-- generar un VSIX real y repetible;
-- inspeccionar el contenido publicado antes de empaquetar;
-- ejecutar smoke, unit/integration y gate de rendimiento dentro del mismo release lane;
-- y mantener README, changelog y workflow de release alineados con el estado real del producto.
+### Pasos
 
-Estado actual:
+1. Identificar qué capa se modifica: parser, indexer, workspace model o symbol graph.
+2. Revisar contratos en `docs/architecture.md`.
+3. Añadir fixtures mínimos que reproduzcan el caso.
+4. Implementar cambio con tolerancia a documentos incompletos.
+5. Validar invalidación incremental.
+6. Ejecutar tests unitarios y de integración.
+7. Ejecutar performance smoke si afecta workspace/indexación.
 
-- el owner documental del carril release/VSIX/Marketplace es `docs/release.md`, mientras errores operativos y reason codes de release/PBAutoBuild/ORCA viven en `docs/troubleshooting.md`;
-- `npm run package:vsix` genera `./.dist/vsc-powersyntax.vsix` con el runtime real de la extension, empaquetado desde `dist/client/extension.js` y `dist/server/server.js`;
-- `npm run package:vsix:list` inspecciona el contenido publicable;
-- `npm run verify:vsix-contents` valida required paths y bloquea prefijos prohibidos del VSIX real antes de publicar;
-- `npm run test:smoke:installed-vsix` reutiliza `test/smoke/extension.test.ts` contra `./.dist/vsc-powersyntax.vsix` instalado en un entorno aislado;
-- `npm run release:verify` encadena tests base, arquitectura rápida, docs drift, gate de rendimiento, cobertura de catálogo, empaquetado, `verify:vsix-contents`, smoke instalada del VSIX y summary final con versión/commit/artifact;
-- `.github/workflows/release-readiness.yml` deja ese mismo carril disponible en CI (`workflow_dispatch`, `push`, `pull_request`) bajo `xvfb-run -a` y conserva el artifact VSIX durante `14` días.
+### Validación mínima
 
----
-
-## 11. Workflow 10 — Operar y diagnosticar build moderno y ORCA legacy
-
-El usuario o maintainer necesita decidir rápido qué carril usar y cómo depurar un fallo sin abrir el código.
-
-Matriz de decisión operativa:
-
-1. usar `PBAutoBuild` si existe un build file JSON `usable`, el source real ya es la autoridad y el objetivo es compilar o exportar un helper CI/CD neutral;
-2. usar `ORCA legacy` si el workspace depende de `.pbl`, hace falta exportar a staging indexable o ejecutar `import/regenerate/rebuild` sobre librerías legacy;
-3. no tratar nunca `orca-staging` como source canónico ni como sustituto del carril moderno de build;
-4. no esperar creación de `EXE/PBD/DLL` vía ORCA: esa línea queda explícitamente no expuesta y requeriría un feature flag dedicado.
-
-Superficies visibles que deben bastar para el troubleshooting:
-
-- status bar y menú de estado con `Build`, `Último build`, `Elegir build`, `Cancelar build`, `ORCA` y `Cancelar ORCA`;
-- dashboard read-only de salud del proyecto con enterprise health score explicable;
-- `PowerSyntax: Mostrar Stats del Runtime` para inspeccionar `buildFiles`, `buildRunner`, `orcaTooling`, `orcaRunner`, `buildProblems`, `buildHealth` y `showStats.persistence.buildOrcaJournalUri`.
-
-Artefactos de diagnóstico que el usuario debe poder localizar sin ambigüedad:
-
-- `tools/pbautobuild-ci/<perfil>` para el helper neutral de CI/CD;
-- `.vsc-powersyntax/orca-export/orca-staging` para source exportado indexable;
-- `.vsc-powersyntax/orca-export/state/last-export.state` como frontera del último export válido;
-- `.vsc-powersyntax/orca-export/state/last-import-ledger.json` y `last-*-ledger.json` como resultado del rail write-enabled legacy;
-- `.vsc-powersyntax/runtime/build-orca-journal.json` como journal técnico persistente `build|legacy`.
-
-Troubleshooting mínimo defendible:
-
-1. si `PBAutoBuild` no aparece, revisar `vscPowerSyntax.build.pbAutoBuildPath`, `PB_AUTOBUILD_PATH` y la lista de build files `usable` antes de culpar al runner;
-2. si el build corre pero no publica problemas, revisar si el parser pudo resolver el objeto del log a un archivo único del workspace;
-3. si ORCA no aparece como disponible, revisar `vscPowerSyntax.legacy.orcaPath` o `PB_ORCA_PATH` y no asumir autodetección por instalaciones del sistema;
-4. si el export ORCA falla, revisar `vscPowerSyntax.legacy.orcaSessionDll`, `PB_ORCA_DLL`, el fallback `pborc250.dll` y los scripts generados bajo `.vsc-powersyntax/orca-export/scripts/`;
-5. si el import/regenerate/rebuild se bloquea, revisar `last-export.state`, drift del source real rastreado, fingerprints de PBL, staging vacío y el `last-*-ledger.json` antes de reintentar;
-6. si la release falla, repetir `npm run build:test`, `npm run package:vsix`, `npm run package:vsix:list` y `npm run release:verify` antes de asumir una regresión de producto.
-7. si hace falta escalar a soporte offline, revisar `build-orca-snapshot.json.failureClassification` para distinguir `missing-tool`, `invalid-env`, `compile-errors`, `stale-staging`, `source-conflict` y `packaging-disabled` antes de releer logs crudos.
+```text
+- Parser mantiene recuperación ante errores.
+- Indexer invalida solo lo necesario.
+- Symbol graph conserva identidades estables.
+- Providers consumidores siguen funcionando.
+- No hay regresión en apertura/indexación de workspace representativo.
+```
 
 ---
 
-## 12. Workflow 11 — Comparar dos estados semánticos exportados
+## 7. Flujo 5 — Modificar Cache Layer
 
-El maintainer o agente quiere medir qué cambió entre dos snapshots exportados del workspace sin reabrir el motor semántico ni depender del estado vivo del editor.
+### Objetivo
 
-Flujo:
+Añadir o modificar caches sin introducir datos obsoletos, fugas de memoria ni respuestas incorrectas.
 
-1. exportar un snapshot base con `exportSemanticWorkspaceSnapshot()`;
-2. importar o construir un segundo snapshot candidato;
-3. ejecutar `diffSemanticWorkspaceSnapshots()` o el tool read-only `semantic-snapshot-diff`;
-4. revisar cambios de proyectos, objetos exportados, símbolos, readiness, health, diagnósticos y `sourceOrigin`.
+### Pasos
 
-Reglas:
+1. Justificar qué coste evita la cache.
+2. Definir contrato: owner, scope, key, value, lifecycle, invalidation, metrics y fallback.
+3. Implementar cache aislada y testeable.
+4. Añadir tests de hit, miss, invalidation y eviction si aplica.
+5. Añadir métricas mínimas.
+6. Validar hot path afectado.
+7. Actualizar `docs/performance-budget.md` si cambia un budget o métrica.
 
-- el diff reutiliza solo el contrato público versionado ya exportado;
-- no consulta al servidor ni recalcula semántica al comparar snapshots ya serializados;
-- el resultado debe ser exportable y defendible aunque el workspace original ya no esté abierto.
+### Validación mínima
 
----
-
-## 13. Workflow 12 — Visualizar el grafo inmediato de dependencias
-
-El maintainer o agente quiere inspeccionar el vecindario inmediato de dependencias de un objeto PowerBuilder sin reindexar el workspace ni montar una engine paralela.
-
-Flujo:
-
-1. abrir el archivo u objeto foco en el editor;
-2. ejecutar `PowerSyntax: Abrir Grafo de Dependencias PowerBuilder` o `getPowerBuilderDependencyGraph()`;
-3. revisar el Mermaid generado y las aristas `inherits`, `depends-on` y `used-by`;
-4. exportar el payload JSON o reutilizar el tool read-only `dependency-graph` si hace falta automatización.
-
-Reglas:
-
-- el grafo usa solo snapshots, símbolos y reverse dependencies ya publicados por el pipeline semántico;
-- el alcance actual es de vecindario inmediato y debe degradar de forma honesta cuando una dependencia no pueda resolverse;
-- una resolución ambigua debe permanecer explícita y no fingir una única verdad cross-project.
+```text
+- La cache no devuelve datos para versión incorrecta.
+- La invalidación está probada.
+- Existe fallback seguro.
+- Hay métricas de hit/miss.
+- No aumenta memoria sin límite.
+```
 
 ---
 
-## 14. Workflow 13 — Inspeccionar DataWindow SQL lineage
+## 8. Flujo 6 — Trabajar con DataWindow
 
-El maintainer o agente quiere inspeccionar el lineage SQL real de un DataWindow sin reparsear el workspace ni reconstruir otra engine semántica.
+### Objetivo
 
-Flujo:
+Modificar soporte DataWindow sin mezclarlo indebidamente con el parser PowerScript principal.
 
-1. abrir un `.srd` o un script con binding `DataObject` literal activo;
-2. ejecutar `PowerSyntax: Abrir DataWindow SQL Lineage`, `getDataWindowSqlLineage()` o el tool read-only `datawindow-sql-lineage`;
-3. revisar el árbol raíz/report/dropdown, las sentencias `retrieve` y las referencias SQL proyectadas;
-4. exportar el payload JSON o reutilizar el Markdown como evidencia de troubleshooting.
+### Pasos
 
-Reglas:
+1. Revisar modelo DataWindow objetivo en `docs/architecture.md`.
+2. Identificar si el cambio afecta extractor, parser, model, SQL model, binding resolver, cache o provider.
+3. Añadir fixture DataWindow específico.
+4. Implementar en el subdominio DataWindow correspondiente.
+5. Integrar por fachada semántica o provider, no mediante lógica dispersa.
+6. Añadir tests de modelo, binding, cache y provider si aplica.
+7. Validar budgets de DataWindow si afecta hot path.
 
-- el lineage reutiliza solo `DataWindowModel`, bindings `DataObject` y child routes ya indexadas por el pipeline semántico;
-- el subset SQL actual cubre aliases de `select`, `JOIN ... ON` simples y `WHERE` básico; si aparece subquery o SQL complejo, el lineage debe degradar sin inventar referencias;
-- la resolución debe permanecer explícita como `resolved|missing|ambiguous|dynamic` y no fingir rutas únicas cuando no existan;
-- el slice actual es read-only y no introduce parsing paralelo ni recomputación global del workspace.
+### Validación mínima
 
----
-
-## 15. Workflow 14 — Analizar conflictos semánticos cross-project
-
-El maintainer o agente quiere detectar símbolos homónimos defendibles entre proyectos o librerías del mismo workspace sin abrir una engine paralela ni volver a escanear el código.
-
-Flujo:
-
-1. ejecutar `PowerSyntax: Abrir Analizador de Conflictos Cross-Project`, `getCrossProjectSymbolConflicts()` o el tool read-only `cross-project-symbol-conflicts`;
-2. revisar el ranking por `buildSymbolKey`, proyecto, librería y `sourceOrigin` preferido;
-3. usar el Markdown o el payload JSON como evidencia de troubleshooting o planificación read-only;
-4. mantener explícita la ambigüedad cuando el fallback global ya devuelve múltiples winners defendibles.
-
-Reglas:
-
-- el analizador reutiliza `KnowledgeBase`, `buildSymbolKey`, `WorkspaceState` y la prioridad de `sourceOrigin` ya publicada por el producto;
-- staging ORCA o duplicados de la misma ubicación no deben sobrerreportarse como conflicto canónico si existe source real preferido;
-- el slice sigue siendo read-only y no habilita rename/references automáticos cross-project por sí solo.
+```text
+- DataWindow sigue siendo subdominio propio.
+- No se parsean todas las DataWindows para una request interactiva simple.
+- Los bindings tienen tests.
+- La cache DataWindow invalida por source/hash.
+```
 
 ---
 
-## 16. Workflow 15 — Planificar migración de layouts legacy
+## 9. Flujo 7 — Trabajar con ORCA o PBAutoBuild
 
-El maintainer o agente quiere ordenar una migración desde un layout `pbl-only` o `mixed` hacia una topología soportada sin abrir un planner paralelo ni aplicar escritura opaca sobre el workspace.
+### Objetivo
 
-Flujo:
+Integrar herramientas externas sin acoplarlas al core semántico ni bloquear el servidor LSP.
 
-1. ejecutar `PowerSyntax: Abrir Asistente de Migración de Workspace`, `getWorkspaceMigrationAssistant()` o el tool read-only `workspace-migration-assistant`;
-2. revisar `currentMode`, `targetMode`, resumen de roots/build files/proyectos y las recomendaciones priorizadas por `topology`, `build` y `legacy`;
-3. si aparecen `source-control-artifacts` o `local-artifact-noise`, separar metadata/policy files SCM (`.git`, `.svn`, `.gitignore`, `.gitattributes`, `.scc`) y outputs locales (`.pb`, `build`, `_backupfiles`) del carril topológico antes de seguir ajustando markers o build files;
-4. si aparecen acciones manuales de inspección en `local-artifact-noise` o `legacy-orca-aliases`, usarlas como checklist read-only antes de tocar `_backupfiles`, `build`, `.pb` o staging ORCA;
-5. usar el Markdown o el payload JSON como evidencia defendible para decidir si primero conviene consolidar markers, sanear build files, retirar dependencia accidental de `orca-staging` o limpiar ruido local del workspace.
-6. repetir el análisis después de cada ajuste estructural para confirmar que la topología objetivo queda más estable.
+### Pasos
 
-Reglas:
+1. Confirmar si el cambio afecta adapter, locator, runner, parser o mapper.
+2. Implementar detrás de una interfaz aislada.
+3. Añadir fakes/mocks para tests.
+4. Probar herramienta disponible y no disponible.
+5. Mapear errores a modelos internos.
+6. Evitar ejecución en hot paths interactivos.
+7. Documentar workflow si afecta al usuario.
 
-- el asistente reutiliza `WorkspaceState`, summary de build files, project model y aliases ORCA ya publicados por el runtime, sin abrir otra engine de discovery;
-- la surface puede exponer artefactos SCM y outputs locales detectados por discovery, pero sólo como guidance read-only; no ejecuta Git/SVN ni limpia nada por defecto;
-- si discovery aún no tiene roots/materialización suficiente, la surface puede degradar a `available: false` con reason explícita en vez de inventar un plan;
-- el slice es read-only: no crea markers ni reescribe build files automáticamente.
+### Validación mínima
 
----
-
-## 17. Workflow 16 — Validar perfiles de build y entorno
-
-El maintainer o agente quiere decidir qué build profile es ejecutable y qué gap de entorno o inventario bloquea PBAutoBuild sin lanzar un proceso real.
-
-Flujo:
-
-1. ejecutar `PowerSyntax: Abrir Matriz de Perfiles de Build`, `getBuildProfileMatrix()` o el tool read-only `build-profile-matrix`;
-2. revisar tooling, build health, último profile recordado y el inventario completo de build files con estado `usable|ambiguous|invalid`;
-3. corregir primero el gap dominante: tooling ausente/inválido, profile recordado obsoleto, build file ambiguo o JSON inválido;
-4. repetir la matriz antes de ejecutar `runPbAutoBuild` para confirmar que al menos un profile queda `canRun = true`.
-
-Reglas:
-
-- la matriz se construye sobre capability detection de PBAutoBuild, inventory completo del servidor y build health ya publicada, sin lanzar builds ni reanalizar el workspace;
-- un profile `usable` puede seguir quedar no ejecutable si el entorno no expone `pbautobuild250.exe` válido;
-- el slice es read-only y no selecciona ni persiste automáticamente otro profile por el usuario.
+```text
+- La ausencia de herramienta externa no rompe el servidor.
+- La operación larga es cancelable o controlada.
+- Los errores se mapean sin exponer salida cruda innecesaria.
+- Hay tests con fake/mock.
+```
 
 ---
 
-## 18. Workflow 17 — Exportar support bundle offline
+## 10. Flujo 8 — Ejecutar pruebas antes de cerrar cambios
 
-## 17A. Workflow 17A — Usar el core maintenance command pack
+### Objetivo
 
-El maintainer o agente quiere inspeccionar o sanear el runtime sin abrir debugging manual, sin duplicar observabilidad y sin tocar código del workspace.
+Asegurar que el cambio no introduce regresiones.
 
-Flujo:
+### Pasos recomendados
 
-1. abrir `PowerSyntax: Abrir Menú de Estado` o ejecutar directamente el comando del síntoma principal;
-2. usar `PowerSyntax: Exportar Health Report`, `Check Workspace`, `Check Extension Upgrade Compatibility`, `Ejecutar Runtime Self-Test`, `Mostrar Memory Budgets`, `Mostrar Estado de Indexación`, `Mostrar Project Routing` o `Mostrar Conflictos de sourceOrigin` para inspección read-only del runtime;
-3. ejecutar `PowerSyntax: Validar Cache Persistente` antes de tocar persistencia y usar `PowerSyntax: Ejecutar Mantenimiento de Cache Semántica` solo cuando la retención/journal lo recomienden;
-4. reservar `PowerSyntax: Limpiar Cache Semántica` y `PowerSyntax: Rebuild Workspace Index` para limpieza explícita del estado persistido o relanzado del runtime, siempre tras confirmación modal.
+```text
+1. Ejecutar static/typecheck.
+2. Ejecutar unit tests afectados.
+3. Ejecutar contract tests si cambia una interfaz.
+4. Ejecutar integration tests si cambia interacción entre capas.
+5. Ejecutar smoke tests si afecta activación, LSP o comandos críticos.
+6. Ejecutar performance tests si afecta hot paths, cache, indexación o DataWindow.
+7. Ejecutar E2E solo cuando afecte interacción real con VS Code.
+```
 
-Reglas:
+Los nombres exactos de comandos pueden variar. La separación conceptual debe seguir `docs/testing.md`.
 
-- `workspace check`, `check extension upgrade compatibility`, `export health report`, `run runtime self-test`, `show memory budgets`, `show indexing state`, `show project routing`, `show sourceOrigin conflicts`, `validate persistent cache` y `export support bundle` son read-only;
-- `clear semantic cache` y `rebuild workspace index` son comandos confirmables y no deben dispararse en background ni sin acción explícita del usuario;
-- el pack reutiliza `showStats`, dashboard, manifest, `currentObjectContext`, conflictos cross-project y `cacheStore`, sin abrir un segundo motor de observabilidad;
-- `workspace check`, `check extension upgrade compatibility`, `runtime self-test`, `health report` y `support bundle` son complementarios: el primero responde si el workspace está listo para cerrar trabajo, el segundo revisa compatibilidad al actualizar versión sin abrir otro checker, el tercero ofrece un chequeo rápido del runtime, el cuarto congela dashboard/score enterprise/stats/manifest para inspección rápida y el quinto añade snapshot offline con redacción explícita por perfil.
+### Validación mínima
 
----
-
-## 18. Workflow 17 — Exportar support bundle offline
-
-El maintainer o soporte quiere congelar una evidencia técnica del runtime para análisis offline sin copiar código bruto del workspace ni depender de releer el estado vivo del editor.
-
-Flujo:
-
-1. si hace falta una redacción más estricta, aplicar antes `ci-support` o `support-safe` desde `PowerSyntax: Aplicar Perfil de Settings`;
-2. ejecutar `PowerSyntax: Exportar Support Bundle Offline` desde el workspace activo;
-3. localizar el bundle bajo `tools/support-bundles/<workspace>-<timestamp>` o en el destino explícito elegido por el comando y confirmar en `manifest.json` / `README.md` el `redactionProfile` y la `redactionPolicy` aplicada;
-4. revisar `runtime-health.json`, `server-stats.sanitized.json`, `diagnostics-snapshot.sanitized.json`, `semantic-workspace-manifest.reduced.json`, `runtime-journal-tail.json`, `performance-summary.json`, `current-object-context.sanitized.json`, `powerbuilder-code-metrics.sanitized.json`, `powerbuilder-technical-debt-report.sanitized.json`, `settings-sanitized.json`, `build-orca-snapshot.json`, `workspace-cleanup-advisor.json`, `public-contract.json`, `read-only-tool-bridge.json` y `api-inventory.json`;
-5. adjuntar el bundle como evidencia de troubleshooting o soporte sin mezclarlo con el repro pack semántico si no hace falta copiar archivos fuente relacionados.
-
-Reglas:
-
-- el support bundle se construye cliente-side sobre `showStats`, health, manifest semántico, current object context, code metrics, debt report, `workspaceMigrationAssistant`, gobernanza de settings y contrato API ya publicados;
-- `build-orca-snapshot.json` resume además `failureClassification` para build moderno y ORCA legacy a partir de `buildHealth`, parser/problemas de PBAutoBuild y `.vsc-powersyntax/runtime/build-orca-journal.json`, sin releer logs crudos ni abrir un segundo checker;
-- `workspace-cleanup-advisor.json` sólo propone inspección/limpieza manual de caches, staging y ruido local; no ejecuta borrado ni modifica el workspace;
-- el contrato público ya declara este carril como observabilidad local `externalTelemetry = false`; la exportación offline requiere una acción explícita del usuario y no existe envío automático de métricas fuera de la máquina local;
-- `fast`, `balanced`, `deep-analysis` y `legacy-orca` mantienen `sanitized`, mientras `ci-support` y `support-safe` pueden endurecer paths/snippets/settings/manifest a `summary-only` según la policy publicada en el bundle;
-- rutas, URIs, ejecutables y artefactos locales deben salir redaccionados y el bundle no copia código bruto por defecto;
-- el repro pack semántico sigue siendo el carril para bugs donde haga falta copiar contexto fuente relacionado, mientras que el support bundle prioriza observabilidad offline y privacidad local.
+```text
+- Pasa la suite mínima aplicable.
+- Los fallos se corrigen o quedan documentados como bloqueo real.
+- No se cierran cambios con tests relevantes omitidos sin justificación.
+```
 
 ---
 
-## 19. Workflow 18 — Revisar métricas avanzadas de código PowerBuilder
+## 11. Flujo 9 — Depurar cliente VS Code
 
-El maintainer o agente quiere obtener un mapa defendible de hotspots de código, SQL embebido, DataWindows, dependencias externas, integraciones HTTP/REST/JSON, superficies WebBrowser/WebView2 y footprint build/ORCA sin releer el workspace ni abrir un motor paralelo.
+### Objetivo
 
-Flujo:
+Diagnosticar problemas de activación, comandos, vistas, configuración o Language Client.
 
-1. ejecutar `PowerSyntax: Abrir Métricas Avanzadas de Código PowerBuilder`, `getPowerBuilderCodeMetrics()` o el tool read-only `code-metrics`;
-2. revisar el resumen global, `Diagnostics By Area`, el footprint de build/ORCA, los contadores `totalWebBrowserUsages`, `totalHttpIntegrationUsages` / `totalJsonIntegrationUsages` y la lista de hotspots truncada por `maxObjects`;
-3. usar los objetos con mayor `approximateComplexity`, `diagnostics`, `externalDependencies`, `linkedDataWindows`, `webBrowserUsages`, `httpIntegrationUsages` o `jsonIntegrationUsages` como entrada para deuda técnica, modernización y troubleshooting;
-4. si hace falta ampliar o reducir la muestra, repetir el análisis vía API/tool ajustando `maxObjects`.
+### Pasos
 
-Reglas:
+1. Arrancar Extension Development Host.
+2. Revisar consola del Extension Host.
+3. Revisar output channel del plugin si existe.
+4. Verificar eventos de activación.
+5. Verificar registro de comandos y vistas.
+6. Verificar arranque y parada del Language Client.
+7. Confirmar que el cliente no ejecuta trabajo pesado.
 
-- el reporte reutiliza snapshots semánticos ya publicados, bindings `DataObject`, diagnostics snapshot y `WorkspaceState`, sin abrir un parser ni un índice paralelos;
-- `approximateComplexity`, SQL embebido, lifecycle warnings y contadores HTTP/REST/JSON/WebBrowser son métricas defendibles con límites claros, no una puntuación absoluta de calidad;
-- el slice es read-only: no propone ni ejecuta cambios sobre el código.
+### Señales de problema
 
----
-
-## 20. Workflow 19 — Revisar deuda técnica y modernización priorizada
-
-El maintainer o agente quiere priorizar deuda técnica real del workspace sin abrir un scoring paralelo ni convertir el reporte en una acción write-enabled.
-
-Flujo:
-
-1. ejecutar `PowerSyntax: Abrir Informe Técnico de Deuda y Modernización PowerBuilder`, `getPowerBuilderTechnicalDebtReport()` o el tool read-only `technical-debt-report`;
-2. revisar el resumen global de hotspots/recomendaciones y confirmar si la presión dominante viene de `obsolete`, `dynamic-sql`, `lifecycle-risk`, `datawindow-risk`, `external-dependency`, `modern-integration`, `web-ui-integration`, `source-origin-risk` o del layout legacy del workspace;
-	- cuando el hotspot sea `datawindow-risk`, revisar la evidencia concreta (`diagnostic:dataobject-binding=*`, `diagnostic:transaction-binding=*`, `diagnostic:retrieve-arity=*`, `diagnostic:datawindow-path=*`) antes de decidir el siguiente carril;
-	- cuando el hotspot sea `lifecycle-risk`, revisar la evidencia concreta (`diagnostic:lifecycle-missing-super=*`, `diagnostic:lifecycle-missing-trigger=*`, `diagnostic:lifecycle-unresolved-hook=*`) antes de tocar `create/destroy` o hooks `constructor/destructor`;
-	- cuando el hotspot sea `modern-integration`, revisar `integration-surface:*`, `integration-pattern:*`, `integration-endpoint:*` y `integration-risk:redaction-required`, confirmando que el reporte conserva solo endpoints redactados y no expone secretos ni payloads completos;
-	- cuando el hotspot sea `web-ui-integration`, revisar `web-ui-surface:*`, `web-ui-pattern:*` y `web-ui-risk:no-content-inspection`, confirmando que el reporte resume navegación/bridge WebView2 sin leer contenido web remoto ni ejecutar nada;
-3. usar los hotspots `high/medium` y sus evidencias para decidir el siguiente carril: modernización manual, estabilización DataWindow, saneamiento lifecycle, limpieza sourceOrigin o consolidación ORCA/PBL;
-4. usar las recomendaciones del reporte como handoff hacia el siguiente bloque de contratos/consistencia o troubleshooting, no como autorización automática para editar el código.
-
-Reglas:
-
-- el informe reutiliza `code-metrics`, `diagnostic.code`, `sourceOrigin` summary, endpoints/patrones redactados del snapshot, señales `web-ui-*` derivadas del mismo texto ya indexado y `workspaceMigrationAssistant`; no inventa diagnósticos nuevos ni abre un segundo motor de scoring;
-- `priority` y `confidence` deben leerse como señal defendible y acotada, no como decisión irreversible de refactor;
-- el slice es read-only: las acciones sugeridas son recomendaciones operativas y deben pasar por preflight/guards antes de cualquier cambio real.
+```text
+- Activación demasiado temprana.
+- Comandos no registrados.
+- Language Client no arranca.
+- Logs de cliente con errores de configuración.
+- Trabajo pesado ejecutándose en Extension Host.
+```
 
 ---
 
-## 21. Workflow 20 — Aplicar quick fixes seguras y explicables
+## 12. Flujo 10 — Depurar Language Server
 
-El maintainer o agente quiere aprovechar una acción pequeña desde Problems o el editor sin abrir automatización opaca ni saltarse governance.
+### Objetivo
 
-Flujo:
+Diagnosticar problemas de parsing, indexación, providers, diagnostics, caches o integración externa.
 
-1. abrir un documento con un diagnóstico publicado y pedir Code Action o quick fix desde Problems o desde el rango afectado;
-2. revisar el preview y confirmar que la acción sigue siendo un reemplazo local y versionado del catálogo;
-3. si el documento cae en `sourceOrigin` dudoso, preflight inválido o referencias dinámicas por string del mismo identificador, la acción debe mostrarse bloqueada y explicable en vez de editar;
-4. si la acción queda habilitada, aplicarla como cambio mínimo y dejar que diagnostics vuelva a confirmar el estado final.
+### Pasos
 
-Reglas:
+1. Activar logs del servidor.
+2. Reproducir con fixture mínimo.
+3. Identificar request LSP afectada.
+4. Revisar `traceId` o logs equivalentes si existen.
+5. Separar si el fallo está en handler, provider, semantic facade, cache o domain model.
+6. Añadir test antes o junto al fix.
+7. Validar que no se introducen resultados obsoletos.
 
-- el framework consume `diagnostic.code` ya publicado y no parsea `source` como contrato primario ni inventa diagnósticos locales;
-- cada acción declara `catalogVersion`, `requiredConfidence`, `evidence` y `preview` antes de tocar el documento;
-- `sourceOrigin` dudoso, preflight fallido y dynamic strings bloquean la acción antes del edit.
+### Señales de problema
 
----
-
-## 22. Workflow 21 — Gobernar perfiles y settings del producto
-
-El maintainer o agente quiere aplicar un baseline corporativo defendible sobre el workspace sin tocar settings uno a uno ni abrir overrides invisibles fuera del carril explícito del producto.
-
-Flujo:
-
-1. ejecutar `PowerSyntax: Mostrar Gobernanza de Settings` para inspeccionar el perfil activo, las claves gobernadas y los conflictos actuales;
-2. ejecutar `PowerSyntax: Aplicar Perfil de Settings` para aplicar uno de los perfiles `fast`, `balanced`, `deep-analysis`, `legacy-orca`, `ci-support` o `support-safe` sobre el workspace actual;
-3. revisar conflictos residuales, especialmente combinaciones inválidas como `formatOnSave=true` con `formatting.enabled=false`;
-4. si el workspace arrastra perfiles legacy (`interactive`, `legacy-safe`), normalizarlos a `fast` o `support-safe` antes de seguir con soporte, ORCA o troubleshooting.
-
-Reglas:
-
-- la política sólo gobierna claves explícitas del producto; no debe sobreescribir paths locales de PBAutoBuild u ORCA ni settings ajenos al contrato;
-- `legacy-orca`, `ci-support` y `support-safe` priorizan reproducibilidad y baja mutación sobre corpus legacy o sesiones de soporte;
-- la aplicación del perfil escribe en settings de workspace, no en settings globales del usuario.
+```text
+- Reparseo excesivo.
+- Cache hit incorrecto.
+- Diagnostics de versión anterior.
+- Resolución semántica duplicada.
+- Handler LSP con demasiada lógica.
+- Bloqueos en operaciones externas.
+```
 
 ---
 
-## 23. Workflow 22 — Mantener composition roots bajo control
+## 13. Flujo 11 — Revisar rendimiento
 
-El maintainer o agente necesita añadir una capability sin convertir [src/client/extension.ts](../src/client/extension.ts) o [src/server/server.ts](../src/server/server.ts) en dueños de lógica nueva.
+### Objetivo
 
-Flujo:
+Detectar y corregir regresiones de latencia, memoria o indexación.
 
-1. revisar `npm run test:architecture:metrics` y `artifacts/performance/architecture-hotspot-guard.json` antes de tocar roots;
-2. si el cambio es cliente, registrar comandos en [src/client/commandRegistration.ts](../src/client/commandRegistration.ts) y mantener controllers detrás de `ensure*Controller()` cuando sean UI lazy;
-3. si el cambio es servidor LSP, registrar handlers desde [src/server/handlers/featureHandlerRegistration.ts](../src/server/handlers/featureHandlerRegistration.ts) o [src/server/handlers/commandHandlerRegistration.ts](../src/server/handlers/commandHandlerRegistration.ts), delegando lógica a handlers/services existentes;
-4. no mover semántica, parsing, DataWindow, build runners o reports a `shared`; `shared` queda para contratos serializables y tipos puros;
-5. ejecutar `npm run build:test`, la suite focal afectada y `npm run test:architecture:metrics` después del corte.
+### Pasos
 
-Reglas:
+1. Identificar hot path afectado.
+2. Consultar budget en `docs/performance-budget.md`.
+3. Medir latencia antes/después.
+4. Revisar cache hit/miss.
+5. Revisar invalidación.
+6. Confirmar que no hay lectura de disco innecesaria en hot path.
+7. Añadir performance smoke si el riesgo es recurrente.
 
-- un root puede coordinar orden de bootstrap, no poseer resolución semántica, formatting complejo, IO de corpus ni lógica de build/report;
-- todo crecimiento que acerque un root al warning del 90% debe venir con destino de extracción o justificación en docs;
-- `plugin_old` puede consultarse como referencia histórica, pero `src/**` no debe importarlo como dependencia runtime.
+### Validación mínima
+
+```text
+- La métrica queda dentro de presupuesto o existe fallback justificado.
+- La regresión queda protegida por test/medición.
+- No se introduce trabajo global en request interactiva.
+```
 
 ---
 
-## 24. Workflow 23 — Elegir validation lane antes de cerrar un bloque
+## 14. Flujo 12 — Modificar documentación
 
-El maintainer o agente necesita cerrar una spec con evidencia suficiente sin ejecutar carriles enormes por costumbre ni omitir gates críticos.
+### Objetivo
 
-Flujo:
+Actualizar documentación sin duplicar fuentes de verdad.
 
-1. consultar la matriz canónica en [testing.md](testing.md) y elegir el carril mínimo que cubre el riesgo tocado;
-2. ejecutar siempre `npm run build:test` si hubo cambios TypeScript o tests;
-3. ejecutar `npm run test:architecture:rapid` o `npm run test:architecture:metrics` cuando cambien imports, ownership, composition roots, hot path o DataWindow boundary;
-4. ejecutar `npm run test:performance:gate` cuando cambien serving, cache, payload, parser, diagnostics o performance docs;
-5. ejecutar `npm run test:docs:drift` después de modificar backlog, current-focus, roadmap, done-log, specs o prompts;
-6. registrar en `done-log.md` los comandos exactos y no promover el siguiente bloque hasta que el carril elegido esté verde.
+### Pasos
 
-Reglas:
+1. Revisar `docs/constitution.md`.
+2. Identificar documento propietario del tema.
+3. Modificar la fuente canónica.
+4. Sustituir duplicados por enlaces en documentos relacionados.
+5. No tocar documentos congelados salvo instrucción explícita.
+6. Validar enlaces relativos.
+7. Indicar siguiente documento o bloque si aplica.
 
-- `test:real-corpora` no existe como script obligatorio; los corpora privados/locales siguen siendo opt-in con skips honestos;
-- `release:verify` es el carril local equivalente al release workflow cuando el cambio afecta empaquetado o publicación;
-- un fallo de lane se corrige en el contrato afectado o se documenta como brecha explícita antes de cerrar el bloque.
+### Validación mínima
+
+```text
+- Cada documento mantiene un papel claro.
+- No se duplican specs, arquitectura, roadmap o histórico.
+- Los documentos afectados quedan alineados.
+```
+
+---
+
+## 15. Flujo 13 — Trabajar con agentes IA
+
+### Objetivo
+
+Usar agentes IA sin perder contexto ni romper la estructura documental.
+
+### Pasos
+
+1. Dar al agente `docs/constitution.md` como regla principal.
+2. Indicar el documento o bloque exacto a modificar.
+3. Especificar documentos congelados si aplica.
+4. Pedir revisión final de duplicidades, enlaces y documentación afectada.
+5. Exigir que no cree documentos nuevos salvo necesidad justificada.
+6. Pedir que actualice backlog/current-focus si genera trabajo accionable.
+
+### Validación mínima
+
+```text
+- El agente no duplica fuentes de verdad.
+- El agente no deja trabajo accionable fuera de backlog/specs.
+- El agente actualiza documentación afectada.
+- El agente no toca done-log ni mapa si están congelados.
+```
+
+---
+
+## 16. Checklist antes de commit
+
+```text
+[ ] El cambio parte de current-focus/backlog o tiene justificación clara.
+[ ] La arquitectura afectada sigue alineada con architecture.md.
+[ ] El estado afectado queda reflejado en architecture-status.md si aplica.
+[ ] Hay tests adecuados según docs/testing.md.
+[ ] No se rompe performance-budget.md.
+[ ] No se duplica documentación.
+[ ] No se toca done-log.md ni architecture-implementation-map.md salvo instrucción explícita.
+[ ] Los comandos/workflows afectados están documentados.
+[ ] El cambio es pequeño y revisable.
+```
+
+---
+
+## 17. Checklist antes de cerrar una tarea
+
+```text
+[ ] Código implementado o documentación normalizada.
+[ ] Tests aplicables ejecutados.
+[ ] Performance validada si aplica.
+[ ] Documentación afectada actualizada.
+[ ] Backlog/current-focus alineados si aplica.
+[ ] No quedan TODOs o workarounds sin registrar.
+[ ] El resultado se puede explicar en una frase.
+[ ] El siguiente paso queda claro.
+```
+
+---
+
+## 18. Relación con backlog y specs
+
+Este documento no lista specs concretas. Si un workflow revela una tarea pendiente, debe moverse a:
+
+```text
+docs/backlog.md
+docs/specs/
+```
+
+Si un workflow cambia por una tarea concreta, actualizar aquí solo la parte operativa estable, no el detalle de la spec.
+
+---
+
+## 19. Límites de este documento
+
+Este documento no debe usarse para:
+
+- definir arquitectura objetivo completa;
+- guardar backlog;
+- listar specs por ID;
+- registrar histórico cerrado;
+- repetir estrategia de testing completa;
+- repetir budgets extensos;
+- almacenar prompts largos;
+- sustituir documentación IA.

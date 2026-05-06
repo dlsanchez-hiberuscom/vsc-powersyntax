@@ -1,687 +1,609 @@
-# Architecture.md — PowerBuilder VS Code Plugin
+# Architecture — Plugin PowerBuilder 2025 para VS Code
 
-## 1. Objetivo
+## 1. Propósito
 
-Definir la arquitectura base del plugin profesional de **PowerBuilder 2025 para Visual Studio Code**.
+Este documento define la **arquitectura objetivo** del plugin profesional de PowerBuilder 2025 para Visual Studio Code.
 
-La arquitectura debe garantizar:
+Debe responder a una pregunta concreta:
 
-- carga rápida;
-- activación perezosa;
-- impacto mínimo en el Extension Host;
-- descubrimiento e indexación muy rápidos sin bloquear;
-- base semántica reutilizable;
-- escalabilidad en workspaces grandes, mixtos y legacy;
-- mantenibilidad a largo plazo;
-- evolución incremental sin rehacer el núcleo;
-- integración futura con automatización/IA mediante contratos públicos, no mediante acoplamiento al core.
+> ¿Cómo debe estar estructurado el plugin para ofrecer soporte rápido, mantenible, extensible y fiable de PowerBuilder/PowerScript en VS Code?
+
+La arquitectura aquí descrita es normativa para nuevas implementaciones y refactorizaciones. El estado real de cada capa vive en `docs/architecture-status.md`. Las tareas accionables viven en `docs/backlog.md` o en specs bajo `docs/specs/`. El histórico cerrado vive en `docs/done-log.md`.
 
 ---
 
-## 2. Meta maestra
+## 2. Principios arquitectónicos
 
-> **El plugin debe descubrir e indexar muy rápido sin bloquear.**
+### 2.1. Cliente VS Code ligero
 
-Toda decisión arquitectónica debe proteger simultáneamente:
+La extensión ejecutada en el Extension Host debe ser una capa fina. Su responsabilidad principal es integrar el plugin con VS Code, arrancar el Language Client, registrar comandos/vistas/configuración y delegar el análisis pesado al servidor LSP.
 
-1. descubrimiento rápido;
-2. indexación progresiva no bloqueante;
-3. prioridad real al archivo activo;
-4. latencia interactiva baja;
-5. persistencia útil entre sesiones;
-6. estado observable del motor;
-7. semántica fuerte sin sacrificar tiempo hasta valor;
-8. degradación segura cuando no exista contexto suficiente.
+El cliente no debe:
 
----
+- parsear proyectos completos;
+- resolver símbolos globales;
+- ejecutar análisis semántico pesado;
+- mantener cachés semánticas complejas;
+- duplicar reglas del servidor.
 
-## 3. Principios arquitectónicos
+### 2.2. Language Server como núcleo semántico
 
-### 3.1 Cliente mínimo real
+El Language Server es el owner de:
 
-El cliente de VS Code debe encargarse solo de:
-
-- activación mínima;
-- lifecycle del cliente LSP;
-- bridge con servidor;
-- comandos ligeros;
-- configuración;
-- estado visible básico;
-- exportación de API pública mínima y versionada;
-- UX ligera bajo demanda.
-
-El cliente **no** debe contener análisis profundo ni semántica del lenguaje.
-
-### 3.2 Servidor como runtime principal del conocimiento
-
-El servidor LSP es responsable de:
-
-- parseo;
+- parsing PowerScript;
+- modelo de workspace PowerBuilder;
 - indexación;
-- snapshots;
-- semántica;
-- resolución;
+- grafo de símbolos;
+- resolución semántica;
 - diagnósticos;
-- navegación;
-- serving de capacidades de lenguaje;
-- scheduling, readiness, observabilidad y backpressure.
+- providers LSP;
+- caches de serving;
+- integración controlada con DataWindow, ORCA y PBAutoBuild.
 
-### 3.3 Core agnóstico del editor
+### 2.3. Hot paths sin I/O innecesario
 
-El core no debe depender directamente de:
+Los providers LSP de uso interactivo deben responder desde snapshots, índices y caches válidas. En condiciones normales, hover, completion, signature help, definition y references no deben escanear todo el workspace ni leer disco de forma no controlada.
 
-- VS Code;
-- LSP;
-- JSON-RPC;
-- DTOs externos;
-- herramientas de IA concretas.
+### 2.4. Una fachada semántica única
 
-Toda integración externa debe resolverse en adaptadores de borde.
+Toda resolución semántica consumida por features LSP debe pasar por una API/fachada común. Esto evita duplicar reglas entre hover, completion, diagnostics, references, semantic tokens y futuras features IA.
 
-### 3.4 Fuente única de verdad semántica
+### 2.5. PowerBuilder como dominio propio
 
-La arquitectura debe converger a una base común donde:
+PowerBuilder no debe modelarse como un lenguaje C-like genérico. La arquitectura debe reconocer explícitamente workspaces/solutions, targets/projects, libraries, objetos PB, scripts, eventos, funciones, variables, estructuras, herencia, DataWindows e integraciones de build.
 
-- la sintaxis se representa una sola vez;
-- símbolos y scopes se construyen una sola vez;
-- la resolución se centraliza;
-- las features consumen consultas compartidas;
-- ninguna feature reconstruye semántica por su cuenta;
-- la identidad exacta de símbolo se serializa una sola vez mediante `buildSymbolKey`;
-- la única agregación relajada permitida es `buildConflictFamilyKey` para conflictos cross-project/cross-library.
+### 2.6. Caches con contrato explícito
 
-### 3.5 Atomicidad del estado semántico
+Toda cache debe declarar owner, scope, key, value, lifecycle, invalidación, métricas y fallback. No se permiten caches ad hoc sin contrato ni observabilidad.
 
-El sistema no debe exponer estados semánticos a medias.
+### 2.7. Documentación alineada al cambio
 
-Los cambios relevantes del conocimiento compartido deben publicarse:
-
-- de forma coherente y atómica; o
-- con degradación explícita, observable y segura.
-
-### 3.6 Incrementalidad fina
-
-El sistema debe recalcular solo lo necesario.
-
-La invalidación debe ser:
-
-- fina;
-- explícita;
-- cancelable;
-- basada en impacto semántico real siempre que sea posible.
-
-### 3.7 Persistencia robusta
-
-La caché y la persistencia deben diseñarse con:
-
-- versionado;
-- invalidación clara;
-- recuperación segura;
-- estrategia explícita de reanudación;
-- journaling cuando aplique.
-
-Política oficial:
-
-```text
-migrate cuando la compatibilidad es estructuralmente segura;
-rebuild cuando no lo es.
-```
-
-### 3.8 Explicabilidad y observabilidad
-
-El motor debe poder exponer:
-
-- qué está haciendo;
-- qué parte del workspace está lista;
-- qué caché está reutilizando;
-- qué workload está diferido, preempted o degradado;
-- por qué una query devolvió un resultado;
-- por qué una feature degrada o bloquea una operación.
-
-### 3.9 Source origin como principio arquitectónico
-
-Toda entidad semántica debe poder expresar, cuando aplique, el origen de su fuente:
-
-```text
-solution-source
-workspace-ws_objects
-pbl-folder-source
-orca-staging
-pbl-dump-source
-generated
-unknown
-```
-
-Reglas:
-
-- source real gana a staging;
-- staging ORCA no equivale a source canónico;
-- source generado no debe alimentar rename/import sin validación;
-- operaciones peligrosas requieren `sourceOrigin` confiable.
-
-### 3.10 Readiness, evidence y confidence como contrato transversal
-
-Las features no deciden localmente si un resultado es seguro.
-
-El sistema debe exponer contratos compartidos para:
-
-- readiness;
-- evidence;
-- reason codes;
-- confidence;
-- degradación;
-- bloqueo de operaciones peligrosas.
-
-Deben consumir esos contratos:
-
-- hover;
-- completion;
-- definition;
-- references;
-- rename;
-- CodeLens;
-- code actions;
-- diagnostics;
-- API pública;
-- tools futuros;
-- integraciones IA.
+Cualquier cambio arquitectónico debe actualizar, como mínimo, la documentación afectada según `docs/constitution.md`.
 
 ---
 
-## 4. Invariantes arquitectónicos no negociables
-
-- El cliente nunca parsea PowerBuilder.
-- El cliente nunca reconstruye semántica.
-- Las features nunca escanean el workspace completo en hot path.
-- `.srd` nunca se parsea como PowerScript.
-- `.pbl`/`.pbd` binarios nunca se tratan como source editable.
-- `orca-staging` nunca gana a source real.
-- `generated` nunca habilita operaciones write-enabled sin validación.
-- `rename` y `code actions` requieren `sourceOrigin` confiable.
-- `DYNAMIC`, external functions, PBX y strings DataWindow degradan confidence.
-- Todo rail costoso declara budget, cancellation, readiness y observability.
-- Todo cambio arquitectónico relevante actualiza documentación canónica.
-
----
-
-## 5. Vista de alto nivel
+## 3. Vista general de capas
 
 ```text
-VS Code UI
-  └─ Cliente ligero
-      ├─ bootstrap mínimo
-      ├─ commands ligeros
-      ├─ estado visible
-      ├─ API pública mínima/versionada
-      ├─ UX read-only bajo demanda
-      └─ bridge LSP
+VS Code Extension Host
+  └─ Client Layer
+      ├─ Activation
+      ├─ Commands
+      ├─ Views / Status / Progress
+      ├─ Configuration
+      └─ LanguageClient
 
 Language Server Process
-  ├─ runtime/
-  ├─ core/
-  │   ├─ domain/
-  │   ├─ application/
-  │   └─ ports/
-  ├─ workspace/
-  ├─ parsing/
-  ├─ knowledge/
-  ├─ diagnostics/
-  ├─ features/
-  ├─ ux/
-  ├─ adapters/
-  └─ platform/
+  ├─ LSP Transport & Handlers
+  ├─ Request Context
+  ├─ Semantic Query Facade
+  ├─ Providers
+  │   ├─ Hover
+  │   ├─ Completion
+  │   ├─ Signature Help
+  │   ├─ Definition / References
+  │   ├─ Document Symbols
+  │   ├─ Semantic Tokens
+  │   └─ Diagnostics
+  ├─ Workspace Model
+  ├─ Parser & Indexer
+  ├─ Symbol Graph
+  ├─ Cache Layer
+  ├─ PowerBuilder Domain Model
+  ├─ DataWindow Domain
+  ├─ External Integrations
+  │   ├─ ORCA Adapter
+  │   └─ PBAutoBuild Adapter
+  └─ Observability / Performance Guards
 ```
 
 ---
 
-## 6. Capas principales
+## 4. Cliente VS Code
 
-### 6.1 `client/`
+### 4.1. Responsabilidades
 
-Cliente mínimo de VS Code.
+El cliente debe encargarse de:
 
-Responsabilidades:
+- activación de la extensión;
+- lectura inicial de configuración necesaria para arrancar;
+- arranque/parada del Language Client;
+- registro de comandos VS Code;
+- registro de vistas, status bar, progress y mensajes de usuario;
+- contribuciones declarativas de `package.json`;
+- coordinación ligera con settings/workspace folders.
 
-- activación;
-- wiring LSP;
-- comandos ligeros;
-- configuración;
-- status visible;
-- controllers UX bajo demanda;
-- exportación de API pública mínima y versionada.
+### 4.2. Composition root
 
-Prohibido:
+`extension.ts` debe tender a ser un composition root mínimo:
 
-- parseo PowerBuilder;
-- semántica profunda;
-- scans del workspace;
-- lógica duplicada del servidor.
+```text
+activate(context)
+  → createClientContainer(context)
+  → registerCommands(container)
+  → registerViews(container)
+  → startLanguageClient(container)
 
-### 6.2 `runtime/`
+deactivate()
+  → dispose container/client resources
+```
 
-Orquestación operativa del servidor.
+La lógica de comandos, vistas, status, settings y lifecycle debe estar en módulos separados.
 
-Responsabilidades:
+### 4.3. Activación
 
-- scheduler;
-- prioridades;
-- yielding;
-- cancelación;
-- preempción;
-- invalidación;
-- backpressure;
-- latency governor;
-- warm resume;
-- progreso;
-- readiness;
-- memory policy;
-- runtime journal;
-- health/status.
+La activación debe ser lazy y basada en señales reales de PowerBuilder:
 
-### 6.3 `core/domain/`
+- lenguajes PowerScript/PowerBuilder;
+- presencia de workspaces/targets/projects/libraries PowerBuilder;
+- comandos explícitos del plugin;
+- vistas específicas si aplican.
 
-Conceptos canónicos:
+Evitar activación global si no es imprescindible.
 
-- símbolos;
-- scopes;
-- tipos;
-- referencias;
-- dependencias;
+---
+
+## 5. Language Server
+
+### 5.1. Responsabilidades
+
+El servidor es responsable de:
+
+- sincronización incremental de documentos;
+- modelado de workspace;
+- parsing y recuperación tolerante a errores;
+- indexación incremental;
+- resolución de símbolos;
+- construcción de modelos semánticos;
+- cálculo de respuestas LSP;
+- publicación de diagnósticos;
+- gestión de caches;
+- medición de latencia y degradación controlada.
+
+### 5.2. Composition root del servidor
+
+`server.ts` debe tender a ser un composition root mínimo:
+
+```text
+main()
+  → createConnection()
+  → createServerContainer(connection)
+  → registerLifecycleHandlers(container)
+  → registerLspHandlers(container)
+  → startDocumentManager(container)
+  → connection.listen()
+```
+
+No debe contener lógica de parsing, resolución, formateo, indexación ni reglas de negocio.
+
+### 5.3. Registro de handlers
+
+Los handlers LSP deben ser finos:
+
+```text
+onHover(params)
+  → createRequestContext(params)
+  → hoverProvider.provide(context)
+  → return LSP response
+```
+
+El handler no debe conocer detalles internos de caches, indexación o formatting.
+
+---
+
+## 6. Request Context
+
+Toda request interactiva debe construir un contexto explícito:
+
+```text
+RequestContext
+  ├─ documentUri
+  ├─ documentVersion
+  ├─ position/range
+  ├─ workspaceId
+  ├─ cancellationToken
+  ├─ settingsSnapshot
+  ├─ activeDocumentSnapshot
+  ├─ performanceBudget
+  └─ traceId
+```
+
+El contexto evita pasar parámetros sueltos entre capas y permite trazabilidad, cancelación y métricas homogéneas.
+
+---
+
+## 7. Workspace Model
+
+### 7.1. Modelo objetivo
+
+El workspace PowerBuilder debe modelar explícitamente:
+
+```text
+PowerBuilderWorkspace
+  ├─ Solution / Workspace file
+  ├─ Targets / Projects
+  ├─ Libraries
+  ├─ Source files
+  ├─ Object catalog
+  ├─ Build configuration
+  └─ External metadata
+```
+
+### 7.2. Formatos soportados
+
+La arquitectura debe permitir soporte progresivo para:
+
+- formatos modernos de PowerBuilder 2025;
+- workspaces/solutions;
+- targets/projects;
+- estructuras legacy PBW/PBT/PBL;
+- fuentes exportadas SR*;
+- fixtures y corpora de pruebas.
+
+### 7.3. Descubrimiento incremental
+
+El discovery debe ser incremental, cancelable y tolerante a workspaces grandes. Debe evitar bloquear el editor y debe separar:
+
+- detección de estructura;
+- carga de metadatos;
+- indexación;
+- análisis semántico avanzado.
+
+---
+
+## 8. Parser e indexer
+
+### 8.1. Parser tolerante a errores
+
+El parser debe producir resultados útiles aunque el documento esté incompleto o tenga errores. Esto es obligatorio para edición interactiva.
+
+Debe devolver:
+
+- AST o modelo sintáctico parcial;
+- rangos estables;
+- errores recuperables;
+- tokens/símbolos mínimos para features básicas.
+
+### 8.2. Indexación incremental
+
+El indexer debe separar:
+
+- índice por documento;
+- índice por objeto PB;
+- índice por library/target;
+- índice global de workspace;
+- dependencias e invalidación.
+
+### 8.3. Contrato de invalidación
+
+Cualquier cambio en fichero, configuración, workspace o library debe invalidar solo lo necesario. Si los file watchers no son fiables, el sistema debe tener fallback por hash, versión de documento o rescan controlado.
+
+---
+
+## 9. Symbol Graph
+
+### 9.1. Objetivo
+
+El Symbol Graph es la representación semántica central para navegación y análisis.
+
+Debe modelar:
+
+- objetos PB;
 - herencia;
-- `sourceOrigin`;
-- evidence;
-- confidence;
-- contratos internos.
+- funciones;
+- eventos;
+- variables;
+- estructuras;
+- DataWindows asociadas;
+- referencias;
+- built-ins/catalog symbols;
+- símbolos procedentes de frameworks o packs.
 
-### 6.4 `core/application/`
+### 9.2. Identidad estable
 
-Casos de uso internos:
+Cada símbolo debe tener un identificador estable que no dependa solo del texto visible.
 
-- analizar documento;
-- actualizar conocimiento;
-- resolver símbolos;
-- calcular definition/references;
-- preparar snapshots;
-- servir consultas compartidas.
+```text
+symbolId = workspaceId + objectName + kind + signature + sourceRange
+```
 
-### 6.5 `core/ports/`
+### 9.3. Separación entre símbolo y presentación
 
-Puertos hacia infraestructura:
+El símbolo no debe contener Markdown de hover, ranking de completion ni textos de diagnóstico finales. Esos formatos pertenecen a providers/formatters.
 
-- filesystem;
-- caché;
-- persistencia;
-- logging;
-- reloj;
-- observabilidad.
+---
 
-### 6.6 `workspace/`
+## 10. Semantic Query Facade
 
-Modelo y estrategia del workspace/proyecto:
+### 10.1. Responsabilidad
 
-- discovery;
-- roots;
-- project modes;
-- markers;
-- watch/scan;
-- exclusiones;
-- project context;
-- `UnifiedProjectModel`;
-- routing de source origin.
+La `SemanticQueryFacade` debe ser el punto de entrada común para consultas semánticas.
 
-### 6.7 `parsing/`
+```text
+resolveSymbolAt(document, position)
+resolveScope(document, position)
+resolveReceiverType(expression, context)
+resolveCallableAt(document, position)
+resolveDefinition(symbol)
+findReferences(symbol)
+resolveBuiltIn(name, context)
+resolveDataWindowBinding(reference, context)
+```
 
-Conversión de archivos PowerBuilder en estructuras sintácticas reutilizables.
+### 10.2. Consumidores
 
-Reglas:
-
-- testeable sin VS Code;
-- separado de semántica rica;
-- no depende de transporte;
-- comparte grammar/matchers canónicos;
-- no parsea DataWindow como PowerScript.
-
-### 6.8 `knowledge/`
-
-Backbone semántico compartido:
-
-- snapshots;
-- symbols;
-- binding;
-- resolution;
-- index;
-- queries;
-- publish atómico;
-- semantic epochs;
-- dependencias inversas;
-- lineage;
-- knowledge incremental;
-- query policies.
-
-### 6.9 `diagnostics/`
-
-Reglas diagnósticas apoyadas en servicios comunes.
-
-Regla: `diagnostics/` no reconstruye resolver, binder ni semántica local.
-
-### 6.10 `features/`
-
-Adaptadores finos para capacidades LSP:
+Deben consumir esta fachada:
 
 - hover;
 - completion;
+- signature help;
 - definition;
 - references;
-- rename;
 - document symbols;
-- workspace symbols;
-- signature help;
 - semantic tokens;
 - diagnostics;
-- code actions;
-- linked editing;
-- formatter.
+- herramientas IA futuras.
 
-Regla: consumen queries/servicios del core/knowledge y readiness/evidence/confidence.
+### 10.3. Regla anti-duplicación
 
-### 6.11 `ux/`
-
-Superficies visibles de producto:
-
-- PowerBuilder Object Explorer;
-- Current Object Context Panel;
-- Project Health Dashboard;
-- Diagnostics Explainability Panel;
-- status contextual;
-- comandos de inspección;
-- vistas de diagnóstico/export.
-
-Regla: `ux/` consume contratos públicos, LSP o API estable del servidor. No reconstruye semántica.
-
-### 6.12 `adapters/`
-
-Implementaciones de borde:
-
-- filesystem;
-- cache;
-- logging;
-- LSP;
-- API local;
-- JSON-RPC/tool bridge;
-- ORCA;
-- PBAutoBuild;
-- futuras integraciones MCP/tools.
-
-### 6.13 `platform/`
-
-Primitivas técnicas compartidas:
-
-- observability;
-- performance;
-- persistence;
-- hashing;
-- text;
-- cancellation;
-- ids;
-- collections;
-- safe serialization.
-
-### 6.14 `shared/`
-
-Separación conceptual:
-
-- `shared/contracts/` → DTOs y mensajes compartidos;
-- `shared/kernel/` → primitivas neutras.
-
-Regla: los contratos no exponen directamente entidades internas mutables del dominio.
-
-Guard vigente: `src/shared/**` no importa cliente, servidor, IO, VS Code API ni internals runtime; los imports LSP se mantienen type-only cuando forman parte de un contrato serializable.
+Ningún provider debe reimplementar su propio resolver global si la consulta pertenece a la fachada semántica.
 
 ---
 
-## 7. Estado explícito del sistema
+## 11. Providers LSP
 
-### 7.1 Estado caliente del documento
+### 11.1. Patrón común
 
-- snapshot del documento activo;
-- símbolos locales;
-- scopes locales;
-- contexto posicional;
-- diagnostics rápidos;
-- datos inmediatos de serving;
-- cache interactiva acotada.
-
-### 7.2 Estado semántico del workspace
-
-- símbolos exportados;
-- relaciones de herencia;
-- dependencias;
-- topología de proyecto;
-- índices globales;
-- readiness del proyecto/workspace;
-- source origin contextual;
-- conflict families.
-
-### 7.3 Estado persistente
-
-- fingerprints;
-- metadata de caché;
-- checkpoints;
-- schema version;
-- journals;
-- resúmenes reutilizables;
-- cleanup/retention policy.
-
-### 7.4 Estado de origen y confianza
-
-- `sourceOrigin`;
-- evidence;
-- reason codes;
-- confidence;
-- readiness mínima;
-- degradación;
-- bloqueo por feature.
-
----
-
-## 8. Hot path vs cold path
-
-### 8.1 Hot path interactivo
-
-Permitido:
-
-- active document snapshot;
-- queries acotadas;
-- serving cache;
-- lookup O(1) de catálogo;
-- readiness gates;
-- cancellation;
-- bounded candidate pools;
-- reuse de líneas y masked text ya publicados.
-
-Prohibido:
-
-- workspace scan;
-- full catalog clone;
-- `JSON.stringify` masivo;
-- reread global de archivos;
-- reparsing global de DataWindow por feature;
-- ORCA execution;
-- PBAutoBuild execution;
-- exports pesados;
-- support bundles;
-- reports no acotados.
-
-### 8.2 Cold/background path
-
-Permitido con budget y observabilidad:
-
-- indexing de workspace;
-- reports;
-- cache cleanup;
-- persistence compaction;
-- catalog consistency reports;
-- build discovery;
-- ORCA/PBAutoBuild capability checks;
-- exports offline;
-- support bundles.
-
----
-
-## 9. Modelo write-enabled seguro
-
-Toda operación que escriba debe pasar por:
-
-1. `sourceOrigin` confiable;
-2. readiness mínima;
-3. impact analysis;
-4. safe edit plan;
-5. preflight;
-6. backup/ledger si toca PBL/staging;
-7. validation receipt;
-8. actualización documental si cambia arquitectura/spec/backlog.
-
-Reglas:
-
-- write-enabled no se ejecuta desde heurísticas locales de feature;
-- staging ORCA requiere fingerprint compatible;
-- generated source no habilita escritura directa;
-- operaciones peligrosas se bloquean cuando confidence es insuficiente.
-
----
-
-## 10. Estrategia de carga
-
-### 10.1 Arranque en frío
-
-El arranque debe hacer prácticamente cero trabajo pesado.
-
-### 10.2 Primer archivo PowerBuilder
-
-Orden:
-
-1. activar cliente;
-2. levantar servidor;
-3. analizar primero el archivo activo;
-4. publicar contexto útil del documento activo;
-5. enriquecer dependencias inmediatas;
-6. diferir trabajo global.
-
-### 10.3 Indexación del workspace
-
-Prioridad:
-
-1. documento activo;
-2. dependencias inmediatas;
-3. contexto cercano;
-4. resto del proyecto;
-5. resto del workspace.
-
-Siempre progresiva, cancelable, observable y no bloqueante.
-
----
-
-## 11. Reglas de dependencia
-
-- `client/*` no depende del core del servidor.
-- `features/*` depende de consultas/servicios públicos del core/knowledge, no de estructuras crudas dispersas.
-- `diagnostics/*` no reconstruye resolver o binder.
-- `adapters/*` implementa puertos; no define dominio.
-- `shared/contracts/*` no importa `core/domain/*`.
-- `src/shared/**` no importa cliente, servidor, IO ni stores semánticos runtime.
-- `src/**` no importa `plugin_old/**` como dependencia de producto.
-- `runtime/*` coordina ejecución; no contiene reglas semánticas profundas.
-- `knowledge/*` puede depender de `core/domain` y `core/application`, pero no de UI ni de cliente VS Code.
-- `ux/*` no accede a `core/domain/*` directamente.
-- `features/*` y `ux/*` respetan readiness/evidence/confidence.
-- `adapters/api-*` exponen contratos versionados, nunca entidades mutables internas.
-- Las integraciones IA consumen API pública/tools/context packs, no dominio interno.
-
----
-
-## 12. Guardrails arquitectónicos
-
-Deben existir tests o scripts para proteger:
-
-- firewall de imports entre capas;
-- isolation de `plugin_old` frente al runtime actual;
-- budgets de hotspots principales;
-- `growthPolicy` y sugerencias accionables para composition roots vigiladas;
-- ausencia de scans completos en hot path;
-- ausencia de clones globales de catálogo en serving;
-- ausencia de `JSON.stringify` pesado en features interactivas;
-- separación PowerScript/DataWindow;
-- source origin y confidence gates;
-- query policy por consumer;
-- backpressure policy por workload;
-- compatibilidad de contratos públicos versionados;
-- snapshots/fixtures de generadores críticos.
-
----
-
-## 13. Fuente normativa PowerBuilder
-
-La interpretación del lenguaje, objetos, DataWindow, SQL, ORCA, PBNI/PBX, Workspace/Solution y runtime se rige por la guía técnica canónica del lenguaje:
+Cada provider debe seguir este patrón:
 
 ```text
-docs/powerbuilder-2025-vscode-plugin-technical-guide.md
+Provider
+  → RequestContext
+  → SemanticQueryFacade / CacheLayer
+  → Domain model
+  → ViewModel/Result model
+  → Formatter
+  → LSP response
 ```
 
-`Architecture.md` no redefine PowerBuilder. Solo define cómo el plugin implementa soporte sobre esa semántica.
+### 11.2. Hover
+
+Hover debe informar de forma útil según el tipo de elemento:
+
+- función de sistema;
+- función/evento de usuario;
+- variable local/instancia/global;
+- objeto PowerBuilder;
+- DataWindow;
+- columna/control DataWindow;
+- enumerado/built-in;
+- símbolo desconocido con fallback seguro.
+
+Hover no debe construir toda la información desde cero si existe `HoverViewModel` cache válido.
+
+### 11.3. Completion
+
+Completion debe separar generación de candidatos, ranking, filtrado por contexto, resolve bajo demanda y formatting final.
+
+### 11.4. Signature Help
+
+Signature Help debe apoyarse en resolución de callable y overloads. No debe depender solo de regex locales.
+
+### 11.5. Definition y References
+
+Definition y References deben usar identidades de símbolo estables. No deben hacer búsqueda textual global salvo fallback explícito y presupuestado.
+
+### 11.6. Diagnostics
+
+Diagnostics debe separar diagnósticos sintácticos, semánticos, de proyecto/workspace, de DataWindow y de build externo. Cada diagnóstico debe tener código, severidad, rango, fuente y, si aplica, datos relacionados.
+
+### 11.7. Semantic Tokens
+
+Semantic Tokens debe consumir AST/symbol graph/cache. No debe parsear de nuevo si el documento ya tiene snapshot válido.
 
 ---
 
-## 14. Documentación viva
+## 12. Cache Layer
 
-Toda decisión relevante sobre arquitectura debe actualizar, cuando aplique:
+### 12.1. Niveles de cache
 
-- `README.md`;
-- `docs/architecture.md`;
-- `docs/architecture-status.md`;
-- `docs/roadmap.md`;
-- `docs/backlog.md`;
-- `docs/current-focus.md`;
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`;
-- specs afectadas.
+```text
+L0 — Request-local cache
+L1 — Active document snapshot
+L2 — Workspace semantic index
+L3 — Persistent metadata cache
+```
 
-La documentación debe distinguir siempre entre:
+### 12.2. Contrato obligatorio
 
-- implementado;
-- parcial;
-- objetivo;
-- experimental;
-- deprecated.
+Toda cache debe documentar:
+
+```text
+name
+owner
+scope
+key
+value
+lifecycle
+invalidation triggers
+max size / memory policy
+metrics
+fallback
+```
+
+### 12.3. Caches recomendadas
+
+- active document snapshot;
+- hover view model cache;
+- negative hover cache;
+- completion list cache;
+- completion resolve cache;
+- catalog lookup cache;
+- DataWindow model cache;
+- diagnostics cache;
+- semantic tokens cache;
+- workspace index cache;
+- persistent metadata cache.
+
+### 12.4. Regla de seguridad
+
+Una cache nunca debe devolver información si no puede demostrar compatibilidad con versión del documento, versión del workspace/index, configuración activa, catálogo/built-ins cargados e invalidación pendiente.
 
 ---
 
-## 15. Documentos relacionados
+## 13. PowerBuilder Domain Model
 
-- `docs/architecture-status.md` — estado implementado actual y guardrails vigentes.
-- `docs/architecture-implementation-map.md` — mapa puente entre capas, código real, flujos, cachés y validación.
-- `docs/symbol-system.md` — modelo conceptual de símbolos, sources, consumers, enrichments, i18n y regression matrix.
-- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md` — semántica PowerBuilder y reglas de interpretación.
-- `docs/localization.md` — workflow de overlays y authoring documental del catálogo.
-- `docs/ai/README.md` — entrypoint actual de orquestación IA, estructura y ownership.
-- `docs/ai/agent-skill-routing.md` — catálogo operativo de agentes, skills y routing.
-- `docs/developer-workflows.md` — workflows reales de build, packaging, VSIX, PBAutoBuild y ORCA.
-- `docs/current-focus.md` — foco actual.
-- `docs/backlog.md` — trabajo pendiente.
-- `docs/done-log.md` — historial cerrado.
-- `docs/roadmap.md` — dirección de producto.
+### 13.1. Entidades principales
+
+```text
+PBWorkspace
+PBTarget
+PBLibrary
+PBObject
+PBApplication
+PBWindow
+PBUserObject
+PBMenu
+PBFunction
+PBEvent
+PBVariable
+PBStructure
+PBDataWindowReference
+```
+
+### 13.2. Reglas semánticas propias
+
+La arquitectura debe permitir modelar herencia PowerBuilder, eventos y funciones, scopes y shadowing, variables de instancia/locales/globales/shared, llamadas dinámicas cuando sea posible, resolución parcial y frameworks conocidos mediante packs o catálogos.
+
+### 13.3. Built-ins y catálogo del sistema
+
+Los símbolos del sistema deben proceder de catálogos versionados y auditables. El código no debe tener listas hardcoded dispersas de funciones, tipos, enums o statements.
 
 ---
 
-## 16. Resumen final
+## 14. DataWindow Domain
 
-La arquitectura debe converger a:
+### 14.1. DataWindow como subdominio propio
 
-1. cliente mínimo;
-2. servidor como runtime principal;
-3. core agnóstico;
-4. knowledge pipeline compartido;
-5. features como adaptadores finos;
-6. UX sobre contratos públicos;
-7. persistencia robusta;
-8. observabilidad operativa;
-9. `sourceOrigin` + evidence/confidence transversales;
-10. crecimiento incremental sin rehacer el núcleo.
+DataWindow debe tener modelo propio, separado del parser principal de PowerScript.
+
+```text
+DataWindowSourceExtractor
+  → DataWindowParser
+  → DataWindowModel
+  → DataWindowSqlModel
+  → DataWindowBindingResolver
+  → DataWindowSemanticProvider
+```
+
+### 14.2. Integración con PowerScript
+
+La integración debe permitir detectar referencias a DataWindows desde objetos PB, resolver columnas/controles cuando sea posible, enriquecer hover/completion/diagnostics, relacionar errores DataWindow con código consumidor y cachear modelos DataWindow de forma independiente.
+
+### 14.3. Separación de responsabilidades
+
+El parser PowerScript no debe absorber la complejidad interna de DataWindow. Ambos dominios comparten símbolos, rangos, diagnósticos y fachada semántica, pero mantienen modelos separados.
+
+---
+
+## 15. Integraciones externas
+
+### 15.1. Principio general
+
+ORCA, PBAutoBuild y herramientas externas deben estar aisladas mediante adapters. El core semántico no debe depender directamente de procesos externos ni APIs de sistema.
+
+### 15.2. ORCA Adapter
+
+```text
+OrcaLocator
+OrcaSessionAdapter
+OrcaLibraryReader
+OrcaObjectExporter
+OrcaErrorMapper
+```
+
+### 15.3. PBAutoBuild Adapter
+
+```text
+PBAutoBuildLocator
+PBAutoBuildCommandBuilder
+PBAutoBuildRunner
+BuildOutputParser
+BuildDiagnosticsMapper
+```
+
+---
+
+## 16. Observabilidad y rendimiento
+
+Los límites concretos viven en `docs/performance-budget.md`. Arquitectónicamente, toda feature interactiva debe medir latencia total, cache hit/miss, fallback usado, tamaño de respuesta, cancelaciones y errores recuperables.
+
+Si una feature no puede resolver información completa dentro del presupuesto, debe devolver una respuesta parcial útil antes que bloquear el editor.
+
+---
+
+## 17. Testing arquitectónico
+
+La estrategia completa vive en `docs/testing.md`, pero la arquitectura exige pruebas para parsing tolerante, indexación incremental, invalidación de caches, resolución semántica, hover/completion/signature, diagnostics, DataWindow, ORCA/PBAutoBuild adapters, performance smoke tests y fixtures reales.
+
+Toda capa nueva debe diseñarse para ser testeable sin arrancar VS Code completo salvo en pruebas E2E específicas.
+
+---
+
+## 18. IA y consumo por agentes
+
+La arquitectura debe ser consumible por agentes IA sin obligarlos a leer todo el repositorio.
+
+- La arquitectura objetivo vive aquí.
+- El contexto compacto vive en `docs/ai-context/powerbuilder-plugin-context.md`.
+- La estrategia IA vive en `docs/ai-strategy.md`.
+- La orquestación vive en `docs/ai-orchestration.md`.
+- Los prompts viven o se indexan en `docs/prompts/`.
+- Los agentes no deben duplicar arquitectura en sus propios documentos.
+
+---
+
+## 19. Reglas de evolución
+
+### 19.1. Añadir una nueva feature LSP
+
+1. definir provider fino;
+2. reutilizar `RequestContext`;
+3. consumir `SemanticQueryFacade`;
+4. usar caches existentes o crear una con contrato;
+5. añadir tests;
+6. actualizar `architecture-status.md`, `backlog.md`/specs y documentación afectada.
+
+### 19.2. Añadir una nueva cache
+
+1. justificar hot path o coste evitado;
+2. definir contrato completo;
+3. declarar invalidación;
+4. añadir métricas;
+5. añadir tests de hit/miss/invalidation;
+6. documentar relación con `performance-budget.md`.
+
+### 19.3. Añadir una integración externa
+
+1. crear adapter aislado;
+2. no acoplar el core semántico al proceso/herramienta;
+3. soportar ausencia de herramienta;
+4. mapear errores a modelos internos;
+5. añadir tests con fake/mocks;
+6. documentar workflows si afecta al usuario.
+
+---
+
+## 20. Límites explícitos
+
+Este documento no debe usarse para:
+
+- listar todas las tareas pendientes;
+- guardar histórico de cierres;
+- copiar auditorías completas;
+- mantener estado granular por spec;
+- describir cada test concreto;
+- almacenar prompts operativos largos;
+- duplicar el mapa de implementación.
+
+Si aparece ese contenido, debe moverse al documento propietario según `docs/constitution.md`.

@@ -1,447 +1,489 @@
 # Performance Budget — Plugin PowerBuilder 2025 para VS Code
 
+> **Estado:** documento canónico de presupuestos de rendimiento.  
+> **Última revisión:** 2026-05-06.  
+> **Ámbito:** latencia, memoria, hot paths, cold paths, indexación, caches, mediciones y gates de regresión.  
+> **No contiene:** arquitectura completa, backlog detallado, specs concretas, histórico cerrado ni estrategia de testing completa.  
+> **Documentos relacionados:** `docs/constitution.md`, `docs/architecture.md`, `docs/architecture-status.md`, `docs/testing.md`, `docs/developer-workflows.md`, `docs/backlog.md`.
+
+---
+
 ## 1. Propósito
 
-Definir los límites y objetivos de rendimiento del plugin para proteger la experiencia del usuario a medida que el producto crece.
+Este documento define los **presupuestos de rendimiento** del plugin profesional de PowerBuilder 2025 para VS Code.
 
-Este documento no es una lista de optimizaciones aisladas.  
-Es una **restricción de diseño** que condiciona arquitectura, backlog, validación y evolución del motor.
+Debe responder a una pregunta:
 
----
+> ¿Qué límites de latencia, memoria, trabajo incremental y regresión debe respetar el plugin para sentirse rápido en proyectos reales de PowerBuilder?
 
-## 2. Meta maestra
-
-> **El plugin debe descubrir e indexar muy rápido sin bloquear.**
-
-Todo presupuesto de rendimiento debe apoyar simultáneamente:
-
-1. descubrimiento rápido,
-2. indexación progresiva no bloqueante,
-3. prioridad real al archivo activo,
-4. latencia interactiva baja,
-5. persistencia útil entre sesiones,
-6. observabilidad del motor,
-7. y degradación segura cuando no haya contexto suficiente.
+La arquitectura objetivo vive en `docs/architecture.md`. El estado real vive en `docs/architecture-status.md`. La estrategia completa de pruebas vive en `docs/testing.md`. El trabajo accionable vive en `docs/backlog.md` o en specs enlazadas desde backlog.
 
 ---
 
-## 3. Principios no negociables
+## 2. Principios de rendimiento
 
-### 3.1 El archivo activo tiene presupuesto privilegiado
-La experiencia del documento activo está por encima del trabajo global del workspace.
+### 2.1. El editor no se bloquea
 
-### 3.2 El trabajo global no puede bloquear la interacción
-La indexación, el enriquecimiento y el background nunca deben degradar perceptiblemente hover, completion, definition o edición.
+Ninguna operación interactiva debe bloquear perceptiblemente VS Code. Si una feature no puede resolver información completa dentro de presupuesto, debe devolver una respuesta parcial útil o degradar de forma controlada.
 
-### 3.3 Toda tarea costosa debe ceder
-Toda operación costosa debe diseñarse con:
-- yielding,
-- cancelación,
-- preempción,
-- o reprogramación.
+### 2.2. Hot path primero
 
-### 3.4 Medir antes de asumir
-No se considera mejora ni regresión sin evidencia suficiente.
+Las operaciones ejecutadas durante edición diaria tienen prioridad sobre tareas de análisis profundo. Hover, completion, signature help, diagnostics incrementales, semantic tokens, definition y references deben estar protegidos por budgets explícitos.
 
-### 3.5 Degradar con seguridad
-Si el sistema no dispone aún de contexto suficiente, puede degradar profundidad o cobertura, pero no debe devolver resultados engañosos.
+### 2.3. Incremental por defecto
 
-### 3.6 Warm debe ser claramente mejor que cold
-La persistencia y la caché deben traducirse en mejoras visibles al reabrir workspaces y repetir consultas.
+El plugin debe preferir trabajo incremental frente a rescans completos:
 
----
+- por documento;
+- por versión de documento;
+- por objeto PowerBuilder;
+- por library/target;
+- por workspace.
 
-## 4. Rutas de rendimiento que deben protegerse
+### 2.4. Caches con contrato
 
-### 4.1 Interactive path
-Incluye:
-- hover,
-- completion,
-- definition,
-- signature help,
-- diagnostics del archivo activo,
-- document symbols del archivo abierto.
+Toda cache que exista para mejorar rendimiento debe tener:
 
-**Regla:** esta ruta tiene máxima prioridad.
+```text
+owner
+scope
+key
+value
+invalidation trigger
+max size / memory policy
+metrics
+fallback
+```
 
-### 4.2 Discovery / indexing path
-Incluye:
-- discovery del workspace,
-- parseo estructural,
-- indexación progresiva,
-- enriquecimiento semántico,
-- background indexing.
+### 2.5. Medir antes de cerrar
 
-**Regla:** debe ser progresiva, cancelable y no bloqueante.
-
-### 4.3 Warm / resume path
-Incluye:
-- reapertura del workspace,
-- recuperación de checkpoints,
-- reuse de caché persistente,
-- serving acelerado sobre conocimiento ya materializado.
-
-**Regla:** debe mejorar claramente frente al arranque en frío.
-
-### 4.4 Massive change path
-Incluye:
-- git pull,
-- cambio de rama,
-- cambios masivos de archivos,
-- invalidaciones amplias,
-- reescaneo por watcher.
-
-**Regla:** debe absorber ráfagas sin tormentas de trabajo ni degradación caótica.
+Una mejora de rendimiento no se considera cerrada si no deja forma de medir latencia, hit/miss, fallback, memoria o regresión según corresponda.
 
 ---
 
-## 5. Presupuestos no negociables
+## 3. Taxonomía de paths
 
-Estos presupuestos son de **comportamiento**, no de milisegundos exactos.
+### 3.1. Hot paths interactivos
 
-### 5.1 Nunca bloquear el editor
-El editor no debe congelarse por trabajo del plugin.
+Son operaciones que el usuario percibe durante edición:
 
-### 5.2 El background no roba latencia al foreground
-Las tareas globales nunca deben impedir responder con prioridad al usuario.
+- hover;
+- completion;
+- completion resolve;
+- signature help;
+- definition;
+- references;
+- semantic tokens;
+- document symbols;
+- diagnostics incrementales;
+- cambios de documento abierto.
 
-### 5.3 Toda operación costosa debe ser interrumpible
-Toda tarea larga debe poder:
-- cancelarse,
-- pausarse,
-- o ceder.
+### 3.2. Warm paths
 
-### 5.4 Toda tarea larga debe ser observable
-Si una operación supera un umbral razonable, debe exponer progreso, estado o readiness útil.
+Son operaciones que pueden ejecutarse tras apertura, cambios de workspace o actividad moderada:
 
-### 5.5 Ninguna mejora visible puede apoyarse en recomputación innecesaria
-El sistema debe tender a:
-- invalidación fina,
-- reuso de snapshots,
-- query cache segura,
-- persistencia útil,
-- y serving incremental.
+- indexación incremental;
+- actualización de symbol graph;
+- actualización de caches de workspace;
+- diagnostics de workspace parcial;
+- actualización de modelos DataWindow.
 
-### 5.6 Protecciones ya materializadas en el runtime
-Hoy el runtime ya dispone de:
-- budgets dinámicos en el indexador,
-- yielding cooperativo,
-- cancelación/preempción del background gobernada por `backpressurePolicy`, preservando `build/legacy-orca` una vez arrancan y manteniendo cancelables `background-indexing`, `export-reporting`, `maintenance` y `ai-tooling`,
-- admisión unificada de workloads `background-indexing`, `export-reporting`, `build`, `legacy-orca` y `maintenance` detrás del mismo scheduler + latency governor, cableada a través de `managedRuntimeWorkloads.ts` y `managedBuildWorkloads.ts`, con yielding previo para reports read-only y observabilidad explícita de `throttledBackgroundWorkload/reason`,
-- dashboard/gate ADR-0001 del catálogo servido sólo por `workspaceCheckCatalogSummary`, `workspaceCheckReport` y `npm run report:catalog-consistency`, siempre sobre el carril `export-reporting` y nunca desde `hover`, `completion`, `signatureHelp` o `diagnostics` del hot path,
-- backpressure del watcher,
-- refresco incremental de routing/provenance para markers de topología y altas calientes de SR* sin rediscovery completo,
-- diff snapshot-aware con dependencias `DataObject`/`report`/`dddw` y contrato retrieve de `.srd`, de modo que el fan-out incremental alcance solo a los consumidores necesarios sin abrir otro motor de invalidación,
-- policy v2 `queryScopePolicy` por consumer semántico, con `maxScope`, `budgetMs`, `resultCap`, readiness/confidence/fallback y allowances `staging/generated/external` servidos desde un registro único, y `semanticQueryService`/`queryTrace` ya proyectan `budget:exceeded` como trace step post-resolución cuando la duración supera ese budget,
-- pool acotado de fuentes para `references`/`rename`/CodeLens con reuso de `maskedText` ya indexado, sin widening a `workspace` cuando la policy del consumer queda en `project` y sin materializar `orca-staging/generated` salvo allowance explícito,
-- mutaciones `upsert/remove` de `KnowledgeBase` con copy-on-write por bucket y consultas/conteos acotados por `kind` para serving y manifest, evitando clonar o recorrer toda la base cuando el hot path ya conoce el subconjunto necesario,
-- guard estructural local/CI sobre hot path para impedir `document.getText().split(...)`, `JSON.stringify`, `getAllEntities`/`exportDocumentRecords`, clonación global del catálogo de sistema y renormalización redundante del workspace en `queryContext`, `completion`, `diagnostics` y `referenceSourcePool`,
-- caché CodeLens LRU acotada y visible en stats/health,
-- el LRU de CodeLens vive ahora en un módulo server-side puro (`features/codeLensResultCache`) con tests propios de límite, hits/misses, evictions e invalidación; `server.ts` ya dejó de registrar directamente lifecycle/document/features/commands y conserva bootstrap + composición runtime, mientras el wiring movedizo vive en `handlers/lifecycleHandlers`, `handlers/documentHandlers`, `handlers/featureHandlers`, `handlers/buildCommandHandlers`, `handlers/reportCommandHandlers` y `handlers/runtimeCommandHandlers`, y la orquestación de persistencia/readiness/workloads descansa en `semanticCacheRuntimeController.ts`, `runtimeProgressController.ts`, `managedRuntimeWorkloads.ts` y `managedBuildWorkloads.ts`,
-- reporte unificado de memory budgets por capa con estimates soft y estado agregado visible en stats/health/status,
-- degradación adaptativa por presión de memoria que purga serving cache, pausa nuevas escrituras en esa caché, aplaza `background-indexing/maintenance/ai-tooling` y acota payloads de reports read-only pesados sin apagar `hover`/`completion`/`near-context`,
-- persistencia dañada o malformada que cae a `rebuild` limpio sin exponer estado semántico medio ni bloquear el carril interactivo,
-- cierre de documento sin borrar conocimiento semántico publicado mientras el archivo siga siendo fuente del workspace,
-- y progreso/readiness/modo degradado observables.
+### 3.3. Cold paths
 
-Cualquier cambio que relaje estas protecciones debe validar como mínimo `npm test` y, cuando toque latencia o presión sostenida, también `npm run test:performance`.
+Son operaciones costosas que deben ejecutarse con progreso, cancelación o scheduling controlado:
 
-La auditoría 2026-05-03 no cambia budgets numéricos; para descomposiciones mayores de `extension.ts` o `server.ts`, el cierre debe revalidar activación, smoke real y PFC/STD mediante `npm run test:architecture:rapid`.
-
-Estado operativo tras `B346`: el wiring de comandos cliente ya vive en `src/client/commandRegistration.ts` y `Object Explorer`/`Current Object Context`/`Diagnostics Explainability` quedan bajo demanda; no se deben reintroducir `createTreeView(...)` eager ni materialización anticipada de API/UX read-only dentro de `activate()`.
+- discovery inicial de workspace grande;
+- indexación completa;
+- análisis profundo de todo el workspace;
+- import/export o lectura externa mediante herramientas;
+- builds externos;
+- generación de support bundles.
 
 ---
 
-## 6. Objetivos calibrados actuales
+## 4. Presupuestos objetivo de latencia
 
-Estos valores ya quedan calibrados sobre **PFC 2025 Workspace/Solution**, un **legacy PBL dump** real y el corpus enterprise local **STD_FC_OrderEntry** en host de pruebas compartido, con smoke semántica adicional sobre objetos representativos y ruido no fuente.
-No son promesas absolutas por máquina, pero sí budgets ejecutables y trazables.
+> Estos valores son presupuestos de producto. Si un workspace real exige superar un límite, la feature debe degradar con fallback explícito y registrar métrica.
 
-### 6.1 Activación y disponibilidad inicial
-- activación efectiva del cliente/servidor: assert duro `< 2000ms` en `vscode-test` y warning operativo por encima de `500ms`;
-- primer `Document Symbols` en archivo pequeño: `< 50ms`;
-- primer `Hover` sobre archivo activo real: `< 50ms`;
-- primera evaluación de diagnósticos estructurales sobre archivo activo real: `< 100ms`.
+### 4.1. Operaciones interactivas
 
-### 6.2 Archivo activo
-Objetivo general:
-- archivos pequeños: respuesta **muy rápida**
-- archivos medianos: respuesta **fluida**
-- archivos grandes legacy: respuesta **útil y estable**, aunque no instantánea
+| Operación | Objetivo | Límite tolerable | Regla |
+|---|---:|---:|---|
+| Hover desde cache | ≤ 20 ms | ≤ 50 ms | No debe leer disco ni reindexar. |
+| Hover con resolución semántica ligera | ≤ 50 ms | ≤ 120 ms | Puede consultar snapshot, symbol graph y catálogo. |
+| Completion inicial | ≤ 60 ms | ≤ 150 ms | Debe devolver candidatos útiles aunque falte ranking avanzado. |
+| Completion resolve | ≤ 30 ms | ≤ 80 ms | Debe resolver detalles bajo demanda. |
+| Signature Help | ≤ 50 ms | ≤ 120 ms | Debe usar callable/scope resolution. |
+| Definition | ≤ 50 ms | ≤ 150 ms | Debe usar symbol identity/index. |
+| References en documento activo | ≤ 80 ms | ≤ 200 ms | Puede usar índice local. |
+| References workspace | ≤ 300 ms | ≤ 1000 ms | Si supera límite, usar progreso/cancelación. |
+| Semantic Tokens documento | ≤ 80 ms | ≤ 200 ms | Debe usar snapshot/AST/cache. |
+| Document Symbols | ≤ 50 ms | ≤ 150 ms | Debe usar parse/index local. |
+| Diagnostics documento abierto | ≤ 150 ms | ≤ 500 ms | Deben ser incrementales y cancelables. |
 
-### 6.3 Workspace
-Objetivo general:
-- discovery inicial sobre PFC: `< 2000ms`;
-- indexación cold sobre PFC: objetivo `< 15000ms` y hard gate `< 18000ms` en host compartido, con warning explícito al rebasar el objetivo operativo;
-- indexación warm sobre PFC: `< 1000ms` y claramente mejor que cold;
-- memoria: **controlada y estable**
+### 4.2. Operaciones de workspace
 
-### 6.4 Calibración corpus-driven de confidence
-
-La revisión actual de thresholds por feature queda cerrada por `B283` con baseline ejecutable sobre **PFC Solution**, **STD_FC_OrderEntry** y el **legacy PBL dump**:
-- `test/server/performance/confidenceCalibration.smoke.test.ts` congela escenarios reales `low`, `medium` y `high` y exige `0 false positives / 0 false negatives` al comparar la policy declarativa con el comportamiento observado de `hover`, `completion`, `definition`, `references`, `rename` y `signature-help`;
-- mientras ese baseline siga verde, los thresholds actuales se consideran calibrados y no deben ajustarse por intuición local o incidentes aislados;
-- cualquier cambio futuro de thresholds o de inferencia de confidence debe revalidar esta smoke corpus-driven además de la golden matrix semántica.
-
-### 6.5 Validación corpus-driven de catálogo por dominio
-
-La revisión actual del consumo/cobertura catalog-driven sobre corpora reales queda cerrada por `B336` con baseline ejecutable sobre **PFC Solution**, **STD_FC_OrderEntry** y el **legacy PBL dump**:
-- `test/server/performance/catalogCorpusValidation.smoke.test.ts` congela cinco probes reales sobre `system-globals`, `global-functions` y `datawindow-functions`, y exige `0 misses / 0 ambigüedades / 0 budget violations` al revisar la ruta warm de `hover`, `completion` y `diagnostics`;
-- la smoke calienta una pasada no medida por probe para aislar la latencia servida del cold parse inicial, que ya sigue cubierto por `active-file.perf.test.ts` y el baseline general de archivo activo;
-- el cierre de `B363` añade consumers catalog-driven ligeros para enums: `signatureHelp` y `diagnostics` comparten `enumeratedContext.ts` sobre indices ya materializados del catálogo, y `semanticTokens` solo verifica tokens con sufijo `!` contra `SystemCatalog` sin scans globales por documento o por dominio;
-- `B329` amplía ese carril con un fast path catalog-driven para `keywords`, `reserved-words`, `datatypes`, `system-globals`, `pronouns` y `global-functions` cuando no hay qualifier: la clasificación sigue apoyándose en resolutores directos de `SystemCatalog`, evita scans completos o clones de catálogo por token y mantiene verde `test/server/unit/hotPathAllocationBudget.test.ts`;
-- `B372` añade el siguiente guardrail de serving localizado sin reabrir el hot path: `documentationService.ts` resuelve textos por `entry.id` sobre el índice memoizado de `localization/`, cae a inglés original cuando falta overlay, reutiliza arrays existentes para `usageNotes` y cachea documentación de parámetros por entry/overlay en vez de recorrer todos los overlays o clonar entries por locale;
-- `B373` mantiene ese guardrail ya en producto visible: hover/completion/signatureHelp solo leen locale efectiva y texto servido, `featureHandlers.ts` mete la locale en la `ServingCache` key para no mezclar resultados entre idiomas y `documentationService.ts` añade alias memoizados manual/generated más fallback O(1) por nombre de parámetro único cuando el `signatureLabel` visible difiere del overlay, sin abrir scans por item ni reordenar la selección semántica del consumer;
-- Bloque 13 fija [symbol-system.md](symbol-system.md) como owner de budgets para símbolos enriquecidos: completion initial sigue compacto, completion resolve carga documentación lazy, overlays localizados segregan cache por locale y cualquier enrichment nuevo debe demostrar no IO, no workspace scan, no full parse y payload acotado antes de tocar hot path;
-- `SYMBOL-PRESENTATION-01` cierra además la capa presentation común: hover y signatureHelp ya reciben `payloadPolicy` canónica desde `src/server/presentation`, mientras los providers conservan sólo resolución semántica y ensamblado del modelo visible sin mover work pesado al formatter;
-- `featureHandlers.ts` deja además el hot path silencioso por defecto: conserva el log del primer uso por feature para trazabilidad, pero ya no emite una traza por interacción salvo que el tiempo servido cruce `50ms`, alineado con el presupuesto interactivo visible;
-- `test/server/performance/enumCatalogCorpusValidation.smoke.test.ts` fija `B364`: tras indexar PFC Solution, STD_FC_OrderEntry y legacy PBL dump, el scan corpus-driven de valores con `!` completa en aproximadamente `3.35s` sobre PFC, `5.47s` sobre OrderEntry y `0.14s` sobre legacy, reporta `13068` ocurrencias (`1554` catalogadas, `5296` unknown, `6214` false positives, `4` out-of-context, `0` candidates) y deja esas familias para `B368/B370` sin meter el corpus en el hot path interactivo ni convertirlo en autoridad de catálogo;
-- cualquier cambio futuro de catálogo o de sus consumers reales debe revalidar esta smoke corpus-driven junto con `catalogV2.test.ts`, `completion.test.ts`, `hover.test.ts`, `semanticTokens.test.ts`, `signatureHelp.test.ts` y `diagnostics.test.ts` antes de tocar claims de cobertura.
+| Operación | Objetivo | Límite tolerable | Regla |
+|---|---:|---:|---|
+| Detección inicial de tipo de proyecto | ≤ 500 ms | ≤ 1500 ms | No debe bloquear activación básica. |
+| Discovery incremental | ≤ 2 s | ≤ 5 s | Debe mostrar progreso si aplica. |
+| Indexación parcial tras cambio | ≤ 500 ms | ≤ 2 s | Solo invalidar lo afectado. |
+| Indexación completa workspace mediano | ≤ 10 s | ≤ 30 s | Debe ser cancelable. |
+| Rehidratación de cache persistente | ≤ 1 s | ≤ 3 s | Debe validar versión/hash. |
+| Diagnostics workspace parcial | ≤ 3 s | ≤ 10 s | Debe ser schedulable. |
 
 ---
 
-## 7. Presupuestos por categoría
+## 5. Presupuestos de memoria
 
-### 7.1 Activación
-Se vigila:
-- coste añadido al arranque,
-- tiempo hasta cliente/servidor disponibles,
-- tiempo hasta primera capacidad útil en archivo activo.
+### 5.1. Objetivos generales
 
-### 7.2 Serving interactivo
-Se vigila:
-- hover,
-- completion,
-- definition,
-- signature help,
-- document symbols,
-- respuesta de diagnostics del archivo activo.
+El servidor debe mantener memoria proporcional al workspace y evitar crecimiento no acotado.
 
-### 7.3 Indexación
-Se vigila:
-- discovery,
-- parseo,
-- enriquecimiento,
-- progreso por fases,
-- fairness del background,
-- tiempo hasta “active-context-ready”.
+| Área | Objetivo | Regla |
+|---|---:|---|
+| Request-local cache | Liberada al terminar request | No persistir referencias pesadas. |
+| Active document snapshot | Solo documentos abiertos/relevantes | Evictar al cerrar o cambiar versión. |
+| Workspace index | Proporcional a símbolos reales | Evitar duplicar strings/modelos pesados. |
+| Persistent metadata cache | Acotada por tamaño/configuración | Validar hash/version antes de uso. |
+| DataWindow model cache | Acotada por uso reciente | Evictar modelos no usados. |
+| Diagnostics cache | Por documento/fuente | Invalidar por versión/configuración. |
 
-### 7.4 Persistencia
-Se vigila:
-- tiempo de reapertura,
-- tiempo de resume,
-- mejora warm vs cold,
-- tasa de reutilización útil,
-- coste de invalidación tras reapertura,
-- bytes persistidos por workspace y journal,
-- deriva de `workspaceKey` obsoletos,
-- y que la compactación/limpieza ocurra fuera del hot path o bajo comando explícito.
+### 5.2. Reglas anti-fuga
 
-### 7.5 Memoria
-Se vigila:
-- memoria base del servidor,
-- memoria por documento caliente,
-- crecimiento del índice,
-- picos durante indexación,
-- densidad de caché,
-- activación de la policy adaptativa de presión (`serving cache relief`, deferrals y caps de reports).
-
-### 7.6 Payload LSP interactivo
-
-El owner ejecutable de estos valores es `src/server/serving/payloadBudget.ts`; `test/server/unit/lspPayloadBudgetContracts.test.ts` mide payloads representativos con `estimateLspPayloadBytes` y falla con `feature`, `payloadBytes`, `budgetBytes` y `overflowBytes` cuando hay regresión.
-
-| Feature | Budget | Regla |
-| --- | ---: | --- |
-| `hover` | `4 KiB` | Markdown compacto de una respuesta visible. |
-| `completion` | `64 KiB` | Lista inicial acotada y sin documentación larga por item. |
-| `completion-resolve` | `4 KiB` | Detalle diferido para un item concreto. |
-| `signatureHelp` | `12 KiB` | Firmas activas y documentación resumida del callable actual. |
-| `definition` | `4 KiB` | Ubicaciones de navegación y metadata mínima. |
-| `references` | `96 KiB` | Lista acotada de ubicaciones interactivas. |
-| `documentSymbols` | `48 KiB` | Árbol del documento activo, no del workspace. |
-| `semanticTokens` | `256 KiB` | Payload denso pero capado por documento. |
-
-Diagnostics no entra hoy en `INTERACTIVE_PAYLOAD_BUDGETS` porque se publica por el scheduler de diagnósticos, no como request interactiva equivalente; su control sigue en caps, deduplicación y reason codes del pipeline de diagnostics.
+- No guardar `TextDocument` completo en caches de larga vida si basta con snapshot reducido.
+- No duplicar AST completo en varias capas.
+- No retener respuestas LSP finales si se puede guardar ViewModel compacto.
+- Toda cache L2/L3 debe tener política de evicción.
+- Toda integración externa debe liberar procesos, handles y temporales.
 
 ---
 
-## 8. Métricas mínimas obligatorias
+## 6. Presupuesto de cache hit/miss
 
-Toda evolución relevante del motor debe poder medir, como mínimo:
+### 6.1. Objetivos por cache
 
-- tiempo hasta primer `Document Symbols`,
-- tiempo hasta primer `Hover`,
-- tiempo hasta primera publicación de diagnósticos,
-- tiempo de análisis de documento por tamaño,
-- tiempo de discovery,
-- tiempo de cold indexing,
-- tiempo de warm indexing,
-- memoria base del servidor,
-- pico de memoria durante indexación,
-- hit ratio de caché de serving,
-- hit ratio de caché persistente,
-- fan-out de invalidación,
-- y tiempo hasta `active-context-ready`.
+| Cache | Hit objetivo | Miss tolerable | Observación |
+|---|---:|---:|---|
+| Active document snapshot | ≥ 95% en documento abierto | ≤ 5% | Base para hot paths. |
+| HoverViewModel cache | ≥ 80% en posiciones repetidas | ≤ 20% | Debe incluir negative cache. |
+| Completion list cache | ≥ 70% en contexto estable | ≤ 30% | Invalidar por scope/configuración. |
+| Completion resolve cache | ≥ 80% en item repetido | ≤ 20% | TTL corto aceptable. |
+| Catalog lookup cache | ≥ 95% | ≤ 5% | Catálogos versionados. |
+| Semantic tokens cache | ≥ 80% si documento no cambia | ≤ 20% | Por versión de documento. |
+| Diagnostics cache | ≥ 70% en revalidación sin cambios | ≤ 30% | Por fuente y versión. |
+| DataWindow model cache | ≥ 80% en DW ya vista | ≤ 20% | Invalidar por hash/source. |
 
----
+### 6.2. Regla de miss
 
-## 9. Política de regresión
+Un cache miss en hot path no debe disparar trabajo global. Debe:
 
-Se considera regresión relevante cualquiera de estos casos:
-
-- aumento claro de latencia en una ruta crítica,
-- aumento sostenido de memoria sin beneficio proporcional,
-- pérdida de cancelación o yielding,
-- bloqueo visible del editor,
-- warm path que deje de mejorar claramente al cold path,
-- o degradación de precisión causada por presión sin contrato explícito de degradación.
-
-Ante una regresión:
-
-1. medir antes/después,
-2. documentar el cambio,
-3. identificar la causa,
-4. decidir si se revierte, se mitiga o se acepta,
-5. y dejar rastro en la spec o documento técnico correspondiente.
-
-### 9.1 Gate ejecutable actual
-
-El gate ejecutable actual del presupuesto es `npm run test:performance:gate`.
-
-El cierre más reciente del carril devtools LSP dejó `legacy-public-active-hover = 5.00ms / 50.00ms` en ese gate y añadió guards unitarios para bloquear regresiones de `workspace fallback` innecesario tanto en `member-hierarchy` del documento activo como en owner chains de catálogo para descendants custom de DataWindow.
-
-El soak local opt-in actual es `npm run test:performance:soak`; genera `artifacts/performance/session-stability-soak.json` y `artifacts/performance/session-stability-soak.md` para dejar evidencia de estabilidad prolongada sin meter ese coste en CI por defecto.
-
-El guard local/CI actual contra allocations accidentales en hot path es `test/server/unit/hotPathAllocationBudget.test.ts`; queda revalidado junto con `queryContext/completion/diagnostics/referenceSourcePool/references/definition/rename` para bloquear patrones estructurales antes de que se conviertan en regresión de latencia.
-
-Estado operativo abierto tras la Parte 2 del `architecture-implementation-map`:
-
-- `interactiveHotPathGuards.test.ts` demuestra `no IO / no workspace scan / no full parse` para `hover`, `completion`, `signatureHelp`, `definition`, `documentSymbols`, `semanticTokens`, `DataWindowFastContext` y los adapters DataWindow cuando el snapshot ya está caliente; diagnostics incrementales conservan su protección por scheduler/analysisCache y se endurecerán con guard dedicado sólo si entran en el mismo carril de serving.
-- `semanticQueryFacade.test.ts` demuestra que la nueva fachada read-only de Bloque 5 coordina target symbol, receiver type, callable, inheritance y enum context sin IO ni full parse sobre contexto ya publicado, y sin clonar `KnowledgeBase`, `SystemCatalog` ni `InheritanceGraph`.
-- `NegativeHoverCache`, `HoverViewModel cache`, `InteractiveServingPipeline`, `ActiveDocumentServingSnapshot`, `SignatureHelpViewModel`, `CompletionListViewModel`, `CompletionResolveViewModel`, `DiagnosticMessageViewModel`, `DefinitionViewModel`, `SemanticTokensViewModel` y definition con key estructurada/stale guard ya existen, así que el hot path activo ya no depende solo de `ServingCache`, `HotContextCache` y `analysisCache`; el gap real queda desplazado a mantener versionado/invalidation estrictos bajo presión de memoria.
-- completion ya difiere documentación/detalle enriquecido mediante `completionItem/resolve` con payload budget `4 KiB` por item; `completion.test.ts`, `cacheKeyContract.test.ts` e `interactiveServingPipeline.test.ts` congelan ranking contextual, payload inicial ligero, separación initial/resolve y negative cache locale-partitioned para misses seguros de `completion-resolve`; una caché standalone de lista final sigue condicionada a presión medible.
-- DataWindow fast mode no ejecuta SQL ni calcula lineage profundo en hot path: sólo proyecta evidencia ya disponible del `DataWindowModel`, binding literal/GetChild con confidence y buffers oficiales desde catálogo.
-- `documentSymbols` mantiene decisión explícita de no cache final: recompone outline desde snapshot caliente y reconciliation, con coste bajo esperado y sin workspace scan; introducir cache por outline requerirá medición corpus-driven previa.
-- `semanticTokens` mantiene respuesta `full` sin delta ni cache final dedicada: clasifica desde snapshot y `SystemCatalog`, proyecta orden/dedupe en `SemanticTokensViewModel`, conserva payload budget declarativo y guard caliente; delta/range/cache quedan futuros sólo si aparece presión de payload/coste.
-- `CodeLens` mantiene `codeLensProvider.resolveProvider = false` y `CodeLensResultCache` como caché especializada; cualquier adopción de `codeLens/resolve` debe abrir backlog propio.
-
-Hoy ese carril debe:
-
-- ejecutar budgets deterministas sobre el corpus publico `fixtures-local/public/legacy-pbl-dump` para hover, diagnostics y batch analysis del archivo activo;
-- mantener ese corpus `legacy-pbl-dump` utilizable tanto en CI como en `release-readiness`, sin depender de fixtures locales ausentes ni obligar a dejar el workflow manual;
-- incluir la suite `performance/large-workspace-incremental` para rafagas moderadas y masivas sobre workspaces sinteticos grandes;
-- seguir verde junto con la proof suite `semanticDiff + watchedFileIntake` que fija el fan-out incremental de `B265` para cambios cosméticos, implementation/prototype/ancestor, `.srd`/`DataObject`, markers, `sourceOrigin`, ORCA staging y external functions;
-- seguir verde junto con la suite `queryScopePolicy + referenceSourcePool + featureReadiness + references/rename/CodeLens + completion/signatureHelp/currentObjectContext/impactAnalysis`, que fija la policy v2 de `B266`, los caps por consumer y la no materialización global fuera del contract;
-- seguir verde junto con la suite `backpressurePolicy + scheduler + diagnosticScheduler + runtimeHealth + statusBarPresentation`, y con la batería read-only/build/legacy reencolada (`currentObjectContext`, `impactAnalysis`, `safeEditPlan`, `safeBatchRefactorPlan`, `semanticWorkspaceManifest`, `crossProjectSymbolConflicts`, `workspaceMigrationAssistant`, `powerBuilderCodeMetrics`, `powerBuilderTechnicalDebtReport`, `pbAutoBuildRunner`, `orcaRunner`, `specDrivenPblUpdate`, `specDrivenPblUpdateBatch`), que fija la policy runtime v2 de `B267` sobre el scheduler común;
-- serializar evidencia en `artifacts/performance/performance-budget-gate.json`;
-- y quedar reutilizable tanto en CI como en el release lane (`npm run release:verify`).
+1. intentar resolución local/snapshot;
+2. consultar índice semántico;
+3. usar fallback parcial si excede presupuesto;
+4. programar recomputación fuera del hot path si procede.
 
 ---
 
-## 10. Estrategia de medición
+## 7. Budgets por feature
 
-### 10.1 Qué medir primero
-Prioridad de medición:
+### 7.1. Hover
 
-1. activación efectiva,
-2. primer valor en archivo activo,
-3. analysis time por documento,
-4. discovery/indexing,
-5. warm vs cold,
-6. memoria,
-7. invalidación y fan-out,
-8. hit ratio de caché.
+**Objetivo:** respuesta inmediata y útil.
 
-### 10.2 Cómo medir
-Métodos válidos:
-- timers internos,
-- `performance.now()`,
-- tests automatizados,
-- corpus reales,
-- herramientas de profiling,
-- snapshots de memoria,
-- y validación manual guiada cuando proceda.
+Debe medir:
 
-### 10.3 Cuándo medir
-- al cerrar una spec sensible a rendimiento,
-- al cerrar una fase,
-- antes de release,
-- cuando se sospeche regresión,
-- y al introducir cambios de arquitectura en runtime, caché, scheduler o queries.
+- latencia total;
+- tipo de símbolo;
+- cache hit/miss;
+- fallback usado;
+- resolución semántica usada;
+- tamaño del Markdown resultante.
+
+No debe:
+
+- escanear workspace completo;
+- leer disco en flujo normal;
+- recalcular catálogos built-in;
+- formatear desde modelos crudos si existe ViewModel válido.
+
+### 7.2. Completion
+
+**Objetivo:** candidatos rápidos, resolve bajo demanda.
+
+Debe medir:
+
+- latencia de lista inicial;
+- número de candidatos;
+- coste de ranking;
+- latencia de resolve;
+- cache hit/miss;
+- fallback usado.
+
+No debe:
+
+- calcular documentación completa de todos los candidatos en la lista inicial;
+- bloquear por ranking avanzado;
+- recalcular símbolos globales si el índice es válido.
+
+### 7.3. Signature Help
+
+**Objetivo:** mostrar firma útil dentro de presupuesto.
+
+Debe medir:
+
+- latencia;
+- resolución de callable;
+- número de overloads;
+- fallback sintáctico/semántico.
+
+No debe depender únicamente de regex si hay información semántica disponible.
+
+### 7.4. Definition y References
+
+**Objetivo:** navegación rápida basada en identidad semántica.
+
+Debe medir:
+
+- latencia;
+- fuente de resolución;
+- hits de symbol graph;
+- fallback textual;
+- número de resultados.
+
+Búsqueda textual global solo debe ser fallback explícito y presupuestado.
+
+### 7.5. Diagnostics
+
+**Objetivo:** diagnósticos incrementales, cancelables y separados por fuente.
+
+Debe medir:
+
+- latencia por documento;
+- latencia por fuente;
+- número de diagnósticos;
+- cancelaciones;
+- invalidaciones;
+- reuso de cache.
+
+No debe publicar diagnósticos obsoletos para una versión anterior de documento.
+
+### 7.6. Semantic Tokens
+
+**Objetivo:** tokens consistentes sin reparsing innecesario.
+
+Debe medir:
+
+- latencia;
+- documento/versión;
+- uso de snapshot/AST/cache;
+- tamaño de respuesta.
 
 ---
 
-## 11. Estado actual del presupuesto
+## 8. Budgets de DataWindow
 
-### 11.1 Ya exigible
-Ya es exigible que:
-- el editor no se bloquee,
-- el archivo activo tenga prioridad,
-- el background no robe latencia interactiva,
-- el sistema exponga estado y progreso razonables,
-- y toda tarea costosa tenga camino de yielding/cancelación.
+DataWindow es un subdominio propio y puede tener costes distintos al PowerScript principal.
 
-### 11.2 Pendiente de calibración fuerte
-Debe calibrarse mejor sobre corpus reales:
-- calibración fina de estimates y thresholds de memory budgets sobre portfolios enterprise más amplios,
-- query cache hit ratio,
-- fan-out de invalidación,
-- coste copy-on-write de mutaciones `KnowledgeBase` en workspaces grandes,
-- calibración fina de budgets del formatter server-side sobre documentos sintéticos/enterprise grandes,
-- y budgets en portfolios enterprise más amplios que el baseline actual de PFC + legacy + OrderEntry.
+### 8.1. Operaciones objetivo
 
-### 11.3 Baseline real actual
+| Operación DataWindow | Objetivo | Límite tolerable | Regla |
+|---|---:|---:|---|
+| Detectar referencia DW desde PowerScript | ≤ 50 ms | ≤ 150 ms | Usar semantic/index context. |
+| Cargar modelo DW desde cache | ≤ 30 ms | ≤ 100 ms | Validar hash/version. |
+| Parsear DW individual | ≤ 150 ms | ≤ 500 ms | Fuera de hot path si es pesada. |
+| Resolver columna/control | ≤ 50 ms | ≤ 150 ms | Usar modelo cacheado. |
+| Diagnostics DW individual | ≤ 300 ms | ≤ 1000 ms | Cancelable/schedulable. |
 
-Mediciones registradas en `test/results/003-real-corpora-baseline.md`:
+### 8.2. Reglas
 
-- discovery PFC Workspace (`831` archivos): `112.09ms`;
-- batch `analyzeDocument + documentSymbols` sobre `25` archivos PFC: `121.38ms`;
-- primer hover real en archivo activo PFC: `1.05ms`;
-- primeros diagnostics estructurales en archivo activo PFC: `0.75ms`;
-- indexación cold PFC (`21575` entidades): `13333.28ms`;
-- indexación warm PFC: `0.59ms`;
-- discovery OrderEntry (`744` archivos): `463.63ms`;
-- indexación cold OrderEntry (`23872` entidades): `12873.54ms`;
-- indexación warm OrderEntry: `0.75ms`.
-- smoke semántica OrderEntry: `OK` sobre objetos representativos, solution-mode parcial y exclusión de `.srj`/`.pblmeta`/recursos no fuente.
+- No parsear todas las DataWindows por una request de hover.
+- No bloquear completion por análisis SQL profundo.
+- Cachear modelo DW por source/hash.
+- Separar safe mode de análisis avanzado.
 
 ---
 
-## 12. Revisión del presupuesto
+## 9. Budgets de integraciones externas
 
-Este documento debe revisarse cuando:
+### 9.1. ORCA
 
-- cambie el scheduler,
-- cambie la estrategia de caché,
-- se introduzca persistencia nueva,
-- cambie el pipeline de parsing/knowledge,
-- se cierre una fase relevante del roadmap,
-- o se obtengan mediciones nuevas sobre PFC 2025, OrderEntry y corpus legacy representativos.
+ORCA debe tratarse como integración externa y potencialmente lenta.
+
+Reglas:
+
+- no ejecutar ORCA en hot path interactivo;
+- no bloquear LSP mientras una sesión ORCA trabaja;
+- usar progress/cancelación si la operación es larga;
+- mapear errores sin romper el servidor;
+- degradar si ORCA no está disponible.
+
+### 9.2. PBAutoBuild
+
+PBAutoBuild debe tratarse como proceso externo controlado.
+
+Reglas:
+
+- ejecutar bajo comando explícito o tarea programada;
+- no mezclar salida cruda con diagnostics sin parser/mapping;
+- no bloquear providers interactivos;
+- registrar duración, exit code y errores parseados;
+- permitir cancelación cuando sea posible.
 
 ---
 
-## 13. Relación con otros documentos
+## 10. Métricas obligatorias
 
-Este documento debe alinearse siempre con:
+### 10.1. Métricas por request LSP
 
-- `docs/constitution.md`
-- `docs/architecture.md`
-- `docs/roadmap.md`
-- `docs/current-focus.md`
-- `docs/testing.md`
-- y las specs que modifiquen comportamiento crítico de rendimiento
+```text
+traceId
+method
+documentUri
+documentVersion
+workspaceId
+durationMs
+cacheHit/cacheMiss
+fallbackKind
+cancelled
+resultSize
+errorKind
+```
+
+### 10.2. Métricas por cache
+
+```text
+cacheName
+scope
+keyKind
+hit
+miss
+invalidated
+entryCount
+estimatedSize
+reason
+```
+
+### 10.3. Métricas por indexación
+
+```text
+workspaceId
+changedFiles
+parsedFiles
+indexedSymbols
+durationMs
+cancelled
+fullOrIncremental
+invalidatedScopes
+```
+
+### 10.4. Métricas por integración externa
+
+```text
+adapterName
+operation
+durationMs
+exitCode
+cancelled
+stdoutSize
+stderrSize
+mappedDiagnostics
+```
 
 ---
 
-## 14. Regla final
+## 11. Gates de regresión
 
-El presupuesto de rendimiento no existe para “ganar benchmarks”.
+Una tarea que afecte rendimiento no debe cerrarse si:
 
-Existe para asegurar que el plugin siga siendo:
+- aumenta latencia de hot path sin justificación;
+- introduce lectura de disco en hot path sin cache/fallback;
+- invalida caches de forma global cuando basta invalidación parcial;
+- no añade o actualiza pruebas de performance cuando aplica;
+- no deja métrica para comparar antes/después;
+- degrada apertura de workspace grande;
+- rompe cancelación o publica resultados obsoletos.
 
-- rápido,
-- no bloqueante,
-- estable,
-- predecible,
-- medible,
-- y útil en proyectos reales grandes y legacy.
+---
+
+## 12. Testing relacionado
+
+La estrategia completa vive en `docs/testing.md`, pero este documento exige como mínimo:
+
+- smoke tests de activación/apertura;
+- unit tests para invalidación de caches;
+- tests de parser incremental;
+- tests de semantic facade en hot paths;
+- tests de DataWindow model cache;
+- tests de adapters externos con fake/mocks;
+- performance smoke tests para hover/completion/diagnostics/indexing;
+- fixtures de workspaces reales o representativos.
+
+---
+
+## 13. Política de degradación
+
+Cuando una feature no pueda cumplir presupuesto:
+
+1. debe devolver respuesta parcial si es útil;
+2. debe evitar bloquear el editor;
+3. debe registrar fallback;
+4. debe programar recomputación si procede;
+5. debe evitar publicar resultados obsoletos;
+6. debe mantener UX predecible.
+
+Ejemplos:
+
+- Hover puede mostrar tipo/nombre básico y omitir documentación avanzada.
+- Completion puede devolver candidatos locales antes de globales.
+- References puede mostrar resultados de documento activo antes de workspace completo.
+- Diagnostics puede publicar sintácticos primero y semánticos después.
+
+---
+
+## 14. Relación con backlog y specs
+
+Este documento no lista specs concretas. Si se detecta una desviación de rendimiento, debe registrarse como trabajo accionable en `docs/backlog.md` o en una spec bajo `docs/specs/`.
+
+La entrada de backlog/spec debe enlazar a este documento y declarar:
+
+```text
+hot path afectado
+budget incumplido
+métrica actual
+métrica objetivo
+prueba de regresión requerida
+documentación afectada
+```
+
+---
+
+## 15. Criterios de cierre de este documento
+
+Este documento está alineado si:
+
+- define budgets y métricas, no arquitectura completa;
+- no contiene specs concretas ni histórico;
+- cada hot path tiene objetivo y límite tolerable;
+- cache layer, DataWindow e integraciones externas tienen reglas de rendimiento;
+- los gates de regresión son claros;
+- `docs/testing.md` queda como propietario de la estrategia de pruebas;
+- `docs/backlog.md` queda como propietario del trabajo accionable.
+
+---
+
+## 16. Próximo paso documental
+
+Después de normalizar este documento, los siguientes documentos recomendados son:
+
+```text
+docs/current-focus.md
+docs/backlog.md
+docs/testing.md
+```
+
+Orden recomendado:
+
+1. `docs/current-focus.md` — foco inmediato.
+2. `docs/backlog.md` — specs accionables.
+3. `docs/testing.md` — estrategia de validación alineada con estos budgets.

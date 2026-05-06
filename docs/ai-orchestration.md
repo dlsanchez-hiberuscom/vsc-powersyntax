@@ -1,158 +1,430 @@
-# AI Orchestration — PowerBuilder VS Code Plugin
+# AI Orchestration — Orquestador IA del Plugin PowerBuilder para VS Code
 
-## Purpose
+> **Estado:** documento canónico del orquestador IA.  
+> **Última revisión:** 2026-05-06.  
+> **Ámbito:** decisión, coordinación, ejecución, validación, handoff y cierre de tareas ejecutadas con IA/agentes.  
+> **No contiene:** estrategia general de IA, backlog, specs concretas, prompts largos, arquitectura completa ni catálogo exhaustivo de agentes.  
+> **Documentos relacionados:** `docs/constitution.md`, `docs/ai-strategy.md`, `docs/ai/agent-skill-routing.md`, `docs/ai/lean-token-policy.md`, `docs/ai-context/powerbuilder-plugin-context.md`, `docs/spec-driven-development.md`, `docs/developer-workflows.md`, `docs/testing.md`, `docs/performance-budget.md`.
 
-This document owns the repository AI operating map. It explains where AI rules live, which surfaces are read-only contracts, and what must happen before any AI-assisted write-enabled workflow is considered safe.
+---
 
-Keep this file lean. Detailed architecture remains in [docs/architecture.md](architecture.md), implementation mapping in [docs/architecture-implementation-map.md](architecture-implementation-map.md), validation strategy in [docs/testing.md](testing.md), and the compact bootstrap in [docs/ai-context/powerbuilder-plugin-context.md](ai-context/powerbuilder-plugin-context.md).
+## 1. Propósito
 
-## AI Customization Map
+Este documento es el **orquestador operativo de IA** del repositorio.
 
-| Surface | Primary owner | Use for | Do not use for |
-| --- | --- | --- | --- |
-| [AGENTS.md](../AGENTS.md) | Cross-agent root contract | Mandatory repo-wide behavior for any agent | Long domain procedures or temporary focus |
-| [.github/copilot-instructions.md](../.github/copilot-instructions.md) | Copilot workspace summary | Short always-on Copilot rules | Repeating backlog, roadmap or owner docs |
-| [.github/instructions](../.github/instructions) | Path/domain instructions | Rules that apply only to matched files | Broad workflow checklists |
-| [.github/prompts](../.github/prompts) | Reusable task prompts | Repeatable audits, spec execution and self-check workflows | Always-on project policy |
-| [.github/agents](../.github/agents) | Persistent agent modes | Planner, implementer, reviewer, docs and release roles | Packing every domain rule into an agent |
-| [.github/skills](../.github/skills) | Domain capabilities | PowerBuilder semantics, DataWindow, catalog, testing, docs, build/release and official research workflows | Permission to make write-enabled changes |
-| [docs/ai](ai) | AI documentation index and routing | Discovery, token policy and agent/skill routing | Runtime semantic truth |
-| [docs/ai-context](ai-context) | Compact context pack | Small bootstrap prompt context | Full architecture or backlog copies |
+Debe responder a una pregunta:
 
-Compatibility entries [docs/ai-orchestrator.md](ai-orchestrator.md) and [docs/ai-agents-catalog.md](ai-agents-catalog.md) remain only for historical references. New references should target this document, [docs/ai/README.md](ai/README.md), or [docs/ai/agent-skill-routing.md](ai/agent-skill-routing.md).
+> ¿Cómo decide, coordina, valida y cierra la IA una tarea sin romper arquitectura, documentación, testing, performance ni trazabilidad?
 
-## Instructions Policy
+No define la estrategia general de IA. Esa vive en `docs/ai-strategy.md`.  
+No define qué agente usar para cada caso. Eso vive en `docs/ai/agent-skill-routing.md`.  
+No define prompts concretos. Eso vive en `docs/prompts/README.md` y en archivos de prompt reutilizables.
 
-Permanent instructions must stay short and stable:
+---
 
-- global invariants live in [AGENTS.md](../AGENTS.md) and [.github/copilot-instructions.md](../.github/copilot-instructions.md);
-- path-specific rules live in [.github/instructions](../.github/instructions);
-- instructions link to owner docs instead of copying architecture, backlog or testing matrices;
-- temporary focus belongs in [docs/current-focus.md](current-focus.md), not in always-on instructions;
-- `plugin_old` remains reference material, never current runtime authority.
+## 2. Rol del orquestador
 
-## Prompt Files Contract
+El orquestador IA gobierna el flujo completo de una tarea asistida por IA:
 
-Every executable prompt in [.github/prompts](../.github/prompts) must use the `.prompt.md` extension and include:
+```text
+User Request
+  → Intake
+  → Task Classification
+  → Context Plan
+  → Agent / Skill Selection
+  → Execution Plan
+  → Iterative Execution
+  → Validation
+  → Documentation Alignment
+  → Handoff or Closure
+```
 
-- objective and scope;
-- explicit out-of-scope items;
-- hard rules;
-- ordered phases;
-- acceptance criteria;
-- required tests and docs;
-- final self-check;
-- mandatory final output.
+Su función es decidir **qué se hace, en qué orden, con qué contexto, con qué agente/capacidad y con qué validaciones mínimas**.
 
-Long prompts should link to this document, [docs/testing.md](testing.md), and the owner docs for the touched surface. They should not copy full architecture or backlog sections.
+---
 
-## Agents And Skills
+## 3. Contrato de entrada
 
-The active agent set is intentionally small:
+Toda tarea IA debe comenzar con una entrada mínima:
 
-- `planner` for read-only scope and validation planning;
-- `implementer` for approved scoped edits;
-- `reviewer` for read-only review;
-- `docs` for ownership, links and duplication cleanup;
-- `release` for CI, VSIX and release-readiness.
+```text
+user request
+expected output
+scope
+files or areas mentioned
+constraints
+whether code changes are allowed
+whether docs changes are allowed
+whether frozen docs are protected
+```
 
-Compatibility aliases `docs-auditor` and `docs-updater` should retire once historical references are migrated.
+Si la entrada no es suficiente, el orquestador debe determinar si puede avanzar con análisis del repo o si necesita aclaración.
 
-Skills provide domain workflow context on demand. They do not grant write permission. When a task needs PowerBuilder semantics, DataWindow analysis, catalog maintenance, performance hotpath work, testing validation, docs governance, build/release or official research, load the matching skill and keep the output tied to owner docs.
+---
 
-## Public Read-Only AI Contracts
+## 4. Clasificación de tarea
 
-AI consumers must use public or read-only contracts before touching internals.
+El orquestador debe clasificar la tarea en una o varias categorías:
 
-| Need | Contract surface | Notes |
-| --- | --- | --- |
-| Architecture/status summary | [docs/architecture-status.md](architecture-status.md), [docs/architecture-implementation-map.md](architecture-implementation-map.md) | Documentation contract, not runtime mutation |
-| Test matrix/status | [docs/testing.md](testing.md), `package.json` scripts | Commands must be real or marked missing |
-| Semantic query context | [src/server/features/semanticQueryFacade.ts](../src/server/features/semanticQueryFacade.ts), resolved semantic models | Read-only facade over existing owners |
-| Diagnostics and explainability | `ApiExplainDiagnosticReport`, diagnostics explainability surfaces | Include confidence, reason codes and source origin when available |
-| Runtime/performance stats | `ApiServerStats`, `workspace-check`, `server-stats` | Local only; no external telemetry |
-| DataWindow high-confidence context | `DataWindowFastContext`, DataWindow serving adapters | High-confidence only; dynamic cases degrade honestly |
-| Presentation/read models | [src/server/presentation](../src/server/presentation) | No parser, filesystem, discovery or KnowledgeBase ownership |
-| Backlog/focus metadata | [docs/backlog.md](backlog.md), [docs/current-focus.md](current-focus.md), [docs/done-log.md](done-log.md) | Documentation state stays canonical |
-| Agent task bundle | `ApiAiTaskContextBundle` and [src/client/aiTaskContextBundle.ts](../src/client/aiTaskContextBundle.ts) | Budgeted, paginated, read-only context |
-| Read-only tool bridge | `ApiReadOnlyToolBridgeDescriptor` in [src/shared/publicApi.ts](../src/shared/publicApi.ts) | Describes tool names, schemas and local-only policy |
+```text
+documentation-normalization
+spec-driven-development
+architecture-audit
+code-refactor
+lsp-feature
+performance-hot-path
+testing-improvement
+datawindow-domain
+external-integration
+release
+troubleshooting
+ai-ops
+```
 
-These contracts are serializable and budgeted. They must not expose raw parser stores, mutable `KnowledgeBase`, cache internals or full workspace dumps.
+Reglas:
 
-## Context Bundles
+1. Si afecta varios documentos canónicos, incluir `documentation-normalization`.
+2. Si implica cambio técnico no trivial, evaluar si requiere spec.
+3. Si afecta hover, completion, signature, definition, references, diagnostics o semantic tokens, incluir `lsp-feature` y `performance-hot-path`.
+4. Si afecta DataWindow, incluir `datawindow-domain`.
+5. Si afecta ORCA/PBAutoBuild, incluir `external-integration`.
+6. Si afecta release o soporte, incluir `release` o `troubleshooting`.
 
-AI context bundles are compact and task-specific. The canonical builder is [src/client/aiTaskContextBundle.ts](../src/client/aiTaskContextBundle.ts), backed by `ApiAiTaskContextBundle` in [src/shared/publicApi.ts](../src/shared/publicApi.ts).
+---
 
-Bundle rules:
+## 5. Decisión: ¿requiere spec?
 
-- include freshness/version, focus, source origin, confidence and reason codes when available;
-- enforce token caps centrally in the bundle builder;
-- expose pagination receipts for truncated diagnostic and system-symbol sections;
-- include omissions honestly;
-- avoid secrets, raw local paths, credentials, generated catalog dumps and full workspace dumps;
-- reuse already published reports and read models instead of re-resolving semantics.
+El orquestador debe aplicar `docs/spec-driven-development.md`.
 
-## Tools, MCP And Chat Policy
+Requiere spec si:
 
-The current product surface is read-only-first. The active `src` runtime exposes local API/tool-bridge descriptors and commands for read-only context, reports and planning. It does not enable a new MCP server by default, and it does not treat historical `plugin_old` language model tooling as current runtime capability.
+- afecta arquitectura o límites de capas;
+- modifica parser, indexer, symbol graph, semantic facade o cache layer;
+- afecta hot paths LSP;
+- modifica DataWindow domain;
+- integra herramientas externas;
+- requiere tests nuevos o fixtures;
+- afecta varios documentos;
+- tiene riesgo de performance;
+- será ejecutado por agente IA de forma autónoma.
 
-Initial AI tools, when added, must be read-only and scoped to contracts such as architecture summary, current symbol context, diagnostics explanation, runtime stats and high-confidence DataWindow context. Each tool needs a JSON-schema input contract, output budget, observable command/result path and tests.
+No requiere spec si:
 
-MCP servers require a separate security review, trusted source decision and explicit workspace configuration. Do not add `.vscode/mcp.json` or external servers as part of routine AI prompt/agent maintenance.
+- es una corrección documental pequeña;
+- es una actualización de índice;
+- no cambia código ni contratos;
+- el alcance es trivial y verificable.
 
-## Safe Edit And Write-Enabled Policy
+---
 
-Any AI write-enabled workflow requires, before edits or execution:
+## 6. Plan de contexto
 
-- safe-edit-plan;
-- affected file list;
-- impact analysis;
-- expected tests and docs;
-- explicit user approval for the write-enabled action;
-- receipts or validation receipt after execution;
-- rollback strategy or revert instructions;
-- final self-check against the original prompt/spec.
+El orquestador debe decidir qué contexto cargar usando `docs/ai/lean-token-policy.md`.
 
-Write-enabled AI must not touch parser, `KnowledgeBase`, `DataWindowModel`, build rails or generated catalog surfaces without a focused spec and validation. Generated catalog changes need catalog ownership, provenance and compatibility review.
+Orden recomendado:
 
-## Agent Validation Checklist
+```text
+1. docs/constitution.md
+2. Documento propietario de la tarea
+3. docs/spec-driven-development.md si hay spec o posible spec
+4. docs/architecture.md + docs/architecture-status.md si afecta diseño/estado
+5. docs/testing.md + docs/performance-budget.md si afecta código/hot path
+6. docs/developer-workflows.md si afecta operación diaria
+7. docs/release.md + docs/troubleshooting.md si afecta release/soporte
+8. docs/ai-context/powerbuilder-plugin-context.md si necesita dominio PowerBuilder
+9. Código real afectado
+```
 
-Before closing any spec, audit or refactor, an agent must:
+Regla: no cargar documentos grandes completos salvo necesidad explícita.
 
-1. Re-read the original prompt/spec.
-2. Verify every acceptance criterion or record a justified blocker.
-3. Review the files changed in the current worktree.
-4. Run the smallest real validation lane that covers the risk.
-5. Run docs drift when docs/backlog/current-focus/prompts/done-log changed.
-6. Update owner docs without duplicating long content.
-7. Record missing or failing commands with cause and risk.
-8. Add done-log/backlog/current-focus updates only after validation.
-9. Repeat the self-check until no untracked closure requirement remains.
+Documentos grandes a evitar por defecto:
 
-## Token Budget And Maintenance
+```text
+docs/done-log.md
+docs/architecture-implementation-map.md
+docs/powerbuilder-2025-vscode-plugin-technical-guide.md
+```
 
-- Always-on files stay short.
-- Prompt files own long workflow checklists.
-- Agents own role behavior, not domain encyclopedias.
-- Skills own domain workflow context and link owner docs.
-- Compatibility docs and alias agents should include a retirement condition.
-- New AI customization files must declare owner, scope, when to use, when not to use and validation expectations.
+---
 
-## Security And Data Exposure
+## 7. Selección de agente/capacidad
 
-- Read-only and write-enabled tools are separate.
-- External commands, build rails, ORCA and PBAutoBuild are not AI default actions.
-- Workspace Trust and Restricted Mode remain authoritative for external runners.
-- Do not expose secrets, tokens, credentials, raw endpoint hosts, queries or massive raw source dumps in AI bundles.
-- Redaction policies from support bundles and public reports apply to AI surfaces too.
-- If a request needs private or large workspace data, prefer a local support/repro bundle with explicit user control.
+La selección detallada vive en `docs/ai/agent-skill-routing.md`.
 
-## Validation Anchors
+El orquestador debe elegir una o varias capacidades:
 
-Use these lanes when touching AI orchestration:
+```text
+Documentation Agent
+SDD Agent
+Architecture Agent
+Language Core Agent
+LSP Feature Agent
+Performance Agent
+Testing Agent
+PowerBuilder Domain Agent
+Integration Agent
+Release Agent
+Troubleshooting Agent
+AI Ops Agent
+```
 
-- `npm run test:unit -- --grep "unit/(aiContextDocs|aiCustomizationGovernance|aiTaskContextBundle|publicApi|docsDriftAudit)"`
-- `npm run test:architecture:rapid`
-- `npm run test:docs:drift`
+Ejemplo:
 
-Broaden to `npm test` or `npm run release:verify` only when package surface, activation, public API, VSIX or release workflows change.
+```text
+Tarea: Hover lento y poco útil
+  → LSP Feature Agent
+  → Performance Agent
+  → Testing Agent
+  → Documentation Agent
+```
+
+---
+
+## 8. Plan de ejecución
+
+Antes de modificar archivos, el orquestador debe producir un plan breve:
+
+```text
+classification
+context to load
+agents/capabilities
+files to inspect
+files likely to change
+validation plan
+documentation impact
+risks
+```
+
+No debe generar planes largos si la tarea es directa. El plan debe ser útil para ejecutar, no para duplicar documentación.
+
+---
+
+## 9. Ejecución iterativa
+
+Durante la ejecución:
+
+1. Revisar archivos reales antes de modificar.
+2. Modificar en pasos pequeños.
+3. Mantener cambios dentro del scope.
+4. Evitar documentos nuevos si existe propietario.
+5. No tocar documentos congelados sin autorización explícita.
+6. Añadir tests si aplica.
+7. Actualizar documentación afectada.
+8. Registrar follow-ups en backlog/spec si aparecen.
+
+---
+
+## 10. Validación obligatoria
+
+El orquestador debe decidir validaciones según tipo de tarea.
+
+### 10.1. Documentación
+
+```text
+ownership check
+duplicate check
+relative links check
+frozen docs check
+```
+
+### 10.2. Código
+
+```text
+typecheck
+unit tests
+contract tests
+integration tests
+smoke tests
+```
+
+### 10.3. Hot path / performance
+
+```text
+performance smoke
+latency check
+cache hit/miss review
+fallback review
+```
+
+### 10.4. Release / troubleshooting
+
+```text
+release checklist
+install/package smoke
+known issue review
+support data review
+```
+
+Si una validación no puede ejecutarse, debe quedar indicada como **not run** con motivo y comando recomendado.
+
+---
+
+## 11. Alineación documental
+
+Antes de cerrar, el orquestador debe revisar si hay que actualizar:
+
+```text
+docs/architecture.md
+docs/architecture-status.md
+docs/current-focus.md
+docs/backlog.md
+docs/roadmap.md
+docs/spec-driven-development.md
+docs/testing.md
+docs/performance-budget.md
+docs/developer-workflows.md
+docs/release.md
+docs/troubleshooting.md
+docs/ai-strategy.md
+docs/ai-orchestration.md
+docs/ai/*
+docs/prompts/README.md
+```
+
+Regla: actualizar solo documentos afectados. No reescribir documentación no relacionada.
+
+---
+
+## 12. Handoff entre agentes
+
+Si una tarea pasa a otro agente/capacidad, el handoff debe incluir:
+
+```text
+task classification
+context already loaded
+files inspected
+files modified
+decisions made
+validations run
+validations pending
+risks
+next action
+```
+
+No se permite handoff ambiguo cuando hay cambios de código o documentación.
+
+---
+
+## 13. Cierre de tarea
+
+Una tarea IA puede cerrarse si:
+
+```text
+[ ] Objetivo cumplido.
+[ ] Scope respetado.
+[ ] Archivos reales revisados.
+[ ] Cambios aplicados.
+[ ] Tests/validaciones aplicables ejecutados o justificados.
+[ ] Documentación afectada actualizada.
+[ ] No hay duplicidad documental nueva.
+[ ] No se tocaron documentos congelados sin autorización.
+[ ] Riesgos residuales registrados.
+[ ] Siguiente paso indicado.
+```
+
+---
+
+## 14. Casos de bloqueo
+
+El orquestador debe bloquear o pedir decisión humana si:
+
+- la tarea exige modificar documentos congelados;
+- hay conflicto entre documentos canónicos;
+- el alcance supera una spec razonable;
+- falta código o documentación necesaria;
+- la validación crítica no puede ejecutarse;
+- hay riesgo de regresión P0/P1;
+- se requiere decisión de producto.
+
+---
+
+## 15. Relación con backlog/current-focus
+
+Reglas:
+
+- Si surge trabajo accionable, va a `docs/backlog.md` o a una spec.
+- Si la tarea cambia el foco activo, actualizar `docs/current-focus.md`.
+- Si es visión estratégica, no va al backlog; va a `docs/roadmap.md`.
+- Si está cerrado históricamente, solo va a `docs/done-log.md` cuando se autorice.
+
+---
+
+## 16. Relación con SDD
+
+Si la tarea requiere spec:
+
+1. crear o actualizar spec;
+2. enlazarla desde backlog;
+3. ejecutar según `docs/spec-driven-development.md`;
+4. validar tests/performance/docs;
+5. cerrar solo si cumple criterios.
+
+El orquestador no debe convertir `ai-orchestration.md` en índice de specs.
+
+---
+
+## 17. Relación con prompts
+
+Los prompts reutilizables deben seguir este orquestador.
+
+Todo prompt operativo debe declarar:
+
+```text
+objective
+required context
+agent/capability
+files to inspect
+validation plan
+documentation impact
+closure format
+```
+
+El índice de prompts vive en `docs/prompts/README.md`.
+
+---
+
+## 18. Salida estándar del orquestador
+
+Formato mínimo de salida para tareas ejecutadas:
+
+```text
+Classification:
+Agents/Capabilities:
+Files reviewed:
+Files changed:
+Validations run:
+Validations not run:
+Documentation updated:
+Risks / follow-ups:
+Next step:
+```
+
+---
+
+## 19. Antipatrones
+
+No hacer:
+
+- ejecutar sin clasificar tarea;
+- cargar todo el repo sin necesidad;
+- modificar código sin revisar archivos reales;
+- cerrar sin pruebas aplicables;
+- duplicar arquitectura en docs IA;
+- convertir prompts en specs;
+- convertir roadmap en backlog;
+- ignorar performance en hot paths;
+- tocar done-log/mapa congelado sin autorización.
+
+---
+
+## 20. Límites de este documento
+
+Este documento no debe contener:
+
+- estrategia general de IA;
+- catálogo largo de agentes;
+- prompts completos;
+- backlog;
+- specs concretas;
+- arquitectura objetivo completa;
+- histórico cerrado.
