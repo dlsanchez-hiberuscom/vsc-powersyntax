@@ -357,47 +357,6 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 - **Docs:** `docs/architecture.md` knowledge layer, `docs/performance-budget.md` §6.2.
 - **Tests:** Unit test: cambiar ancestro → verificar invalidación de descendientes. Test: cambiar whitespace → verificar no invalidación (early cutoff).
 
----
-
-
-## PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01 — Reducir ruido de diagnostics informativos normales en PowerBuilder
-
-- **Estado:** Done.
-- **Prioridad:** P2.
-- **Origen:** experiencia runtime.
-- **Evidencia:** Se muestran diagnostics azules/warnings para patrones comunes y no necesariamente accionables.
-- **Riesgo:** Medio. Aunque no rompe el parser, ensucia Problems y resta confianza al plugin.
-- **Objetivo:** Mover información contextual a hover/context panels y dejar diagnostics visibles solo para problemas accionables.
-- **Casos reales:**
-
-```powerscript
-lds_test.dataobject = inv_filterattrib.idw_dw.dataobject
-```
-
-```text
-La asignación dinámica de DataObject en 'lds_test' impide una navegación fiable hacia un .srd.
-vsc-powersyntax(dataobject-dynamic)
-```
-
-```powerscript
-this.tabpg_values.dw_values.Retrieve()
-```
-
-```text
-La operación 'dw_values.Retrieve()' usa un transaction object dinámico ('inv_filterattrib.idw_dw.itr_object'); se degrada la confidence semántica.
-vsc-powersyntax(transaction-binding-dynamic)
-```
-
-- **Acceptance criteria:**
-  - `dataobject-dynamic` y `transaction-binding-dynamic` no ensucian Problems por defecto.
-  - Hover conserva información útil de riesgo/confidence.
-  - Hay configuración documentada si el usuario quiere diagnostics estrictos.
-- **Docs:** `docs/troubleshooting.md`, `docs/developer-workflows.md`, `docs/localization.md` si afecta textos visibles.
-- **Tests:** diagnostics severity tests, configuration tests.
-
----
-
-
 ## 1.239 PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01 — **Cerrado (runtime / diagnostics / 2026-05)**
 
 **Objetivo:** Reducir el ruido en el panel de Problems generado por diagnostics informativos dinámicos de DataWindow y Transaction.
@@ -1418,7 +1377,7 @@ vsc-powersyntax(transaction-binding-dynamic)
 **Resultado registrado:**
 - `src/server/parsing/conditionalCompilationGate.ts` añade detección pura de `#IF/#ELSEIF/#ELSE/#END IF/#define` y variantes con `$`, apoyada en `stripCommentsSmart()` para ignorar histórico comentado sin tocar parser, semántica ni serving;
 - `test/server/unit/conditionalCompilationGate.test.ts` fija el caso positivo de marcadores activos y el caso negativo de comentarios/strings históricos, mientras `test/server/unit/powerbuilderParserResilienceFuzz.test.ts` refuerza que el histórico real de corpus no se promueve a sintaxis activa;
-- `docs/testing.md`, la guía técnica de PowerBuilder, backlog, current-focus y roadmap dejan explícito que esto es un gate de evidencia y no una promesa de soporte productivo de conditional compilation.
+- `docs/testing.md` y la guía técnica de PowerBuilder dejan explícito que esto es un gate de evidencia y no una promesa de soporte productivo de conditional compilation; backlog, current-focus y roadmap sólo deben reflejarlo si vuelve a abrirse trabajo accionable o foco explícito.
 
 **Validación registrada:**
 - `npx tsc -p tsconfig.test.json`

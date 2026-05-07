@@ -1000,7 +1000,7 @@ En proyectos legacy, comentarios pueden contener código antiguo, pseudocódigo,
 
 ### 10.11 Conditional compilation
 
-Conditional compilation forma parte de Language Basics y debe tratarse como preprocesador, no como comentario normal. 
+Conditional compilation forma parte de Language Basics y debe tratarse como preprocesador, no como comentario normal. Esta guía describe el lenguaje y los riesgos de edición; no debe usarse por sí sola para inferir soporte productivo completo del plugin.
 
 ## 11. Conditional compilation
 
@@ -2070,12 +2070,12 @@ También puede usarse para llamar funciones/events del ancestor inmediato.
 
 ### 18.4 `ParentWindow`
 
-En scripts de Menu, `ParentWindow` identifica la ventana asociada al menú durante ejecución.
+En scripts de Menu, `ParentWindow()` devuelve la ventana asociada al menú durante ejecución.
 
 Ejemplo conceptual:
 
 ```powerscript
-ParentWindow.Title = "Main"
+Close(ParentWindow())
 ```
 
 ### 18.5 `::` para ancestor calls
@@ -2600,7 +2600,7 @@ Cambiar access puede romper callers o descendants.
 
 ### 21.15 THROWS clause
 
-PowerBuilder permite declarar excepciones con `THROWS` en signatures. Una IA debe conservar esta parte de la signature.
+PowerBuilder documenta `THROWS` en signatures. Una IA debe conservar esta parte de la signature. En el plugin, esta sección describe semántica del lenguaje y no implica por sí sola soporte estructural completo de parser, diagnostics o navegación.
 
 Ejemplo conceptual:
 
@@ -3577,6 +3577,8 @@ public function long uf_process() throws n_validation_exception;
 
 Una IA debe conservarlo al modificar signatures.
 
+Como regla de producto, no debe inferirse soporte estructural completo sólo porque exista esta construcción en la guía; el alcance real del parser y de las features semánticas vive en los documentos owner del runtime.
+
 ### 28.9 `SystemError`
 
 `SystemError` es un evento del Application object que puede ejecutarse ante errores graves no capturados.
@@ -4326,12 +4328,13 @@ Con este modelo, el DataWindow conecta y desconecta según necesidad.
 dw_1.SetTransObject(SQLCA)
 ```
 
-El programador debe hacer:
+El programador debe gestionar explícitamente el ciclo de conexión/commit/rollback/disconnect que corresponda al transaction object asociado. Un patrón típico es:
 
 ```powerscript
 CONNECT USING SQLCA;
+// trabajo transaccional
 COMMIT USING SQLCA;
-ROLLBACK USING SQLCA;
+// o ROLLBACK USING SQLCA;
 DISCONNECT USING SQLCA;
 ```
 
@@ -6852,7 +6855,7 @@ end event
 
 ```powerscript
 event clicked;
-    ParentWindow.Close()
+    Close(ParentWindow())
 end event
 ```
 

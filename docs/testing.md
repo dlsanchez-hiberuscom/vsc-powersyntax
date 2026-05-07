@@ -165,6 +165,14 @@ Reglas operativas adicionales:
 - cuando una superficie read-only sea cara, dividirla en varias smokes pequeñas por dominio y usar comandos/fixtures representativos en lugar de barridos completos del workspace real;
 - el runtime self-test no puede limitarse a snapshots: debe probar wiring real de `views`, hover built-in, serving cache y negative cache de hover/definition.
 
+Cobertura mínima para surfaces read-only ya publicadas:
+
+- `Current Object Context`: unit/contract sobre payload, confidence, reason codes y degradación; smoke mínima del comando/panel con archivo activo válido.
+- `Diagnostics Explainability`: unit/contract sobre proyección de evidence, severidad y explainability; smoke del comando/panel.
+- `Object Explorer`: unit del modelo de árbol, proyecto activo y estados degradados; smoke de activación del provider.
+- `Impact Analysis` y `Safe Edit Plan`: unit/contract del payload read-only, conflictos de framework y receipts visibles; smoke ligera cuando exista comando público.
+- `runtime self-test`: unit del builder/report y probes funcionales reales de hot path interactivo.
+
 ---
 
 ### 4.6. Performance tests
@@ -216,6 +224,7 @@ Deben validar solo flujos críticos de VS Code:
 | Definition/References | Medio | Alto | Alto | Medio | Medio | Bajo |
 | Diagnostics | Alto | Alto | Alto | Alto | Alto | Medio |
 | Semantic Tokens | Medio | Alto | Alto | Medio | Medio | Bajo |
+| Surfaces read-only / API pública | Alto | Alto | Medio | Alto | Medio | Bajo |
 | DataWindow | Alto | Alto | Alto | Medio | Alto | Bajo |
 | ORCA/PBAutoBuild adapters | Alto | Alto | Medio | Bajo | Medio | Bajo |
 

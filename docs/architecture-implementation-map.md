@@ -55,7 +55,7 @@ Reglas de lectura:
 | Indexación incremental | [src/server/indexer/workspaceIndexer.ts](../src/server/indexer/workspaceIndexer.ts) | pases structural/enriched, yielding, partial mode, prioridad al activo | Implementado |
 | Parsing y análisis | [src/server/parsing](../src/server/parsing), [src/server/analysis](../src/server/analysis) | DocumentModel, section machine, snapshots, análisis documental, scheduler diagnóstico | Implementado |
 | Knowledge backbone | [src/server/knowledge](../src/server/knowledge) | KnowledgeBase atómica, semanticEpoch, caches, query service, system catalog | Implementado |
-| Sistema de símbolos | [symbol-system.md](symbol-system.md), [src/server/knowledge/symbolKey.ts](../src/server/knowledge/symbolKey.ts), [src/server/features/semanticQueryFacade.ts](../src/server/features/semanticQueryFacade.ts) | Identidad, owners, sourceOrigin/confidence, consumers LSP, enrichments y localización presentation-only | Implementado con roadmap |
+| Sistema de símbolos | [symbol-system.md](symbol-system.md), [src/server/knowledge/symbolKey.ts](../src/server/knowledge/symbolKey.ts), [src/server/features/semanticQueryFacade.ts](../src/server/features/semanticQueryFacade.ts) | Identidad, owners, sourceOrigin/confidence, consumers LSP, enrichments y localización presentation-only | Implementado parcialmente; facade slice activo y convergencia pendiente |
 | Features semánticas | [src/server/features](../src/server/features) | hover, completion, definition, references, rename, diagnostics, DataWindow, reports | Implementado |
 | Presentación server-side | [src/server/presentation](../src/server/presentation) | `Symbol*ViewModel` y formatters LSP/AI read-only para hover, completion, signatureHelp, definition, diagnostics, semantic tokens y AI context | Implementado |
 | Persistencia y caché | [src/server/cache](../src/server/cache) | checkpoint, journal, restore, flush coordinado, runtime cache controller | Implementado |
@@ -240,7 +240,7 @@ Observaciones:
 | References | [src/server/features/references.ts](../src/server/features/references.ts) | `150ms`, `project`, `resultCap = 512` | Candidate pool compartido y acotado |
 | Rename | [src/server/features/rename.ts](../src/server/features/rename.ts) | `rename-prepare = 25ms`, `rename = 200ms` | Bloquea con confidence/sourceOrigin no defendibles |
 | Document Symbols | [src/server/features/documentSymbols.ts](../src/server/features/documentSymbols.ts) | Scheduler interactivo y reconciliación explícita | Reutiliza snapshot del documento |
-| Semantic Tokens | [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | Scheduler interactivo | Usa catálogo y snapshot, sin full scan del workspace |
+| Semantic Tokens | [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | Scheduler interactivo | Usa catálogo y snapshot, sin full scan del workspace; el contrato de confidence sigue pendiente de convergencia completa |
 
 Guardrails ejecutables ya presentes:
 
@@ -346,7 +346,7 @@ El release lane ya queda versionado también como workflow visible en `.github/w
 | No hay script `lint` en [package.json](../package.json) | scripts reales inspeccionados | La validación final no puede incluir lint salvo que se añada ese carril |
 | `plugin_old` sigue versionado | [plugin_old](../plugin_old), [legacy-isolation.md](legacy-isolation.md), [technical-debt-inventory.md](technical-debt-inventory.md) | Superficie legacy útil y `Reference-only`; retirada futura requiere spec, receipt y pruebas |
 
-## 12. Testing ejecutable, gaps y backlog derivado no promovido
+## 12. Testing ejecutable y ownership del backlog derivado
 
 ### 12.1 Matriz ejecutable hoy
 
@@ -369,40 +369,14 @@ Gap explícito:
 
 - no existe `npm run lint` en el repo actual.
 
-### 12.2 Backlog derivado no promovido
+### 12.2 Backlog derivado promovido al owner correcto
 
-Estos hallazgos están documentados, pero no cambian el estado de [current-focus.md](current-focus.md): siguen sin promoción explícita.
+Los hallazgos accionables de la ultra auditoría ya viven en [backlog.md](backlog.md), sección 4.1. Este mapa conserva la evidencia estructural y la matriz ejecutable, pero no mantiene backlog paralelo ni foco activo duplicado.
 
-#### IMAP-D1. Aislar mejor `plugin_old` y fijar policy de retirada
-
-- **Estado:** Cerrado como policy/guard de Bloque 12; retirada física futura queda fuera de alcance y requiere spec dedicada.
-- **Evidencia:** [plugin_old/src](../plugin_old/src) mantiene parser, semántica, catálogo y tests legacy mientras [legacy-isolation.md](legacy-isolation.md), [technical-debt-inventory.md](technical-debt-inventory.md) y [backlog.md](backlog.md) lo definen como referencia y no como runtime.
-- **Riesgo:** drift conceptual, búsquedas ambiguas y tentación de reimportar lógica legacy al producto actual.
-- **Plan mínimo:** mantener owner y frontera de no-import; cualquier extracción requiere evidencia legacy, owner moderno, tests y docs.
-- **Validación esperada:** `npm run test:architecture:metrics`, `npm run test:docs:drift` y [test/server/unit/architectureImports.test.ts](../test/server/unit/architectureImports.test.ts) para imports estáticos/dinámicos desde `src/**` hacia `plugin_old/**`.
-
-#### IMAP-D2. Seguir reduciendo concentración en [src/client/extension.ts](../src/client/extension.ts) y [src/server/server.ts](../src/server/server.ts)
-
-- **Estado:** Partial; growth guard accionable y primer corte de handler registration aplicado sin big-bang.
-- **Evidencia:** [src/client/extension.ts](../src/client/extension.ts) sigue como root cliente vigilado; [src/server/server.ts](../src/server/server.ts) bajó a bootstrap/wiring y delega registros en [featureHandlerRegistration.ts](../src/server/handlers/featureHandlerRegistration.ts) y [commandHandlerRegistration.ts](../src/server/handlers/commandHandlerRegistration.ts).
-- **Riesgo:** ownership concentrado, reviews costosas y mayor probabilidad de romper contratos cruzados al tocar bootstrap.
-- **Plan mínimo:** extraer más orquestación de API/reporting en cliente y más composición de runtime/persistence en servidor sin crear lógica paralela; usar las sugerencias de `architecture-hotspot-guard.json` como destino de extracción.
-- **Validación esperada:** `npm run test:architecture:metrics`, `npm run test:architecture:rapid`, smoke de activación y suites focales de runtime.
-
-### 12.3 Hallazgos de Parte 2 promovidos a backlog real
-
-La Parte 2 de esta auditoría no promueve foco activo, pero sí deja trabajo real ya registrado en [backlog.md](backlog.md):
-
-- `DEVTOOLS-PERF-01` instrumentación de latencia real de hover/completion/signatureHelp;
-- `DEVTOOLS-PERF-02` fast path de hover más caché de presentación final;
-- `DEVTOOLS-PERF-03` caché negativa de hover;
-- `DEVTOOLS-PERF-04` completion ligera con `completionItem/resolve`;
-- `DEVTOOLS-PERF-05` caché de `CompletionListViewModel` o equivalente;
-- `DEVTOOLS-PERF-06` `ActiveDocumentServingSnapshot` transversal;
-- `DEVTOOLS-PERF-07` pruebas explícitas de `no IO / no workspace scan / no full parse` en providers interactivos;
-- `DEVTOOLS-ARCH-01` unificación de duplicidades de resolución y formateo;
-- `DEVTOOLS-DW-01` fast mode DataWindow específico para hot path interactivo;
-- `DEVTOOLS-UX-01` hover compacto por tipo de símbolo.
+- Para foco activo: [current-focus.md](current-focus.md)
+- Para prioridades macro: [roadmap.md](roadmap.md)
+- Para histórico de cierres: [done-log.md](done-log.md)
+- Para trabajo accionable: [backlog.md](backlog.md)
 
 ## 13. Fichas detalladas de módulos críticos
 

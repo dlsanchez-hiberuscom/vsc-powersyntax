@@ -295,6 +295,39 @@ No incluir código propietario o datos sensibles sin sanitizar.
 - Ajustar mapping de errores.
 - Añadir tests contra diagnostics obsoletos.
 
+### 9.1. Problemas en Current Object Context, Diagnostics Explainability y Object Explorer
+
+### Síntomas
+
+- El panel abre vacío o con error propio del plugin.
+- El contexto actual no coincide con hover/definition/diagnostics del mismo símbolo.
+- La surface muestra `confidence = high` o conflicto de framework demasiado optimista para evidencia dinámica.
+- Object Explorer no resuelve el proyecto/archivo activo o degrada sin explicación suficiente.
+
+### Causas probables
+
+- `queryContext` o payload read-only calculado sobre snapshot obsoleto.
+- Falta de provider registration o fallo en el command wiring del cliente.
+- Surface read-only apoyada en un carril semántico distinto al de hover/definition.
+- El proyecto activo no se resolvió o la surface intentó refrescar más alcance del necesario.
+
+### Validaciones
+
+```text
+[ ] Confirmar archivo activo y proyecto activo detectado.
+[ ] Ejecutar runtime self-test y revisar probes de views/hot path.
+[ ] Comparar símbolo y confidence con hover/definition/diagnostics del mismo punto.
+[ ] Confirmar que la surface reutiliza payload/snapshot ya disponible.
+[ ] Confirmar que build/ORCA no están degradando una surface puramente read-only.
+```
+
+### Soluciones habituales
+
+- Corregir provider registration, command wiring o resolución de proyecto activo.
+- Alinear la surface con `queryContext`, `SemanticQueryFacade` o el payload semántico compartido.
+- Rebajar o degradar confidence/conflicts cuando la evidencia sea derivada o dinámica.
+- Añadir smoke y unit/contract tests para la surface afectada.
+
 ---
 
 ## 10. Problemas de rendimiento

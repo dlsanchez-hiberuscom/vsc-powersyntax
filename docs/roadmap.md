@@ -206,7 +206,7 @@ La visión del plugin es ofrecer una experiencia profesional de PowerBuilder en 
 
 - estrategia clara de unit, integration, smoke, regression y performance tests;
 - fixtures representativos y corpora grandes;
-- pruebas de parser, indexer, caches, semantic facade, providers y adapters;
+- pruebas de parser, indexer, caches, semantic facade, providers, surfaces read-only y adapters;
 - presupuestos de latencia y memoria documentados;
 - detección temprana de regresiones.
 
@@ -280,7 +280,7 @@ Documentación y gobierno
 
 - hover/completion/signature realmente útiles;
 - diagnostics fiables;
-- tras cerrar el carril runtime interactivo y discovery real, reducir ruido visual de diagnostics sin perder explainability;
+- tras la ultra auditoría semántica, converger fachada semántica, confidence y surfaces read-only sin reabrir hot paths ya estabilizados;
 - symbol graph estable;
 - soporte incremental de DataWindow;
 - pruebas de regresión y performance.

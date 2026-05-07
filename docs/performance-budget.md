@@ -289,6 +289,24 @@ Debe medir:
 - uso de snapshot/AST/cache;
 - tamaño de respuesta.
 
+### 7.7. Surfaces read-only y runtime self-test
+
+**Objetivo:** exponer contexto, explainability y probes funcionales sin contaminar activación ni hot paths interactivos.
+
+| Superficie | Objetivo | Límite tolerable | Regla |
+|---|---:|---:|---|
+| Current Object Context | ≤ 200 ms | ≤ 600 ms | Reusar `queryContext`, diagnostics y snapshots activos; no reindexar ni escanear workspace completo. |
+| Diagnostics Explainability | ≤ 250 ms | ≤ 800 ms | Reusar evidence y reason codes ya calculados; no recomputar diagnósticos completos por panel. |
+| Object Explorer refresh visible | ≤ 300 ms | ≤ 1000 ms | Resolver solo el proyecto/archivo activo y nodos visibles; no hacer full refresh global por expansión local. |
+| Impact Analysis / Safe Edit Plan read-only | ≤ 400 ms | ≤ 1200 ms | Ejecutar bajo demanda y con caps explícitos; degradar si falta evidence defendible. |
+| Runtime self-test explícito | ≤ 1500 ms | ≤ 5000 ms | Correr sólo bajo comando explícito; nunca bloquear activación ni abrir carriles build/ORCA no pedidos. |
+
+Reglas:
+
+- estas superficies no deben ejecutarse durante activación salvo wiring mínimo del provider/command;
+- cualquier recomputación cara debe ir fuera del hot path y apoyarse en caches, snapshots o payloads ya publicados;
+- si una surface publica confidence, risk o frameworkKnowledgeConflict, esos datos deben venir del contrato semántico y no de valores fijos optimistas.
+
 ---
 
 ## 8. Budgets de DataWindow

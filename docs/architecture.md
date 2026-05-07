@@ -317,7 +317,7 @@ El símbolo no debe contener Markdown de hover, ranking de completion ni textos 
 
 ### 10.1. Responsabilidad
 
-La `SemanticQueryFacade` debe ser el punto de entrada común para consultas semánticas.
+La `SemanticQueryFacade` debe ser el punto de entrada común para consultas semánticas. Este documento describe el objetivo arquitectónico; el grado real de adopción y las excepciones activas deben leerse en `docs/architecture-status.md` y `docs/architecture-implementation-map.md`.
 
 ```text
 resolveSymbolAt(document, position)
@@ -332,7 +332,7 @@ resolveDataWindowBinding(reference, context)
 
 ### 10.2. Consumidores
 
-Deben consumir esta fachada:
+Como target, deben consumir esta fachada:
 
 - hover;
 - completion;
@@ -344,9 +344,11 @@ Deben consumir esta fachada:
 - diagnostics;
 - herramientas IA futuras.
 
+Estado real 2026-05: hover y definition ya consumen el slice principal read-only; completion, signature help, references, diagnostics, semantic tokens y algunas surfaces read-only siguen en migración o con excepciones documentadas.
+
 ### 10.3. Regla anti-duplicación
 
-Ningún provider debe reimplementar su propio resolver global si la consulta pertenece a la fachada semántica.
+Ningún provider debe reimplementar su propio resolver global si la consulta pertenece a la fachada semántica. Mientras la adopción siga siendo parcial, cada excepción debe quedar documentada en status/map con owner, riesgo y plan de convergencia.
 
 ---
 

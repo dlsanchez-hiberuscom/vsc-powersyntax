@@ -2,63 +2,60 @@
 
 ## 1. Foco activo
 
-`PHASE-6C/P2 — Refinamiento de Runtime`
+`POST-AUDIT / P0-P1 — Normalización documental y convergencia semántica`
 
 Cadena obligatoria vigente:
 ```txt
-docs/backlog.md -> Done: CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01
-                -> Done: CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01
-                -> Done: CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01
-                -> Done: CACHE-P1-FROZEN-REFS-HOT-PATH-01
-                -> Done: CACHE-P1-READINESS-DISCOVERY-DEADLOCK-01
-                -> Done: CACHE-P1-JOURNAL-AUTOCOMPACTION-01
-                -> Done: CACHE-P1-KB-DEPENDENCY-INVALIDATION-01
-                -> Open: PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01
+docs/backlog.md -> Superseded: PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01
+                -> Open: PB-AUDIT-P0-DOC-ALIGNMENT-01
+                -> Open: PB-SEMANTIC-P0-FACADE-CONVERGENCE-01
+                -> Open: PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01
 ```
 
 Estado de éxito:
 ```txt
-- Auditoría de arquitectura de caché completada al 100%.
-- Infraestructura de caché estabilizada, resiliente y lista para manejar +10,000 archivos sin interbloqueos ni doom-loops.
-- Carril runtime interactivo + parser string-safe + discovery/health real workspace cerrado y revalidado sobre corpora OrderEntry/PFC.
-- Enfoque actual: Refinar la experiencia de usuario y el ruido visual en la capa LSP interactiva.
-- Runtime interactivo revalidado con self-test funcional real y smokes separadas por alcance (activación, consultas read-only, reportes markdown y snapshots ligeros).
+- El backlog, current-focus, roadmap y done-log vuelven a contar el mismo estado real.
+- La arquitectura objetivo deja claro que SemanticQueryFacade es target de convergencia, no rollout completo ya cerrado.
+- Hover y definition mantienen su slice read-only actual sin reabrir hot paths, mientras completion/signature/references/semantic tokens/document surfaces documentan o reducen sus excepciones.
+- Current Object Context, Diagnostics Explainability, Object Explorer y runtime self-test tienen owners, tests y budgets explícitos.
+- Confidence, riesgo y frameworkKnowledgeConflict dejan de publicarse con certeza alta no defendible en surfaces read-only.
 ```
 
 ---
 
 ## 2. Por qué este foco está activo
 
-- La capa de caché, indexación incremental y el journal persistente ya están blindados.
-- Hemos solucionado las posibles cascadas de OOM (Out Of Memory) que tumbaban el serving cache de VS Code en entornos grandes.
-- El warm-start del indexador vuelve a reutilizar snapshots publicados aun cuando el `DocumentCache` haya evictado parte del corpus real.
-- Al tener un runtime ultra rápido, ahora debemos centrarnos en la experiencia de usuario (Developer Experience): mejorar la calidad de los diagnósticos, reducir el ruido informativo y ajustar los ciclos de vida de patrones específicos de PowerBuilder (PFC, runtime estricto, etc.).
+- La ultra auditoría semántica dejó cerrados varios hechos técnicos, pero encontró deriva entre backlog, current-focus, roadmap, architecture-status y done-log.
+- El runtime ya tiene un slice semántico útil y prudente, pero la adopción de `SemanticQueryFacade` sigue siendo parcial y desigual según consumer.
+- Algunas surfaces read-only ya forman parte del producto público y hoy carecen de owner documental, budgets o matrices de prueba tan explícitas como los hot paths clásicos.
+- El siguiente trabajo valioso no es reabrir caché o discovery, sino alinear contrato semántico, confidence y documentación para evitar falsas promesas del producto.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Atacar `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01`.
-- Ajustar severidad de diagnostics para `dataobject-dynamic` y `transaction-binding-dynamic`.
-- Mantener la información útil de riesgos/confidence en el hover, pero evitar ensuciar la ventana de Problems por defecto.
-- Mantener el runtime self-test como sonda funcional real sobre views, hover built-in, serving cache y negative caches sin volver a mezclarlo con exports/reportes pesados.
+- Normalizar owners documentales en `docs/backlog.md`, `docs/current-focus.md`, `docs/roadmap.md`, `docs/done-log.md`, `docs/architecture-status.md` y `docs/architecture-implementation-map.md`.
+- Converger consumer por consumer hacia un contrato semántico común, empezando por completion/signature help frente al slice ya activo de hover/definition.
+- Corregir publication de confidence y conflictos advisory en semantic tokens, Current Object Context y reportes read-only.
+- Asignar tests, troubleshooting y budgets a Object Explorer, Current Object Context, Diagnostics Explainability, Impact Analysis, Safe Edit Plan y runtime self-test.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Modificaciones estructurales profundas en la recién estabilizada capa de Caché (`DocumentCache`, `KnowledgeBase`, `ServingCache`), a menos que sea estrictamente necesario para resolver un bug crítico introducido durante la fase anterior.
-- Modificar el core de parsing semántico.
+- Reescrituras amplias del parser PowerScript o de la capa de caché estabilizada.
+- Soporte total de DataWindow, SQL avanzado o conditional compilation más allá del slice defendible ya documentado.
+- Nuevos carriles ORCA/PBAutoBuild o nuevas surfaces write-enabled sin depender antes del contrato semántico y los owners read-only.
 
 ---
 
 ## 5. Siguiente paso recomendado
 
-- Configurar o ajustar la emisión de diagnósticos en el servidor LSP para reducir severidades de `warning`/`error` a puramente informativas en hover para casos que no son errores reales de compilación.
+- Cerrar primero la normalización documental y fijar la matriz real de adopción de `SemanticQueryFacade`, `queryContext` y `confidence` por consumer antes de abrir trabajo semántico más amplio.
 
 ---
 
 ## 6. Regla final
 
-No se marca ningún bloque como cerrado sin código, pruebas, docs y validación final reproducible.
+No se marca ningún bloque como cerrado sin código, pruebas, docs y validación final reproducible. La documentación no puede presentar como soporte productivo lo que hoy solo es evidencia parcial, heuristic-only o target arquitectónico.
 

@@ -32,14 +32,15 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 |---|---:|---|---|
 | Constitución documental | OK | `docs/constitution.md` define jerarquía, ownership y reglas de no duplicación. | Mantener como contrato documental. |
 | Arquitectura objetivo | OK | `docs/architecture.md` queda como documento canónico de diseño objetivo. | Usarlo como referencia para este status. |
-| Mapa de implementación | Congelado | `docs/architecture-implementation-map.md` contiene evidencia profunda y no se normaliza aún. | Consultar, no reescribir. |
-| Done log | Congelado | `docs/done-log.md` es histórico cerrado. | No tocar en esta fase. |
+| Mapa de implementación | OK | `docs/architecture-implementation-map.md` conserva la evidencia profunda viva; no debe actuar como backlog paralelo. | Mantenerlo sincronizado con owners y runtime real. |
+| Done log | OK | `docs/done-log.md` es histórico cerrado y sólo debe corregirse si aparece drift factual. | Mantener un único cierre por hecho validado. |
 | Cliente VS Code | Parcial | Debe tender a composition root fino y separar comandos/vistas/lifecycle. | Crear o mantener specs de reducción de `extension.ts`. |
 | Language Server | Parcial | Debe tender a composition root fino y delegar handlers/capas. | Crear o mantener specs de reducción de `server.ts`. |
-| Request Context | Pendiente | Debe formalizarse como contrato transversal para providers. | Spec de `RequestContext`. |
-| Semantic Query Facade | Riesgo | La resolución semántica debe centralizarse para evitar duplicidades. | Spec de fachada semántica obligatoria. |
+| Request Context | Parcial | Existen `queryContext` y `positionContext`, pero no un contrato transversal homogéneo para todos los consumers. | Formalizar el contrato sobre el slice actual y migrar providers por fases. |
+| Semantic Query Facade | Parcial/Riesgo | Hay un slice read-only activo, pero la adopción sigue desigual entre consumers interactivos y surfaces derivadas. | Converger consumer por consumer y documentar excepciones activas. |
 | Cache Layer | OK | Contratos L0-L3, eviction por presión, journal autocompaction e invalidación Salsa-style estabilizados en la auditoría P0/P1. | Mantener política de memoria graduada y budget limits. |
 | Providers LSP | Parcial | Hover/completion/signature/definition/references/diagnostics necesitan patrón homogéneo. | Normalizar providers contra fachada/cache. |
+| Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto. | Asignar owners, budgets y matrices de prueba explícitas. |
 | DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
 | Performance | Parcial | Existen budgets, pero deben conectarse a mediciones por provider/cache. | Alinear `performance-budget.md`. |
@@ -70,10 +71,11 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 
 ### 4.3. Request Context
 
-- **Estado:** Pendiente.
+- **Estado:** Parcial.
 - **Arquitectura objetivo:** `docs/architecture.md`, sección Request Context.
+- **Evidencia:** `queryContext.ts` y `positionContext.ts` ya alimentan hover, definition y varias surfaces read-only, pero completion, signature help, references, diagnostics y semantic tokens no consumen todavía un contrato transversal único.
 - **Riesgo:** paso de parámetros sueltos, dificultad para aplicar cancellation, métricas, settings snapshot y presupuestos de rendimiento homogéneos.
-- **Acción:** crear contrato `RequestContext` común para providers LSP.
+- **Acción:** formalizar un contrato `RequestContext` común sobre el slice actual y migrar providers sin big-bang.
 - **Criterio de avance:** hover, completion, signature help, definition, references, diagnostics y semantic tokens deben poder recibir contexto homogéneo.
 
 ### 4.4. Workspace Model
@@ -102,12 +104,12 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 
 ### 4.7. Semantic Query Facade
 
-- **Estado:** Riesgo.
+- **Estado:** Parcial/Riesgo.
 - **Arquitectura objetivo:** `docs/architecture.md`, sección Semantic Query Facade.
-- **Evidencia:** el mapa de implementación detecta responsabilidades duplicadas alrededor de resolución semántica, scopes, receiver type, callable resolution, inheritance, built-ins y DataWindow binding.
+- **Evidencia:** hover y definition ya consumen el slice principal read-only, mientras completion, signature help, references, diagnostics, semantic tokens y varias surfaces read-only siguen apoyándose en rutas paralelas o híbridas para scopes, receiver type, callable resolution, inheritance, built-ins o DataWindow binding.
 - **Riesgo:** duplicar resolución en hover, completion, diagnostics, references o semantic tokens.
-- **Acción:** hacer obligatoria una fachada semántica común para providers y herramientas IA futuras.
-- **Criterio de avance:** ningún provider debe reimplementar resolución global fuera de la fachada.
+- **Acción:** converger consumer por consumer hacia una fachada semántica común y documentar explícitamente cada excepción mientras exista.
+- **Criterio de avance:** ningún provider o surface read-only relevante debe reimplementar resolución global fuera de la fachada sin owner, evidencia y justificación de la excepción.
 
 ### 4.8. Providers LSP
 
@@ -149,9 +151,11 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 
 #### Semantic Tokens
 
-- **Estado:** Parcial.
-- **Riesgo:** reparsing innecesario o tokens no alineados con symbol graph.
-- **Acción:** consumir snapshot/AST/symbol graph/cache.
+- **Estado:** Parcial/Riesgo.
+- **Riesgo:** reparsing innecesario, tokens no alineados con symbol graph o publication de confidence no convergida con el resto de consumers.
+- **Acción:** consumir snapshot/AST/symbol graph/cache y alinear el contrato de confidence con `queryContext` y las demás surfaces read-only.
+
+Las surfaces read-only ya publicadas, como Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis y Safe Edit Plan, deben seguir el mismo contrato de confidence, source origin, reason codes y degradación honesta aunque no sean providers LSP clásicos.
 
 ---
 
@@ -271,8 +275,10 @@ Las desviaciones que deben tener prioridad de normalización o spec son:
 
 1. **Composition roots:** reducir concentración en `extension.ts` y `server.ts`.
 2. **SemanticQueryFacade:** centralizar resolución semántica para evitar duplicidad.
-3. **Hot paths:** asegurar que hover/completion/signature/definition/references/diagnostics/semantic tokens no hacen trabajo pesado innecesario.
-4. **DataWindow Domain:** separar modelo DataWindow de PowerScript parser y conectarlo por fachada semántica.
-5. **Adapters externos:** aislar ORCA y PBAutoBuild completamente del core semántico.
-6. **Testing/performance:** conectar cada refactor a pruebas y budgets.
-7. **Docs IA:** evitar que agentes/prompts dupliquen arquitectura o backlog.
+3. **RequestContext y confidence contract:** homogeneizar contexto, confidence y degradación entre consumers y surfaces read-only.
+4. **Hot paths:** asegurar que hover/completion/signature/definition/references/diagnostics/semantic tokens no hacen trabajo pesado innecesario.
+5. **Surfaces read-only / API pública:** asignar owners, tests y budgets explícitos.
+6. **DataWindow Domain:** separar modelo DataWindow de PowerScript parser y conectarlo por fachada semántica.
+7. **Adapters externos:** aislar ORCA y PBAutoBuild completamente del core semántico.
+8. **Testing/performance:** conectar cada refactor a pruebas y budgets.
+9. **Docs IA:** evitar que agentes/prompts dupliquen arquitectura o backlog.
