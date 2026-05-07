@@ -115,7 +115,7 @@ function isLifecycleDefinitionBoilerplate(
   }
 
   const triggerRegex = new RegExp(`\\bTriggerEvent\\s*\\(\\s*this\\s*,\\s*["']${hook}["']\\s*\\)`, 'ig');
-  const superRegex = new RegExp(`\\bcall\\s+super\\s*::\\s*${phase}\\b`, 'ig');
+  const superRegex = new RegExp(`\\b(?:call\\s+)?super\\s*::\\s*${phase}\\b`, 'ig');
   const stripped = body
     .replace(triggerRegex, '')
     .replace(superRegex, '')
@@ -148,7 +148,7 @@ function buildLifecycleInspection(
       ? snapshot.maskedText.lines.slice(scope.startLine + 1, scope.endLine).join('\n')
       : '';
 
-    const callsAncestor = new RegExp(`\\bcall\\s+super\\s*::\\s*${phase}\\b`, 'i').test(body);
+    const callsAncestor = new RegExp(`\\b(?:call\\s+)?super\\s*::\\s*${phase}\\b`, 'i').test(body);
     const triggerRegex = new RegExp(`\\bTriggerEvent\\s*\\(\\s*this\\s*,\\s*["']${hook}["']\\s*\\)`, 'i');
     const triggersHook = triggerRegex.test(body) ? hook : null;
     const hookEvent = findEffectiveEvent(closure, hook);
@@ -160,7 +160,9 @@ function buildLifecycleInspection(
     const ownsHook = normalizeTypeName(explicitHookDeclaredIn) === normalizeTypeName(focusType);
     const isDefinitionBoilerplate = !ownsHook && isLifecycleDefinitionBoilerplate(body, phase, hook);
 
-    if (!isDefinitionBoilerplate && ancestorChain.length > 0 && ownsLifecycleEvent && !callsAncestor) {
+    const hasAnyLifecycleWiring = callsAncestor || triggersHook !== null;
+
+    if (!isDefinitionBoilerplate && ancestorChain.length > 0 && ownsLifecycleEvent && !hasAnyLifecycleWiring) {
       warnings.push(`missing-super-${phase}`);
     }
 
@@ -168,7 +170,7 @@ function buildLifecycleInspection(
       warnings.push(`unresolved-${hook}`);
     }
 
-    if (!isDefinitionBoilerplate && triggersHook === null && ownsLifecycleEvent && ownsHook) {
+    if (!isDefinitionBoilerplate && !hasAnyLifecycleWiring && ownsLifecycleEvent && ownsHook) {
       warnings.push(`missing-trigger-${hook}`);
     }
 

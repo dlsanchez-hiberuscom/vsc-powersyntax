@@ -256,7 +256,7 @@ suite('unit/diagnostics', () => {
     assert.ok(enumDiagnostics.some((diag) => diag.message.includes("'FromBeginning!'") && diag.message.includes("'DWBuffer'")));
   });
 
-  test('validateSemantics avisa si create no llama a super::create teniendo ancestro', () => {
+  test('validateSemantics avisa si create no tiene wiring lifecycle teniendo ancestro', () => {
     kb.upsertDocument('file:///w_base_lifecycle.srw', [
       {
         id: 'w_base_lifecycle',
@@ -274,7 +274,7 @@ suite('unit/diagnostics', () => {
       'end type',
       '',
       'on w_child_lifecycle.create',
-      '  TriggerEvent(this, "constructor")',
+      '  // Sin llamadas a super ni triggers',
       'end on',
       '',
       'event constructor;',
@@ -296,13 +296,13 @@ suite('unit/diagnostics', () => {
     });
   });
 
-  test('validateSemantics avisa si create declara constructor pero no lo dispara', () => {
+  test('validateSemantics avisa si create no tiene wiring y declara constructor', () => {
     const source = [
       'global type w_lifecycle_missing_trigger from window',
       'end type',
       '',
       'on w_lifecycle_missing_trigger.create',
-      '  call super::create',
+      '  // Sin wiring',
       'end on',
       '',
       'event constructor;',
@@ -322,6 +322,45 @@ suite('unit/diagnostics', () => {
       phase: 'create',
       focusType: 'w_lifecycle_missing_trigger'
     });
+  });
+
+  test('validateSemantics NO avisa si usa variantes PFC válidas de wiring', () => {
+    kb.upsertDocument('file:///w_base_pfc.srw', [
+      {
+        id: 'w_base_pfc',
+        name: 'w_base_pfc',
+        kind: EntityKind.Type,
+        uri: 'file:///w_base_pfc.srw',
+        line: 0,
+        character: 0,
+        baseTypeName: 'window'
+      }
+    ]);
+
+    const source = [
+      'global type w_child_pfc from w_base_pfc',
+      'end type',
+      '',
+      'on w_child_pfc.create',
+      '  // Variante 1: Trigger sin super',
+      '  TriggerEvent(this, "constructor")',
+      'end on',
+      '',
+      'on w_child_pfc.destroy',
+      '  // Variante 2: super sin call y sin trigger',
+      '  super::destroy',
+      'end on',
+      '',
+      'event constructor;',
+      'end event',
+      'event destructor;',
+      'end event'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///diagnostics_lifecycle_pfc.srw', 'powerbuilder', 1, source);
+    const diagnostics = validateSemantics(document, kb, systemCatalog, inheritanceGraph);
+    
+    assert.equal(diagnostics.filter(d => d.data?.kind === 'lifecycle-warning').length, 0, 'No debería generar warnings lifecycle en patrones PFC');
   });
 
   test('validateSemantics no avisa sobre boilerplate lifecycle de definicion PB con ancestro directo', () => {
