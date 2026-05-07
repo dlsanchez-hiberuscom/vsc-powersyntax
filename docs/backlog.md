@@ -48,6 +48,7 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 32. PB-PERF-P2-REGEX-MEMOIZATION-01
 33. PB-PERF-P2-LAZY-DIAGNOSTICS-01
 34. PB-PERF-P2-CATALOG-DICTIONARIES-01
+35. PB-PERF-P2-REACTIVE-EXPLORER-01
 ```
 
 ---
@@ -209,6 +210,21 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Depends on:** Nada.
 - **Acceptance criteria:**
   - Búsquedas de resolución semántica clave en `SystemCatalog` ya no iteran sobre arrays largos.
+
+---
+
+## PB-PERF-P2-REACTIVE-EXPLORER-01 — UI Reactiva Guiada por Servidor (Server-Push)
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 35.
+- **Origen:** Auditoría de Arquitectura de UI y Velocidad Percibida.
+- **Evidencia:** El cliente (VS Code) lanza peticiones de carga pesada guiado por eventos del cliente (`onDidSaveTextDocument`), ignorando si realmente hubo mutación de conocimiento.
+- **Objetivo:** Implementar notificaciones `Server->Client` (`powerbuilder/catalogUpdated`) atadas a los `SemanticEpoch`. El servidor emitirá el evento solo cuando la `KnowledgeBase` sufra mutación real de entidades. El cliente eliminará sus listeners heurísticos y se volverá 100% reactivo.
+- **Depends on:** `PB-ARCH-P1-CACHE-SEMANTIC-EPOCH-CONTRACT-01` (completado).
+- **Acceptance criteria:**
+  - El cliente ya no hace *pull* arbitrario en los `onSave`.
+  - El *Object Explorer* y el *Current Object Context* se actualizan solo cuando el servidor emite el evento de mutación de epoch.
 
 ---
 
