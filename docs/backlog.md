@@ -243,6 +243,26 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 ---
 
+## 4.0. Backlog derivado — Calidad y consistencia del catálogo oficial
+
+> Hallazgos detectados durante la generación del catálogo oficial PB 2025 y auditoría de la web de Appeon.
+
+### CATALOG-OFFICIAL-DOC-INACCURACIES-01 — Corregir ejemplos y metadatos mal formados en la web de Appeon
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Evidencia:** 
+  - Ejemplos de código en la web oficial (ej. `GetItemString`) aparecen sin saltos de línea o mal formateados en el HTML fuente de la página de referencia, lo que ensucia los snippets generados.
+  - URL de ejemplo: `https://docs.appeon.com/pb2025/powerscript_reference/getitemstring_func.html`
+  - Inconsistencias en "Applies to": Algunas funciones (ej. `GetItemString`) aparecen en la referencia de PowerScript aplicando solo a `JSONParser`, omitiendo su uso clásico en `DataWindow` que reside en otra referencia.
+- **Objetivo:** Implementar heurísticas en los parsers para restaurar el formato de los ejemplos (ej. inyectar saltos de línea tras declaraciones o puntos y coma) y asegurar que el catálogo final combina correctamente las definiciones de múltiples fuentes.
+- **Acceptance criteria:**
+  - Los snippets de `GetItemString` en el catálogo generado son legibles y tienen saltos de línea.
+  - El catálogo consolidado muestra todos los owners válidos para funciones sobrecargadas cross-reference.
+- **Validación:** Comparar el JSON generado de `GetItemString` con la versión manual curada.
+
+---
+
 ## 4.1. Backlog derivado — Ultra auditoría semántica PowerBuilder
 
 > Esta sección consolida los hallazgos abiertos de las FASES 1-17 de la ultra auditoría semántica. Cada entrada deja evidencia, riesgo, ejemplo, fuente, validación prevista y notas de performance. Nada dudoso debe quedar solo en el informe.
