@@ -20,7 +20,7 @@ suite('unit/agentDocsPolicy (B302)', () => {
     const repoRoot = resolveRepoRoot();
     const aiContext = fs.readFileSync(path.join(repoRoot, 'docs', 'ai-context', 'powerbuilder-plugin-context.md'), 'utf8');
 
-    assert.match(aiContext, /Documentation ownership/);
+    assert.match(aiContext, /Reglas documentales/);
     assert.match(aiContext, /docs\/current-focus\.md/);
     assert.doesNotMatch(aiContext, /B320 — DataWindow expression\/property official catalog/);
   });

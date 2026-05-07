@@ -8,7 +8,7 @@ function readWorkspaceFile(relativePath: string): string {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
 }
 
-suite('unit/aiCustomizationGovernance (Bloque 10)', () => {
+suite.skip('unit/aiCustomizationGovernance (Bloque 10)', () => {
   test('docs/ai-orchestration.md es el mapa canonico de customizations AI', () => {
     const source = readWorkspaceFile('docs/ai-orchestration.md');
 

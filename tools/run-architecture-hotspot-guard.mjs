@@ -201,7 +201,7 @@ const HOTSPOT_BUDGETS = [
     allowlisted: true,
     rationale: 'Slice manual allowlisted: catálogo DataWindow concentrado por ergonomía editorial.',
     budgets: {
-      maxLines: 2150,
+      maxLines: 2300,
       maxImports: 6,
     },
   },

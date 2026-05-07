@@ -4,6 +4,7 @@
 > **Última revisión:** 2026-05-06.  
 > **Ámbito:** resumen estable del dominio PowerBuilder y del plugin para prompts.  
 > **No contiene:** arquitectura completa, backlog, specs, histórico ni guía técnica exhaustiva.
+> **Foco vivo:** consultar `docs/current-focus.md`.
 
 ---
 

@@ -706,7 +706,7 @@ suite('unit/diagnostics', () => {
     const dynamic = diagnostics.find((diag) => diag.message.includes('confidence semántica') && diag.message.includes('ids_orders.Update()'));
 
     assert.ok(dynamic, 'Esperaba un diagnóstico informativo para binding transaccional dinámico.');
-    assert.equal(dynamic?.severity, DiagnosticSeverity.Information);
+    assert.equal(dynamic?.severity, DiagnosticSeverity.Hint);
     assert.equal(dynamic?.code, DIAGNOSTIC_CODES.transactionBindingDynamic);
     assert.deepEqual(dynamic?.data, {
       kind: 'transaction-binding',
@@ -828,7 +828,7 @@ suite('unit/diagnostics', () => {
     const dynamic = diagnostics.find((diag) => diag.message.includes('asignación dinámica de DataObject'));
 
     assert.ok(dynamic, 'Esperaba un diagnóstico informativo por DataObject dinámico.');
-    assert.equal(dynamic?.severity, DiagnosticSeverity.Information);
+    assert.equal(dynamic?.severity, DiagnosticSeverity.Hint);
     assert.equal(dynamic?.code, DIAGNOSTIC_CODES.dataObjectDynamic);
     assert.deepEqual(dynamic?.data, {
       kind: 'dataobject-binding',

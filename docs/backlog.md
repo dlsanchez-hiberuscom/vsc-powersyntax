@@ -688,7 +688,7 @@ No hay ningún proveedor de datos registrado que pueda proporcionar datos de la 
 
 ## PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01 — Reducir ruido de diagnostics informativos normales en PowerBuilder
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P2.
 - **Origen:** experiencia runtime.
 - **Evidencia:** Se muestran diagnostics azules/warnings para patrones comunes y no necesariamente accionables.

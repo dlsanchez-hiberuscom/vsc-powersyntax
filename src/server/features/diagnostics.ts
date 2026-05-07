@@ -1195,7 +1195,7 @@ function buildDataObjectBindingDiagnostic(
 
   if (state === 'dynamic') {
     return withDiagnosticCode({
-      severity: DiagnosticSeverity.Information,
+      severity: DiagnosticSeverity.Hint,
       range,
       message: `La asignación dinámica de DataObject en '${targetName}' impide una navegación fiable hacia un .srd.`,
       source: DIAGNOSTIC_SOURCE,
@@ -1382,7 +1382,7 @@ function buildTransactionDiagnostic(
 
   if (state === 'dynamic') {
     return withDiagnosticCode({
-      severity: DiagnosticSeverity.Information,
+      severity: DiagnosticSeverity.Hint,
       range,
       message: `La operación '${targetName}.${operationName}()' usa un transaction object dinámico ('${binding?.argument ?? 'unknown'}'); se degrada la confidence semántica.`,
       source: DIAGNOSTIC_SOURCE,
