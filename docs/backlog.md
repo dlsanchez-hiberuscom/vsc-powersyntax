@@ -8,6 +8,7 @@
 
 ---
 
+
 ## 0. Meta maestra
 
 > **El plugin debe descubrir e indexar muy rápido sin bloquear.**
@@ -15,6 +16,7 @@
 Toda spec, auditoría o mejora nueva debe respetar esta meta. Si una mejora aumenta complejidad pero no mejora velocidad percibida, estabilidad, seguridad semántica, entendimiento real de PowerBuilder o utilidad profesional, no debe priorizarse sobre el core.
 
 ---
+
 
 ## 0.1. Decisiones cerradas de diseño semántico
 
@@ -31,6 +33,7 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 
 ---
 
+
 ## 0.2. Orden de ejecución recomendado
 
 > Este orden prevalece sobre la prioridad individual cuando existan dependencias arquitectónicas.
@@ -39,45 +42,12 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 00. NO EJECUTAR: PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01 si aparece en docs antiguos; queda absorbido.
 
 01. PB-AUDIT-P0-DOC-ALIGNMENT-01
-
-02. PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01 (Done)
-03. PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01 (Done)
-
-04. PB-ARCH-P0-SEMANTIC-SOURCE-OF-TRUTH-01 (Done)
-05. PB-ARCH-P0-SEMANTIC-QUERY-CONTRACT-01 (Done)
-06. PB-SEMANTIC-P0-FACADE-CONVERGENCE-01 (Done)
-
-07. PB-ARCH-P1-CONSUMER-CONVERGENCE-COMPLETION-SIGNATURE-01 (Done)
-08. PB-ARCH-P1-REFERENCES-STRUCTURAL-CONFIRMATION-01 (Done)
-09. PB-SEMANTIC-P1-QUALIFIER-RESOLUTION-01 (Done)
-10. PB-SEMANTIC-P1-EVENT-DISPATCH-01 (Done)
-
-11. PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01 (Done)
-12. PB-ARCH-P1-SEMANTIC-TOKENS-EVIDENCE-CONTRACT-01 (Done)
-13. PB-RUNTIME-P1-READONLY-SURFACES-GATES-01 (Superseded)
-14. PB-ARCH-P1-READONLY-SURFACES-PROJECTIONS-01 (Done)
-
-15. PB-SEMANTIC-P1-POWERSCRIPT-CONTROL-SLICE-01 (Done)
-16. PB-SEMANTIC-P2-LEGACY-CONTROL-MATRIX-01 (Done)
-
-17. PB-ARCH-P1-CACHE-SEMANTIC-EPOCH-CONTRACT-01 (Done)
-18. PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01 (Done)
-
-19. PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01 (Done)
-20. PB-SEMANTIC-P1-DATAWINDOW-ADVANCED-SLICE-01 (Done)
-
-21. PB-SEMANTIC-P1-SQL-TRANSACTION-ANCHORS-01 (Done)
-22. PB-ARCH-P2-SQL-ANCHORS-SUBMODEL-01 (Done)
-23. PB-SEMANTIC-P2-DYNAMIC-SQL-PROCEDURES-01 (Done)
-
-24. PB-SEMANTIC-P2-NATIVE-METADATA-CONTRACT-01 (Done)
-25. PB-ARCH-P2-NATIVE-METADATA-SUBMODEL-01 (Done)
-26. PB-SEMANTIC-P2-BUILD-SOURCE-METADATA-01 (Done)
-
-27. PB-ARCH-P2-FEATURE-SIMPLIFICATION-AND-DELETION-01 (Done)
 28. PLUGIN-INFRASTRUCTURE-NLS-01
-29. CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01 (Done)
-30. CATALOG-MANUAL-EN-MIGRATION (Done)
+
+31. PB-PERF-P1-DATAWINDOW-REGEX-SCAN-01
+32. PB-PERF-P2-REGEX-MEMOIZATION-01
+33. PB-PERF-P2-LAZY-DIAGNOSTICS-01
+34. PB-PERF-P2-CATALOG-DICTIONARIES-01
 ```
 
 ---
@@ -166,57 +136,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # 3. Backlog actual
 
-## CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01 — English base language policy for manual/**
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 29.
-- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
-- **Evidencia:** Todo `manual/**` tenía `summary`, `documentation`, `category` en español. Cuando `locale = en`, los consumers (hover, completion, signatureHelp) podían mostrar texto español al usuario si no existía política formal de base EN + overlay ES.
-- **Riesgo:** Sin política formalizada, cada migración posterior inventa criterios ad-hoc y puede introducir inconsistencias.
-- **Objetivo:** Documentar en `docs/localization.md` la política final de idioma: `manual/**` = inglés canónico; `localization/es/**` = overlay español. Crear checklist de migración reutilizable.
-- **Depends on:** Nada.
-- **Acceptance criteria:**
-  - `docs/localization.md` incluye sección de política manual-base-en.
-  - Checklist documentado para migrar un archivo manual.
-  - No hay cambios en código.
-- **Docs:** `docs/localization.md`.
-- **Tests:** N/A (doc-only).
-
----
-
-## CATALOG-MANUAL-EN-MIGRATION — Per-domain English migration and ES overlay creation
-
-- **Estado:** Partial.
-- **Prioridad:** P1.
-- **Orden recomendado:** 30.
-- **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
-- **Evidencia:** Auditoría completa en `specs/CATALOG-MANUAL-LOCALIZATION-AUDIT/`.
-- **Riesgo:** ~1200+ entries con texto visible español en locale=en si la migración/overlay no queda validada y cerrada formalmente.
-- **Objetivo:** Paraguas para la migración EN por dominio y creación de overlays ES. Specs individuales: `CATALOG-MANUAL-CORE-TO-EN-01`, `CATALOG-MANUAL-DW-TO-EN-01`, `CATALOG-MANUAL-VISUAL-TO-EN-01`, `CATALOG-MANUAL-RUNTIME-TO-EN-01`, `CATALOG-MANUAL-LANGUAGE-TO-EN-01`, `CATALOG-MANUAL-INTEGRATION-TO-EN-01`, `CATALOG-MANUAL-TOOLING-TO-EN-01` con sus mirrors `CATALOG-LOCALIZATION-ES-MIRROR-*-01`.
-- **Depends on:** `CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01`, `CATALOG-MANUAL-CATEGORIES-KEYS-01`, `CATALOG-LOCALIZATION-MIRROR-STRUCTURE-01`.
-- **Pendiente exacto:**
-  - ejecutar `npm run report:catalog-localization` y confirmar 0 issues;
-  - ejecutar tests `catalogLocalization|catalogConsistency`;
-  - si todo está verde, mover el cierre real a `docs/done-log.md` y retirar este paraguas del backlog activo o marcarlo `Done` según política del repo.
-- **Acceptance criteria:**
-  - Todo `manual/**` en inglés canónico.
-  - Overlays ES completos para dominios con documentación visible.
-  - 0 issues en reporte de localización.
-  - `locale=en` no muestra texto español.
-- **Docs:** `docs/localization.md`, spec individual por dominio.
-- **Tests:** `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"`, `npm run report:catalog-localization`.
-
-**Status por dominio:**
-- [x] runtime (Done: systemGlobals, reflection, profiling, errors, ole, mail, system-object-datatypes: 100%)
-- [x] core (Done: systemEvents, objectFunctions, globalFunctions)
-- [x] datawindow (Done: dataWindowFunctions, dataWindowExpressionFunctions)
-- [x] visual (Done: Ribbon, Visual, OLE)
-- [x] language (Done: datatypes, enumerations, keywords, operators, pronouns, reservedWords, statements)
-- [x] integration (Done: compression, crypto, dotnet, filesystem, http, json, oauth, pdf, rest)
-- [x] tooling (Done: PBAutoBuild, ORCA)
-
----
 
 ## PLUGIN-INFRASTRUCTURE-NLS-01 — Plugin UI and Logic Internationalization (NLS)
 
@@ -235,11 +154,70 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 ---
 
+
+## PB-PERF-P1-DATAWINDOW-REGEX-SCAN-01 — Eliminar escaneo de DataWindows carácter por carácter
+
+- **Estado:** Open.
+- **Prioridad:** P1.
+- **Orden recomendado:** 31.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** `inspectFirstDataWindowPropertyOnLine` en `diagnostics.ts` itera sobre `lineText.length` ejecutando lógica densa por cada carácter. Esto degrada brutalmente el performance interactivo (`O(N)` por cada línea parseada en cada tipeo).
+- **Objetivo:** Pre-filtrar las líneas usando un regex simple (ej. `/\b(?:Object|GetChild|Describe|Modify)\b/i`) y solo evaluar en los índices donde hay coincidencia real, eliminando el chequeo redundante del 99% de los caracteres.
+- **Depends on:** Nada. Es un Quick-Win.
+- **Acceptance criteria:**
+  - El escaneo de propiedades de DataWindow no ejecuta un bucle per-carácter indiscriminado.
+  - El linter baja drásticamente su tiempo de procesamiento en líneas largas.
+
+---
+
+## PB-PERF-P2-REGEX-MEMOIZATION-01 — Cacheo Estructural de Expresiones y Líneas
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 32.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** Features como `diagnostics.ts` y `semanticTokens.ts` lanzan decenas de RegExp (`DATAOBJECT_ASSIGN_REGEX`, `TRANSACTION_BIND_CALL_REGEX`, etc.) repetidamente sobre líneas inmutadas durante la escritura.
+- **Objetivo:** Enriquecer el `SemanticDocumentSnapshot` o fast-context para memorizar las firmas léxicas (o resultados RegExp) por línea/scope.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - Las líneas no modificadas no re-corren RegExp pesadas en cada iteración del LS.
+
+---
+
+## PB-PERF-P2-LAZY-DIAGNOSTICS-01 — Lazy Evaluation (Linter por Fases)
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 33.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** Todos los diagnósticos (sintaxis rápida + comprobación de variables/catálogo) se ejecutan sincrónicamente en un solo pase bloqueante.
+- **Objetivo:** Separar reglas en dos tiers. Tier 1 (Syntactic): inmediato. Tier 2 (Semantic): corre asíncrono o con `debounce` de `~300ms`.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - Diagnósticos semánticos profundos no traban el main thread al escribir fluidamente.
+
+---
+
+## PB-PERF-P2-CATALOG-DICTIONARIES-01 — Estructura O(1) en el SystemCatalog
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 34.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** Búsquedas calientes como `resolveDataWindowFunctionForOwner` atraviesan Arrays con `.find` en tiempo de validación semántica.
+- **Objetivo:** Mapear registros calientes del catálogo (DataWindow functions, Global functions) en Diccionarios (`Map<string, Entry>`) para lograr acceso `O(1)`.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - Búsquedas de resolución semántica clave en `SystemCatalog` ya no iteran sobre arrays largos.
+
+---
+
 # 4. Backlog derivado — Errores reales capturados en runtime
 
 > Esta sección consolida errores observados en un workspace PowerBuilder 2025/PFC real. Debe tratarse como entrada prioritaria para specs de corrección. Los errores similares están agrupados para que el agente implemente fixes coherentes y no parches aislados.
 
 ---
+
 
 ## 4.0. Backlog derivado — Calidad y consistencia del catálogo oficial
 
@@ -264,9 +242,11 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 ---
 
+
 ## 4.1. Backlog derivado — Ultra auditoría semántica PowerBuilder
 
 > Esta sección consolida los hallazgos abiertos de las FASES 1-17 de la ultra auditoría semántica. Cada entrada deja evidencia, riesgo, ejemplo, fuente, validación prevista y notas de performance. Nada dudoso debe quedar solo en el informe.
+
 
 ## PB-AUDIT-P0-DOC-ALIGNMENT-01 — Normalizar owners y lifecycle documental tras la ultra auditoría semántica
 
@@ -306,538 +286,10 @@ Los snippets anteriores ya no deberían ensuciar Problems por defecto, pero la d
 
 ---
 
-## PB-SEMANTIC-P0-FACADE-CONVERGENCE-01 — Convergencia del contrato SemanticQueryFacade entre consumers interactivos
-
-- **Estado:** Done.
-- **Prioridad:** P0.
-- **Orden recomendado:** 06.
-- **Confianza:** High.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 2, 3, 11 y 16.
-- **Evidencia:** Hover y Definition ya consumen `semanticQueryFacade`, pero Completion, Signature Help, References y otras surfaces siguen rutas distintas o híbridas. `docs/architecture.md` la presenta como fachada universal, mientras `docs/architecture-implementation-map.md` y el código muestran un slice parcial real.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-public function long uf_find(long al_id)
-public function long uf_find(string as_code)
-```
-
-El mismo símbolo callable debe resolverse con el mismo contrato semántico desde hover, definition, completion y signature help.
-- **Fuente:** `src/server/features/hover.ts`, `src/server/features/definition.ts`, `src/server/features/completion.ts`, `src/server/features/signatureHelp.ts`, `src/server/features/references.ts`, `test/server/unit/semanticQueryFacade.test.ts`, `docs/architecture.md`, `docs/architecture-implementation-map.md`.
-- **Riesgo:** Crítico. Cada consumer puede divergir en owner, ambiguity, evidence y fallback, generando UX inconsistente y fixes incompletos.
-- **Objetivo:** aplicar funcionalmente el contrato común de resolución read-only para surfaces interactivas, con excepciones explícitas y documentadas solo cuando sean inevitables.
-- **Pendiente exacto:**
-  - fijar la matriz consumer por consumer que debe entrar por la fachada;
-  - migrar o encapsular Completion, Signature Help y References hacia la misma capa o documentar claramente las excepciones;
-  - unificar exposición de evidence, reason codes y fallback principal.
-- **Impacto hot path:** Sí. Debe reutilizar snapshots, query context, hot context y serving cache; prohibido introducir full scans o reparsers por request.
-- **Depends on:** `PB-ARCH-P0-SEMANTIC-QUERY-CONTRACT-01`.
-- **Acceptance criteria:**
-  - hover y definition siguen verdes sin cambio de budgets;
-  - al menos completion y signature help usan el mismo contrato o una proyección explícita derivada de él;
-  - los consumers migrados comparten semantics para owner, ambiguity y target selection sobre un mismo símbolo;
-  - las excepciones restantes quedan documentadas en `docs/architecture-status.md` y `docs/architecture-implementation-map.md`.
-- **Docs:** `docs/architecture.md`, `docs/architecture-status.md`, `docs/architecture-implementation-map.md`, `docs/testing.md`.
-- **Tests:** `test/server/unit/semanticQueryFacade.test.ts`, unit tests de hover/completion/definition/signatureHelp/references, integración LSP para consumers afectados, `test:performance:gate`.
-- **Validación:** comparar el mismo foco semántico en varios consumers y comprobar que las decisiones semánticas y budgets siguen alineados.
-
----
-
-## PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01 — Calibrar confidence y conflictos cross-surface sin valores fijos no defendibles
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 11.
-- **Confianza:** High.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 2, 3, 11, 14 y 16.
-- **Evidencia:** `semanticTokens` publica `confidence = high` de forma fija y `Current Object Context` arranca `frameworkKnowledgeConflict` con `resolutionConfidence = high` aunque el foco real no lo haya demostrado. El backlog y current-focus hablan de conservar confidence, pero estas dos surfaces siguen rompiendo el contrato.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-TriggerEvent(This, "ue_refresh")
-dw_parent.DataObject = ls_dynamic_name
-```
-
-Un token coloreado o un conflicto de framework no debe aparentar certeza alta cuando la evidencia es dinámica, heredada o advisory.
-- **Fuente:** `src/server/features/semanticTokens.ts`, `src/server/features/currentObjectContext.ts`, `test/server/unit/confidenceCalibration.test.ts`, `test/server/unit/currentObjectContext.test.ts`, `test/server/performance/confidenceCalibration.smoke.test.ts`, `docs/backlog.md`.
-- **Riesgo:** Alto. La UI y los reportes read-only pueden sobreprometer exactitud y contaminar explainability, AI bundle y troubleshooting.
-- **Objetivo:** eliminar confidence hardcoded y publicar confidence, conflicts y reason codes con la misma disciplina en todas las surfaces afectadas.
-- **Pendiente exacto:**
-  - sustituir valores fijos por evidence real o degradación explícita;
-  - alinear `frameworkKnowledgeConflict` con la confidence del query subyacente;
-  - revisar cómo semantic tokens publica o omite confidence;
-  - alinear read-only reports con la nueva policy.
-- **Impacto hot path:** Sí, indirecto. La calibración debe hacerse offline o con thresholds estables; el runtime no puede recalibrar por request.
-- **Depends on:** `PB-ARCH-P0-SEMANTIC-QUERY-CONTRACT-01`, `PB-SEMANTIC-P0-FACADE-CONVERGENCE-01`.
-- **Acceptance criteria:**
-  - ninguna surface auditada fija `high` sin evidence defendible;
-  - los conflicts advisory no ocultan la naturaleza derivada de la evidencia;
-  - los reportes read-only preservan confidence y risk sin inflarla;
-  - la calibración de confidence sigue pasando sus smokes y no rompe budgets.
-- **Docs:** `docs/architecture-status.md`, `docs/architecture-implementation-map.md`, `docs/testing.md`, `docs/troubleshooting.md`, `docs/current-focus.md` si se vuelve foco activo.
-- **Tests:** `test/server/unit/confidenceCalibration.test.ts`, `test/server/unit/currentObjectContext.test.ts`, `test/server/unit/semanticTokens.test.ts`, `test/server/performance/confidenceCalibration.smoke.test.ts`.
-- **Validación:** revisar casos high, medium y low sobre el mismo símbolo y comprobar que semantic tokens, object context y reportes reflejan la misma policy.
-
----
-
-## PB-SEMANTIC-P1-QUALIFIER-RESOLUTION-01 — Matriz explícita de qualifiers y owner semantics para this, parent, super y global scope
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 09.
-- **Confianza:** Medium.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 3, 5, 13 y 16.
-- **Evidencia:** El resolver cubre `this`, `parent`, `super`, `ancestor` y partes de `type::member`, pero siguen abiertos los casos de `global::`, `ParentWindow()` y qualifiers especiales documentados por la guía y no cubiertos de forma equivalente en runtime.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-::gs_value
-This.is_value
-Parent.uf_save()
-Super::uf_save()
-ParentWindow().TriggerEvent("cancelrequested")
-```
-
-- **Fuente:** `src/server/knowledge/resolution/semanticQueryService.ts`, `src/server/knowledge/resolution/ownerResolver.ts`, `test/server/unit/scopePriority.test.ts`, `test/server/unit/semanticQueryService.test.ts`, `test/server/unit/definition.test.ts`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-- **Riesgo:** Alto. Definition, references y hover fallan o degradan de forma poco defendible en patrones OOP básicos y qualifiers explícitos.
-- **Objetivo:** cerrar la matriz soportada de qualifiers y owner semantics con ejemplos mínimos, degradación honesta y documentación alineada.
-- **Pendiente exacto:**
-  - fijar soporte explícito para `global::`;
-  - decidir y modelar `ParentWindow()` como función y no como pseudo-pronoun;
-  - consolidar `type::member` con tests literales;
-  - documentar la matriz exacta soportada y degradada.
-- **Impacto hot path:** Sí. Debe resolverse desde query context, graph e identity ya indexada; prohibido abrir búsquedas amplias por workspace.
-- **Depends on:** `PB-SEMANTIC-P0-FACADE-CONVERGENCE-01` para consumers migrados.
-- **Acceptance criteria:**
-  - los casos mínimos `::gs_value`, `This.is_value`, `Parent.uf_save()`, `Super::uf_save()` y `ParentWindow()` quedan cubiertos o degradados explícitamente;
-  - definition y hover convergen en el mismo target o la misma degradación;
-  - la documentación owner deja clara la matriz soportada.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-status.md`, `docs/testing.md`.
-- **Tests:** `test/server/unit/scopePriority.test.ts`, `test/server/unit/semanticQueryService.test.ts`, `test/server/unit/definition.test.ts`, smokes ligeras sobre corpus PFC/OrderEntry si el cambio toca heurística real.
-- **Validación:** abrir los cinco ejemplos mínimos en hover y definition y verificar mismo target o misma degradación.
-
----
-
-## PB-SEMANTIC-P1-EVENT-DISPATCH-01 — Dispatch explícito de EVENT, TriggerEvent, PostEvent y ancestor calls especiales
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 10.
-- **Confianza:** Needs official confirmation.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 3, 5, 6, 13 y 16.
-- **Evidencia:** Hay soporte útil para `TriggerEvent` y `PostEvent` con literales, pero siguen fuera del runtime actual `EVENT` directo, `AncestorReturnValue`, `ancestorclass::` y el dispatch explícito `DYNAMIC`. La guía los documenta; el código nuevo no los modela como primer nivel.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-This.EVENT ue_refresh()
-PostEvent(This, "ue_refresh")
-TriggerEvent(This, "ue_refresh")
-luo_service.DYNAMIC uf_execute(ls_action)
-AncestorReturnValue
-```
-
-- **Fuente:** `src/server/utils/invocationContext.ts`, `src/server/features/queryContext.ts`, `src/server/features/references.ts`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, legacy reference in `plugin_old` for `AncestorReturnValue`.
-- **Riesgo:** Alto. Event dispatch y ancestor calls quedan modelados a medias y pueden romper definition/references/explainability en código real de framework.
-- **Objetivo:** decidir el soporte explícito y la degradación oficial para dispatch directo y llamadas especiales, sin inventar semántica no confirmada.
-- **Pendiente exacto:**
-  - cubrir o degradar `EVENT` directo;
-  - decidir soporte para `AncestorReturnValue` y `ancestorclass::` con evidencia oficial adicional;
-  - revisar la invocación `DYNAMIC` explícita como dispatch y no solo como keyword de catálogo.
-- **Impacto hot path:** Sí, pero debe reutilizar el carril de invocation context y query context; si la evidencia no es defendible, degradar antes de resolver más.
-- **Depends on:** `PB-SEMANTIC-P1-QUALIFIER-RESOLUTION-01` para la parte de qualifiers especiales.
-- **Acceptance criteria:**
-  - existe una matriz clara de soporte/degradación para `EVENT`, `TriggerEvent`, `PostEvent`, `AncestorReturnValue`, `ancestorclass::` y `DYNAMIC` explícito;
-  - definition/references no prometen soporte donde solo hay strings dinámicos;
-  - los casos con evidencia oficial insuficiente quedan en `Needs official confirmation` y degradan honestamente.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-status.md`, `docs/testing.md`.
-- **Tests:** `test/server/unit/invocationContext.test.ts`, `test/server/unit/definition.test.ts`, `test/server/unit/references.test.ts`, corpus PFC/OrderEntry para ejemplos reales.
-- **Validación:** verificar cada caso mínimo con definition/references y revisar que los no soportados no aparentan certeza alta.
-
----
-
-## PB-SEMANTIC-P1-POWERSCRIPT-CONTROL-SLICE-01 — Cerrar el slice estructural de IF single-line y exception blocks en PowerScript
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 15.
-- **Confianza:** Needs official confirmation.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 1, 4, 13, 15 y 16.
-- **Evidencia:** El parser/análisis cubre bien comments, strings, splitter y bloques clásicos, pero sigue sin modelar `IF` single-line como forma oficial y deja `TRY/CATCH/FINALLY`, `THROW` y `THROWS` en un estado parcial o solo de catálogo.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-IF ll_count > 0 THEN ll_total = 1 ELSE ll_total = 2
-
-TRY
-    THROW le_error
-CATCH (Exception le_error)
-FINALLY
-END TRY
-```
-
-- **Fuente:** `src/server/parsing/grammar.ts`, `src/server/parsing/controlBlocks.ts`, `src/server/features/diagnostics.ts`, `src/server/features/diagnosticsExtra.ts`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, documentación oficial ya contrastada para `IF` y `THROWS`.
-- **Riesgo:** Alto. El runtime puede describir soporte de control flow que el parser estructural aún no representa de forma defendible.
-- **Objetivo:** cerrar un slice estructural concreto y testeable para `IF` single-line y exception blocks, sin abrir un “canon” general de todo el lenguaje.
-- **Pendiente exacto:**
-  - soportar `IF` single-line y su continuación física con `&`;
-  - fijar el soporte estructural de `TRY/CATCH/FINALLY`;
-  - decidir si `THROW/THROWS` entra como parseo y diagnostics estructural o si queda documentado como partial.
-- **Impacto hot path:** Sí, indirecto. Debe convertirse en facts por documento/version; no puede construir CFG pesado por request.
-- **Depends on:** Nada.
-- **Acceptance criteria:**
-  - `IF` single-line deja de caer fuera del modelo estructural;
-  - `TRY/CATCH/FINALLY` tiene soporte estructural explícito o degradación documentada;
-  - `THROW/THROWS` dejan de existir solo como catálogo si el runtime afirma soporte estructural.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/testing.md`, `docs/architecture-status.md`.
-- **Tests:** `test/server/unit/statementSplitter.test.ts`, `test/server/unit/diagnostics.test.ts`, `test/server/unit/diagnosticsExtra.test.ts`, nuevos fixtures unitarios para `IF` single-line y exception blocks.
-- **Validación:** correr unit tests del parser/splitter/diagnostics y revisar ejemplos mínimos en document analysis y diagnostics.
-
----
-
-## PB-SEMANTIC-P2-LEGACY-CONTROL-MATRIX-01 — Confirmar o degradar labels, GOTO, precedencia y compilación condicional integrada
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Orden recomendado:** 16.
-- **Confianza:** Needs official confirmation.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 4, 8, 13, 15 y 16.
-- **Evidencia:** El repo reconoce keywords y markers, pero no demuestra soporte estructural equivalente para labels, `GOTO`, precedencia expresiva ni compilación condicional integrada al pipeline principal.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-goto retry_label
-retry_label:
-
-#if DEBUG then
-    ls_mode = "debug"
-#end if
-```
-
-- **Fuente:** `src/server/parsing/conditionalCompilationGate.ts`, `src/server/parsing/generatedKeywordLexemes.generated.ts`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `test/server/unit/conditionalCompilationGate.test.ts`.
-- **Riesgo:** Medio-alto. El plugin puede aparentar conocimiento de constructs legacy o gated que hoy solo existen como catálogo o detector aislado.
-- **Objetivo:** decidir, con evidencia oficial adicional cuando haga falta, qué parte se soporta, qué parte se mantiene gated y qué parte debe degradar como `Needs official confirmation`.
-- **Pendiente exacto:**
-  - validar oficialmente el scope de conditional compilation antes de prometer integración;
-  - decidir si labels/GOTO y precedencia salen de catálogo o pasan a soporte estructural;
-  - documentar la matriz resultante y no sobreprometer semántica.
-- **Impacto hot path:** Sí, indirecto. Cualquier integración debe ser index-time o por snapshot, no por request.
-- **Depends on:** `PB-SEMANTIC-P1-POWERSCRIPT-CONTROL-SLICE-01` para no mezclar el slice estructural ya decidido con el legacy/dudoso.
-- **Acceptance criteria:**
-  - la documentación owner deja clara la diferencia entre soporte estructural, detector y `Needs official confirmation`;
-  - el pipeline principal no afirma soporte de constructs que solo detecta o lista en catálogo;
-  - las dudas mínimas quedan trazadas con fuente oficial o con gap explícito.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-status.md`, `docs/backlog.md`.
-- **Tests:** `test/server/unit/conditionalCompilationGate.test.ts`, nuevos tests mínimos solo si el alcance se confirma; `docs:drift` para asegurar que el support matrix quede honesto.
-- **Validación:** revisar support matrix final y comprobar que los constructs dudosos degradan o quedan fuera del runtime semántico activo.
-
----
-
-## PB-SEMANTIC-P1-DATAWINDOW-ADVANCED-SLICE-01 — Extender el slice seguro de DataWindow sin romper budgets ni fronteras de sublenguaje
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 20.
-- **Confianza:** Medium.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 3, 7, 10, 14, 15 y 16.
-- **Evidencia:** El repo tiene un slice DataWindow fuerte en fast context, bindings literales, `.srd`, property paths seguros y child chains deterministas, pero siguen fuera `Object.column[row]`, `Object.Data.Primary[row,col]`, `Evaluate`, `SyntaxFromSQL -> Create` y gran parte de las operaciones de edición y filas.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-ls_name = dw_1.Object.emp_name[1]
-ll_value = dw_1.Object.Data.Primary[1, 1]
-ls_syntax = SyntaxFromSQL(ls_sql, ls_style, ls_err)
-dw_1.Create(ls_syntax, ls_err)
-```
-
-- **Fuente:** `src/server/features/dataWindowFastContext.ts`, `src/server/features/dataWindowPropertyPaths.ts`, `src/server/features/dataWindowModel.ts`, `test/server/unit/dataWindowFastContext.test.ts`, `test/server/unit/currentObjectContext.test.ts`, `test/smoke/datawindow-b344.extension.test.ts`, advanced specs 249/283/299.
-- **Riesgo:** Alto. El plugin podría confundir cobertura segura actual con soporte total de DataWindow o degradar demasiado poco ante expresiones dinámicas.
-- **Objetivo:** ampliar solo el slice defendible, con cache y budgets explícitos, manteniendo la regla de que `.srd` y expresiones DataWindow no son PowerScript normal.
-- **Pendiente exacto:**
-  - decidir qué property paths y accesos indexados entran en el slice seguro;
-  - extender `Evaluate` y `SyntaxFromSQL -> Create` solo si se puede conservar degradación honesta;
-  - cubrir operaciones de edición/filas que ya tengan patrón defendible;
-  - fijar un gate de performance para el escaneo de diagnostics y property paths avanzadas.
-- **Impacto hot path:** Sí. Todo lo pesado debe resolverse en index-time o en modelos cacheables; los casos dinámicos deben degradar por confidence.
-- **Depends on:** `PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01`, specs y slices existentes de DataWindow (`249`, `283`, `299`).
-- **Acceptance criteria:**
-  - el nuevo slice se expresa como whitelist defendible, no como parser DataWindow general;
-  - hover/completion/definition/diagnostics sobre los casos añadidos pasan en el fixture correspondiente;
-  - los casos dinámicos o ambiguos degradan de forma honesta;
-  - el performance gate sigue verde.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-status.md`, `docs/architecture-implementation-map.md`, `docs/testing.md`, `docs/performance-budget.md`.
-- **Tests:** `test/server/unit/dataWindowFastContext.test.ts`, `test/server/unit/currentObjectContext.test.ts`, `test/server/unit/diagnostics.test.ts`, `test/smoke/datawindow-b344.extension.test.ts`, `test:performance:gate`.
-- **Validación:** verificar hover/completion/definition/diagnostics en fixtures DataWindow seguros y revalidar budgets del fast context.
-
----
-
-## PB-SEMANTIC-P1-SQL-TRANSACTION-ANCHORS-01 — Mejorar anchors SQL y binding transaccional sin abrir un parser SQL de hot path
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 21.
-- **Confianza:** Medium.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 3, 8, 10, 14, 15 y 16.
-- **Evidencia:** El runtime delimita regiones SQL y proyecta transaction targets a nivel de archivo, pero no valida host variables ni statement-level binding, y el binding DataWindow aún es rígido con descendants de `Transaction`.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-DECLARE cur_orders CURSOR FOR
-SELECT order_id INTO :ll_order_id FROM orders;
-
-n_tr_desc inv_tr
-dw_1.SetTransObject(inv_tr)
-```
-
-- **Fuente:** `src/server/parsing/sqlRegions.ts`, `src/server/features/embeddedSqlAnchors.ts`, `src/server/features/diagnostics.ts`, `src/server/features/currentObjectContext.ts`, OrderEntry/PFC corpora, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-- **Riesgo:** Alto. El plugin puede atribuir mal la transacción activa, degradar mal SQL embebido y dejar fuera descendientes reales de `Transaction`.
-- **Objetivo:** endurecer el slice de SQL embebido y binding transaccional que ya existe, sin introducir un parser SQL profundo en el editor.
-- **Pendiente exacto:**
-  - mejorar `transactionTarget` a nivel de statement o binding defendible;
-  - cubrir descendientes de `Transaction` en binding semántico;
-  - formalizar qué subset de SQL embebido está realmente anclado.
-- **Impacto hot path:** Sí, indirecto. Debe reutilizar anchors y facts por documento; prohibido abrir parseo SQL profundo por request.
-- **Depends on:** `PB-ARCH-P0-SEMANTIC-SOURCE-OF-TRUTH-01`; coordinar con `PB-ARCH-P2-SQL-ANCHORS-SUBMODEL-01`.
-- **Acceptance criteria:**
-  - el binding transaccional acepta descendientes reales de `Transaction` cuando la evidencia de tipo es suficiente;
-  - los anchors SQL distinguen mejor el target transaccional por statement o por binding defendible;
-  - la documentación owner deja claro qué subset de SQL embebido está soportado.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-status.md`, `docs/testing.md`.
-- **Tests:** `test/server/unit/sqlRegions.test.ts`, `test/server/unit/diagnostics.test.ts`, `test/server/unit/currentObjectContext.test.ts`, corpus OrderEntry/PFC.
-- **Validación:** revalidar anchors y bindings sobre ejemplos de corpus real y comprobar que no aparecen regressions en diagnostics ni explainability.
-
----
-
-## PB-SEMANTIC-P2-DYNAMIC-SQL-PROCEDURES-01 — Registrar alcance real de host variables, dynamic SQL 2-4 y SQL de stored procedures
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Orden recomendado:** 23.
-- **Confianza:** Needs official confirmation.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 8, 10, 13, 15 y 16.
-- **Evidencia:** `dynamicStringReferences` detecta `EXECUTE IMMEDIATE`, `PREPARE` y algunos patrones, pero no existe un carril semántico equivalente para host variables, indicator variables, `DESCRIBE`, `OPEN DYNAMIC`, `EXECUTE DYNAMIC` ni `DECLARE PROCEDURE` con cobertura estructural real.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-PREPARE SQLSA FROM :ls_sql
-DECLARE dyn_cur DYNAMIC CURSOR FOR SQLSA
-EXECUTE IMMEDIATE :ls_stmt
-DECLARE proc_order PROCEDURE FOR sp_order
-```
-
-- **Fuente:** `src/server/features/dynamicStringReferences.ts`, `src/server/parsing/sqlRegions.ts`, corpus OrderEntry y legacy dump, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, documentación oficial pendiente de ampliación en este frente.
-- **Riesgo:** Medio-alto. La guía puede sobredescribir soporte SQL avanzado que hoy solo existe como boundary o strings heurísticos.
-- **Objetivo:** dejar trazado y testeable el alcance real de dynamic SQL avanzado y stored procedure SQL, con soporte solo cuando haya evidencia defendible y degradación cuando no.
-- **Pendiente exacto:**
-  - validar oficialmente el alcance mínimo viable;
-  - decidir si host variables e indicator variables entran en validación semántica o quedan como boundary documentado;
-  - fijar la matriz `Implemented / Heuristic only / Needs official confirmation` por constructo.
-- **Impacto hot path:** Sí, indirecto. Toda ampliación debe ser index-time o report-only, nunca parser SQL profundo en request interactiva.
-- **Depends on:** `PB-SEMANTIC-P1-SQL-TRANSACTION-ANCHORS-01` para el slice SQL básico.
-- **Acceptance criteria:**
-  - existe una matriz honesta de soporte para host vars, indicator vars, dynamic SQL 2-4 y stored procedure SQL;
-  - lo no soportado degrada y no se presenta como semántica fuerte;
-  - cualquier soporte nuevo tiene evidencia oficial o corpus de validación explícita.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/backlog.md`, `docs/testing.md`.
-- **Tests:** nuevos unit tests solo para el subset confirmado, corpus legacy/OrderEntry, `docs:drift` para support matrix.
-- **Validación:** comparar support matrix documental con el subset realmente cubierto por tests y no prometer más de lo que el runtime ejecuta.
-
----
-
-## PB-SEMANTIC-P2-NATIVE-METADATA-CONTRACT-01 — Formalizar metadata mínima defendible para interop nativo y PBX/PBNI
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Orden recomendado:** 24.
-- **Confianza:** Needs official confirmation.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 3, 9, 10, 15 y 16.
-- **Evidencia:** El parser/classifier distingue `external`, `RPCFUNC`, `pbx` y `dll`, pero sigue siendo superficial respecto a `REF`, `longptr`, bitness, marshaling, `PBX_GetDescription` y metadatos PBNI. El producto es prudente, pero varias surfaces documentan más de lo que implementan.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-FUNCTION long MessageBoxW (ref string as_text) LIBRARY "user32.dll" ALIAS FOR "MessageBoxW"
-```
-
-- **Fuente:** `src/server/parsing/externalFunctions.ts`, `src/server/analysis/documentAnalysis.ts`, `src/server/features/diagnostics.ts`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, PFC/STD corpora nativos.
-- **Riesgo:** Medio-alto. La clasificación actual puede ser suficiente para reporting, pero no para semántica “segura” de interop ni para claims más profundos en docs.
-- **Objetivo:** fijar una metadata mínima defendible para interop nativo, dejando explícitos los límites de no soporte profundo para ABI, bitness y PBNI metadata.
-- **Pendiente exacto:**
-  - separar lo que es clasificación de lo que es semántica fuerte;
-  - decidir cómo reflejar `REF`, `longptr` y bitness en reportes y diagnostics;
-  - dejar `PBX_GetDescription` e interfaces PBNI como `Needs official confirmation` hasta tener evidencia fuerte.
-- **Impacto hot path:** No directo. Debe vivir en reporting, checks y docs; no en providers interactivos pesados.
-- **Depends on:** Nada; recomendado coordinar con `PB-ARCH-P2-NATIVE-METADATA-SUBMODEL-01`.
-- **Acceptance criteria:**
-  - el runtime distingue claramente metadata nativa mínima frente a no soporte profundo;
-  - las surfaces read-only no prometen más de lo que el parser y classifier realmente conocen;
-  - la documentación owner deja explícitos límites y riesgos.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-status.md`, `docs/testing.md`, `docs/troubleshooting.md` si se exponen síntomas concretos.
-- **Tests:** `test/server/unit/externalFunctions.test.ts`, `test/server/unit/diagnostics.test.ts`, `test/server/unit/powerBuilderTechnicalDebtReport.test.ts`, `test/server/unit/workspaceCheckReport.test.ts`.
-- **Validación:** revisar que external/RPCFUNC/PBX/PBNI aparecen con el nivel de detalle realmente soportado y sin claims implícitos de ABI completo.
-
----
-
-## PB-SEMANTIC-P2-BUILD-SOURCE-METADATA-01 — Separar artefactos build-only y source model semántico, incluyendo PBD y .pblmeta
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Orden recomendado:** 26.
-- **Confianza:** Medium.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 9, 10, 15 y 16.
-- **Evidencia:** El repo distingue bien `.pbl` binaria y source origins, pero `PBD` sigue fuera del artifact kind semántico, `.pblmeta` tiene parser mínimo sin integración fuerte, y la documentación mezcla a veces policy de build con source model activo.
-- **Ejemplo PowerBuilder:** ejemplo de source exportado afectado por el boundary build/source:
-
-```powerscript
-forward
-global type n_cst_service from nonvisualobject
-end type
-```
-
-Ese source exportado debe seguir siendo fuente real, mientras `PBD`, `ORCA staging` y `.pblmeta` se tratan como metadata o artefacto derivado según corresponda.
-- **Fuente:** `src/shared/powerbuilderFiles.ts`, `src/shared/sourceOrigin.ts`, `src/server/workspace/pblmeta.ts`, `src/server/build/orcaStagingExport.ts`, `src/server/build/orcaStagingImport.ts`, `src/client/build/orcaDetection.ts`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`.
-- **Riesgo:** Medio. Usuarios y agentes pueden confundir artefacto compilado, metadata de build y fuente real, reabriendo round-trip unsafe o claims falsos de soporte semántico.
-- **Objetivo:** fijar un contrato claro de artefactos build-only frente a fuente semántica editable, incluyendo `PBD`, `.pblmeta` y staging ORCA.
-- **Pendiente exacto:**
-  - definir la representación visible de `PBD` como build-only;
-  - decidir si `.pblmeta` se integra de verdad o se mantiene como parser experimental;
-  - alinear reporting y docs con el source model real y sus prioridades de `sourceOrigin`.
-- **Impacto hot path:** No. Debe quedarse en discovery, reports, build lanes y docs.
-- **Depends on:** Nada.
-- **Acceptance criteria:**
-  - `sourceOrigin` y artifact kinds distinguen claramente fuente real, staging y artefacto compilado;
-  - las docs owner dejan claro qué queda fuera del serving semántico;
-  - `.pblmeta` tiene status explícito como integrado o experimental.
-- **Docs:** `docs/architecture-status.md`, `docs/architecture-implementation-map.md`, `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/testing.md`.
-- **Tests:** `test/server/unit/sourceOrigin.test.ts`, `test/server/unit/pblmeta.test.ts`, ORCA staging tests existentes, `docs:drift`.
-- **Validación:** revisar sourceOrigin, ORCA staging y metadata build/source sin reintroducir serving sobre artefactos no fuente.
-
----
-
-## PB-RUNTIME-P1-READONLY-SURFACES-GATES-01 — Asignar owners, tests y budgets a surfaces read-only y runtime self-test
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 13.
-- **Confianza:** High.
-- **Origen:** Ultra auditoría semántica PowerBuilder, FASES 11, 12, 14, 15 y 16.
-- **Evidencia:** Current Object Context, Diagnostics Explainability, Object Explorer, health dashboard, workspace/object check y AI bundle ya existen, pero su ownership documental, sus gates de testing y sus budgets de performance siguen incompletos o dispersos.
-- **Ejemplo PowerBuilder:**
-
-```powerscript
-dw_parent.DataObject = "d_orders"
-dw_parent.Retrieve()
-```
-
-El mismo contexto semántico debe llegar de forma coherente a hover, diagnostics explainability, current object context y reportes read-only.
-- **Fuente:** `src/shared/publicApi.ts`, `src/client/extension.ts`, `src/client/objectExplorerModel.ts`, `src/client/currentObjectContextPanelModel.ts`, `src/client/diagnosticsExplainabilityPanelModel.ts`, `src/client/runtimeSelfTest.ts`, `docs/testing.md`, `docs/performance-budget.md`.
-- **Riesgo:** Alto. Las surfaces read-only pueden parecer sanas mientras consumen solo estado derivado, sin oracles ni budgets suficientes.
-- **Objetivo:** asignar owners, matrices de prueba y budgets explícitos a las surfaces read-only y al runtime self-test que ya forman parte del producto.
-- **Pendiente exacto:**
-  - extender la matriz de testing a las surfaces publicadas por la API pública y los paneles read-only;
-  - fijar budgets para esas surfaces en `docs/performance-budget.md`;
-  - ampliar runtime self-test con probes funcionales donde hoy solo hay builders o estado derivado.
-- **Impacto hot path:** No directo en tipeo, pero sí en activación, reportes on-demand y runtime self-test. Debe usar caps, background y gating explícito.
-- **Depends on:** `PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01` para las surfaces que publiquen confidence y riesgo.
-- **Acceptance criteria:**
-  - cada surface read-only visible tiene owner documental, suites mínimas y budget explícito si corresponde;
-  - runtime self-test cubre probes funcionales adicionales cuando la surface lo requiera;
-  - docs de testing, troubleshooting y performance reflejan la superficie real del producto.
-- **Docs:** `docs/testing.md`, `docs/troubleshooting.md`, `docs/performance-budget.md`, `docs/architecture-status.md`, `docs/current-focus.md` si pasa a foco activo.
-- **Tests:** `test/server/unit/publicApi.test.ts`, `test/server/unit/currentObjectContextPanelModel.test.ts`, `test/server/unit/diagnosticsExplainabilityPanelModel.test.ts`, `test/server/unit/objectExplorerModel.test.ts`, `test/server/unit/runtimeSelfTest.test.ts`, `test/server/unit/docsDriftAudit.test.ts`, `test/server/unit/testingMatrixDocs.test.ts`, smoke ligera sobre views/read-only commands.
-- **Validación:** ejecutar docs drift, revisar public API/read-only reports y confirmar que self-test y budgets cubren las surfaces ya publicadas.
-
----
 
 ## 4.2. Backlog arquitectónico final — Diseño semántico objetivo
 
 > Esta sección deriva de `docs/semantic-design-target.md` y `docs/semantic-design-assumptions.md`.
 > Si un ítem queda cubierto por una entrada previa de este backlog, se mantiene la trazabilidad aquí y se ejecuta en el ítem absorbente.
 > `PB-ARCH-*` define contrato/arquitectura/conformance; `PB-SEMANTIC-*` implementa funcionalidad concreta/hardening.
-
-## PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01 — Congelar contrato objetivo y ownership documental
-
-- **Estado:** Partial.
-- **Prioridad:** P0.
-- **Orden recomendado:** 02.
-- **Origen:** Plan maestro de diseño semántico.
-- **Problema:** el diseño objetivo nuevo vive en documentos de auditoría y todavía no está enlazado como contrato operativo desde los owner docs.
-- **Objetivo:** fijar `docs/semantic-design-target.md` como owner del target futuro y declarar su relación con architecture/status/map/backlog.
-- **Fuente de verdad afectada:** documentación de arquitectura y estado.
-- **Consumers afectados:** agentes, maintainers, reviewers y backlog planning.
-- **Caches afectadas:** ninguna runtime.
-- **Riesgo actual:** alto; la auditoría puede quedar como informe aislado y no como dirección ejecutable.
-- **Diseño objetivo:** target futuro, estado real y backlog viven separados y enlazados, con un solo owner por fact.
-- **Plan incremental:** cerrar FASE 12, actualizar owner docs en FASE 11, añadir checks de drift si aplica.
-- **Notas de performance:** no debe introducir runtime; protege la meta de discovery/indexing rápido desde docs.
-- **Escala 5000+ archivos:** aplica como criterio documental obligatorio.
-- **Pendiente exacto:**
-  - validar que `docs/semantic-design-target.md` está enlazado desde todos los owner docs;
-  - ejecutar `npm run test:docs:drift`;
-  - ejecutar `npm run test:architecture:rapid`;
-  - actualizar `docs/done-log.md` si se decide cerrar formalmente.
-- **Acceptance criteria:** el target está enlazado desde docs owner; status distingue estado real vs futuro; no hay claims duplicados.
-- **Docs:** `docs/semantic-design-target.md`, `docs/architecture.md`, `docs/architecture-status.md`, `docs/architecture-implementation-map.md`, `docs/current-focus.md`.
-- **Tests:** `npm run test:docs:drift`, `npm run test:architecture:rapid`.
-- **Validación:** revisión de enlaces/owners y `get_errors` sobre docs tocados.
-
-																							
-
-				   
-					
-												 
-																																									  
-																														
-																																	
-																														 
-																												 
-																																  
-																														
-																											 
-																														
-																					
-																																								
-																									 
-																														  
-																														 
- 
-
-
-
----
-
-# 5. Ownership note
-
-Este backlog sólo mantiene trabajo accionable: estado, prioridad, evidencia, dependencias, docs afectadas, tests y validación.
-
-- El foco activo vive en `docs/current-focus.md`.
-- Las prioridades macro y el orden por fases viven en `docs/roadmap.md`.
-- El histórico de cierres vive en `docs/done-log.md`.
-- El diseño objetivo vive en `docs/semantic-design-target.md`.
-- El razonamiento/supuestos vive en `docs/semantic-design-assumptions.md`.
-- El orden recomendado de ejecución vive en este backlog y puede reflejarse resumido en `docs/roadmap.md`.
-- Los criterios operativos de auditoría viven en el prompt/flujo de auditoría y en la validación ejecutable, no en este backlog.
-
----
-
-# 6. Validación tras aplicar este backlog
-
-Ejecutar:
-
-```bash
-npm run test:docs:drift
-npm run test:architecture:rapid
-```
-
-Si el repo tiene tests específicos de docs/backlog:
-
-```bash
-npm run test:architecture:metrics
-```
-
-Validar manualmente:
-
-```txt
-- No hay IDs duplicados con estados contradictorios.
-- No hay PB-SEMANTIC ejecutable antes de su PB-ARCH padre si el padre define contrato abierto.
-- PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01 queda Partial o Done según validación real.
-- CATALOG-MANUAL-EN-MIGRATION queda Partial con pendiente de validación o Done con done-log.
-- CATALOG-GENERATOR-SCHEMA-DRIFT-01 queda antes de nuevas ampliaciones de overlays si afecta parámetros del catálogo.
-```
+
