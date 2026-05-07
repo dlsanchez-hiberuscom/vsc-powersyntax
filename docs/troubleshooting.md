@@ -8,7 +8,7 @@ Debe responder a una pregunta:
 
 > Cuando algo falla, ¿qué síntomas buscamos, qué datos recogemos, qué validaciones hacemos y qué solución o workaround aplicamos?
 
-El proceso de release vive en `docs/release.md`. Los flujos de desarrollo viven en `docs/developer-workflows.md`. La estrategia de pruebas vive en `docs/testing.md`.
+El proceso de release vive en `docs/release.md`. Los flujos de desarrollo viven en `docs/developer-workflows.md`. La estrategia de pruebas vive en `docs/testing.md`. El contrato semántico futuro vive en `docs/semantic-design-target.md`; el estado real vive en `docs/architecture-status.md`.
 
 ---
 
@@ -44,6 +44,8 @@ Si el plugin degrada una feature por falta de datos, timeout, cache miss o herra
 ### 2.4. No publicar resultados obsoletos
 
 En problemas de diagnostics, semantic tokens, hover o completion, confirmar siempre versión de documento, invalidación y cache.
+
+También confirmar `semanticEpoch`/`kbVersion`, `documentFingerprint`, `sourceOrigin`, `locale` y si el resultado salió de serving, presentation/negative o report projection cache.
 
 ### 2.5. Convertir fallos recurrentes en tests
 

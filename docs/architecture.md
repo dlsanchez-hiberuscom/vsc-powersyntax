@@ -8,7 +8,7 @@ Debe responder a una pregunta concreta:
 
 > ¿Cómo debe estar estructurado el plugin para ofrecer soporte rápido, mantenible, extensible y fiable de PowerBuilder/PowerScript en VS Code?
 
-La arquitectura aquí descrita es normativa para nuevas implementaciones y refactorizaciones. El estado real de cada capa vive en `docs/architecture-status.md`. Las tareas accionables viven en `docs/backlog.md` o en specs bajo `docs/specs/`. El histórico cerrado vive en `docs/done-log.md`.
+La arquitectura aquí descrita es normativa para nuevas implementaciones y refactorizaciones. El diseño objetivo semántico detallado vive en `docs/semantic-design-target.md` y no sustituye esta arquitectura general. El estado real de cada capa vive en `docs/architecture-status.md`. Las tareas accionables viven en `docs/backlog.md` o en specs bajo `docs/specs/`. El histórico cerrado vive en `docs/done-log.md`.
 
 ---
 
@@ -48,6 +48,8 @@ Los providers LSP de uso interactivo deben responder desde snapshots, índices y
 
 Toda resolución semántica consumida por features LSP debe pasar por una API/fachada común. Esto evita duplicar reglas entre hover, completion, diagnostics, references, semantic tokens y futuras features IA.
 
+El contrato futuro de esa fachada se define en `docs/semantic-design-target.md`: `KnowledgeBase.publishedState`/`PublishedSemanticSnapshot` es la verdad publicada, `SemanticQueryResult` es respuesta semántica acotada y los consumers son proyecciones.
+
 ### 2.5. PowerBuilder como dominio propio
 
 PowerBuilder no debe modelarse como un lenguaje C-like genérico. La arquitectura debe reconocer explícitamente workspaces/solutions, targets/projects, libraries, objetos PB, scripts, eventos, funciones, variables, estructuras, herencia, DataWindows e integraciones de build.
@@ -55,6 +57,8 @@ PowerBuilder no debe modelarse como un lenguaje C-like genérico. La arquitectur
 ### 2.6. Caches con contrato explícito
 
 Toda cache debe declarar owner, scope, key, value, lifecycle, invalidación, métricas y fallback. No se permiten caches ad hoc sin contrato ni observabilidad.
+
+Las caches no son fuentes de verdad paralelas. Deben invalidarse por epoch, fingerprint, source origin, locale o evento semántico según corresponda, y no deben forzar invalidaciones globales cuando el cambio textual no altera semántica pública.
 
 ### 2.7. Documentación alineada al cambio
 

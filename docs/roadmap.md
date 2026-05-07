@@ -44,6 +44,7 @@ Roadmap          → hacia dónde vamos a alto nivel.
 Current Focus    → qué estamos haciendo ahora.
 Backlog          → qué trabajo accionable existe.
 Architecture     → cómo debe ser el sistema.
+Semantic Target  → cómo debe converger la verdad semántica futura.
 Architecture Status → cómo está realmente.
 Done Log         → qué se cerró históricamente.
 ```
@@ -118,6 +119,8 @@ La visión del plugin es ofrecer una experiencia profesional de PowerBuilder en 
 
 **Objetivo:** unificar la resolución semántica y evitar que cada feature LSP implemente sus propias reglas.
 
+El contrato detallado de llegada para esta fase vive en `docs/semantic-design-target.md`; el backlog ejecutable vive en la sección `4.2` de `docs/backlog.md`.
+
 **Resultado esperado:**
 
 - parser tolerante a errores;
@@ -133,6 +136,8 @@ La visión del plugin es ofrecer una experiencia profesional de PowerBuilder en 
 ### Fase 5 — Cache layer ultra rápida y hot paths interactivos
 
 **Objetivo:** asegurar que las features interactivas responden desde caches, snapshots e índices válidos, sin hacer trabajo pesado innecesario.
+
+La evolución pendiente de esta fase es la coordinación cross-cache, keys con epoch/fingerprint/sourceOrigin/locale y evitar invalidación global cuando no cambia la semántica pública.
 
 **Resultado esperado:**
 

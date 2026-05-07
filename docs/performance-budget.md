@@ -4,7 +4,7 @@
 > **Última revisión:** 2026-05-06.  
 > **Ámbito:** latencia, memoria, hot paths, cold paths, indexación, caches, mediciones y gates de regresión.  
 > **No contiene:** arquitectura completa, backlog detallado, specs concretas, histórico cerrado ni estrategia de testing completa.  
-> **Documentos relacionados:** `docs/constitution.md`, `docs/architecture.md`, `docs/architecture-status.md`, `docs/testing.md`, `docs/developer-workflows.md`, `docs/backlog.md`.
+> **Documentos relacionados:** `docs/constitution.md`, `docs/architecture.md`, `docs/architecture-status.md`, `docs/semantic-design-target.md`, `docs/testing.md`, `docs/developer-workflows.md`, `docs/backlog.md`.
 
 ---
 
@@ -55,9 +55,15 @@ metrics
 fallback
 ```
 
+Las caches interactivas deben discriminar, cuando aplique, `semanticEpoch`/`kbVersion`, `documentVersion`, `documentFingerprint`, `sourceOrigin`, `locale`, posición/rango y contexto. Un cambio textual que no altera facts públicos no debe provocar invalidación global del workspace.
+
 ### 2.5. Medir antes de cerrar
 
 Una mejora de rendimiento no se considera cerrada si no deja forma de medir latencia, hit/miss, fallback, memoria o regresión según corresponda.
+
+### 2.6. Proyecciones read-only acotadas
+
+Reports, panels y bundles IA deben usar caps, page tokens, receipts o truncation flags. No deben materializar todo el workspace para responder a una acción interactiva ni actuar como caches semánticas de larga vida.
 
 ---
 

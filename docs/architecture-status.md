@@ -10,7 +10,7 @@ Debe responder a tres preguntas:
 2. ¿Qué partes están parciales, en riesgo o pendientes?
 3. ¿Qué acción documental o técnica debe existir para corregir cada desviación?
 
-El diseño objetivo no vive aquí. Si una sección empieza a explicar cómo debe diseñarse una capa en detalle, debe moverse a `docs/architecture.md` o a una spec concreta.
+El diseño objetivo no vive aquí. Si una sección empieza a explicar cómo debe diseñarse una capa en detalle, debe moverse a `docs/architecture.md`, `docs/semantic-design-target.md` o a una spec concreta.
 
 ---
 
@@ -32,15 +32,16 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 |---|---:|---|---|
 | Constitución documental | OK | `docs/constitution.md` define jerarquía, ownership y reglas de no duplicación. | Mantener como contrato documental. |
 | Arquitectura objetivo | OK | `docs/architecture.md` queda como documento canónico de diseño objetivo. | Usarlo como referencia para este status. |
+| Diseño semántico objetivo | OK | `docs/semantic-design-target.md` fija el target futuro para snapshot, query result, caches, consumers, plan incremental y backlog arquitectónico. | Usarlo como contrato futuro; este status sólo refleja adopción real. |
 | Mapa de implementación | OK | `docs/architecture-implementation-map.md` conserva la evidencia profunda viva; no debe actuar como backlog paralelo. | Mantenerlo sincronizado con owners y runtime real. |
 | Done log | OK | `docs/done-log.md` es histórico cerrado y sólo debe corregirse si aparece drift factual. | Mantener un único cierre por hecho validado. |
 | Cliente VS Code | Parcial | Debe tender a composition root fino y separar comandos/vistas/lifecycle. | Crear o mantener specs de reducción de `extension.ts`. |
 | Language Server | Parcial | Debe tender a composition root fino y delegar handlers/capas. | Crear o mantener specs de reducción de `server.ts`. |
 | Request Context | Parcial | Existen `queryContext` y `positionContext`, pero no un contrato transversal homogéneo para todos los consumers. | Formalizar el contrato sobre el slice actual y migrar providers por fases. |
 | Semantic Query Facade | Parcial/Riesgo | Hay un slice read-only activo, pero la adopción sigue desigual entre consumers interactivos y surfaces derivadas. | Converger consumer por consumer y documentar excepciones activas. |
-| Cache Layer | OK | Contratos L0-L3, eviction por presión, journal autocompaction e invalidación Salsa-style estabilizados en la auditoría P0/P1. | Mantener política de memoria graduada y budget limits. |
-| Providers LSP | Parcial | Hover/completion/signature/definition/references/diagnostics necesitan patrón homogéneo. | Normalizar providers contra fachada/cache. |
-| Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto. | Asignar owners, budgets y matrices de prueba explícitas. |
+| Cache Layer | Parcial | Contratos L0-L3 están estabilizados, pero el target futuro exige un coordinador de invalidación cross-cache, keys estructuradas completas y no-op semantic publish cuando no cambian facts públicos. | Ejecutar `PB-ARCH-P1-CACHE-SEMANTIC-EPOCH-CONTRACT-01` y `PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01`. |
+| Providers LSP | Parcial | Hover/definition ya tienen slice de facade; completion, signature help, references, diagnostics y semantic tokens conservan excepciones o rutas híbridas. | Seguir el plan incremental de `docs/semantic-design-target.md` y los items `PB-ARCH-*` del backlog. |
+| Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto. | Tratarlas como proyecciones acotadas con epoch, receipts, caps, redaction y tests. |
 | DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
 | Performance | Parcial | Existen budgets, pero deben conectarse a mediciones por provider/cache. | Alinear `performance-budget.md`. |

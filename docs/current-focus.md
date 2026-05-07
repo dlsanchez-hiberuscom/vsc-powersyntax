@@ -8,6 +8,8 @@ Cadena obligatoria vigente:
 ```txt
 docs/backlog.md -> Superseded: PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01
                 -> Open: PB-AUDIT-P0-DOC-ALIGNMENT-01
+                -> Open: PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01
+                -> Open: PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01
                 -> Open: PB-SEMANTIC-P0-FACADE-CONVERGENCE-01
                 -> Open: PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01
 ```
@@ -28,6 +30,7 @@ Estado de éxito:
 - La ultra auditoría semántica dejó cerrados varios hechos técnicos, pero encontró deriva entre backlog, current-focus, roadmap, architecture-status y done-log.
 - El runtime ya tiene un slice semántico útil y prudente, pero la adopción de `SemanticQueryFacade` sigue siendo parcial y desigual según consumer.
 - Algunas surfaces read-only ya forman parte del producto público y hoy carecen de owner documental, budgets o matrices de prueba tan explícitas como los hot paths clásicos.
+- `docs/semantic-design-target.md` y la sección `4.2` de `docs/backlog.md` añaden el plan PB-ARCH; el foco inmediato sigue siendo normalización documental y conformance antes de implementar slices nuevos.
 - El siguiente trabajo valioso no es reabrir caché o discovery, sino alinear contrato semántico, confidence y documentación para evitar falsas promesas del producto.
 
 ---
@@ -51,7 +54,7 @@ Estado de éxito:
 
 ## 5. Siguiente paso recomendado
 
-- Cerrar primero la normalización documental y fijar la matriz real de adopción de `SemanticQueryFacade`, `queryContext` y `confidence` por consumer antes de abrir trabajo semántico más amplio.
+- Cerrar primero la normalización documental, enlazar el target semántico desde los owner docs y fijar la matriz real de adopción de `SemanticQueryFacade`, `queryContext`, `SemanticQueryResult` y `confidence` por consumer antes de abrir trabajo semántico más amplio.
 
 ---
 

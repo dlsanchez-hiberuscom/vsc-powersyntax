@@ -14,6 +14,8 @@ Fuentes principales usadas para este mapa:
 
 - [architecture.md](architecture.md)
 - [architecture-status.md](architecture-status.md)
+- [semantic-design-target.md](semantic-design-target.md)
+- [semantic-design-assumptions.md](semantic-design-assumptions.md)
 - [testing.md](testing.md)
 - [performance-budget.md](performance-budget.md)
 - [symbol-system.md](symbol-system.md)
@@ -27,6 +29,7 @@ Fuentes principales usadas para este mapa:
 Reglas de lectura:
 
 - los hechos normativos siguen viviendo en [architecture.md](architecture.md);
+- el contrato semántico futuro vive en [semantic-design-target.md](semantic-design-target.md);
 - los hechos de estado operativo siguen viviendo en [architecture-status.md](architecture-status.md);
 - este mapa solo cruza esas reglas con owners, rutas y flujos verificables del repo;
 - [plugin_old](../plugin_old) se trata como superficie legacy de referencia, no como fuente de verdad del producto actual.
@@ -143,6 +146,7 @@ Notas de ownership:
 - el split `generated + manual + localization` es deliberado y gobernado por [ADR-0001-system-catalog-source-of-truth.md](adr/ADR-0001-system-catalog-source-of-truth.md), no una duplicación accidental;
 - el contrato de `sourceOrigin` sale de [src/shared/sourceOrigin.ts](../src/shared/sourceOrigin.ts) y cruza workspace, knowledge, serving y API pública.
 - el modelo conceptual de símbolos, owners, consumers, enrichments e i18n vive en [symbol-system.md](symbol-system.md); este mapa sólo conserva rutas y flujos verificables.
+- el contrato futuro `PublishedSemanticSnapshot`/`SemanticQueryResult` vive en [semantic-design-target.md](semantic-design-target.md); en código real sigue implementado como `KnowledgeBase` + `semanticQueryService` + `SemanticQueryFacade` con adopción parcial.
 
 ### 4.6 Features semánticas, DataWindow y reporting
 

@@ -4,7 +4,7 @@
 > **Última revisión:** 2026-05-06.  
 > **Ámbito:** estrategia de validación, niveles de test, fixtures, corpora, gates, regresión y relación con performance.  
 > **No contiene:** arquitectura completa, backlog detallado, specs concretas, histórico cerrado ni roadmap estratégico.  
-> **Documentos relacionados:** `docs/constitution.md`, `docs/architecture.md`, `docs/architecture-status.md`, `docs/performance-budget.md`, `docs/developer-workflows.md`, `docs/backlog.md`.
+> **Documentos relacionados:** `docs/constitution.md`, `docs/architecture.md`, `docs/architecture-status.md`, `docs/semantic-design-target.md`, `docs/performance-budget.md`, `docs/developer-workflows.md`, `docs/backlog.md`.
 
 ---
 
@@ -117,7 +117,11 @@ Deben validar contratos entre capas:
 
 - `RequestContext`;
 - `SemanticQueryFacade`;
+- `PublishedSemanticSnapshot` / `KnowledgeBase` read contract;
+- `SemanticQueryResult` envelope y consumer projections;
 - cache contracts;
+- cache event/invalidation contract;
+- read-only projections con epoch, caps, receipts y redaction;
 - provider result models;
 - diagnostics model;
 - workspace/index API;
