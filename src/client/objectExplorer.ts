@@ -213,9 +213,6 @@ export class PowerBuilderObjectExplorerController implements vscode.Disposable {
     this.disposables.push(
       this.treeView,
       this.provider,
-      vscode.window.onDidChangeActiveTextEditor(() => {
-        void this.refresh();
-      }),
       vscode.workspace.onDidSaveTextDocument(() => {
         void this.refresh();
       }),

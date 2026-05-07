@@ -136,6 +136,7 @@ export class CurrentObjectContextPanelController implements vscode.Disposable {
   private readonly provider: CurrentObjectContextPanelProvider;
   private readonly treeView: vscode.TreeView<CurrentObjectContextPanelNode>;
   private readonly disposables: vscode.Disposable[] = [];
+  private refreshTimeout: NodeJS.Timeout | undefined;
 
   constructor(loadContext: ContextLoader) {
     this.provider = new CurrentObjectContextPanelProvider(loadContext);
@@ -161,13 +162,25 @@ export class CurrentObjectContextPanelController implements vscode.Disposable {
     void this.refresh();
   }
 
-  async refresh(): Promise<void> {
-    this.provider.invalidate();
-    this.treeView.message = await this.provider.getViewMessage();
+  async refresh(immediate = false): Promise<void> {
+    if (this.refreshTimeout) {
+      clearTimeout(this.refreshTimeout);
+      this.refreshTimeout = undefined;
+    }
+    
+    if (immediate) {
+      this.provider.invalidate();
+      this.treeView.message = await this.provider.getViewMessage();
+    } else {
+      this.refreshTimeout = setTimeout(async () => {
+        this.provider.invalidate();
+        this.treeView.message = await this.provider.getViewMessage();
+      }, 500);
+    }
   }
 
   async focusPanel(): Promise<CurrentObjectContextPanelFocusResult | undefined> {
-    await this.refresh();
+    await this.refresh(true);
     const node = await this.provider.getFocusedNode();
     if (node) {
       await this.treeView.reveal(node, { focus: true, select: true, expand: true });

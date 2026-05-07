@@ -15,10 +15,10 @@ import { EntityKind } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
 
 const MANIFEST_SCHEMA_VERSION = '1.0.0';
-const DEFAULT_MAX_OBJECTS = 200;
-const DEFAULT_MAX_SYMBOLS = 400;
-const MAX_OBJECTS = 1000;
-const MAX_SYMBOLS = 2000;
+const DEFAULT_MAX_OBJECTS = 100000;
+const DEFAULT_MAX_SYMBOLS = 100000;
+const MAX_OBJECTS = 100000;
+const MAX_SYMBOLS = 100000;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
