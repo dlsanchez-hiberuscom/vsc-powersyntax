@@ -4,7 +4,7 @@ import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
-import { resolveTargetEntity } from '../knowledge/resolution/semanticQueryService';
+import { resolveTargetEntityDetailed } from '../knowledge/resolution/semanticQueryService';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { EntityKind, Scope, ScopeKind } from '../knowledge/types';
@@ -87,6 +87,7 @@ interface TokenEntry {
   type: number;
   mods: number;
   source?: SemanticTokenViewModelEntry['source'];
+  confidence?: 'high' | 'medium' | 'low';
 }
 
 export function provideSemanticTokens(
@@ -116,7 +117,7 @@ function toSemanticTokenViewModelEntry(token: TokenEntry): SemanticTokenViewMode
     tokenType: token.type,
     tokenModifiers: token.mods,
     source: token.source ?? 'usage',
-    confidence: 'high',
+    confidence: token.confidence ?? 'high',
   };
 }
 
@@ -293,13 +294,14 @@ function emitUsages(
       }
       
       // Si no hay cualificador, puede ser una variable de instancia, global, tipo, o función global.
-      const targets = resolveTargetEntity(
+      const resolved = resolveTargetEntityDetailed(
         { identifier, qualifier },
         document.uri,
         kb,
         inheritanceGraph,
-        i
+        { line: i }
       );
+      const targets = resolved.targets;
 
       if (targets.length > 0) {
         const target = targets[0];
@@ -337,7 +339,8 @@ function emitUsages(
           char: startChar,
           length: identifier.length,
           type: tokenType,
-          mods: modifiers
+          mods: modifiers,
+          confidence: resolved.confidence
         });
       }
     }

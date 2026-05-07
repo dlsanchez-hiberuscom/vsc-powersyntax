@@ -555,7 +555,7 @@ export function buildCurrentObjectContext(
     objectInfo,
     ancestorChain: hierarchy.ancestorChain,
     sourceOrigin: resolvedSourceOrigin,
-    resolutionConfidence: 'high',
+    resolutionConfidence: queryContext?.resolutionConfidence,
   });
 
   return {
