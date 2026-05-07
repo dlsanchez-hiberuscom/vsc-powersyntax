@@ -103,11 +103,15 @@ export function publishDiagnostics(
   kb?: KnowledgeBase,
   systemCatalog?: SystemCatalog,
   inheritanceGraph?: InheritanceGraph,
-  workspaceState?: WorkspaceState
+  workspaceState?: WorkspaceState,
+  mode: 'syntactic' | 'full' = 'full'
 ): void {
-  const merged = buildDiagnosticsForDocument(document, kb, systemCatalog, inheritanceGraph);
-  // Spec 117: actualizar contadores agregados.
-  recordDiagnosticsSummary(document, merged, workspaceState);
+  const merged = buildDiagnosticsForDocument(document, mode, kb, systemCatalog, inheritanceGraph);
+  
+  if (mode === 'full') {
+    recordDiagnosticsSummary(document, merged, workspaceState);
+  }
+
   connection.sendDiagnostics({
     uri: document.uri,
     diagnostics: merged
@@ -118,16 +122,24 @@ const MAX_DIAGNOSTICS_PER_FILE = 500;
 
 export function buildDiagnosticsForDocument(
   document: TextDocument,
+  mode: 'syntactic' | 'full' = 'full',
   kb?: KnowledgeBase,
   systemCatalog?: SystemCatalog,
   inheritanceGraph?: InheritanceGraph
 ): Diagnostic[] {
   const structural = validateStructure(document);
+  const obsolete = findObsoleteCalls(document.getText());
+  
+  if (mode === 'syntactic') {
+    const all = applySeverityOverrides([...structural, ...obsolete]);
+    const presented = formatDiagnosticMessageViewModels(buildDiagnosticMessageViewModels(all));
+    return dedupAndCap(presented, MAX_DIAGNOSTICS_PER_FILE);
+  }
+
   const semantic = (kb && systemCatalog && inheritanceGraph)
     ? validateSemantics(document, kb, systemCatalog, inheritanceGraph)
     : [];
   const extra = runExtraDiagnostics(document);
-  const obsolete = findObsoleteCalls(document.getText());
   const all = applySeverityOverrides([...structural, ...semantic, ...extra, ...obsolete]);
   const presented = formatDiagnosticMessageViewModels(buildDiagnosticMessageViewModels(all));
   return dedupAndCap(presented, MAX_DIAGNOSTICS_PER_FILE);

@@ -506,7 +506,7 @@ export function buildCurrentObjectContext(
   );
   const memberGroups = collectMemberSymbols(focusType, analysis.semanticFacts, graph);
   const visibleVariables = collectVisibleVariables(document.uri, focusType, line, kb, graph);
-  const diagnostics = buildDiagnosticsForDocument(document, kb, systemCatalog, graph).map((diagnostic) => ({
+  const diagnostics = buildDiagnosticsForDocument(document, 'full', kb, systemCatalog, graph).map((diagnostic) => ({
     message: diagnostic.message,
     ...(diagnostic.code ? { code: String(diagnostic.code) } : {}),
     severity: mapDiagnosticSeverity(diagnostic.severity),

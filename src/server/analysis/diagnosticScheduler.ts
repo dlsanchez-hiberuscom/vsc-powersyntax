@@ -24,13 +24,17 @@ export function scheduleDiagnostics(
 ): void {
   cancelScheduledDiagnostics(document.uri);
 
+  // PB-PERF-P2-LAZY-DIAGNOSTICS-01: Tier 1 (Syntactic) se envía inmediatamente
+  // al cliente para que vea los errores de sintaxis al vuelo sin lag.
+  publishDiagnostics(connection, document, undefined, undefined, undefined, undefined, 'syntactic');
+
   const handle = setTimeout(() => {
     scheduledDiagnosticsByUri.delete(document.uri);
     void scheduler.runInteractive({
       id: `diagnostics-${document.uri}`,
       priority: TaskPriority.Interactive,
       workload: 'diagnostics',
-      execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState)
+      execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState, 'full')
     });
   }, delayMs);
 
@@ -51,7 +55,7 @@ export function publishDiagnosticsNow(
     id: `diagnostics-${document.uri}`,
     priority: TaskPriority.Interactive,
     workload: 'diagnostics',
-    execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState)
+    execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState, 'full')
   });
 }
 
