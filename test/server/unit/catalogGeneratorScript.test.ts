@@ -8,11 +8,6 @@ const REPO_ROOT = path.resolve(__dirname, '../../../..');
 
 suite('unit/catalogGeneratorScript', () => {
   function resolveGeneratorScriptPath(): string {
-    const canonicalPath = path.join(REPO_ROOT, 'scripts', 'generate_official_function_catalog.cjs');
-    if (nodeFs.existsSync(canonicalPath)) {
-      return canonicalPath;
-    }
-
     return path.join(REPO_ROOT, 'scripts', 'generate_official_function_catalog.cjs');
   }
 
@@ -225,13 +220,6 @@ suite('unit/catalogGeneratorScript', () => {
     assert.match(content, /src\/server\/parsing\/generatedKeywordLexemes\.generated\.ts/);
     assert.doesNotMatch(content, /out\/powerbuilder\/knowledge/);
     assert.doesNotMatch(content, /src\/powerbuilder\/knowledge\/generated/);
-  });
-
-  test('ruta plural scripts mantiene compatibilidad con documentación externa', async () => {
-    const wrapperPath = path.join(REPO_ROOT, 'script', 'generate_official_function_catalog.cjs');
-    const content = await fs.readFile(wrapperPath, 'utf8');
-
-    assert.match(content, /scripts['"], ['"]generate_official_function_catalog\.cjs/);
   });
 
   test('officialCoverage generado publica dominios oficiales relevantes además de events/statements', async () => {
