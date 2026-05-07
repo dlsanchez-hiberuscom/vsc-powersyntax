@@ -64,6 +64,7 @@ type GeneratedSymbolArgs = {
     identifierPolicy?: PbSystemSymbolEntryDraft['identifierPolicy'];
     risk?: PbSystemSymbolEntryDraft['risk'];
     sourceUrl?: string;
+    examples?: readonly string[];
 };
 
 type GeneratedLanguageSymbolArgs = {
@@ -78,6 +79,7 @@ type GeneratedLanguageSymbolArgs = {
     lookupAliases?: readonly string[];
     signatures?: readonly PbSystemSymbolSignature[];
     sourceUrl?: string;
+    examples?: readonly string[];
     obsolete?: boolean;
     obsoleteMessage?: string;
     replacement?: string;

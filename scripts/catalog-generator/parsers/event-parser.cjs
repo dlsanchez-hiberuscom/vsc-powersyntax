@@ -8,8 +8,12 @@ const {
     extractTitle,
     extractPrimaryContentHtml,
     extractDescription,
+    extractSectionParagraphs,
+    extractSectionCodeBlocks,
+    fixBrokenExample,
     normalizeLabel,
     fetchText,
+    sanitizeOfficialTitle,
 } = require('../utils.cjs');
 
 const {
@@ -112,8 +116,21 @@ function extractTableRows(html) {
         .filter(row => row.length > 0);
 }
 
+function extractExamples(html) {
+    const nextLabels = ['See also', 'Usage', 'Syntax 1', 'Syntax 2'];
+    let examples = extractSectionCodeBlocks(html, 'Examples', nextLabels);
+    if (examples.length === 0) {
+        examples = extractSectionCodeBlocks(html, 'Example', nextLabels);
+    }
+
+    return examples.map(fixBrokenExample);
+}
+
 function parsePowerScriptEventPage(html, url, metadata = {}) {
     const title = extractTitle(html);
+    if (title.toLowerCase().startsWith('about')) {
+        return [];
+    }
     const primaryContentHtml = extractPrimaryContentHtml(html);
     const description = extractDescription(html);
 
@@ -122,21 +139,23 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
         'Return value',
     ]);
     const eventIdRows = extractTableRows(eventIdSourceHtml);
-    const eventIds = eventIdRows.map(([id, ownerLabel]) => {
-        const normalized = normalizeLabel(ownerLabel ?? '');
-        const mapped = APPLY_TO_OWNER_TYPE_OVERRIDES.get(normalized);
-        const ownerTypes = Array.isArray(mapped) ? mapped : mapped ? [mapped] : [];
+    const eventIds = eventIdRows
+        .filter(row => row.length >= 1 && row[0].toLowerCase().startsWith('pbm_'))
+        .map(([id, ownerLabel]) => {
+            const normalized = normalizeLabel(ownerLabel ?? '');
+            const mapped = APPLY_TO_OWNER_TYPE_OVERRIDES.get(normalized);
+            const ownerTypes = Array.isArray(mapped) ? mapped : mapped ? [mapped] : [];
 
-        if (ownerTypes.length === 0 && normalized && normalized.includes('object')) {
-            ownerTypes.push(normalized.replace(/\s+object$/, ''));
-        }
+            if (ownerTypes.length === 0 && normalized && normalized.includes('object') && normalized.length < 50 && !normalized.includes(':') && !normalized.includes('birthday')) {
+                ownerTypes.push(normalized.replace(/\s+objects?$/, '').trim());
+            }
 
-        if (ownerTypes.length === 0 && ownerLabel) {
-            unknownPowerScriptEventOwnerLabels.set(url, [ownerLabel]);
-        }
+            if (ownerTypes.length === 0 && ownerLabel && !ownerLabel.includes('  ')) {
+                unknownPowerScriptEventOwnerLabels.set(url, [ownerLabel]);
+            }
 
-        return { id, ownerTypes };
-    }).filter(eventId => eventId.id);
+            return { id: normalizeWhitespace(id), ownerTypes };
+        });
 
     const sections = [...primaryContentHtml.matchAll(/<h4 class="title">Syntax\s+\d+<\/h4>([\s\S]*?)(?=<h4 class="title">Syntax\s+\d+<\/h4>|$)/gi)];
 
@@ -158,6 +177,8 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
                 'See also',
             ]));
 
+            const examples = extractExamples(sectionHtml);
+
             const finalSignatures = signatures.map(signature => {
                 const parameters = argumentRows.map(([label, documentation]) => ({
                     label: normalizeWhitespace(label),
@@ -173,7 +194,7 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
             const ownerTypes = unique(eventId ? [] : (eventIds.flatMap(ei => ei.ownerTypes) || []));
 
             return {
-                name: title,
+                name: sanitizeOfficialTitle(title),
                 description,
                 eventId: sectionEventId,
                 eventIds: sectionEventId ? undefined : eventIds.length > 0 ? eventIds : undefined,
@@ -185,9 +206,12 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
                     ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
                     ownerTypes,
                 },
+                examples: examples.length > 0 ? examples : undefined,
             };
         });
     }
+
+    const examples = extractExamples(primaryContentHtml);
 
     const signatures = extractSignatureLabels(extractSectionHtml(primaryContentHtml, 'Syntax', [
         'Event ID',
@@ -216,7 +240,7 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
     const ownerTypes = unique(eventIds.flatMap(ei => ei.ownerTypes) || []);
 
     return [{
-        name: title,
+        name: sanitizeOfficialTitle(title),
         description,
         eventIds: eventIds.length > 0 ? eventIds : undefined,
         signatures: finalSignatures,
@@ -227,6 +251,7 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
             ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
             ownerTypes,
         },
+        examples: examples.length > 0 ? examples : undefined,
     }];
 }
 

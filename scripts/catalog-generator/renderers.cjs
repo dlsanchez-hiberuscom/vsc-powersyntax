@@ -47,8 +47,9 @@ function renderBuilderCall(builderName, entry) {
     const properties = [
         `name: ${renderString(entry.name)}`,
         `category: ${renderString(entry.category)}`,
-        `summary: ${renderString(entry.summary)}`,
-        `signatures: ${renderSignatures(entry.signatures)}`,
+        `summary: ${renderString(entry.summary || '')}`,
+        `signatures: ${renderSignatures(entry.signatures || [])}`,
+        entry.examples?.length ? `examples: ${renderStringArray(entry.examples)}` : undefined,
         entry.documentation ? `documentation: ${renderString(entry.documentation)}` : undefined,
         entry.returnType ? `returnType: ${renderString(entry.returnType)}` : undefined,
         entry.returnDocumentation ? `returnDocumentation: ${renderString(entry.returnDocumentation)}` : undefined,

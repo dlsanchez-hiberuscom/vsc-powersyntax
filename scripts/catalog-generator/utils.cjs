@@ -17,6 +17,36 @@ function normalizeWhitespace(value) {
     return value.replace(/\s+/g, ' ').trim();
 }
 
+function cleanCode(value) {
+    return decodeHtml(value.replace(/<[^>]+>/g, '')).trim();
+}
+
+function fixBrokenExample(code) {
+    if (!code || code.includes('\n')) {
+        return code;
+    }
+
+    // Heurística básica para insertar saltos de línea donde faltan en la web de Appeon
+    // Insertar salto antes de declaraciones de tipos comunes precedidos de espacio
+    const types = ['String', 'Long', 'Integer', 'Boolean', 'Decimal', 'DateTime', 'Date', 'Time', 'Blob', 'Any', 'Constant', 'JsonParser', 'JsonGenerator', 'HttpClient', 'RestClient', 'LongPtr'];
+    let fixed = code;
+    
+    for (const type of types) {
+        const regex = new RegExp(`\\s+(${type}\\s+)`, 'g');
+        fixed = fixed.replace(regex, '\n$1');
+    }
+
+    // Insertar salto antes de asignaciones de variables comunes (ej. lnv_... = )
+    fixed = fixed.replace(/\s+([a-z0-9_]+)\s*=\s*/gi, (match, varName) => {
+        if (['if', 'for', 'do', 'while', 'choose'].includes(varName.toLowerCase())) {
+            return match;
+        }
+        return `\n${match.trim()}`;
+    });
+
+    return fixed.trim();
+}
+
 function decodeHtml(value) {
     return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity) => {
         const normalizedEntity = entity.toLowerCase();
@@ -140,6 +170,10 @@ function findDocPageEndIndex(html, fromIndex = 0) {
         slice.search(/<div class="navfooter">/i),
         slice.search(/<table[^>]*summary="Navigation footer"/i),
         slice.search(/<div id="sidebar"/i),
+        slice.search(/<div id="leftnavigation"/i),
+        slice.search(/<div class="sidebar"/i),
+        slice.search(/<div class="left-nav"/i),
+        slice.search(/<nav[^>]*>/i),
         slice.search(/<\/body>/i),
     ].filter(index => index >= 0);
 
@@ -221,6 +255,18 @@ function extractSectionParagraphs(html, label, nextLabels) {
     return fallback ? [fallback] : [];
 }
 
+function extractSectionCodeBlocks(html, label, nextLabels) {
+    const sectionHtml = extractSectionHtml(html, label, nextLabels);
+
+    if (!sectionHtml) {
+        return [];
+    }
+
+    return [...sectionHtml.matchAll(/<pre class="programlisting">([\s\S]*?)<\/pre>/gi)]
+        .map(match => cleanCode(match[1]))
+        .filter(Boolean);
+}
+
 function extractDescription(html) {
     const bodyHtml = extractBodyAfterPrimaryTitle(html);
     const firstPStart = bodyHtml.search(/<p[^>]*>/i);
@@ -286,5 +332,7 @@ module.exports = {
     extractPrimaryContentHtml,
     extractDescription,
     extractSectionParagraphs,
+    extractSectionCodeBlocks,
+    fixBrokenExample,
     mapConcurrent,
 };

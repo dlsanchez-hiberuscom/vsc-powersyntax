@@ -9,6 +9,7 @@ const {
     extractPrimaryContentHtml,
     extractDescription,
     normalizeLabel,
+    sanitizeOfficialTitle,
 } = require('../utils.cjs');
 
 const {
@@ -225,7 +226,7 @@ function parsePowerScriptEnumeratedDatatypeConcept(html) {
 }
 
 function parseDataWindowConstantPage(html, pageUrl) {
-    const typeName = extractTitle(html);
+    const typeName = sanitizeOfficialTitle(extractTitle(html));
     const contentHtml = extractPrimaryContentHtml(html);
 
     const descriptionHtml = extractSectionHtml(contentHtml, 'Description', [

@@ -207,6 +207,7 @@ export interface PbSystemSymbolEntryDraft {
     introducedIn?: string;
     valueType?: string;
     risk?: 'safe' | 'dynamic' | 'deprecated' | 'legacy' | 'external';
+    examples?: readonly string[];
 }
 
 export interface PbSystemSymbolEntry extends PbSystemSymbolEntryDraft {

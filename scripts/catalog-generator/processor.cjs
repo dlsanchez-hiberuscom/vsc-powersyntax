@@ -61,7 +61,6 @@ function buildGeneratedMergeKey(entry) {
 
     return [
         normalizedName,
-        ownerTypes,
         enumValueOf,
         entry.eventId ?? '',
         entry.identifierPolicy ?? '',
@@ -85,6 +84,7 @@ function mergeGeneratedEntries(entries) {
                 enumValues: entry.enumValues ? [...entry.enumValues] : undefined,
                 eventIds: entry.eventIds ? [...entry.eventIds] : undefined,
                 events: entry.events ? [...entry.events] : undefined,
+                examples: entry.examples ? [...entry.examples] : undefined,
                 functions: entry.functions ? [...entry.functions] : undefined,
                 lookupAliases: entry.lookupAliases ? [...entry.lookupAliases] : undefined,
                 ownerTypes: entry.ownerTypes ? [...entry.ownerTypes] : undefined,
@@ -120,6 +120,7 @@ function mergeGeneratedEntries(entries) {
         current.allowedInParameters = mergeUniqueStringValues(current.allowedInParameters, entry.allowedInParameters);
         current.lookupAliases = mergeUniqueStringValues(current.lookupAliases, entry.lookupAliases);
         current.usageNotes = mergeUniqueStringValues(current.usageNotes, entry.usageNotes);
+        current.examples = mergeUniqueStringValues(current.examples, entry.examples);
         current.eventIds = mergeUniqueStructuredValues(current.eventIds, entry.eventIds);
         current.signatures = mergeUniqueStructuredValues(current.signatures, entry.signatures);
     }
@@ -133,6 +134,7 @@ function buildGeneratedEntry(baseEntry, ownerTypes, appliesTo) {
         category: 'Referencia oficial',
         eventId: baseEntry.eventId,
         eventIds: baseEntry.eventIds,
+        examples: baseEntry.examples,
         lookupAliases: baseEntry.lookupAliases,
         name: baseEntry.name,
         obsolete: baseEntry.obsolete,

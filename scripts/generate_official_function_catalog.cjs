@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const outDir = path.join(repoRoot, 'src/server/knowledge/system');
+const outDir = path.join(repoRoot, 'src/server/knowledge/system/generated');
 
 const {
     listSystemDataWindowFunctions,
@@ -162,11 +162,50 @@ async function main() {
         }
     );
 
+    const parsedPowerScriptPagesSane = parsedPowerScriptPages.filter(e => e !== null);
+    const parsedPowerScriptEventPagesSane = parsedPowerScriptEventPages.filter(e => e !== null);
+
+    const isSaneOwnerType = (type) => {
+        if (!type) return false;
+        if (type.startsWith('__')) return true; // Internal types like __any_object__
+        if (type.length > 35) return false; // Genuine PB types are relatively short
+        if (type.length < 3) return false; 
+        if (type.includes(':') || type.includes(',') || type.includes('  ') || type.includes('/') || type.includes('\\')) return false;
+        
+        const lower = type.toLowerCase();
+        if (lower.includes('birthday')) return false;
+        if (lower.includes('note to make sure')) return false;
+        if (lower.includes('sentence')) return false;
+        if (lower.includes('link')) return false;
+        if (lower.includes('below')) return false;
+        if (lower.includes('format')) return false;
+        if (lower.includes('syntax')) return false;
+        if (lower.includes('release')) return false;
+        if (lower.includes('example')) return false;
+        if (lower.includes('description')) return false;
+        if (lower.includes('return')) return false;
+        if (lower.includes('usage')) return false;
+        if (lower.includes('see also')) return false;
+        if (lower.includes('parameter')) return false;
+        if (lower.includes('argument')) return false;
+        if (lower.includes('value')) return false;
+        if (lower.includes('click')) return false;
+        if (lower.includes('event')) return false;
+        if (lower.includes('method')) return false;
+        if (lower.includes('property')) return false;
+        if (lower.includes('object') && lower.length > 20) return false; // "animation object" is fine, but "animation objects and others" is not
+        
+        // If it has multiple spaces, it's likely a sentence fragment
+        if (type.split(' ').length > 3) return false;
+
+        return true;
+    };
+
     const objectOwnerUniverse = unique([
         ...manualObjectEntries.flatMap(entry => entry.normalizedOwnerTypes ?? []),
-        ...parsedPowerScriptPages.filter(e => !e.isGlobal && e.ownerInfo.ownerScope === 'specific').flatMap(e => e.ownerInfo.ownerTypes),
-        ...parsedPowerScriptEventPages.filter(e => e.ownerInfo.ownerScope === 'specific').flatMap(e => e.ownerInfo.ownerTypes),
-    ]).sort();
+        ...parsedPowerScriptPagesSane.filter(e => !e.isGlobal && e.ownerInfo.ownerScope === 'specific').flatMap(e => e.ownerInfo.ownerTypes),
+        ...parsedPowerScriptEventPagesSane.filter(e => e.ownerInfo.ownerScope === 'specific').flatMap(e => e.ownerInfo.ownerTypes),
+    ]).filter(isSaneOwnerType).sort();
     const controlOwnerUniverse = buildControlOwnerUniverse(objectOwnerUniverse);
 
     const globalCoverage = buildCoverageMap(manualGlobalEntries, 'global-functions');
@@ -200,31 +239,40 @@ async function main() {
         }
     }
 
-    for (const entry of sortGeneratedEntries(parsedPowerScriptPages.filter(e => e.isGlobal))) {
+    for (const entry of sortGeneratedEntries(parsedPowerScriptPagesSane.filter(e => e.isGlobal))) {
         const normalizedName = normalizeSystemSymbolName(entry.name);
         if (!normalizedName || (!generateCompleteCatalog && globalCoverage.has(`global-functions|${normalizedName}`))) continue;
         generatedGlobalEntries.push(buildGeneratedEntry(entry, [], []));
         registerCoverage(globalCoverage, 'global-functions', entry.name, []);
     }
 
-    for (const entry of sortGeneratedEntries(parsedPowerScriptPages.filter(e => !e.isGlobal))) {
+    for (const entry of sortGeneratedEntries(parsedPowerScriptPagesSane.filter(e => !e.isGlobal))) {
         const fallbackUniverse = entry.ownerInfo.ownerScope === 'all-controls' ? controlOwnerUniverse : objectOwnerUniverse;
-        const selectedOwnerTypes = generateCompleteCatalog ? entry.ownerInfo.ownerTypes : getUncoveredOwnerTypes(objectCoverage, 'object-functions', entry.name, entry.ownerInfo.ownerTypes, fallbackUniverse);
-        if (selectedOwnerTypes.length === 0) continue;
+        const rawOwnerTypes = entry.ownerInfo.ownerTypes.filter(isSaneOwnerType);
+        const selectedOwnerTypes = generateCompleteCatalog ? rawOwnerTypes : getUncoveredOwnerTypes(objectCoverage, 'object-functions', entry.name, rawOwnerTypes, fallbackUniverse);
+        
+        if (selectedOwnerTypes.length === 0 && entry.ownerInfo.ownerScope === 'specific') continue;
+        
         generatedObjectEntries.push(buildGeneratedEntry(entry, selectedOwnerTypes, filterAppliesToLabels(entry.ownerInfo, selectedOwnerTypes)));
         registerCoverage(objectCoverage, 'object-functions', entry.name, selectedOwnerTypes);
     }
 
     for (const entry of sortGeneratedEntries(parsedDataWindowPages)) {
-        const selectedOwnerTypes = generateCompleteCatalog ? entry.ownerInfo.ownerTypes : getUncoveredOwnerTypes(dataWindowCoverage, 'datawindow-functions', entry.name, entry.ownerInfo.ownerTypes, []);
-        if (selectedOwnerTypes.length === 0) continue;
+        const rawOwnerTypes = entry.ownerInfo.ownerTypes.filter(isSaneOwnerType);
+        const selectedOwnerTypes = generateCompleteCatalog ? rawOwnerTypes : getUncoveredOwnerTypes(dataWindowCoverage, 'datawindow-functions', entry.name, rawOwnerTypes, []);
+        
+        if (selectedOwnerTypes.length === 0 && entry.ownerInfo.ownerScope === 'specific') continue;
+        
         generatedObjectEntries.push(buildGeneratedEntry(entry, selectedOwnerTypes, filterAppliesToLabels(entry.ownerInfo, selectedOwnerTypes)));
     }
 
-    for (const entry of sortGeneratedEntries(parsedPowerScriptEventPages)) {
+    for (const entry of sortGeneratedEntries(parsedPowerScriptEventPagesSane)) {
         const fallbackUniverse = entry.ownerInfo.ownerScope === 'all-controls' ? controlOwnerUniverse : objectOwnerUniverse;
-        const selectedOwnerTypes = generateCompleteCatalog ? entry.ownerInfo.ownerTypes : getUncoveredOwnerTypes(systemEventCoverage, 'system-events', entry.name, entry.ownerInfo.ownerTypes, fallbackUniverse);
-        if (selectedOwnerTypes.length === 0) continue;
+        const rawOwnerTypes = entry.ownerInfo.ownerTypes.filter(isSaneOwnerType);
+        const selectedOwnerTypes = generateCompleteCatalog ? rawOwnerTypes : getUncoveredOwnerTypes(systemEventCoverage, 'system-events', entry.name, rawOwnerTypes, fallbackUniverse);
+        
+        if (selectedOwnerTypes.length === 0 && entry.ownerInfo.ownerScope === 'specific') continue;
+        
         generatedEventEntries.push(buildGeneratedEntry(entry, selectedOwnerTypes, filterAppliesToLabels(entry.ownerInfo, selectedOwnerTypes)));
     }
 

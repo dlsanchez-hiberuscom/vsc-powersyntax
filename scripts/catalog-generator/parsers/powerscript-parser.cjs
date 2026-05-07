@@ -11,6 +11,8 @@ const {
     extractPrimaryContentHtml,
     extractDescription,
     extractSectionParagraphs,
+    extractSectionCodeBlocks,
+    fixBrokenExample,
     normalizeLabel,
 } = require('../utils.cjs');
 
@@ -20,6 +22,7 @@ const {
     OFFICIAL_GENERATED_KEYWORD_CATEGORY_OVERRIDES,
     OFFICIAL_LITERAL_RESERVED_WORDS,
     OFFICIAL_LOGICAL_RESERVED_WORDS,
+    OFFICIAL_SYSTEM_OBJECT_LABEL_BLACKLIST,
 } = require('../constants.cjs');
 
 const unknownPowerScriptAppliesToLabels = new Map();
@@ -231,12 +234,27 @@ function extractUsageNotes(html) {
     ]);
 }
 
+function extractExamples(html) {
+    const nextLabels = ['See also', 'Usage', 'Syntax 1', 'Syntax 2'];
+    let examples = extractSectionCodeBlocks(html, 'Examples', nextLabels);
+    if (examples.length === 0) {
+        examples = extractSectionCodeBlocks(html, 'Example', nextLabels);
+    }
+
+    return examples.map(fixBrokenExample);
+}
+
 function parsePowerScriptPage(html, url) {
     const title = extractTitle(html);
     const primaryContentHtml = extractPrimaryContentHtml(html);
     const description = extractDescription(html);
+    if (title.toLowerCase().startsWith('about')) {
+        return null;
+    }
+
     const groups = extractSignatureGroups(primaryContentHtml, title);
     const usageNotes = extractUsageNotes(primaryContentHtml);
+    const examples = extractExamples(primaryContentHtml);
 
     const appliesToHtml = extractSectionHtml(primaryContentHtml, 'Applies to', [
         'Syntax',
@@ -263,8 +281,10 @@ function parsePowerScriptPage(html, url) {
                 continue;
             }
 
-            if (normalized.includes('object')) {
-                ownerTypes.push(normalized.replace(/\s+object$/, ''));
+            // Tighten owner type detection: must be a reasonably short string without excessive punctuation
+            // and must not look like a sentence or a URL.
+            if (normalized.includes('object') && normalized.length < 50 && !normalized.includes(':') && !normalized.includes(',') && !normalized.includes('  ') && !normalized.includes('birthday')) {
+                ownerTypes.push(normalized.replace(/\s+objects?$/, '').trim());
                 continue;
             }
 
@@ -330,6 +350,7 @@ function parsePowerScriptPage(html, url) {
             isGlobal,
             name: group.name,
             obsolete: /\((?:obsolete|obsoleta)\)$/i.test(title),
+            examples: examples.length > 0 ? examples : undefined,
             ownerInfo: {
                 appliesTo: rawAppliesToLabels,
                 ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
@@ -372,7 +393,7 @@ function parsePowerScriptReservedWordPage(html, url) {
         const canBeFunctionName = cell.endsWith('*');
         const name = cell.replace('*', '').trim();
 
-        if (!name) {
+        if (!name || OFFICIAL_SYSTEM_OBJECT_LABEL_BLACKLIST.has(name) || name.includes('|')) {
             return undefined;
         }
 

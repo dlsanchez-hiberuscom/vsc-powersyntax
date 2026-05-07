@@ -9,6 +9,7 @@ const {
     extractPrimaryContentHtml,
     findDocPageEndIndex,
     fetchText,
+    sanitizeOfficialTitle,
 } = require('../utils.cjs');
 
 const {
@@ -119,7 +120,7 @@ function extractSystemTypeBaseType(...values) {
 function extractSystemTypeMemberNames(sectionHtml) {
     return unique(
         extractTableRows(sectionHtml)
-            .map(row => normalizeWhitespace(row[0]))
+            .map(row => sanitizeOfficialTitle(normalizeWhitespace(row[0])))
             .filter(Boolean),
     );
 }
@@ -138,7 +139,7 @@ function parseOfficialSystemObjectDatatypePage(html, entry) {
     const properties = extractSystemTypeMemberNames(propertiesHtml);
     const functions = extractSystemTypeMemberNames(functionsHtml);
     const events = extractSystemTypeMemberNames(eventsHtml);
-    const pageName = title.replace(/\s+(object|control)\s*$/i, '').trim() || entry.name;
+    const pageName = sanitizeOfficialTitle(title.replace(/\s+(object|control)\s*$/i, '').trim()) || entry.name;
     const baseType = extractSystemTypeBaseType(
         description,
         normalizeWhitespace(stripTags(propertiesHtml)),
@@ -169,7 +170,7 @@ function parseOfficialSystemObjectDatatypeEntries(html) {
             continue;
         }
 
-        const name = label.replace(/\s+(object|control)$/i, '').trim();
+        const name = sanitizeOfficialTitle(label.replace(/\s+(object|control)$/i, '').trim());
         const normalizedName = normalizeSystemSymbolName(name);
 
         if (!normalizedName || OFFICIAL_SYSTEM_OBJECT_LABEL_BLACKLIST.has(name) || seen.has(normalizedName)) {

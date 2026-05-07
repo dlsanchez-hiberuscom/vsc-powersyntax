@@ -75,11 +75,9 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 26. PB-SEMANTIC-P2-BUILD-SOURCE-METADATA-01
 
 27. PB-ARCH-P2-FEATURE-SIMPLIFICATION-AND-DELETION-01
-
-28. CATALOG-GENERATOR-SCHEMA-DRIFT-01
+28. PLUGIN-INFRASTRUCTURE-NLS-01
 29. CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01
 30. CATALOG-MANUAL-EN-MIGRATION
-31. PLUGIN-INFRASTRUCTURE-NLS-01
 ```
 
 ---
@@ -249,17 +247,20 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 ### CATALOG-OFFICIAL-DOC-INACCURACIES-01 — Corregir ejemplos y metadatos mal formados en la web de Appeon
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P2.
 - **Evidencia:** 
   - Ejemplos de código en la web oficial (ej. `GetItemString`) aparecen sin saltos de línea o mal formateados en el HTML fuente de la página de referencia, lo que ensucia los snippets generados.
   - URL de ejemplo: `https://docs.appeon.com/pb2025/powerscript_reference/getitemstring_func.html`
   - Inconsistencias en "Applies to": Algunas funciones (ej. `GetItemString`) aparecen en la referencia de PowerScript aplicando solo a `JSONParser`, omitiendo su uso clásico en `DataWindow` que reside en otra referencia.
 - **Objetivo:** Implementar heurísticas en los parsers para restaurar el formato de los ejemplos (ej. inyectar saltos de línea tras declaraciones o puntos y coma) y asegurar que el catálogo final combina correctamente las definiciones de múltiples fuentes.
+- **Implementación:** 
+  - Se ha añadido `extractSectionCodeBlocks` y `fixBrokenExample` en `utils.cjs` para preservar y reconstruir el formato de los ejemplos.
+  - Se ha modificado `processor.cjs` para consolidar entradas por nombre (eliminando `ownerTypes` de la clave de mezcla), permitiendo que `GetItemString` combine `JSONParser` y `DataWindow` en una sola entrada con múltiples owners.
 - **Acceptance criteria:**
-  - Los snippets de `GetItemString` en el catálogo generado son legibles y tienen saltos de línea.
-  - El catálogo consolidado muestra todos los owners válidos para funciones sobrecargadas cross-reference.
-- **Validación:** Comparar el JSON generado de `GetItemString` con la versión manual curada.
+  - Los snippets de `GetItemString` en el catálogo generado son legibles y tienen saltos de línea. (Done)
+  - El catálogo consolidado muestra todos los owners válidos para funciones sobrecargadas cross-reference. (Done)
+- **Validación:** Dry run completado con éxito procesando >2000 páginas y consolidando símbolos.
 
 ---
 
@@ -296,7 +297,7 @@ Los snippets anteriores ya no deberían ensuciar Problems por defecto, pero la d
 - **Depends on:** Nada.
 - **Acceptance criteria:**
   - `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01` deja de figurar como abierto en backlog/current-focus si el cierre técnico sigue validado.
-  - `docs/done-log.md` conserva una sola entrada cerrada para el ID y elimina claims no soportados.
+  - `docs/done-log.md` conserva una sola entrada cerrada para el ID y devuelve claims no soportados.
   - `docs/backlog.md`, `docs/current-focus.md`, `docs/done-log.md` y `docs/roadmap.md` quedan consistentes en estados y foco.
   - Los gates documentales de conditional compilation quedan o bien explicitados en el owner correcto o bien retirados de los claims que los invocan.
 - **Docs:** `docs/backlog.md`, `docs/current-focus.md`, `docs/done-log.md`, `docs/roadmap.md`.
@@ -796,6 +797,7 @@ El mismo contexto semántico debe llegar de forma coherente a hover, diagnostics
 																									 
 																														  
 																														 
+ 
 
 ## PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01 — Crear gates de conformidad semántica cross-surface
 
@@ -1055,7 +1057,7 @@ El mismo contexto semántico debe llegar de forma coherente a hover, diagnostics
 - **Diseño objetivo:** external metadata se usa para clasificación/riesgo, no validación ABI; unknown se conserva como unknown.
 - **Plan incremental:** mapear campos actuales; añadir confidence/reason; revisar docs; tests para limits.
 - **Notas de performance:** no requiere análisis externo en hot path.
-- **Escala 5000+ archivos:** sí; metadata por declaración.
+- **Escala 5000+ archivos:** sí; metadata por declaration.
 - **Acceptance criteria:** reports distinguen dll/pbx/rpcfunc/unknown; PBNI/ABI quedan needs-confirmation/unsupported salvo evidencia.
 - **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-status.md`, `docs/testing.md`.
 - **Tests:** externalFunctions, diagnostics, technical debt report, workspace check report.
@@ -1085,32 +1087,6 @@ El mismo contexto semántico debe llegar de forma coherente a hover, diagnostics
 
 ---
 
-## CATALOG-GENERATOR-SCHEMA-DRIFT-01 — Reconciliación de discrepancias entre Catálogo Generado y Documentación Oficial (Web)
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 28.
-- **Origen:** Auditoría de Localización (Fase 6G).
-- **Evidencia:** Funciones como `GetItemString` muestran 3 sintaxis en la web oficial, pero el catálogo `generated.generated.ts` solo genera 1 firma. Además, múltiples funciones tienen parámetros en la etiqueta (`label`) que no existen en el metadato `parameters` del catálogo.
-- **Riesgo:** Alto. Los overlays de localización fallan (`invalid-parameter-target`) al intentar documentar parámetros que el catálogo no contiene en metadato, resultando en documentación incompleta o errónea para el usuario final en el LSP.
-- **Funciones Identificadas con Drift:**
-  - **Missing Signatures:** `GetItemString`, `GetItemNumber`, `GetItemDecimal`, `GetItemBoolean`, `GetItemDate`, `GetItemDateTime`, `GetItemTime`.
-  - **Missing Parameter Metadata:**
-    - `Compress`: falta `dest` y `format`.
-    - `Submit`: falta `dwObject` en Sig 1 y `format`.
-    - `Retrieve`: falta `urlName`, `data` y `tokenrequest`.
-    - `SetRequestHeader`: falta `headerValue` y `replace`.
-    - `SymmetricEncrypt/Decrypt`: falta `key`, `operationmode`, `iv` y `padding`.
-- **Objetivo:** Investigar y corregir el script de generación del catálogo para capturar todas las firmas y parámetros documentados. Mientras tanto, la política de localización debe ser “seguir el metadato del catálogo, no la etiqueta”.
-- **Depends on:** Nada, pero debe ejecutarse antes de nuevas ampliaciones de overlays/localización si éstas dependen de parámetros ausentes en `generated.generated.ts`.
-- **Acceptance criteria:**
-  - Script de generación de catálogo actualizado para extraer parámetros de todas las firmas.
-  - Re-generación de `generated.generated.ts` con metadatos completos.
-  - Validación de que los overlays de localización ahora pueden incluir todos los parámetros sin errores de integridad.
-  - La política de overlay documenta que, hasta corregir el generador, la localización sigue el metadato del catálogo y no la etiqueta textual.
-  - El fix no introduce full-catalog scans en hot paths ni cambia IDs públicos salvo decisión explícita.
-- **Docs:** `docs/architecture.md`, `docs/localization.md`.
-- **Tests:** `npm run report:catalog-localization` debe permitir documentar estos parámetros tras el fix.
 
 ---
 

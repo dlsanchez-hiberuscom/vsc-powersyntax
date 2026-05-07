@@ -25,6 +25,31 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.243 AUDIT-06: PowerBuilder Metadata Catalog Hardening — **Cerrado (symbols / catalog / integrity / 2026-05)**
+
+**Objetivo:** Finalizar la sanitización e integridad del catálogo de metadatos oficial (PB 2025) para asegurar un rendimiento del LSP de alta fidelidad, eliminando ruido documental y garantizando la coherencia del esquema de símbolos del sistema.
+
+**Resultado registrado:**
+- **Sanitización del Generador:** Se ha endurecido el filtro `isSaneOwnerType` en `scripts/generate_official_function_catalog.cjs` para bloquear agresivamente artefactos de ruido (ej. "About events", fragmentos de oraciones, cadenas JSON corruptas).
+- **Normalización de Owners:** Implementada normalización multi-etapa (eliminación de plurales, trim de espacios) en los parsers de PowerScript y Eventos para garantizar que solo se registren nombres de tipos canónicos.
+- **Preservación de Scopes Globales:** Corregida la lógica de generación del catálogo para preservar correctamente los símbolos válidos para scopes universales (`__any_object__`, `__all_controls__`) que anteriormente eran descartados por filtros demasiado estrictos.
+- **Eliminación de Drift (CATALOG-GENERATOR-SCHEMA-DRIFT-01):** Se han reconciliado las firmas faltantes (ej. `GetItemString`) y los metadatos de parámetros ausentes mediante la mejora del motor de extracción de firmas y parámetros del generador.
+- **Integridad del Registro:** Re-generación completa de `generated.generated.ts`, confirmando la eliminación de ruido residual (ej. "birthday artifacts") mediante auditorías de grep.
+
+**Validación registrada:**
+- `npm run generate:catalog` (Generación limpia de metadatos).
+- `npm run report:catalog-consistency` (0 issues de esquema).
+- Auditoría manual mediante grep sobre `generated.generated.ts` buscando patrones de ruido conocidos.
+- Verificación funcional en VS Code (LSP) confirmando autocompletado limpio de tipos y firmas.
+
+**Documentación alineada:**
+- `docs/backlog.md` (Sincronizado).
+- `docs/symbol-system.md` (Alineado con el nuevo registro).
+- `docs/architecture-status.md` (Reflejando integridad del catálogo).
+
+---
+
+
 ## 1.242 Runtime interactive / parser / discovery / health lane — **Cerrado (runtime / parser / discovery / health / 2026-05)**
 
 **Ámbito cerrado:**

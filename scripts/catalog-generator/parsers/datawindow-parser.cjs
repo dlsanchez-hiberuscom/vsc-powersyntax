@@ -8,8 +8,12 @@ const {
     extractTitle,
     extractPrimaryContentHtml,
     extractDescription,
+    extractSectionParagraphs,
+    extractSectionCodeBlocks,
+    fixBrokenExample,
     normalizeLabel,
     fetchText,
+    sanitizeOfficialTitle,
 } = require('../utils.cjs');
 
 const {
@@ -115,10 +119,21 @@ function extractTableRows(html) {
         .filter(row => row.length > 0);
 }
 
+function extractExamples(html) {
+    const nextLabels = ['See also', 'Usage', 'Syntax 1', 'Syntax 2'];
+    let examples = extractSectionCodeBlocks(html, 'Examples', nextLabels);
+    if (examples.length === 0) {
+        examples = extractSectionCodeBlocks(html, 'Example', nextLabels);
+    }
+
+    return examples.map(fixBrokenExample);
+}
+
 function parseDataWindowPage(html, url, chapterTitle) {
     const title = extractTitle(html);
     const primaryContentHtml = extractPrimaryContentHtml(html);
     const description = extractDescription(html);
+    const examples = extractExamples(primaryContentHtml);
 
     const signatures = extractSignatureLabels(extractSectionHtml(primaryContentHtml, 'Syntax', [
         'Return value',
@@ -210,7 +225,7 @@ function parseDataWindowPage(html, url, chapterTitle) {
     });
 
     return {
-        name: title.replace(/\s*\(obsolete\)\s*$/i, '').trim(),
+        name: sanitizeOfficialTitle(title),
         description,
         ownerInfo: {
             appliesTo: rawAppliesToLabels,
@@ -223,6 +238,7 @@ function parseDataWindowPage(html, url, chapterTitle) {
         risk: obsolete ? 'deprecated' : undefined,
         returnType,
         signatures: finalSignatures,
+        examples: examples.length > 0 ? examples : undefined,
         sourceUrl: url,
     };
 }
