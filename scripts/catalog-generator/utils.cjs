@@ -221,6 +221,23 @@ function extractSectionParagraphs(html, label, nextLabels) {
     return fallback ? [fallback] : [];
 }
 
+function extractDescription(html) {
+    const bodyHtml = extractBodyAfterPrimaryTitle(html);
+    const firstPStart = bodyHtml.search(/<p[^>]*>/i);
+
+    if (firstPStart < 0) {
+        return '';
+    }
+
+    const firstPEnd = bodyHtml.indexOf('</p>', firstPStart);
+
+    if (firstPEnd < 0) {
+        return '';
+    }
+
+    return normalizeWhitespace(stripTags(bodyHtml.slice(firstPStart, firstPEnd + 4)));
+}
+
 async function mapConcurrent(items, concurrency, handler) {
     const results = new Array(items.length);
     let nextIndex = 0;
@@ -267,6 +284,7 @@ module.exports = {
     extractPrimaryTitleMatch,
     extractBodyAfterPrimaryTitle,
     extractPrimaryContentHtml,
+    extractDescription,
     extractSectionParagraphs,
     mapConcurrent,
 };

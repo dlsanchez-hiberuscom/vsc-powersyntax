@@ -213,6 +213,8 @@ function parseDataWindowPage(html, url, chapterTitle) {
         name: title.replace(/\s*\(obsolete\)\s*$/i, '').trim(),
         description,
         ownerInfo: {
+            appliesTo: rawAppliesToLabels,
+            ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
             ownerTypes: unique(ownerTypes),
         },
         obsolete,

@@ -170,6 +170,8 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
                 };
             });
 
+            const ownerTypes = unique(eventId ? [] : (eventIds.flatMap(ei => ei.ownerTypes) || []));
+
             return {
                 name: title,
                 description,
@@ -178,6 +180,11 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
                 signatures: finalSignatures,
                 sourceUrl: url,
                 obsolete: metadata.obsolete,
+                ownerInfo: {
+                    appliesTo: [],
+                    ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
+                    ownerTypes,
+                },
             };
         });
     }
@@ -206,6 +213,8 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
         };
     });
 
+    const ownerTypes = unique(eventIds.flatMap(ei => ei.ownerTypes) || []);
+
     return [{
         name: title,
         description,
@@ -213,6 +222,11 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
         signatures: finalSignatures,
         sourceUrl: url,
         obsolete: metadata.obsolete,
+        ownerInfo: {
+            appliesTo: [],
+            ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
+            ownerTypes,
+        },
     }];
 }
 

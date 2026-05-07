@@ -331,6 +331,7 @@ function parsePowerScriptPage(html, url) {
             name: group.name,
             obsolete: /\((?:obsolete|obsoleta)\)$/i.test(title),
             ownerInfo: {
+                appliesTo: rawAppliesToLabels,
                 ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
                 ownerTypes: unique(ownerTypes),
             },
