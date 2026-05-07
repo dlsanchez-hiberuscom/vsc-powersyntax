@@ -92,7 +92,7 @@ export interface DataWindowFastContext {
   uri: string;
   documentVersion: number;
   kbVersion: number;
-  semanticEpoch: number;
+  documentFingerprint: number | string;
   sourceOrigin: SourceOrigin | 'unknown';
   cacheKey: string;
   receiverName?: string;
@@ -180,7 +180,7 @@ export function createDataWindowFastContext(options: CreateDataWindowFastContext
     uri: options.document.uri,
     documentVersion: options.document.version,
     kbVersion: options.kb.version,
-    semanticEpoch: options.kb.semanticEpoch,
+    documentFingerprint: options.activeSnapshot?.documentFingerprint ?? options.kb.semanticEpoch,
     sourceOrigin,
     ...(options.receiverName ? { receiverName: options.receiverName } : {}),
     ...(receiverType ? { receiverType } : {}),
@@ -529,7 +529,7 @@ function buildDataWindowFastContextCacheKey(context: Omit<DataWindowFastContext,
     context.uri,
     `doc:${context.documentVersion}`,
     `kb:${context.kbVersion}`,
-    `epoch:${context.semanticEpoch}`,
+    `fp:${context.documentFingerprint}`,
     `origin:${context.sourceOrigin}`,
     `receiver:${context.receiverName ?? ''}`,
     `kind:${context.receiverKind}`,

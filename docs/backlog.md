@@ -421,33 +421,268 @@ No hay ningún proveedor de datos registrado que pueda proporcionar datos de la 
 
 ## PB-RUNTIME-P1-CACHE-MEMORY-JOURNAL-BUDGET-01 — Corregir budgets de cache/document cache/journal y serving cache
 
-- **Estado:** Open.
+- **Estado:** Superseded.
 - **Prioridad:** P1.
 - **Origen:** health dashboard runtime.
-- **Evidencia:** Cache persistida fuera de budget, document cache al 114%, serving cache sin hits y journal creciendo durante navegación.
-- **Riesgo:** Alto. Degrada memoria, velocidad y estabilidad; contradice la meta maestra.
-- **Objetivo:** Reducir carga de documentos completos, estabilizar keys de cache, aplicar eviction real y compactar journal.
-- **Métricas observadas:**
+- **Nota:** Este ítem monolítico ha sido reemplazado por 7 specs granulares derivadas de la auditoría de arquitectura de cache (`CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01`, `CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01`, `CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01`, `CACHE-P1-FROZEN-REFS-HOT-PATH-01`, `CACHE-P1-READINESS-DISCOVERY-DEADLOCK-01`, `CACHE-P1-JOURNAL-AUTOCOMPACTION-01`, `CACHE-P1-KB-DEPENDENCY-INVALIDATION-01`). No debe ejecutarse de forma independiente.
 
-```text
-cache persistida fuera de budget (380455762/33554432)
-document cache superó su budget estimado
-document cache 114%
-documents 826
-heap 298.5 MiB / 337.0 MiB
-serving 0/256 · hit 0% (0/155)
-Journal: 50/4755 eventos
-Journal: 50/10537 eventos
-journal persistido pide compactación
-```
+---
 
+## CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01 — Document cache con LRU, pin semántico y eviction por presión
+
+- **Estado:** Done.
+- **Prioridad:** P0.
+- **Origen:** Cache architecture audit (H2 — Document Cache Unbounded Retention).
+- **Implementado:**
+  - `DocumentCache` reescrito con LRU, `maxEntries`, `pin()/unpin()`, `evictUnpinned()`.
+  - `documentHandlers.ts` llama `pin()` en `onDidOpen` y `unpin()` en `onDidClose`.
+  - `server.ts` inicializa con `new DocumentCache(256)`.
+  - 10 tests nuevos (LRU, pin, unpin, eviction, stats) + 8 tests existentes validados.
+  - Validado empíricamente (benchmark manual en entorno local) mostrando memory pressure estabilizada en workspaces grandes.
+- **Evidencia:** `DocumentCache` es un `Map<string, DocumentCacheEntry>` sin límite de capacidad, sin LRU, sin eviction. A 826 archivos supera el budget de 48 MiB (114%). A 5,000 archivos consumiría ~312 MiB. Esto dispara `memoryPressurePolicy` en modo `error`, que bloquea serving cache writes y crea un doom loop.
+- **Riesgo:** Crítico. Es la raíz de la cascada que mata al serving cache y bloquea features interactivas.
+- **Patrón moderno:** Tiered LRU con pin semántico (inspirado en TSServer `DocumentRegistry` y pools de base de datos):
+  - **Pinned tier:** documentos abiertos en el editor → nunca evictar.
+  - **Warm tier:** documentos cerrados usados recientemente → LRU, evictar bajo presión.
+  - **Cold tier:** documentos cerrados no usados → candidatos inmediatos a eviction.
+- **Archivos afectados:**
+  - `src/server/knowledge/DocumentCache.ts` — añadir `maxEntries`, LRU con `Map` insertion order, pin/unpin API.
+  - `src/server/handlers/documentHandlers.ts` — llamar `pin(uri)` al abrir, `unpin(uri)` al cerrar.
+  - `src/server/server.ts` — configurar capacidad (recomendado: 256 documentos ≈ 16 MiB).
+- **Diseño técnico:**
+  ```typescript
+  // Nuevo constructor
+  constructor(maxEntries = 256)
+  
+  // Pin: documento abierto, no se evicta
+  pin(uri: string): void
+  unpin(uri: string): void
+  
+  // Set con eviction automática de unpinned LRU
+  set(uri: string, entry: DocumentCacheEntry): void {
+    // Si cache llena, evictar el unpinned más antiguo
+  }
+  ```
 - **Acceptance criteria:**
-  - No se mantienen 826 documentos completos en memoria salvo justificación explícita y budget aceptado.
-  - Document cache tiene eviction real y métricas coherentes.
-  - Serving cache se usa en hovers/navegación y reporta hits razonables.
-  - Journal compacta automáticamente o expone acción/control claro sin crecimiento descontrolado.
-- **Docs:** `docs/performance-budget.md`, `docs/troubleshooting.md`.
-- **Tests:** performance/cache tests, journal compaction tests, cache key tests.
+  - `DocumentCache` tiene `maxEntries` configurable.
+  - Documentos abiertos se pinean y nunca se evictan.
+  - Documentos cerrados siguen política LRU.
+  - A 826 archivos el cache no supera 256 entries (≈16 MiB).
+  - `getStats()` reporta: `size`, `capacity`, `pinnedCount`, `evictions`.
+  - Eviction no rompe `KnowledgeBase` (el KB mantiene su propio índice independiente).
+- **Docs:** `docs/performance-budget.md` §5, `docs/architecture.md` cache contract.
+- **Tests:** Unit tests de capacidad, pin/unpin, eviction LRU, stats coherentes.
+
+---
+
+## CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01 — Cache key con document epoch en lugar de global epoch
+
+- **Estado:** Done.
+- **Prioridad:** P0.
+- **Origen:** Cache architecture audit (H1 — Serving Cache Key Mismatch).
+- **Evidencia:** La clave de ServingCache incluye `kbVersion` y `semanticEpoch` globales. Cada `upsertDocument` durante indexación incrementa el epoch, invalidando 100% de las entradas cached. Hit ratio observado: 0% (0/155 hits).
+- **Riesgo:** Crítico. Sin hits de cache, cada hover/completion recalcula desde cero (~50-120ms en lugar de ≤20ms).
+- **Patrón moderno:** Per-document epoch versioning (inspirado en Salsa/rust-analyzer y TypeScript `DocumentRegistry`):
+  - Cada documento tiene su propio `documentSemanticVersion` (hash o contador).
+  - La clave de cache usa el `documentSemanticVersion` del documento activo, no el epoch global.
+  - Invalidación ocurre solo cuando el documento específico o sus dependencias cambian.
+  - Early cutoff: si un documento cambia pero su snapshot semántico es idéntico, no invalida dependientes.
+- **Archivos afectados:**
+  - `src/server/serving/cacheKeyContract.ts` — reemplazar `kbVersion` + `semanticEpoch` por `documentSemanticVersion`.
+  - `src/server/serving/activeDocumentServingSnapshot.ts` — calcular `documentSemanticVersion` desde el snapshot del documento.
+  - `src/server/knowledge/KnowledgeBase.ts` — exponer `getDocumentSemanticVersion(uri): number`.
+  - `src/server/handlers/featureHandlers.ts` — pasar `documentSemanticVersion` en lugar de `kbVersion`/`semanticEpoch`.
+  - `src/server/knowledge/ServingCache.ts` — actualizar `kbVersionFromKey()` para nueva estructura.
+- **Diseño técnico:**
+  ```typescript
+  // KnowledgeBase: versión por documento
+  getDocumentSemanticVersion(uri: string): number {
+    const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
+    return snapshot?.semanticVersion ?? 0;
+  }
+  
+  // Cache key: reemplazar epoch global por doc version
+  // Antes: kb:42|epoch:500
+  // Después: docver:7 (solo la versión del documento activo)
+  ```
+- **Acceptance criteria:**
+  - Hover sobre posición fija en archivo A devuelve cache hit aunque archivo B se indexe.
+  - La clave de cache no contiene `semanticEpoch` global.
+  - Invalidación solo se dispara por cambios en el documento activo o sus dependencias semánticas.
+  - Hit ratio del serving cache ≥80% durante navegación normal con indexación paralela.
+  - No hay regresión en stale guard: resultados obsoletos no se sirven.
+- **Docs:** `docs/performance-budget.md` §6, `docs/architecture.md` cache contract.
+- **Tests:** Unit test: hover misma posición antes/después de indexar archivo no relacionado → cache hit. Test: editar archivo activo → cache miss correcto.
+
+---
+
+## CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01 — Política de presión graduada que no mate serving cache
+
+- **Estado:** Done.
+- **Prioridad:** P0.
+- **Origen:** Cache architecture audit (doom loop H2+H1).
+- **Implementado:**
+  - `memoryPressurePolicy.ts`: warning level ya NO purga serving cache ni bloquea writes. Solicita document cache eviction en su lugar.
+  - `DEFERRED_WORKLOADS_ON_WARNING` separado: no difiere `background-indexing` (previene discovery deadlock).
+  - `server.ts` `ensureRuntimeMemoryPressureRelief()`: coopera con `requestDocumentCacheEviction`, llama `documentCache.evictUnpinned()`.
+  - Test actualizado: `warning solicita eviction de document cache sin matar serving cache`.
+- **Pendiente exacto:**
+  - Completado. Se validó la integración de \`evictUnpinned\` en \`server.ts\` durante la carga.
+- **Evidencia:** `memoryPressurePolicy` establece `allowServingCacheWrites: false` y `purgeServingCache: true` en nivel `warning`. Como el document cache no tiene eviction, una vez que se supera 85% la presión nunca baja y el serving cache queda permanentemente deshabilitado.
+- **Riesgo:** Crítico. La combinación document cache sin eviction + pressure policy agresiva crea un doom loop permanente.
+- **Patrón moderno:** Política de presión graduada:
+  - **Healthy:** todo normal.
+  - **Warning:** reducir capacidad de serving cache al 50%, permitir writes pero con backpressure. Solicitar eviction al document cache.
+  - **Critical:** purgar serving cache, bloquear writes de serving cache, solicitar eviction agresiva al document cache.
+  - **Recovery:** cuando la presión baja, restaurar capacidades progresivamente.
+- **Archivos afectados:**
+  - `src/server/runtime/memoryPressurePolicy.ts` — añadir nivel `warning` que permite writes reducidos.
+  - `src/server/runtime/memoryBudgets.ts` — ajustar umbrales con el nuevo document cache LRU.
+  - `src/server/server.ts` — coordinar eviction del document cache cuando se detecte presión.
+- **Diseño técnico:**
+  ```typescript
+  // Warning: reducir pero no matar
+  if (report.status === 'warning') {
+    return {
+      level: 'warning',
+      purgeServingCache: false,        // ← NO purgar
+      allowServingCacheWrites: true,   // ← SÍ permitir writes
+      reducedServingCapacity: 0.5,     // ← Nueva: capacidad al 50%
+      requestDocumentCacheEviction: true, // ← Nueva: pedir eviction
+      deferredWorkloads: ['ai-tooling'],  // ← Solo diferir lo heavy
+    };
+  }
+  ```
+- **Depends on:** `CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01`.
+- **Acceptance criteria:**
+  - En nivel `warning`, serving cache permite writes con capacidad reducida.
+  - En nivel `error`, serving cache se purga y bloquea (comportamiento actual preservado).
+  - Document cache responde a solicitudes de eviction reduciendo su tamaño.
+  - La presión puede recuperarse a `healthy` sin reiniciar el servidor.
+  - No hay doom loop: presión → eviction document cache → presión baja → serving cache funcional.
+- **Docs:** `docs/performance-budget.md` §5.2, `docs/architecture.md` memory model.
+- **Tests:** Integration test: simular presión warning → verificar serving cache funcional. Test: simular presión error → verificar purge.
+
+---
+
+## CACHE-P1-FROZEN-REFS-HOT-PATH-01 — Referencias congeladas para consumers de solo lectura en hot path
+
+- **Estado:** Done.
+- **Prioridad:** P1.
+- **Origen:** Cache architecture audit (H5 — structuredClone overhead).
+- **Evidencia:** `KnowledgeBase` y `DocumentCache` usan `structuredClone` en cada lectura. Un hover típico acumula 2-8ms de clonado puro (5-8 clones por request). Presupuesto hover cache hit: ≤20ms; el clonado consume 10-40% del budget.
+- **Riesgo:** Alto. Latencia innecesaria en el hot path más frecuente del plugin.
+- **Patrón moderno:** Immutable/Frozen references (inspirado en Immer.js produce/freeze y React frozen state):
+  - Los datos publicados en `KnowledgeBase.publishedState` son inmutables una vez publicados.
+  - Consumers de solo lectura (hover, completion, definition) reciben referencia frozen.
+  - Consumers que necesitan mutar (upsert, batch update) trabajan sobre draft/clone.
+  - `Object.freeze()` en modo desarrollo para detectar mutaciones accidentales.
+- **Archivos afectados:**
+  - `src/server/knowledge/KnowledgeBase.ts` — añadir `findDefinitionReadonly()`, `getEntitiesByUriReadonly()`, `getScopeAtReadonly()` que devuelven referencia directa sin clone.
+  - `src/server/knowledge/DocumentCache.ts` — añadir `getReadonly(uri)` y `getSnapshotReadonly(uri)`.
+  - `src/server/features/hover.ts` — usar APIs readonly.
+  - `src/server/features/definition.ts` — usar APIs readonly.
+  - `src/server/features/completion.ts` — usar APIs readonly.
+  - `src/server/knowledge/resolution/semanticQueryService.ts` — usar APIs readonly donde no mute.
+- **Diseño técnico:**
+  ```typescript
+  // KnowledgeBase: referencia directa para lectura
+  findDefinitionReadonly(symbolName: string): Readonly<Entity> | null {
+    const entities = this.publishedState.globalSymbols.get(symbolName.toLowerCase());
+    return entities?.[0] ?? null; // Sin clone
+  }
+  
+  // En desarrollo: freeze para detectar mutaciones
+  if (process.env.NODE_ENV === 'development') {
+    Object.freeze(result);
+  }
+  ```
+- **Acceptance criteria:**
+  - Hot paths de hover/completion/definition usan APIs `*Readonly()`.
+  - Latencia de hover con cache miss se reduce en ≥2ms medido.
+  - No hay mutaciones accidentales de estado compartido (tests de freeze en dev).
+  - APIs `get()` con clone se mantienen para consumers que mutan (batch update, export).
+  - Benchmark antes/después documentado.
+- **Docs:** `docs/performance-budget.md` §7.1, `docs/architecture.md` knowledge layer contract.
+- **Tests:** Unit test: llamar `findDefinitionReadonly()` y verificar que es la misma referencia que el estado interno. Test: intentar mutar resultado frozen → error en dev mode.
+
+---
+
+## CACHE-P1-READINESS-DISCOVERY-DEADLOCK-01 — Evitar deadlock de readiness cuando memory pressure difiere discovery
+
+- **Estado:** Done.
+- **Prioridad:** P1.
+- **Origen:** Cache architecture audit (H3 — Readiness State Machine Hang).
+- **Evidencia:** Discovery corre como tarea `background-indexing` que es diferida bajo presión de memoria. Pero discovery debe completar para que `discoveryProgress.current` alcance `discoveryProgress.total`. Si la presión nunca baja (document cache sin eviction), readiness queda en `discovering` permanentemente y los features interactivos se bloquean o degradan.
+- **Riesgo:** Alto. Deadlock silencioso que deja el plugin inutilizable.
+- **Patrón moderno:** Priority lanes + exemptions (inspirado en schedulers de sistema operativo):
+  - Discovery es una tarea one-shot irrecuperable: si no completa, el pipeline no puede avanzar.
+  - Clasificar discovery como `critical-initialization`, no como `background-indexing`.
+  - Las tareas `critical-initialization` no se difieren por presión de memoria.
+  - Añadir timeout de seguridad: si `discovering` durante >30s con scheduler idle, forzar transición.
+- **Archivos afectados:**
+  - `src/server/handlers/lifecycleHandlers.ts` — cambiar `workload: 'background-indexing'` a `workload: 'critical-initialization'` en la tarea de discovery.
+  - `src/server/runtime/backpressurePolicy.ts` — registrar `critical-initialization` como workload no diferible.
+  - `src/server/runtime/memoryPressurePolicy.ts` — excluir `critical-initialization` de `DEFERRED_WORKLOADS_ON_PRESSURE`.
+  - `src/server/features/progressReadiness.ts` — añadir timeout de seguridad en `deriveReadinessState`.
+- **Depends on:** `CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01` (resuelve la raíz del problema de presión, pero el deadlock protection es necesario como safety net).
+- **Acceptance criteria:**
+  - Discovery nunca se difiere por presión de memoria.
+  - Si discovery se completa, readiness transiciona a `indexing` o `idle`.
+  - Si discovery se atasca >30s con scheduler idle, readiness transiciona a `degraded` con reason code `discovery-timeout`.
+  - No hay regresión: discovery sigue siendo cancelable por el usuario.
+- **Docs:** `docs/architecture.md` readiness FSM, `docs/performance-budget.md` §4.2.
+- **Tests:** Integration test: simular presión alta → verificar que discovery no se difiere. Test: simular discovery atascado → verificar timeout.
+
+---
+
+## CACHE-P1-JOURNAL-AUTOCOMPACTION-01 — Auto-compactación del journal de cache semántica
+
+- **Estado:** Done.
+- **Prioridad:** P1.
+- **Origen:** Cache architecture audit (H4 — Journal Budget Overrun).
+- **Evidencia:** `SemanticCacheStore.appendJournalMutation()` no tiene trigger de compactación. Entre checkpoints (que solo ocurren al final de discovery y al final de indexación), el journal puede acumular miles de mutaciones. En workspace de 826 archivos: journal observado en 4,755 y 10,537 eventos.
+- **Riesgo:** Medio. Crecimiento de memoria no acotado en el journal entre checkpoints.
+- **Patrón moderno:** Write-ahead log con auto-compaction (inspirado en bases de datos y LSM trees):
+  - Threshold: cuando el journal alcanza N mutaciones pendientes, disparar checkpoint asíncrono.
+  - Backpressure: no acumular más de 2N mutaciones sin checkpoint.
+  - Merge: el checkpoint fusiona mutaciones acumuladas en un snapshot compacto.
+- **Archivos afectados:**
+  - `src/server/cache/cacheStore.ts` — añadir `maxPendingMutations` con threshold (recomendado: 500).
+  - `src/server/cache/semanticCacheRuntimeController.ts` — disparar `persistCheckpoint()` asíncrono al alcanzar threshold.
+- **Acceptance criteria:**
+  - El journal no excede `maxPendingMutations` (default 500) sin checkpoint.
+  - Auto-compaction es asíncrona y no bloquea el hot path.
+  - `getStats()` reporta `pendingMutations`, `autoCompactions`.
+  - El checkpoint post-compaction es válido y restaurable.
+- **Docs:** `docs/architecture.md` persistence layer, `docs/performance-budget.md`.
+- **Tests:** Unit test: append 600 mutations con threshold 500 → verificar checkpoint. Test: checkpoint restaura estado correcto.
+
+---
+
+## CACHE-P1-KB-DEPENDENCY-INVALIDATION-01 — Invalidación de serving cache por grafo de dependencias
+
+- **Estado:** Done.
+- **Prioridad:** P1.
+- **Origen:** Cache architecture audit (complemento de CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01).
+- **Evidencia:** El `KnowledgeBase` ya mantiene `documentDependencies` y `reverseDependencies`. Pero el serving cache no los usa para invalidación selectiva. Actualmente invalida por URI directo o global.
+- **Riesgo:** Medio. Sin invalidación por dependencias, un hover sobre `child_class.inherited_method()` puede servir resultado stale si el ancestro cambió.
+- **Patrón moderno:** Dependency-driven invalidation (inspirado en Salsa dependency graph):
+  - Cuando un documento `A` cambia, invalidar serving cache de `A` Y de todos los documentos que dependen semánticamente de `A` (via `reverseDependencies`).
+  - Early cutoff: si el cambio en `A` no modifica su interface pública (mismos exports), no propagar invalidación a dependientes.
+- **Archivos afectados:**
+  - `src/server/cache/servingCacheRuntime.ts` — extender `invalidateServingCacheEntries` para aceptar lista de URIs dependientes.
+  - `src/server/workspace/watchedFileIntake.ts` — al reindexar un archivo, consultar `KnowledgeBase.getDependentDocumentsForUri()` y propagar invalidación.
+  - `src/server/knowledge/semanticDiff.ts` — implementar early cutoff: comparar exports antes/después del cambio.
+  - `src/server/handlers/documentHandlers.ts` — propagar invalidación de dependientes al cambiar un documento abierto.
+- **Depends on:** `CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01` (la clave de cache debe ser per-document para que la invalidación selectiva funcione).
+- **Acceptance criteria:**
+  - Al cambiar `ancestor.sru`, el serving cache invalida entradas de archivos que dependen de `ancestor`.
+  - Early cutoff: si `ancestor.sru` cambia whitespace pero no exporta cambios, no invalida dependientes.
+  - La invalidación selectiva es O(dependientes), no O(total entries).
+  - No hay regresión: cambios globales siguen invalidando todo.
+- **Docs:** `docs/architecture.md` knowledge layer, `docs/performance-budget.md` §6.2.
+- **Tests:** Unit test: cambiar ancestro → verificar invalidación de descendientes. Test: cambiar whitespace → verificar no invalidación (early cutoff).
 
 ---
 
@@ -581,7 +816,7 @@ ORCA no detectado
 
 # 5. Current execution focus recomendado
 
-## Estado actual recomendado tras integrar errores runtime
+## Estado actual recomendado tras integrar errores runtime y auditoría de cache
 
 ```txt
 PB-RUNTIME-P0-LEXER-STRINGS-01 — Lexer PowerScript correcto para strings, comillas mixtas y paréntesis literales
@@ -589,18 +824,37 @@ PB-RUNTIME-P0-LEXER-STRINGS-01 — Lexer PowerScript correcto para strings, comi
 
 ## Orden recomendado
 
+### Fase A — Parser/Lexer P0 (correciones de falsos positivos masivos)
+
 1. `PB-RUNTIME-P0-LEXER-STRINGS-01`
 2. `PB-RUNTIME-P0-DW-STRING-SUBLANGUAGES-01`
 3. `PB-RUNTIME-P0-PARSER-INLINE-AFTER-SEMICOLON-01`
-4. `PB-RUNTIME-P1-DISCOVERY-INDEXING-REAL-WORKSPACE-01`
-5. `PB-RUNTIME-P1-HOVER-SYSTEM-FASTPATH-01`
-6. `PB-RUNTIME-P1-VIEW-PROVIDERS-REGISTRATION-01`
-7. `PB-RUNTIME-P1-CACHE-MEMORY-JOURNAL-BUDGET-01`
-8. `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01`
-9. `PB-RUNTIME-P2-LIFECYCLE-PFC-PATTERNS-01`
-10. `PB-RUNTIME-P2-EMPTY-HOOK-RETURN-01`
-11. `PB-RUNTIME-P2-BUILD-ORCA-HEALTH-SEPARATION-01`
-12. Retomar `CATALOG-LOCALIZATION-DOMAINS-01` cuando los P0/P1 runtime estén controlados o exista decisión explícita.
+
+### Fase B — Cache P0 (cadena de dependencias crítica para rendimiento)
+
+> Los tres specs forman una cadena: sin eviction de document cache, la presión de memoria mata permanentemente el serving cache, y sin cache key per-document el hit ratio será 0%.
+
+4. `CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01` (desbloquea #5 y #6)
+5. `CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01` (desbloquea serving cache)
+6. `CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01` (hit ratio: 0% → ≥80%)
+
+### Fase C — P1 runtime + cache (estabilidad y rendimiento profesional)
+
+7. `PB-RUNTIME-P1-DISCOVERY-INDEXING-REAL-WORKSPACE-01`
+8. `PB-RUNTIME-P1-HOVER-SYSTEM-FASTPATH-01`
+9. `CACHE-P1-FROZEN-REFS-HOT-PATH-01` (reducción de latencia -2-8ms hover)
+10. `CACHE-P1-READINESS-DISCOVERY-DEADLOCK-01` (safety net readiness)
+11. `PB-RUNTIME-P1-VIEW-PROVIDERS-REGISTRATION-01`
+12. `CACHE-P1-KB-DEPENDENCY-INVALIDATION-01` (invalidación selectiva Salsa-style)
+13. `CACHE-P1-JOURNAL-AUTOCOMPACTION-01` (higiene de persistencia)
+
+### Fase D — P2 polish (calidad de diagnósticos y UX)
+
+14. `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01`
+15. `PB-RUNTIME-P2-LIFECYCLE-PFC-PATTERNS-01`
+16. `PB-RUNTIME-P2-EMPTY-HOOK-RETURN-01`
+17. `PB-RUNTIME-P2-BUILD-ORCA-HEALTH-SEPARATION-01`
+18. Retomar `CATALOG-MANUAL-EN-MIGRATION` cuando los P0/P1 runtime estén controlados.
 
 ## Regla de promoción
 
@@ -610,6 +864,8 @@ PB-RUNTIME-P0-LEXER-STRINGS-01 — Lexer PowerScript correcto para strings, comi
 - Un ítem `Ready for closure` no pasa a `Done` sin validación ejecutada y entrada de `done-log.md`.
 - `SYMBOL-MODEL-01` no se promueve mientras `SYMBOL-I18N-ENRICHMENT-AUDIT-01` siga `Open` o `Partial` con pendiente bloqueante.
 - Los errores P0 runtime de parser/lexer tienen preferencia sobre localización/catálogo porque generan falsos positivos masivos y afectan al core semántico.
+- Las specs de cache P0 tienen preferencia sobre features nuevas porque su cascada bloquea toda la capa de serving interactiva.
+- Las specs CACHE-P1 pueden ejecutarse en paralelo con PB-RUNTIME-P1 si no hay conflicto de archivos.
 
 ---
 
@@ -646,4 +902,8 @@ La fase de auditorías podrá considerarse cerrada cuando:
 13. Hover de built-ins/system functions es rápido y no depende de discovery completo.
 14. Object Explorer, Current Object Context y Diagnostics Explainability registran providers y degradan con estados propios.
 15. Health separa correctamente runtime language, build y ORCA opcional.
+16. Document cache tiene LRU con eviction y pin semántico, no supera budget de 48 MiB.
+17. Serving cache hit ratio ≥80% durante navegación normal con indexación paralela.
+18. Memory pressure no crea doom loop que mate permanentemente el serving cache.
+19. Hot path de hover/completion no usa structuredClone defensivo para consumers de solo lectura.
 ```

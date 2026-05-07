@@ -25,6 +25,7 @@ export function createRuntimeProgressController(args: {
   getActiveProject(activeUri: string | null): ActiveProjectSnapshot | null;
   getWorkspaceFiles(): string[];
   isSemanticallyReady(uri: string): boolean;
+  isSchedulerIdle?: () => boolean;
   transitionReadiness(state: ReadinessState, detail?: string): void;
   sendProgress(progress: ProgressNotification): void;
 }): RuntimeProgressController {
@@ -40,6 +41,7 @@ export function createRuntimeProgressController(args: {
       activeProjectFiles: activeProject?.files ?? [],
       workspaceFiles: args.getWorkspaceFiles(),
       isSemanticallyReady: args.isSemanticallyReady,
+      isSchedulerIdle: args.isSchedulerIdle ? args.isSchedulerIdle() : undefined,
     });
   };
 

@@ -1,4 +1,4 @@
-import type { SemanticCacheDocumentRecord } from './cacheSchema';
+import type { SemanticCacheDocumentRecord, SemanticCacheCheckpointMetadata } from './cacheSchema';
 import type { SemanticCacheStore } from './cacheStore';
 import { persistServingCacheSnapshot } from './servingCachePersistence';
 import { ServingCacheFlushCoordinator } from './servingCacheFlushCoordinator';
@@ -31,6 +31,7 @@ export interface SemanticCacheRuntimeController {
 export function createSemanticCacheRuntimeController(
   servingCache: ServingCache,
   getSemanticEpoch: () => number,
+  buildExpectedMetadata: () => Partial<SemanticCacheCheckpointMetadata>,
 ): SemanticCacheRuntimeController {
   let cacheStore: SemanticCacheStore | null = null;
   let lastServingSnapshotRestoreEntries = 0;
@@ -52,6 +53,23 @@ export function createSemanticCacheRuntimeController(
     await persistServingSnapshot();
   });
 
+  let compactionInProgress = false;
+
+  const checkCompactionThreshold = async () => {
+    if (!cacheStore || compactionInProgress) return;
+    const stats = cacheStore.getStats();
+    if (stats.pendingMutations >= cacheStore.retentionPolicy.maxPendingMutations) {
+      compactionInProgress = true;
+      try {
+        await cacheStore.runMaintenance(buildExpectedMetadata());
+      } catch (err) {
+        // Ignorar errores asíncronos de compactación
+      } finally {
+        compactionInProgress = false;
+      }
+    }
+  };
+
   return {
     flushCoordinator,
     setCacheStore(store: SemanticCacheStore | null): void {
@@ -61,19 +79,25 @@ export function createSemanticCacheRuntimeController(
       return cacheStore;
     },
     appendUpsert(record: SemanticCacheDocumentRecord, semanticEpoch: number): void | Promise<void> {
-      return cacheStore?.appendJournalMutation({
+      if (!cacheStore) return;
+      const promise = cacheStore.appendJournalMutation({
         semanticEpoch,
         kind: 'upsert',
         uris: [record.uri],
         documents: [record],
       });
+      void checkCompactionThreshold();
+      return promise;
     },
     appendRemove(uri: string, semanticEpoch: number): void | Promise<void> {
-      return cacheStore?.appendJournalMutation({
+      if (!cacheStore) return;
+      const promise = cacheStore.appendJournalMutation({
         semanticEpoch,
         kind: 'remove',
         uris: [uri],
       });
+      void checkCompactionThreshold();
+      return promise;
     },
     async persistServingSnapshot(): Promise<void> {
       await persistServingSnapshot();

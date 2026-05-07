@@ -231,7 +231,7 @@ function collectVisibleVariables(
   };
 
   if (line !== undefined) {
-    let scope = kb.getScopeAt(documentUri, line);
+    let scope = kb.getScopeAtReadonly(documentUri, line);
     while (scope && (scope.kind === ScopeKind.Function || scope.kind === ScopeKind.Event)) {
       for (const symbol of scope.symbols) {
         if (symbol.kind !== EntityKind.Variable) {
@@ -456,7 +456,7 @@ export function buildCurrentObjectContext(
     : null;
   const documentEntities = queryContext?.documentEntities?.length
     ? queryContext.documentEntities
-    : (kb.getEntitiesByUri(document.uri).length > 0 ? kb.getEntitiesByUri(document.uri) : analysis.semanticFacts);
+    : (kb.getEntitiesByUriReadonly(document.uri).length > 0 ? kb.getEntitiesByUriReadonly(document.uri) : analysis.semanticFacts);
   const objectInfo = buildObjectInfo({
     uri: document.uri,
     content: document.getText(),

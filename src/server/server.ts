@@ -47,6 +47,7 @@ import { BuildOrcaJournalStore } from './runtime/buildOrcaJournalStore';
 import { InteractiveServingStatsTracker } from './runtime/interactiveServingStats';
 import { RuntimeJournal } from './runtime/runtimeJournal';
 import { createRuntimeProgressController } from './runtime/runtimeProgressController';
+import type { DiscoveryProgressState } from './features/progressReadiness';
 import { InteractiveServingStaleGuard } from './serving/staleGuard';
 import { PresentationCache } from './serving/presentationCache';
 import {
@@ -118,7 +119,7 @@ function isSemanticallyServedDocument(document: TextDocument): boolean {
 }
 const fs = new NodeFileSystem();
 const workspaceState = new WorkspaceState();
-const documentCache = new DocumentCache();
+const documentCache = new DocumentCache(256);
 const knowledgeBase = new KnowledgeBase();
 const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
@@ -261,7 +262,11 @@ const watcherIntake = createFileWatcherDebouncer({
   }
 });
 let cacheStorageUri: string | null = null;
-const semanticCacheRuntimeController = createSemanticCacheRuntimeController(servingCache, () => knowledgeBase.semanticEpoch);
+const semanticCacheRuntimeController = createSemanticCacheRuntimeController(
+  servingCache,
+  () => knowledgeBase.semanticEpoch,
+  buildCacheCheckpointMetadata
+);
 
 function buildCacheCheckpointMetadata(): Partial<SemanticCacheCheckpointMetadata> {
   return {
@@ -309,7 +314,7 @@ setAnalysisBackends(documentCache, knowledgeBase, {
 
 let activeDocumentUri: string | null = null;
 let workspaceFolders: string[] = [];
-const discoveryProgress = {
+const discoveryProgress: DiscoveryProgressState = {
   current: 0,
   total: 0
 };
@@ -335,6 +340,10 @@ const runtimeProgressController = createRuntimeProgressController({
     return documentCache.hasSnapshot(uri)
       || snapshot?.readiness === 'nearby-semantic-ready'
       || getFileIndexState(uri) === 'indexed';
+  },
+  isSchedulerIdle: () => {
+    const status = scheduler.getStatus();
+    return !status.interactiveBusy && status.activeNearId === null && status.activeBackgroundId === null;
   },
   transitionReadiness: (state, detail) => {
     readiness.transition(state, detail);
@@ -384,6 +393,27 @@ function getRuntimeMemoryPressurePolicy(force = false): RuntimeMemoryPressurePol
 
 function ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy {
   let policy = getRuntimeMemoryPressurePolicy();
+
+  // CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01:
+  // Cooperate with document cache eviction requests before purging serving cache.
+  if (policy.requestDocumentCacheEviction) {
+    const targetSize = Math.max(Math.floor(documentCache.getStats().capacity * 0.5), documentCache.getStats().pinnedCount);
+    const evicted = documentCache.evictUnpinned(targetSize);
+    if (evicted > 0) {
+      connection.console.log(`[MEMORY] Document cache eviction: ${evicted} unpinned entries evicted (target: ${targetSize}).`);
+      runtimeJournal.record({
+        phase: 'health',
+        kind: 'memory-pressure',
+        action: 'document-cache-eviction',
+        severity: 'info',
+        detail: { evicted, targetSize, remaining: documentCache.size }
+      });
+      // Re-evaluate pressure after eviction
+      invalidateRuntimeMemoryPressureSample();
+      policy = getRuntimeMemoryPressurePolicy(true);
+    }
+  }
+
   if (!policy.purgeServingCache) {
     lastMemoryPressureReliefReason = null;
     return policy;
@@ -770,6 +800,7 @@ const documentHandlerContext = {
   inheritanceGraph,
   workspaceState,
   hotContextCache,
+  documentCache,
   servingCache,
   servingCacheFlushCoordinator,
   invalidateHoverPresentationCaches,

@@ -5,6 +5,7 @@ import { getDocumentAnalysis, evictDocumentAnalysis } from '../analysis/analysis
 import { cancelScheduledDiagnostics, publishDiagnosticsNow, scheduleDiagnostics } from '../analysis/diagnosticScheduler';
 import { invalidateServingCacheEntries } from '../cache/servingCacheRuntime';
 import { clearDiagnosticsSummary } from '../features/diagnostics';
+import type { DocumentCache } from '../knowledge/DocumentCache';
 import { clearAllScheduledDiagnostics } from '../analysis/diagnosticScheduler';
 import { clearDocumentAnalysisCache } from '../analysis/analysisCache';
 import { ServingCacheFlushCoordinator } from '../cache/servingCacheFlushCoordinator';
@@ -29,6 +30,7 @@ export interface DocumentHandlerContext {
   inheritanceGraph: InheritanceGraph;
   workspaceState: WorkspaceState;
   hotContextCache: HotContextCache;
+  documentCache: DocumentCache;
   servingCache: ServingCache;
   servingCacheFlushCoordinator: ServingCacheFlushCoordinator;
   runtimeJournal: RuntimeJournal;
@@ -52,6 +54,7 @@ export function registerDocumentHandlers(context: DocumentHandlerContext): void 
     workspaceState,
     hotContextCache,
     servingCache,
+    documentCache,
     servingCacheFlushCoordinator,
     runtimeJournal,
     serverStartTime,
@@ -64,6 +67,7 @@ export function registerDocumentHandlers(context: DocumentHandlerContext): void 
 
   documents.onDidOpen((event) => {
     setActiveDocumentUri(event.document.uri);
+    documentCache.pin(event.document.uri);
 
     if (!isSemanticallyServedDocument(event.document)) {
       cancelScheduledDiagnostics(event.document.uri);
@@ -139,6 +143,7 @@ export function registerDocumentHandlers(context: DocumentHandlerContext): void 
   });
 
   documents.onDidClose((event) => {
+    documentCache.unpin(event.document.uri);
     if (!isSemanticallyServedDocument(event.document)) {
       cancelScheduledDiagnostics(event.document.uri);
       clearDiagnosticsSummary(event.document.uri);

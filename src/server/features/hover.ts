@@ -101,7 +101,7 @@ function buildDataWindowHoverBlock(
     return null;
   }
 
-  const summary = summarizeDataWindowSafeMode(kb.getDocumentSnapshot(entity.uri));
+  const summary = summarizeDataWindowSafeMode(kb.getDocumentSnapshotReadonly(entity.uri));
   if (!summary) {
     return null;
   }

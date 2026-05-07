@@ -29,6 +29,8 @@ export interface RuntimeMemoryPressurePolicy {
   triggerLayer?: ApiRuntimeMemoryReport['layers'][number]['layer'];
   purgeServingCache: boolean;
   allowServingCacheWrites: boolean;
+  /** When true, the document cache should evict unpinned entries to reduce memory. */
+  requestDocumentCacheEviction: boolean;
   deferredWorkloads: RuntimeWorkloadClass[];
   reportLimits?: RuntimeMemoryAdaptiveReportLimits;
 }
@@ -55,6 +57,16 @@ const DEFERRED_WORKLOADS_ON_PRESSURE: RuntimeWorkloadClass[] = [
   'ai-tooling',
 ];
 
+/**
+ * Warning level only defers heavy/optional workloads, NOT background-indexing.
+ * This prevents the discovery deadlock (CACHE-P1-READINESS-DISCOVERY-DEADLOCK-01)
+ * where deferring background-indexing prevents discovery from completing.
+ */
+const DEFERRED_WORKLOADS_ON_WARNING: RuntimeWorkloadClass[] = [
+  'maintenance',
+  'ai-tooling',
+];
+
 export function buildRuntimeMemoryPressurePolicy(report: ApiRuntimeMemoryReport): RuntimeMemoryPressurePolicy {
   const failingLayer = report.layers.find((layer) => layer.status === 'error');
   const warningLayer = report.layers.find((layer) => layer.status === 'warning');
@@ -66,6 +78,7 @@ export function buildRuntimeMemoryPressurePolicy(report: ApiRuntimeMemoryReport)
       reason: 'memory-healthy',
       purgeServingCache: false,
       allowServingCacheWrites: true,
+      requestDocumentCacheEviction: false,
       deferredWorkloads: [],
     };
   }
@@ -77,18 +90,23 @@ export function buildRuntimeMemoryPressurePolicy(report: ApiRuntimeMemoryReport)
       ...(triggerLayer ? { triggerLayer } : {}),
       purgeServingCache: true,
       allowServingCacheWrites: false,
+      requestDocumentCacheEviction: true,
       deferredWorkloads: [...DEFERRED_WORKLOADS_ON_PRESSURE],
       reportLimits: ERROR_LIMITS,
     };
   }
 
+  // CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01:
+  // Warning level allows serving cache writes but requests document cache eviction.
+  // This breaks the doom loop where document cache bloat permanently disabled serving cache.
   return {
     level: 'warning',
     reason: triggerLayer ? `memory-pressure:${triggerLayer}:warning` : 'memory-pressure:warning',
     ...(triggerLayer ? { triggerLayer } : {}),
-    purgeServingCache: true,
-    allowServingCacheWrites: false,
-    deferredWorkloads: [...DEFERRED_WORKLOADS_ON_PRESSURE],
+    purgeServingCache: false,
+    allowServingCacheWrites: true,
+    requestDocumentCacheEviction: true,
+    deferredWorkloads: [...DEFERRED_WORKLOADS_ON_WARNING],
     reportLimits: WARNING_LIMITS,
   };
 }

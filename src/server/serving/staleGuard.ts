@@ -9,7 +9,7 @@ export interface InteractiveServingRequestState {
   uri: string;
   documentVersion: string | number;
   kbVersion: number;
-  semanticEpoch: number;
+  documentFingerprint: number | string;
   sourceOrigin?: SourceOrigin | 'unknown';
   locale?: string;
   contextKey?: string;
@@ -30,7 +30,7 @@ export type InteractiveServingStaleReason =
   | 'document-version'
   | 'locale'
   | 'kb-version'
-  | 'semantic-epoch'
+  | 'document-fingerprint'
   | 'source-origin'
   | 'context-key';
 
@@ -91,8 +91,8 @@ export class InteractiveServingStaleGuard {
     if (normalized.kbVersion !== token.kbVersion) {
       return { stale: true, reason: 'kb-version' };
     }
-    if (normalized.semanticEpoch !== token.semanticEpoch) {
-      return { stale: true, reason: 'semantic-epoch' };
+    if (String(normalized.documentFingerprint) !== String(token.documentFingerprint)) {
+      return { stale: true, reason: 'document-fingerprint' };
     }
     if (normalized.sourceOrigin !== token.sourceOrigin) {
       return { stale: true, reason: 'source-origin' };

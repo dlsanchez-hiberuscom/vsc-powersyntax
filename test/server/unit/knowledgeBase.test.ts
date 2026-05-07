@@ -477,5 +477,32 @@ suite('unit/knowledge', () => {
       assert.equal(kb.getScopeAt(uri, 2)?.id, 'defensive_scope');
       assert.equal(kb.getDocumentSnapshot(uri)?.symbols[0].name, 'f_defensive');
     });
+    test('lecturas públicas readonly devuelven referencia congelada', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///readonly.sru';
+      const inputFacts = [{ id: 'f_readonly', name: 'f_readonly', kind: EntityKind.Function, uri, line: 1, character: 0 }];
+      const inputSnapshot = createSnapshot(uri, 999, inputFacts);
+
+      kb.upsertDocument(uri, inputFacts, [], inputSnapshot);
+
+      const readonlyDefinition = kb.findDefinitionReadonly('f_readonly');
+      const readonlyEntities = kb.getEntitiesByUriReadonly(uri);
+      const readonlySnapshot = kb.getDocumentSnapshotReadonly(uri);
+
+      assert.ok(readonlyDefinition);
+      assert.equal(readonlyEntities.length, 1);
+      assert.ok(readonlySnapshot);
+
+      // En development, freezeValue llama a Object.freeze
+      if (process.env.NODE_ENV === 'development') {
+        assert.throws(() => {
+          (readonlyDefinition as any).name = 'mutated';
+        }, /Cannot assign to read only property/);
+        
+        assert.throws(() => {
+          (readonlySnapshot as any).version = 99;
+        }, /Cannot assign to read only property/);
+      }
+    });
   });
 });

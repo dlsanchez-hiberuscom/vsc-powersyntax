@@ -18,6 +18,7 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { ServingCache } from '../knowledge/ServingCache';
 import { sanitizeDocumentationLocaleSetting, type DocumentationLocaleSetting } from '../knowledge/system/localization';
 import type { SemanticCacheCheckpointMetadata } from '../cache/cacheSchema';
+import type { DiscoveryProgressState } from '../features/progressReadiness';
 
 export const SERVER_EXECUTE_COMMANDS = [
   'powerbuilder.showStats',
@@ -99,7 +100,7 @@ export interface InitializedHandlerContext {
   buildRuntimeProgressReadiness(activeUriOverride?: string | null): RuntimeProgressReadinessSnapshot;
   sendProgress(progress: ProgressNotification): void;
   transitionReadiness(state: 'degraded' | 'error', detail: string): void;
-  discoveryProgress: { current: number; total: number };
+  discoveryProgress: DiscoveryProgressState;
   getWorkspaceFolders(): string[];
   getCacheStorageUri(): string | null;
   getActiveDocumentUri(): string | null;
@@ -211,12 +212,13 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
       connection.console.log(`[WORKSPACE] Iniciando descubrimiento en ${workspaceFolders.length} raíces (roots)...`);
       discoveryProgress.current = 0;
       discoveryProgress.total = workspaceFolders.length;
+      discoveryProgress.startTimeMs = Date.now();
       publishRuntimeProgressReadiness();
 
       scheduler.enqueueBackground({
         id: 'workspace-discovery',
         priority: TaskPriority.Background,
-        workload: 'background-indexing',
+        workload: 'critical-initialization',
         execute: async (token) => {
           let currentCacheStore: SemanticCacheStore | null = null;
           let earlyRestoreApplied = false;

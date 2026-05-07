@@ -38,7 +38,7 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 | Language Server | Parcial | Debe tender a composition root fino y delegar handlers/capas. | Crear o mantener specs de reducción de `server.ts`. |
 | Request Context | Pendiente | Debe formalizarse como contrato transversal para providers. | Spec de `RequestContext`. |
 | Semantic Query Facade | Riesgo | La resolución semántica debe centralizarse para evitar duplicidades. | Spec de fachada semántica obligatoria. |
-| Cache Layer | Riesgo | Hay muchas caches recomendadas; falta contrato común y gobernanza de invalidación. | Spec de cache L0-L3 y contrato común. |
+| Cache Layer | OK | Contratos L0-L3, eviction por presión, journal autocompaction e invalidación Salsa-style estabilizados en la auditoría P0/P1. | Mantener política de memoria graduada y budget limits. |
 | Providers LSP | Parcial | Hover/completion/signature/definition/references/diagnostics necesitan patrón homogéneo. | Normalizar providers contra fachada/cache. |
 | DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
@@ -158,51 +158,32 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 
 ### 5.1. Estado general
 
-- **Estado:** Riesgo.
+- **Estado:** OK.
 - **Arquitectura objetivo:** `docs/architecture.md`, sección Cache Layer.
-- **Evidencia:** el mapa de implementación contiene muchas referencias a caches y serving caches, además de auditoría de hot path cache hit vs cache miss.
-- **Riesgo:** crear caches útiles pero dispersas, sin contrato común, métricas ni invalidación homogénea.
-- **Acción:** formalizar contrato común de caches L0-L3.
+- **Evidencia:** Las 7 specs de la auditoría P0/P1 se han completado. El modelo está alineado.
+- **Riesgo:** Bajo. El sistema ahora soporta workspaces masivos usando `memoryPressurePolicy` y LRU document cache.
+- **Acción:** Mantener los budgets de memoria documentados e instrumentar caídas de latencia para futuras optimizaciones.
 
-### 5.2. Caches prioritarias a gobernar
+### 5.2. Caches gobernadas exitosamente
 
 ```text
-L0 — Request-local cache
-L1 — Active document snapshot
-L2 — Workspace semantic index
-L3 — Persistent metadata cache
+L0 — Request-local cache (eliminado/congelado refs en hot path)
+L1 — Active document snapshot (DocumentCache con Tiered LRU)
+L2 — Workspace semantic index (ServingCache con Invalidación Selectiva)
+L3 — Persistent metadata cache (SemanticCacheStore particionado, compresión asíncrona)
 ```
 
-Caches concretas que deben tener contrato explícito:
+Caches concretas que ahora tienen contrato explícito en `ServingCache` o `DocumentCache`:
 
-- active document snapshot;
-- hover view model cache;
-- negative hover cache;
-- completion list cache;
-- completion resolve cache;
-- serving final response cache si aplica;
-- catalog lookup cache;
-- DataWindow model cache;
-- diagnostics cache;
-- semantic tokens cache;
-- workspace index cache.
+- active document snapshot (pinned vs LRU warm/cold);
+- hover / negative hover cache;
+- completion / negative completion cache;
+- signature help / definition cache;
+- diagnostic refresh buffers.
 
 ### 5.3. Acción recomendada
 
-Crear o mantener una spec de cache architecture con:
-
-```text
-name
-owner
-scope
-key
-value
-lifecycle
-invalidation triggers
-max size / memory policy
-metrics
-fallback
-```
+Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asumiendo que la infraestructura de caché subyacente es confiable y O(1)/O(dependents) en invalidación.
 
 ---
 
@@ -285,9 +266,8 @@ Las desviaciones que deben tener prioridad de normalización o spec son:
 
 1. **Composition roots:** reducir concentración en `extension.ts` y `server.ts`.
 2. **SemanticQueryFacade:** centralizar resolución semántica para evitar duplicidad.
-3. **Cache contract:** formalizar niveles L0-L3, invalidación, métricas y fallback.
-4. **Hot paths:** asegurar que hover/completion/signature/definition/references/diagnostics/semantic tokens no hacen trabajo pesado innecesario.
-5. **DataWindow Domain:** separar modelo DataWindow de PowerScript parser y conectarlo por fachada semántica.
-6. **Adapters externos:** aislar ORCA y PBAutoBuild completamente del core semántico.
-7. **Testing/performance:** conectar cada refactor a pruebas y budgets.
-8. **Docs IA:** evitar que agentes/prompts dupliquen arquitectura o backlog.
+3. **Hot paths:** asegurar que hover/completion/signature/definition/references/diagnostics/semantic tokens no hacen trabajo pesado innecesario.
+4. **DataWindow Domain:** separar modelo DataWindow de PowerScript parser y conectarlo por fachada semántica.
+5. **Adapters externos:** aislar ORCA y PBAutoBuild completamente del core semántico.
+6. **Testing/performance:** conectar cada refactor a pruebas y budgets.
+7. **Docs IA:** evitar que agentes/prompts dupliquen arquitectura o backlog.

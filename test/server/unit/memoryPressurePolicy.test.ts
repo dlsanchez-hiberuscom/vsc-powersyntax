@@ -28,7 +28,7 @@ suite('unit/memoryPressurePolicy (B274)', () => {
     assert.equal(isWorkloadDeferredByMemoryPressure(policy, 'background-indexing'), false);
   });
 
-  test('warning recorta reports y aplaza background manteniendo interactive y near-context', () => {
+  test('warning solicita eviction de document cache sin matar serving cache', () => {
     const report = buildRuntimeMemoryReport({
       analysis: { size: 220 },
       serving: { size: 50 },
@@ -42,9 +42,12 @@ suite('unit/memoryPressurePolicy (B274)', () => {
 
     assert.equal(report.status, 'warning');
     assert.equal(policy.level, 'warning');
-    assert.equal(policy.purgeServingCache, true);
-    assert.equal(policy.allowServingCacheWrites, false);
-    assert.equal(isWorkloadDeferredByMemoryPressure(policy, 'background-indexing'), true);
+    // CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01: warning does NOT purge serving cache
+    assert.equal(policy.purgeServingCache, false);
+    assert.equal(policy.allowServingCacheWrites, true);
+    assert.equal(policy.requestDocumentCacheEviction, true);
+    // Warning does NOT defer background-indexing (prevents discovery deadlock)
+    assert.equal(isWorkloadDeferredByMemoryPressure(policy, 'background-indexing'), false);
     assert.equal(isWorkloadDeferredByMemoryPressure(policy, 'maintenance'), true);
     assert.equal(isWorkloadDeferredByMemoryPressure(policy, 'interactive'), false);
     assert.equal(isWorkloadDeferredByMemoryPressure(policy, 'near-context'), false);

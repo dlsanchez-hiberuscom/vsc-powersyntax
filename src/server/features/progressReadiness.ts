@@ -6,6 +6,7 @@ import { formatProjectStatus, type ProjectStatus } from './projectStatus';
 export interface DiscoveryProgressState {
   current: number;
   total: number;
+  startTimeMs?: number;
 }
 
 export interface IndexerStatusSnapshot {
@@ -53,6 +54,7 @@ export interface BuildProgressReadinessSnapshotOptions {
   activeProjectFiles: string[];
   workspaceFiles: string[];
   isSemanticallyReady: (uri: string) => boolean;
+  isSchedulerIdle?: boolean;
 }
 
 function countReadyFiles(files: string[], isSemanticallyReady: (uri: string) => boolean): number {
@@ -69,9 +71,13 @@ function deriveReadinessState(
   discovery: DiscoveryProgressState,
   indexer: IndexerStatusSnapshot,
   levels: ProgressReadinessLevels,
-  workspaceFiles: string[]
+  workspaceFiles: string[],
+  isSchedulerIdle?: boolean
 ): { state: ReadinessState; detail?: string } {
   if (discovery.total > 0 && discovery.current < discovery.total) {
+    if (isSchedulerIdle && discovery.startTimeMs && Date.now() - discovery.startTimeMs > 30000) {
+      return { state: 'degraded', detail: 'discovery-timeout' };
+    }
     return { state: 'discovering', detail: 'discovery' };
   }
 
@@ -113,7 +119,7 @@ export function buildProgressReadinessSnapshot(
     projectReady: options.activeProjectFiles.length > 0 && projectReadyFiles === options.activeProjectFiles.length,
     workspaceReady: options.workspaceFiles.length > 0 && workspaceReadyFiles === options.workspaceFiles.length
   };
-  const readiness = deriveReadinessState(options.discovery, options.indexer, levels, options.workspaceFiles);
+  const readiness = deriveReadinessState(options.discovery, options.indexer, levels, options.workspaceFiles, options.isSchedulerIdle);
   const projectStatus: ProjectStatus = {
     readiness: readiness.state,
     projectName: options.activeProjectName,

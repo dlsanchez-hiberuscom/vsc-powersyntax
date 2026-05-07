@@ -49,7 +49,7 @@ export interface InteractiveServingPipelineRequest<TResult, TCache = TResult> {
   interactiveServingStats: InteractiveServingStatsTracker;
   budgetMs?: number;
   kbVersion?: number;
-  semanticEpoch?: number;
+  documentFingerprint?: number | string;
   locale?: string;
   payloadBudgetFeature?: InteractivePayloadBudgetFeature;
   allowCachedWhileBlocked?: boolean;
@@ -170,7 +170,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
         totalMs: nowMs() - cacheLookupStartedAt,
         locale: request.locale,
         kbVersion: request.kbVersion,
-        semanticEpoch: request.semanticEpoch,
+        documentFingerprint: request.documentFingerprint,
         budgetMs: request.budgetMs,
         readinessAction: request.readiness.action,
         readinessReason: request.readiness.reason,
@@ -184,7 +184,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
       totalMs: nowMs() - cacheLookupStartedAt,
       locale: request.locale,
       kbVersion: request.kbVersion,
-      semanticEpoch: request.semanticEpoch,
+      documentFingerprint: request.documentFingerprint,
       budgetMs: request.budgetMs,
       readinessAction: request.readiness.action,
       readinessReason: request.readiness.reason,
@@ -203,7 +203,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
       totalMs: 0,
       locale: request.locale,
       kbVersion: request.kbVersion,
-      semanticEpoch: request.semanticEpoch,
+      documentFingerprint: request.documentFingerprint,
       budgetMs: request.budgetMs,
       readinessAction: request.readiness.action,
       readinessReason: request.readiness.reason,
@@ -230,7 +230,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
         ...(earlyResult.formatterMs !== undefined ? { formatterMs: earlyResult.formatterMs } : {}),
         locale: request.locale,
         kbVersion: request.kbVersion,
-        semanticEpoch: request.semanticEpoch,
+        documentFingerprint: request.documentFingerprint,
         budgetMs: request.budgetMs,
         readinessAction: request.readiness.action,
         readinessReason: request.readiness.reason,
@@ -258,7 +258,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
       ...(cacheWriteMs !== undefined ? { cacheWriteMs } : {}),
       locale: request.locale,
       kbVersion: request.kbVersion,
-      semanticEpoch: request.semanticEpoch,
+      documentFingerprint: request.documentFingerprint,
       budgetMs: request.budgetMs,
       readinessAction: request.readiness.action,
       readinessReason: request.readiness.reason,
@@ -286,7 +286,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
       ...(computed.formatterMs !== undefined ? { formatterMs: computed.formatterMs } : {}),
       locale: request.locale,
       kbVersion: request.kbVersion,
-      semanticEpoch: request.semanticEpoch,
+      documentFingerprint: request.documentFingerprint,
       budgetMs: request.budgetMs,
       readinessAction: request.readiness.action,
       readinessReason: request.readiness.reason,
@@ -316,7 +316,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
       ...(cacheWriteMs !== undefined ? { cacheWriteMs } : {}),
       locale: request.locale,
       kbVersion: request.kbVersion,
-      semanticEpoch: request.semanticEpoch,
+      documentFingerprint: request.documentFingerprint,
       budgetMs: request.budgetMs,
       readinessAction: request.readiness.action,
       readinessReason: request.readiness.reason,
@@ -334,7 +334,7 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
     ...(cacheWriteMs !== undefined ? { cacheWriteMs } : {}),
     locale: request.locale,
     kbVersion: request.kbVersion,
-    semanticEpoch: request.semanticEpoch,
+    documentFingerprint: request.documentFingerprint,
     budgetMs: request.budgetMs,
     readinessAction: request.readiness.action,
     readinessReason: request.readiness.reason,

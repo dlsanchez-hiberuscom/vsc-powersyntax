@@ -16,7 +16,7 @@ suite('unit/interactiveServingStats', () => {
       payloadBytes: 32,
       locale: 'en',
       kbVersion: 4,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       budgetMs: 50,
     });
     tracker.record({
@@ -29,7 +29,7 @@ suite('unit/interactiveServingStats', () => {
       payloadBytes: 48,
       locale: 'es',
       kbVersion: 4,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       budgetMs: 50,
       readinessAction: 'allow',
     });

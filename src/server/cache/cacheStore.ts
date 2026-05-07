@@ -89,6 +89,7 @@ export interface SemanticCacheRetentionPolicy {
   maxJournalEntries: number;
   maxJournalBytes: number;
   maxWorkspaceBytes: number;
+  maxPendingMutations: number;
 }
 
 export interface SemanticCacheWorkspaceMaintenanceSnapshot {
@@ -122,7 +123,8 @@ const DEFAULT_CACHE_RETENTION_POLICY: SemanticCacheRetentionPolicy = {
   staleWorkspaceTtlMs: 1000 * 60 * 60 * 24 * 14,
   maxJournalEntries: 24,
   maxJournalBytes: 1024 * 128,
-  maxWorkspaceBytes: 1024 * 1024 * 32
+  maxWorkspaceBytes: 1024 * 1024 * 32,
+  maxPendingMutations: 500
 };
 
 export interface SemanticCacheStore {
@@ -147,6 +149,7 @@ export interface SemanticCacheStore {
     now?: number
   ): Promise<SemanticCacheMaintenanceResult>;
   clear(): Promise<void>;
+  getStats(): { pendingMutations: number; autoCompactions: number };
 }
 
 function joinUri(baseUri: string, segment: string): string {
@@ -401,6 +404,8 @@ export function createSemanticCacheStore(
   let partitionedPersistenceEnabled = false;
   const projectJournalEntries = new Map<string, SemanticCacheJournalEntry[]>();
   const projectNextSequences = new Map<string, number>();
+  let pendingMutations = 0;
+  let autoCompactions = 0;
 
   async function listStaleWorkspaceSnapshots(now: number): Promise<SemanticCacheWorkspaceMaintenanceSnapshot[]> {
     await fs.createDirectory(baseStorageUri);
@@ -618,6 +623,7 @@ export function createSemanticCacheStore(
 
       journalEntries = [];
       nextSequence = 0;
+      pendingMutations = 0;
       await fs.deletePath(journalUri);
     },
     async loadServingCacheSnapshot<T>(): Promise<ServingCacheEntry<T>[]> {
@@ -650,6 +656,7 @@ export function createSemanticCacheStore(
       await this.persistCheckpoint(createCacheCheckpoint(semanticEpoch, documents, metadata));
     },
     async appendJournalMutation(entry: AppendJournalInput): Promise<void> {
+      pendingMutations++;
       await fs.createDirectory(storageUri);
 
       if (!partitionedPersistenceEnabled) {
@@ -690,7 +697,8 @@ export function createSemanticCacheStore(
       const currentWorkspace = await buildWorkspaceMaintenanceSnapshot(fs, storageUri, workspaceKey);
       const staleWorkspaces = await listStaleWorkspaceSnapshots(now);
       const needsCompaction = currentWorkspace.journalEntries > DEFAULT_CACHE_RETENTION_POLICY.maxJournalEntries
-        || currentWorkspace.journalBytes > DEFAULT_CACHE_RETENTION_POLICY.maxJournalBytes;
+        || currentWorkspace.journalBytes > DEFAULT_CACHE_RETENTION_POLICY.maxJournalBytes
+        || pendingMutations >= DEFAULT_CACHE_RETENTION_POLICY.maxPendingMutations;
 
       return {
         policy: DEFAULT_CACHE_RETENTION_POLICY,
@@ -724,6 +732,9 @@ export function createSemanticCacheStore(
       }
 
       const after = await this.inspectMaintenance(now);
+      if (compacted) {
+        autoCompactions++;
+      }
       return {
         ...after,
         compacted,
@@ -734,10 +745,15 @@ export function createSemanticCacheStore(
     async clear(): Promise<void> {
       journalEntries = [];
       nextSequence = 0;
+      pendingMutations = 0;
+      autoCompactions = 0;
       partitionedPersistenceEnabled = false;
       projectJournalEntries.clear();
       projectNextSequences.clear();
       await fs.deletePath(storageUri);
+    },
+    getStats() {
+      return { pendingMutations, autoCompactions };
     }
   };
 }

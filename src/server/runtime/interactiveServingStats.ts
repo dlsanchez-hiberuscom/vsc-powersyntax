@@ -30,7 +30,7 @@ export interface InteractiveServingMetricEvent {
   payloadBudgetExceeded?: boolean;
   locale?: string;
   kbVersion?: number;
-  semanticEpoch?: number;
+  documentFingerprint?: number | string;
   budgetMs?: number;
   readinessAction?: string;
   readinessReason?: string;
@@ -90,7 +90,7 @@ function cloneMetricEvent(event: InteractiveServingMetricEvent): InteractiveServ
     ...(event.payloadBudgetExceeded !== undefined ? { payloadBudgetExceeded: event.payloadBudgetExceeded } : {}),
     ...(event.locale ? { locale: event.locale } : {}),
     ...(event.kbVersion !== undefined ? { kbVersion: event.kbVersion } : {}),
-    ...(event.semanticEpoch !== undefined ? { semanticEpoch: event.semanticEpoch } : {}),
+    ...(event.documentFingerprint !== undefined ? { documentFingerprint: event.documentFingerprint } : {}),
     ...(event.budgetMs !== undefined ? { budgetMs: event.budgetMs } : {}),
     ...(event.readinessAction ? { readinessAction: event.readinessAction } : {}),
     ...(event.readinessReason ? { readinessReason: event.readinessReason } : {}),

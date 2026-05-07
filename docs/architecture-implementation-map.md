@@ -3037,7 +3037,7 @@ Estado:
 
 Qué es:
 
-- Caché por documento de snapshot, facts y scopes, reutilizable también en warm resume.
+- Caché por documento de snapshot, facts y scopes, reutilizable también en warm resume. Implementa una política Tiered LRU (Pinned/Warm/Cold) gobernada por `memoryPressurePolicy`.
 
 Archivos reales:
 
@@ -3047,12 +3047,15 @@ Entry points:
 
 - `set(...)`
 - `get(...)`
+- `pin(...)` / `unpin(...)`
 - `invalidate(...)`
 - `restoreDocumentRecords(...)`
 
 Responsabilidades reales:
 
 - mantener el snapshot documental reusable;
+- mantener el límite de memoria a través de eviction LRU (ej. `256` max capacity);
+- proteger documentos activos vía `pin`;
 - soportar persistencia y restore.
 
 No debe hacer:
@@ -3230,10 +3233,12 @@ Entry points:
 - `get(...)`
 - `set(...)`
 - `invalidate(...)`
+- `invalidateDependents(...)`
 
 Responsabilidades reales:
 
 - cachear la respuesta final por feature, posición y KB;
+- invalidación selectiva granular (Salsa-style) usando diffs semánticos;
 - exponer hit/miss/eviction;
 - integrarse con pressure policy y persistencia opcional.
 
@@ -5319,6 +5324,8 @@ Entry points:
 
 - `createSemanticCacheStore(...)`
 - `load(...)`
+- `flush(...)`
+- `compact(...)`
 - `persistServingCacheSnapshot(...)`
 - `restoreServingCacheSnapshot(...)`
 

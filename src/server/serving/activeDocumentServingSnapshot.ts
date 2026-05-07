@@ -84,7 +84,12 @@ export class ActiveDocumentServingSnapshot {
   readonly uri: string;
   readonly documentVersion: number;
   readonly kbVersion: number;
-  readonly semanticEpoch: number;
+  /**
+   * CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01:
+   * Per-document content fingerprint. Only changes when THIS document changes,
+   * not when any other document is indexed. Replaces global semanticEpoch.
+   */
+  readonly documentFingerprint: number | string;
   readonly sourceOrigin: SourceOrigin | 'unknown';
   readonly locale: DocumentationLocale;
 
@@ -94,13 +99,16 @@ export class ActiveDocumentServingSnapshot {
     this.uri = context.document.uri;
     this.documentVersion = context.document.version;
     this.kbVersion = context.knowledgeBase.version;
-    this.semanticEpoch = context.knowledgeBase.semanticEpoch;
     this.sourceOrigin = context.workspaceState.getSourceOrigin(context.document.uri)
       ?? context.workspaceState.inferSourceOriginForUri(context.document.uri);
     this.locale = context.locale ?? 'en';
     this.semanticSnapshot = context.documentCache.getSnapshot(context.document.uri)
       ?? context.knowledgeBase.getDocumentSnapshot(context.document.uri)
       ?? null;
+    // CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01:
+    // Use per-document fingerprint instead of global semanticEpoch.
+    // Falls back to documentVersion if no semantic snapshot is available.
+    this.documentFingerprint = this.semanticSnapshot?.fingerprint ?? this.documentVersion;
   }
 
   hasSemanticSnapshot(): boolean {
@@ -213,7 +221,7 @@ export class ActiveDocumentServingSnapshot {
     feature: InteractiveServingCacheFeature,
     descriptor: Omit<
       InteractiveServingCacheKeyDescriptor,
-      'cacheClass' | 'feature' | 'uri' | 'documentVersion' | 'kbVersion' | 'semanticEpoch' | 'sourceOrigin' | 'locale'
+      'cacheClass' | 'feature' | 'uri' | 'documentVersion' | 'kbVersion' | 'documentFingerprint' | 'sourceOrigin' | 'locale'
     > & { cacheClass: InteractiveServingCacheKeyDescriptor['cacheClass'] }
   ): string {
     return buildInteractiveServingCacheKey({
@@ -222,7 +230,7 @@ export class ActiveDocumentServingSnapshot {
       uri: this.uri,
       documentVersion: this.documentVersion,
       kbVersion: this.kbVersion,
-      semanticEpoch: this.semanticEpoch,
+      documentFingerprint: this.documentFingerprint,
       sourceOrigin: this.sourceOrigin,
       locale: this.locale,
     });

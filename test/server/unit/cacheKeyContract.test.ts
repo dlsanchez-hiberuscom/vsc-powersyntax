@@ -6,7 +6,7 @@ import {
 } from '../../../src/server/serving/cacheKeyContract';
 
 suite('unit/cacheKeyContract', () => {
-  test('cambia la key cuando cambian locale, sourceOrigin, epoch o trigger', () => {
+  test('cambia la key cuando cambian locale, sourceOrigin, fingerprint o trigger', () => {
     const base = {
       cacheClass: 'serving' as const,
       feature: 'completion' as const,
@@ -14,7 +14,7 @@ suite('unit/cacheKeyContract', () => {
       uri: 'file:///w_main.srw',
       documentVersion: 3,
       kbVersion: 7,
-      semanticEpoch: 11,
+      documentFingerprint: 11,
       sourceOrigin: 'workspace-ws_objects' as const,
       locale: 'es',
       line: 12,
@@ -26,12 +26,12 @@ suite('unit/cacheKeyContract', () => {
     const stable = buildInteractiveServingCacheKey(base);
     const localeChanged = buildInteractiveServingCacheKey({ ...base, locale: 'en' });
     const originChanged = buildInteractiveServingCacheKey({ ...base, sourceOrigin: 'solution-source' });
-    const epochChanged = buildInteractiveServingCacheKey({ ...base, semanticEpoch: 12 });
+    const fingerprintChanged = buildInteractiveServingCacheKey({ ...base, documentFingerprint: 12 });
     const triggerChanged = buildInteractiveServingCacheKey({ ...base, triggerCharacter: ':' });
 
     assert.notEqual(stable, localeChanged);
     assert.notEqual(stable, originChanged);
-    assert.notEqual(stable, epochChanged);
+    assert.notEqual(stable, fingerprintChanged);
     assert.notEqual(stable, triggerChanged);
     assert.equal(stable, buildInteractiveServingCacheKey(base));
   });
@@ -43,7 +43,7 @@ suite('unit/cacheKeyContract', () => {
       uri: 'file:///temp/w_main.srw',
       documentVersion: '42',
       kbVersion: 5,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       sourceOrigin: 'unknown',
       locale: 'es',
     });
@@ -55,7 +55,7 @@ suite('unit/cacheKeyContract', () => {
       uri: 'file:///temp/w_main.srw',
       documentVersion: '42',
       kbVersion: 5,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       sourceOrigin: 'unknown',
       locale: 'es',
     });
@@ -69,7 +69,7 @@ suite('unit/cacheKeyContract', () => {
       uri: 'file:///w_main.srw',
       documentVersion: 3,
       kbVersion: 7,
-      semanticEpoch: 11,
+      documentFingerprint: 11,
       sourceOrigin: 'workspace-ws_objects' as const,
       locale: 'es',
       line: 12,
@@ -84,7 +84,7 @@ suite('unit/cacheKeyContract', () => {
     const stable = buildInteractiveServingCacheKey(base);
 
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, documentVersion: 4 }));
-    assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, semanticEpoch: 12 }));
+    assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, documentFingerprint: 12 }));
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, sourceOrigin: 'solution-source' }));
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, locale: 'en' }));
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, rangeEndCharacter: 15 }));
@@ -99,7 +99,7 @@ suite('unit/cacheKeyContract', () => {
       uri: 'file:///w_main.srw',
       documentVersion: 3,
       kbVersion: 7,
-      semanticEpoch: 11,
+      documentFingerprint: 11,
       sourceOrigin: 'workspace-ws_objects' as const,
       locale: 'es',
       context: 'system:abs',
@@ -109,6 +109,6 @@ suite('unit/cacheKeyContract', () => {
 
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, locale: 'en' }));
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, context: 'system:messagebox' }));
-    assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, semanticEpoch: 12 }));
+    assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, documentFingerprint: 12 }));
   });
 });

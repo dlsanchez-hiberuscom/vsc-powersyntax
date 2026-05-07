@@ -269,7 +269,7 @@ export function resolveCurrentObjectAtLine(
     return rootType;
   }
 
-  const scope = kb.getScopeAt(currentUri, line);
+  const scope = kb.getScopeAtReadonly(currentUri, line);
   let cursor: Scope | undefined = scope ?? undefined;
   while (cursor) {
     if (cursor.kind === ScopeKind.Type) {
@@ -971,7 +971,7 @@ export function resolveTargetEntityDetailed(
       }
     } else {
       if (options.line !== undefined) {
-        const scope = kb.getScopeAt(currentUri, options.line);
+        const scope = kb.getScopeAtReadonly(currentUri, options.line);
         if (scope) {
           const localMatch = scope.symbols.find((symbol) => symbol.name.toLowerCase() === identifier.toLowerCase());
           if (localMatch) {
@@ -1252,7 +1252,7 @@ export function resolveQualifierType(
   let varType: string | undefined;
 
   if (line !== undefined) {
-    const scope = kb.getScopeAt(currentUri, line);
+    const scope = kb.getScopeAtReadonly(currentUri, line);
     if (scope) {
       const local = scope.symbols.find(s => s.name.toLowerCase() === qLower);
       if (local) varType = local.datatype;
@@ -1276,7 +1276,7 @@ export function resolveQualifierType(
     return systemGlobal.valueType.toLowerCase();
   }
 
-  const typeTarget = kb.findDefinition(qLower);
+  const typeTarget = kb.findDefinitionReadonly(qLower);
   if (typeTarget && typeTarget.kind === EntityKind.Type) {
     return typeTarget.name;
   }

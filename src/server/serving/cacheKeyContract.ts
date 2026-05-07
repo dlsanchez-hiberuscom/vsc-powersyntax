@@ -24,10 +24,15 @@ export type InteractiveServingCacheFeature =
  * Campos canónicos compartidos por caches de serving, presentation ViewModel y negative cache.
  *
  * Obligatorios:
- * - `cacheClass`, `feature`, `uri`, `documentVersion`, `kbVersion`, `semanticEpoch`, `sourceOrigin`
+ * - `cacheClass`, `feature`, `uri`, `documentVersion`, `kbVersion`, `documentFingerprint`, `sourceOrigin`
  *
  * Opcionales y dependientes de la feature:
  * - `locale`, `line`/`character`, `range*`, `context`, `trigger*`, `prefix`, `extra`
+ *
+ * CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01:
+ * `documentFingerprint` reemplaza al antiguo `semanticEpoch` global.
+ * El fingerprint solo cambia cuando el contenido de ESTE documento cambia,
+ * no cuando se indexa cualquier otro archivo del workspace.
  */
 export interface InteractiveServingCacheKeyDescriptor {
   cacheClass: InteractiveServingCacheClass;
@@ -36,7 +41,11 @@ export interface InteractiveServingCacheKeyDescriptor {
   uri: string;
   documentVersion: string | number;
   kbVersion: number;
-  semanticEpoch: number;
+  /**
+   * Per-document content hash. Replaces global semanticEpoch.
+   * Only changes when THIS document's content changes.
+   */
+  documentFingerprint: number | string;
   sourceOrigin: SourceOrigin | 'unknown';
   locale?: string;
   line?: number;
@@ -59,7 +68,7 @@ export interface InteractiveServingInvalidationScope {
   uri: string;
   documentVersion: string;
   kbVersion: number;
-  semanticEpoch: number;
+  documentFingerprint: number | string;
   sourceOrigin: SourceOrigin | 'unknown';
   locale: string;
 }
@@ -100,7 +109,7 @@ export function buildInteractiveServingInvalidationScope(
     uri: normalizeUri(descriptor.uri),
     documentVersion: String(descriptor.documentVersion),
     kbVersion: descriptor.kbVersion,
-    semanticEpoch: descriptor.semanticEpoch,
+    documentFingerprint: descriptor.documentFingerprint,
     sourceOrigin: descriptor.sourceOrigin,
     locale: descriptor.locale ?? '',
   };
@@ -116,7 +125,7 @@ export function buildInteractiveServingCacheKey(descriptor: InteractiveServingCa
     `uri:${normalizeStringValue(scope.uri)}`,
     `doc:${normalizeStringValue(scope.documentVersion)}`,
     `kb:${scope.kbVersion}`,
-    `epoch:${scope.semanticEpoch}`,
+    `fp:${scope.documentFingerprint}`,
     `origin:${normalizeStringValue(scope.sourceOrigin)}`,
     `locale:${normalizeStringValue(scope.locale)}`,
     buildPositionFragment(descriptor),

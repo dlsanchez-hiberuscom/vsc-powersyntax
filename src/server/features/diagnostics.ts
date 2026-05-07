@@ -503,7 +503,7 @@ export function validateSemantics(
   for (const fact of semanticFacts) {
     if (fact.kind === EntityKind.Type && fact.baseTypeName) {
       const baseLower = fact.baseTypeName.toLowerCase();
-      if (!PB_BUILTIN_TYPES.has(baseLower) && !kb.findDefinition(baseLower) && !systemCatalog.isKnownOwnerType(baseLower)) {
+      if (!PB_BUILTIN_TYPES.has(baseLower) && !kb.findDefinitionReadonly(baseLower) && !systemCatalog.isKnownOwnerType(baseLower)) {
         diagnostics.push(withDiagnosticCode({
           severity: DiagnosticSeverity.Warning,
           range: Range.create(

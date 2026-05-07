@@ -105,7 +105,7 @@ suite('unit/ServingCache', () => {
       uri: 'file:///a.sru',
       documentVersion: 1,
       kbVersion: 7,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       sourceOrigin: 'workspace-ws_objects',
       locale: 'es',
       line: 4,
@@ -118,7 +118,7 @@ suite('unit/ServingCache', () => {
       uri: 'file:///a.sru',
       documentVersion: 1,
       kbVersion: 7,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       sourceOrigin: 'workspace-ws_objects',
       locale: 'es',
       line: 4,
@@ -142,7 +142,7 @@ suite('unit/ServingCache', () => {
     assert.equal(cache.getStats().byFeature.completion.size, 0);
   });
 
-  test('claves estructuradas aislan sourceOrigin, locale y semanticEpoch sin colisionar', () => {
+  test('claves estructuradas aislan sourceOrigin, locale y documentFingerprint sin colisionar', () => {
     const cache = new ServingCache<string>(32);
     const base = {
       cacheClass: 'serving' as const,
@@ -151,7 +151,7 @@ suite('unit/ServingCache', () => {
       uri: 'file:///a.sru',
       documentVersion: 1,
       kbVersion: 7,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       sourceOrigin: 'workspace-ws_objects' as const,
       locale: 'es',
       line: 4,
@@ -160,26 +160,26 @@ suite('unit/ServingCache', () => {
     const workspaceEs = buildInteractiveServingCacheKey(base);
     const solutionEs = buildInteractiveServingCacheKey({ ...base, sourceOrigin: 'solution-source' });
     const workspaceEn = buildInteractiveServingCacheKey({ ...base, locale: 'en' });
-    const nextEpoch = buildInteractiveServingCacheKey({ ...base, semanticEpoch: 10 });
+    const nextFingerprint = buildInteractiveServingCacheKey({ ...base, documentFingerprint: 10 });
     const otherUri = buildInteractiveServingCacheKey({ ...base, uri: 'file:///b.sru' });
 
     cache.set(workspaceEs, 'workspace-es');
     cache.set(solutionEs, 'solution-es');
     cache.set(workspaceEn, 'workspace-en');
-    cache.set(nextEpoch, 'workspace-es-epoch-10');
+    cache.set(nextFingerprint, 'workspace-es-fp-10');
     cache.set(otherUri, 'other-uri');
 
     assert.equal(cache.get(workspaceEs), 'workspace-es');
     assert.equal(cache.get(solutionEs), 'solution-es');
     assert.equal(cache.get(workspaceEn), 'workspace-en');
-    assert.equal(cache.get(nextEpoch), 'workspace-es-epoch-10');
+    assert.equal(cache.get(nextFingerprint), 'workspace-es-fp-10');
 
     cache.invalidate('file:///a.sru');
 
     assert.equal(cache.get(workspaceEs), undefined);
     assert.equal(cache.get(solutionEs), undefined);
     assert.equal(cache.get(workspaceEn), undefined);
-    assert.equal(cache.get(nextEpoch), undefined);
+    assert.equal(cache.get(nextFingerprint), undefined);
     assert.equal(cache.get(otherUri), 'other-uri');
   });
 
@@ -292,7 +292,7 @@ suite('unit/ServingCache', () => {
       uri: 'file:///a.sru',
       documentVersion: 1,
       kbVersion: 8,
-      semanticEpoch: 9,
+      documentFingerprint: 9,
       sourceOrigin: 'workspace-ws_objects',
       locale: 'en',
       line: 1,

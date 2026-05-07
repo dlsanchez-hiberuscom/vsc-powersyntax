@@ -96,4 +96,81 @@ suite('unit/progressReadiness (B134)', () => {
     assert.equal(snapshot.readiness.detail, 'failed-files');
     assert.equal(toProgressNotification(snapshot).phase, 'degraded');
   });
+
+  test('fuerza transición a degraded si discovery se atasca >30s con scheduler idle', () => {
+    const snapshot = buildProgressReadinessSnapshot({
+      discovery: { current: 1, total: 3, startTimeMs: Date.now() - 35000 },
+      indexer: {
+        phase: 'idle',
+        current: 0,
+        total: 0,
+        degraded: false,
+        byState: {
+          [FileIndexState.Pending]: 0,
+          [FileIndexState.Indexing]: 0,
+          [FileIndexState.Indexed]: 0,
+          [FileIndexState.Skipped]: 0,
+          [FileIndexState.Failed]: 0
+        }
+      },
+      activeUri: null,
+      activeProjectFiles: [],
+      workspaceFiles: [],
+      isSemanticallyReady: () => false,
+      isSchedulerIdle: true
+    });
+
+    assert.equal(snapshot.readiness.state, 'degraded');
+    assert.equal(snapshot.readiness.detail, 'discovery-timeout');
+  });
+
+  test('no fuerza transición si el scheduler no esta idle o no paso tiempo', () => {
+    const snapshotBusy = buildProgressReadinessSnapshot({
+      discovery: { current: 1, total: 3, startTimeMs: Date.now() - 35000 },
+      indexer: {
+        phase: 'idle',
+        current: 0,
+        total: 0,
+        degraded: false,
+        byState: {
+          [FileIndexState.Pending]: 0,
+          [FileIndexState.Indexing]: 0,
+          [FileIndexState.Indexed]: 0,
+          [FileIndexState.Skipped]: 0,
+          [FileIndexState.Failed]: 0
+        }
+      },
+      activeUri: null,
+      activeProjectFiles: [],
+      workspaceFiles: [],
+      isSemanticallyReady: () => false,
+      isSchedulerIdle: false
+    });
+
+    assert.equal(snapshotBusy.readiness.state, 'discovering');
+
+    const snapshotRecent = buildProgressReadinessSnapshot({
+      discovery: { current: 1, total: 3, startTimeMs: Date.now() - 10000 },
+      indexer: {
+        phase: 'idle',
+        current: 0,
+        total: 0,
+        degraded: false,
+        byState: {
+          [FileIndexState.Pending]: 0,
+          [FileIndexState.Indexing]: 0,
+          [FileIndexState.Indexed]: 0,
+          [FileIndexState.Skipped]: 0,
+          [FileIndexState.Failed]: 0
+        }
+      },
+      activeUri: null,
+      activeProjectFiles: [],
+      workspaceFiles: [],
+      isSemanticallyReady: () => false,
+      isSchedulerIdle: true
+    });
+
+    assert.equal(snapshotRecent.readiness.state, 'discovering');
+  });
 });

@@ -42,6 +42,13 @@ function cloneValue<T>(value: T): T {
   return structuredClone(value);
 }
 
+function freezeValue<T>(value: T): Readonly<T> {
+  if (process.env.NODE_ENV === 'development' && value && typeof value === 'object') {
+    return Object.freeze(value);
+  }
+  return value;
+}
+
 function createEmptyState(): PublishedKnowledgeState {
   return {
     globalSymbols: new Map(),
@@ -283,12 +290,21 @@ export class KnowledgeBase {
     return entities && entities.length > 0 ? cloneValue(entities[0]) : null;
   }
 
+  findDefinitionReadonly(symbolName: string): Readonly<Entity> | null {
+    const entities = this.publishedState.globalSymbols.get(symbolName.toLowerCase());
+    return entities && entities.length > 0 ? freezeValue(entities[0]) : null;
+  }
+
   /**
    * Busca todas las definiciones globales de un símbolo (case-insensitive).
    * Necesario para "Go to Definition" cuando hay múltiples coincidencias.
    */
   findAllDefinitions(symbolName: string): Entity[] {
     return cloneValue(this.publishedState.globalSymbols.get(symbolName.toLowerCase()) || []);
+  }
+
+  findAllDefinitionsReadonly(symbolName: string): ReadonlyArray<Entity> {
+    return freezeValue(this.publishedState.globalSymbols.get(symbolName.toLowerCase()) || []);
   }
 
   /**
@@ -308,6 +324,21 @@ export class KnowledgeBase {
       if (!isCallable) continue;
       if (!containerLc) return cloneValue(e);
       if ((e.containerName ?? '').toLowerCase() === containerLc) return cloneValue(e);
+    }
+    return null;
+  }
+
+  findCallableReadonly(name: string, container?: string): Readonly<Entity> | null {
+    const entities = this.publishedState.globalSymbols.get(name.toLowerCase());
+    if (!entities) return null;
+    const containerLc = container?.toLowerCase();
+    for (const e of entities) {
+      const isCallable = e.kind === EntityKind.Function
+        || e.kind === EntityKind.Subroutine
+        || e.kind === EntityKind.Event;
+      if (!isCallable) continue;
+      if (!containerLc) return freezeValue(e);
+      if ((e.containerName ?? '').toLowerCase() === containerLc) return freezeValue(e);
     }
     return null;
   }
@@ -391,6 +422,17 @@ export class KnowledgeBase {
     return cloneValue(entities ?? []);
   }
 
+  getEntitiesByUriReadonly(uri: string): ReadonlyArray<Entity> {
+    const normalizedUri = normalizeUri(uri);
+    const snapshotEntities = this.publishedState.documentSnapshots.get(normalizedUri)?.symbols;
+    if (snapshotEntities) {
+      return freezeValue(snapshotEntities);
+    }
+
+    const entities = this.publishedState.entitiesByUri.get(normalizedUri);
+    return freezeValue(entities ?? []);
+  }
+
   /**
    * Devuelve las entidades cuyo owner lógico es un contenedor dado.
    * Operación O(1) sobre el índice por contenedor; preferir frente a `getAllEntities()`
@@ -403,6 +445,15 @@ export class KnowledgeBase {
     }
 
     return cloneValue(this.publishedState.entitiesByContainer.get(normalizedContainer) ?? []);
+  }
+
+  getEntitiesByContainerReadonly(containerName: string): ReadonlyArray<Entity> {
+    const normalizedContainer = normalizeContainerKey(containerName);
+    if (!normalizedContainer) {
+      return [];
+    }
+
+    return freezeValue(this.publishedState.entitiesByContainer.get(normalizedContainer) ?? []);
   }
 
   /**
@@ -423,6 +474,11 @@ export class KnowledgeBase {
   getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null {
     const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
     return snapshot ? cloneValue(snapshot) : null;
+  }
+
+  getDocumentSnapshotReadonly(uri: string): Readonly<SemanticDocumentSnapshot> | null {
+    const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
+    return snapshot ? freezeValue(snapshot) : null;
   }
 
   hasDocumentSnapshot(uri: string): boolean {
@@ -502,6 +558,49 @@ export class KnowledgeBase {
       // recorrido es lineal acotado por la profundidad real (típico ≤ 3).
     }
     return best ? cloneValue(best) : null;
+  }
+
+  getScopeAtReadonly(uri: string, line: number): Readonly<Scope> | null {
+    const normalizedUri = normalizeUri(uri);
+    const scopes = this.publishedState.documentSnapshots.get(normalizedUri)?.scopes
+      ?? this.publishedState.documentScopes.get(normalizedUri);
+    if (!scopes || scopes.length === 0) return null;
+
+    let index = this.publishedState.scopeIndex.get(normalizedUri);
+    if (!index) {
+      index = [];
+      const walk = (list: Scope[], depth: number) => {
+        for (const s of list) {
+          index!.push({ start: s.startLine, end: s.endLine, depth, scope: s });
+          if (s.children.length > 0) walk(s.children, depth + 1);
+        }
+      };
+      walk(scopes, 0);
+      index.sort((a, b) => a.start - b.start);
+      this.publishedState.scopeIndex.set(normalizedUri, index);
+    }
+
+    // Búsqueda binaria: índice del primero con start > line.
+    let lo = 0;
+    let hi = index.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (index[mid].start <= line) lo = mid + 1;
+      else hi = mid;
+    }
+
+    let best: Scope | null = null;
+    let bestDepth = -1;
+    // Recorrer de derecha a izquierda los candidatos cuyo start <= line.
+    for (let k = lo - 1; k >= 0; k--) {
+      const c = index[k];
+      if (c.end < line) continue;
+      if (c.depth > bestDepth) {
+        best = c.scope;
+        bestDepth = c.depth;
+      }
+    }
+    return best ? freezeValue(best) : null;
   }
 
   /**

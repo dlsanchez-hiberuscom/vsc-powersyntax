@@ -7,7 +7,8 @@ export type RuntimeWorkloadClass =
   | 'build'
   | 'legacy-orca'
   | 'ai-tooling'
-  | 'maintenance';
+  | 'maintenance'
+  | 'critical-initialization';
 
 export type RuntimeWorkloadLane = 'interactive' | 'near' | 'background';
 
@@ -82,6 +83,13 @@ const RUNTIME_WORKLOAD_POLICIES: Record<RuntimeWorkloadClass, RuntimeWorkloadPol
     lane: 'background',
     throttledByLatency: true,
     preemptible: true,
+  },
+  'critical-initialization': {
+    workload: 'critical-initialization',
+    label: 'critical-initialization',
+    lane: 'background',
+    throttledByLatency: false,
+    preemptible: false,
   },
 };
 

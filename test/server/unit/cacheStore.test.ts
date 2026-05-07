@@ -552,4 +552,36 @@ suite('unit/cacheStore', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
+
+  test('getStats reporta pendingMutations y autoCompactions', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const store = createSemanticCacheStore(new NodeFileSystem(), storageUri, ['file:///workspace']);
+
+    try {
+      assert.deepEqual(store.getStats(), { pendingMutations: 0, autoCompactions: 0 });
+
+      await store.appendJournalMutation({ semanticEpoch: 2, kind: 'remove', uris: ['file:///a.sru'] });
+      await store.appendJournalMutation({ semanticEpoch: 3, kind: 'remove', uris: ['file:///b.sru'] });
+      
+      assert.deepEqual(store.getStats(), { pendingMutations: 2, autoCompactions: 0 });
+
+      const metadata = { workspaceMode: 'workspace' as const, rootUris: ['file:///workspace'] };
+      await store.persistCheckpoint(createCacheCheckpoint(3, [], metadata));
+      
+      assert.deepEqual(store.getStats(), { pendingMutations: 0, autoCompactions: 0 });
+
+      // Simular threshold alcanzado (maxJournalEntries es 24)
+      for (let i = 0; i < 25; i++) {
+        await store.appendJournalMutation({ semanticEpoch: 4 + i, kind: 'remove', uris: [`file:///c-${i}.sru`] });
+      }
+      assert.deepEqual(store.getStats(), { pendingMutations: 25, autoCompactions: 0 });
+
+      await store.runMaintenance(metadata);
+      
+      assert.deepEqual(store.getStats(), { pendingMutations: 0, autoCompactions: 1 });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

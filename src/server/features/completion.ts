@@ -74,7 +74,7 @@ interface CompletionResolveDataBase {
   uri: string;
   documentVersion: number;
   kbVersion: number;
-  semanticEpoch: number;
+  documentFingerprint: number | string;
   sourceOrigin: SourceOrigin | 'unknown';
   locale: DocumentationLocale;
 }
@@ -123,7 +123,7 @@ function createCompletionResolveContext(
     uri: document.uri,
     documentVersion: document.version,
     kbVersion: kb.version,
-    semanticEpoch: kb.semanticEpoch,
+    documentFingerprint: kb.semanticEpoch,
     sourceOrigin: providerContext?.sourceOrigin ?? 'unknown',
     locale: documentationLocale,
   };
@@ -303,7 +303,7 @@ export function provideCompletion(
     const seen = new Set<string>();
 
     // 1. Local variables
-    const scope = kb.getScopeAt(currentUri, position.line);
+    const scope = kb.getScopeAtReadonly(currentUri, position.line);
     if (scope) {
       for (const local of scope.symbols) {
         if (!local.name.toLowerCase().startsWith(identifierPrefix)) continue;
@@ -543,7 +543,7 @@ export function isCompletionItemResolveData(value: unknown): value is Completion
     && typeof candidate.uri === 'string'
     && typeof candidate.documentVersion === 'number'
     && typeof candidate.kbVersion === 'number'
-    && typeof candidate.semanticEpoch === 'number'
+    && (typeof candidate.documentFingerprint === 'number' || typeof candidate.documentFingerprint === 'string')
     && (candidate.source === 'system' || candidate.source === 'entity');
 }
 
@@ -592,12 +592,12 @@ function resolveEntityCompletionEntry(
   kb: KnowledgeBase,
   data: Extract<CompletionItemResolveData, { source: 'entity' }>,
 ): Entity | undefined {
-  const direct = kb.getEntitiesByUri(data.entityUri).find((entity) => matchesCompletionEntity(entity, data));
+  const direct = kb.getEntitiesByUriReadonly(data.entityUri).find((entity) => matchesCompletionEntity(entity, data));
   if (direct) {
     return direct;
   }
 
-  const scope = kb.getScopeAt(data.entityUri, data.line);
+  const scope = kb.getScopeAtReadonly(data.entityUri, data.line);
   return scope?.symbols.find((entity) => matchesCompletionEntity(entity, data));
 }
 

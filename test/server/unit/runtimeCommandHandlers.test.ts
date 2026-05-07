@@ -14,7 +14,7 @@ suite('unit/runtimeCommandHandlers', () => {
       payloadBytes: 42,
       locale: 'en',
       kbVersion: 7,
-      semanticEpoch: 11,
+      documentFingerprint: 11,
       budgetMs: 50,
     });
 
