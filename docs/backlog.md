@@ -49,6 +49,9 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 33. PB-PERF-P2-LAZY-DIAGNOSTICS-01
 34. PB-PERF-P2-CATALOG-DICTIONARIES-01
 35. PB-PERF-P2-REACTIVE-EXPLORER-01
+36. PB-PERF-P2-OPTIMISTIC-SNAPSHOTS-01
+37. PB-PERF-P2-SEMANTIC-TOKENS-DELTA-01
+38. PB-PERF-P2-BACKGROUND-INDEXING-01
 ```
 
 ---
@@ -227,6 +230,46 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
   - El *Object Explorer* y el *Current Object Context* se actualizan solo cuando el servidor emite el evento de mutación de epoch.
 
 ---
+
+## PB-PERF-P2-OPTIMISTIC-SNAPSHOTS-01 — Generación Asíncrona de Snapshots (Stale-While-Revalidate)
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 36.
+- **Origen:** Auditoría de Arquitectura de UI y Velocidad Percibida.
+- **Evidencia:** Las llamadas a `Hover` y `Completion` se bloquean forzando una reconstrucción síncrona completa del AST si el documento está modificado (sucio).
+- **Objetivo:** El parser construirá los `SemanticDocumentSnapshot` en un worker o *chunking asíncrono*. Las features interactivas utilizarán siempre la última versión estable (stale) + un parche léxico instantáneo de la línea activa, respondiendo siempre en `< 10ms`.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - `Hover` y `Completion` nunca esperan más de 10ms, incluso si el archivo entero no ha terminado de re-indexarse.
+
+---
+
+## PB-PERF-P2-SEMANTIC-TOKENS-DELTA-01 — Tokenización Incremental (Edits)
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 37.
+- **Origen:** Auditoría de Arquitectura de UI y Velocidad Percibida.
+- **Evidencia:** `semanticTokens.ts` reevalúa y envía el array completo de tokens para todo el documento en cada recálculo, colapsando archivos grandes.
+- **Objetivo:** Implementar soporte LSP para `textDocument/semanticTokens/full/delta`. El servidor solo calculará y enviará al cliente las diferencias matemáticas de los tokens que mutaron.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - El cliente de VS Code negocia y consume deltas de tokens en lugar del documento completo.
+
+---
+
+## PB-PERF-P2-BACKGROUND-INDEXING-01 — Indexación de Workspace No Bloqueante (Chunking)
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 38.
+- **Origen:** Auditoría de Arquitectura de UI y Velocidad Percibida.
+- **Evidencia:** La inicialización de la extensión traba el hilo principal leyendo masivamente el workspace antes de reportar "Ready".
+- **Objetivo:** Mover el descubrimiento de archivos (Fixtures, PBLs, SRUs) a colas fraccionadas con `setImmediate`. El LS arranca interactivo al instante con características base, y reporta el progreso incrementalmente.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - El LSP no excede presupuestos de 50ms por *tick* del event loop durante el arranque.
 
 # 4. Backlog derivado — Errores reales capturados en runtime
 
