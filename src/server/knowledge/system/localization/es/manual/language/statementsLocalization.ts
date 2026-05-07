@@ -5,7 +5,7 @@ import { PbSystemSymbolLocalizationOverlay } from '../../../../types';
  */
 export const statementsLocalization: PbSystemSymbolLocalizationOverlay[] = [
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'statements', kind: 'statement', namespace: 'powerscript', invocation: 'global', name: 'HALT' },
         text: {
             summary: 'Detiene la ejecución de la aplicación.',

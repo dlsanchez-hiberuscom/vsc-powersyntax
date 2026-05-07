@@ -5,7 +5,7 @@ import { PbSystemSymbolLocalizationOverlay } from '../../../../types';
  */
 export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] = [
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'Clicked', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara cuando el usuario hace clic en cualquier punto del DataWindow.',
@@ -20,7 +20,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'DoubleClicked', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara cuando el usuario hace doble clic dentro del DataWindow.',
@@ -35,7 +35,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'ButtonClicked', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara después de que el usuario pulse un botón contenido en el DataWindow.',
@@ -49,7 +49,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'ItemChanged', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara cuando cambia un campo del DataWindow y pierde el foco antes de aceptar el valor.',
@@ -63,7 +63,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'ItemError', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara cuando un valor modificado no supera la validación de la columna.',
@@ -77,7 +77,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'ItemFocusChanged', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara cuando cambia el item actual que tiene el foco dentro del DataWindow.',
@@ -90,7 +90,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'RowFocusChanged', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara cuando cambia la fila actual del DataWindow.',
@@ -102,7 +102,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'RowFocusChanging', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Se dispara justo antes de que cambie la fila actual del DataWindow.',
@@ -115,7 +115,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'DBError', ownerTypes: ['datawindow', 'datastore'] },
         text: {
             summary: 'Se dispara cuando una operación de base de datos del DataWindow o DataStore produce error.',
@@ -131,7 +131,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'RetrieveStart', ownerTypes: ['datawindow', 'datastore'] },
         text: {
             summary: 'Se dispara justo antes de iniciar un Retrieve sobre el DataWindow o DataStore.',
@@ -140,7 +140,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'RetrieveRow', ownerTypes: ['datawindow', 'datastore'] },
         text: {
             summary: 'Se dispara después de recuperar cada fila durante un Retrieve.',
@@ -152,7 +152,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'RetrieveEnd', ownerTypes: ['datawindow', 'datastore'] },
         text: {
             summary: 'Se dispara cuando termina el proceso de Retrieve.',
@@ -164,7 +164,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'UpdateStart', ownerTypes: ['datawindow', 'datastore'] },
         text: {
             summary: 'Se dispara justo antes de enviar a la base de datos los cambios del DataWindow o DataStore.',
@@ -173,7 +173,7 @@ export const dataWindowEventsLocalization: PbSystemSymbolLocalizationOverlay[] =
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-events', kind: 'event', namespace: 'datawindow', invocation: 'member', name: 'UpdateEnd', ownerTypes: ['datawindow', 'datastore'] },
         text: {
             summary: 'Se dispara cuando finaliza el proceso de Update.',

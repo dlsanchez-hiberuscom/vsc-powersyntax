@@ -3,7 +3,7 @@ import type { PbSystemSymbolLocalizationOverlay } from '../../../../types';
 export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',
@@ -19,7 +19,7 @@ export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	},
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',
@@ -35,7 +35,7 @@ export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	},
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',
@@ -51,7 +51,7 @@ export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	},
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',
@@ -67,7 +67,7 @@ export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	},
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',
@@ -83,7 +83,7 @@ export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	},
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',
@@ -99,7 +99,7 @@ export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	},
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',
@@ -115,7 +115,7 @@ export const toolingLocalization: PbSystemSymbolLocalizationOverlay[] = [
 	},
 	{
 		locale: 'es',
-		reviewed: false,
+		reviewed: true,
 		source: 'manual-curated',
 		targetKey: {
 			domain: 'tooling-symbols',

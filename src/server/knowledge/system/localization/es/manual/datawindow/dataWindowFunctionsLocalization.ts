@@ -6,67 +6,67 @@ import { PbSystemSymbolLocalizationOverlay } from '../../../../types';
  */
 export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = [
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Collapse', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Contrae un grupo TreeView concreto dentro del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CollapseAll', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Contrae todos los grupos TreeView del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CollapseAllChildren', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Contrae todos los descendientes del grupo TreeView indicado.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CollapseLevel', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Contrae todos los grupos TreeView del nivel indicado.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Create', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Crea en runtime un DataWindow a partir de una definición dinámica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CreateFrom', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Crea un DataWindow dinámico a partir de otro origen compatible.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CrosstabDialog', ownerTypes: ['datawindow'] },
         text: { summary: 'Abre el diálogo interactivo de Crosstab para el control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Drag', ownerTypes: ['datawindow'] },
         text: { summary: 'Inicia o termina el arrastre del control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ExpandAllChildren', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Expande todos los descendientes del grupo TreeView indicado.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ExpandLevel', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Expande todos los grupos TreeView del nivel indicado.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'FindGroupChange', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Busca el siguiente cambio de grupo dentro del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'FindRequired', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Busca la siguiente fila con datos obligatorios pendientes.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemFormattedString', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Recupera el valor formateado de una columna como cadena.',
@@ -75,7 +75,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemStatus', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el estado de una fila o de una columna dentro de una fila.',
@@ -84,7 +84,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemUnformattedString', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Recupera el valor sin formato de una columna como cadena.',
@@ -93,362 +93,362 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'IsExpanded', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Indica si el grupo TreeView indicado está expandido.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'IsSelected', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Indica si la fila indicada está seleccionada en el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'PostEvent', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Publica un evento asíncrono sobre el DataWindow o DataStore.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetCultureFormat', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Ajusta el formato cultural usado para presentar y parsear datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'TriggerEvent', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Dispara inmediatamente un evento sobre el DataWindow o DataStore.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CopyRTF', ownerTypes: ['datawindow'] },
         text: { summary: 'Copia contenido RichText del control DataWindow al portapapeles.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRichTextAlign', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la alineación activa en el control RichText del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRichTextColor', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el color activo del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRichTextFaceName', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la fuente activa del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRichTextSize', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el tamaño activo del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRichTextStyle', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el estilo activo del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'InsertDocument', ownerTypes: ['datawindow'] },
         text: { summary: 'Inserta un documento RichText dentro del control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'LineCount', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el número de líneas del contenido RichText actual.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'OLEActivate', ownerTypes: ['datawindow'] },
         text: { summary: 'Activa el objeto OLE incrustado en el control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'PasteRTF', ownerTypes: ['datawindow'] },
         text: { summary: 'Pega contenido RichText en el control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ResetInk', ownerTypes: ['datawindow'] },
         text: { summary: 'Limpia la capa de tinta digital asociada al control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SaveAsAscii', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Guarda el contenido del DataWindow como texto ASCII.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SaveAsFormattedText', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Guarda el contenido formateado del DataWindow como texto.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SaveDisplayedDataAs', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Guarda exactamente los datos mostrados por el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SaveInk', ownerTypes: ['datawindow'] },
         text: { summary: 'Guarda la capa de tinta digital del control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SaveInkPic', ownerTypes: ['datawindow'] },
         text: { summary: 'Guarda la capa de tinta como imagen.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetFullState', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Aplica un blob con el estado completo del DataWindow o DataStore.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRichTextAlign', ownerTypes: ['datawindow'] },
         text: { summary: 'Cambia la alineación del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRichTextColor', ownerTypes: ['datawindow'] },
         text: { summary: 'Cambia el color del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRichTextFaceName', ownerTypes: ['datawindow'] },
         text: { summary: 'Cambia la fuente activa en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRichTextSize', ownerTypes: ['datawindow'] },
         text: { summary: 'Cambia el tamaño del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRichTextStyle', ownerTypes: ['datawindow'] },
         text: { summary: 'Cambia el estilo del texto en el control RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetSQLPreview', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Activa o configura el modo de vista previa SQL del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetText', ownerTypes: ['datawindow'] },
         text: { summary: 'Sustituye el texto del edit control activo del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ShowHeadFoot', ownerTypes: ['datawindow'] },
         text: { summary: 'Muestra u oculta cabeceras y pies en el control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CategoryCount', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve cuántas categorías tiene la gráfica del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CategoryName', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el nombre de una categoría de la gráfica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Clipboard', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Copia la gráfica actual al portapapeles.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'DataCount', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve cuántos puntos de datos expone la gráfica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'FindCategory', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Busca una categoría concreta dentro de la gráfica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'FindSeries', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Busca una serie concreta dentro de la gráfica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetData', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Recupera el valor de un punto de datos de la gráfica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataDateVariable', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Recupera la variable de fecha asociada a un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataLabelling', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve la configuración de etiquetado de un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataNumberVariable', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Recupera la variable numérica asociada a un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataPieExplode', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el valor explode configurado para un punto de un gráfico circular.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataPieExplodePercentage', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el porcentaje explode configurado para un punto circular.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStringVariable', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Recupera la variable string asociada a un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStyle', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve la configuración de estilo de un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStyleColorValue', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el color configurado para un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStyleLineStyle', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el estilo de línea configurado para un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStyleLineWidth', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el ancho de línea configurado para un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStyleSymbolValue', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el símbolo configurado para un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataTransparency', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve la transparencia configurada para un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataValue', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Recupera el valor numérico mostrado por un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesLabelling', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve la configuración de etiquetado de una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesStyle', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve la configuración de estilo de una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesStyleColorValue', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el color configurado para una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesStyleFillPattern', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el patrón de relleno configurado para una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesStyleLineStyle', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el estilo de línea configurado para una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesStyleLineWidth', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el ancho de línea configurado para una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesStyleOverlayValue', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el valor overlay configurado para una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesStyleSymbolValue', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el símbolo configurado para una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSeriesTransparency', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve la transparencia configurada para una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SeriesCount', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve cuántas series expone la gráfica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SeriesName', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el nombre de una serie de la gráfica.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetDataLabelling', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Configura el etiquetado visible de un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetDataPieExplode', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Configura el explode de un punto en un gráfico circular.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetDataStyle', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Configura el estilo visible de un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetDataTransparency', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Configura la transparencia visible de un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetSeriesLabelling', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Configura el etiquetado visible de una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetSeriesStyle', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Configura el estilo visible de una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetSeriesTransparency', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Configura la transparencia visible de una serie.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ObjectAtPointer', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el objeto gráfico situado bajo el puntero.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ObjectAtPointerDataPoint', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el punto de datos gráfico situado bajo el puntero.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ResetDataColors', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Restaura los colores automáticos de la gráfica del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'AcceptText', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Valida y acepta el texto que el usuario ha introducido en el control de edición activo.',
@@ -457,7 +457,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Describe', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Informa los valores de las propiedades de un objeto DataWindow y sus controles.',
@@ -473,27 +473,27 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemString', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene datos de tipo string desde uno de los buffers del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemDate', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene datos de tipo date desde uno de los buffers del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemDateTime', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene datos de tipo DateTime desde uno de los buffers del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemDecimal', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene datos de tipo decimal desde uno de los buffers del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el número de la fila actual.',
@@ -502,7 +502,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Modify', ownerTypes: ['datawindow', 'datastore', 'datawindowchild'] },
         text: {
             summary: 'Modifica un objeto DataWindow mediante una cadena que contiene sentencias de modificación.',
@@ -514,7 +514,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ],
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'DeleteRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Mueve una fila del buffer primario al buffer de borrados.',
@@ -530,7 +530,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'DeletedCount', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el número de filas actualmente en el buffer de borrados.',
@@ -539,7 +539,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'InsertRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Inserta una fila vacía en el buffer primario del DataWindow o DataStore.',
@@ -555,37 +555,37 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Find', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Busca la siguiente fila cuyo contenido cumpla una expresión booleana sobre columnas.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Filter', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Aplica al DataWindow los criterios de filtrado actualmente definidos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetFilter', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Define la expresión de filtrado que luego se aplicará con Filter.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cambia programáticamente la fila actual del DataWindow, DataWindowChild o DataStore.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetSort', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Define los criterios de ordenación activos para el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Sort', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Ordena las filas usando los criterios configurados en el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ScrollToRow', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: {
             summary: 'Desplaza la vista del DataWindow hasta la fila indicada.',
@@ -601,12 +601,12 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Reset', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Limpia todos los datos actuales del DataWindow sin afectar a la base de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Retrieve', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Recupera filas desde la base de datos para el DataWindow o DataStore.',
@@ -622,7 +622,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'RowCount', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el número de filas actualmente disponibles en el buffer primario.',
@@ -631,7 +631,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetItem', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Asigna un valor a una fila y columna específicas dentro de un buffer.',
@@ -657,12 +657,12 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetItemStatus', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cambia el estado de modificación de una fila o de una columna dentro de una fila.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetTransObject', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Asocia un objeto de transacción explícito para que el llamador controle CONNECT, COMMIT y ROLLBACK.',
@@ -678,7 +678,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetTrans', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Establece la información de transacción para el DataWindow en su objeto de transacción interno.',
@@ -693,7 +693,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Update', ownerTypes: ['datastore', 'datawindow', 'datawindowchild'] },
         text: {
             summary: 'Envía los cambios acumulados en el DataWindow a la base de datos.',
@@ -714,57 +714,57 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Show', ownerTypes: ['datawindow'] },
         text: { summary: 'Hace visible el control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Hide', ownerTypes: ['datawindow'] },
         text: { summary: 'Oculta el control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Move', ownerTypes: ['datawindow'] },
         text: { summary: 'Reubica el control DataWindow dentro de su contenedor.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Resize', ownerTypes: ['datawindow'] },
         text: { summary: 'Cambia el tamaño del control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemTime', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene datos de tipo time desde uno de los buffers del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetNextModified', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Devuelve la siguiente fila modificada a partir de una fila inicial en el buffer indicado.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRowFromRowId', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene el número de fila asociado a un row id único.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetRowIdFromRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene el row id único asociado a una fila del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSelectedRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Devuelve la primera fila seleccionada a partir de la fila indicada.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetSQLSelect', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Devuelve el SELECT actualmente asociado al DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetText', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el texto actual del control de edición activo.',
@@ -773,22 +773,22 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetValidate', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Devuelve la regla de validación configurada para una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetValue', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Devuelve un ítem concreto de la value list o code table de una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ClearValues', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Elimina todos los ítems de la value list o code table asociada a una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetChild', ownerTypes: ['datawindow', 'datastore'] },
         text: {
             summary: 'Obtiene una referencia al child DataWindow o a un reporte de un composite DataWindow.',
@@ -809,7 +809,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetClickedColumn', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve la columna sobre la que el usuario ha hecho clic.',
@@ -818,7 +818,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetClickedRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve la fila sobre la que el usuario ha hecho clic.',
@@ -827,7 +827,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetColumn', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el número de la columna actual.',
@@ -836,7 +836,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetColumnName', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el nombre de la columna actual.',
@@ -845,22 +845,22 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetFormat', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Devuelve el formato de presentación configurado para una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetColumn', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Convierte la columna indicada en la columna actual del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetFormat', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cambia en runtime el formato de presentación de una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'FilteredCount', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el número de filas actualmente en el buffer de filtro.',
@@ -869,7 +869,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ModifiedCount', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el número de filas que han sido modificadas y están pendientes de actualización.',
@@ -878,67 +878,67 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetChanges', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Recupera en un blob los cambios pendientes del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetFullState', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Recupera el estado completo del DataWindow en un blob serializable.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetStateStatus', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene el estado interno de flags del DataWindow en un blob.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ResetUpdate', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Resetea las marcas de update pendientes en las filas del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'RowsCopy', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Copia un rango de filas entre buffers o entre DataWindows compatibles.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'RowsDiscard', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Descarta definitivamente un rango de filas sin posibilidad de undo.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetChanges', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Aplica sobre el DataWindow un blob de cambios capturado previamente.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'DBCancel', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cancela una recuperación de base de datos que sigue en curso.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetTrans', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Recupera los valores del Transaction object interno del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ResetTransObject', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Desasocia un Transaction object explícito y vuelve al transaction interno.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ReselectRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Reconsulta columnas actualizables y refresh de timestamps para una fila.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetSQLSelect', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cambia en runtime el SELECT asociado al DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetTrans', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Copia valores al transaction object interno y deja que PowerBuilder conecte y desconecte automaticamente.',
@@ -953,72 +953,72 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ShareData', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Comparte el dataset entre un DataWindow primario y otro secundario.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ShareDataOff', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Interrumpe un enlace previo de ShareData.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SaveAs', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Guarda el contenido del DataWindow en un fichero con el formato indicado.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SaveNativePDFToBlob', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Guarda en un blob el PDF nativo generado desde el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ExportJson', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Exporta el contenido del DataWindow a una cadena JSON.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ImportClipboard', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Importa filas o contenido desde el portapapeles al DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ImportFile', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Importa contenido desde un fichero externo al DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ImportJson', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Inserta datos desde una cadena JSON en el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ImportJsonByKey', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Inserta datos JSON mapeando explícitamente por nombre de clave.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ImportRowFromJson', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Inserta una fila concreta desde una cadena JSON.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ImportString', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Importa contenido textual serializado directamente en el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Print', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Envía el contenido del DataWindow a la impresora activa.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'PrintCancel', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cancela el trabajo de impresión actual del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ClassName', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el nombre asignado al control u objeto DataWindow.',
@@ -1027,12 +1027,12 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetContextService', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Crea una referencia a una instancia de servicio contextual para el DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetParent', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve una referencia al objeto padre del DataWindow.',
@@ -1041,7 +1041,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'TypeOf', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Devuelve el tipo de runtime del control u objeto DataWindow.',
@@ -1050,37 +1050,37 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetBorderStyle', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Devuelve el estilo de borde configurado para una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetBorderStyle', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cambia el estilo de borde configurado para una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetDetailHeight', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cambia la altura de las filas dentro de un rango determinado.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetPosition', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Reordena el control u objetos internos del DataWindow en el eje visual.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Expand', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Expande un grupo TreeView concreto dentro del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ExpandAll', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Expande todos los grupos TreeView del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'CanUndo', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Indica si el edit control actual del DataWindow puede deshacer la última edición.',
@@ -1088,7 +1088,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Clear', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Borra el texto seleccionado en el edit control activo del DataWindow.',
@@ -1096,7 +1096,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Copy', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Copia al portapapeles el texto seleccionado del edit control activo.',
@@ -1104,7 +1104,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Cut', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Corta el texto seleccionado del edit control activo y lo envía al portapapeles.',
@@ -1112,7 +1112,7 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectRow', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
             summary: 'Cambia el estado de selección de una fila.',
@@ -1133,172 +1133,172 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         ]
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ReplaceText', ownerTypes: ['datawindow'] },
         text: { summary: 'Reemplaza el texto seleccionado en el edit control activo.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectText', ownerTypes: ['datawindow'] },
         text: { summary: 'Selecciona un tramo de texto dentro del edit control activo del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Undo', ownerTypes: ['datawindow'] },
         text: { summary: 'Deshace la última edición realizada en el edit control activo del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Position', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la posición actual del cursor o de la selección en el edit control activo.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Scroll', ownerTypes: ['datawindow'] },
         text: { summary: 'Desplaza el edit control activo el número indicado de líneas.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'FindNext', ownerTypes: ['datawindow'] },
         text: { summary: 'Busca la siguiente coincidencia de texto usando los criterios previos de Find en RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetBandAtPointer', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Devuelve la banda y fila ubicadas bajo el puntero en el DataWindow visual.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetObjectAtPointer', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Devuelve el objeto interno y la fila situados bajo el puntero.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'PointerX', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la coordenada X del puntero respecto al control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'PointerY', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la coordenada Y del puntero respecto al control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectedLength', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la longitud del texto actualmente seleccionado en el edit control activo.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectedLine', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la línea actual del edit control activo del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectedStart', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la posición inicial del texto seleccionado en el edit control activo.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectedText', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el texto actualmente seleccionado en el edit control activo.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'TextLine', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve el texto completo de la línea actual del edit control activo.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ScrollNextPage', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Desplaza el DataWindow visual una página hacia delante.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ScrollNextRow', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Desplaza el DataWindow visual a la fila siguiente.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ScrollPriorPage', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Desplaza el DataWindow visual una página hacia atrás.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ScrollPriorRow', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Desplaza el DataWindow visual a la fila anterior.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetFocus', ownerTypes: ['datawindow'] },
         text: { summary: 'Transfiere el foco al control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetTabOrder', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Cambia el tab order de una columna en un DataWindow visual.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRowFocusIndicator', ownerTypes: ['datawindow', 'datawindowchild'] },
         text: { summary: 'Configura el indicador visual de la fila actual en un DataWindow visual.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectTextAll', ownerTypes: ['datawindow'] },
         text: { summary: 'Selecciona todo el contenido de un DataWindow con presentación RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectTextLine', ownerTypes: ['datawindow'] },
         text: { summary: 'Selecciona la línea actual en un DataWindow con presentación RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SelectTextWord', ownerTypes: ['datawindow'] },
         text: { summary: 'Selecciona la palabra actual en un DataWindow con presentación RichText.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetDataStyleFillPattern', ownerTypes: ['datawindow', 'datastore'] },
         text: { summary: 'Devuelve el patrón de relleno configurado para un punto de datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ObjectAtPointerSeries', ownerTypes: ['datawindow'] },
         text: { summary: 'Devuelve la serie gráfica situada bajo el puntero.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GroupCalc', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Recalcula los cortes de grupo del DataWindow tras cambios en los datos.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'RowsMove', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Mueve un rango de filas entre buffers o entre DataWindows compatibles.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetRedraw', ownerTypes: ['datawindow'] },
         text: { summary: 'Activa o desactiva el repintado automático del control DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'GetItemNumber', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Obtiene datos numéricos desde uno de los buffers del DataWindow.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetValue', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Cambia un valor concreto de la lista de valores o code table de una columna.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'ExportRowAsJson', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: { summary: 'Exporta una fila concreta del DataWindow a una cadena JSON.' },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Paste', ownerTypes: ['datawindow'] },
         text: {
             summary: 'Pega el contenido del portapapeles en el edit control activo.',

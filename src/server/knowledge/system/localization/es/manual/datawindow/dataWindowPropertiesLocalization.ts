@@ -5,7 +5,7 @@ import { PbSystemSymbolLocalizationOverlay } from '../../../../types';
  */
 export const dataWindowPropertiesLocalization: PbSystemSymbolLocalizationOverlay[] = [
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-properties', kind: 'property', namespace: 'datawindow', invocation: 'member', name: 'DataWindow' },
         text: {
             summary: 'Namespace raíz de propiedades describe/modify para el DataWindow enlazado.',
@@ -13,7 +13,7 @@ export const dataWindowPropertiesLocalization: PbSystemSymbolLocalizationOverlay
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-properties', kind: 'property', namespace: 'datawindow', invocation: 'member', name: 'DataWindow.Syntax' },
         text: {
             summary: 'Sintaxis serializada completa del DataWindow enlazado.',
@@ -21,7 +21,7 @@ export const dataWindowPropertiesLocalization: PbSystemSymbolLocalizationOverlay
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-properties', kind: 'property', namespace: 'datawindow', invocation: 'member', name: 'DataWindow.DataObject' },
         text: {
             summary: 'Nombre del DataObject actualmente enlazado al control o DataStore.',
@@ -29,7 +29,7 @@ export const dataWindowPropertiesLocalization: PbSystemSymbolLocalizationOverlay
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-properties', kind: 'property', namespace: 'datawindow', invocation: 'member', name: 'DataWindow.Table' },
         text: {
             summary: 'Namespace de metadatos de tabla y retrieval del DataWindow enlazado.',
@@ -37,7 +37,7 @@ export const dataWindowPropertiesLocalization: PbSystemSymbolLocalizationOverlay
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-properties', kind: 'property', namespace: 'datawindow', invocation: 'member', name: 'DataWindow.Table.Select' },
         text: {
             summary: 'Sentencia SQL de retrieval resuelta para el DataWindow enlazado.',
@@ -45,7 +45,7 @@ export const dataWindowPropertiesLocalization: PbSystemSymbolLocalizationOverlay
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-properties', kind: 'property', namespace: 'datawindow', invocation: 'member', name: 'dddw' },
         text: {
             summary: 'Namespace de metadatos del DropDownDataWindow asociado a una columna.',
@@ -53,7 +53,7 @@ export const dataWindowPropertiesLocalization: PbSystemSymbolLocalizationOverlay
         },
     },
     {
-        locale: 'es', reviewed: false, source: 'manual-curated',
+        locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-properties', kind: 'property', namespace: 'datawindow', invocation: 'member', name: 'dddw.name' },
         text: {
             summary: 'Nombre del DataWindow hijo asociado a la columna mediante dddw.name.',

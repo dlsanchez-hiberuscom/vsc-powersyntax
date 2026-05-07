@@ -4,7 +4,6 @@ import { jsonLocalization } from './jsonLocalization';
 import { restLocalization } from './restLocalization';
 import { oauthLocalization } from './oauthLocalization';
 import { pdfLocalization } from './pdfLocalization';
-import { filesystemLocalization } from './filesystemLocalization';
 import { compressionLocalization } from './compressionLocalization';
 import { cryptoLocalization } from './cryptoLocalization';
 import { dotnetLocalization } from './dotnetLocalization';
@@ -18,7 +17,6 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_MANUAL_INTEGRATION: PbSystemSymbol
     ...restLocalization,
     ...oauthLocalization,
     ...pdfLocalization,
-    ...filesystemLocalization,
     ...compressionLocalization,
     ...cryptoLocalization,
     ...dotnetLocalization,

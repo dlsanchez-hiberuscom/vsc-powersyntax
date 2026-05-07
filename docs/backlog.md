@@ -121,13 +121,13 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - **Tests:** `npm run test:unit -- --grep "catalogLocalization|catalogConsistency"`, `npm run report:catalog-localization`.
 
 **Status por dominio:**
-- [x] runtime (Done: systemGlobals, reflection, profiling, errors, ole, mail)
-- [ ] core (English manual base: ok. ES overlays: partial 10% - Audit clean)
-- [ ] datawindow (English manual base: ok. ES overlays: partial 70% - Audit clean)
-- [ ] visual (English manual base: ok. ES overlays: partial 61% - Audit clean)
-- [ ] language (English manual base: ok. ES overlays: partial 71% - Audit clean)
-- [ ] integration (English manual base: ok. ES overlays: partial)
-- [ ] tooling (English manual base: ok. ES overlays: 100%)
+- [x] runtime (Done: systemGlobals, reflection, profiling, errors, ole, mail, system-object-datatypes: 100%)
+- [x] core (Done: systemEvents, objectFunctions, globalFunctions)
+- [x] datawindow (Done: dataWindowFunctions, dataWindowExpressionFunctions)
+- [x] visual (Done: Ribbon, Visual, OLE)
+- [x] language (Done: datatypes, enumerations, keywords, operators, pronouns, reservedWords, statements)
+- [x] integration (Done: compression, crypto, dotnet, filesystem, http, json, oauth, pdf, rest)
+- [x] tooling (Done: PBAutoBuild, ORCA)
 
 ---
 
@@ -903,6 +903,30 @@ El mismo contexto semántico debe llegar de forma coherente a hover, diagnostics
 - **Docs:** `docs/architecture-status.md`, `docs/architecture-implementation-map.md`, `docs/technical-debt-inventory.md`, `docs/backlog.md`, `docs/current-focus.md`.
 - **Tests:** migrated feature suites, architecture import tests, docs drift, smoke views/commands.
 - **Validación:** grep de rutas retiradas, tests de parity y revisión manual de comandos/API afectada.
+---
+
+## CATALOG-GENERATOR-SCHEMA-DRIFT-01 — Reconciliación de discrepancias entre Catálogo Generado y Documentación Oficial (Web)
+
+- **Estado:** Open.
+- **Prioridad:** P1.
+- **Origen:** Auditoría de Localización (Fase 6G).
+- **Evidencia:** Funciones como `GetItemString` muestran 3 sintaxis en la [web oficial](https://docs.appeon.com/pb2025/powerscript_reference/getitemstring_func.html), pero el catálogo `generated.generated.ts` solo genera 1 firma. Además, múltiples funciones tienen parámetros en la etiqueta (`label`) que no existen en el metadato `parameters` del catálogo.
+- **Riesgo:** Alto. Los overlays de localización fallan (invalid-parameter-target) al intentar documentar parámetros que el catálogo "olvidó" en su metadato, resultando en una documentación incompleta o errónea para el usuario final en el LSP.
+- **Funciones Identificadas con Drift:**
+  - **Missing Signatures:** `GetItemString`, `GetItemNumber`, `GetItemDecimal`, `GetItemBoolean`, `GetItemDate`, `GetItemDateTime`, `GetItemTime`.
+  - **Missing Parameter Metadata:**
+    - `Compress`: Falta `dest` y `format`.
+    - `Submit`: Falta `dwObject` (en Sig 1) y `format`.
+    - `Retrieve`: Falta `urlName`, `data` y `tokenrequest`.
+    - `SetRequestHeader`: Falta `headerValue` y `replace`.
+    - `SymmetricEncrypt/Decrypt`: Falta `key`, `operationmode`, `iv` y `padding`.
+- **Objetivo:** Investigar y corregir el script de generación del catálogo para capturar todas las firmas y parámetros documentados. Mientras tanto, la política de localización debe ser "seguir el metadato del catálogo, no la etiqueta".
+- **Acceptance criteria:**
+  - Script de generación de catálogo actualizado para extraer parámetros de todas las firmas.
+  - Re-generación de `generated.generated.ts` con metadatos completos.
+  - Validación de que los overlays de localización ahora pueden incluir todos los parámetros sin errores de integridad.
+- **Docs:** `docs/architecture.md`, `docs/localization.md`.
+- **Tests:** `npm run report:catalog-localization` (debe permitir documentar estos parámetros tras el fix).
 
 ---
 
