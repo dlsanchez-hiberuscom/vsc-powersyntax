@@ -13,6 +13,7 @@ import { inferSourceOrigin } from '../shared/sourceOrigin';
 import { isPowerBuilderSemanticUri } from '../shared/powerbuilderFiles';
 import {
   PROGRESS_NOTIFICATION,
+  CATALOG_UPDATED_NOTIFICATION,
   type ProgressNotification
 } from '../shared/types';
 import { setAnalysisBackends } from './analysis/analysisCache';
@@ -108,6 +109,7 @@ const documents = new TextDocuments(TextDocument);
 const scheduler = new TaskScheduler();
 const servingLatencyGovernor = createLatencyGovernor();
 const firstInvocation = new FirstInvocationTracker();
+
 const readiness = createReadinessTracker();
 const sendProgress = (p: ProgressNotification): void => {
   void connection.sendNotification(PROGRESS_NOTIFICATION, p);
@@ -119,8 +121,13 @@ function isSemanticallyServedDocument(document: TextDocument): boolean {
 }
 const fs = new NodeFileSystem();
 const workspaceState = new WorkspaceState();
-const documentCache = new DocumentCache(256);
+const documentCache = new DocumentCache(512);
 const knowledgeBase = new KnowledgeBase();
+
+knowledgeBase.onEpochChange((epoch) => {
+  connection.sendNotification(CATALOG_UPDATED_NOTIFICATION, { epoch });
+});
+
 const inheritanceGraph = new InheritanceGraph(knowledgeBase);
 const systemCatalog = new SystemCatalog();
 const hotContextCache = new HotContextCache();
@@ -308,10 +315,10 @@ setAnalysisBackends(documentCache, knowledgeBase, {
   }
 }, (uri) => (
   workspaceState.getSourceOrigin(uri) && workspaceState.getSourceOrigin(uri) !== 'unknown'
-  ? workspaceState.getSourceOrigin(uri)!
-  : inferSourceOrigin(uri, {
-    hasSolutionRoots: workspaceState.getMode() === 'solution' || workspaceState.getMode() === 'mixed'
-  })
+    ? workspaceState.getSourceOrigin(uri)!
+    : inferSourceOrigin(uri, {
+      hasSolutionRoots: workspaceState.getMode() === 'solution' || workspaceState.getMode() === 'mixed'
+    })
 ));
 
 let activeDocumentUri: string | null = null;
@@ -422,9 +429,9 @@ function ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy {
   }
 
   if ((servingCache.size() === 0
-      && hoverViewModelCache.size() === 0
-      && hoverNegativeCache.size() === 0
-      && completionResolveNegativeCache.size() === 0)
+    && hoverViewModelCache.size() === 0
+    && hoverNegativeCache.size() === 0
+    && completionResolveNegativeCache.size() === 0)
     || lastMemoryPressureReliefReason === policy.reason) {
     return policy;
   }

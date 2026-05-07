@@ -603,6 +603,27 @@ export class KnowledgeBase {
     return best ? freezeValue(best) : null;
   }
 
+  private epochChangeListeners: ((epoch: number) => void)[] = [];
+
+  public onEpochChange(listener: (epoch: number) => void): { dispose: () => void } {
+    this.epochChangeListeners.push(listener);
+    return {
+      dispose: () => {
+        this.epochChangeListeners = this.epochChangeListeners.filter(l => l !== listener);
+      }
+    };
+  }
+
+  private notifyEpochChange(epoch: number): void {
+    for (const listener of this.epochChangeListeners) {
+      try {
+        listener(epoch);
+      } catch (e) {
+        console.error('Error in epoch change listener', e);
+      }
+    }
+  }
+
   /**
    * Limpia toda la base de conocimiento.
    */
@@ -655,7 +676,9 @@ export class KnowledgeBase {
     next.semanticEpoch = this.publishedState.semanticEpoch + 1;
     next.publishedAt = Date.now();
     this.publishedState = next;
+    this.notifyEpochChange(next.semanticEpoch);
   }
+
 
   private writeState(
     mutator: ((state: PublishedKnowledgeState) => void) | (() => PublishedKnowledgeState),

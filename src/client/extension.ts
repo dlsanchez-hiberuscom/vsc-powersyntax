@@ -15,6 +15,7 @@ import {
 } from '../shared/types';
 import {
   PROGRESS_NOTIFICATION,
+  CATALOG_UPDATED_NOTIFICATION,
   type ProgressNotification
 } from '../shared/types';
 import {
@@ -752,6 +753,16 @@ async function startClient(
         lastProgressNotification = p;
         renderProgress(item, p, lastStatusStats);
         scheduleStatusRefresh(item);
+      });
+
+      // PB-PERF-P2-REACTIVE-EXPLORER-01: Reactividad guiada por servidor (Server-Push)
+      nextClient.onNotification(CATALOG_UPDATED_NOTIFICATION, () => {
+        if (objectExplorerController) {
+          void objectExplorerController.refresh();
+        }
+        if (currentObjectContextPanelController) {
+          currentObjectContextPanelController.refresh();
+        }
       });
 
       scheduleStatusRefresh(item, 0);

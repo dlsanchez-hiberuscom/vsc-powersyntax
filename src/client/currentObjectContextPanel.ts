@@ -153,10 +153,7 @@ export class CurrentObjectContextPanelController implements vscode.Disposable {
       }),
       vscode.window.onDidChangeTextEditorSelection(() => {
         void this.refresh();
-      }),
-      vscode.workspace.onDidSaveTextDocument(() => {
-        void this.refresh();
-      }),
+      })
     );
 
     void this.refresh();

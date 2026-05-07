@@ -44,6 +44,7 @@ export const DEFAULT_SETTINGS: VscPowerSyntaxSettings = {
 // ---------------------------------------------------------------------------
 
 /** Identificador de la notificación LSP custom de progreso. */
+export const CATALOG_UPDATED_NOTIFICATION = 'powerbuilder/catalogUpdated';
 export const PROGRESS_NOTIFICATION = 'vscPowerSyntax/progress';
 
 /**
