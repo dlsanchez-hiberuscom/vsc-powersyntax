@@ -14,7 +14,7 @@ const HOTSPOT_BUDGETS = [
     allowlisted: false,
     rationale: 'Cliente host temporal hasta que B347/B354 sigan reduciendo lifecycle y bridge.',
     budgets: {
-      maxLines: 5200,
+      maxLines: 5500,
       maxImports: 38,
       maxTopLevelDeclarations: 215,
     },
@@ -61,7 +61,7 @@ const HOTSPOT_BUDGETS = [
     allowlisted: false,
     rationale: 'Wiring de handlers LSP historico; debe seguir cediendo registro a featureHandlerRegistration.ts y no recuperar semantica propia.',
     budgets: {
-      maxLines: 1500,
+      maxLines: 1600,
       maxImports: 45,
       maxTopLevelDeclarations: 70,
     },

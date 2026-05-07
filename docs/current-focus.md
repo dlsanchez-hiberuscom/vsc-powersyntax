@@ -6,10 +6,8 @@
 
 Cadena obligatoria vigente:
 ```txt
-docs/backlog.md -> Superseded: PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01
-                -> Open: PB-AUDIT-P0-DOC-ALIGNMENT-01
-                -> Open: PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01
-                -> Open: PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01
+docs/backlog.md -> Done: PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01
+                -> Done: PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01
                 -> Open: PB-SEMANTIC-P0-FACADE-CONVERGENCE-01
                 -> Open: PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01
 ```

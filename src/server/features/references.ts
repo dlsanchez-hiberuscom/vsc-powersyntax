@@ -15,13 +15,13 @@ import { Location, Position, Range } from 'vscode-languageserver/node';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import type { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
-import { resolveTargetEntityDetailed } from '../knowledge/resolution/semanticQueryService';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
 import { buildSymbolKey } from '../knowledge/symbolKey';
 import type { HotContextCache } from '../knowledge/HotContextCache';
 import { EntityKind } from '../knowledge/types';
 import { maskDocument } from '../parsing/codeMasking';
 import { hasBlockingDynamicStringReference } from './dynamicStringReferences';
-import { resolveDocumentQueryTargets, type DocumentQueryContext } from './queryContext';
+import type { DocumentQueryContext } from './queryContext';
 import { getEventApiInvocationContext, getInvocationContext } from '../utils/invocationContext';
 import { findPowerBuilderIdentifierSpan, hasPowerBuilderIdentifierBoundaries } from '../utils/pbIdentifier';
 
@@ -97,13 +97,11 @@ function matchesResolvedFamily(
   }
 
   const context = getEventApiInvocationContext(lines, Position.create(line, character))
-    ?? getInvocationContext(lines, Position.create(line, character));
-  if (!context) {
-    return false;
-  }
-
-  const resolved = resolveTargetEntityDetailed(context, uri, kb, graph, { line });
-  return resolved.targets.some((target) => targetKeys.has(buildSymbolKey(target)));
+  const facade = createSemanticQueryFacade({ kb, graph });
+  const docSimulated: TextDocument = { uri, languageId: 'powerscript', version: 0, getText: () => lines.join('\n'), positionAt: () => Position.create(line, character), offsetAt: () => 0, lineCount: lines.length };
+  const position = Position.create(line, character);
+  const resolved = facade.resolveTargetInfo(docSimulated, position, { traceLabel: 'references-fallback' });
+  return resolved?.targets.some((target) => targetKeys.has(buildSymbolKey(target))) ?? false;
 }
 
 export function provideReferences(
@@ -116,12 +114,18 @@ export function provideReferences(
   hotContext?: HotContextCache,
   queryContext?: DocumentQueryContext
 ): Location[] {
-  const resolved = queryContext?.resolvedTargets ?? resolveDocumentQueryTargets(document, position, kb, graph, hotContext, 'references', 'references');
+  const facade = createSemanticQueryFacade({ kb, graph, hotContext });
+  const resolved = queryContext?.resolvedTargets ?? facade.resolveTargetInfo(document, position, { consumer: 'references', traceLabel: 'references' });
   const word = queryContext?.context?.identifier ?? resolved?.context.identifier ?? getWordAt(document, position);
   if (!word) return [];
   const wordLower = word.toLowerCase();
+  
+  if (!resolved || resolved.targets.length === 0) {
+    return [];
+  }
+
   const result: Location[] = [];
-  const defs = resolved?.targets.length ? resolved.targets : kb.findAllDefinitions(wordLower);
+  const defs = resolved.targets;
   const targetKeys = buildResolvedFamilyKeys(defs);
   const allowEventLiteralReferences = defs.some((def) => def.kind === EntityKind.Event);
   const hasExternalDependencyTargets = defs.some((def) => def.isExternal);

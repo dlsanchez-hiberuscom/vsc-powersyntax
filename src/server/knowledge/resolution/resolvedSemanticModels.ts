@@ -22,6 +22,7 @@ export interface CanonicalSymbolModel {
   owner?: string;
   fileObjectName?: string;
   containerSignature?: string;
+  documentation?: string;
   scope?: Entity['scope'];
   declarationScope?: Entity['declarationScope'];
   implementationKind?: Entity['implementationKind'];
@@ -86,6 +87,7 @@ export function toCanonicalSymbolModel(
     ...(entity.containerName ?? entity.ownerName ? { owner: entity.containerName ?? entity.ownerName } : {}),
     ...(entity.fileObjectName ? { fileObjectName: entity.fileObjectName } : {}),
     ...(entity.containerSignature ? { containerSignature: entity.containerSignature } : {}),
+    ...(entity.documentation ? { documentation: entity.documentation } : {}),
     ...(entity.scope ? { scope: entity.scope } : {}),
     ...(entity.declarationScope ? { declarationScope: entity.declarationScope } : {}),
     ...(entity.implementationKind ? { implementationKind: entity.implementationKind } : {}),

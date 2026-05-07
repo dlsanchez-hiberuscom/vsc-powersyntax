@@ -25,7 +25,71 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
-## 1.243 AUDIT-06: PowerBuilder Metadata Catalog Hardening — **Cerrado (symbols / catalog / integrity / 2026-05)**
+## 1.246 PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01 — **Cerrado (architecture / semantic-conformance / 2026-05)**
+
+**Objetivo:** Añadir tests de conformidad para source-of-truth, query contract, cache keys, confidence/evidence y read-only projections.
+
+**Resultado registrado:**
+- Se redactó la spec oficial en `docs/specs/PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01.md`.
+- Se implementó la suite de arquitectura estática en `test/server/unit/semanticArchitectureConformance.test.ts` para verificar que ningún feature bypassa `SemanticQueryFacade`.
+- Los tests validan explícitamente el contrato de la caché (epoch, versioning).
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01"` (`2 passing`)
+- `npm run test:docs:drift` (`status: passed`)
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/testing.md`
+- `docs/performance-budget.md`
+
+---
+
+## 1.245 PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01 — **Cerrado (architecture / semantic-design / 2026-05)**
+
+**Objetivo:** Formalizar la especificación arquitectónica para el target semántico, asegurando la separación clara entre diseño objetivo y estado real, protegiendo los principios de "no big-bang" y "no parallel store", y enlazando el diseño desde toda la documentación owner.
+
+**Resultado registrado:**
+- Se ha redactado y registrado la spec en `docs/specs/PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01.md`.
+- `docs/architecture.md`, `docs/architecture-status.md` y `docs/architecture-implementation-map.md` apuntan unívocamente a `docs/semantic-design-target.md` como contrato del target de diseño semántico futuro.
+- Se fijó la separación arquitectónica y documental.
+
+**Validación registrada:**
+- `npm run test:docs:drift` ( findings: 0 )
+- `npm run test:architecture:rapid` ( skips/passes correctamente )
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/architecture.md`
+- `docs/architecture-status.md`
+- `docs/architecture-implementation-map.md`
+- `docs/current-focus.md`
+
+---
+
+## 1.244 PB-AUDIT-P0-DOC-ALIGNMENT-01 — **Cerrado (governance / doc-alignment / 2026-05)**
+
+**Objetivo:** restaurar la consistencia absoluta entre backlog, foco activo, histórico y roadmap tras la ultra auditoría semántica, eliminando drift de tareas absorbidas y clarificando claims de conditional compilation.
+
+**Resultado registrado:**
+- `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01` ha sido eliminado del backlog activo y del foco; sus hitos de severidad ya residen en `done-log.md` (1.239) y el backlog (0.2) ahora prohíbe reabrirlo sin evidencia nueva.
+- `docs/backlog.md`, `docs/current-focus.md`, `docs/done-log.md` y `docs/roadmap.md` han sido sincronizados, eliminando contradicciones sobre el foco "POST-AUDIT".
+- Se ha clarificado en la guía técnica canónica y en el done-log (1.200) que el soporte de conditional compilation es un "gate de evidencia" (detector read-only) y no una promesa de soporte productivo completo, alineando las expectativas del plugin con la realidad del parser.
+- Los estados `Done`, `Superseded`, `Open` y `Partial` han sido normalizados a lo largo de los documentos maestros.
+
+**Validación registrada:**
+- `npm run test:docs:drift` ( findings: 0 )
+- Verificación manual de la cadena de IDs en los 4 documentos maestros.
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+- `docs/roadmap.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
+---
+
 
 **Objetivo:** Finalizar la sanitización e integridad del catálogo de metadatos oficial (PB 2025) para asegurar un rendimiento del LSP de alta fidelidad, eliminando ruido documental y garantizando la coherencia del esquema de símbolos del sistema.
 

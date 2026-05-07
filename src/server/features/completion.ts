@@ -13,12 +13,9 @@ import { CharType } from '../utils/comments';
 import { resolveCatalogOwnerTypes } from './dataWindowBindingModel';
 import { buildDataWindowModel, rangeContains } from './dataWindowModel';
 import { provideDataWindowCompletionAdapter } from './dataWindowServingAdapters';
-import { createDocumentQueryContext, resolveDocumentQualifierType } from './queryContext';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
-import {
-  matchesEnumeratedPropertyContext,
-  resolveExpectedEnumContextForCallArgumentAtPosition,
-} from './enumeratedContext';
+import { matchesEnumeratedPropertyContext } from './enumeratedContext';
 import type { SourceOrigin } from '../../shared/sourceOrigin';
 import {
   buildEntityCompletionItemViewModel,
@@ -166,6 +163,7 @@ export function provideCompletion(
   const snapshot = getDocumentAnalysis(document).snapshot;
   const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
   const resolveContext = createCompletionResolveContext(document, kb, documentationLocale, providerContext);
+  const facade = createSemanticQueryFacade({ kb, graph, systemCatalog, hotContext });
 
   const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(document, position, systemCatalog, documentationLocale, resolveContext);
   if (dataWindowExpressionCompletion) {
@@ -196,7 +194,7 @@ export function provideCompletion(
 
   const enumAssignmentContext = extractEnumeratedAssignmentContext(lineText);
   if (enumAssignmentContext) {
-    const ownerType = resolveDocumentQualifierType(document, enumAssignmentContext.qualifier, position, kb, hotContext);
+    const ownerType = facade.resolveReceiverType(document, enumAssignmentContext.qualifier, position).ownerType ?? undefined;
     const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
     const enumType = systemCatalog.resolveEnumeratedType(enumAssignmentContext.enumTypeName);
     if (ownerTypes.length > 0 && enumType) {
@@ -218,9 +216,8 @@ export function provideCompletion(
   const enumArgumentItems = createEnumeratedValueCompletionItemsForCallArgument(
     document,
     position,
-    kb,
+    facade,
     systemCatalog,
-    graph,
     trailingIdentifierPrefix,
     documentationLocale,
     resolveContext,
@@ -244,7 +241,7 @@ export function provideCompletion(
     }
   }
   
-  const queryContext = createDocumentQueryContext(document, position, kb, graph, hotContext, 'completion', 'completion');
+  const queryContext = facade.createPositionContext(document, position, { consumer: 'completion', traceLabel: 'completion' });
   const { currentUri, documentEntities, currentMainObject } = queryContext;
   const items: CompletionItem[] = [];
 
@@ -252,7 +249,7 @@ export function provideCompletion(
     // -----------------------------------------------------
     // SCENARIO 1: We have a qualifier (e.g. this. , ls_var.)
     // -----------------------------------------------------
-    const varType = resolveDocumentQualifierType(document, qualifier, position, kb, hotContext);
+    const varType = facade.resolveReceiverType(document, qualifier, position).ownerType ?? undefined;
     if (varType) {
       let members: Entity[] = [];
       let catalogOwnerType = varType;
@@ -684,14 +681,13 @@ function createEnumeratedValueCompletionItemsForType(
 function createEnumeratedValueCompletionItemsForCallArgument(
   document: TextDocument,
   position: Position,
-  kb: KnowledgeBase,
+  facade: ReturnType<typeof createSemanticQueryFacade>,
   systemCatalog: SystemCatalog,
-  graph: InheritanceGraph,
   identifierPrefix: string,
   documentationLocale: DocumentationLocale,
   resolveContext: CompletionResolveContext,
 ): CompletionItem[] {
-  const enumContext = resolveExpectedEnumContextForCallArgumentAtPosition(document, position, kb, systemCatalog, graph);
+  const enumContext = facade.resolveExpectedEnumContext(document, position);
   if (!enumContext) {
     return [];
   }

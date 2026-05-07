@@ -1000,7 +1000,7 @@ En proyectos legacy, comentarios pueden contener código antiguo, pseudocódigo,
 
 ### 10.11 Conditional compilation
 
-Conditional compilation forma parte de Language Basics y debe tratarse como preprocesador, no como comentario normal. Esta guía describe el lenguaje y los riesgos de edición; no debe usarse por sí sola para inferir soporte productivo completo del plugin.
+Conditional compilation forma parte de Language Basics y debe tratarse como preprocesador, no como comentario normal. El plugin implementa un **gate de evidencia (detector read-only)** para estos marcadores, pero **no proporciona soporte productivo completo** (como evaluación de expresiones, invalidación condicional o transformaciones de AST) mientras no se abra explícitamente en el backlog. Esta guía describe el lenguaje; no debe usarse para inferir soporte total por el plugin.
 
 ## 11. Conditional compilation
 
@@ -2902,6 +2902,21 @@ Reglas para IA:
 6. No eliminar CALL SUPER sin revisar si el event está extendiendo ancestor.
 7. Distinguir trigger inmediato y post asíncrono/en cola.
 ```
+
+### 23.16 Matriz de Event Dispatch y Soporte Semántico
+
+Para la correcta interpretación de eventos en la arquitectura de PowerBuilder, las herramientas de análisis semántico (como extensiones LSP) deben adherirse a la siguiente matriz de dispatch:
+
+| Invocación / Keyword | Mecanismo de Resolución | Confianza Semántica | Degradación / Advertencia |
+|----------------------|--------------------------|----------------------|----------------------------|
+| `obj.EVENT ue_ev()`  | Árbol real de herencia   | **Alta**             | Oficialmente soportado. Se resuelve como una invocación estática de evento contra la definición de la clase. |
+| `obj.DYNAMIC EVENT`  | Búsqueda de sufijo       | **Baja**             | Se degrada a dynamic lookup. Se asume que el evento podría existir en runtime. |
+| `TriggerEvent("ev")` | String-literal match     | **Media/Baja**       | Se liga mediante búsqueda textual acotada al scope si el string es literal constante. Falla (0 resultados) si es expresión dinámica. |
+| `PostEvent("ev")`    | String-literal match     | **Media/Baja**       | Igual que `TriggerEvent`. Además, implica que el caller no consume return value. |
+| `AncestorReturnValue`| Árbol real de herencia   | **Alta**             | Variable implícita del compilador en eventos extendidos. Se resuelve al return type del evento ancestor. |
+
+**Oficialización del keyword `EVENT`:**
+El uso del keyword `EVENT` (ej. `This.EVENT ue_refresh()`) está plenamente soportado. El sistema lo interpretará como un calificador explícito de namespace de eventos, previniendo ambigüedad con object functions que compartan nombre y garantizando la resolución contra el árbol de herencia real del objeto.
 
 ---
 

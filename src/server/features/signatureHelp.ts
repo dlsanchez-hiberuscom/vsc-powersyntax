@@ -5,7 +5,7 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
-import { resolveTargetEntityDetailed } from '../knowledge/resolution/semanticQueryService';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
 import { InvocationContext } from '../utils/invocationContext';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
@@ -26,7 +26,7 @@ import type {
   SignatureHelpViewModelSource,
   SymbolSignatureViewModel as SignatureHelpViewModel,
 } from '../presentation/viewModels';
-import { resolveDocumentQualifierType } from './queryContext';
+
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import {
   DATAWINDOW_BIND_OWNER_TYPES,
@@ -97,8 +97,9 @@ export function provideSignatureHelp(
   };
   const currentUri = normalizeUri(document.uri);
   const budgetMs = getQueryConsumerPolicy('signature-help').budgetMs;
+  const facade = createSemanticQueryFacade({ kb, graph, systemCatalog, hotContext });
   const ownerType = qualifier
-    ? resolveDocumentQualifierType(document, qualifier, position, kb, hotContext)
+    ? facade.resolveReceiverType(document, qualifier, position).ownerType ?? undefined
     : undefined;
   const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
 
@@ -165,25 +166,23 @@ export function provideSignatureHelp(
     }
   }
 
-  // 2. Intentar resolver con KnowledgeBase
-  const targets = resolveTargetEntityDetailed(context, currentUri, kb, graph, {
-    line: position.line,
-    hotContext,
+  // 2. Intentar resolver con SemanticQueryFacade
+  const callables = facade.resolveCallable(document, position, {
+    consumer: 'signature-help',
     traceLabel: 'signatureHelp',
-    budgetMs,
-    sourceOriginPolicy: getQueryConsumerPolicy('signature-help')
-  }).targets;
+  });
   
-  if (targets.length > 0) {
+  if (callables.length > 0) {
     const signatures: SignatureInformation[] = [];
     
-    for (const target of targets) {
-      let label = target.signature || target.name;
+    for (const callable of callables) {
+      const target = callable.symbol;
+      let label = callable.signature || target.name;
       const parameters: ParameterInformation[] = [];
       
-      if (target.parameters && target.parameters.length > 0) {
-        for (const p of target.parameters) {
-          parameters.push(ParameterInformation.create(p.label, p.documentation));
+      if (callable.parameterLabels && callable.parameterLabels.length > 0) {
+        for (const p of callable.parameterLabels) {
+          parameters.push(ParameterInformation.create(p));
         }
       } else {
         // Fallback si la entidad no fue parseada con parámetros normalizados (versiones antiguas en caché)

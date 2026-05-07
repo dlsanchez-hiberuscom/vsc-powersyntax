@@ -4,6 +4,6 @@
     "vscPowerSyntax.formatting.eventKeywordCase": "preserve",
     "vscPowerSyntax.formatting.indentSize": 3,
     "vscPowerSyntax.formatting.formatOnSave": false,
-    "vscPowerSyntax.legacy.orcaPath": "C:\\Users\\dlsanchez\\Desktop\\David\\Desarrollo\\vsc-powersyntax\\.vscode-test\\vscode-win32-x64-archive-1.119.0\\Code.exe",
+    "vscPowerSyntax.legacy.orcaPath": "",
     "vscPowerSyntax.profile": "legacy-orca"
 }

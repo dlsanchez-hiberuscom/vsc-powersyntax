@@ -848,14 +848,44 @@ export function resolveTargetEntityDetailed(
 
     if (qualifier) {
       const qualifierLower = qualifier.toLowerCase();
-      resolvedQualifierType = resolveQualifierType(qualifier, currentUri, kb, options.line, currentMainObject, options.hotContext);
-      recordTraceStep('qualifier:resolved', {
-        qualifier,
-        separator: context.separator,
-        resolvedQualifierType,
-        currentObject: currentMainObject?.name
-      });
-      if (resolvedQualifierType) {
+      if (qualifierLower === 'global') {
+        resolvedQualifierType = 'global';
+        recordTraceStep('qualifier:resolved', {
+          qualifier,
+          separator: context.separator,
+          resolvedQualifierType: 'global',
+          currentObject: currentMainObject?.name
+        });
+        candidatePool = kb.findAllDefinitions(identifier).filter((e) => e.scope === 'Global' || e.kind !== EntityKind.Variable);
+        const hardened = hardenCallableCandidates(candidatePool, context);
+        candidatePool = hardened.candidates;
+        signatureDiscards.push(...hardened.discarded);
+        possibleTargets = preferTargetsBySourceOrigin(candidatePool, currentUri, options.sourceOriginPolicy);
+        if (possibleTargets.length > 0) {
+          reasonCodes.push('global-fallback');
+          recordTraceStep('targets:global-fallback', {
+            count: possibleTargets.length,
+            candidateCount: candidatePool.length
+          });
+        }
+        if (candidatePool.length === 0) {
+          contextDiscards.push({
+            kind: 'discarded-context',
+            stage: 'qualifier',
+            reason: 'qualifier-no-match',
+            qualifier,
+            resolvedType: 'global'
+          });
+        }
+      } else {
+        resolvedQualifierType = resolveQualifierType(qualifier, currentUri, kb, options.line, currentMainObject, options.hotContext);
+        recordTraceStep('qualifier:resolved', {
+          qualifier,
+          separator: context.separator,
+          resolvedQualifierType,
+          currentObject: currentMainObject?.name
+        });
+        if (resolvedQualifierType) {
         if (qualifierLower === 'super' && currentMainObject?.baseTypeName) {
           const members = getMembersForType(currentMainObject.baseTypeName, currentUri, kb, graph, options.hotContext);
           candidatePool = members.filter((member) => member.name.toLowerCase() === identifier.toLowerCase())
@@ -948,13 +978,15 @@ export function resolveTargetEntityDetailed(
             resolvedType: resolvedQualifierType
           });
         }
-      } else {
-        contextDiscards.push({
-          kind: 'discarded-context',
-          stage: 'qualifier',
-          reason: 'qualifier-unresolved',
-          qualifier
-        });
+        if (!resolvedQualifierType) {
+          contextDiscards.push({
+            kind: 'discarded-context',
+            stage: 'qualifier',
+            reason: 'qualifier-unresolved',
+            qualifier
+          });
+        }
+        }
       }
     } else if (context.separator === '::') {
       candidatePool = kb.findAllDefinitions(identifier).filter((e) => e.scope === 'Global' || e.kind !== EntityKind.Variable);
