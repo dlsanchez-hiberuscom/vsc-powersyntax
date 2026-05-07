@@ -1,5 +1,6 @@
 import { Range, type CompletionItem, type Connection, type TextDocuments } from 'vscode-languageserver/node';
 import { TaskPriority, type TaskScheduler } from '../runtime/scheduler';
+import { InteractiveLoopGuard } from '../runtime/interactiveLoopGuard';
 import { measureMs, formatTiming, type FirstInvocationTracker } from '../runtime/timing';
 import { provideCodeActions } from '../features/codeActions';
 import {
@@ -47,7 +48,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ActiveDocumentServingSnapshot } from '../serving/activeDocumentServingSnapshot';
 import { buildInteractiveServingCacheKey } from '../serving/cacheKeyContract';
 import { recordInteractiveServingEvent, runInteractiveServingPipeline } from '../serving/interactiveServingPipeline';
-import type { InteractiveServingStaleGuard } from '../serving/staleGuard';
+import type { InteractiveServingRequestState, InteractiveServingStaleGuard } from '../serving/staleGuard';
 import { formatHoverViewModel } from '../features/hoverFormat';
 import type { HoverNegativeReason, HoverViewModel } from '../features/hoverViewModel';
 
@@ -70,8 +71,86 @@ const INTERACTIVE_SERVING_BUDGET_MS: Record<InteractiveServingFeature, number | 
   semanticTokens: undefined,
 };
 
+const interactiveLoopGuard = new InteractiveLoopGuard();
+
 export function shouldLogInteractiveTiming(elapsedMs: number): boolean {
   return elapsedMs >= INTERACTIVE_TIMING_LOG_THRESHOLD_MS;
+}
+
+export function buildCurrentServingRequestState(options: {
+  feature: InteractiveServingFeature;
+  document: TextDocument;
+  knowledgeBase: KnowledgeBase;
+  documentCache: Pick<DocumentCache, 'getSnapshot'>;
+  inheritanceGraph: InheritanceGraph;
+  systemCatalog: SystemCatalog;
+  workspaceState: Pick<WorkspaceState, 'getSourceOrigin' | 'inferSourceOriginForUri'>;
+  locale?: DocumentationLocale;
+  contextKey?: string;
+}): InteractiveServingRequestState {
+  const snapshot = new ActiveDocumentServingSnapshot({
+    document: options.document,
+    knowledgeBase: options.knowledgeBase,
+    documentCache: options.documentCache,
+    inheritanceGraph: options.inheritanceGraph,
+    systemCatalog: options.systemCatalog,
+    workspaceState: options.workspaceState,
+    ...(options.locale ? { locale: options.locale } : {}),
+  });
+
+  return {
+    feature: options.feature,
+    uri: snapshot.uri,
+    documentVersion: snapshot.documentVersion,
+    kbVersion: snapshot.kbVersion,
+    documentFingerprint: snapshot.documentFingerprint,
+    sourceOrigin: snapshot.sourceOrigin,
+    locale: snapshot.locale,
+    ...(options.contextKey ? { contextKey: options.contextKey } : {}),
+  };
+}
+
+function buildInteractiveLoopGuardKey(
+  feature: 'hover' | 'definition',
+  document: TextDocument,
+  position: { line: number; character: number },
+): string {
+  return `${feature}|${document.uri}|${document.version}|${position.line}:${position.character}`;
+}
+
+function runInteractiveWithLoopGuard<T>(options: {
+  feature: 'hover' | 'definition';
+  document: TextDocument;
+  position: { line: number; character: number };
+  connection: Connection;
+  runtimeJournal: RuntimeJournal;
+  execute: () => Promise<T> | T;
+}): Promise<T> {
+  const key = buildInteractiveLoopGuardKey(options.feature, options.document, options.position);
+  return interactiveLoopGuard.run(key, options.execute, () => {
+    options.connection.console.log(`[LSP] duplicate request reused ${options.feature} ${key}`);
+    options.runtimeJournal.record({
+      phase: 'serve',
+      kind: options.feature,
+      action: 'dedupe-hit',
+      severity: 'info',
+      label: key,
+      detail: {
+        feature: options.feature,
+        uri: options.document.uri,
+        documentVersion: options.document.version,
+        position: options.position,
+      },
+    });
+  });
+}
+
+function hasDefinitionResult(result: ReturnType<typeof provideDefinition>): boolean {
+  if (!result) {
+    return false;
+  }
+
+  return !Array.isArray(result) || result.length > 0;
 }
 
 function logInteractiveFeatureTiming(
@@ -128,6 +207,8 @@ export interface FeatureHandlerContext {
   cacheHoverNegativeWithMemoryPressure(key: string, value: { reason: HoverNegativeReason }): void;
   getCompletionResolveNegativeCacheEntry(key: string): { reason: CompletionResolveNegativeReason } | undefined;
   cacheCompletionResolveNegativeWithMemoryPressure(key: string, value: { reason: CompletionResolveNegativeReason }): void;
+  getDefinitionNegativeCacheEntry(key: string): { reason: string } | undefined;
+  cacheDefinitionNegativeWithMemoryPressure(key: string, value: { reason: string }): void;
   isDefinitionCacheEntry(value: unknown): value is DefinitionCacheEntry;
   collectReferenceSourcesForQuery(
     document: TextDocument,
@@ -281,182 +362,193 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
     }
 
     try {
-      return scheduler.runInteractive({
-        id: `hover-${document.uri}`,
-        priority: TaskPriority.Interactive,
-        execute: (token) => {
-          const documentationLocale = getDocumentationLocale();
-          const readinessDecision = decideFeatureReadiness('hover', buildRuntimeProgressReadiness(document.uri), {
-            latencyOverloaded: isLatencyPressureHigh()
-          });
-          hotContextCache.setActive(document.uri, knowledgeBase.version);
-          const snapshot = new ActiveDocumentServingSnapshot({
-            document,
-            knowledgeBase,
-            documentCache,
-            hotContextCache,
-            inheritanceGraph,
-            systemCatalog,
-            workspaceState,
-            locale: documentationLocale,
-          });
-          const cacheKey = snapshot.buildCacheKey('hover', {
-            cacheClass: 'serving',
-            pressureClass: 'hot',
-            line: params.position.line,
-            character: params.position.character,
-          });
-          const hoverToken = snapshot.getTokenAt(params.position);
-          const hoverContextKey = hoverToken
-            ? `${params.position.line}:${hoverToken.start}-${hoverToken.end}:${hoverToken.word.toLowerCase()}`
-            : `${params.position.line}:${params.position.character}`;
-          const hoverViewModelCacheKey = snapshot.buildCacheKey('hover-view-model', {
-            cacheClass: 'view-model',
-            pressureClass: 'hot',
-            line: params.position.line,
-            character: params.position.character,
-            ...(hoverToken ? {
-              rangeStartLine: params.position.line,
-              rangeStartCharacter: hoverToken.start,
-              rangeEndLine: params.position.line,
-              rangeEndCharacter: hoverToken.end,
-              context: hoverToken.word.toLowerCase(),
-            } : {
-              context: 'cursor',
-            }),
-          });
-          const hoverNegativeCacheKey = snapshot.buildCacheKey('hover-negative', {
-            cacheClass: 'negative',
-            pressureClass: 'negative',
-            line: params.position.line,
-            character: params.position.character,
-            ...(hoverToken ? {
-              rangeStartLine: params.position.line,
-              rangeStartCharacter: hoverToken.start,
-              rangeEndLine: params.position.line,
-              rangeEndCharacter: hoverToken.end,
-              context: hoverToken.word.toLowerCase(),
-            } : {
-              context: 'cursor',
-            }),
-          });
+      return runInteractiveWithLoopGuard({
+        feature: 'hover',
+        document,
+        position: params.position,
+        connection,
+        runtimeJournal,
+        execute: () => scheduler.runInteractive({
+          id: `hover-${document.uri}`,
+          priority: TaskPriority.Interactive,
+          execute: (token) => {
+            const documentationLocale = getDocumentationLocale();
+            const readinessDecision = decideFeatureReadiness('hover', buildRuntimeProgressReadiness(document.uri), {
+              latencyOverloaded: isLatencyPressureHigh()
+            });
+            hotContextCache.setActive(document.uri, knowledgeBase.version);
+            const snapshot = new ActiveDocumentServingSnapshot({
+              document,
+              knowledgeBase,
+              documentCache,
+              hotContextCache,
+              inheritanceGraph,
+              systemCatalog,
+              workspaceState,
+              locale: documentationLocale,
+            });
+            const cacheKey = snapshot.buildCacheKey('hover', {
+              cacheClass: 'serving',
+              pressureClass: 'hot',
+              line: params.position.line,
+              character: params.position.character,
+            });
+            const hoverToken = snapshot.getTokenAt(params.position);
+            const hoverContextKey = hoverToken
+              ? `${params.position.line}:${hoverToken.start}-${hoverToken.end}:${hoverToken.word.toLowerCase()}`
+              : `${params.position.line}:${params.position.character}`;
+            const hoverViewModelCacheKey = snapshot.buildCacheKey('hover-view-model', {
+              cacheClass: 'view-model',
+              pressureClass: 'hot',
+              line: params.position.line,
+              character: params.position.character,
+              ...(hoverToken ? {
+                rangeStartLine: params.position.line,
+                rangeStartCharacter: hoverToken.start,
+                rangeEndLine: params.position.line,
+                rangeEndCharacter: hoverToken.end,
+                context: hoverToken.word.toLowerCase(),
+              } : {
+                context: 'cursor',
+              }),
+            });
+            const hoverNegativeCacheKey = snapshot.buildCacheKey('hover-negative', {
+              cacheClass: 'negative',
+              pressureClass: 'negative',
+              line: params.position.line,
+              character: params.position.character,
+              ...(hoverToken ? {
+                rangeStartLine: params.position.line,
+                rangeStartCharacter: hoverToken.start,
+                rangeEndLine: params.position.line,
+                rangeEndCharacter: hoverToken.end,
+                context: hoverToken.word.toLowerCase(),
+              } : {
+                context: 'cursor',
+              }),
+            });
 
-          return runInteractiveServingPipeline({
-            feature: 'hover',
-            cacheKey,
-            readiness: {
-              action: readinessDecision.action,
-              reason: readinessDecision.reason,
-              blockedResult: null,
-              warningMessage: `[hover] bloqueado: ${readinessDecision.reason}`,
-            },
-            requestState: {
+            return runInteractiveServingPipeline({
               feature: 'hover',
-              uri: snapshot.uri,
-              documentVersion: snapshot.documentVersion,
+              cacheKey,
+              readiness: {
+                action: readinessDecision.action,
+                reason: readinessDecision.reason,
+                blockedResult: null,
+                warningMessage: `[hover] bloqueado: ${readinessDecision.reason}`,
+              },
+              requestState: {
+                feature: 'hover',
+                uri: snapshot.uri,
+                documentVersion: snapshot.documentVersion,
+                kbVersion: snapshot.kbVersion,
+                documentFingerprint: snapshot.documentFingerprint,
+                sourceOrigin: snapshot.sourceOrigin,
+                locale: snapshot.locale,
+                contextKey: hoverContextKey,
+              },
+              readCurrentState: () => buildCurrentServingRequestState({
+                feature: 'hover',
+                document,
+                knowledgeBase,
+                documentCache,
+                inheritanceGraph,
+                systemCatalog,
+                workspaceState,
+                locale: documentationLocale,
+                contextKey: hoverContextKey,
+              }),
+              staleGuard: servingStaleGuard,
+              runtimeJournal,
+              interactiveServingStats,
+              budgetMs: INTERACTIVE_SERVING_BUDGET_MS.hover,
               kbVersion: snapshot.kbVersion,
               documentFingerprint: snapshot.documentFingerprint,
-              sourceOrigin: snapshot.sourceOrigin,
               locale: snapshot.locale,
-              contextKey: hoverContextKey,
-            },
-            readCurrentState: () => ({
-              feature: 'hover',
-              uri: document.uri,
-              documentVersion: document.version,
-              kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
-              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
-              locale: documentationLocale,
-              contextKey: hoverContextKey,
-            }),
-            staleGuard: servingStaleGuard,
-            runtimeJournal,
-            interactiveServingStats,
-            budgetMs: INTERACTIVE_SERVING_BUDGET_MS.hover,
-            kbVersion: snapshot.kbVersion,
-            documentFingerprint: snapshot.documentFingerprint,
-            locale: snapshot.locale,
-            cancellationToken: token,
-            ensureRuntimeMemoryPressureRelief,
-            getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideHover> | undefined,
-            resolveEarlyResult: () => {
-              if (getHoverNegativeCacheEntry(hoverNegativeCacheKey)) {
+              cancellationToken: token,
+              ensureRuntimeMemoryPressureRelief,
+              getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideHover> | undefined,
+              resolveEarlyResult: () => {
+                const cachedNegative = getHoverNegativeCacheEntry(hoverNegativeCacheKey);
+                if (cachedNegative) {
+                  connection.console.log(`[LSP] negative-cache hit hover ${cachedNegative.reason}`);
+                  return {
+                    handled: true,
+                    reason: 'negative-hit',
+                    result: null,
+                    skipCacheWrite: true,
+                  } as const;
+                }
+
+                const cachedViewModel = getHoverViewModelCacheEntry(hoverViewModelCacheKey);
+                if (!cachedViewModel) {
+                  return undefined;
+                }
+
+                const formatterStartedAt = performance.now();
                 return {
                   handled: true,
-                  reason: 'negative-hit',
-                  result: null,
-                  skipCacheWrite: true,
+                  reason: 'viewmodel-hit',
+                  result: {
+                    contents: {
+                      kind: 'markdown',
+                      value: formatHoverViewModel(cachedViewModel),
+                    }
+                  },
+                  formatterMs: performance.now() - formatterStartedAt,
                 } as const;
-              }
+              },
+              resolve: () => buildHoverPresentationResult(
+                document,
+                params.position,
+                knowledgeBase,
+                systemCatalog,
+                inheritanceGraph,
+                hotContextCache,
+                documentationLocale,
+                snapshot,
+              ),
+              onResolved: (resolved) => {
+                const presentation = resolved as ReturnType<typeof buildHoverPresentationResult>;
+                if (presentation.kind === 'viewmodel') {
+                  cacheHoverViewModelWithMemoryPressure(hoverViewModelCacheKey, presentation.viewModel);
+                  return;
+                }
 
-              const cachedViewModel = getHoverViewModelCacheEntry(hoverViewModelCacheKey);
-              if (!cachedViewModel) {
-                return undefined;
-              }
+                connection.console.log(`[LSP] provider returned null hover ${presentation.reason}`);
+                cacheHoverNegativeWithMemoryPressure(hoverNegativeCacheKey, { reason: presentation.reason });
+              },
+              format: (resolved) => {
+                const presentation = resolved as ReturnType<typeof buildHoverPresentationResult>;
+                if (presentation.kind === 'negative') {
+                  return null;
+                }
 
-              const formatterStartedAt = performance.now();
-              return {
-                handled: true,
-                reason: 'viewmodel-hit',
-                result: {
+                return {
                   contents: {
                     kind: 'markdown',
-                    value: formatHoverViewModel(cachedViewModel),
+                    value: formatHoverViewModel(presentation.viewModel),
                   }
-                },
-                formatterMs: performance.now() - formatterStartedAt,
-              } as const;
-            },
-            resolve: () => buildHoverPresentationResult(
-              document,
-              params.position,
-              knowledgeBase,
-              systemCatalog,
-              inheritanceGraph,
-              hotContextCache,
-              documentationLocale,
-              snapshot,
-            ),
-            onResolved: (resolved) => {
-              const presentation = resolved as ReturnType<typeof buildHoverPresentationResult>;
-              if (presentation.kind === 'viewmodel') {
-                cacheHoverViewModelWithMemoryPressure(hoverViewModelCacheKey, presentation.viewModel);
-                return;
-              }
-
-              cacheHoverNegativeWithMemoryPressure(hoverNegativeCacheKey, { reason: presentation.reason });
-            },
-            format: (resolved) => {
-              const presentation = resolved as ReturnType<typeof buildHoverPresentationResult>;
-              if (presentation.kind === 'negative') {
-                return null;
-              }
-
-              return {
-                contents: {
-                  kind: 'markdown',
-                  value: formatHoverViewModel(presentation.viewModel),
-                }
-              };
-            },
-            shouldWriteCache: (_result, resolved) => (resolved as ReturnType<typeof buildHoverPresentationResult>).kind === 'viewmodel',
-            writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
-            onBlocked: (message) => connection.console.warn(message),
-            onComputed: (_result, telemetry) => {
-              recordInteractiveLatency('hover', telemetry.totalMs);
-              logInteractiveFeatureTiming(
-                connection,
-                'hover',
-                telemetry.totalMs,
-                firstInvocation,
-                'hover',
-                'Primer hover (desde el inicio)',
-                serverStartTime,
-              );
-            },
-          });
-        }
+                };
+              },
+              shouldWriteCache: (_result, resolved) => (resolved as ReturnType<typeof buildHoverPresentationResult>).kind === 'viewmodel',
+              writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
+              onBlocked: (message) => connection.console.warn(message),
+              onComputed: (_result, telemetry) => {
+                recordInteractiveLatency('hover', telemetry.totalMs);
+                logInteractiveFeatureTiming(
+                  connection,
+                  'hover',
+                  telemetry.totalMs,
+                  firstInvocation,
+                  'hover',
+                  'Primer hover (desde el inicio)',
+                  serverStartTime,
+                );
+              },
+            });
+          }
+        }),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -556,13 +648,14 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
               locale: snapshot.locale,
               contextKey: `${params.position.line}:${params.position.character}`,
             },
-            readCurrentState: () => ({
+            readCurrentState: () => buildCurrentServingRequestState({
               feature: 'signatureHelp',
-              uri: document.uri,
-              documentVersion: document.version,
-              kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
-              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+              document,
+              knowledgeBase,
+              documentCache,
+              inheritanceGraph,
+              systemCatalog,
+              workspaceState,
               locale: documentationLocale,
               contextKey: `${params.position.line}:${params.position.character}`,
             }),
@@ -688,13 +781,14 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
               locale: snapshot.locale,
               contextKey: `${params.position.line}:${params.position.character}:${params.context?.triggerKind ?? ''}:${params.context?.triggerCharacter ?? ''}`,
             },
-            readCurrentState: () => ({
+            readCurrentState: () => buildCurrentServingRequestState({
               feature: 'completion',
-              uri: document.uri,
-              documentVersion: document.version,
-              kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
-              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+              document,
+              knowledgeBase,
+              documentCache,
+              inheritanceGraph,
+              systemCatalog,
+              workspaceState,
               locale: documentationLocale,
               contextKey: `${params.position.line}:${params.position.character}:${params.context?.triggerKind ?? ''}:${params.context?.triggerCharacter ?? ''}`,
             }),
@@ -813,13 +907,14 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
               locale: data.locale,
               contextKey,
             },
-            readCurrentState: () => ({
+            readCurrentState: () => buildCurrentServingRequestState({
               feature: 'completion-resolve',
-              uri: document.uri,
-              documentVersion: document.version,
-              kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
-              sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
+              document,
+              knowledgeBase,
+              documentCache,
+              inheritanceGraph,
+              systemCatalog,
+              workspaceState,
               locale: documentationLocale,
               contextKey,
             }),
@@ -827,9 +922,9 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
             runtimeJournal,
             interactiveServingStats,
             budgetMs: INTERACTIVE_SERVING_BUDGET_MS['completion-resolve'],
-            kbVersion: knowledgeBase.version,
-            documentFingerprint: knowledgeBase.semanticEpoch,
-            locale: documentationLocale,
+            kbVersion: data.kbVersion,
+            documentFingerprint: data.documentFingerprint,
+            locale: data.locale,
             payloadBudgetFeature: 'completion-resolve',
             cancellationToken: token,
             ensureRuntimeMemoryPressureRelief,
@@ -904,6 +999,8 @@ export function registerDefinitionHandler(context: FeatureHandlerContext): void 
     isLatencyPressureHigh,
     recordInteractiveLatency,
     cacheServingResultWithMemoryPressure,
+    getDefinitionNegativeCacheEntry,
+    cacheDefinitionNegativeWithMemoryPressure,
     isDefinitionCacheEntry,
     isSemanticallyServedDocument,
   } = context;
@@ -918,173 +1015,232 @@ export function registerDefinitionHandler(context: FeatureHandlerContext): void 
     }
 
     try {
-      return scheduler.runInteractive({
-        id: `definition-${document.uri}`,
-        priority: TaskPriority.Interactive,
-        execute: (token) => {
-          const runtimeReadiness = buildRuntimeProgressReadiness(document.uri);
-          hotContextCache.setActive(document.uri, knowledgeBase.version);
-          const snapshot = new ActiveDocumentServingSnapshot({
-            document,
-            knowledgeBase,
-            documentCache,
-            hotContextCache,
-            inheritanceGraph,
-            systemCatalog,
-            workspaceState,
-          });
-          const contextKey = `${params.position.line}:${params.position.character}`;
-          const requestState = {
-            feature: 'definition' as const,
-            uri: snapshot.uri,
-            documentVersion: snapshot.documentVersion,
-            kbVersion: snapshot.kbVersion,
-            documentFingerprint: snapshot.documentFingerprint,
-            sourceOrigin: snapshot.sourceOrigin,
-            locale: snapshot.locale,
-            contextKey,
-          };
-          const readCurrentState = () => ({
-            feature: 'definition' as const,
-            uri: document.uri,
-            documentVersion: document.version,
-            kbVersion: knowledgeBase.version,
-            documentFingerprint: knowledgeBase.semanticEpoch,
-            sourceOrigin: workspaceState.getSourceOrigin(document.uri) ?? workspaceState.inferSourceOriginForUri(document.uri),
-            locale: snapshot.locale,
-            contextKey,
-          });
-          const requestToken = servingStaleGuard.begin(requestState);
-          const cacheKey = snapshot.buildCacheKey('definition', {
-            cacheClass: 'serving',
-            pressureClass: 'hot',
-            line: params.position.line,
-            character: params.position.character,
-          });
-          ensureRuntimeMemoryPressureRelief();
-          const cacheLookupStartedAt = performance.now();
-          const cached = servingCache.get(cacheKey);
-          if (isDefinitionCacheEntry(cached)) {
-            const readiness = resolveServingReadiness({
-              feature: 'definition',
-              consumerLabel: 'definition',
-              snapshot: runtimeReadiness,
-              blockedResult: null,
-              context: {
-                latencyOverloaded: isLatencyPressureHigh(),
-                resolutionConfidence: cached.resolutionConfidence
-              }
+      return runInteractiveWithLoopGuard({
+        feature: 'definition',
+        document,
+        position: params.position,
+        connection,
+        runtimeJournal,
+        execute: () => scheduler.runInteractive({
+          id: `definition-${document.uri}`,
+          priority: TaskPriority.Interactive,
+          execute: (token) => {
+            const runtimeReadiness = buildRuntimeProgressReadiness(document.uri);
+            hotContextCache.setActive(document.uri, knowledgeBase.version);
+            const snapshot = new ActiveDocumentServingSnapshot({
+              document,
+              knowledgeBase,
+              documentCache,
+              hotContextCache,
+              inheritanceGraph,
+              systemCatalog,
+              workspaceState,
             });
-            if (readiness.blocked) {
-              connection.console.warn(readiness.warningMessage);
+            const contextKey = `${params.position.line}:${params.position.character}`;
+            const requestState = {
+              feature: 'definition' as const,
+              uri: snapshot.uri,
+              documentVersion: snapshot.documentVersion,
+              kbVersion: snapshot.kbVersion,
+              documentFingerprint: snapshot.documentFingerprint,
+              sourceOrigin: snapshot.sourceOrigin,
+              locale: snapshot.locale,
+              contextKey,
+            };
+            const readCurrentState = () => buildCurrentServingRequestState({
+              feature: 'definition',
+              document,
+              knowledgeBase,
+              documentCache,
+              inheritanceGraph,
+              systemCatalog,
+              workspaceState,
+              locale: snapshot.locale,
+              contextKey,
+            });
+            const requestToken = servingStaleGuard.begin(requestState);
+            const cacheKey = snapshot.buildCacheKey('definition', {
+              cacheClass: 'serving',
+              pressureClass: 'hot',
+              line: params.position.line,
+              character: params.position.character,
+            });
+            const definitionNegativeCacheKey = snapshot.buildCacheKey('definition', {
+              cacheClass: 'negative',
+              pressureClass: 'negative',
+              line: params.position.line,
+              character: params.position.character,
+            });
+            ensureRuntimeMemoryPressureRelief();
+            const cacheLookupStartedAt = performance.now();
+            const cachedNegative = getDefinitionNegativeCacheEntry(definitionNegativeCacheKey);
+            if (cachedNegative) {
+              connection.console.log(`[LSP] negative-cache hit definition ${cachedNegative.reason}`);
               recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
                 feature: 'definition',
-                reason: 'blocked',
+                reason: 'negative-hit',
                 totalMs: performance.now() - cacheLookupStartedAt,
                 kbVersion: knowledgeBase.version,
-                documentFingerprint: knowledgeBase.semanticEpoch,
+                documentFingerprint: snapshot.documentFingerprint,
+              });
+              return null;
+            }
+            const cached = servingCache.get(cacheKey);
+            if (isDefinitionCacheEntry(cached)) {
+              const readiness = resolveServingReadiness({
+                feature: 'definition',
+                consumerLabel: 'definition',
+                snapshot: runtimeReadiness,
+                blockedResult: null,
+                context: {
+                  latencyOverloaded: isLatencyPressureHigh(),
+                  resolutionConfidence: cached.resolutionConfidence
+                }
+              });
+              if (readiness.blocked) {
+                connection.console.warn(readiness.warningMessage);
+                recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                  feature: 'definition',
+                  reason: 'blocked',
+                  totalMs: performance.now() - cacheLookupStartedAt,
+                  kbVersion: knowledgeBase.version,
+                  documentFingerprint: snapshot.documentFingerprint,
+                  readinessAction: readiness.decision.action,
+                  readinessReason: readiness.decision.reason,
+                });
+                return readiness.blockedResult;
+              }
+              recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                feature: 'definition',
+                reason: 'cache-hit',
+                totalMs: performance.now() - cacheLookupStartedAt,
+                payloadBytes: estimateLspPayloadBytes(cached.result),
+                kbVersion: knowledgeBase.version,
+                documentFingerprint: snapshot.documentFingerprint,
                 readinessAction: readiness.decision.action,
                 readinessReason: readiness.decision.reason,
               });
-              return readiness.blockedResult;
+              return cached.result;
+            }
+
+            const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'definition', 'definition');
+            const readinessDecision = decideFeatureReadiness('definition', runtimeReadiness, {
+              latencyOverloaded: isLatencyPressureHigh(),
+              resolutionConfidence: queryContext.resolutionConfidence
+            });
+
+            if (readinessDecision.action === 'block') {
+              connection.console.log(`[LSP] provider returned null definition ${readinessDecision.reason}`);
+              cacheDefinitionNegativeWithMemoryPressure(definitionNegativeCacheKey, { reason: readinessDecision.reason });
+              connection.console.warn(`[definition] bloqueado: ${readinessDecision.reason}`);
+              recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                feature: 'definition',
+                reason: 'blocked',
+                totalMs: 0,
+                kbVersion: knowledgeBase.version,
+                documentFingerprint: snapshot.documentFingerprint,
+                readinessAction: readinessDecision.action,
+                readinessReason: readinessDecision.reason,
+              });
+              return null;
+            }
+
+            const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, queryContext, systemCatalog));
+            recordInteractiveLatency('definition', elapsedMs);
+
+            logInteractiveFeatureTiming(
+              connection,
+              'definition',
+              elapsedMs,
+              firstInvocation,
+              'definition',
+              'Primera definición (desde el inicio)',
+              serverStartTime,
+            );
+            const cacheEntry = {
+              result,
+              resolutionConfidence: queryContext.resolutionConfidence
+            };
+            if (!hasDefinitionResult(result)) {
+              const staleBeforeNegativeWrite = servingStaleGuard.check(requestToken, readCurrentState(), token);
+              if (staleBeforeNegativeWrite.stale) {
+                recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                  feature: 'definition',
+                  reason: 'stale-discarded',
+                  totalMs: elapsedMs,
+                  providerMs: elapsedMs,
+                  kbVersion: knowledgeBase.version,
+                  documentFingerprint: snapshot.documentFingerprint,
+                  readinessAction: readinessDecision.action,
+                  readinessReason: readinessDecision.reason,
+                  staleReason: staleBeforeNegativeWrite.reason,
+                });
+                return null;
+              }
+
+              connection.console.log('[LSP] provider returned null definition unresolved');
+              cacheDefinitionNegativeWithMemoryPressure(definitionNegativeCacheKey, { reason: 'unresolved' });
+              recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                feature: 'definition',
+                reason: 'miss',
+                totalMs: elapsedMs,
+                providerMs: elapsedMs,
+                kbVersion: knowledgeBase.version,
+                documentFingerprint: snapshot.documentFingerprint,
+                readinessAction: readinessDecision.action,
+                readinessReason: readinessDecision.reason,
+              });
+              return null;
+            }
+            const staleBeforeWrite = servingStaleGuard.check(requestToken, readCurrentState(), token);
+            if (staleBeforeWrite.stale) {
+              recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                feature: 'definition',
+                reason: 'stale-discarded',
+                totalMs: elapsedMs,
+                providerMs: elapsedMs,
+                kbVersion: knowledgeBase.version,
+                documentFingerprint: snapshot.documentFingerprint,
+                readinessAction: readinessDecision.action,
+                readinessReason: readinessDecision.reason,
+                staleReason: staleBeforeWrite.reason,
+              });
+              return null;
+            }
+            const cacheWriteStartedAt = performance.now();
+            cacheServingResultWithMemoryPressure(cacheKey, cacheEntry);
+            const cacheWriteMs = performance.now() - cacheWriteStartedAt;
+            const staleBeforeReturn = servingStaleGuard.check(requestToken, readCurrentState(), token);
+            if (staleBeforeReturn.stale) {
+              recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
+                feature: 'definition',
+                reason: 'stale-discarded',
+                totalMs: elapsedMs + cacheWriteMs,
+                providerMs: elapsedMs,
+                cacheWriteMs,
+                kbVersion: knowledgeBase.version,
+                documentFingerprint: snapshot.documentFingerprint,
+                readinessAction: readinessDecision.action,
+                readinessReason: readinessDecision.reason,
+                staleReason: staleBeforeReturn.reason,
+              });
+              return null;
             }
             recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
               feature: 'definition',
-              reason: 'cache-hit',
-              totalMs: performance.now() - cacheLookupStartedAt,
-              payloadBytes: estimateLspPayloadBytes(cached.result),
-              kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
-              readinessAction: readiness.decision.action,
-              readinessReason: readiness.decision.reason,
-            });
-            return cached.result;
-          }
-
-          const queryContext = createDocumentQueryContext(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, 'definition', 'definition');
-          const readinessDecision = decideFeatureReadiness('definition', runtimeReadiness, {
-            latencyOverloaded: isLatencyPressureHigh(),
-            resolutionConfidence: queryContext.resolutionConfidence
-          });
-
-          if (readinessDecision.action === 'block') {
-            connection.console.warn(`[definition] bloqueado: ${readinessDecision.reason}`);
-            recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
-              feature: 'definition',
-              reason: 'blocked',
-              totalMs: 0,
-              kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
-              readinessAction: readinessDecision.action,
-              readinessReason: readinessDecision.reason,
-            });
-            return null;
-          }
-
-          const { result, elapsedMs } = measureMs(() => provideDefinition(document, params.position, knowledgeBase, inheritanceGraph, hotContextCache, queryContext, systemCatalog));
-          recordInteractiveLatency('definition', elapsedMs);
-
-          logInteractiveFeatureTiming(
-            connection,
-            'definition',
-            elapsedMs,
-            firstInvocation,
-            'definition',
-            'Primera definición (desde el inicio)',
-            serverStartTime,
-          );
-          const cacheEntry = {
-            result,
-            resolutionConfidence: queryContext.resolutionConfidence
-          };
-          const staleBeforeWrite = servingStaleGuard.check(requestToken, readCurrentState(), token);
-          if (staleBeforeWrite.stale) {
-            recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
-              feature: 'definition',
-              reason: 'stale-discarded',
-              totalMs: elapsedMs,
-              providerMs: elapsedMs,
-              kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
-              readinessAction: readinessDecision.action,
-              readinessReason: readinessDecision.reason,
-              staleReason: staleBeforeWrite.reason,
-            });
-            return null;
-          }
-          const cacheWriteStartedAt = performance.now();
-          cacheServingResultWithMemoryPressure(cacheKey, cacheEntry);
-          const cacheWriteMs = performance.now() - cacheWriteStartedAt;
-          const staleBeforeReturn = servingStaleGuard.check(requestToken, readCurrentState(), token);
-          if (staleBeforeReturn.stale) {
-            recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
-              feature: 'definition',
-              reason: 'stale-discarded',
+              reason: 'miss',
               totalMs: elapsedMs + cacheWriteMs,
               providerMs: elapsedMs,
               cacheWriteMs,
+              payloadBytes: estimateLspPayloadBytes(result),
               kbVersion: knowledgeBase.version,
-              documentFingerprint: knowledgeBase.semanticEpoch,
+              documentFingerprint: snapshot.documentFingerprint,
               readinessAction: readinessDecision.action,
               readinessReason: readinessDecision.reason,
-              staleReason: staleBeforeReturn.reason,
             });
-            return null;
+            return result;
           }
-          recordInteractiveServingEvent(runtimeJournal, interactiveServingStats, {
-            feature: 'definition',
-            reason: 'miss',
-            totalMs: elapsedMs + cacheWriteMs,
-            providerMs: elapsedMs,
-            cacheWriteMs,
-            payloadBytes: estimateLspPayloadBytes(result),
-            kbVersion: knowledgeBase.version,
-            documentFingerprint: knowledgeBase.semanticEpoch,
-            readinessAction: readinessDecision.action,
-            readinessReason: readinessDecision.reason,
-          });
-          return result;
-        }
+        }),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

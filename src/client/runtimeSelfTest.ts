@@ -14,7 +14,13 @@ export type RuntimeSelfTestCheckKey =
   | 'project-model'
   | 'diagnostics'
   | 'build'
-  | 'orca';
+  | 'orca'
+  | 'functional-coverage'
+  | 'view-providers'
+  | 'hover-builtin'
+  | 'serving-cache'
+  | 'negative-cache'
+  | 'definition-negative';
 
 export type RuntimeSelfTestCheckStatus = 'pass' | 'warning' | 'fail';
 
@@ -30,6 +36,8 @@ export interface RuntimeSelfTestReport {
   generatedAt: string;
   overallStatus: RuntimeSelfTestCheckStatus;
   summary: string;
+  coreChecks: RuntimeSelfTestCheck[];
+  functionalChecks: RuntimeSelfTestCheck[];
   checks: RuntimeSelfTestCheck[];
 }
 
@@ -37,6 +45,7 @@ export interface RuntimeSelfTestInput {
   contract?: ApiPublicContractDescriptor;
   stats?: RuntimeStatusStats;
   manifest?: ApiSemanticWorkspaceManifest;
+  functionalChecks?: RuntimeSelfTestCheck[];
   generatedAt?: string;
 }
 
@@ -284,8 +293,26 @@ function buildSummary(checks: readonly RuntimeSelfTestCheck[]): string {
   return `${counts.pass} ok · ${counts.warning} warning · ${counts.fail} fail`;
 }
 
+function buildFunctionalCoverageCheck(): RuntimeSelfTestCheck {
+  return {
+    key: 'functional-coverage',
+    label: 'Cobertura funcional',
+    status: 'fail',
+    detail: 'El Runtime Self-Test no ejecutó probes funcionales interactivos.',
+    recommendation: 'Ejecutar probes reales para hover, cache, negative cache, definition y view providers antes de declarar éxito.',
+  };
+}
+
+function appendChecksTable(lines: string[], checks: readonly RuntimeSelfTestCheck[]): void {
+  lines.push('| Check | Estado | Detalle |');
+  lines.push('| --- | --- | --- |');
+  for (const check of checks) {
+    lines.push(`| ${check.label} | ${formatCheckStatus(check.status)} | ${check.detail.replace(/\|/g, '\\|')} |`);
+  }
+}
+
 export function buildRuntimeSelfTestReport(input: RuntimeSelfTestInput): RuntimeSelfTestReport {
-  const checks: RuntimeSelfTestCheck[] = [
+  const coreChecks: RuntimeSelfTestCheck[] = [
     buildApiCheck(input.contract),
     buildLspCheck(input.stats),
     buildCacheCheck(input.stats),
@@ -294,11 +321,17 @@ export function buildRuntimeSelfTestReport(input: RuntimeSelfTestInput): Runtime
     buildBuildCheck(input.stats),
     buildOrcaCheck(input.stats),
   ];
+  const functionalChecks = input.functionalChecks && input.functionalChecks.length > 0
+    ? input.functionalChecks
+    : [buildFunctionalCoverageCheck()];
+  const checks = [...coreChecks, ...functionalChecks];
 
   return {
     generatedAt: input.generatedAt ?? new Date().toISOString(),
     overallStatus: combineStatuses(...checks.map((check) => check.status)),
     summary: buildSummary(checks),
+    coreChecks,
+    functionalChecks,
     checks,
   };
 }
@@ -311,13 +344,13 @@ export function buildRuntimeSelfTestMarkdown(report: RuntimeSelfTestReport): str
     '',
     `Resultado: ${formatCheckStatus(report.overallStatus)} · ${report.summary}`,
     '',
-    '| Check | Estado | Detalle |',
-    '| --- | --- | --- |',
+    '## Core runtime checks',
   ];
 
-  for (const check of report.checks) {
-    lines.push(`| ${check.label} | ${formatCheckStatus(check.status)} | ${check.detail.replace(/\|/g, '\\|')} |`);
-  }
+  appendChecksTable(lines, report.coreChecks);
+  lines.push('');
+  lines.push('## Functional interactive probes');
+  appendChecksTable(lines, report.functionalChecks);
 
   const actionableChecks = report.checks.filter((check) => check.status !== 'pass');
   if (actionableChecks.length > 0) {

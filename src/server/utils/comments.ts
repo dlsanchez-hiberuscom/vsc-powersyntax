@@ -137,6 +137,25 @@ export function stripCommentsSmart(lines: string[]): StrippedResult {
   return { lines: resultLines, masks: resultMasks };
 }
 
+export function maskNonCodeCharacters(line: string, mask?: Uint8Array): string {
+  if (!mask || mask.length === 0) {
+    return line;
+  }
+
+  const chars = new Array<string>(line.length);
+  for (let i = 0; i < line.length; i++) {
+    const charType = mask[i] ?? CharType.None;
+    chars[i] = charType === CharType.Comment || charType === CharType.String
+      ? ' '
+      : line[i];
+  }
+  return chars.join('');
+}
+
+export function buildCodeOnlyLines(lines: readonly string[], masks: readonly Uint8Array[]): string[] {
+  return lines.map((line, index) => maskNonCodeCharacters(line, masks[index]));
+}
+
 /**
  * Calcula la longitud de una secuencia de escape de PowerBuilder (~).
  */

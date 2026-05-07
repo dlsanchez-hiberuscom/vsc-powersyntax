@@ -153,17 +153,37 @@ suite('unit/runtimeSelfTest (B297)', () => {
     };
 
     const report = buildRuntimeSelfTestReport({ contract, stats, manifest, generatedAt: '2026-05-03T20:00:00.000Z' });
+    const reportWithFunctional = buildRuntimeSelfTestReport({
+      contract,
+      stats,
+      manifest,
+      functionalChecks: [
+        { key: 'view-providers', label: 'View providers', status: 'pass', detail: '3/3 registrados' },
+        { key: 'hover-builtin', label: 'Hover built-in IsNull', status: 'pass', detail: '3 variantes resueltas' },
+        { key: 'serving-cache', label: 'Serving cache probe', status: 'pass', detail: 'viewmodel-hit +1' },
+        { key: 'negative-cache', label: 'Hover negative cache', status: 'pass', detail: 'negative-hit +1' },
+        { key: 'definition-negative', label: 'Definition negative cache', status: 'pass', detail: 'negative-hit +1' },
+      ],
+      generatedAt: '2026-05-03T20:00:00.000Z',
+    });
 
-    assert.equal(report.overallStatus, 'pass');
-    assert.equal(report.checks.length, 7);
-    assert.deepEqual(report.checks.map((check) => check.key), ['api', 'lsp', 'cache', 'project-model', 'diagnostics', 'build', 'orca']);
-    assert.ok(report.checks.every((check) => check.status === 'pass'));
+    assert.equal(report.overallStatus, 'fail');
+    assert.equal(report.functionalChecks.length, 1);
+    assert.equal(report.functionalChecks[0]?.key, 'functional-coverage');
 
-    const markdown = buildRuntimeSelfTestMarkdown(report);
+    assert.equal(reportWithFunctional.overallStatus, 'pass');
+    assert.equal(reportWithFunctional.coreChecks.length, 7);
+    assert.equal(reportWithFunctional.functionalChecks.length, 5);
+    assert.deepEqual(reportWithFunctional.coreChecks.map((check) => check.key), ['api', 'lsp', 'cache', 'project-model', 'diagnostics', 'build', 'orca']);
+    assert.deepEqual(reportWithFunctional.functionalChecks.map((check) => check.key), ['view-providers', 'hover-builtin', 'serving-cache', 'negative-cache', 'definition-negative']);
+    assert.ok(reportWithFunctional.checks.every((check) => check.status === 'pass'));
+
+    const markdown = buildRuntimeSelfTestMarkdown(reportWithFunctional);
     assert.match(markdown, /PowerSyntax Runtime Self-Test/);
-    assert.match(markdown, /API pública/);
-    assert.match(markdown, /Build snapshot/);
-    assert.match(markdown, /ORCA snapshot/);
+    assert.match(markdown, /## Core runtime checks/);
+    assert.match(markdown, /## Functional interactive probes/);
+    assert.match(markdown, /View providers/);
+    assert.match(markdown, /Definition negative cache/);
     assert.doesNotMatch(markdown, /## Acciones sugeridas/);
   });
 
@@ -182,6 +202,7 @@ suite('unit/runtimeSelfTest (B297)', () => {
     assert.equal(report.checks.find((check) => check.key === 'diagnostics')?.status, 'warning');
     assert.equal(report.checks.find((check) => check.key === 'build')?.status, 'warning');
     assert.equal(report.checks.find((check) => check.key === 'orca')?.status, 'warning');
+    assert.equal(report.functionalChecks.find((check) => check.key === 'functional-coverage')?.status, 'fail');
 
     const markdown = buildRuntimeSelfTestMarkdown(report);
     assert.match(markdown, /## Acciones sugeridas/);

@@ -22,6 +22,7 @@ import type { DiscoveryProgressState } from '../features/progressReadiness';
 
 export const SERVER_EXECUTE_COMMANDS = [
   'powerbuilder.showStats',
+  'powerbuilder.showInteractiveServingStats',
   'powerbuilder.workspaceCheckCatalogSummary',
   'powerbuilder.objectInfo',
   'powerbuilder.querySymbols',

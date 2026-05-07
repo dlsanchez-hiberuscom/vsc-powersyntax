@@ -130,11 +130,13 @@ const servingStaleGuard = new InteractiveServingStaleGuard();
 const hoverViewModelCache = new PresentationCache<HoverViewModel>(128);
 const hoverNegativeCache = new PresentationCache<{ reason: HoverNegativeReason }>(256);
 const completionResolveNegativeCache = new PresentationCache<{ reason: CompletionResolveNegativeReason }>(256);
+const definitionNegativeCache = new PresentationCache<{ reason: string }>(256);
 
 function invalidateHoverPresentationCaches(uri?: string): void {
   hoverViewModelCache.invalidate(uri);
   hoverNegativeCache.invalidate(uri);
   completionResolveNegativeCache.invalidate(uri);
+  definitionNegativeCache.invalidate(uri);
 }
 
 function republishOpenDiagnostics(uris?: readonly string[]): void {
@@ -505,6 +507,16 @@ function cacheCompletionResolveNegativeWithMemoryPressure(
   invalidateRuntimeMemoryPressureSample();
 }
 
+function cacheDefinitionNegativeWithMemoryPressure(key: string, value: { reason: string }): void {
+  const policy = ensureRuntimeMemoryPressureRelief();
+  if (!policy.allowServingCacheWrites) {
+    return;
+  }
+
+  definitionNegativeCache.set(key, value);
+  invalidateRuntimeMemoryPressureSample();
+}
+
 function isLatencyPressureHigh(): boolean {
   return !servingLatencyGovernor.isBackgroundAllowed();
 }
@@ -773,6 +785,8 @@ const featureHandlerContext = {
   cacheHoverNegativeWithMemoryPressure,
   getCompletionResolveNegativeCacheEntry: (key: string) => completionResolveNegativeCache.get(key),
   cacheCompletionResolveNegativeWithMemoryPressure,
+  getDefinitionNegativeCacheEntry: (key: string) => definitionNegativeCache.get(key),
+  cacheDefinitionNegativeWithMemoryPressure,
   isDefinitionCacheEntry,
   collectReferenceSourcesForQuery,
   wordAt,

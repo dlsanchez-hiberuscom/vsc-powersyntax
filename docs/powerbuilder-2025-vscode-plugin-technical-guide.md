@@ -3144,6 +3144,15 @@ En subroutines puede usarse para salir:
 return
 ```
 
+PowerBuilder también admite cuerpo inline inmediatamente después del `;` de la firma callable:
+
+```powerscript
+public function string of_x();return "x"
+public subroutine of_x();IF lb_ok THEN
+```
+
+La sentencia posterior al `;` forma parte del cuerpo real. Por tanto, un `RETURN` inline cuenta como retorno válido y un `IF` o `CHOOSE CASE` inline abre bloque igual que si estuviera en la línea siguiente.
+
 ### 25.9 `CALL`
 
 `CALL` existe en PowerScript, especialmente visible en source exportado para calls a `SUPER`:
@@ -6692,6 +6701,14 @@ Evitar formateos innecesarios.
 ### 49.25 Los strings pueden contener SQL, DataWindow syntax, JSON, JavaScript o rutas
 
 Analizar sublenguaje antes de modificar.
+
+En particular:
+
+```text
+- `Query`, `Column`, `Style`, `char(`, `(` o `)` dentro de comillas no son tokens PowerScript.
+- `Describe(...)`, `Modify(...)` y `SyntaxFromSQL(...)` usan strings que deben tratarse como sublenguajes separados.
+- Si un string contiene SQL, rutas, JSON o sintaxis DataWindow, la inferencia segura baja y no debe reparsearse como PowerScript general.
+```
 
 ---
 

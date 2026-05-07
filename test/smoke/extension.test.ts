@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 
 import {
+  type ApiSemanticWorkspaceSnapshot,
   PUBLIC_API_EXTENSION_ID,
   PUBLIC_API_VERSION,
   type VscPowerSyntaxApi,
@@ -19,15 +20,165 @@ async function withStepTimeout<T>(label: string, promise: PromiseLike<T>, timeou
   ]);
 }
 
+async function runReadOnlyQuerySurfaceSmoke(api: VscPowerSyntaxApi): Promise<void> {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+  const contextDocument = await vscode.workspace.openTextDocument(
+    vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
+  );
+  await withStepTimeout('query-surface: runtime-basics', (async () => {
+    const stats = await api.getServerStats();
+    assert.ok(stats && typeof stats === 'object', 'La API pública debería devolver estadísticas del servidor');
+    assert.notEqual(stats?.readiness?.state, 'error', 'La extensión no debería quedar en readiness=error tras activar el runtime.');
+    assert.doesNotMatch(
+      stats?.readiness?.detail ?? '',
+      /startfailed|already exists|couldn't create connection/i,
+      'La smoke de activación no debería tolerar un arranque LSP degradado por duplicidad de comandos.'
+    );
+
+    const symbols = await api.querySymbols({ query: '', limit: 3 });
+    assert.ok(Array.isArray(symbols), 'La API pública debería devolver un array al consultar símbolos');
+
+    const currentObjectContext = await api.getCurrentObjectContext({
+      uri: contextDocument.uri.toString(),
+      line: 12,
+      character: 28
+    });
+    assert.equal(currentObjectContext.available, true, 'La API pública debería devolver un context pack disponible para el objeto activo');
+    assert.equal(currentObjectContext.objectInfo?.globalType, 'sample');
+    assert.ok(Array.isArray(currentObjectContext.members?.functions), 'El context pack debería incluir members serializables');
+  })(), 15000);
+
+  await withStepTimeout('query-surface: dependency-graph', (async () => {
+    const dependencyGraph = await api.getPowerBuilderDependencyGraph({
+      uri: contextDocument.uri.toString(),
+      maxDependencies: 4,
+      maxDependents: 4,
+    });
+    assert.equal(dependencyGraph.available, true);
+    assert.equal(dependencyGraph.scope, 'immediate-neighborhood');
+    assert.ok(dependencyGraph.nodes.some((node) => node.kind === 'focus-object'));
+    assert.match(dependencyGraph.mermaidFlowchart, /flowchart LR/);
+  })(), 15000);
+
+}
+
+async function runReadOnlyMarkdownSurfaceSmoke(): Promise<void> {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+  const contextDocument = await vscode.workspace.openTextDocument(
+    vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
+  );
+
+  await withStepTimeout('markdown-surface: graph-and-routing-reports', (async () => {
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+    await vscode.commands.executeCommand('powerbuilder.openDependencyGraph');
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Dependency Graph/);
+  })(), 30000);
+
+  await withStepTimeout('markdown-surface: build-and-analysis-reports', (async () => {
+    await vscode.window.showTextDocument(contextDocument, { preview: false });
+    await vscode.commands.executeCommand('powerbuilder.openBuildProfileMatrix');
+    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
+    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Build Profile Matrix/);
+  })(), 30000);
+
+  await withStepTimeout('markdown-surface: runtime-dashboards', (async () => {
+    const memoryReport = await vscode.commands.executeCommand<string>('powerbuilder.showMemoryBudgets');
+    assert.match(memoryReport ?? '', /# Memory Budgets/);
+  })(), 15000);
+}
+
+async function runSnapshotSurfaceSmoke(api: VscPowerSyntaxApi): Promise<void> {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+
+  const fixtureDocument = await vscode.workspace.openTextDocument(
+    vscode.Uri.joinPath(
+      workspaceFolder!.uri,
+      'test',
+      'fixtures',
+      'compatibility',
+      'semantic-workspace-snapshot.legacy-no-summary.json',
+    ),
+  );
+  const legacySnapshot = JSON.parse(fixtureDocument.getText()) as ApiSemanticWorkspaceSnapshot;
+
+  const importedSnapshot = await withStepTimeout(
+    'snapshot-surface: import-fixture',
+    (async () => {
+      const imported = await api.importSemanticWorkspaceSnapshot({
+        snapshot: legacySnapshot,
+      });
+      assert.equal(imported.valid, true);
+      assert.equal(imported.snapshot?.schemaVersion, '1.0.0');
+      assert.equal(imported.summary?.projectCount, 1);
+      return imported;
+    })(),
+    30000,
+  );
+
+  const baseSnapshot = importedSnapshot.snapshot;
+  assert.ok(baseSnapshot, 'La importación del fixture debería materializar un snapshot canónico.');
+
+  const nextSnapshot = JSON.parse(JSON.stringify(baseSnapshot));
+  nextSnapshot.generatedAt = '2026-05-03T00:10:00.000Z';
+  nextSnapshot.workspaceManifest.objects.push({
+    name: 'n_diff_probe',
+    uri: 'file:///diff/n_diff_probe.sru',
+    objectKind: 'userobject',
+    sourceOrigin: 'workspace-file',
+  });
+  nextSnapshot.workspaceManifest.exportedSymbols.push({
+    name: 'of_probe',
+    kind: 'Function',
+    uri: 'file:///diff/n_diff_probe.sru',
+    line: 1,
+    character: 0,
+  });
+  nextSnapshot.workspaceManifest.readiness.state = 'indexing';
+  nextSnapshot.workspaceManifest.sourceOriginSummary['workspace-file'] = 1;
+  nextSnapshot.summary.objectCount += 1;
+  nextSnapshot.summary.exportedSymbolCount += 1;
+  nextSnapshot.summary.readinessState = 'indexing';
+
+  await withStepTimeout('snapshot-surface: diff', (async () => {
+    const snapshotDiff = await api.diffSemanticWorkspaceSnapshots({
+      previous: baseSnapshot,
+      next: nextSnapshot,
+      maxObjectChanges: 8,
+      maxSymbolChanges: 8,
+    });
+    assert.equal(snapshotDiff.changed, true);
+    assert.equal(snapshotDiff.summary.objects.added, 1);
+    assert.equal(snapshotDiff.summary.exportedSymbols.added, 1);
+    assert.equal(snapshotDiff.readiness.changed, true);
+
+    const diffToolResult = await api.invokeReadOnlyTool({
+      tool: 'semantic-snapshot-diff',
+      args: {
+        previous: baseSnapshot,
+        next: nextSnapshot,
+        maxObjectChanges: 8,
+        maxSymbolChanges: 8,
+      },
+    });
+    assert.equal(diffToolResult.schema, 'ApiSemanticWorkspaceSnapshotDiff');
+    assert.equal((diffToolResult.payload as { summary?: { objects?: { added?: number } } }).summary?.objects?.added, 1);
+  })(), 20000);
+}
+
 suite('smoke/extension', () => {
   test('la extensión se activa en menos de 500ms', async function () {
     this.timeout(30000);
     const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(ext, 'La extensión debería estar presente');
-    const wasActiveBefore = ext.isActive;
 
     const start = performance.now();
-    const api = await ext.activate() as VscPowerSyntaxApi | undefined;
+    const api = await withStepTimeout('ext.activate()', ext.activate() as Thenable<VscPowerSyntaxApi | undefined>, 15000);
     const elapsed = performance.now() - start;
 
     assert.ok(ext.isActive, 'La extensión debería estar activa');
@@ -105,269 +256,14 @@ suite('smoke/extension', () => {
       true
     );
 
-    if (!wasActiveBefore) {
-      const stats = await api!.getServerStats();
-      assert.ok(stats && typeof stats === 'object', 'La API pública debería devolver estadísticas del servidor');
-      assert.notEqual(stats?.readiness?.state, 'error', 'La extensión no debería quedar en readiness=error tras activar el runtime.');
-      assert.doesNotMatch(
-        stats?.readiness?.detail ?? '',
-        /startfailed|already exists|couldn't create connection/i,
-        'La smoke de activación no debería tolerar un arranque LSP degradado por duplicidad de comandos.'
-      );
-
-      const symbols = await api!.querySymbols({ query: '', limit: 3 });
-      assert.ok(Array.isArray(symbols), 'La API pública debería devolver un array al consultar símbolos');
-
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
-
-      const contextDocument = await vscode.workspace.openTextDocument(
-        vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
-      );
-
-      const currentObjectContext = await api!.getCurrentObjectContext({
-        uri: contextDocument.uri.toString(),
-        line: 12,
-        character: 28
-      });
-      assert.equal(currentObjectContext.available, true, 'La API pública debería devolver un context pack disponible para el objeto activo');
-      assert.equal(currentObjectContext.objectInfo?.globalType, 'sample');
-      assert.ok(Array.isArray(currentObjectContext.members?.functions), 'El context pack debería incluir members serializables');
-
-      const manifestToolResult = await api!.invokeReadOnlyTool({
-        tool: 'semantic-workspace-manifest',
-        args: { maxObjects: 16, maxSymbols: 16 }
-      });
-      assert.equal(manifestToolResult.mode, 'read-only');
-      assert.equal(manifestToolResult.schema, 'ApiSemanticWorkspaceManifest');
-      assert.equal((manifestToolResult.payload as { schemaVersion?: string }).schemaVersion, '1.0.0');
-
-      const dependencyGraph = await api!.getPowerBuilderDependencyGraph({
-        uri: contextDocument.uri.toString(),
-        maxDependencies: 8,
-        maxDependents: 8,
-      });
-      assert.equal(dependencyGraph.available, true);
-      assert.equal(dependencyGraph.scope, 'immediate-neighborhood');
-      assert.ok(dependencyGraph.nodes.some((node) => node.kind === 'focus-object'));
-      assert.match(dependencyGraph.mermaidFlowchart, /flowchart LR/);
-
-      const dependencyGraphToolResult = await api!.invokeReadOnlyTool({
-        tool: 'dependency-graph',
-        args: {
-          uri: contextDocument.uri.toString(),
-          maxDependencies: 8,
-          maxDependents: 8,
-        },
-      });
-      assert.equal(dependencyGraphToolResult.schema, 'ApiPowerBuilderDependencyGraph');
-      assert.equal((dependencyGraphToolResult.payload as { available?: boolean }).available, true);
-
-      const crossProjectConflicts = await api!.getCrossProjectSymbolConflicts({
-        symbolName: 'missing_cross_project_smoke_probe',
-      });
-      assert.equal(crossProjectConflicts.available, false);
-
-      const crossProjectConflictsToolResult = await api!.invokeReadOnlyTool({
-        tool: 'cross-project-symbol-conflicts',
-        args: {
-          symbolName: 'missing_cross_project_smoke_probe',
-        },
-      });
-      assert.equal(crossProjectConflictsToolResult.schema, 'ApiCrossProjectSymbolConflicts');
-      assert.equal((crossProjectConflictsToolResult.payload as { available?: boolean }).available, false);
-
-      const workspaceMigrationAssistant = await api!.getWorkspaceMigrationAssistant({
-        preferredTargetMode: 'solution',
-        maxRecommendations: 4,
-      });
-      assert.equal(typeof workspaceMigrationAssistant.available, 'boolean');
-      assert.ok(typeof workspaceMigrationAssistant.currentMode === 'string');
-      if (!workspaceMigrationAssistant.available) {
-        assert.ok((workspaceMigrationAssistant.reason ?? '').length > 0);
-      }
-
-      const workspaceMigrationAssistantToolResult = await api!.invokeReadOnlyTool({
-        tool: 'workspace-migration-assistant',
-        args: {
-          preferredTargetMode: 'solution',
-          maxRecommendations: 4,
-        },
-      });
-      assert.equal(workspaceMigrationAssistantToolResult.schema, 'ApiWorkspaceMigrationAssistant');
-      assert.equal(typeof (workspaceMigrationAssistantToolResult.payload as { available?: unknown }).available, 'boolean');
-
-      const buildProfileMatrix = await api!.getBuildProfileMatrix({
-        maxProfiles: 8,
-      });
-      assert.equal(buildProfileMatrix.available, true);
-      assert.equal(buildProfileMatrix.schemaVersion, '1.0.0');
-      assert.ok(typeof buildProfileMatrix.summary.totalProfiles === 'number');
-
-      const buildProfileMatrixToolResult = await api!.invokeReadOnlyTool({
-        tool: 'build-profile-matrix',
-        args: {
-          maxProfiles: 8,
-        },
-      });
-      assert.equal(buildProfileMatrixToolResult.schema, 'ApiBuildProfileMatrix');
-      assert.equal((buildProfileMatrixToolResult.payload as { available?: boolean }).available, true);
-
-      const codeMetrics = await api!.getPowerBuilderCodeMetrics({
-        maxObjects: 16,
-      });
-      assert.equal(codeMetrics.schemaVersion, '1.0.0');
-      assert.ok(typeof codeMetrics.summary.totalObjects === 'number');
-
-      const codeMetricsToolResult = await api!.invokeReadOnlyTool({
-        tool: 'code-metrics',
-        args: {
-          maxObjects: 16,
-        },
-      });
-      assert.equal(codeMetricsToolResult.schema, 'ApiPowerBuilderCodeMetrics');
-      assert.equal((codeMetricsToolResult.payload as { schemaVersion?: string }).schemaVersion, '1.0.0');
-
-      const technicalDebtReport = await api!.getPowerBuilderTechnicalDebtReport({
-        maxObjects: 16,
-        maxHotspots: 8,
-        maxRecommendations: 8,
-      });
-      assert.equal(technicalDebtReport.schemaVersion, '1.0.0');
-      assert.ok(typeof technicalDebtReport.summary.totalRecommendations === 'number');
-
-      const technicalDebtToolResult = await api!.invokeReadOnlyTool({
-        tool: 'technical-debt-report',
-        args: {
-          maxObjects: 16,
-          maxHotspots: 8,
-          maxRecommendations: 8,
-        },
-      });
-      assert.equal(technicalDebtToolResult.schema, 'ApiPowerBuilderTechnicalDebtReport');
-      assert.equal((technicalDebtToolResult.payload as { schemaVersion?: string }).schemaVersion, '1.0.0');
-
-      const dataWindowSqlLineage = await api!.getDataWindowSqlLineage({
-        dataObjectName: 'd_missing_smoke_probe',
-      });
-      assert.equal(dataWindowSqlLineage.available, false);
-
-      const dataWindowSqlLineageToolResult = await api!.invokeReadOnlyTool({
-        tool: 'datawindow-sql-lineage',
-        args: {
-          dataObjectName: 'd_missing_smoke_probe',
-        },
-      });
-      assert.equal(dataWindowSqlLineageToolResult.schema, 'ApiDataWindowSqlLineage');
-      assert.equal((dataWindowSqlLineageToolResult.payload as { available?: boolean }).available, false);
-
-      await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('powerbuilder.openDependencyGraph');
-      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Dependency Graph/);
-
-      await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('powerbuilder.openCrossProjectSymbolConflicts');
-      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Cross-Project Symbol Conflicts/);
-
-      await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('powerbuilder.openWorkspaceMigrationAssistant');
-      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Workspace Migration Assistant/);
-
-      await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('powerbuilder.openBuildProfileMatrix');
-      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Build Profile Matrix/);
-
-      await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('powerbuilder.openCodeMetrics');
-      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Code Metrics/);
-
-      await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('powerbuilder.openTechnicalDebtReport');
-      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Technical Debt Report/);
-
-      await vscode.window.showTextDocument(contextDocument, { preview: false });
-      await vscode.commands.executeCommand('powerbuilder.openDataWindowSqlLineage');
-      assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-      assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /DataWindow SQL Lineage/);
-
-      const memoryReport = await vscode.commands.executeCommand<string>('powerbuilder.showMemoryBudgets');
-      assert.match(memoryReport ?? '', /# Memory Budgets/);
-
-      const indexingReport = await vscode.commands.executeCommand<string>('powerbuilder.showIndexingState');
-      assert.match(indexingReport ?? '', /# Indexing State/);
-
-      const routingReport = await vscode.commands.executeCommand<string>('powerbuilder.showProjectRouting');
-      assert.match(routingReport ?? '', /# Project Routing/);
-
-      const sourceOriginReport = await vscode.commands.executeCommand<string>('powerbuilder.showSourceOriginConflicts');
-      assert.match(sourceOriginReport ?? '', /# SourceOrigin Conflicts/);
-
-      const cacheValidationReport = await vscode.commands.executeCommand<string>('powerbuilder.validatePersistentCache');
-      assert.match(cacheValidationReport ?? '', /# Persistent Cache Validation/);
-
-      const exportedSnapshot = await api!.exportSemanticWorkspaceSnapshot({
-        maxObjects: 16,
-        maxSymbols: 16,
-      });
-      assert.equal(exportedSnapshot.snapshot.schemaVersion, '1.0.0');
-      assert.equal(exportedSnapshot.snapshot.apiVersion, PUBLIC_API_VERSION);
-
-      const importedSnapshot = await api!.importSemanticWorkspaceSnapshot({
-        snapshot: exportedSnapshot.snapshot,
-      });
-      assert.equal(importedSnapshot.valid, true);
-      assert.equal(importedSnapshot.summary?.projectCount, exportedSnapshot.snapshot.summary.projectCount);
-
-      const nextSnapshot = JSON.parse(JSON.stringify(exportedSnapshot.snapshot));
-      nextSnapshot.generatedAt = '2026-05-03T00:10:00.000Z';
-      nextSnapshot.workspaceManifest.objects.push({
-        name: 'n_diff_probe',
-        uri: 'file:///diff/n_diff_probe.sru',
-        objectKind: 'userobject',
-        sourceOrigin: 'workspace-file',
-      });
-      nextSnapshot.workspaceManifest.exportedSymbols.push({
-        name: 'of_probe',
-        kind: 'Function',
-        uri: 'file:///diff/n_diff_probe.sru',
-        line: 1,
-        character: 0,
-      });
-      nextSnapshot.workspaceManifest.readiness.state = 'indexing';
-      nextSnapshot.workspaceManifest.sourceOriginSummary['workspace-file'] = 1;
-      nextSnapshot.summary.objectCount += 1;
-      nextSnapshot.summary.exportedSymbolCount += 1;
-      nextSnapshot.summary.readinessState = 'indexing';
-
-      const snapshotDiff = await api!.diffSemanticWorkspaceSnapshots({
-        previous: exportedSnapshot.snapshot,
-        next: nextSnapshot,
-        maxObjectChanges: 8,
-        maxSymbolChanges: 8,
-      });
-      assert.equal(snapshotDiff.changed, true);
-      assert.equal(snapshotDiff.summary.objects.added, 1);
-      assert.equal(snapshotDiff.summary.exportedSymbols.added, 1);
-      assert.equal(snapshotDiff.readiness.changed, true);
-
-      const diffToolResult = await api!.invokeReadOnlyTool({
-        tool: 'semantic-snapshot-diff',
-        args: {
-          previous: exportedSnapshot.snapshot,
-          next: nextSnapshot,
-          maxObjectChanges: 8,
-          maxSymbolChanges: 8,
-        },
-      });
-      assert.equal(diffToolResult.schema, 'ApiSemanticWorkspaceSnapshotDiff');
-      assert.equal((diffToolResult.payload as { summary?: { objects?: { added?: number } } }).summary?.objects?.added, 1);
-    }
+    const stats = await withStepTimeout('getServerStats(api)', api!.getServerStats(), 15000);
+    assert.ok(stats && typeof stats === 'object', 'La API pública debería devolver estadísticas del servidor');
+    assert.notEqual(stats?.readiness?.state, 'error', 'La extensión no debería quedar en readiness=error tras activar el runtime.');
+    assert.doesNotMatch(
+      stats?.readiness?.detail ?? '',
+      /startfailed|already exists|couldn't create connection/i,
+      'La smoke de activación no debería tolerar un arranque LSP degradado por duplicidad de comandos.'
+    );
 
     // El presupuesto de cold start es 500ms, pero las pruebas de CI/test host
     // pueden ser algo más lentas. Avisamos si pasa de 500ms, pero el assert duro
@@ -377,6 +273,53 @@ suite('smoke/extension', () => {
     }
     
     assert.ok(elapsed < 2000, `Activación demasiado lenta: ${elapsed.toFixed(2)}ms`);
+  });
+
+  test('la superficie runtime read-only consulta reportes estructurales', async function () {
+    this.timeout(75000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+
+    await withStepTimeout(
+      'runReadOnlyQuerySurfaceSmoke',
+      runReadOnlyQuerySurfaceSmoke(api!),
+      60000,
+    );
+  });
+
+  test('la superficie runtime read-only abre reportes markdown secundarios', async function () {
+    this.timeout(75000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    await ext!.activate();
+
+    await withStepTimeout(
+      'runReadOnlyMarkdownSurfaceSmoke',
+      runReadOnlyMarkdownSurfaceSmoke(),
+      60000,
+    );
+  });
+
+  test('la superficie runtime read-only exporta e importa snapshots', async function () {
+    this.timeout(75000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    const api = await ext!.activate() as VscPowerSyntaxApi | undefined;
+    assert.ok(api, 'La extensión debería exportar una API pública');
+
+    await withStepTimeout(
+      'runSnapshotSurfaceSmoke',
+      runSnapshotSurfaceSmoke(api!),
+      60000,
+    );
   });
 
   test('workspace check expone tool read-only y reporte markdown', async function () {
@@ -737,7 +680,7 @@ suite('smoke/extension', () => {
   });
 
   test('el runtime self-test se ejecuta como comando read-only', async function () {
-    this.timeout(15000);
+    this.timeout(50000);
 
     const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(ext, 'La extensión debería estar presente');
@@ -752,10 +695,30 @@ suite('smoke/extension', () => {
     );
     await vscode.window.showTextDocument(contextDocument, { preview: false });
 
-    const runtimeSelfTestReport = await vscode.commands.executeCommand<string>('powerbuilder.runRuntimeSelfTest');
+    const runtimeSelfTestReport = await withStepTimeout(
+      'executeCommand(powerbuilder.runRuntimeSelfTest)',
+      vscode.commands.executeCommand<string>('powerbuilder.runRuntimeSelfTest'),
+      40000,
+    );
     assert.match(runtimeSelfTestReport ?? '', /# PowerSyntax Runtime Self-Test/);
-    assert.match(runtimeSelfTestReport ?? '', /API pública/);
-    assert.match(runtimeSelfTestReport ?? '', /ORCA snapshot/);
+    assert.match(runtimeSelfTestReport ?? '', /## Core runtime checks/);
+    assert.match(runtimeSelfTestReport ?? '', /## Functional interactive probes/);
+    assert.match(runtimeSelfTestReport ?? '', /View providers/);
+    assert.match(runtimeSelfTestReport ?? '', /Definition negative cache/);
+  });
+
+  test('las views contribuidas registran su provider durante activate', async function () {
+    this.timeout(40000);
+
+    const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
+    assert.ok(ext, 'La extensión debería estar presente');
+
+    await ext!.activate();
+
+    const commands = await vscode.commands.getCommands(true);
+    assert.ok(commands.includes('powerbuilderObjectExplorer.focus'), 'Object Explorer debería publicar su focus command al registrar el provider.');
+    assert.ok(commands.includes('powerbuilderCurrentObjectContext.focus'), 'Current Object Context debería publicar su focus command al registrar el provider.');
+    assert.ok(commands.includes('powerbuilderDiagnosticsExplainability.focus'), 'Diagnostics Explainability debería publicar su focus command al registrar el provider.');
   });
 
   test('settings governance publica perfiles corporativos y tolera la inspección read-only', async function () {

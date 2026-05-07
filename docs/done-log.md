@@ -25,6 +25,45 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.242 Runtime interactive / parser / discovery / health lane — **Cerrado (runtime / parser / discovery / health / 2026-05)**
+
+**Ámbito cerrado:**
+- `PB-RUNTIME-P0-FUNCTIONAL-SELFTEST-INTERACTIVE-01`
+- `PB-RUNTIME-P0-LSP-INTERACTIVE-LOOP-GUARD-01`
+- `PB-RUNTIME-P1-HOVER-SYSTEM-FASTPATH-01`
+- `PB-RUNTIME-P1-VIEW-PROVIDERS-REGISTRATION-01`
+- `PB-RUNTIME-P1-SERVING-CACHE-OBSERVABILITY-01`
+- `PB-RUNTIME-P0-LEXER-STRINGS-01`
+- `PB-RUNTIME-P0-DW-STRING-SUBLANGUAGES-01`
+- `PB-RUNTIME-P0-PARSER-INLINE-AFTER-SEMICOLON-01`
+- `PB-RUNTIME-P1-DISCOVERY-INDEXING-REAL-WORKSPACE-01`
+- `PB-RUNTIME-P2-BUILD-ORCA-HEALTH-SEPARATION-01`
+
+**Resultado registrado:**
+- El runtime self-test ya distingue checks base y probes funcionales reales para hover built-in, serving cache, definition negative cache y registro de views.
+- Hover built-in/system quedó resuelto por fast path de catálogo, con serving cache observable y suites unitarias/integración estables.
+- Los falsos diagnostics por contenido interno de strings, sublenguajes DataWindow y código inline tras `;` quedaron cerrados con cobertura específica del corpus real.
+- Discovery/indexing sobre workspaces reales con rutas con espacios quedó revalidado en OrderEntry/PFC; el warm-start vuelve a cortar por snapshots publicados aunque el `DocumentCache` haya evictado parte del corpus.
+- Health y dashboard mantienen separación entre runtime language, interactive serving y capacidades opcionales de build/ORCA.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/interactiveLoopGuard.test.js out/test/server/unit/featureHandlers.test.js out/test/server/unit/runtimeSelfTest.test.js out/test/server/unit/hover.test.js out/test/server/integration/lsp-hover.test.js out/test/server/unit/codeMasking.test.js out/test/server/unit/codeMaskingAudit.test.js out/test/server/unit/comments_stripper.test.js out/test/server/unit/statementSplitter.test.js out/test/server/unit/diagnosticsExtra.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/powerbuilderParserResilienceFuzz.test.js out/test/server/unit/readiness.test.js out/test/server/unit/progressReadiness.test.js out/test/server/unit/servingReadiness.test.js out/test/server/unit/featureReadiness.test.js out/test/server/unit/interactiveServingPipeline.test.js out/test/server/unit/runtimeHealth.test.js out/test/server/unit/projectHealthDashboard.test.js out/test/server/unit/pbAutoBuildHealth.test.js out/test/server/unit/buildOrcaFailureClassification.test.js out/test/server/unit/buildOrcaJournalStore.test.js out/test/server/unit/workspaceIndexer.test.js out/test/server/unit/workspace.test.js` → `196 passing`
+- `npx mocha --ui tdd out/test/server/performance/orderentry.smoke.test.js out/test/server/performance/orderentry.semantic.test.js out/test/server/performance/orderentry.perf.test.js out/test/server/performance/pfc-solution.smoke.test.js out/test/server/performance/semanticConsistencyOracle.smoke.test.js` → `7 passing`; `discoverWorkspace=545.49ms`, `index cold=17736.90ms`, `warm=9.48ms`
+- `npx vscode-test --label smoke --grep "la extensión se activa en menos de 500ms|el runtime self-test se ejecuta como comando read-only|las views contribuidas registran su provider durante activate|la superficie runtime read-only consulta reportes estructurales|la superficie runtime read-only abre reportes markdown secundarios|la superficie runtime read-only exporta e importa snapshots"` → `6 passing`
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/current-focus.md`
+- `docs/done-log.md`
+- `docs/architecture-status.md`
+- `docs/architecture-implementation-map.md`
+- `docs/performance-budget.md`
+- `docs/roadmap.md`
+- `docs/testing.md`
+- `docs/troubleshooting.md`
+- `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`
+
 ## 1.241 PB-RUNTIME-P2-EMPTY-HOOK-RETURN-01 — **Cerrado (runtime / diagnostics / 2026-05)**
 
 **Objetivo:** Evitar que el diagnóstico estricto SD13 reporte "missing return" como advertencia en funciones con tipo de retorno definido pero que no contienen código ejecutable (patrón común para hooks de herencia).
@@ -2173,6 +2212,26 @@ vsc-powersyntax(transaction-binding-dynamic)
 - `docs/backlog.md`
 - `docs/current-focus.md`
 - `docs/roadmap.md`
+- `docs/done-log.md`
+
+## 1.163 AUDIT-ERRORES. Runtime self-test funcional y smoke scoping del runtime interactivo — **Cerrada (runtime / testing 2026-05)**
+
+**Objetivo:** cerrar la auditoría del runtime interactivo eliminando falsos verdes del self-test, estabilizando hover/definition en hot path y separando la smoke de activación de recorridos read-only pesados.
+
+**Resultado registrado:**
+- `src/client/extension.ts`, `src/client/runtimeSelfTest.ts`, `src/server/handlers/featureHandlers.ts` y `src/server/server.ts` dejan el runtime self-test como comando read-only funcional: valida `view providers`, `IsNull` case-insensitive, serving cache, hover negative cache y definition negative cache, con stats ligeras y manifest best-effort para no bloquear el comando;
+- `src/server/runtime/interactiveLoopGuard.ts` y su prueba unitaria fijan el single-flight del hot path interactivo, mientras hover/definition quedan reanclados a fingerprint por documento y misses observables;
+- `test/smoke/extension.test.ts` separa la smoke de activación del barrido read-only, reduce cada smoke a checks representativos y reemplaza la exportación real de snapshots por importación/diff sobre fixture de compatibilidad para mantener el carril estable y rápido.
+
+**Validación registrada:**
+- `npm run build:test`
+- `npx mocha --ui tdd out/test/server/unit/runtimeSelfTest.test.js`
+- `npx vscode-test --label smoke --grep "la extensión se activa en menos de 500ms|el runtime self-test se ejecuta como comando read-only|las views contribuidas registran su provider durante activate|la superficie runtime read-only consulta reportes estructurales|la superficie runtime read-only abre reportes markdown secundarios|la superficie runtime read-only exporta e importa snapshots"`
+
+**Documentación alineada:**
+- `docs/current-focus.md`
+- `docs/architecture-status.md`
+- `docs/testing.md`
 - `docs/done-log.md`
 
 ## 1.162 B315. Extension package self-verification v2 — **Cerrada (release / package quality 2026-05)**

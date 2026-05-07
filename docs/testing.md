@@ -155,8 +155,15 @@ Deben confirmar que el producto sigue arrancando y respondiendo lo básico:
 - completion básico responde;
 - diagnostics no publican datos obsoletos;
 - comandos críticos existen.
+- self-test runtime read-only responde con probes funcionales reales del hot path interactivo.
 
 **Regla:** smoke tests deben ser pocos, estables y rápidos.
+
+Reglas operativas adicionales:
+
+- la smoke de activación debe medir `activate()` y un handshake mínimo; no debe arrastrar exports ni reportes read-only amplios;
+- cuando una superficie read-only sea cara, dividirla en varias smokes pequeñas por dominio y usar comandos/fixtures representativos en lugar de barridos completos del workspace real;
+- el runtime self-test no puede limitarse a snapshots: debe probar wiring real de `views`, hover built-in, serving cache y negative cache de hover/definition.
 
 ---
 
@@ -267,6 +274,7 @@ Debe existir cobertura para:
 
 Debe validar:
 
+- built-ins/system fast path independiente del workspace readiness;
 - símbolo de sistema;
 - función/evento de usuario;
 - variable local/instancia/global;
@@ -320,6 +328,7 @@ Debe validar:
 
 - diagnóstico sintáctico;
 - diagnóstico semántico;
+- strings PowerScript y sublenguajes DataWindow tratados como frontera semántica, no como PowerScript general;
 - severidad;
 - código;
 - rango;
@@ -376,6 +385,7 @@ Debe validar:
 
 - workspace moderno;
 - workspace legacy;
+- solution/pbproj con librerías en rutas con espacios;
 - múltiples targets;
 - libraries;
 - fuentes exportadas;
@@ -404,6 +414,7 @@ Debe validar:
 
 - indexación por documento;
 - indexación por objeto;
+- warm start desde snapshots publicados aunque el `DocumentCache` haya evictado parte del workspace;
 - actualización incremental;
 - invalidación mínima;
 - eliminación de símbolos al borrar/renombrar;

@@ -36,7 +36,7 @@ import {
 } from './hoverViewModel';
 import type { ActiveDocumentServingSnapshot } from '../serving/activeDocumentServingSnapshot';
 import { CharType, stripCommentsSmart } from '../utils/comments';
-import { findPowerBuilderIdentifierSpan } from '../utils/pbIdentifier';
+import { findPowerBuilderIdentifierSpan, type IdentifierSpan } from '../utils/pbIdentifier';
 
 function buildLifecycleHoverBlock(
   entity: import('../knowledge/types').Entity,
@@ -135,6 +135,11 @@ type HoverNegativeProbe = {
   definitive: boolean;
 };
 
+type HoverTokenProbe = {
+  token: IdentifierSpan;
+  lineText: string;
+};
+
 function splitMarkdownBlock(block: string | null): string[] {
   return block
     ? block.split('\n').filter((line, index) => !(index === 0 && line.trim().length === 0))
@@ -199,6 +204,74 @@ function resolveHoverNegativeReason(
   return null;
 }
 
+function resolveHoverTokenProbe(
+  document: TextDocument,
+  position: Position,
+  activeSnapshot?: ActiveDocumentServingSnapshot,
+): HoverTokenProbe | null {
+  const lineText = activeSnapshot?.getLineText(position.line) ?? getDocumentLineText(document, position.line);
+  const token = activeSnapshot?.getTokenAt(position)
+    ?? findPowerBuilderIdentifierSpan(lineText, position.character, { allowCursorAfterIdentifier: true });
+
+  if (!token) {
+    return null;
+  }
+
+  return {
+    token,
+    lineText,
+  };
+}
+
+function isQualifiedHoverToken(probe: HoverTokenProbe): boolean {
+  if (probe.token.start <= 0) {
+    return false;
+  }
+
+  const previous = probe.lineText[probe.token.start - 1] ?? '';
+  const beforePrevious = probe.lineText[probe.token.start - 2] ?? '';
+  return previous === '.' || (previous === ':' && beforePrevious === ':');
+}
+
+function resolveCatalogHoverByToken(
+  probe: HoverTokenProbe | null,
+  catalog: SystemCatalog,
+  documentationLocale: DocumentationLocale,
+): HoverPresentationResult | null {
+  if (!probe || isQualifiedHoverToken(probe)) {
+    return null;
+  }
+
+  const cacheToken = probe.token.word.toLowerCase();
+  const systemSymbols = catalog.findSystemSymbol(probe.token.word);
+  if (systemSymbols.length > 0) {
+    return {
+      kind: 'viewmodel',
+      viewModel: buildSystemHoverViewModel(systemSymbols[0], catalog, documentationLocale),
+      cacheToken,
+    };
+  }
+
+  const languageSymbol = catalog.resolveLanguageSymbol(probe.token.word);
+  if (!languageSymbol) {
+    return null;
+  }
+
+  if (languageSymbol.kind === 'keyword' || languageSymbol.kind === 'reserved-word') {
+    return {
+      kind: 'negative',
+      reason: 'keyword',
+      cacheToken,
+    };
+  }
+
+  return {
+    kind: 'viewmodel',
+    viewModel: buildLanguageHoverViewModel(languageSymbol, catalog, documentationLocale),
+    cacheToken,
+  };
+}
+
 export function buildHoverPresentationResult(
   document: TextDocument,
   position: Position,
@@ -213,6 +286,8 @@ export function buildHoverPresentationResult(
   if (negativeProbe?.definitive) {
     return { kind: 'negative', reason: negativeProbe.reason, cacheToken: negativeProbe.token };
   }
+
+  const tokenProbe = resolveHoverTokenProbe(document, position, activeSnapshot);
 
   const dataWindowHover = provideDataWindowHoverAdapter({
     document,
@@ -231,9 +306,16 @@ export function buildHoverPresentationResult(
     };
   }
 
+  if (negativeProbe?.reason !== 'string') {
+    const catalogFastPath = resolveCatalogHoverByToken(tokenProbe, catalog, documentationLocale);
+    if (catalogFastPath) {
+      return catalogFastPath;
+    }
+  }
+
   const semanticFacade = createSemanticQueryFacade({ kb, graph, systemCatalog: catalog, hotContext });
   const resolved = semanticFacade.resolveTargetInfo(document, position, { traceLabel: 'hover', consumer: 'hover' });
-  const cacheToken = resolved?.context.identifier.toLowerCase() ?? activeSnapshot?.getTokenAt(position)?.word.toLowerCase() ?? 'hover';
+  const cacheToken = resolved?.context.identifier.toLowerCase() ?? tokenProbe?.token.word.toLowerCase() ?? 'hover';
   if (!resolved) {
     return { kind: 'negative', reason: negativeProbe?.reason ?? 'unresolved', cacheToken: negativeProbe?.token ?? cacheToken };
   }

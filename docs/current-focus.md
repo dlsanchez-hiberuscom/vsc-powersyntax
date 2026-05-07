@@ -20,7 +20,9 @@ Estado de éxito:
 ```txt
 - Auditoría de arquitectura de caché completada al 100%.
 - Infraestructura de caché estabilizada, resiliente y lista para manejar +10,000 archivos sin interbloqueos ni doom-loops.
+- Carril runtime interactivo + parser string-safe + discovery/health real workspace cerrado y revalidado sobre corpora OrderEntry/PFC.
 - Enfoque actual: Refinar la experiencia de usuario y el ruido visual en la capa LSP interactiva.
+- Runtime interactivo revalidado con self-test funcional real y smokes separadas por alcance (activación, consultas read-only, reportes markdown y snapshots ligeros).
 ```
 
 ---
@@ -29,6 +31,7 @@ Estado de éxito:
 
 - La capa de caché, indexación incremental y el journal persistente ya están blindados.
 - Hemos solucionado las posibles cascadas de OOM (Out Of Memory) que tumbaban el serving cache de VS Code en entornos grandes.
+- El warm-start del indexador vuelve a reutilizar snapshots publicados aun cuando el `DocumentCache` haya evictado parte del corpus real.
 - Al tener un runtime ultra rápido, ahora debemos centrarnos en la experiencia de usuario (Developer Experience): mejorar la calidad de los diagnósticos, reducir el ruido informativo y ajustar los ciclos de vida de patrones específicos de PowerBuilder (PFC, runtime estricto, etc.).
 
 ---
@@ -38,6 +41,7 @@ Estado de éxito:
 - Atacar `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01`.
 - Ajustar severidad de diagnostics para `dataobject-dynamic` y `transaction-binding-dynamic`.
 - Mantener la información útil de riesgos/confidence en el hover, pero evitar ensuciar la ventana de Problems por defecto.
+- Mantener el runtime self-test como sonda funcional real sobre views, hover built-in, serving cache y negative caches sin volver a mezclarlo con exports/reportes pesados.
 
 ---
 

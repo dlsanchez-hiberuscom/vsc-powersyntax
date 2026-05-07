@@ -280,6 +280,7 @@ Documentación y gobierno
 
 - hover/completion/signature realmente útiles;
 - diagnostics fiables;
+- tras cerrar el carril runtime interactivo y discovery real, reducir ruido visual de diagnostics sin perder explainability;
 - symbol graph estable;
 - soporte incremental de DataWindow;
 - pruebas de regresión y performance.

@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict';
-import { stripCommentsSmart, CharType } from '../../../src/server/utils/comments';
+import { stripCommentsSmart, CharType, buildCodeOnlyLines } from '../../../src/server/utils/comments';
 
 suite('unit/comments_stripper', () => {
   test('debe manejar comentarios de línea simple //', () => {
@@ -95,5 +95,18 @@ suite('unit/comments_stripper', () => {
     const { lines: stripped } = stripCommentsSmart(lines);
 
     assert.strictEqual(stripped[0].includes('//'), true, 'El // dentro de un string multi-línea no debe eliminarse');
+  });
+
+  test('puede derivar una vista solo-código sin tokens internos de strings', () => {
+    const lines = ['ls_filter = "Query(Column(1), Style=Grid)" // tail'];
+    const stripped = stripCommentsSmart(lines);
+    const codeOnly = buildCodeOnlyLines(stripped.lines, stripped.masks);
+
+    assert.strictEqual(codeOnly[0].length, stripped.lines[0].length);
+    assert.strictEqual(codeOnly[0].includes('Query'), false);
+    assert.strictEqual(codeOnly[0].includes('Column'), false);
+    assert.strictEqual(codeOnly[0].includes('Style'), false);
+    assert.strictEqual(codeOnly[0].includes('//'), false);
+    assert.strictEqual(codeOnly[0].includes('ls_filter'), true);
   });
 });

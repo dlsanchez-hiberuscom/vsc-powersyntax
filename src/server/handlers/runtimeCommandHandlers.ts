@@ -113,6 +113,14 @@ export async function tryHandleRuntimeCommand(
   } = context;
 
   switch (params.command) {
+    case 'powerbuilder.showInteractiveServingStats': {
+      return {
+        handled: true,
+        result: {
+          interactiveServing: getInteractiveServingStats(),
+        }
+      };
+    }
     case 'powerbuilder.showStats': {
       const stats = knowledgeBase.getStats();
       const sched = scheduler.getStatus();

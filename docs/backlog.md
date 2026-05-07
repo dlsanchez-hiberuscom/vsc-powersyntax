@@ -33,6 +33,12 @@ Toda spec, auditoría o mejora nueva debe respetar esta meta. Si una mejora aume
 - Los errores reales capturados en runtime sobre corpus PowerBuilder/PFC tienen prioridad sobre mejoras cosméticas o nuevas features.
 - Ningún diagnóstico informativo debe ensuciar el editor por defecto si describe un patrón normal de PowerBuilder y no un problema accionable.
 - El lexer/parser debe tokenizar correctamente strings, comentarios y continuaciones antes de ejecutar reglas semánticas, balanceo de paréntesis o resolución de símbolos.
+- Un self-test de runtime no puede considerarse suficiente si solo valida snapshots internos. Debe incluir probes funcionales de features interactivas críticas: hover built-in, definition low-confidence, serving cache, view providers y readiness transitions.
+- Si `Readiness = ready` e `Indexer = ready`, pero hover/paneles/definition no funcionan, el fallo debe clasificarse como problema de serving/runtime interactivo, no como discovery/indexing salvo evidencia directa.
+- Las capacidades opcionales de build/ORCA no deben contaminar el estado de salud del language runtime. Build blocked u ORCA missing deben aparecer como capabilities separadas, no como bloqueo del hover, Object Explorer, Current Context, Diagnostics Explainability o diagnostics.
+- Las requests interactivas LSP deben ser deterministas: una request repetida para el mismo provider/URI/posición/documentVersion debe deduplicarse o resolverse desde cache/negative-cache, nunca entrar en spam de scheduler.
+- Los built-ins/system functions de PowerScript deben resolverse antes que el workspace index. No deben depender de discovery completo ni de PBAutoBuild/ORCA.
+- Las views contribuidas por `package.json` deben registrar siempre su provider durante `activate()`. Los datos pueden degradar; el provider no puede faltar.
 
 ### 1.1. Checklist final para agentes Copilot
 
@@ -49,8 +55,13 @@ Toda spec, auditoría o mejora nueva debe respetar esta meta. Si una mejora aume
 10. If real corpora are required but absent, document honest skip paths and do not fake results.
 11. If a finding is not fixed, register it in Backlog derivado with evidence and validation criteria.
 12. Do not create new feature specs unless the audit proves a real architectural or correctness need.
-13. Validate fixes against the captured PowerBuilder/PFC cases in section 4 before closing parser, diagnostics, hover, discovery or view-provider work.
+13. Validate fixes against the captured PowerBuilder/PFC cases in section 4 before closing parser, diagnostics, hover, discovery, serving-cache or view-provider work.
 14. Verify diagnostics severity: real correctness issues may be diagnostics; confidence/context warnings should prefer hover/context panels unless explicitly configured.
+15. Verify RuntimeSelfTest has both core checks and functional interactive probes before trusting a green result.
+16. Verify hover built-ins such as IsNull/UpperBound/String/Long/MessageBox work without workspace index readiness.
+17. Verify contributed views have registered providers and never show VS Code native “no data provider registered”.
+18. Verify repeated hover/definition requests are deduplicated or negative-cached.
+19. Verify build/ORCA warnings are not used as blockers for interactive language features.
 ```
 
 ---
@@ -118,7 +129,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 - [ ] integration (English manual base: ok. ES overlays: partial)
 - [ ] tooling (English manual base: ok. ES overlays: 100%)
 
-
 ---
 
 ## PLUGIN-INFRASTRUCTURE-NLS-01 — Plugin UI and Logic Internationalization (NLS)
@@ -140,361 +150,48 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 > Esta sección consolida errores observados en un workspace PowerBuilder 2025/PFC real. Debe tratarse como entrada prioritaria para specs de corrección. Los errores similares están agrupados para que el agente implemente fixes coherentes y no parches aislados.
 
-## PB-RUNTIME-P0-LEXER-STRINGS-01 — Lexer PowerScript correcto para strings, comillas mixtas y paréntesis literales
+## Estado 2026-05
 
-- **Estado:** Open.
-- **Prioridad:** P0.
-- **Origen:** errores runtime capturados en corpus PFC/PowerBuilder.
-- **Evidencia:** El plugin analiza contenido de strings como si fuera PowerScript real y genera falsos positivos de funciones inexistentes, paréntesis desbalanceados y símbolos no resueltos.
-- **Riesgo:** Muy alto. Rompe la confianza en diagnostics y contamina hover/problems con errores falsos masivos.
-- **Objetivo:** Corregir el lexer/tokenizer para que strings PowerBuilder se reconozcan antes de balancear paréntesis, resolver símbolos o ejecutar diagnósticos semánticos.
-- **Reglas PowerBuilder obligatorias:**
-  - Son strings válidos: `"texto"` y `'texto'`.
-  - Una comilla simple dentro de `"..."` no cierra el string.
-  - Una comilla doble dentro de `'...'` no cierra el string.
-  - Paréntesis, puntos, palabras y pseudo-funciones dentro de strings no son sintaxis PowerScript.
-- **Casos reales:**
+- El carril runtime interactivo, hover, serving cache, parser string-safe, discovery real workspace y health build/ORCA quedó cerrado y movido a [done-log.md](done-log.md).
+- El siguiente foco activo para este frente queda en `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01`.
 
-```powerscript
-ls_a = "hola ' que tal"
-ls_b = 'hola " que tal'
-ls_c = "char("
-ls_d = "("
-ls_e = ")"
-```
-
-```powerscript
-ls_presentation = "DataWindow (color=" + WHITE + ") " + &
-    "Column (background.mode=1 border=0 color=0 edit.displayonly='yes' edit.focusrectangle='no' " + &
-    "font.face='MS Sans Serif' font.height='-8' font.weight=400 font.family=2 font.pitch=2 font.charset=0) " + &
-    "Text (alignment=0 border=0 color=0 background.mode=1 " + &
-    "font.face='MS Sans Serif' font.height='-8' font.weight=400 font.family=2 font.pitch=2 font.charset=0) " + &
-    "Style (Header_Bottom_Margin=0 Header_Top_Margin=0 Report='yes')"
-```
-
-- **Diagnósticos incorrectos actuales:**
-  - `La función 'Column' no se encuentra...`
-  - `La función 'Style' no se encuentra...`
-  - `Paréntesis desbalanceados en la sentencia.`
-  - `La función 'Query' no se encuentra...` cuando `Query` está dentro de un literal de filtro como `"Query (*.txt),*.txt"`.
-- **Acceptance criteria:**
-  - El lexer devuelve tokens string completos para `"..."` y `'...'`.
-  - El balanceo de paréntesis ignora contenido de strings.
-  - La resolución semántica ignora tokens internos de strings.
-  - No aparecen diagnostics por `Column`, `Style`, `Query`, `char(`, `(` o `)` cuando están dentro de strings.
-  - Se añaden fixtures unitarios y smoke tests con los ejemplos anteriores.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-implementation-map.md`, `docs/testing.md`.
-- **Tests:** lexer/parser unit tests, diagnostics fixtures, smoke sobre corpus PFC.
-
----
-
-## PB-RUNTIME-P0-DW-STRING-SUBLANGUAGES-01 — Frontera segura para Describe/Modify/Evaluate/SyntaxFromSQL
-
-- **Estado:** Open.
-- **Prioridad:** P0.
-- **Origen:** errores runtime sobre strings DataWindow.
-- **Evidencia:** El plugin trata strings de `Describe`, `Modify` y `SyntaxFromSQL` como PowerScript normal.
-- **Riesgo:** Alto. DataWindow usa sublenguajes propios y strings con propiedades, puntos, paréntesis, SQL y comillas mixtas.
-- **Objetivo:** Establecer frontera semántica segura: no analizar strings DataWindow como PowerScript normal. `Evaluate(...)` puede tener tratamiento específico futuro, pero no debe producir falsos positivos por defecto.
-- **Casos reales:**
-
-```powerscript
-ll_Height += Integer(idw_Requestor.Describe("Datawindow." + &
-            ls_Band[li_Cnt] + ".Height"))
-```
-
-```powerscript
-CHOOSE CASE Lower ( Left ( idw_Requestor.Describe ( as_column + ".ColType" ) , 5 ) )
-CASE "char(" , "char"
-```
-
-```powerscript
-ls_string_value = lnv_string.of_GlobalReplace(ls_string_value, "(", "", FALSE)
-ls_string_value = lnv_string.of_GlobalReplace(ls_string_value, ")", "", FALSE)
-```
-
-```powerscript
-ls_syntax = inv_filterattrib.idw_dw.itr_object.SyntaxFromSQL(ls_sql, ls_presentation, ls_errbuffer)
-```
-
-- **Acceptance criteria:**
-  - `Describe(...)`, `Modify(...)` y `SyntaxFromSQL(...)` no disparan resolución PowerScript sobre literales internos.
-  - `Evaluate(...)` queda documentado como caso especial: si se analiza, debe ser un modo seguro y explícito, no PowerScript normal.
-  - No se reportan paréntesis desbalanceados por `"char("`, `"("`, `")"` ni por propiedades DataWindow.
-  - `.srd` y strings DataWindow mantienen frontera clara y no se parsean como PowerScript general.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/architecture-implementation-map.md`.
-- **Tests:** fixtures para `Describe`, `Modify`, `SyntaxFromSQL`, `Evaluate` safe-path.
-
----
-
-## PB-RUNTIME-P0-PARSER-INLINE-AFTER-SEMICOLON-01 — Soporte de código inline después del `;` de función/subrutina
-
-- **Estado:** Open.
-- **Prioridad:** P0.
-- **Origen:** errores runtime en PFC.
-- **Evidencia:** El parser ignora la primera sentencia real cuando aparece detrás del `;` de la firma, provocando falsos `END IF` huérfanos y falsos `missing return`.
-- **Riesgo:** Alto. Patrón válido en PowerBuilder; rompe bloques, returns y diagnostics de funciones.
-- **Objetivo:** El parser debe partir correctamente la línea de declaración y tratar lo posterior al `;` como primera sentencia del cuerpo si existe.
-- **Casos reales:**
-
-```powerscript
-public subroutine of_drawnone (datawindow vdw_sort);IF vdw_Sort.Describe('sort_ln1_xyzzy.type') = 'line' THEN
-    of_SetSortDWObject("")
-    String ls_Modify
-    ls_Modify = ' DESTROY sort_ln1_xyzzy DESTROY sort_ln2_xyzzy DESTROY sort_ln3_xyzzy '
-    vdw_Sort.Modify(ls_Modify)
-END IF
-RETURN
-end subroutine
-```
-
-```powerscript
-private function string of_getsortdwobject ();Return(is_sortDWObject)
-end function
-```
-
-- **Diagnósticos incorrectos actuales:**
-  - `Se ha detectado un cierre de bloque 'if' sin una apertura previa compatible.`
-  - `La función 'of_getsortdwobject' declara retorno 'string' pero no contiene 'return'.`
-- **Variantes mínimas a cubrir:**
-
-```powerscript
-public function string of_x();return "x"
-end function
-```
-
-```powerscript
-public subroutine of_x();IF lb_ok THEN
-END IF
-end subroutine
-```
-
-```powerscript
-protected function long of_x ();Return(il_value)
-end function
-```
-
-```powerscript
-public subroutine of_x();CHOOSE CASE li_value
-CASE 1
-END CHOOSE
-end subroutine
-```
-
-- **Acceptance criteria:**
-  - El parser reconoce `IF`, `RETURN`, `CHOOSE CASE` y llamadas cuando aparecen después del `;` de firma.
-  - No hay falsos `END IF` huérfanos en los casos anteriores.
-  - `Return(...)` inline cuenta para la regla de funciones con retorno.
-  - La extracción de firma para hover no se rompe por la sentencia posterior.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/testing.md`.
-- **Tests:** parser unit tests, block-balance fixtures, missing-return fixtures.
-
----
-
-## PB-RUNTIME-P1-DISCOVERY-INDEXING-REAL-WORKSPACE-01 — Discovery/indexación estable en Solution/PBL folders con rutas con espacios
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** métricas runtime y falsos símbolos no resueltos.
-- **Evidencia:** Workspace real queda en `discovering`, con indexer idle y topología semántica incompleta.
-- **Riesgo:** Alto. Afecta resolución de ancestors, Object Explorer, hover, diagnostics y navegación.
-- **Objetivo:** Corregir discovery/routing de workspace PowerBuilder 2025 Solution, `.pbproj`, PBL folders y rutas con espacios.
-- **Métricas observadas:**
-
-```text
-Readiness: discovering · discovery
-Resumen proyecto: workspace — descubriendo
-Workspace: solution · 826 archivos
-Scheduler: near 0 · background 0 · interactiveBusy false
-Indexer: idle · 0/0
-Workspace semántico: 0 proyectos · 0 librerías · 40 objetos exportados · 3499 tipos
-Inheritance: 3499 tipos · 0 raíces
-Source origins: pbl-folder-source 826
-```
-
-- **Caso real de rutas con espacios:**
-
-```xml
-<Library Path="pfc libs/pfcapp.pbl"/>
-<Library Path="pfc libs/pfcapsrv.pbl"/>
-<Library Path="pfc libs/pfcdwsrv.pbl"/>
-```
-
-- **Errores relacionados:**
-
-```powerscript
-global type pfc_n_cst_dwsrv_querymode from n_cst_dwsrv
-```
-
-```text
-El tipo base 'n_cst_dwsrv' no se encuentra en el workspace ni en el catálogo del lenguaje
-```
-
-- **Acceptance criteria:**
-  - El workspace no queda indefinidamente en `discovering` si no hay trabajo pendiente.
-  - Hay transición clara a `ready` o `degraded-ready` con reason codes.
-  - `.pbproj` y librerías con espacios se parsean y normalizan correctamente.
-  - Se detectan proyectos/librerías cuando existen, o se explica honestamente por qué no.
-  - Ancestor resolution usa library search path real y no falla con `n_cst_dwsrv` existente.
-  - No se bloquea discovery por ORCA ni PBAutoBuild ausentes.
-- **Docs:** `docs/architecture-implementation-map.md`, `docs/troubleshooting.md`, `docs/performance-budget.md`.
-- **Tests:** integration fixture con solution/pbproj y `pfc libs/...`; regression test de ancestor resolution.
-
----
-
-## PB-RUNTIME-P1-HOVER-SYSTEM-FASTPATH-01 — Hover instantáneo para built-ins/system functions y firma limpia
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** experiencia runtime y métricas de cache.
-- **Evidencia:** Hover se siente muy lento incluso en funciones del sistema como `UpperBound`. Health muestra último query `hover`, serving cache con hit ratio 0%.
-- **Riesgo:** Alto. Hover lento destruye la percepción de velocidad del plugin.
-- **Objetivo:** Implementar fast path de hover para catálogo system/built-in, sin depender de indexación completa del workspace.
-- **Caso real:**
-
-```powerscript
-li_maxcols = UpperBound(inv_querymodeinfo)
-```
-
-- **Métricas observadas:**
-
-```text
-Último query: hover
-serving 0/256 · hit 0% (0/155)
-analysis 4/256
-hot 1/128
-```
-
-- **Firma sucia actual:**
-
-```powerscript
-public function string of_globalreplace (string as_source, string as_old, string as_new, boolean ab_ignorecase);////////////////////////////////////////////////////
-```
-
-- **Firma esperada:**
-
-```powerscript
-public function string of_globalreplace (string as_source, string as_old, string as_new, boolean ab_ignorecase);
-```
-
-- **Acceptance criteria:**
-  - Built-ins/system functions se resuelven desde catálogo precargado/hot cache.
-  - Hover de built-ins no espera a discovery completo.
-  - Serving cache se usa realmente para hover interactivo y deja de permanecer en `0/256` durante navegación normal.
-  - La firma de funciones se corta en el primer `;` y no arrastra separadores/comentarios.
-- **Docs:** `docs/performance-budget.md`, `docs/architecture-implementation-map.md`.
-- **Tests:** hover unit/integration tests, cache key stability tests, built-in hover fixtures.
-
----
-
-## PB-RUNTIME-P1-VIEW-PROVIDERS-REGISTRATION-01 — Registrar correctamente Object Explorer, Current Context y Diagnostics Explainability
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Origen:** runtime UI.
-- **Evidencia:** Los paneles laterales muestran que no hay provider registrado incluso después de navegar y generar diagnostics.
-- **Riesgo:** Alto. Superficies clave del plugin quedan inutilizadas.
-- **Objetivo:** Registrar siempre los TreeDataProviders durante activación de extensión, independientemente de que discovery esté completo.
-- **Paneles afectados:**
-
-```text
-POWERBUILDER OBJECT EXPLORER
-CURRENT OBJECT CONTEXT
-DIAGNOSTICS EXPLAINABILITY
-```
-
-- **Mensaje actual:**
-
-```text
-No hay ningún proveedor de datos registrado que pueda proporcionar datos de la vista.
-```
-
-- **Acceptance criteria:**
-  - `registerTreeDataProvider` se ejecuta siempre para las vistas contribuidas.
-  - Las vistas muestran `loading`, `empty`, `degraded` o `no workspace` propios, nunca el error de VS Code de provider no registrado.
-  - `package.json` y activation events están alineados con las vistas.
-  - Los providers no dependen de readiness para registrarse; solo los datos dependen de readiness.
-- **Docs:** `docs/architecture-implementation-map.md`, `docs/troubleshooting.md`.
-- **Tests:** extension activation tests, view registration tests, smoke VS Code test CLI si aplica.
-
----
-
-## PB-RUNTIME-P1-CACHE-MEMORY-JOURNAL-BUDGET-01 — Corregir budgets de cache/document cache/journal y serving cache
-
-- **Estado:** Superseded.
-- **Prioridad:** P1.
-- **Origen:** health dashboard runtime.
-- **Nota:** Este ítem monolítico ha sido reemplazado por 7 specs granulares derivadas de la auditoría de arquitectura de cache (`CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01`, `CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01`, `CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01`, `CACHE-P1-FROZEN-REFS-HOT-PATH-01`, `CACHE-P1-READINESS-DISCOVERY-DEADLOCK-01`, `CACHE-P1-JOURNAL-AUTOCOMPACTION-01`, `CACHE-P1-KB-DEPENDENCY-INVALIDATION-01`). No debe ejecutarse de forma independiente.
-
----
-
-
-## PB-RUNTIME-P2-BUILD-ORCA-HEALTH-SEPARATION-01 — Separar health interactivo de build/ORCA opcional
+## PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01 — Reducir ruido visual y severidades no accionables sin perder explainability
 
 - **Estado:** Open.
 - **Prioridad:** P2.
-- **Origen:** health dashboard runtime.
-- **Evidencia:** Health marca build blocked y ORCA missing aunque el usuario está en flujo interactivo de lenguaje.
-- **Riesgo:** Medio. Puede hacer parecer roto el language server cuando solo faltan capabilities opcionales.
-- **Objetivo:** Separar claramente language/indexing health, build health y ORCA/package health.
-- **Métricas observadas:**
-
-```text
-Build health: bloqueado · sin build files PBAutoBuild detectados
-PBAutoBuild 25.0 / 2025 disponible · candidatos por defecto
-ORCA no detectado
-```
-
+- **Origen:** feedback runtime tras cerrar el carril interactivo; las advertencias contextuales siguen ensuciando Problems aunque el runtime ya sea funcional.
+- **Riesgo:** Medio. El usuario percibe falsos problemas porque warnings de contexto/confianza comparten canal con errores accionables.
+- **Objetivo:** reservar Problems para issues accionables y mover ruido contextual a hover, explainability y reportes read-only sin perder reason codes ni confidence.
 - **Acceptance criteria:**
-  - Falta de build files no bloquea readiness semántica ni Object Explorer.
-  - ORCA missing se reporta como capability opcional ausente, no como error crítico del runtime language server.
-  - El dashboard muestra dimensiones separadas y accionables.
-- **Docs:** `docs/troubleshooting.md`, `docs/architecture-implementation-map.md`, `docs/performance-budget.md`.
-- **Tests:** health model tests.
+  - `dataobject-dynamic` y `transaction-binding-dynamic` no ensucian Problems por defecto.
+  - Hover, explainability y reportes read-only conservan confidence, riesgo, source origin y reason codes.
+  - La superficie interactiva sigue verde: no se reabre runtime self-test, hover fast path, discovery warm-start ni health separation.
+  - Tests y documentación quedan alineados.
+- **Docs:** `docs/current-focus.md`, `docs/testing.md`, `docs/troubleshooting.md`, `docs/architecture-status.md` si cambia el contrato visible.
+- **Tests:** unit/integration de diagnostics presentation, explainability y publishing en Problems.
+
 
 ---
 
 # 5. Current execution focus recomendado
 
-## Estado actual recomendado tras integrar errores runtime y auditoría de cache
+## Estado actual recomendado tras cerrar el carril runtime interactivo y parser/discovery
 
 ```txt
-PB-RUNTIME-P0-LEXER-STRINGS-01 — Lexer PowerScript correcto para strings, comillas mixtas y paréntesis literales
+PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01 — Reducir ruido visual y severidades no accionables sin perder explainability
 ```
 
 ## Orden recomendado
 
-### Fase A — Parser/Lexer P0 (correciones de falsos positivos masivos)
-
-1. `PB-RUNTIME-P0-LEXER-STRINGS-01`
-2. `PB-RUNTIME-P0-DW-STRING-SUBLANGUAGES-01`
-3. `PB-RUNTIME-P0-PARSER-INLINE-AFTER-SEMICOLON-01`
-
-### Fase B — Cache P0 (cadena de dependencias crítica para rendimiento)
-
-> Los tres specs forman una cadena: sin eviction de document cache, la presión de memoria mata permanentemente el serving cache, y sin cache key per-document el hit ratio será 0%.
-
-4. `CACHE-P0-DOCUMENT-CACHE-LRU-EVICTION-01` (desbloquea #5 y #6)
-5. `CACHE-P0-MEMORY-PRESSURE-GRADUATED-POLICY-01` (desbloquea serving cache)
-6. `CACHE-P0-SERVING-KEY-DOCUMENT-EPOCH-01` (hit ratio: 0% → ≥80%)
-
-### Fase C — P1 runtime + cache (estabilidad y rendimiento profesional)
-
-7. `PB-RUNTIME-P1-DISCOVERY-INDEXING-REAL-WORKSPACE-01`
-8. `PB-RUNTIME-P1-HOVER-SYSTEM-FASTPATH-01`
-9. `CACHE-P1-FROZEN-REFS-HOT-PATH-01` (reducción de latencia -2-8ms hover)
-10. `CACHE-P1-READINESS-DISCOVERY-DEADLOCK-01` (safety net readiness)
-11. `PB-RUNTIME-P1-VIEW-PROVIDERS-REGISTRATION-01`
-12. `CACHE-P1-KB-DEPENDENCY-INVALIDATION-01` (invalidación selectiva Salsa-style)
-13. `CACHE-P1-JOURNAL-AUTOCOMPACTION-01` (higiene de persistencia)
-
 ### Fase D — P2 polish (calidad de diagnósticos y UX)
 
-14. `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01`
-15. `PB-RUNTIME-P2-LIFECYCLE-PFC-PATTERNS-01`
-16. `PB-RUNTIME-P2-EMPTY-HOOK-RETURN-01`
-17. `PB-RUNTIME-P2-BUILD-ORCA-HEALTH-SEPARATION-01`
-18. Retomar `CATALOG-MANUAL-EN-MIGRATION` cuando los P0/P1 runtime estén controlados.
+1. `PB-RUNTIME-P2-DIAGNOSTIC-SEVERITY-NOISE-01`
+2. Retomar `CATALOG-MANUAL-EN-MIGRATION` cuando se mantengan verdes la matriz transversal, las smokes runtime y el corpus real OrderEntry/PFC.
+
+**Criterio de salida:**
+- Las advertencias `dataobject-dynamic` y `transaction-binding-dynamic` dejan de ensuciar Problems por defecto.
+- La explainability conserva confidence, reason codes y riesgos en hover/reportes read-only.
+- No se reabre el carril cerrado de runtime interactivo, parser o discovery sin una regresión ejecutable nueva.
 
 ## Regla de promoción
 
@@ -506,6 +203,7 @@ PB-RUNTIME-P0-LEXER-STRINGS-01 — Lexer PowerScript correcto para strings, comi
 - Los errores P0 runtime de parser/lexer tienen preferencia sobre localización/catálogo porque generan falsos positivos masivos y afectan al core semántico.
 - Las specs de cache P0 tienen preferencia sobre features nuevas porque su cascada bloquea toda la capa de serving interactiva.
 - Las specs CACHE-P1 pueden ejecutarse en paralelo con PB-RUNTIME-P1 si no hay conflicto de archivos.
+- La Fase A0 puede adelantarse a parser/cache cuando el VSIX instalado muestre fallos interactivos reales aunque `Readiness` e `Indexer` estén en `ready`.
 
 ---
 
@@ -519,6 +217,8 @@ PB-RUNTIME-P0-LEXER-STRINGS-01 — Lexer PowerScript correcto para strings, comi
 - Nuevos parsers DataWindow que traten `.srd` como PowerScript normal.
 - Nuevos agentes/skills/prompts que dupliquen reglas ya existentes en `AGENTS.md`, `.github/copilot-instructions.md` o `docs/ai-orchestration.md`.
 - Nuevas reglas de diagnostics informativas hasta reducir primero el ruido actual de `dataobject-dynamic`, `transaction-binding-dynamic`, lifecycle y empty hooks.
+- Nuevas features de Object Explorer antes de garantizar provider registration, estados degradados y smoke test de activación.
+- Nuevas features de hover/completion antes de cerrar fast-path built-in, deduplicación y serving-cache observability.
 
 ---
 
@@ -541,9 +241,15 @@ La fase de auditorías podrá considerarse cerrada cuando:
 12. Lexer/parser ignoran correctamente contenido de strings y soportan código inline tras `;`.
 13. Hover de built-ins/system functions es rápido y no depende de discovery completo.
 14. Object Explorer, Current Object Context y Diagnostics Explainability registran providers y degradan con estados propios.
-15. Health separa correctamente runtime language, build y ORCA opcional.
+15. Health separa correctamente runtime language, interactive serving, build y ORCA opcional.
 16. Document cache tiene LRU con eviction y pin semántico, no supera budget de 48 MiB.
 17. Serving cache hit ratio ≥80% durante navegación normal con indexación paralela.
 18. Memory pressure no crea doom loop que mate permanentemente el serving cache.
 19. Hot path de hover/completion no usa structuredClone defensivo para consumers de solo lectura.
+20. RuntimeSelfTest incluye probes funcionales y no puede pasar si hover built-in, view providers o negative cache de definition fallan.
+21. Hover sobre `IsNull`, `UpperBound`, `String`, `Long` y `MessageBox` responde desde catálogo system sin depender del workspace index.
+22. Las requests repetidas de hover/definition tienen deduplicación y negative cache; no hay spam continuo de scheduler para la misma URI/posición/version.
+23. Las métricas de serving cache muestran reason codes para hits, misses, negative hits y non-cacheable results.
+24. Los paneles laterales nunca muestran el error nativo de VS Code de provider no registrado; siempre muestran estado propio.
+25. Build/ORCA no bloquean ni degradan falsamente el estado del language runtime interactivo.
 ```

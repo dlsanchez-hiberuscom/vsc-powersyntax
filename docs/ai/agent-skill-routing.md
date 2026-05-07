@@ -245,6 +245,31 @@ handoff target if needed
 
 ---
 
-## 6. Límites
+## 6. Registro canónico de agentes y skills versionados
+
+Agentes versionados disponibles en `.github/agents/` y su traducción operacional:
+
+- `docs-auditor`: alias de solo lectura para Documentation Agent.
+- `docs-updater`: alias de actualización enfocada para Documentation Agent.
+- `docs`: alias operativo corto para Documentation Agent.
+- `implementer`: agente ejecutor principal para cambios acotados con tests y documentación alineada.
+- `planner`: agente de planificación sin edición para scoping, validación y owner docs.
+- `reviewer`: agente de revisión técnica antes de merge.
+- `release`: agente de auditoría de CI, VSIX y release-readiness.
+
+Skills versionadas disponibles en `.github/skills/` y su owner natural:
+
+- `build-release`: release lane, CI, VSIX y readiness; coordina con Release Agent e Integration Agent.
+- `catalog-maintenance`: catálogos manual/generated/localization; coordina con Language Core Agent.
+- `datawindow-analysis`: subdominio DataWindow/DataStore; coordina con PowerBuilder Domain Agent.
+- `docs-governance`: ownership documental y no duplicación; coordina con Documentation Agent.
+- `official-research`: contraste con documentación oficial antes de cambiar contratos inciertos.
+- `performance-hotpath`: budgets, hot paths, invalidación y latencia; coordina con Performance Agent.
+- `powerbuilder-semantics`: símbolos, scopes, herencia y resolución PowerBuilder; coordina con Language Core Agent.
+- `testing-validation`: diseño y cierre de validación unitaria, integración, smoke y performance; coordina con Testing Agent.
+
+---
+
+## 7. Límites
 
 Este documento no decide el flujo completo. Para eso usar `docs/ai-orchestration.md`.

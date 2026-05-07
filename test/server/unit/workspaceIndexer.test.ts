@@ -394,6 +394,28 @@ suite('unit/workspaceIndexer/progress', () => {
     assert.equal(getIndexerStatus().enrichedPublished, 0);
   });
 
+  test('warm start reutiliza snapshots publicados aunque el DocumentCache haya evictado parte del workspace', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache(1);
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    fs.files.set('file:///proj/warm_a.sru', 'forward prototypes\nend prototypes\n');
+    fs.files.set('file:///proj/warm_b.sru', 'forward prototypes\nend prototypes\n');
+    state.addSourceFile('file:///proj/warm_a.sru');
+    state.addSourceFile('file:///proj/warm_b.sru');
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+    const epochAfterColdRun = kb.semanticEpoch;
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+
+    assert.equal(kb.semanticEpoch, epochAfterColdRun);
+    assert.equal(getIndexerStatus().structuralPublished, 0);
+    assert.equal(getIndexerStatus().enrichedPublished, 0);
+  });
+
   test('status expone resumen de prioridad semantica del activo', async () => {
     const fs = new FakeFileSystem();
     const state = new WorkspaceState();

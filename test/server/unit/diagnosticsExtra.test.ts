@@ -101,6 +101,15 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     strictEqual(checkMissingReturn(scope, lines).length, 0);
   });
 
+  test('SD13: no warning si el return va inline tras el encabezado', () => {
+    const lines = [
+      'public function integer f_test(); return 0',
+      'end function'
+    ];
+    const scope = makeScope('file:///x_inline.pbl', lines.length, lines);
+    strictEqual(checkMissingReturn(scope, lines).length, 0);
+  });
+
   test('runExtraDiagnostics consume snapshot publicado extremo a extremo', () => {
     const document = TextDocument.create(
       'file:///extra-diagnostics.sru',

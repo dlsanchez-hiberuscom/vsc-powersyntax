@@ -41,6 +41,7 @@ import type { WorkspaceState } from '../workspace/workspaceState';
 import { buildHierarchyInspection } from './hierarchyInspection';
 import { getQueryConsumerPolicy } from './queryScopePolicy';
 import { getDocumentLineText } from '../utils/documentLineText';
+import { buildCodeOnlyLines } from '../utils/comments';
 import {
   extractDataObjectLiteral,
   isDataWindowOwnerType,
@@ -285,7 +286,8 @@ function dedupAndCap(diags: Diagnostic[], cap: number): Diagnostic[] {
 
 export function validateStructure(document: TextDocument): Diagnostic[] {
   const snapshot = getDocumentAnalysis(document).snapshot;
-  const lines = snapshot.maskedText.lines;
+  const displayLines = snapshot.maskedText.lines;
+  const lines = buildCodeOnlyLines(displayLines, snapshot.maskedText.masks);
   const sections = snapshot.containerModel.sections;
   const diagnostics: Diagnostic[] = [];
   const stack: Array<{ kind: BlockKind; line: number; text: string }> = [];
@@ -299,6 +301,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
+    const displayRaw = displayLines[i];
     const trimmedRaw = raw.trim();
 
     if (!trimmedRaw && contBuffer === '') {
@@ -310,17 +313,17 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
     if (trimmedRaw.endsWith('&')) {
       if (contStartLine < 0) {
         contStartLine = i;
-        contStartText = raw;
+        contStartText = displayRaw;
       }
       contBuffer += (contBuffer ? ' ' : '') + trimmedRaw.replace(/&\s*$/, '').trim();
       continue;
     }
 
-    let line: string;
+    let logicalLineRaw: string;
     let logicalStartLine: number;
     let logicalStartText: string;
     if (contBuffer) {
-      line = (contBuffer + ' ' + trimmedRaw).trim().toLowerCase().replace(/\s+/g, ' ');
+      logicalLineRaw = (contBuffer + ' ' + trimmedRaw).trim();
       // Para diagnósticos preferimos señalar la primera línea de la sentencia.
       logicalStartLine = contStartLine;
       logicalStartText = contStartText;
@@ -328,108 +331,115 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
       contStartLine = -1;
       contStartText = '';
     } else {
-      line = trimmedRaw;
+      logicalLineRaw = trimmedRaw;
       logicalStartLine = i;
-      logicalStartText = raw;
+      logicalStartText = displayRaw;
     }
 
-    const closeKind = matchClosingBlock(line);
-    if (closeKind) {
-      const top = stack[stack.length - 1];
-
-      if (!top || top.kind !== closeKind) {
-        diagnostics.push({
-          severity: DiagnosticSeverity.Error,
-          range: Range.create(
-            Position.create(i, 0),
-            Position.create(i, raw.length)
-          ),
-          message: `Se ha detectado un cierre de bloque '${closeKind}' sin una apertura previa compatible.`,
-          source: DIAGNOSTIC_SOURCE
-        });
-      } else {
-        stack.pop();
-      }
-
-      continue;
-    }
-
-    if (FORWARD_PROTOTYPES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'prototypes', line: logicalStartLine, text: logicalStartText });
-      continue;
-    }
-
-    if (PROTOTYPES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'prototypes', line: logicalStartLine, text: logicalStartText });
-      continue;
-    }
-
-    if (VARIABLES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'variables', line: logicalStartLine, text: logicalStartText });
-      continue;
-    }
-
-    if (FORWARD_START_PATTERN.test(line) && !FORWARD_PROTOTYPES_START_PATTERN.test(line)) {
-      stack.push({ kind: 'forward', line: logicalStartLine, text: logicalStartText });
-      continue;
-    }
-
-    const enclosingSection = findEnclosingSection(i, sections);
-
-    if (enclosingSection?.kind === 'prototypes') {
-      continue;
-    }
-
-    if (enclosingSection?.kind === 'variables') {
-      continue;
-    }
-
-    if (isTypeDefinitionHeader(raw)) {
-      stack.push({ kind: 'type', line: i, text: raw });
-      continue;
-    }
-
-    if (!enclosingSection) {
-      const fn = matchFunctionImplementationHeader(raw);
-      if (fn) {
-        stack.push({ kind: fn.kind, line: i, text: raw });
+    for (const segmentRaw of splitInlineStructureSegments(logicalLineRaw)) {
+      const line = normalizeStructureLine(segmentRaw);
+      if (!line) {
         continue;
       }
 
-      const ev =
-        matchEventImplementationHeader(raw) ?? matchOnImplementationHeader(raw);
+      const closeKind = matchClosingBlock(line);
+      if (closeKind) {
+        const top = stack[stack.length - 1];
 
-      if (ev) {
-        stack.push({ kind: 'event', line: i, text: raw });
+        if (!top || top.kind !== closeKind) {
+          diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: Range.create(
+              Position.create(i, 0),
+              Position.create(i, displayRaw.length)
+            ),
+            message: `Se ha detectado un cierre de bloque '${closeKind}' sin una apertura previa compatible.`,
+            source: DIAGNOSTIC_SOURCE
+          });
+        } else {
+          stack.pop();
+        }
+
         continue;
       }
 
-      // --- Bloques ejecutables (portado de plugin_old pbLanguageGrammar.ts) ---
-      // IF multi-línea: termina en THEN al final de la línea lógica.
-      // Soporta continuaciones `&` (por ejemplo `if a > 0 and & ... b < 10 then`).
-      if (IF_BLOCK_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'if', line: logicalStartLine, text: logicalStartText });
+      if (FORWARD_PROTOTYPES_START_PATTERN.test(line)) {
+        stack.push({ kind: 'prototypes', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
-      if (FOR_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'for', line: logicalStartLine, text: logicalStartText });
+      if (PROTOTYPES_START_PATTERN.test(line)) {
+        stack.push({ kind: 'prototypes', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
-      if (DO_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'do', line: logicalStartLine, text: logicalStartText });
+      if (VARIABLES_START_PATTERN.test(line)) {
+        stack.push({ kind: 'variables', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
-      if (CHOOSE_CASE_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'choose-case', line: logicalStartLine, text: logicalStartText });
+      if (FORWARD_START_PATTERN.test(line) && !FORWARD_PROTOTYPES_START_PATTERN.test(line)) {
+        stack.push({ kind: 'forward', line: logicalStartLine, text: logicalStartText });
         continue;
       }
 
-      if (TRY_OPEN_PATTERN.test(line)) {
-        stack.push({ kind: 'try', line: logicalStartLine, text: logicalStartText });
+      const enclosingSection = findEnclosingSection(logicalStartLine, sections);
+
+      if (enclosingSection?.kind === 'prototypes') {
         continue;
+      }
+
+      if (enclosingSection?.kind === 'variables') {
+        continue;
+      }
+
+      if (isTypeDefinitionHeader(segmentRaw)) {
+        stack.push({ kind: 'type', line: logicalStartLine, text: logicalStartText });
+        continue;
+      }
+
+      if (!enclosingSection) {
+        const fn = matchFunctionImplementationHeader(segmentRaw);
+        if (fn) {
+          stack.push({ kind: fn.kind, line: logicalStartLine, text: logicalStartText });
+          continue;
+        }
+
+        const ev =
+          matchEventImplementationHeader(segmentRaw) ?? matchOnImplementationHeader(segmentRaw);
+
+        if (ev) {
+          stack.push({ kind: 'event', line: logicalStartLine, text: logicalStartText });
+          continue;
+        }
+
+        // --- Bloques ejecutables (portado de plugin_old pbLanguageGrammar.ts) ---
+        // IF multi-línea: termina en THEN al final de la línea lógica.
+        // Soporta continuaciones `&` (por ejemplo `if a > 0 and & ... b < 10 then`).
+        if (IF_BLOCK_OPEN_PATTERN.test(line)) {
+          stack.push({ kind: 'if', line: logicalStartLine, text: logicalStartText });
+          continue;
+        }
+
+        if (FOR_OPEN_PATTERN.test(line)) {
+          stack.push({ kind: 'for', line: logicalStartLine, text: logicalStartText });
+          continue;
+        }
+
+        if (DO_OPEN_PATTERN.test(line)) {
+          stack.push({ kind: 'do', line: logicalStartLine, text: logicalStartText });
+          continue;
+        }
+
+        if (CHOOSE_CASE_OPEN_PATTERN.test(line)) {
+          stack.push({ kind: 'choose-case', line: logicalStartLine, text: logicalStartText });
+          continue;
+        }
+
+        if (TRY_OPEN_PATTERN.test(line)) {
+          stack.push({ kind: 'try', line: logicalStartLine, text: logicalStartText });
+          continue;
+        }
       }
     }
   }
@@ -447,6 +457,17 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
   }
 
   return diagnostics;
+}
+
+function splitInlineStructureSegments(line: string): string[] {
+  return line
+    .split(';')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+}
+
+function normalizeStructureLine(line: string): string {
+  return line.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function matchClosingBlock(line: string): BlockKind | null {
@@ -491,6 +512,7 @@ export function validateSemantics(
 ): Diagnostic[] {
   const snapshot = getDocumentAnalysis(document).snapshot;
   const lines = snapshot.maskedText.lines;
+  const codeOnlyLines = buildCodeOnlyLines(lines, snapshot.maskedText.masks);
   const sections = snapshot.containerModel.sections;
   const semanticFacts = snapshot.symbols;
   const scopes = snapshot.scopes;
@@ -519,7 +541,7 @@ export function validateSemantics(
 
   // --- SD2: Validación dentro de scopes Function/Event ---
   for (const rootScope of scopes) {
-    visitScopes(rootScope, document.uri, lines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
+    visitScopes(rootScope, document.uri, codeOnlyLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
   }
 
   // --- SD4: Variables locales no usadas ---
@@ -559,7 +581,7 @@ export function validateSemantics(
 
   // --- SD9: `return` fuera de función/evento (Spec 079) ---
   // --- SD10: `exit`/`continue` fuera de bucle (Spec 080) ---
-  checkOrphanedFlowKeywords(snapshot, diagnostics);
+  checkOrphanedFlowKeywords(snapshot, diagnostics, codeOnlyLines);
 
   return diagnostics;
 }
@@ -1821,9 +1843,9 @@ function checkDuplicateDeclarations(
  */
 function checkOrphanedFlowKeywords(
   snapshot: SemanticDocumentSnapshot,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
+  strippedLines: string[] = snapshot.maskedText.lines
 ): void {
-  const strippedLines = snapshot.maskedText.lines;
   const scopes = snapshot.scopes;
   const controlBlocks = snapshot.controlBlocks;
   const sections = snapshot.containerModel.sections;

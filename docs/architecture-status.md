@@ -121,6 +121,7 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 - **Estado:** Parcial/Riesgo.
 - **Riesgo:** hover lento o poco útil si calcula desde cero o no distingue sistema/usuario/variable/DataWindow/built-in.
 - **Acción:** usar `HoverViewModel` cache y negative hover cache con invalidación segura.
+- **Estado validado 2026-05:** el fast path de catálogo system ya responde built-ins antes de depender del workspace readiness, con serving cache observable y negative cache explícita para misses repetidos.
 
 #### Completion
 
@@ -204,6 +205,7 @@ Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asum
 - **Evidencia:** el mapa de implementación contiene secciones específicas para DataWindow model, binding model, fast context, column access, property paths, safe mode y SQL lineage.
 - **Riesgo:** mezclar lógica DataWindow dentro del parser PowerScript o resolverla solo con heurísticas locales.
 - **Acción:** tratar DataWindow como subdominio propio con extractor, parser, modelo, SQL model, binding resolver y semantic provider.
+- **Estado validado 2026-05:** diagnostics y estructura ya toman `Describe(...)`, `Modify(...)` y `SyntaxFromSQL(...)` como frontera de sublenguaje; sus strings no se reinterpretan como PowerScript general.
 - **Documentos afectados:** `docs/backlog.md`, `docs/testing.md`, `docs/performance-budget.md`.
 
 ---
@@ -217,6 +219,7 @@ Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asum
 - **Riesgo:** acoplar APIs/procesos externos al core semántico.
 - **Acción:** mantener ORCA detrás de adapter: locator, session adapter, library reader, exporter y error mapper.
 - **Criterio de avance:** ausencia de ORCA debe degradar con seguridad, no romper el servidor.
+- **Estado validado 2026-05:** runtime health y dashboards ya separan capacidad ORCA/build del serving interactivo; su ausencia no debe bloquear hover, views ni diagnostics.
 
 ### 8.2. PBAutoBuild
 
@@ -236,6 +239,7 @@ Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asum
 - **Riesgo:** definir arquitectura de caches sin medir hit/miss, latencia, fallback y regresiones.
 - **Acción:** alinear performance budget con providers y cache layer.
 - **Criterio de avance:** cada hot path debe tener presupuesto, métrica y fallback controlado.
+- **Estado validado 2026-05:** el runtime interactivo ya quedó reanclado a fingerprint por documento, loop guard single-flight y negative cache observable para misses de hover/definition; el self-test read-only ahora ejecuta probes funcionales reales y usa snapshots ligeros para no bloquear el comando.
 
 ---
 
@@ -247,6 +251,7 @@ Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asum
 - **Riesgo:** cerrar refactors arquitectónicos sin pruebas de contrato, performance o regresión.
 - **Acción:** asegurar tests para parsing, indexing, cache invalidation, semantic facade, providers, DataWindow y adapters externos.
 - **Criterio de avance:** todo cambio de capa debe tener al menos test unitario/contrato; hot paths deben tener smoke/performance cuando aplique.
+- **Estado validado 2026-05:** la smoke de activación vuelve a medir solo `activate()` + handshake mínimo; los barridos read-only largos se trocean por superficie y el carril de snapshots usa fixture importado/diff para seguir siendo smoke en lugar de export E2E pesado.
 
 ---
 

@@ -107,6 +107,11 @@ Superficies principales:
 - [src/server/workspace/watchedFileIntake.ts](../src/server/workspace/watchedFileIntake.ts) y [src/server/workspace/watchedFileChangeBridge.ts](../src/server/workspace/watchedFileChangeBridge.ts): intake incremental del watcher.
 - [src/server/indexer/workspaceIndexer.ts](../src/server/indexer/workspaceIndexer.ts): orden de indexación priorizado, fases structural/enriched, yielding cooperativo, límites de tamaño y modo parcial degradado.
 
+Notas verificadas:
+
+- en warm start limpio, `workspaceIndexer.ts` ya puede cortar la indexación completa reutilizando snapshots publicados en `KnowledgeBase`, aunque `DocumentCache` haya evictado parte del corpus real;
+- la validación real sobre OrderEntry/PFC confirmó `discoverWorkspace=545.49ms`, `index cold=17736.90ms` y `warm=9.48ms`.
+
 ### 4.4 Parsing, análisis y snapshots
 
 Superficies principales:
@@ -116,6 +121,11 @@ Superficies principales:
 - [src/server/parsing/conditionalCompilationGate.ts](../src/server/parsing/conditionalCompilationGate.ts): gate de evidencia, no soporte productivo completo del preprocesador.
 - [src/server/analysis/documentAnalysis.ts](../src/server/analysis/documentAnalysis.ts): facts, scopes, snapshots y metadatos como `containerSignature`.
 - [src/server/analysis/analysisCache.ts](../src/server/analysis/analysisCache.ts) y [src/server/analysis/diagnosticScheduler.ts](../src/server/analysis/diagnosticScheduler.ts): reutilización y planificación de diagnostics.
+
+Notas verificadas:
+
+- `src/server/utils/comments.ts` deriva una vista `code-only` desde las masks existentes para que diagnostics y checks estructurales ignoren tokens internos de strings sin romper el contrato del stripper base;
+- el parser/diagnostics ya reconocen código inline tras el `;` de la firma callable como cuerpo real y no generan falsos `END IF` huérfanos ni falsos missing-return.
 
 ### 4.5 Knowledge backbone y system catalog
 
@@ -144,6 +154,11 @@ Superficies principales:
 - DataWindow: [src/server/features/dataWindowModel.ts](../src/server/features/dataWindowModel.ts), [src/server/features/dataWindowBindingModel.ts](../src/server/features/dataWindowBindingModel.ts), [src/server/features/dataWindowFastContext.ts](../src/server/features/dataWindowFastContext.ts), [src/server/features/dataWindowServingAdapters.ts](../src/server/features/dataWindowServingAdapters.ts), [src/server/features/dataWindowColumnAccess.ts](../src/server/features/dataWindowColumnAccess.ts), [src/server/features/dataWindowPropertyPaths.ts](../src/server/features/dataWindowPropertyPaths.ts), [src/server/features/dataWindowSafeMode.ts](../src/server/features/dataWindowSafeMode.ts), [src/server/features/dataWindowSqlLineage.ts](../src/server/features/dataWindowSqlLineage.ts).
 - Reports y planificación segura: [src/server/features/currentObjectContext.ts](../src/server/features/currentObjectContext.ts), [src/server/features/impactAnalysis.ts](../src/server/features/impactAnalysis.ts), [src/server/features/safeEditPlan.ts](../src/server/features/safeEditPlan.ts), [src/server/features/safeBatchRefactorPlan.ts](../src/server/features/safeBatchRefactorPlan.ts), [src/server/features/workspaceMigrationAssistant.ts](../src/server/features/workspaceMigrationAssistant.ts), [src/server/features/powerBuilderCodeMetrics.ts](../src/server/features/powerBuilderCodeMetrics.ts), [src/server/features/powerBuilderTechnicalDebtReport.ts](../src/server/features/powerBuilderTechnicalDebtReport.ts).
 
+Notas verificadas:
+
+- `hover.ts` resuelve built-ins/system functions por catálogo antes del índice de workspace y deja serving cache/negative cache instrumentadas en el hot path;
+- las views runtime read-only quedan registradas durante `activate()` y degradan por estado propio, no por ausencia de provider nativo de VS Code.
+
 ### 4.7 Persistencia, runtime, build y release lane
 
 Superficies principales:
@@ -152,6 +167,11 @@ Superficies principales:
 - Runtime: [src/server/runtime/scheduler.ts](../src/server/runtime/scheduler.ts), [src/server/runtime/backpressurePolicy.ts](../src/server/runtime/backpressurePolicy.ts), [src/server/runtime/memoryBudgets.ts](../src/server/runtime/memoryBudgets.ts), [src/server/runtime/memoryPressurePolicy.ts](../src/server/runtime/memoryPressurePolicy.ts), [src/server/runtime/runtimeJournal.ts](../src/server/runtime/runtimeJournal.ts), [src/server/runtime/runtimeHealth.ts](../src/server/runtime/runtimeHealth.ts), [src/server/runtime/runtimeProgressController.ts](../src/server/runtime/runtimeProgressController.ts).
 - Build/legacy: [src/server/build/pbAutoBuildRunner.ts](../src/server/build/pbAutoBuildRunner.ts), [src/server/build/pbAutoBuildLogParser.ts](../src/server/build/pbAutoBuildLogParser.ts), [src/server/build/pbAutoBuildProblems.ts](../src/server/build/pbAutoBuildProblems.ts), [src/server/build/orcaRunner.ts](../src/server/build/orcaRunner.ts), [src/server/build/orcaStagingExport.ts](../src/server/build/orcaStagingExport.ts), [src/server/build/orcaStagingImport.ts](../src/server/build/orcaStagingImport.ts), [src/server/build/specDrivenPblUpdate.ts](../src/server/build/specDrivenPblUpdate.ts).
 - Scripts y empaquetado: [package.json](../package.json), [tools/esbuild.mjs](../tools/esbuild.mjs), [tools/run-architecture-hotspot-guard.mjs](../tools/run-architecture-hotspot-guard.mjs), [tools/run-architecture-rapid-gate.mjs](../tools/run-architecture-rapid-gate.mjs), [tools/run-performance-budget-gate.mjs](../tools/run-performance-budget-gate.mjs), [tools/verify-vsix-contents.mjs](../tools/verify-vsix-contents.mjs).
+
+Notas verificadas:
+
+- `runtimeHealth.ts`, `projectHealthDashboard.ts`, `pbAutoBuildHealth.ts` y `buildOrcaFailureClassification.ts` ya separan estado interactivo de capacidades opcionales build/ORCA;
+- la ausencia de ORCA o build files se refleja en dashboards/capabilities sin convertirse en bloqueo del runtime LSP interactivo.
 
 ## 5. Flujos end-to-end reales
 

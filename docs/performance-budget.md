@@ -132,6 +132,11 @@ Son operaciones costosas que deben ejecutarse con progreso, cancelación o sched
 | Rehidratación de cache persistente | ≤ 1 s | ≤ 3 s | Debe validar versión/hash. |
 | Diagnostics workspace parcial | ≤ 3 s | ≤ 10 s | Debe ser schedulable. |
 
+Validación real 2026-05:
+
+- corpus OrderEntry/PFC: `discoverWorkspace=545.49ms`, `index cold=17736.90ms`, `warm=9.48ms`;
+- el warm path limpio debe reutilizar snapshots publicados y no reindexar todo el corpus si el workspace no está dirty.
+
 ---
 
 ## 5. Presupuestos de memoria
@@ -206,6 +211,11 @@ No debe:
 - leer disco en flujo normal;
 - recalcular catálogos built-in;
 - formatear desde modelos crudos si existe ViewModel válido.
+
+Validación real 2026-05:
+
+- built-ins/system functions deben resolverse por fast path de catálogo antes de depender de workspace readiness;
+- un miss de serving cache no justifica reabrir discovery/indexing ni bloquear hover sobre `IsNull`, `UpperBound` y equivalentes.
 
 ### 7.2. Completion
 
@@ -318,6 +328,8 @@ Reglas:
 - mapear errores sin romper el servidor;
 - degradar si ORCA no está disponible.
 
+Regla validada 2026-05: ORCA ausente sólo puede degradar dashboards y capabilities de build legacy; no debe alterar la latencia ni el estado funcional de hover, views o diagnostics.
+
 ### 9.2. PBAutoBuild
 
 PBAutoBuild debe tratarse como proceso externo controlado.
@@ -329,6 +341,8 @@ Reglas:
 - no bloquear providers interactivos;
 - registrar duración, exit code y errores parseados;
 - permitir cancelación cuando sea posible.
+
+Regla validada 2026-05: ausencia de build files o del runner no debe contaminar budgets de runtime interactivo ni bloquear serving/readiness del lenguaje.
 
 ---
 

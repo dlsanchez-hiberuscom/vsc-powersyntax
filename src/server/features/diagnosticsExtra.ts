@@ -29,6 +29,7 @@ import {
   END_TRY_PATTERN,
   FUNCTION_PATTERN
 } from '../parsing/grammar';
+import { buildCodeOnlyLines } from '../utils/comments';
 
 const RETURN_STATEMENT_RE = /^\s*return(\s|;|$)/i;
 
@@ -134,7 +135,12 @@ export function checkMissingReturn(
   const returnType = m[1].toLowerCase();
   // Una función PowerScript con returnType `none` no necesita `return`.
   if (returnType === 'none' || returnType === 'subroutine') return out;
-  let hasExecutableCode = false;
+  const inlineHeaderCode = extractInlineHeaderCode(headerLine);
+  if (RETURN_STATEMENT_RE.test(inlineHeaderCode)) {
+    return out;
+  }
+
+  let hasExecutableCode = inlineHeaderCode.length > 0;
   for (let i = scope.startLine + 1; i < scope.endLine; i++) {
     const line = strippedLines[i] ?? '';
     if (RETURN_STATEMENT_RE.test(line)) return out;
@@ -166,13 +172,22 @@ export function checkMissingReturn(
 export function runExtraDiagnostics(document: TextDocument): Diagnostic[] {
   const snapshot = getDocumentAnalysis(document).snapshot;
   const out: Diagnostic[] = [];
-  const strippedLines = snapshot.maskedText.lines;
+  const strippedLines = buildCodeOnlyLines(snapshot.maskedText.lines, snapshot.maskedText.masks);
   walkScopes(snapshot.scopes, (scope) => {
     out.push(...checkUnreachableAfterReturn(scope, strippedLines));
     out.push(...checkUnbalancedParens(scope, strippedLines));
     out.push(...checkMissingReturn(scope, strippedLines));
   });
   return out;
+}
+
+function extractInlineHeaderCode(line: string): string {
+  const separatorIndex = line.indexOf(';');
+  if (separatorIndex < 0) {
+    return '';
+  }
+
+  return line.slice(separatorIndex + 1).trim();
 }
 
 function walkScopes(scopes: readonly Scope[], visit: (s: Scope) => void): void {

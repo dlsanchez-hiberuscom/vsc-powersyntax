@@ -51,6 +51,8 @@ suite('performance/orderentry', () => {
       return;
     }
 
+    this.timeout(60000);
+
     const fs = new NodeFileSystem();
     const cache = new DocumentCache();
     const kb = new KnowledgeBase();

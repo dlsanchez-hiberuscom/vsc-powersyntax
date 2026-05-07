@@ -4,6 +4,7 @@ import { DiagnosticSeverity, type Connection } from 'vscode-languageserver/node'
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
+  buildDiagnosticsForDocument,
   clearDiagnosticsSummary,
   getDiagnosticsSummary,
   publishDiagnostics,
@@ -40,6 +41,11 @@ suite('unit/diagnostics', () => {
     clearDocumentAnalysisCache();
     clearDiagnosticsSummary();
   });
+
+  function buildDiagnostics(source: string, uri: string): ReturnType<typeof buildDiagnosticsForDocument> {
+    const document = TextDocument.create(uri, 'powerbuilder', 1, source);
+    return buildDiagnosticsForDocument(document, kb, systemCatalog, inheritanceGraph);
+  }
 
   test('validateStructure no devuelve errores en estructura simple válida', () => {
     const validSource = [
@@ -79,6 +85,84 @@ suite('unit/diagnostics', () => {
     assert.ok(diagnostics.length > 0);
     assert.equal(diagnostics[0].source, DIAGNOSTIC_SOURCE);
     assert.match(diagnostics[0].message, /cerrado correctamente/i);
+  });
+
+  test('validateStructure procesa IF y CHOOSE CASE inline tras encabezados callable', () => {
+    const source = [
+      'global type n_inline from nonvisualobject',
+      'end type',
+      '',
+      'forward prototypes',
+      'public subroutine of_if(datawindow adw_sort)',
+      'public subroutine of_choose()',
+      'end prototypes',
+      '',
+      'public subroutine of_if(datawindow adw_sort);IF adw_sort.Describe("DataWindow.Sort") = "line" THEN',
+      '  RETURN',
+      'END IF',
+      'end subroutine',
+      '',
+      'public subroutine of_choose();CHOOSE CASE 1',
+      'CASE 1',
+      'END CHOOSE',
+      'end subroutine'
+    ].join('\r\n');
+
+    const document = TextDocument.create('file:///inline-structure.sru', 'powerbuilder', 1, source);
+    const diagnostics = validateStructure(document);
+
+    assert.deepEqual(diagnostics, []);
+  });
+
+  test('buildDiagnosticsForDocument ignora tokens y paréntesis dentro de strings comunes', () => {
+    const source = [
+      'global type w_string_diagnostics from window',
+      'end type',
+      '',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      '',
+      'public subroutine of_test()',
+      '  string ls_filter',
+      '  ls_filter = "Query(Column(1), Style=Grid, char("',
+      '  MessageBox("ok", ls_filter)',
+      'end subroutine'
+    ].join('\r\n');
+
+    const diagnostics = buildDiagnostics(source, 'file:///string-literals-diagnostics.srw');
+    const unwanted = diagnostics.filter((diag) =>
+      /La función 'Query' no se encuentra|La función 'Column' no se encuentra|La función 'Style' no se encuentra|Paréntesis desbalanceados en la sentencia\./.test(diag.message)
+    );
+
+    assert.equal(unwanted.length, 0, unwanted.map((diag) => diag.message).join('\n'));
+  });
+
+  test('buildDiagnosticsForDocument ignora sublenguajes DataWindow dentro de literales Describe/Modify/SyntaxFromSQL', () => {
+    const source = [
+      'global type w_dw_string_diagnostics from window',
+      '  datastore ids_orders',
+      'end type',
+      '',
+      'forward prototypes',
+      'public subroutine of_test()',
+      'end prototypes',
+      '',
+      'public subroutine of_test()',
+      '  string ls_syntax',
+      '  ls_syntax = ids_orders.Describe("DataWindow.Table.Select=~"emp_id~" Column.Count(1) Style(Type=Grid)")',
+      '  ids_orders.Modify("DataWindow.Table.Filter=~"Column = ~~~~\"Style~~~~\" and Query(1)~"")',
+      '  ls_syntax = ids_orders.SyntaxFromSQL("select emp_id from employee", "Style(Type=Grid) Column.Count(1)", "", "")',
+      '  MessageBox("ok", ls_syntax)',
+      'end subroutine'
+    ].join('\r\n');
+
+    const diagnostics = buildDiagnostics(source, 'file:///dw-string-literals-diagnostics.srw');
+    const unwanted = diagnostics.filter((diag) =>
+      /La función 'Column' no se encuentra|La función 'Style' no se encuentra|La función 'Query' no se encuentra|Paréntesis desbalanceados en la sentencia\./.test(diag.message)
+    );
+
+    assert.equal(unwanted.length, 0, unwanted.map((diag) => diag.message).join('\n'));
   });
 
   test('validateSemantics detecta las reglas implementadas (SD2-SD5)', () => {

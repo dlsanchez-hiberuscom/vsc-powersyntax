@@ -117,11 +117,11 @@ suite('unit/hover', () => {
 
     assert.ok(hover, 'Hover no debería ser null');
     const value = (hover?.contents as any).value as string;
-    assert.match(value, /cuadro de mensaje del sistema/i);
-    assert.match(value, /interacciones bloqueantes/i);
-    assert.match(value, /Titulo visible en la barra/i);
-    assert.match(value, /Devuelve el boton seleccionado/i);
-    assert.match(value, /Evita usarlo en rutas de cambio de foco sensibles/i);
+    assert.match(value, /Muestra un cuadro de mensaje y devuelve el botón pulsado/i);
+    assert.match(value, /Título de la ventana de mensaje/i);
+    assert.match(value, /Texto principal que se muestra al usuario/i);
+    assert.match(value, /Botón por defecto opcional/i);
+    assert.match(value, /docs\.appeon\.com/i);
   });
 
   test('provideHover localiza helpers built-in del slice visible actual', () => {
@@ -131,9 +131,67 @@ suite('unit/hover', () => {
 
     assert.ok(hover, 'Hover no debería ser null');
     const value = (hover?.contents as any).value as string;
-    assert.match(value, /longitud de una cadena o blob/i);
-    assert.match(value, /medir texto visible o buffers binarios/i);
-    assert.match(value, /Len cuenta caracteres y no incluye el terminador null/i);
+    assert.match(value, /Devuelve la longitud de una cadena/i);
+    assert.match(value, /Len\(value\)/i);
+    assert.match(value, /docs\.appeon\.com/i);
+  });
+
+  test('provideHover resuelve IsNull en flujo IF aunque no exista símbolo del workspace', () => {
+    const localKb = new KnowledgeBase();
+    const localCatalog = new SystemCatalog();
+    const localGraph = new InheritanceGraph(localKb);
+    const doc = TextDocument.create(
+      'file:///hover_isnull_fastpath.sru',
+      'powerbuilder',
+      1,
+      'IF IsNull(ab_accepttext) THEN Return -1',
+    );
+
+    const hover = provideHover(doc, Position.create(0, doc.getText().indexOf('IsNull') + 2), localKb, localCatalog, localGraph);
+
+    assert.ok(hover, 'Hover no debería ser null para IsNull.');
+    const value = (hover?.contents as any).value as string;
+    assert.match(value, /IsNull/i);
+    assert.match(value, /docs\.appeon\.com/i);
+  });
+
+  test('provideHover prioriza el catálogo del sistema frente a símbolos locales con el mismo nombre', () => {
+    const localKb = new KnowledgeBase();
+    localKb.upsertDocument('file:///w_shadow_messagebox.sru', [
+      {
+        id: 'w_shadow_messagebox',
+        name: 'w_shadow_messagebox',
+        kind: EntityKind.Type,
+        uri: 'file:///w_shadow_messagebox.sru',
+        line: 0,
+        character: 0,
+      },
+      {
+        id: 'messagebox_local',
+        name: 'MessageBox',
+        kind: EntityKind.Function,
+        containerName: 'w_shadow_messagebox',
+        uri: 'file:///w_shadow_messagebox.sru',
+        line: 10,
+        character: 2,
+        lineage: {
+          sourceKind: 'document',
+          authority: 'derived',
+          phase: 'implementation',
+          confidence: 'direct',
+        },
+      },
+    ]);
+    const localCatalog = new SystemCatalog();
+    const localGraph = new InheritanceGraph(localKb);
+    const doc = TextDocument.create('file:///w_shadow_messagebox.sru', 'powerbuilder', 1, 'MessageBox("Hola", "Mundo")');
+
+    const hover = provideHover(doc, Position.create(0, 4), localKb, localCatalog, localGraph);
+
+    assert.ok(hover, 'Hover no debería ser null para MessageBox.');
+    const value = (hover?.contents as any).value as string;
+    assert.match(value, /docs\.appeon\.com/i);
+    assert.ok(!value.includes('**Defined in:** `w_shadow_messagebox`'), 'El hover debería venir del catálogo del sistema y no del símbolo local.');
   });
 
   test('provideHover localiza DataWindow core del slice visible actual', () => {
@@ -165,10 +223,10 @@ end subroutine
 
     assert.ok(hover, 'Hover no deberia ser null para ids_orders.SetTransObject(SQLCA).');
     const value = (hover?.contents as any).value as string;
-    assert.match(value, /transaction object explicito/i);
-    assert.match(value, /reutilice un transaction object administrado por tu codigo/i);
-    assert.match(value, /sigue siendo responsable de CONNECT, COMMIT y ROLLBACK/i);
-    assert.match(value, /asociacion se realiza correctamente/i);
+    assert.match(value, /objeto de transacción explícito/i);
+    assert.match(value, /CONNECT, COMMIT y ROLLBACK/i);
+    assert.match(value, /Objeto de transacción que será reutilizado para Retrieve y Update/i);
+    assert.match(value, /datawindow_reference\/dwmeth_SetTransObject\.html/i);
   });
 
   test('provideHover resuelve system types modernos del catálogo runtime', () => {
@@ -188,7 +246,7 @@ end subroutine
     assert.ok(hover, 'Hover no debería ser null para HTTPClient');
     const value = (hover?.contents as any).value as string;
     assert.ok(value.includes('HTTPClient'), 'Debe contener el nombre del tipo del sistema');
-    assert.match(value, /Cliente HTTP/i, 'Debe incluir el resumen del system type moderno.');
+    assert.match(value, /HTTP client for REST requests and web services/i, 'Debe incluir el resumen canónico del system type moderno.');
   });
 
   test('provideHover une valores manual-core y generated para tipos enumerados', () => {
@@ -332,7 +390,7 @@ end function
     assert.ok(hover, 'El hover final visible no debe ser null.');
     assert.equal((hover?.contents as any).kind, 'markdown');
     assert.equal((hover?.contents as any).value, formatHoverViewModel(presentation.viewModel));
-    assert.match((hover?.contents as any).value as string, /cuadro de mensaje del sistema/i);
+    assert.match((hover?.contents as any).value as string, /Muestra un cuadro de mensaje y devuelve el botón pulsado/i);
   });
 
   test('provideHover anota la ambiguedad cuando existen varios ganadores minimos', () => {
@@ -394,7 +452,7 @@ end subroutine
 
     assert.ok(hover, 'Hover no debería ser null para ids_orders.Retrieve().');
     const value = (hover?.contents as any).value as string;
-    assert.ok(value.includes('Recupera filas desde la fuente de datos'), 'Debe usar la entrada DataWindow de Retrieve.');
+    assert.ok(value.includes('Retrieves rows from the data source using the defined retrieve arguments and a valid transaction binding.'), 'Debe usar la entrada canónica de DataWindow para Retrieve.');
     assert.ok(value.includes('datawindow_reference/dwmeth_Retrieve.html'), 'Debe apuntar a la referencia de DataWindow.');
   });
 
@@ -425,7 +483,7 @@ end subroutine
 
     assert.ok(hover, 'Hover no debería ser null para ids_orders.Update().');
     const value = (hover?.contents as any).value as string;
-    assert.ok(value.includes('Envia a la base de datos los cambios acumulados'), 'Debe usar el summary ampliado de Update.');
+    assert.ok(value.includes('Sends accumulated changes in the DataWindow to the database and depends on the active transaction binding.'), 'Debe usar el summary canónico de Update.');
     assert.ok(value.includes('**Riesgo de uso:** dinamico'), 'Debe proyectar el riesgo catalogado de Update.');
     assert.ok(value.includes('accept?'), 'Debe exponer la firma enriquecida de Update.');
   });

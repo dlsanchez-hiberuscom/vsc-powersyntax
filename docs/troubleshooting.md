@@ -168,6 +168,7 @@ No incluir código propietario o datos sensibles sin sanitizar.
 [ ] Confirmar ficheros PBW/PBT/PBL/PBSLN/PBPROJ/SR* si aplica.
 [ ] Revisar excludes.
 [ ] Medir tiempo de discovery.
+[ ] Medir cold y warm por separado; un workspace limpio no debe reindexar todo el corpus en warm start.
 [ ] Confirmar si se hizo full scan o incremental.
 ```
 
@@ -192,6 +193,7 @@ No incluir código propietario o datos sensibles sin sanitizar.
 ### Causas probables
 
 - Parser no tolera documento incompleto.
+- Strings PowerScript o sublenguajes DataWindow tratados como PowerScript normal.
 - Rangos inestables.
 - Indexer no invalida lo necesario.
 - Símbolos eliminados no se limpian.
@@ -203,6 +205,7 @@ No incluir código propietario o datos sensibles sin sanitizar.
 [ ] Reproducir con script mínimo.
 [ ] Confirmar versión de documento.
 [ ] Revisar AST/modelo parcial.
+[ ] Verificar que `Query`, `Column`, `Style`, `char(`, `(` y `)` dentro de strings no generan diagnostics.
 [ ] Revisar símbolos indexados.
 [ ] Confirmar invalidación tras edición.
 ```
@@ -237,6 +240,7 @@ No incluir código propietario o datos sensibles sin sanitizar.
 
 ```text
 [ ] Confirmar posición y documento.
+[ ] Confirmar fast path de catálogo system antes de culpar al workspace readiness.
 [ ] Revisar RequestContext.
 [ ] Revisar cache hit/miss.
 [ ] Revisar resolución semántica.
@@ -249,6 +253,7 @@ No incluir código propietario o datos sensibles sin sanitizar.
 - Corregir resolver semántico.
 - Añadir/ajustar cache de ViewModel.
 - Añadir negative cache si aplica.
+- Confirmar que build/ORCA solo degradan dashboards/capabilities y no bloquean hover, views ni diagnostics.
 - Enriquecer catálogo built-in si falta símbolo.
 - Añadir fixture y test del caso.
 

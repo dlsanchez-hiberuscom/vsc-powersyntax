@@ -573,7 +573,7 @@ function hasMatchingPublishedEnrichedSnapshot(
 
 function canSkipFullIndex(
   files: string[],
-  cache: DocumentCache,
+  _cache: DocumentCache,
   kb: KnowledgeBase,
   workspaceState: WorkspaceState
 ): boolean {
@@ -581,7 +581,7 @@ function canSkipFullIndex(
     return false;
   }
 
-  return files.every((uri) => cache.hasSnapshot(uri) && kb.hasDocumentSnapshot(uri));
+  return files.every((uri) => kb.hasDocumentSnapshot(uri));
 }
 
 function buildPrioritySummary(

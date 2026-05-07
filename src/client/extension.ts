@@ -104,7 +104,11 @@ import { findCoreMaintenanceCommandModel } from './coreMaintenanceCommandCatalog
 import { buildProjectHealthDashboardMarkdown } from './projectHealthDashboard';
 import { PowerBuilderObjectExplorerController } from './objectExplorer';
 import { CurrentObjectContextPanelController } from './currentObjectContextPanel';
-import { buildRuntimeSelfTestMarkdown, buildRuntimeSelfTestReport } from './runtimeSelfTest';
+import {
+  buildRuntimeSelfTestMarkdown,
+  buildRuntimeSelfTestReport,
+  type RuntimeSelfTestCheck,
+} from './runtimeSelfTest';
 import { buildExplainSemanticQueryMarkdown } from './explainSemanticQueryReport';
 import {
   collectExplainableDiagnosticsFromActiveEditor,
@@ -223,6 +227,12 @@ const publicApiSingleton = createLazyPublicApi();
 const LAST_PBAUTOBUILD_PROFILE_KEY = 'pbAutoBuild.lastProfile';
 const MAX_SEMANTIC_REPRO_FILES = 20;
 const CLIENT_STOP_TIMEOUT_MS = 5000;
+const RUNTIME_SELF_TEST_PROBE_TIMEOUT_MS = 5000;
+const RUNTIME_VIEW_IDS = {
+  objectExplorer: 'powerbuilderObjectExplorer',
+  currentObjectContext: 'powerbuilderCurrentObjectContext',
+  diagnosticsExplainability: 'powerbuilderDiagnosticsExplainability',
+} as const;
 
 function createLazyPublicApi(): VscPowerSyntaxApi {
   return new Proxy({} as VscPowerSyntaxApi, {
@@ -304,6 +314,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
   const activationStart = performance.now();
 
   ensureHostInitialized(context);
+  ensureRuntimeViewProvidersRegistered();
   const channel = outputChannel;
 
   if (!channel) {
@@ -423,6 +434,41 @@ function ensureDiagnosticsExplainabilityPanelController(): DiagnosticsExplainabi
   }
 
   return diagnosticsExplainabilityPanelController;
+}
+
+function ensureRuntimeViewProvidersRegistered(): void {
+  const registrations = [
+    {
+      viewId: RUNTIME_VIEW_IDS.objectExplorer,
+      alreadyRegistered: Boolean(objectExplorerController),
+      register: () => ensureObjectExplorerController(),
+    },
+    {
+      viewId: RUNTIME_VIEW_IDS.currentObjectContext,
+      alreadyRegistered: Boolean(currentObjectContextPanelController),
+      register: () => ensureCurrentObjectContextPanelController(),
+    },
+    {
+      viewId: RUNTIME_VIEW_IDS.diagnosticsExplainability,
+      alreadyRegistered: Boolean(diagnosticsExplainabilityPanelController),
+      register: () => ensureDiagnosticsExplainabilityPanelController(),
+    },
+  ] as const;
+
+  for (const registration of registrations) {
+    if (registration.alreadyRegistered) {
+      outputChannel?.appendLine(`[VIEWS] duplicate registration prevented ${registration.viewId}`);
+      continue;
+    }
+
+    registration.register();
+    outputChannel?.appendLine(`[VIEWS] registered ${registration.viewId}`);
+    outputChannel?.appendLine(`[VIEWS] state ${registration.viewId} loading`);
+  }
+}
+
+function areRuntimeViewProvidersRegistered(): boolean {
+  return Boolean(objectExplorerController && currentObjectContextPanelController && diagnosticsExplainabilityPanelController);
 }
 
 function ensureHostInitialized(context: vscode.ExtensionContext): void {
@@ -1870,9 +1916,18 @@ function clearStatusRefreshHandle(): void {
   }
 }
 
-async function fetchRuntimeStatusStats(): Promise<RuntimeStatusStats | undefined> {
-  const buildTooling = await refreshPbAutoBuildCapability();
-  const orcaTooling = await refreshOrcaCapability();
+interface RuntimeStatusSnapshotOptions {
+  refreshTooling?: boolean;
+}
+
+async function fetchRuntimeStatusStats(options: RuntimeStatusSnapshotOptions = {}): Promise<RuntimeStatusStats | undefined> {
+  const refreshTooling = options.refreshTooling ?? true;
+  const buildTooling = refreshTooling
+    ? await refreshPbAutoBuildCapability()
+    : lastStatusStats?.buildTooling;
+  const orcaTooling = refreshTooling
+    ? await refreshOrcaCapability()
+    : lastStatusStats?.orcaTooling;
 
   if (!client) {
     return enrichRuntimeStatusStats({
@@ -2932,14 +2987,18 @@ async function exportHealthReport(options?: HealthReportCommandOptions): Promise
 }
 
 async function runRuntimeSelfTest(): Promise<string | undefined> {
-  const stats = await refreshRuntimeStatusSnapshot();
+  const stats = await refreshRuntimeStatusSnapshot({ refreshTooling: false });
+  const functionalChecks = await runRuntimeSelfTestFunctionalChecks();
 
   let manifest: ApiSemanticWorkspaceManifest | undefined;
   try {
-    manifest = clonePlainData(await publicApiSingleton.getSemanticWorkspaceManifest({
-      maxObjects: 80,
-      maxSymbols: 120,
-    }));
+    manifest = clonePlainData(await withRuntimeSelfTestTimeout(
+      'semantic workspace manifest',
+      publicApiSingleton.getSemanticWorkspaceManifest({
+        maxObjects: 80,
+        maxSymbols: 120,
+      }),
+    ));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     outputChannel?.appendLine(`[RuntimeSelfTest] No se pudo obtener el manifest semántico: ${message}`);
@@ -2949,6 +3008,7 @@ async function runRuntimeSelfTest(): Promise<string | undefined> {
     contract: publicApiSingleton.getPublicContract(),
     stats,
     manifest,
+    functionalChecks,
   });
   const content = buildRuntimeSelfTestMarkdown(report);
 
@@ -2967,6 +3027,327 @@ async function runRuntimeSelfTest(): Promise<string | undefined> {
   }
 
   return openMarkdownReportDocument(content);
+}
+
+function getInteractiveServingReasonCount(
+  stats: Pick<RuntimeStatusStats, 'interactiveServing'> | undefined,
+  feature: string,
+  reason: string,
+): number {
+  return stats?.interactiveServing?.features?.[feature]?.reasons?.[reason] ?? 0;
+}
+
+async function fetchInteractiveServingStatsSnapshot(): Promise<Pick<RuntimeStatusStats, 'interactiveServing'> | undefined> {
+  try {
+    return clonePlainData(await executeServerCommand<Pick<RuntimeStatusStats, 'interactiveServing'>>('powerbuilder.showInteractiveServingStats'));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outputChannel?.appendLine(`[RuntimeSelfTest] No se pudieron obtener interactive serving stats: ${message}`);
+    return lastStatusStats?.interactiveServing ? { interactiveServing: lastStatusStats.interactiveServing } : undefined;
+  }
+}
+
+function getProviderResultCount(result: unknown): number {
+  if (Array.isArray(result)) {
+    return result.length;
+  }
+  return result ? 1 : 0;
+}
+
+function extractHoverMarkdown(hovers: readonly vscode.Hover[]): string {
+  return hovers.map((hover) => {
+    const contents = hover.contents;
+    if (Array.isArray(contents)) {
+      return contents.map((entry) => {
+        if (typeof entry === 'string') {
+          return entry;
+        }
+        return 'value' in entry ? String(entry.value ?? '') : '';
+      }).join('\n');
+    }
+    if (typeof contents === 'string') {
+      return contents;
+    }
+    const contentValue = contents as { value?: string };
+    return typeof contentValue.value === 'string' ? contentValue.value : '';
+  }).join('\n');
+}
+
+async function withRuntimeSelfTestTimeout<T>(label: string, promise: Thenable<T> | Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Timeout en probe funcional: ${label}`));
+      }, RUNTIME_SELF_TEST_PROBE_TIMEOUT_MS);
+    }),
+  ]);
+}
+
+function findRuntimeSelfTestProbePosition(
+  document: vscode.TextDocument,
+  token: string,
+  occurrence = 1,
+): vscode.Position {
+  let searchIndex = 0;
+  let matchIndex = -1;
+  for (let current = 0; current < occurrence; current++) {
+    matchIndex = document.getText().indexOf(token, searchIndex);
+    if (matchIndex < 0) {
+      throw new Error(`No se encontró el token de probe: ${token}`);
+    }
+    searchIndex = matchIndex + token.length;
+  }
+
+  return document.positionAt(matchIndex + 1);
+}
+
+interface RuntimeSelfTestProbeDocumentContext {
+  document: vscode.TextDocument;
+  positions: {
+    isNull: vscode.Position;
+    isNullLower: vscode.Position;
+    isNullUpper: vscode.Position;
+    unknownHover: vscode.Position;
+    unknownDefinition: vscode.Position;
+  };
+}
+
+async function withRuntimeSelfTestProbeDocument<T>(
+  callback: (context: RuntimeSelfTestProbeDocumentContext) => Promise<T>,
+): Promise<T> {
+  const previousEditor = vscode.window.activeTextEditor;
+  const document = await vscode.workspace.openTextDocument({
+    language: 'powerbuilder',
+    content: [
+      'global type n_runtime_selftest_probe from nonvisualobject',
+      'end type',
+      '',
+      'forward prototypes',
+      'public subroutine of_probe()',
+      'end prototypes',
+      '',
+      'public subroutine of_probe()',
+      '  IF IsNull(ls_value) THEN Return',
+      '  IF isnull(ls_value) THEN Return',
+      '  IF ISNULL(ls_value) THEN Return',
+      '  IF of_missing_runtime_selftest() THEN Return',
+      '  ll_probe = ls_undefined_runtime_selftest',
+      'end subroutine',
+    ].join('\n'),
+  });
+
+  await vscode.window.showTextDocument(document, { preview: false, preserveFocus: true });
+
+  try {
+    return await callback({
+      document,
+      positions: {
+        isNull: findRuntimeSelfTestProbePosition(document, 'IsNull'),
+        isNullLower: findRuntimeSelfTestProbePosition(document, 'isnull'),
+        isNullUpper: findRuntimeSelfTestProbePosition(document, 'ISNULL'),
+        unknownHover: findRuntimeSelfTestProbePosition(document, 'of_missing_runtime_selftest'),
+        unknownDefinition: findRuntimeSelfTestProbePosition(document, 'ls_undefined_runtime_selftest'),
+      },
+    });
+  } finally {
+    if (previousEditor) {
+      await vscode.window.showTextDocument(previousEditor.document, {
+        preview: false,
+        preserveFocus: true,
+        selection: previousEditor.selection,
+      });
+    } else if (vscode.window.activeTextEditor?.document.uri.toString() === document.uri.toString()) {
+      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+    }
+  }
+}
+
+async function runRuntimeSelfTestFunctionalChecks(): Promise<RuntimeSelfTestCheck[]> {
+  const checks: RuntimeSelfTestCheck[] = [await runRuntimeSelfTestViewProviderProbe()];
+
+  const interactiveChecks = await withRuntimeSelfTestProbeDocument(async (context) => ([
+    await runRuntimeSelfTestHoverBuiltinProbe(context),
+    await runRuntimeSelfTestServingCacheProbe(context),
+    await runRuntimeSelfTestHoverNegativeCacheProbe(context),
+    await runRuntimeSelfTestDefinitionNegativeProbe(context),
+  ]));
+
+  return [...checks, ...interactiveChecks];
+}
+
+async function runRuntimeSelfTestViewProviderProbe(): Promise<RuntimeSelfTestCheck> {
+  const registered = areRuntimeViewProvidersRegistered();
+  const commands = await vscode.commands.getCommands(true);
+  const missingCommands = [
+    `${RUNTIME_VIEW_IDS.objectExplorer}.focus`,
+    `${RUNTIME_VIEW_IDS.currentObjectContext}.focus`,
+    `${RUNTIME_VIEW_IDS.diagnosticsExplainability}.focus`,
+  ].filter((command) => !commands.includes(command));
+
+  if (!registered || missingCommands.length > 0) {
+    return {
+      key: 'view-providers',
+      label: 'View providers',
+      status: 'fail',
+      detail: registered
+        ? `Faltan focus commands: ${missingCommands.join(', ')}`
+        : 'No están registrados los tres TreeDataProviders del runtime.',
+      recommendation: 'Registrar siempre Object Explorer, Current Object Context y Diagnostics Explainability durante activate().',
+    };
+  }
+
+  return {
+    key: 'view-providers',
+    label: 'View providers',
+    status: 'pass',
+    detail: '3/3 providers registrados y focus commands publicados.',
+  };
+}
+
+async function runRuntimeSelfTestHoverBuiltinProbe(
+  context: RuntimeSelfTestProbeDocumentContext,
+): Promise<RuntimeSelfTestCheck> {
+  const probes = [
+    { label: 'IsNull', position: context.positions.isNull },
+    { label: 'isnull', position: context.positions.isNullLower },
+    { label: 'ISNULL', position: context.positions.isNullUpper },
+  ] as const;
+  const failures: string[] = [];
+
+  for (const probe of probes) {
+    try {
+      const hovers = await withRuntimeSelfTestTimeout(
+        `hover ${probe.label}`,
+        vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', context.document.uri, probe.position),
+      );
+      const markdown = extractHoverMarkdown(hovers ?? []);
+      if ((hovers?.length ?? 0) === 0 || !/IsNull/i.test(markdown)) {
+        failures.push(probe.label);
+      }
+    } catch {
+      failures.push(probe.label);
+    }
+  }
+
+  if (failures.length > 0) {
+    return {
+      key: 'hover-builtin',
+      label: 'Hover built-in IsNull',
+      status: 'fail',
+      detail: `Fallaron variantes: ${failures.join(', ')}`,
+      recommendation: 'Garantizar fast-path del catálogo del sistema para IsNull antes de depender del índice semántico.',
+    };
+  }
+
+  return {
+    key: 'hover-builtin',
+    label: 'Hover built-in IsNull',
+    status: 'pass',
+    detail: 'IsNull, isnull e ISNULL resueltos con contenido visible.',
+  };
+}
+
+async function runRuntimeSelfTestServingCacheProbe(
+  context: RuntimeSelfTestProbeDocumentContext,
+): Promise<RuntimeSelfTestCheck> {
+  const before = await fetchInteractiveServingStatsSnapshot();
+
+  await withRuntimeSelfTestTimeout(
+    'hover serving cache warmup',
+    vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', context.document.uri, context.positions.isNull),
+  );
+  await withRuntimeSelfTestTimeout(
+    'hover serving cache reuse',
+    vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', context.document.uri, context.positions.isNull),
+  );
+
+  const after = await fetchInteractiveServingStatsSnapshot();
+  const cacheHitDelta = getInteractiveServingReasonCount(after, 'hover', 'cache-hit') - getInteractiveServingReasonCount(before, 'hover', 'cache-hit');
+  const viewModelHitDelta = getInteractiveServingReasonCount(after, 'hover', 'viewmodel-hit') - getInteractiveServingReasonCount(before, 'hover', 'viewmodel-hit');
+
+  if (cacheHitDelta <= 0 && viewModelHitDelta <= 0) {
+    return {
+      key: 'serving-cache',
+      label: 'Serving cache probe',
+      status: 'fail',
+      detail: 'No se observaron cache-hit ni viewmodel-hit tras repetir el mismo hover built-in.',
+      recommendation: 'Revisar key estable, stale guard, write path y visibilidad de miss/hit reasons en el hot path de hover.',
+    };
+  }
+
+  return {
+    key: 'serving-cache',
+    label: 'Serving cache probe',
+    status: 'pass',
+    detail: `cache-hit +${Math.max(0, cacheHitDelta)} · viewmodel-hit +${Math.max(0, viewModelHitDelta)}`,
+  };
+}
+
+async function runRuntimeSelfTestHoverNegativeCacheProbe(
+  context: RuntimeSelfTestProbeDocumentContext,
+): Promise<RuntimeSelfTestCheck> {
+  const before = await fetchInteractiveServingStatsSnapshot();
+  const first = await withRuntimeSelfTestTimeout(
+    'hover negative cache first miss',
+    vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', context.document.uri, context.positions.unknownHover),
+  );
+  const second = await withRuntimeSelfTestTimeout(
+    'hover negative cache second miss',
+    vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', context.document.uri, context.positions.unknownHover),
+  );
+  const after = await fetchInteractiveServingStatsSnapshot();
+  const negativeHitDelta = getInteractiveServingReasonCount(after, 'hover', 'negative-hit') - getInteractiveServingReasonCount(before, 'hover', 'negative-hit');
+
+  if ((first?.length ?? 0) > 0 || (second?.length ?? 0) > 0 || negativeHitDelta <= 0) {
+    return {
+      key: 'negative-cache',
+      label: 'Hover negative cache',
+      status: 'fail',
+      detail: `hover1=${first?.length ?? 0} · hover2=${second?.length ?? 0} · negative-hit +${Math.max(0, negativeHitDelta)}`,
+      recommendation: 'Hacer que hover unknown devuelva null y reutilice la negative cache en la segunda petición idéntica.',
+    };
+  }
+
+  return {
+    key: 'negative-cache',
+    label: 'Hover negative cache',
+    status: 'pass',
+    detail: `hover null estable · negative-hit +${negativeHitDelta}`,
+  };
+}
+
+async function runRuntimeSelfTestDefinitionNegativeProbe(
+  context: RuntimeSelfTestProbeDocumentContext,
+): Promise<RuntimeSelfTestCheck> {
+  const before = await fetchInteractiveServingStatsSnapshot();
+  const first = await withRuntimeSelfTestTimeout(
+    'definition negative cache first miss',
+    vscode.commands.executeCommand<unknown>('vscode.executeDefinitionProvider', context.document.uri, context.positions.unknownDefinition),
+  );
+  const second = await withRuntimeSelfTestTimeout(
+    'definition negative cache second miss',
+    vscode.commands.executeCommand<unknown>('vscode.executeDefinitionProvider', context.document.uri, context.positions.unknownDefinition),
+  );
+  const after = await fetchInteractiveServingStatsSnapshot();
+  const negativeHitDelta = getInteractiveServingReasonCount(after, 'definition', 'negative-hit') - getInteractiveServingReasonCount(before, 'definition', 'negative-hit');
+
+  if (getProviderResultCount(first) > 0 || getProviderResultCount(second) > 0 || negativeHitDelta <= 0) {
+    return {
+      key: 'definition-negative',
+      label: 'Definition negative cache',
+      status: 'fail',
+      detail: `definition1=${getProviderResultCount(first)} · definition2=${getProviderResultCount(second)} · negative-hit +${Math.max(0, negativeHitDelta)}`,
+      recommendation: 'Definition debe devolver null en low-confidence/miss y reutilizar negative cache en la segunda petición equivalente.',
+    };
+  }
+
+  return {
+    key: 'definition-negative',
+    label: 'Definition negative cache',
+    status: 'pass',
+    detail: `definition null estable · negative-hit +${negativeHitDelta}`,
+  };
 }
 
 async function runSemanticCacheMaintenance(): Promise<SemanticCacheMaintenanceCommandResult | undefined> {
@@ -4147,8 +4528,8 @@ async function openMarkdownReportDocument(content: string): Promise<string> {
   return content;
 }
 
-async function refreshRuntimeStatusSnapshot(): Promise<RuntimeStatusStats | undefined> {
-  const stats = await fetchRuntimeStatusStats();
+async function refreshRuntimeStatusSnapshot(options: RuntimeStatusSnapshotOptions = {}): Promise<RuntimeStatusStats | undefined> {
+  const stats = await fetchRuntimeStatusStats(options);
   if (stats) {
     lastStatusStats = stats;
     if (statusBarItem) {
