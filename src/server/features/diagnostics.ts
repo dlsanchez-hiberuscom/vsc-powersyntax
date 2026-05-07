@@ -83,6 +83,8 @@ import {
   LOOP_PATTERN,
   END_CHOOSE_PATTERN,
   END_TRY_PATTERN,
+  CATCH_PATTERN,
+  FINALLY_PATTERN,
   END_GENERIC_PATTERN,
   ELSE_CASE_PATTERN,
   LINE_COMMENT_PATTERN
@@ -370,6 +372,41 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
 
       if (PROTOTYPES_START_PATTERN.test(line)) {
         stack.push({ kind: 'prototypes', line: logicalStartLine, text: logicalStartText });
+        continue;
+      }
+
+      if (CATCH_PATTERN.test(line) || FINALLY_PATTERN.test(line)) {
+        const top = stack[stack.length - 1];
+        if (!top || top.kind !== 'try') {
+          const clause = CATCH_PATTERN.test(line) ? 'catch' : 'finally';
+          diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: Range.create(
+              Position.create(logicalStartLine, 0),
+              Position.create(logicalStartLine, logicalStartText.length)
+            ),
+            message: `La cláusula '${clause}' solo puede utilizarse dentro de un bloque 'try'.`,
+            source: DIAGNOSTIC_SOURCE
+          });
+        }
+        continue;
+      }
+
+      if (ELSE_CASE_PATTERN.test(line)) {
+        const top = stack[stack.length - 1];
+        if (!top || (top.kind !== 'if' && top.kind !== 'choose-case')) {
+          const match = line.match(ELSE_CASE_PATTERN);
+          const clause = match ? match[1] : 'else';
+          diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: Range.create(
+              Position.create(logicalStartLine, 0),
+              Position.create(logicalStartLine, logicalStartText.length)
+            ),
+            message: `La cláusula '${clause}' solo puede utilizarse dentro de un bloque 'if' o 'choose case'.`,
+            source: DIAGNOSTIC_SOURCE
+          });
+        }
         continue;
       }
 

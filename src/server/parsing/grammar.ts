@@ -184,6 +184,8 @@ export const NEXT_PATTERN = /^next\b/i;
 export const LOOP_PATTERN = /^loop\b/i;
 export const END_CHOOSE_PATTERN = /^end\s+choose\b/i;
 export const END_TRY_PATTERN = /^end\s+try\b/i;
+export const CATCH_PATTERN = /^catch\b/i;
+export const FINALLY_PATTERN = /^finally\b/i;
 
 export const END_GENERIC_PATTERN = /^end\s+/i;
 export const ELSE_CASE_PATTERN = /^(else|elseif|case)\b/i;
