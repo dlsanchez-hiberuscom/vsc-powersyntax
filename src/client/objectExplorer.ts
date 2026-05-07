@@ -89,17 +89,39 @@ class ObjectExplorerProvider implements vscode.TreeDataProvider<ObjectExplorerNo
 
   setScope(scope: ObjectExplorerScope): void {
     this.scope = scope;
-    this.invalidate();
+    void this.refreshBackground();
   }
 
   clearScope(): void {
     this.scope = 'workspace';
-    this.invalidate();
+    void this.refreshBackground();
   }
 
-  invalidate(): void {
-    this.dirty = true;
-    this.onDidChangeTreeDataEmitter.fire(undefined);
+  async refreshBackground(): Promise<void> {
+    if (this.pendingModel) {
+      await this.pendingModel;
+      return;
+    }
+
+    this.pendingModel = this.loadManifest()
+      .then((manifest) => buildObjectExplorerModel(manifest, this.scope, vscode.window.activeTextEditor?.document.uri.toString()))
+      .catch((error) => ({
+        scope: this.scope,
+        effectiveScope: 'workspace' as ObjectExplorerScope,
+        message: `Object Explorer no disponible: ${error instanceof Error ? error.message : String(error)}`,
+        roots: [],
+      }))
+      .then((model) => {
+        this.model = model;
+        this.dirty = false;
+        this.onDidChangeTreeDataEmitter.fire(undefined);
+        return model;
+      })
+      .finally(() => {
+        this.pendingModel = undefined;
+      });
+
+    await this.pendingModel;
   }
 
   getTreeItem(element: ObjectExplorerNode): vscode.TreeItem {
@@ -169,32 +191,14 @@ class ObjectExplorerProvider implements vscode.TreeDataProvider<ObjectExplorerNo
   }
 
   private async ensureModel(): Promise<ObjectExplorerModel> {
-    if (!this.dirty && this.model) {
+    if (this.model) {
       return this.model;
     }
-
     if (this.pendingModel) {
       return this.pendingModel;
     }
-
-    this.pendingModel = this.loadManifest()
-      .then((manifest) => buildObjectExplorerModel(manifest, this.scope, vscode.window.activeTextEditor?.document.uri.toString()))
-      .catch((error) => ({
-        scope: this.scope,
-        effectiveScope: 'workspace' as ObjectExplorerScope,
-        message: `Object Explorer no disponible: ${error instanceof Error ? error.message : String(error)}`,
-        roots: [],
-      }))
-      .then((model) => {
-        this.model = model;
-        this.dirty = false;
-        return model;
-      })
-      .finally(() => {
-        this.pendingModel = undefined;
-      });
-
-    return this.pendingModel;
+    await this.refreshBackground();
+    return this.model!;
   }
 }
 
@@ -234,7 +238,7 @@ export class PowerBuilderObjectExplorerController implements vscode.Disposable {
   }
 
   async refresh(): Promise<void> {
-    this.provider.invalidate();
+    await this.provider.refreshBackground();
     this.treeView.message = await this.provider.getViewMessage();
   }
 
