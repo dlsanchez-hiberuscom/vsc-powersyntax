@@ -883,7 +883,7 @@ function checkTransactionBindings(
           continue;
         }
 
-        bindings.set(targetName.toLowerCase(), classifyTransactionBinding(argument, currentUri, line, mainType, kb));
+        bindings.set(targetName.toLowerCase(), classifyTransactionBinding(argument, currentUri, line, mainType, kb, inheritanceGraph));
       }
 
       TRANSACTION_OPERATION_CALL_REGEX.lastIndex = 0;
@@ -1407,7 +1407,8 @@ function classifyTransactionBinding(
   currentUri: string,
   line: number,
   mainType: import('../knowledge/types').Fact,
-  kb: KnowledgeBase
+  kb: KnowledgeBase,
+  inheritanceGraph: InheritanceGraph
 ): TransactionBinding {
   if (!argument) {
     return { state: 'unknown', line, method: 'SetTransObject', argument };
@@ -1415,8 +1416,11 @@ function classifyTransactionBinding(
 
   if (SIMPLE_TRANSACTION_ARG_REGEX.test(argument)) {
     const qualifierType = resolveQualifierType(argument, currentUri, kb, line, mainType);
-    if (qualifierType?.toLowerCase() === 'transaction') {
-      return { state: 'known', line, method: 'SetTransObject', argument };
+    if (qualifierType) {
+      const ownerTypes = resolveCatalogOwnerTypes(qualifierType, inheritanceGraph);
+      if (ownerTypes.includes('transaction')) {
+        return { state: 'known', line, method: 'SetTransObject', argument };
+      }
     }
 
     return { state: 'unknown', line, method: 'SetTransObject', argument };
