@@ -134,9 +134,19 @@ export function checkMissingReturn(
   const returnType = m[1].toLowerCase();
   // Una función PowerScript con returnType `none` no necesita `return`.
   if (returnType === 'none' || returnType === 'subroutine') return out;
+  let hasExecutableCode = false;
   for (let i = scope.startLine + 1; i < scope.endLine; i++) {
     const line = strippedLines[i] ?? '';
     if (RETURN_STATEMENT_RE.test(line)) return out;
+    
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('/*') && !END_FUNCTION_PATTERN.test(trimmed)) {
+      hasExecutableCode = true;
+    }
+  }
+
+  if (!hasExecutableCode) {
+    return out;
   }
   out.push(withDiagnosticCode({
     severity: DiagnosticSeverity.Warning,

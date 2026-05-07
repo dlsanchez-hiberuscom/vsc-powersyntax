@@ -25,6 +25,22 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 # 1. Ítems cerrados movidos fuera del backlog activo
 
+## 1.241 PB-RUNTIME-P2-EMPTY-HOOK-RETURN-01 — **Cerrado (runtime / diagnostics / 2026-05)**
+
+**Objetivo:** Evitar que el diagnóstico estricto SD13 reporte "missing return" como advertencia en funciones con tipo de retorno definido pero que no contienen código ejecutable (patrón común para hooks de herencia).
+
+**Resultado registrado:**
+- Se modificó `src/server/features/diagnosticsExtra.ts` (`checkMissingReturn`).
+- Ahora evalúa si la función tiene código ejecutable antes de requerir un `return`. Si el cuerpo está vacío (o solo tiene comentarios), no emite advertencias.
+- Se previene ruido (falsos positivos) en diseños de frameworks como la PFC.
+
+**Validación registrada:**
+- Se actualizaron las pruebas unitarias en `diagnosticsExtra.test.ts`, confirmando que un `hook` con retorno no genera `SD13`, mientras que funciones con código siguen evaluándose correctamente (`npm run test:unit -- --grep "SD13"`).
+
+**Documentación alineada:**
+- `docs/backlog.md`
+- `docs/done-log.md`
+
 ## 1.240 PB-RUNTIME-P2-LIFECYCLE-PFC-PATTERNS-01 — **Cerrado (runtime / lifecycle / 2026-05)**
 
 **Objetivo:** Separar las reglas del lifecycle de inspección para no exigir de forma simultánea `call super::create` y `TriggerEvent(this, "constructor")`, reconociendo patrones válidos en la PFC y PowerBuilder clásico.

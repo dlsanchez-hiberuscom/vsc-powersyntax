@@ -429,36 +429,6 @@ No hay ningún proveedor de datos registrado que pueda proporcionar datos de la 
 ---
 
 
-## PB-RUNTIME-P2-EMPTY-HOOK-RETURN-01 — Funciones vacías con retorno como hooks de herencia
-
-- **Estado:** Open.
-- **Prioridad:** P2.
-- **Origen:** falsos positivos SD13.
-- **Evidencia:** Funciones vacías con tipo de retorno se usan como hooks/template methods para hijos, pero el plugin exige `return`.
-- **Riesgo:** Medio. Genera ruido en PFC/arquitecturas heredadas.
-- **Objetivo:** No marcar como error/warning fuerte funciones vacías con retorno cuando no contienen código ejecutable.
-- **Casos reales:**
-
-```powerscript
-protected function long of_getcolorlinebackground ()
-end function
-
-protected function long of_getcolorlineprimary ()
-end function
-
-protected function long of_getcolorlinesecondary ()
-end function
-```
-
-- **Acceptance criteria:**
-  - Una función con retorno y cuerpo vacío no se marca como error por falta de `return`.
-  - Si la función tiene código ejecutable y rutas sin return, la regla sigue funcionando.
-  - Si se quiere reportar, debe ser hint opcional y no warning por defecto.
-- **Docs:** `docs/powerbuilder-2025-vscode-plugin-technical-guide.md`, `docs/troubleshooting.md`.
-- **Tests:** missing-return fixtures con cuerpo vacío, cuerpo con código y return inline.
-
----
-
 ## PB-RUNTIME-P2-BUILD-ORCA-HEALTH-SEPARATION-01 — Separar health interactivo de build/ORCA opcional
 
 - **Estado:** Open.

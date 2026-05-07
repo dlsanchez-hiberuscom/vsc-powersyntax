@@ -67,7 +67,7 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     strictEqual(ds[0].code, DIAGNOSTIC_CODES.sd12UnbalancedParens);
   });
 
-  test('SD13: warning si función con returnType no tiene return', () => {
+  test('SD13: warning si función con returnType no tiene return y tiene código', () => {
     const lines = [
       'public function integer f_test()',
       '  ls_x = 1',
@@ -78,6 +78,17 @@ suite('Sprint 3 / diagnosticsExtra', () => {
     strictEqual(ds.length, 1);
     ok(ds[0].source!.includes('SD13'));
     strictEqual(ds[0].code, DIAGNOSTIC_CODES.sd13MissingReturn);
+  });
+
+  test('SD13: no warning si función con returnType tiene cuerpo vacío (hook)', () => {
+    const lines = [
+      'public function integer f_test()',
+      '  // Hook for descendants',
+      'end function'
+    ];
+    const scope = makeScope('file:///x.pbl', lines.length, lines);
+    const ds = checkMissingReturn(scope, lines);
+    strictEqual(ds.length, 0);
   });
 
   test('SD13: no warning si tiene return', () => {
