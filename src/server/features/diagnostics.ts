@@ -1181,12 +1181,20 @@ function inspectFirstDataWindowPropertyOnLine(
   kb: KnowledgeBase,
 ): ReturnType<typeof inspectPowerScriptDataWindowProperty> {
   const lineText = getDocumentLineText(document, line);
-  for (let character = 0; character < lineText.length; character++) {
-    const inspection = inspectPowerScriptDataWindowProperty(document, Position.create(line, character), kb);
+  
+  if (!/\b(?:object|describe|modify|getchild)\b|\.datawindow\./i.test(lineText)) {
+    return null;
+  }
+
+  const candidateRegex = /[a-zA-Z_]\w*/gi;
+  let match;
+  while ((match = candidateRegex.exec(lineText)) !== null) {
+    const inspection = inspectPowerScriptDataWindowProperty(document, Position.create(line, match.index), kb);
     if (inspection) {
       return inspection;
     }
   }
+  
   return null;
 }
 

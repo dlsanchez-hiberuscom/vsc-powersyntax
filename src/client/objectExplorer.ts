@@ -85,7 +85,7 @@ class ObjectExplorerProvider implements vscode.TreeDataProvider<ObjectExplorerNo
 
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
-  constructor(private readonly loadManifest: ManifestLoader) {}
+  constructor(private readonly loadManifest: ManifestLoader) { }
 
   setScope(scope: ObjectExplorerScope): void {
     this.scope = scope;

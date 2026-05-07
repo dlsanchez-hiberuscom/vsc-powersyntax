@@ -482,15 +482,24 @@ export function resolveSystemDataWindowFunctionForOwner(
     ));
 }
 
+const membersCache = new Map<string, readonly PbSystemSymbolEntry[]>();
+
 export function findApplicableMembersForOwnerType(
     ownerTypeNames: readonly string[],
 ): readonly PbSystemSymbolEntry[] {
-    return applyCatalogMergePolicy(dedupeEntries(
+    const cacheKey = ownerTypeNames.slice().sort().join('|');
+    if (membersCache.has(cacheKey)) {
+        return membersCache.get(cacheKey)!;
+    }
+
+    const result = applyCatalogMergePolicy(dedupeEntries(
         sortEntriesByOwnerMatch(
             collectEntriesForOwnerDomains(ownerTypeNames, MEMBER_FUNCTION_DOMAINS),
             ownerTypeNames,
         ),
     ));
+    membersCache.set(cacheKey, result);
+    return result;
 }
 
 export function listSystemMemberFunctionsForOwner(
@@ -517,15 +526,24 @@ export function resolveSystemDataWindowEvent(name: string): PbSystemSymbolEntry 
     return selectCatalogPolicyEntry(findEntriesByDomainAndLookupKey('datawindow-events', name));
 }
 
+const eventsCache = new Map<string, readonly PbSystemSymbolEntry[]>();
+
 export function findApplicableEventsForOwnerType(
     ownerTypeNames: readonly string[],
 ): readonly PbSystemSymbolEntry[] {
-    return dedupeEntries(
+    const cacheKey = ownerTypeNames.slice().sort().join('|');
+    if (eventsCache.has(cacheKey)) {
+        return eventsCache.get(cacheKey)!;
+    }
+
+    const result = dedupeEntries(
         sortEntriesByOwnerMatch(
             collectEntriesForOwnerDomains(ownerTypeNames, MEMBER_EVENT_DOMAINS),
             ownerTypeNames,
         ),
     );
+    eventsCache.set(cacheKey, result);
+    return result;
 }
 
 export function resolveSystemEventForOwner(
@@ -632,8 +650,8 @@ export function listDataWindowConstantValuesForType(typeName: string): readonly 
         return [];
     }
 
-    const entries = listSystemDataWindowConstants()
-        .filter(entry => normalizeSystemSymbolName(entry.enumValueOf) === normalizedTypeName);
+    const entries = (PB_SYSTEM_SYMBOL_REGISTRY.indexes.byEnumValueOf.get(normalizedTypeName) ?? [])
+        .filter(entry => entry.domain === 'datawindow-constants');
     const orderedNames = listValuesForEnumeratedType(typeName)
         .map(entry => entry.normalizedName);
 
@@ -712,8 +730,14 @@ export function resolveEnumValueForExpectedType(
         return undefined;
     }
 
-    return listValuesForEnumeratedType(typeName)
-        .find(entry => entry.lookupKeys.includes(normalizedValueName));
+    const candidates = listValuesForEnumeratedType(typeName);
+    const lookupMap = new Map<string, PbSystemSymbolEntry>();
+    for (const entry of candidates) {
+        for (const key of entry.lookupKeys) {
+            lookupMap.set(key, entry);
+        }
+    }
+    return lookupMap.get(normalizedValueName);
 }
 
 /**

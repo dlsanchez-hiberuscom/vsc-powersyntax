@@ -52,7 +52,7 @@ function groupEntriesByPair(
 }
 
 function getEnumeratedTypeKeys(entry: PbSystemSymbolEntry): readonly string[] {
-    if (entry.kind !== 'enumerated-value') {
+    if (entry.kind !== 'enumerated-value' && entry.domain !== 'datawindow-constants') {
         return [];
     }
 
