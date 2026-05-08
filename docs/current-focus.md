@@ -2,7 +2,23 @@
 
 ## 1. Foco activo
 
-`PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` — `OLEADA 2 / P0 — Diagnostics por tiers` — Partial
+`PB-ARCH-P1-OBJECT-EXPLORER-PAGED-PROJECTIONS-01` — `OLEADA 5 / P1 — Object Explorer con proyecciones paginadas`
+
+Oleadas 2-4 completadas:
+```txt
+docs/backlog.md -> Done: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01
+docs/backlog.md -> Done: PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01
+docs/backlog.md -> Done: PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01
+docs/backlog.md -> Done: PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01
+docs/backlog.md -> Done: PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01
+docs/backlog.md -> Done: PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01
+docs/backlog.md -> Done: PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01
+docs/backlog.md -> Done: PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01
+```
+
+---
+
+## ANTERIOR (archivado)
 
 Cadena obligatoria vigente:
 ```txt

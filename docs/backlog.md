@@ -195,7 +195,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 ## PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 — Pipeline diagnostics por tiers y registry de reglas
 
 - **ID:** PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01.
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P0.
 - **Orden recomendado:** 5.
 - **Origen:** Macroauditoría PHASE 7/9/11/22.
@@ -222,7 +222,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01.
 - **Title:** Registry de caches y discriminadores fingerprint/epoch/sourceOrigin.
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 6.
 - **Origen:** Macroauditoría PHASE 0/5/17.
@@ -249,7 +249,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01.
 - **Title:** Invariantes entre index state, caches y persistencia.
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 7.
 - **Origen:** Macroauditoría PHASE 4/5/9B.
@@ -276,7 +276,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01.
 - **Title:** Migrar open/change y cancelación a Near/Background seguro.
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 8.
 - **Origen:** Macroauditoría PHASE 4/6.
@@ -303,7 +303,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01.
 - **Title:** Discovery bounded async y warm start validable.
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 9.
 - **Origen:** Macroauditoría PHASE 4/19.
@@ -330,7 +330,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01.
 - **Title:** Adapter contract para providers interactivos.
-- **Estado:** Partial.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 10.
 - **Origen:** Macroauditoría PHASE 6/17/22.
@@ -357,7 +357,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01.
 - **Title:** Matriz de integración LSP por provider crítico.
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 11.
 - **Origen:** Macroauditoría PHASE 11.
@@ -384,7 +384,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01.
 - **Title:** Semantic tokens delta/range/resultId versionado.
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 12.
 - **Origen:** Macroauditoría PHASE 7/11/20.

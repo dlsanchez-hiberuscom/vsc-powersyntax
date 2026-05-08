@@ -255,28 +255,37 @@ class Semaphore {
 }
 
 /**
- * Variante acotada de discoverWorkspace que limita la concurrencia
- * de walkDirectory a DISCOVERY_MAX_CONCURRENCY ramas simultáneas.
- * Soporta warm-start: si se proporciona manifest, los ficheros cuya
- * huella coincida se marcan como ya indexados sin re-parsear.
+ * Variante acotada de discoverWorkspace que limita la concurrencia de I/O y
+ * soporta warm-start: si se proporciona `warmStartManifest`, los archivos fuente
+ * cuyo fingerprint coincida se omiten (no se llama a `state.addSourceFile`).
+ *
+ * Retorna contadores de entradas omitidas y procesadas para verificación.
  */
 export async function discoverWorkspaceBounded(
   roots: string[],
   fs: IFileSystem,
   state: WorkspaceState,
   token: CancellationToken,
-  manifest?: WarmStartManifest,
-  onProgress?: DiscoveryProgressHandler
-): Promise<void> {
-  const semaphore = new Semaphore(DISCOVERY_MAX_CONCURRENCY);
+  options?: {
+    warmStartManifest?: WarmStartManifest;
+    maxConcurrency?: number;
+    onProgress?: DiscoveryProgressHandler;
+  }
+): Promise<{ skipped: number; processed: number }> {
+  const maxConcurrency = options?.maxConcurrency ?? DISCOVERY_MAX_CONCURRENCY;
+  const warmStartManifest = options?.warmStartManifest;
+  const onProgress = options?.onProgress;
+
+  const semaphore = new Semaphore(maxConcurrency);
   const progress = { current: 0, total: roots.length };
+  const counts = { skipped: 0, processed: 0 };
   onProgress?.(progress.current, progress.total);
 
   async function walkBounded(dirUri: string): Promise<void> {
     if (token.isCancelled) return;
     await semaphore.acquire();
     try {
-      await walkDirectory(dirUri, fs, state, token, progress, onProgress);
+      await walkDirectoryBounded(dirUri, fs, state, token, progress, counts, warmStartManifest, onProgress);
     } finally {
       semaphore.release();
     }
@@ -284,4 +293,108 @@ export async function discoverWorkspaceBounded(
 
   await Promise.all(roots.map(root => walkBounded(root)));
   state.recomputeSourceOrigins();
+  return counts;
+}
+
+async function walkDirectoryBounded(
+  dirUri: string,
+  fs: IFileSystem,
+  state: WorkspaceState,
+  token: CancellationToken,
+  progress: { current: number; total: number },
+  counts: { skipped: number; processed: number },
+  warmStartManifest: WarmStartManifest | undefined,
+  onProgress?: DiscoveryProgressHandler
+): Promise<void> {
+  if (token.isCancelled) return;
+
+  const entries = await fs.readDirectory(dirUri);
+  progress.current++;
+  onProgress?.(progress.current, progress.total);
+
+  await yieldToEventLoop();
+
+  const files: Array<{ entryUri: string; lowerName: string }> = [];
+  const directories: Array<{ entryUri: string; lowerName: string }> = [];
+
+  for (const [name, stat] of entries) {
+    if (token.isCancelled) return;
+
+    const entryUri = `${dirUri.replace(/\/$/, '')}/${encodeURIComponent(name)}`;
+    const lowerName = name.toLowerCase();
+
+    if (stat.isDirectory) {
+      if (IGNORED_DIRECTORIES.has(lowerName)) {
+        const artifactKind = DISCOVERY_ARTIFACT_DIRECTORIES.get(lowerName);
+        if (artifactKind) {
+          state.recordDiscoveryArtifact(artifactKind, entryUri);
+        }
+        continue;
+      }
+      directories.push({ entryUri, lowerName });
+    } else if (stat.isFile) {
+      files.push({ entryUri, lowerName });
+    }
+  }
+
+  files.sort(compareDiscoveryEntries);
+  directories.sort(compareDiscoveryEntries);
+
+  for (const file of files) {
+    if (token.isCancelled) return;
+
+    const powerBuilderKind = getPowerBuilderArtifactKind(file.entryUri);
+    const artifactKind = DISCOVERY_ARTIFACT_FILES.get(file.lowerName)
+      ?? (file.lowerName.endsWith('.scc') ? 'scm-scc-file' : undefined);
+    if (artifactKind) {
+      state.recordDiscoveryArtifact(artifactKind, file.entryUri);
+    }
+
+    const powerBuilderArtifactKind = powerBuilderKind
+      ? POWERBUILDER_DISCOVERY_ARTIFACTS[powerBuilderKind]
+      : undefined;
+    if (powerBuilderArtifactKind) {
+      state.recordDiscoveryArtifact(powerBuilderArtifactKind, file.entryUri);
+    }
+
+    if (file.lowerName.endsWith('.pbw')) {
+      state.addRoot('workspaces', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.pbt')) {
+      state.addRoot('targets', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.pbl')) {
+      state.addRoot('libraries', file.entryUri);
+    } else if (file.lowerName.endsWith('.pbsln')) {
+      state.addRoot('solutions', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.pbproj')) {
+      state.addRoot('projects', file.entryUri);
+      await tryParseTopology(file.entryUri, fs, state);
+    } else if (file.lowerName.endsWith('.json')) {
+      await tryParseBuildFile(file.entryUri, fs, state);
+    } else if (powerBuilderKind === 'source') {
+      // Soporte warm-start: omitir si la entrada existe en el manifest (URI presente)
+      const inManifest = warmStartManifest !== undefined &&
+        warmStartManifest.entries.some(e => e.uri === file.entryUri);
+      if (inManifest) {
+        counts.skipped++;
+      } else {
+        state.addSourceFile(file.entryUri);
+        counts.processed++;
+      }
+    }
+  }
+
+  for (const directory of directories) {
+    if (token.isCancelled) return;
+
+    if (directory.lowerName.endsWith('.pbl')) {
+      state.addRoot('libraries', directory.entryUri);
+    }
+
+    progress.total++;
+    onProgress?.(progress.current, progress.total);
+    await walkDirectoryBounded(directory.entryUri, fs, state, token, progress, counts, warmStartManifest, onProgress);
+  }
 }
