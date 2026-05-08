@@ -83,7 +83,7 @@ export function provideDefinition(
   kb: KnowledgeBase,
   graph: InheritanceGraph,
   hotContext?: HotContextCache,
-  queryContext?: DocumentQueryContext,
+  queryContext?: DocumentQueryContext, // Deprecated soon
   systemCatalog?: SystemCatalog
 ): Location | Location[] | null {
   const catalog = systemCatalog ?? new SystemCatalog();
@@ -99,21 +99,21 @@ export function provideDefinition(
     return formatDefinitionViewModel(buildDefinitionViewModel([dataWindowDefinition], 'datawindow'));
   }
 
-  const localQueryContext = queryContext ?? createSemanticQueryFacade({ kb, graph, systemCatalog: catalog, hotContext })
-    .createPositionContext(document, position, { traceLabel: 'definition', consumer: 'definition' });
-  const resolved = localQueryContext.resolvedTargets;
-  if (!resolved) return null;
-
-  const possibleTargets = resolved.targets;
-
-  if (possibleTargets.length === 0) {
+  const semanticFacade = createSemanticQueryFacade({ kb, graph, systemCatalog: catalog, hotContext });
+  const result = semanticFacade.resolveTarget(document, position, { traceLabel: 'definition', consumer: 'definition' });
+  
+  if (!result.target && result.kind === 'unknown') {
+    // Intentar fallback a catálogo si no hay resolución semántica de workspace
+    const localQueryContext = queryContext ?? semanticFacade.createPositionContext(document, position, { traceLabel: 'definition', consumer: 'definition' });
     const catalogDefinition = resolveSystemCatalogDefinition(document, position, kb, graph, catalog, hotContext, localQueryContext);
     return catalogDefinition
-      ? formatDefinitionViewModel(buildDefinitionViewModel([catalogDefinition], 'system-catalog', resolved))
+      ? formatDefinitionViewModel(buildDefinitionViewModel([catalogDefinition], 'system-catalog'))
       : null;
   }
 
-  const locations = possibleTargets.map(entity =>
+  const allTargets = [result.target!, ...(result.alternatives?.ambiguousTargets ?? [])];
+
+  const locations = allTargets.map(entity =>
     Location.create(
       entity.uri,
       {
@@ -123,6 +123,6 @@ export function provideDefinition(
     )
   );
 
-  return formatDefinitionViewModel(buildDefinitionViewModel(locations, 'workspace', resolved));
+  return formatDefinitionViewModel(buildDefinitionViewModel(locations, 'workspace'));
 }
 

@@ -10,18 +10,24 @@ import { hasBlockingDynamicStringReference } from './dynamicStringReferences';
 import { validateRenameTarget } from './renamePreflight';
 import { provideReferences, type ReferenceSource } from './references';
 import { createDocumentQueryContext, type DocumentQueryContext } from './queryContext';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
+import type { SemanticQueryResult } from '../knowledge/resolution/semanticQueryResult';
 
 export interface RenameProviderResult {
   edit: WorkspaceEdit | null;
   reason?: string;
 }
 
-function isSafeRenameTarget(target: Entity, queryContext: DocumentQueryContext): boolean {
-  if (queryContext.hasResolutionAmbiguity || queryContext.resolutionTargetCount !== 1) {
+function isSafeRenameTarget(result: SemanticQueryResult): boolean {
+  if ((result.alternatives?.ambiguousTargets?.length ?? 0) > 0) {
     return false;
   }
 
-  switch (queryContext.primaryResolutionReasonCode) {
+  const target = result.target;
+  if (!target) return false;
+
+  const reason = result.reasons[0];
+  switch (reason) {
     case 'local-scope':
       return target.kind === EntityKind.Variable && (target.scope === 'Local' || target.scope === 'Argumento');
     case 'qualifier-type':
@@ -66,12 +72,14 @@ export function provideRename(
     return { edit: null, reason: preflight.reason };
   }
 
-  const resolvedQueryContext = queryContext ?? createDocumentQueryContext(document, position, kb, graph, hotContext, 'rename', 'rename');
-  const target = resolvedQueryContext.resolvedTargets?.targets[0];
-  if (resolvedQueryContext.invocationRisk === 'dynamic' || resolvedQueryContext.invocationRisk === 'fallback') {
+  const semanticFacade = createSemanticQueryFacade({ kb, graph, systemCatalog, hotContext });
+  const result = semanticFacade.resolveTarget(document, position, { consumer: 'rename', traceLabel: 'rename' });
+  const target = result.target;
+
+  if (result.invocationRisk === 'dynamic' || result.invocationRisk === 'fallback') {
     return {
       edit: null,
-      reason: `rename bloqueado por invocationRisk=${resolvedQueryContext.invocationRisk}.`
+      reason: `rename bloqueado por invocationRisk=${result.invocationRisk}.`
     };
   }
   if (target?.isExternal) {
@@ -81,7 +89,7 @@ export function provideRename(
     };
   }
 
-  if (!target || !isSafeRenameTarget(target, resolvedQueryContext)) {
+  if (!target || !isSafeRenameTarget(result)) {
     return {
       edit: null,
       reason: 'rename solo admite variables locales, parámetros o miembros con resolución semántica única.'
@@ -104,7 +112,7 @@ export function provideRename(
     sources,
     { includeDeclaration: true },
     hotContext,
-    resolvedQueryContext
+    queryContext ?? createDocumentQueryContext(document, position, kb, graph, hotContext)
   );
 
   return { edit: buildWorkspaceEdit(locations, newName) };

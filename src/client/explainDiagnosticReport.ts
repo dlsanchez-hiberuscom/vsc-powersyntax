@@ -14,7 +14,7 @@ export interface NormalizedExplainDiagnosticRequest {
 }
 
 export interface ExplainDiagnosticCandidateData {
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | 'unknown';
   reasonCodes?: string[];
   evidenceKinds?: string[];
   targetCount?: number;

@@ -82,6 +82,11 @@ export class SystemCatalog {
     return [...listSystemSymbols()];
   }
 
+  /** Recupera un símbolo por su ID único. */
+  getSymbolById(id: string): PbSystemSymbolEntry | undefined {
+    return listSystemSymbols().find(s => s.id === id);
+  }
+
   // -- Listas por categoría -------------------------------------------
 
   listGlobalFunctions(): readonly PbSystemSymbolEntry[] { return listSystemGlobalFunctions(); }

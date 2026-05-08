@@ -96,12 +96,12 @@ function matchesResolvedFamily(
     return true;
   }
 
-  const context = getEventApiInvocationContext(lines, Position.create(line, character))
   const facade = createSemanticQueryFacade({ kb, graph });
   const docSimulated: TextDocument = { uri, languageId: 'powerscript', version: 0, getText: () => lines.join('\n'), positionAt: () => Position.create(line, character), offsetAt: () => 0, lineCount: lines.length };
   const position = Position.create(line, character);
-  const resolved = facade.resolveTargetInfo(docSimulated, position, { traceLabel: 'references-fallback' });
-  return resolved?.targets.some((target) => targetKeys.has(buildSymbolKey(target))) ?? false;
+  const result = facade.resolveTarget(docSimulated, position, { traceLabel: 'references-fallback' });
+  const allTargets = [result.target!, ...(result.alternatives?.ambiguousTargets ?? [])].filter(t => t !== null);
+  return allTargets.some((target) => targetKeys.has(buildSymbolKey(target)));
 }
 
 export function provideReferences(
@@ -115,17 +115,20 @@ export function provideReferences(
   queryContext?: DocumentQueryContext
 ): Location[] {
   const facade = createSemanticQueryFacade({ kb, graph, hotContext });
-  const resolved = queryContext?.resolvedTargets ?? facade.resolveTargetInfo(document, position, { consumer: 'references', traceLabel: 'references' });
-  const word = queryContext?.context?.identifier ?? resolved?.context.identifier ?? getWordAt(document, position);
+  const result = (queryContext?.resolvedTargets)
+    ? facade.resolveTarget(document, position, { consumer: 'references', traceLabel: 'references' }) // Re-resolver para tener el contrato
+    : facade.resolveTarget(document, position, { consumer: 'references', traceLabel: 'references' });
+  
+  const word = result.query.identifier ?? getWordAt(document, position);
   if (!word) return [];
   const wordLower = word.toLowerCase();
   
-  if (!resolved || resolved.targets.length === 0) {
+  if (!result.target && result.kind === 'unknown') {
     return [];
   }
 
-  const result: Location[] = [];
-  const defs = resolved.targets;
+  const resultLocations: Location[] = [];
+  const defs = [result.target!, ...(result.alternatives?.ambiguousTargets ?? [])].filter(t => t !== null);
   const targetKeys = buildResolvedFamilyKeys(defs);
   const allowEventLiteralReferences = defs.some((def) => def.kind === EntityKind.Event);
   const hasExternalDependencyTargets = defs.some((def) => def.isExternal);
@@ -137,7 +140,7 @@ export function provideReferences(
   // 1. Definiciones desde la KB
   if (options.includeDeclaration !== false) {
     for (const e of defs) {
-      result.push(
+      resultLocations.push(
         Location.create(e.uri, {
           start: Position.create(e.line, e.character),
           end: Position.create(e.line, e.character + e.name.length)
@@ -146,11 +149,11 @@ export function provideReferences(
     }
 
     if (blockingDynamicHit) {
-      return dedupeLocations(result);
+      return dedupeLocations(resultLocations);
     }
 
     if (hasExternalDependencyTargets) {
-      return dedupeLocations(result);
+      return dedupeLocations(resultLocations);
     }
   }
 
@@ -172,7 +175,7 @@ export function provideReferences(
         }
         const start = Position.create(i, m.index);
         const end = Position.create(i, m.index + m[0].length);
-        result.push(Location.create(src.uri, Range.create(start, end)));
+        resultLocations.push(Location.create(src.uri, Range.create(start, end)));
       }
 
       if (!allowEventLiteralReferences) {
@@ -191,13 +194,13 @@ export function provideReferences(
 
         const start = Position.create(i, literalStart);
         const end = Position.create(i, literalStart + literal.value.length);
-        result.push(Location.create(src.uri, Range.create(start, end)));
+        resultLocations.push(Location.create(src.uri, Range.create(start, end)));
       }
     }
   }
 
   // Deduplicar por uri+line+char
-  return dedupeLocations(result);
+  return dedupeLocations(resultLocations);
 }
 
 function dedupeLocations(result: Location[]): Location[] {

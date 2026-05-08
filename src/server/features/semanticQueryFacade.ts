@@ -14,9 +14,15 @@ import {
   type ResolvedReceiverModel,
   type ResolvedSymbolSet,
 } from '../knowledge/resolution/resolvedSemanticModels';
+import {
+  toSemanticQueryResult,
+  type SemanticQuery,
+  type SemanticQueryResult,
+} from '../knowledge/resolution/semanticQueryResult';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { EntityKind } from '../knowledge/types';
+import { InvocationContext } from '../utils/invocationContext';
 import { resolveCatalogOwnerTypes } from './dataWindowBindingModel';
 import { resolveExpectedEnumContextForCallArgumentAtPosition } from './enumeratedContext';
 import {
@@ -36,6 +42,7 @@ export interface SemanticQueryFacadeDependencies {
 export interface CreateFeatureSemanticContextOptions {
   consumer?: QueryConsumerId;
   traceLabel?: string;
+  explicitContext?: InvocationContext;
 }
 
 export interface InheritanceQueryResult {
@@ -62,6 +69,7 @@ export class SemanticQueryFacade {
       hotContext,
       options.traceLabel,
       options.consumer,
+      options.explicitContext,
     );
   }
 
@@ -79,6 +87,44 @@ export class SemanticQueryFacade {
     options: CreateFeatureSemanticContextOptions = {},
   ): ResolvedTargetInfo | null {
     return this.createPositionContext(document, position, options).resolvedTargets;
+  }
+
+  /**
+   * Resuelve el target en la posición dada devolviendo el contrato unificado SemanticQueryResult.
+   * Spec: PB-ARCH-P0-SEMANTIC-QUERY-CONTRACT-01.
+   */
+  resolveTarget(
+    document: TextDocument,
+    position: Position,
+    options: CreateFeatureSemanticContextOptions = {},
+  ): SemanticQueryResult {
+    const context = this.createPositionContext(document, position, options);
+    const info = context.resolvedTargets ?? {
+      context: context.context ?? { identifier: '' },
+      targets: [],
+      reasonCodes: [],
+      invocationKind: 'local-symbol', // fallback
+      invocationRisk: 'dynamic',
+      confidence: 'low',
+      evidence: [],
+      candidatePool: [],
+      trace: [],
+      winnerLineage: null
+    };
+
+    const query: SemanticQuery = {
+      consumer: options.consumer,
+      uri: document.uri,
+      position: position,
+      invocationKind: info.invocationKind,
+      sourceOriginPolicy: {
+        allowStaging: true, // Default por ahora
+        allowGenerated: true,
+        allowExternal: true
+      }
+    };
+
+    return toSemanticQueryResult(info, query, this.dependencies.kb.semanticEpoch);
   }
 
   resolveReceiverType(

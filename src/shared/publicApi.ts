@@ -704,7 +704,7 @@ export interface ApiExplainDiagnosticReport {
       | 'unused'
       | 'shadowing'
       | 'unknown';
-    confidence: 'high' | 'medium' | 'low';
+    confidence: 'high' | 'medium' | 'low' | 'unknown';
     whyItMatters?: string;
   };
 
@@ -727,7 +727,7 @@ export interface ApiExplainDiagnosticReport {
       | 'replace-enum-value'
       | 'update-datatype'
       | 'manual-review';
-    confidence?: 'high' | 'medium' | 'low';
+    confidence?: 'high' | 'medium' | 'low' | 'unknown';
     blocked?: boolean;
     blockedReasons?: string[];
     planSummary?: string;
@@ -768,7 +768,7 @@ export interface ApiExplainSystemSymbolReport {
     state: 'resolved' | 'ambiguous' | 'unresolved';
     candidateCount: number;
     selectedId?: string;
-    confidence: 'high' | 'medium' | 'low';
+    confidence: 'high' | 'medium' | 'low' | 'unknown';
   };
 
   symbol?: {
@@ -861,7 +861,7 @@ export interface ApiExplainSemanticQueryReport {
     state: 'resolved' | 'ambiguous' | 'unresolved' | 'no-context';
     candidateCount: number;
     targetCount: number;
-    confidence?: 'high' | 'medium' | 'low';
+    confidence?: 'high' | 'medium' | 'low' | 'unknown';
     reasonCodes: string[];
     primaryReasonCode?: string;
     invocationKind?: string;
@@ -2089,7 +2089,7 @@ export interface ApiFrameworkKnowledgeConflict {
   matchedOwnerTypes: string[];
   packs: ApiFrameworkKnowledgePackReference[];
   sourceOrigin?: import('./sourceOrigin').SourceOrigin;
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | 'unknown';
 }
 
 export interface ApiSymbol {
@@ -2203,7 +2203,7 @@ export interface ApiEmbeddedSqlAnchor {
     | 'COMMIT'
     | 'ROLLBACK';
   preview: string;
-  confidence: 'high' | 'medium' | 'low';
+  confidence: 'high' | 'medium' | 'low' | 'unknown';
   transactionTarget?: string;
 }
 
@@ -2257,7 +2257,7 @@ export interface ApiCurrentObjectReference {
   qualifier?: string;
   line: number;
   target: ApiCurrentObjectContextSymbol;
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | 'unknown';
   reasonCode?: string;
   invocationKind?: string;
   invocationRisk?: string;
@@ -2324,7 +2324,7 @@ export interface ApiCurrentObjectContext {
     readiness?: string;
     identifier?: string;
     qualifier?: string;
-    resolutionConfidence?: 'high' | 'medium' | 'low';
+    resolutionConfidence?: 'high' | 'medium' | 'low' | 'unknown';
     primaryReasonCode?: string;
     invocationKind?: string;
     invocationRisk?: string;
@@ -2358,7 +2358,7 @@ export interface ApiImpactAnalysis {
   available: boolean;
   reason?: string;
   rootSymbol?: ApiCurrentObjectContextSymbol;
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | 'unknown';
   primaryReasonCode?: string;
   evidenceKinds?: string[];
   invocationKind?: string;
@@ -2389,7 +2389,7 @@ export interface ApiSafeEditPlan {
   available: boolean;
   blocked: boolean;
   reason?: string;
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | 'unknown';
   invocationRisk?: ApiInvocationRisk;
   riskReasons?: string[];
   targetSymbol?: ApiCurrentObjectContextSymbol;
@@ -2995,7 +2995,7 @@ export interface ApiServerStats {
   };
   lastQueryTrace?: {
     label?: string;
-    confidence?: 'high' | 'medium' | 'low';
+    confidence?: 'high' | 'medium' | 'low' | 'unknown';
     primaryReasonCode?: string;
     invocationKind?: string;
     invocationRisk?: string;

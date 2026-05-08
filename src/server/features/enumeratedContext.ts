@@ -58,7 +58,7 @@ export function resolveExpectedEnumContextForCallArgumentAtPosition(
   systemCatalog: SystemCatalog,
   graph?: InheritanceGraph,
 ): ExpectedEnumCallArgumentContext | null {
-  const signatureContext = extractSignatureContext(document, position);
+  const signatureContext = extractSignatureContext(document, position, systemCatalog);
   if (!signatureContext) {
     return null;
   }

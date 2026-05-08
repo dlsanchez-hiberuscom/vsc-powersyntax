@@ -13,7 +13,7 @@ export interface TraceStep {
 }
 
 export interface TraceResolutionSummary {
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | 'unknown';
   primaryReasonCode?: string;
   invocationKind?: string;
   invocationRisk?: string;

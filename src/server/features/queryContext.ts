@@ -46,14 +46,15 @@ export function createDocumentQueryContext(
   graph: InheritanceGraph,
   hotContext?: HotContextCache,
   traceLabel?: string,
-  consumer?: QueryConsumerId
+  consumer?: QueryConsumerId,
+  explicitContext?: InvocationContext
 ): DocumentQueryContext {
   const currentUri = normalizeUri(document.uri);
   const documentEntities = getDocumentEntities(currentUri, kb, hotContext);
   const currentMainObject = resolveCurrentObjectAtLine(currentUri, documentEntities, kb, position.line);
   const lineText = getDocumentLineText(document, position.line);
-  const context = getEventApiInvocationContext([lineText], { line: 0, character: position.character })
-    ?? getInvocationContext([lineText], { line: 0, character: position.character });
+  const context = explicitContext ?? (getEventApiInvocationContext([lineText], { line: 0, character: position.character })
+    ?? getInvocationContext([lineText], { line: 0, character: position.character }));
   const policy = consumer ? getQueryConsumerPolicy(consumer) : getQueryConsumerPolicyByLabel(traceLabel);
   const resolvedTargets = context
     ? resolveTargetEntityDetailed(context, document.uri, kb, graph, {
@@ -88,9 +89,10 @@ export function resolveDocumentQueryTargets(
   graph: InheritanceGraph,
   hotContext?: HotContextCache,
   traceLabel?: string,
-  consumer?: QueryConsumerId
+  consumer?: QueryConsumerId,
+  explicitContext?: InvocationContext
 ): ResolvedTargetInfo | null {
-  return createDocumentQueryContext(document, position, kb, graph, hotContext, traceLabel, consumer).resolvedTargets;
+  return createDocumentQueryContext(document, position, kb, graph, hotContext, traceLabel, consumer, explicitContext).resolvedTargets;
 }
 
 export function resolveDocumentQualifierType(

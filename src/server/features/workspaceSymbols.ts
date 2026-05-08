@@ -80,7 +80,7 @@ function collectFrameworkKnowledgeOwnerTypes(entity: Entity): string[] {
 
 function mapEntityLineageConfidence(
   confidence: 'direct' | 'inherited' | 'fallback' | undefined,
-): 'high' | 'medium' | 'low' | undefined {
+): 'high' | 'medium' | 'low' | 'unknown' | undefined {
   switch (confidence) {
     case 'direct':
       return 'high';

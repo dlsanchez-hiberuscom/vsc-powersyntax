@@ -9,7 +9,7 @@ import { createSemanticQueryFacade } from './semanticQueryFacade';
 import { InvocationContext } from '../utils/invocationContext';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
-import { resolveSystemGlobal } from '../knowledge/system/services/queryService';
+import { Entity, EntityKind } from '../knowledge/types';
 import {
   getDisplayDocumentation,
   getDisplayParameterDocumentation,
@@ -28,10 +28,8 @@ import type {
 } from '../presentation/viewModels';
 
 import { getQueryConsumerPolicy } from './queryScopePolicy';
-import {
-  DATAWINDOW_BIND_OWNER_TYPES,
-  resolveCatalogOwnerTypes,
-} from './dataWindowBindingModel';
+import { DATAWINDOW_BIND_OWNER_TYPES } from './dataWindowBindingModel';
+import { resolveLanguageSymbol } from '../knowledge/system/services/queryService';
 import { buildLinkedDataWindowRetrieveSignatureAdapter } from './dataWindowServingAdapters';
 import type { PbSystemSymbolEntry, PbSystemSymbolSignature } from '../knowledge/system/types';
 
@@ -82,12 +80,12 @@ export function provideSignatureHelp(
   hotContext?: HotContextCache,
   documentationLocale: DocumentationLocale = 'en'
 ): SignatureHelp | null {
-  const result = extractSignatureContext(document, position);
-  if (!result) {
+  const sigContext = extractSignatureContext(document, position, systemCatalog);
+  if (!sigContext) {
     return null;
   }
 
-  const { identifier, qualifier, activeParameter, argumentCount, argumentTypes } = result;
+  const { identifier, qualifier, activeParameter, argumentCount, argumentTypes } = sigContext;
 
   const context: InvocationContext = {
     identifier,
@@ -98,94 +96,57 @@ export function provideSignatureHelp(
   const currentUri = normalizeUri(document.uri);
   const budgetMs = getQueryConsumerPolicy('signature-help').budgetMs;
   const facade = createSemanticQueryFacade({ kb, graph, systemCatalog, hotContext });
-  const ownerType = qualifier
-    ? facade.resolveReceiverType(document, qualifier, position).ownerType ?? undefined
-    : undefined;
-  const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
+  
+  // 1. Resolver target unificado
+  const result = facade.resolveTarget(document, position, { 
+    explicitContext: context, 
+    consumer: 'signature-help',
+    traceLabel: 'signatureHelp' 
+  });
 
-  const linkedRetrieveSignature = identifier.toLowerCase() === 'retrieve'
-    && qualifier
-    && ownerTypes.some((typeName) => DATAWINDOW_BIND_OWNER_TYPES.has(typeName))
-    ? buildLinkedDataWindowRetrieveSignatureAdapter({
-        document,
-        position,
-        kb,
-        graph,
-        systemCatalog,
-        hotContext,
-      }, qualifier)
-    : null;
-  if (linkedRetrieveSignature) {
-    return createSignatureHelpFromViewModel(
-      [linkedRetrieveSignature],
-      activeParameter,
-      'datawindow-binding',
-      'linked-datawindow-retrieve',
-    );
+  // 2. Extraer todos los candidatos (target principal + ambiguos)
+  const allTargets = [result.target, ...(result.alternatives?.ambiguousTargets ?? [])]
+    .filter((t): t is Entity => !!t && isCallableEntity(t));
+
+  if (allTargets.length === 0) {
+    return null;
   }
 
-  // 1. Intentar resolver en SystemCatalog
-  const ownerScopedTarget = ownerTypes.length > 0
-    ? systemCatalog.resolveMemberFunctionForOwner(identifier, ownerTypes)
-    : undefined;
-  const sysTargets = qualifier
-    ? (ownerScopedTarget ? [ownerScopedTarget] : [])
-    : systemCatalog.findSystemSymbol(identifier);
-  if (sysTargets.length > 0) {
-    // Si hay qualifier, validar que aplique, pero para signature help
-    // seremos un poco más permisivos si es una función de sistema
-    const signatures: SignatureInformation[] = [];
-    
-    for (const sysTarget of prioritizeDocumentationTargets(sysTargets)) {
-      if (sysTarget.signatures && sysTarget.signatures.length > 0) {
-        for (const sig of sysTarget.signatures) {
-          const parameters = buildSystemSignatureParameters(systemCatalog, sysTarget, sig, documentationLocale);
+  const signatures: SignatureInformation[] = [];
 
+  for (const target of allTargets) {
+    if (target.uri.startsWith('catalog:')) {
+      // Símbolo del sistema: puede tener múltiples firmas
+      const sysId = target.uri.replace('catalog:', '');
+      const sysTarget = systemCatalog.getSymbolById(sysId);
+      if (sysTarget) {
+        for (const sig of sysTarget.signatures || []) {
+          const parameters = buildSystemSignatureParameters(systemCatalog, sysTarget, sig, documentationLocale);
           signatures.push(SignatureInformation.create(
             sig.label,
             buildSystemSignatureDocumentation(sysTarget, sig, documentationLocale),
             ...parameters
           ));
         }
-      } else {
-        // Fallback si no hay array signatures explícito
-        signatures.push(SignatureInformation.create(
-          sysTarget.name,
-          getDisplaySummary(sysTarget, documentationLocale)
-        ));
+        if (signatures.length === 0) {
+          // Fallback
+          signatures.push(SignatureInformation.create(
+            sysTarget.name,
+            getDisplaySummary(sysTarget, documentationLocale)
+          ));
+        }
       }
-    }
-
-    if (signatures.length > 0) {
-      return createSignatureHelpFromViewModel(
-        signatures,
-        activeParameter,
-        'system-catalog',
-        qualifier ? 'owner-scoped-system-callable' : 'global-system-callable',
-      );
-    }
-  }
-
-  // 2. Intentar resolver con SemanticQueryFacade
-  const callables = facade.resolveCallable(document, position, {
-    consumer: 'signature-help',
-    traceLabel: 'signatureHelp',
-  });
-  
-  if (callables.length > 0) {
-    const signatures: SignatureInformation[] = [];
-    
-    for (const callable of callables) {
-      const target = callable.symbol;
-      let label = callable.signature || target.name;
+    } else {
+      // Símbolo del workspace: una sola firma por entidad
+      let label = target.signature || target.name;
       const parameters: ParameterInformation[] = [];
       
-      if (callable.parameterLabels && callable.parameterLabels.length > 0) {
-        for (const p of callable.parameterLabels) {
-          parameters.push(ParameterInformation.create(p));
+      if (target.parameters && target.parameters.length > 0) {
+        for (const p of target.parameters) {
+          parameters.push(ParameterInformation.create(p.label));
         }
       } else {
-        // Fallback si la entidad no fue parseada con parámetros normalizados (versiones antiguas en caché)
+        // Fallback manual si no hay parámetros estructurados
         const match = label.match(/\((.*?)\)/);
         if (match && match[1].trim() !== '') {
           const args = match[1].split(',');
@@ -201,18 +162,24 @@ export function provideSignatureHelp(
         ...parameters
       ));
     }
-    
-    if (signatures.length > 0) {
-      return createSignatureHelpFromViewModel(
-        signatures,
-        activeParameter,
-        'workspace',
-        'semantic-query-callable',
-      );
-    }
+  }
+
+  if (signatures.length > 0) {
+    return createSignatureHelpFromViewModel(
+      signatures,
+      activeParameter,
+      result.kind === 'system-symbol' ? 'system-catalog' : 'workspace',
+      result.reasons[0] || 'semantic-query-callable',
+    );
   }
 
   return null;
+}
+
+function isCallableEntity(entity: import('../knowledge/types').Entity): boolean {
+  return entity.kind === EntityKind.Function
+    || entity.kind === EntityKind.Subroutine
+    || entity.kind === EntityKind.Event;
 }
 
 function prioritizeDocumentationTargets(entries: readonly PbSystemSymbolEntry[]): readonly PbSystemSymbolEntry[] {
@@ -235,19 +202,19 @@ function getDocumentationPriority(entry: PbSystemSymbolEntry): number {
   return 2;
 }
 
-function inferArgumentType(argumentText: string): string {
+function inferArgumentType(argumentText: string, systemCatalog: SystemCatalog): string {
   const trimmed = argumentText.trim();
   if (!trimmed) return 'unknown';
   if (/^(['"]).*\1$/s.test(trimmed)) return 'string';
   if (/^[+-]?\d+$/.test(trimmed)) return 'integer';
   if (/^[+-]?\d+\.\d+$/.test(trimmed)) return 'decimal';
   if (/^(true|false)$/i.test(trimmed)) return 'boolean';
-  const systemGlobal = resolveSystemGlobal(trimmed);
+  const systemGlobal = systemCatalog.resolveSystemGlobal(trimmed);
   if (systemGlobal?.valueType) return systemGlobal.valueType.toLowerCase();
   return 'unknown';
 }
 
-export function extractSignatureContext(document: TextDocument, position: Position): { identifier: string; qualifier?: string; activeParameter: number; argumentCount?: number; argumentTypes?: string[] } | null {
+export function extractSignatureContext(document: TextDocument, position: Position, systemCatalog: SystemCatalog): { identifier: string; qualifier?: string; activeParameter: number; argumentCount?: number; argumentTypes?: string[] } | null {
   // Vamos a buscar hacia atrás el paréntesis de apertura '(' 
   // y contar las comas en el nivel de profundidad 0.
   let activeParameter = 0;
@@ -343,7 +310,7 @@ export function extractSignatureContext(document: TextDocument, position: Positi
   const hasArgumentToken = /[^\s,]/.test(callText);
   const argumentCount = activeParameter > 0 || hasArgumentToken ? activeParameter + 1 : undefined;
   const argumentTypes = argumentCount !== undefined
-    ? callText.split(',').slice(0, argumentCount).map(inferArgumentType)
+    ? callText.split(',').slice(0, argumentCount).map(arg => inferArgumentType(arg, systemCatalog))
     : undefined;
 
   return { identifier, qualifier, activeParameter, ...(argumentCount !== undefined ? { argumentCount } : {}), ...(argumentTypes ? { argumentTypes } : {}) };

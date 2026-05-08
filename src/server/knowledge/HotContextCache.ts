@@ -8,7 +8,7 @@
  *
  * Reglas de invalidación:
  * - Cambiar `activeUri` invalida todo.
- * - Cambiar la versión de la KnowledgeBase invalida todo.
+ * - Cambiar la época semántica (`semanticEpoch`) de la KnowledgeBase invalida todo.
  * - `invalidateForUri(activeUri)` invalida pero conserva la identidad
  *   del activo (la próxima `setActive` re-poblará el caché sin perder
  *   el contexto del usuario).
@@ -31,7 +31,7 @@ function cloneValue<T>(value: T): T {
 
 export class HotContextCache {
   private activeUri: string | null = null;
-  private kbVersion = -1;
+  private semanticEpoch = -1;
 
   /** Entidades del archivo activo (snapshot bajo la versión actual de la KB). */
   private activeEntities: Entity[] | undefined;
@@ -44,16 +44,16 @@ export class HotContextCache {
   // ---- Identidad activa ----------------------------------------------------
 
   /**
-   * Establece el documento activo y la versión de KB para la cual los
+   * Establece el documento activo y la época semántica para la cual los
    * datos derivados son válidos. Si cambia cualquiera de los dos, el
    * caché entero se invalida.
    */
-  setActive(uri: string, kbVersion: number): void {
+  setActive(uri: string, semanticEpoch: number): void {
     const normalized = normalizeUri(uri);
-    if (this.activeUri !== normalized || this.kbVersion !== kbVersion) {
+    if (this.activeUri !== normalized || this.semanticEpoch !== semanticEpoch) {
       this.invalidate();
       this.activeUri = normalized;
-      this.kbVersion = kbVersion;
+      this.semanticEpoch = semanticEpoch;
     }
   }
 
@@ -61,8 +61,8 @@ export class HotContextCache {
     return this.activeUri;
   }
 
-  getKbVersion(): number {
-    return this.kbVersion;
+  getSemanticEpoch(): number {
+    return this.semanticEpoch;
   }
 
   // ---- Entidades del documento activo --------------------------------------
@@ -94,10 +94,10 @@ export class HotContextCache {
   }
 
   /** Spec 119: estadísticas para introspección. */
-  getStats(): { activeUri: string | null; kbVersion: number; inheritedTypes: number; capacity: number } {
+  getStats(): { activeUri: string | null; semanticEpoch: number; inheritedTypes: number; capacity: number } {
     return {
       activeUri: this.activeUri,
-      kbVersion: this.kbVersion,
+      semanticEpoch: this.semanticEpoch,
       inheritedTypes: this.inheritedMembers.size,
       capacity: this.maxInheritedTypes
     };
@@ -130,7 +130,7 @@ export class HotContextCache {
   /** Reinicia el caché por completo (incluyendo la identidad activa). */
   reset(): void {
     this.activeUri = null;
-    this.kbVersion = -1;
+    this.semanticEpoch = -1;
     this.invalidate();
   }
 }

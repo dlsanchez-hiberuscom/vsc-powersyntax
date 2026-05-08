@@ -1,4 +1,4 @@
-import { SemanticTokens, SemanticTokensBuilder, SemanticTokensDelta, SemanticTokensLegend } from 'vscode-languageserver/node';
+import { Position, SemanticTokens, SemanticTokensBuilder, SemanticTokensDelta, SemanticTokensLegend } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
@@ -10,6 +10,7 @@ import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { EntityKind, Fact, Scope, ScopeKind } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 import { execMemoized } from './regexMemoizer';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
 import {
   buildSemanticTokensViewModel,
   formatSemanticTokensViewModel,
@@ -88,7 +89,8 @@ interface TokenEntry {
   type: number;
   mods: number;
   source?: SemanticTokenViewModelEntry['source'];
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: 'high' | 'medium' | 'low' | 'unknown';
+  origin?: 'structural' | 'semantic';
 }
 
 export function provideSemanticTokens(
@@ -120,7 +122,7 @@ function toSemanticTokenViewModelEntry(token: TokenEntry): SemanticTokenViewMode
     tokenType: token.type,
     tokenModifiers: token.mods,
     source: token.source ?? 'usage',
-    confidence: token.confidence ?? 'high',
+    confidence: (token.confidence === 'unknown' ? 'low' : token.confidence) ?? (token.origin === 'structural' ? 'high' : 'low'),
   };
 }
 
@@ -185,7 +187,9 @@ function emitDeclarations(snapshot: SemanticDocumentSnapshot, tokens: TokenEntry
       char: fact.character,
       length: fact.name.length,
       type: tokenType,
-      mods: modifiers
+      mods: modifiers,
+      origin: 'structural',
+      confidence: 'high'
     });
   }
 
@@ -209,7 +213,9 @@ function emitDeclarations(snapshot: SemanticDocumentSnapshot, tokens: TokenEntry
           char: symbol.character,
           length: symbol.name.length,
           type: tokenType,
-          mods: modifiers
+          mods: modifiers,
+          origin: 'structural',
+          confidence: 'high'
         });
       }
     }
@@ -233,7 +239,9 @@ function emitUsages(
 ): void {
   // Aquí escanearemos strippedLines para encontrar usos
   const lines = snapshot.maskedText.lines;
-  
+  // 1. Resolver unificado
+  const facade = createSemanticQueryFacade({ kb, graph: inheritanceGraph, systemCatalog });
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.trim() === '') continue;
@@ -294,43 +302,34 @@ function emitUsages(
       }
       
       // Si no hay cualificador, puede ser una variable de instancia, global, tipo, o función global.
-      const resolved = resolveTargetEntityDetailed(
-        { identifier, qualifier },
-        document.uri,
-        kb,
-        inheritanceGraph,
-        { line: i }
+      const result = facade.resolveTarget(
+        document,
+        Position.create(i, startChar),
+        { consumer: 'semantic-tokens', traceLabel: 'semantic-tokens' }
       );
-      const targets = resolved.targets;
-
-      if (targets.length > 0) {
-        const target = targets[0];
+      
+      if (result.target) {
         let tokenType = TYPE_INDEX.variable;
         let modifiers = 0;
 
-        if (target.kind === EntityKind.Type) {
+        if (result.target.kind === EntityKind.Type) {
           tokenType = TYPE_INDEX.class;
-        } else if (target.kind === EntityKind.Function || target.kind === EntityKind.Subroutine) {
+        } else if (result.target.kind === EntityKind.Function || result.target.kind === EntityKind.Subroutine) {
           tokenType = TYPE_INDEX.function;
-        } else if (target.kind === EntityKind.Event) {
+        } else if (result.target.kind === EntityKind.Event) {
           tokenType = TYPE_INDEX.event;
-        } else if (target.kind === EntityKind.Variable) {
-          if (target.scope === 'Instancia') {
+        } else if (result.target.kind === EntityKind.Variable) {
+          if (result.target.scope === 'Instancia') {
             tokenType = TYPE_INDEX.property;
           }
-
-          modifiers |= getVariableScopeModifier(target.scope);
-
-          if (target.scope === 'Instancia') {
-            modifiers &= ~MODIFIER_MASK.global;
-          }
+          modifiers |= getVariableScopeModifier(result.target.scope);
         }
 
-        if (target.access?.includes('readonly')) {
+        if (result.target.access?.includes('readonly')) {
           modifiers |= MODIFIER_MASK.readonly;
         }
 
-        if (target.uri === '') {
+        if (result.kind === 'system-symbol') {
           modifiers |= MODIFIER_MASK.defaultLibrary;
         }
 
@@ -340,7 +339,8 @@ function emitUsages(
           length: identifier.length,
           type: tokenType,
           mods: modifiers,
-          confidence: resolved.confidence
+          confidence: result.confidence.level,
+          origin: 'semantic'
         });
       }
     }

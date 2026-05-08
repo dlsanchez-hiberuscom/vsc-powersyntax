@@ -24,6 +24,7 @@ export type QueryConsumerId =
   | 'code-lens-references'
   | 'rename-prepare'
   | 'rename'
+  | 'semantic-tokens'
   | 'diagnostics-unresolved-callable'
   | 'current-object-context'
   | 'impact-analysis'
@@ -52,6 +53,20 @@ const QUERY_CONSUMER_POLICIES: Record<QueryConsumerId, QueryConsumerPolicy> = {
     maxScope: 'active-object',
     budgetMs: 50,
     resultCap: 8,
+    requiredReadiness: 'nearby-semantic-ready',
+    requiredResolutionConfidence: 'low',
+    fallbackAction: 'degrade',
+    latencyAction: 'degrade',
+    allowStaging: false,
+    allowGenerated: false,
+    allowExternal: true,
+  },
+  'semantic-tokens': {
+    consumer: 'semantic-tokens',
+    label: 'semanticTokens',
+    maxScope: 'active-object',
+    budgetMs: 25,
+    resultCap: 128,
     requiredReadiness: 'nearby-semantic-ready',
     requiredResolutionConfidence: 'low',
     fallbackAction: 'degrade',

@@ -33,9 +33,10 @@ import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import {
   resolveQualifierType,
-  resolveTargetEntityDetailed,
   type ResolvedTargetInfo,
 } from '../knowledge/resolution/semanticQueryService';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
+import { type SemanticQueryResult } from '../knowledge/resolution/semanticQueryResult';
 import { EntityKind, ScopeKind } from '../knowledge/types';
 import type { WorkspaceState } from '../workspace/workspaceState';
 import { buildHierarchyInspection } from './hierarchyInspection';
@@ -1589,19 +1590,16 @@ function visitScopes(
 
         if (systemCatalog.findSystemSymbol(funcName).length > 0) continue;
 
-        const resolution = resolveTargetEntityDetailed(
-          qualifier ? { identifier: funcName, qualifier } : { identifier: funcName },
-          currentUri,
-          kb,
-          inheritanceGraph,
+        const facade = createSemanticQueryFacade({ kb, graph: inheritanceGraph, systemCatalog });
+        const result = facade.resolveTarget(
+          { uri: currentUri, lineCount: strippedLines.length, getText: () => '' } as any,
+          Position.create(i, raw.indexOf(funcName)),
           {
-            line: i,
             traceLabel: 'diagnostics:sd2',
-            budgetMs: getQueryConsumerPolicy('diagnostics-unresolved-callable').budgetMs,
-            sourceOriginPolicy: getQueryConsumerPolicy('diagnostics-unresolved-callable')
+            consumer: 'diagnostics-unresolved-callable'
           }
         );
-        if (resolution.targets.length > 0) continue;
+        if (result.target || (result.alternatives?.ambiguousTargets?.length ?? 0) > 0) continue;
 
         const col = raw.indexOf(funcName, raw.length - raw.trimStart().length);
         diagnostics.push(withDiagnosticCode({
@@ -1612,7 +1610,10 @@ function visitScopes(
           ),
           message: `La función '${funcName}' no se encuentra en la jerarquía del objeto ni en el catálogo del lenguaje.`,
           source: DIAGNOSTIC_SOURCE,
-          data: buildResolutionDiagnosticData(resolution)
+          data: {
+            reasonCodes: result.reasons,
+            confidence: result.confidence.level
+          }
         }, DIAGNOSTIC_CODES.sd2UnresolvedCallable));
       }
     }

@@ -2,14 +2,16 @@
 
 ## 1. Foco activo
 
-`POST-AUDIT / P0-P1 — Normalización documental y convergencia semántica`
+`PHASE 2 / P1 — Publicación de Submodelos (DataWindow / SQL)`
 
 Cadena obligatoria vigente:
 ```txt
-docs/backlog.md -> Done: PB-ARCH-P0-SEMANTIC-DESIGN-TARGET-01
-                -> Done: PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01
-                -> Open: PB-SEMANTIC-P0-FACADE-CONVERGENCE-01
-                -> Open: PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01
+docs/backlog.md -> Done: PB-ARCH-P1-CONSUMER-CONVERGENCE-COMPLETION-SIGNATURE-01
+                -> Done: PB-ARCH-P1-REFERENCES-STRUCTURAL-CONFIRMATION-01
+                -> Done: PB-ARCH-P1-SEMANTIC-TOKENS-EVIDENCE-CONTRACT-01
+                -> Done: PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01
+                -> Done: PB-ARCH-P1-READONLY-SURFACES-PROJECTIONS-01
+                -> Active: PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01
 ```
 
 Estado de éxito:
@@ -59,4 +61,5 @@ Estado de éxito:
 ## 6. Regla final
 
 No se marca ningún bloque como cerrado sin código, pruebas, docs y validación final reproducible. La documentación no puede presentar como soporte productivo lo que hoy solo es evidencia parcial, heuristic-only o target arquitectónico.
+
 

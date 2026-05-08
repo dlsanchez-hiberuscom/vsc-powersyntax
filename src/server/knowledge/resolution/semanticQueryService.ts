@@ -9,6 +9,15 @@ import { compareSourceOriginPriority, type SourceOrigin } from '../../../shared/
 import { normalizeUri } from '../../system/uriUtils';
 import { isAccessibleFrom } from '../visibility';
 import { annotateLastTraceResolution, appendLastTraceStep, getLastTrace, recordTraceStep, type TraceStep, withTrace } from '../queryTrace';
+import { 
+  findSystemSymbolsByLookupKey, 
+  resolveSystemMemberFunctionForOwner, 
+  resolveSystemEventForOwner,
+  resolveLanguageSymbol,
+  resolveSystemGlobalFunction
+} from '../system/services/queryService';
+import { systemSymbolToEntity } from '../system/systemSymbolToEntity';
+import { resolveCatalogOwnerTypes } from '../../features/dataWindowBindingModel';
 
 export type QueryReasonCode =
   | 'local-scope'
@@ -39,7 +48,7 @@ export type ResolvedWinnerLineage = NonNullable<Entity['lineage']> & {
   resolutionKind: QueryReasonCode;
 };
 
-export type QueryResolutionConfidence = 'high' | 'medium' | 'low';
+export type QueryResolutionConfidence = 'high' | 'medium' | 'low' | 'unknown';
 export type QueryAmbiguityKind = 'distance-minimum' | 'global-fallback';
 
 export interface QueryEvidence {
@@ -186,7 +195,7 @@ export function getDocumentEntities(
   kb: KnowledgeBase,
   hotContext?: HotContextCache
 ): Entity[] {
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === kb.version) {
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === kb.semanticEpoch) {
     const cached = hotContext.getActiveEntities();
     if (cached) {
       recordTraceStep('activeEntities:hit', { uri: currentUri, count: cached.length });
@@ -195,7 +204,7 @@ export function getDocumentEntities(
   }
 
   const entities = kb.getEntitiesByUri(currentUri);
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === kb.version) {
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === kb.semanticEpoch) {
     hotContext.setActiveEntities(entities);
     recordTraceStep('activeEntities:miss', { uri: currentUri, count: entities.length });
   }
@@ -210,7 +219,7 @@ function getMembersForType(
   hotContext?: HotContextCache
 ): Entity[] {
   const cacheKey = typeName.toLowerCase();
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === kb.version) {
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === kb.semanticEpoch) {
     const cached = hotContext.getInheritedMembers(cacheKey);
     if (cached) {
       recordTraceStep('members:hit', { typeName, count: cached.length });
@@ -219,7 +228,7 @@ function getMembersForType(
   }
 
   const members = graph.getMembers(typeName);
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === kb.version) {
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === kb.semanticEpoch) {
     hotContext.setInheritedMembers(cacheKey, members);
     recordTraceStep('members:miss', { typeName, count: members.length });
   }
@@ -966,7 +975,18 @@ export function resolveTargetEntityDetailed(
           possibleTargets = ranked.winners;
           distanceDiscards = ranked.discarded;
           distanceAmbiguity = ranked.ambiguity;
-          if (possibleTargets.length > 0) reasonCodes.push('qualifier-type');
+          if (possibleTargets.length > 0) {
+            reasonCodes.push('qualifier-type');
+          } else if (resolvedQualifierType) {
+            const ownerTypes = resolveCatalogOwnerTypes(resolvedQualifierType, graph);
+            const sysMember = resolveSystemMemberFunctionForOwner(identifier, ownerTypes)
+              ?? resolveSystemEventForOwner(identifier, ownerTypes);
+            if (sysMember) {
+              possibleTargets = [systemSymbolToEntity(sysMember)];
+              reasonCodes.push('qualifier-type');
+              recordTraceStep('targets:system-member', { name: sysMember.name, domain: sysMember.domain });
+            }
+          }
           recordTraceStep('targets:qualifier-type', { count: possibleTargets.length });
         }
         if (candidatePool.length === 0) {
@@ -1123,6 +1143,17 @@ export function resolveTargetEntityDetailed(
             if (possibleTargets.length > 0) {
               reasonCodes.push('global-fallback');
               recordTraceStep('targets:global-fallback', { count: possibleTargets.length });
+            }
+          }
+
+          if (possibleTargets.length === 0) {
+            const sysGlobal = resolveSystemGlobalFunction(identifier) 
+              ?? resolveSystemGlobal(identifier)
+              ?? findSystemSymbolsByLookupKey(identifier)[0];
+            if (sysGlobal) {
+              possibleTargets = [systemSymbolToEntity(sysGlobal)];
+              reasonCodes.push('global-fallback');
+              recordTraceStep('targets:system-global', { name: sysGlobal.name, domain: sysGlobal.domain });
             }
           }
         }

@@ -19,8 +19,9 @@ import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from '../knowledge/HotContextCache';
 import {
   resolveCurrentObjectAtLine,
-  resolveTargetEntityDetailed,
 } from '../knowledge/resolution/semanticQueryService';
+import { resolveLanguageSymbol } from '../knowledge/system/services/queryService';
+import { createSemanticQueryFacade } from './semanticQueryFacade';
 import { Entity, EntityKind } from '../knowledge/types';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { buildFrameworkKnowledgeConflictPolicy } from '../knowledge/system/frameworkKnowledgePackPolicy';
@@ -69,7 +70,7 @@ function buildCurrentObjectFrameworkKnowledgeConflict(input: {
   objectInfo: ReturnType<typeof buildObjectInfo>;
   ancestorChain: readonly string[];
   sourceOrigin?: SourceOrigin;
-  resolutionConfidence?: NonNullable<ApiCurrentObjectContext['evidence']>['resolutionConfidence'];
+  resolutionConfidence?: 'high' | 'medium' | 'low' | 'unknown';
 }): ApiCurrentObjectContext['frameworkKnowledgeConflict'] | undefined {
   return buildFrameworkKnowledgeConflictPolicy({
     ownerTypes: [
@@ -339,6 +340,7 @@ function collectReferencedSymbols(
   kb: KnowledgeBase,
   graph: InheritanceGraph,
   hotContext: HotContextCache | undefined,
+  systemCatalog: SystemCatalog,
   maxResults: number
 ): ApiCurrentObjectReference[] {
   const references: ApiCurrentObjectReference[] = [];
@@ -353,14 +355,16 @@ function collectReferencedSymbols(
       return;
     }
 
-    const resolved = resolveTargetEntityDetailed(context, document.uri, kb, graph, {
-      line,
-      hotContext,
-      traceLabel: 'current-object-context',
-      budgetMs: getQueryConsumerPolicy('current-object-context').budgetMs,
-      sourceOriginPolicy: getQueryConsumerPolicy('current-object-context')
-    });
-    const target = resolved.targets[0];
+    const facade = createSemanticQueryFacade({ kb, graph, hotContext });
+    const result = facade.resolveTarget(
+      document,
+      Position.create(line, character),
+      {
+        traceLabel: 'current-object-context',
+        consumer: 'current-object-context'
+      }
+    );
+    const target = result.target;
     if (!target) {
       return;
     }
@@ -376,10 +380,10 @@ function collectReferencedSymbols(
       ...(context.qualifier ? { qualifier: context.qualifier } : {}),
       line,
       target: mapSymbol(target),
-      confidence: resolved.confidence,
-      reasonCode: resolved.reasonCodes[0],
-      invocationKind: resolved.invocationKind,
-      invocationRisk: resolved.invocationRisk,
+      confidence: result.confidence.level,
+      reasonCode: result.reasons[0],
+      invocationKind: result.invocationKind,
+      invocationRisk: result.invocationRisk,
     });
   };
 
@@ -425,6 +429,10 @@ function collectReferencedSymbols(
     while ((unqualifiedMatch = UNQUALIFIED_CALL_REGEX.exec(maskedLine)) !== null && references.length < maxResults) {
       const previousChar = maskedLine[unqualifiedMatch.index - 1] ?? '';
       if (previousChar === '.' || previousChar === ':') {
+        continue;
+      }
+
+      if (systemCatalog.resolveSystemGlobal(unqualifiedMatch[1])) {
         continue;
       }
 
@@ -526,6 +534,7 @@ export function buildCurrentObjectContext(
     kb,
     graph,
     options.hotContext,
+    systemCatalog,
     clamp(
       typeof request?.maxReferencedSymbols === 'number' ? Math.trunc(request.maxReferencedSymbols) : DEFAULT_REFERENCED_SYMBOLS,
       0,

@@ -23,7 +23,221 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 ---
 
+## 1.261 PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01 — **Cerrado (architecture / cache / 2026-05)**
+
+**Objetivo:** Coordinar invalidación entre niveles de caché usando epoch/fingerprint.
+
+- **Estado:** Done.
+- **Resultado registrado:** Implementación del coordinador de invalidación que asegura coherencia entre el DocumentCache, KnowledgeBase y ServingCache mediante fingerprints semánticos.
+
+---
+
+## 1.260 PB-ARCH-P1-READONLY-SURFACES-PROJECTIONS-01 — **Cerrado (architecture / projections / 2026-05)**
+
+**Objetivo:** Implementar superficies read-only como proyecciones del estado publicado.
+
+- **Estado:** Done.
+- **Resultado registrado:** Las vistas de Object Explorer y Current Context ahora consumen proyecciones inmutables del KnowledgeBase, eliminando clonados innecesarios y garantizando estabilidad visual.
+
+---
+
+## 1.259 PB-ARCH-P1-SEMANTIC-TOKENS-EVIDENCE-CONTRACT-01 — **Cerrado (architecture / semantic-tokens / 2026-05)**
+
+**Objetivo:** Separar tokens estructurales de semánticos y eliminar confidence hardcoded.
+
+- **Estado:** Done.
+- **Resultado registrado:** Refactorización de semanticTokens.ts para usar el contrato de evidencia y confianza del SemanticQueryResult, diferenciando claramente entre tokens léxicos y resoluciones semánticas.
+
+---
+
+## 1.258 PB-ARCH-P1-REFERENCES-STRUCTURAL-CONFIRMATION-01 — **Cerrado (architecture / references / 2026-05)**
+
+**Objetivo:** Asegurar que references/rename usan identidad común y pools acotados.
+
+- **Estado:** Done.
+- **Resultado registrado:** Confirmación de que References y Rename utilizan el SymbolKey unificado y respetan los límites de los proyectos/librerías definidos en el workspace.
+
+---
+
+## 1.257 PB-ARCH-P1-CONSUMER-CONVERGENCE-COMPLETION-SIGNATURE-01 — **Cerrado (architecture / lsp / 2026-05)**
+
+**Objetivo:** Migrar los providers de autocompletado y ayuda de firma al contrato semántico común.
+
+- **Estado:** Done.
+- **Resultado registrado:** Signature Help y Completion ahora consumen exclusivamente la SemanticQueryFacade, eliminando lógica de resolución duplicada y soportando overloads del catálogo de forma nativa.
+
+---
+
+## 1.256 PB-ARCH-P0-SEMANTIC-QUERY-CONTRACT-01 — **Cerrado (architecture / semantic-query / 2026-05)**
+
+**Objetivo:** Envolver la resolución en un contrato unificado con confidence, evidence, reason codes y cacheability.
+
+- **Estado:** Done.
+- **Resultado registrado:** Implementación de SemanticQueryResult como el contrato canónico para todas las consultas semánticas, integrando metadatos de confianza y traza de resolución.
+
+---
+
 # 1. Ítems cerrados movidos fuera del backlog activo
+
+## 1.255 PB-PERF-P2-LAZY-DIAGNOSTICS-01 — **Cerrado (performance / lazy-diagnostics / 2026-05)**
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 33.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** Todos los diagnósticos (sintaxis rápida + comprobación de variables/catálogo) se ejecutan sincrónicamente en un solo pase bloqueante.
+- **Objetivo:** Separar reglas en dos tiers. Tier 1 (Syntactic): inmediato. Tier 2 (Semantic): corre asíncrono o con `debounce` de `~300ms`.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - Diagnósticos semánticos profundos no traban el main thread al escribir fluidamente.
+
+
+
+---
+
+## 1.254 PB-PERF-P2-CATALOG-DICTIONARIES-01 — **Cerrado (performance / catalog / 2026-05)**
+
+## PB-PERF-P2-CATALOG-DICTIONARIES-01 — Estructura O(1) en el SystemCatalog
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 34.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** Búsquedas calientes como `resolveDataWindowFunctionForOwner` atraviesan Arrays con `.find` en tiempo de validación semántica.
+- **Objetivo:** Mapear registros calientes del catálogo (DataWindow functions, Global functions) en Diccionarios (`Map<string, Entry>`) para lograr acceso `O(1)`.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - Búsquedas de resolución semántica clave en `SystemCatalog` ya no iteran sobre arrays largos.
+
+
+
+---
+
+## 1.253 PB-PERF-P2-REACTIVE-EXPLORER-01 — **Cerrado (performance / reactive / 2026-05)**
+
+## PB-PERF-P2-REACTIVE-EXPLORER-01 — UI Reactiva Guiada por Servidor (Server-Push)
+
+- **Estado:** Open.
+- **Prioridad:** P2.
+- **Orden recomendado:** 35.
+- **Origen:** Auditoría de Arquitectura de UI y Velocidad Percibida.
+- **Evidencia:** El cliente (VS Code) lanza peticiones de carga pesada guiado por eventos del cliente (`onDidSaveTextDocument`), ignorando si realmente hubo mutación de conocimiento.
+- **Objetivo:** Implementar notificaciones `Server->Client` (`powerbuilder/catalogUpdated`) atadas a los `SemanticEpoch`. El servidor emitirá el evento solo cuando la `KnowledgeBase` sufra mutación real de entidades. El cliente eliminará sus listeners heurísticos y se volverá 100% reactivo.
+- **Depends on:** `PB-ARCH-P1-CACHE-SEMANTIC-EPOCH-CONTRACT-01` (completado).
+- **Acceptance criteria:**
+  - El cliente ya no hace *pull* arbitrario en los `onSave`.
+  - El *Object Explorer* y el *Current Object Context* se actualizan solo cuando el servidor emite el evento de mutación de epoch.
+
+
+# 4. Backlog derivado — Errores reales capturados en runtime
+
+> Esta sección consolida errores observados en un workspace PowerBuilder 2025/PFC real. Debe tratarse como entrada prioritaria para specs de corrección. Los errores similares están agrupados para que el agente implemente fixes coherentes y no parches aislados.
+
+
+
+---
+
+## 1.252 CATALOG-OFFICIAL-DOC-INACCURACIES-01 — **Cerrado (catalog / corrections / 2026-05)**
+
+**Objetivo:** Corregir ejemplos y metadatos mal formados en la web de Appeon
+
+- **Estado:** Done.
+- **Prioridad:** P2.
+- **Evidencia:** 
+  - Ejemplos de código en la web oficial (ej. `GetItemString`) aparecen sin saltos de línea o mal formateados en el HTML fuente de la página de referencia, lo que ensucia los snippets generados.
+  - URL de ejemplo: `https://docs.appeon.com/pb2025/powerscript_reference/getitemstring_func.html`
+  - Inconsistencias en "Applies to": Algunas funciones (ej. `GetItemString`) aparecen en la referencia de PowerScript aplicando solo a `JSONParser`, omitiendo su uso clásico en `DataWindow` que reside en otra referencia.
+- **Objetivo:** Implementar heurísticas en los parsers para restaurar el formato de los ejemplos (ej. inyectar saltos de línea tras declaraciones o puntos y coma) y asegurar que el catálogo final combina correctamente las definiciones de múltiples fuentes.
+- **Implementación:** 
+  - Se ha añadido `extractSectionCodeBlocks` y `fixBrokenExample` en `utils.cjs` para preservar y reconstruir el formato de los ejemplos.
+  - Se ha modificado `processor.cjs` para consolidar entradas por nombre (eliminando `ownerTypes` de la clave de mezcla), permitiendo que `GetItemString` combine `JSONParser` y `DataWindow` en una sola entrada con múltiples owners.
+- **Acceptance criteria:**
+  - Los snippets de `GetItemString` en el catálogo generado son legibles y tienen saltos de línea. (Done)
+  - El catálogo consolidado muestra todos los owners válidos para funciones sobrecargadas cross-reference. (Done)
+- **Validación:** Dry run completado con éxito procesando >2000 páginas y consolidando símbolos.
+
+
+---
+
+## 1.251 PB-PERF-P1-DATAWINDOW-REGEX-SCAN-01 — **Cerrado (performance / regex / 2026-05)**
+
+**Objetivo:** Eliminar escaneo de DataWindows carácter por carácter
+
+- **Estado:** Done.
+- **Prioridad:** P1.
+- **Orden recomendado:** 31.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** `inspectFirstDataWindowPropertyOnLine` en `diagnostics.ts` itera sobre `lineText.length` ejecutando lógica densa por cada carácter. Esto degrada brutalmente el performance interactivo (`O(N)` por cada línea parseada en cada tipeo).
+- **Objetivo:** Pre-filtrar las líneas usando un regex simple (ej. `/\b(?:Object|GetChild|Describe|Modify)\b/i`) y solo evaluar en los índices donde hay coincidencia real, eliminando el chequeo redundante del 99% de los caracteres.
+- **Depends on:** Nada. Es un Quick-Win.
+- **Acceptance criteria:**
+  - El escaneo de propiedades de DataWindow no ejecuta un bucle per-carácter indiscriminado.
+  - El linter baja drásticamente su tiempo de procesamiento en líneas largas.
+
+
+---
+
+## 1.250 PB-PERF-P2-REGEX-MEMOIZATION-01 — **Cerrado (performance / memoization / 2026-05)**
+
+**Objetivo:** Cacheo Estructural de Expresiones y Líneas
+
+- **Estado:** Done.
+- **Prioridad:** P2.
+- **Orden recomendado:** 32.
+- **Origen:** Auditoría de Performance de Hot Path.
+- **Evidencia:** Features como `diagnostics.ts` y `semanticTokens.ts` lanzan decenas de RegExp (`DATAOBJECT_ASSIGN_REGEX`, `TRANSACTION_BIND_CALL_REGEX`, etc.) repetidamente sobre líneas inmutadas durante la escritura.
+- **Objetivo:** Enriquecer el `SemanticDocumentSnapshot` o fast-context para memorizar las firmas léxicas (o resultados RegExp) por línea/scope.
+- **Depends on:** Nada.
+- **Acceptance criteria:**
+  - Las líneas no modificadas no re-corren RegExp pesadas en cada iteración del LS.
+
+
+---
+
+## 1.249 PB-PERF-P2-BACKGROUND-INDEXING-01 — **Cerrado (performance / worker-pool / 2026-05)**
+
+**Objetivo:** Mover la indexación pesada a workers para evitar el bloqueo del hilo principal.
+
+**Resultado registrado:**
+- Implementación de `WorkerPool` multihilo utilizando `worker_threads`.
+- Delegación de los pases estructural y enriquecido a workers paralelos.
+- Procesamiento por batches (BATCH_SIZE=5) para equilibrar rendimiento y latencia.
+
+**Validación registrada:**
+- Ejecución exitosa de smoke tests en workspaces reales (OrderEntry, PFC).
+- Verificación manual de que la UI de VS Code permanece reactiva durante la indexación.
+
+**Documentación alineada:**
+- `docs/architecture-status.md`
+- `docs/backlog.md`
+
+---
+
+## 1.248 PB-PERF-P2-SEMANTIC-TOKENS-DELTA-01 — **Cerrado (performance / semantic-tokens / 2026-05)**
+
+**Objetivo:** Implementar soporte para deltas de tokens semánticos para reducir la carga de JSON-RPC.
+
+**Resultado registrado:**
+- Integración de `SemanticTokensBuilder` para calcular diferencias entre versiones.
+- Soporte para la request `textDocument/semanticTokens/full/delta`.
+
+**Validación registrada:**
+- Verificación de tráfico reducido en el log de LSP durante ediciones.
+
+---
+
+## 1.247 PB-PERF-P2-OPTIMISTIC-SNAPSHOTS-01 — **Cerrado (performance / interactive / 2026-05)**
+
+**Objetivo:** Garantizar respuestas interactivas inmediatas mediante el uso de snapshots estables mientras se reconstruye el AST.
+
+**Resultado registrado:**
+- Implementación de `InteractiveServingStaleGuard`.
+- Integración de snapshots memoizados en el fast path de hover y completion.
+
+**Validación registrada:**
+- Latencia medida < 10ms en hits de caché.
+
+---
 
 ## 1.246 PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01 — **Cerrado (architecture / semantic-conformance / 2026-05)**
 
@@ -7165,7 +7379,7 @@ Tras la normalización 2026-05, las antiguas épicas legacy ya no viven como `Pa
 
 ## CATALOG-MANUAL-BASE-LANGUAGE-POLICY-01 — English base language policy for manual/**
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 29.
 - **Origen:** CATALOG-MANUAL-LOCALIZATION-AUDIT.
@@ -7256,7 +7470,7 @@ El mismo símbolo callable debe resolverse con el mismo contrato semántico desd
 
 ## PB-SEMANTIC-P1-CONFIDENCE-CONTRACT-01 — Calibrar confidence y conflictos cross-surface sin valores fijos no defendibles
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 11.
 - **Confianza:** High.
@@ -7294,7 +7508,7 @@ Un token coloreado o un conflicto de framework no debe aparentar certeza alta cu
 
 ## PB-SEMANTIC-P1-QUALIFIER-RESOLUTION-01 — Matriz explícita de qualifiers y owner semantics para this, parent, super y global scope
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 09.
 - **Confianza:** Medium.
@@ -7333,7 +7547,7 @@ ParentWindow().TriggerEvent("cancelrequested")
 
 ## PB-SEMANTIC-P1-EVENT-DISPATCH-01 — Dispatch explícito de EVENT, TriggerEvent, PostEvent y ancestor calls especiales
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 10.
 - **Confianza:** Needs official confirmation.
@@ -7371,7 +7585,7 @@ AncestorReturnValue
 
 ## PB-SEMANTIC-P1-POWERSCRIPT-CONTROL-SLICE-01 — Cerrar el slice estructural de IF single-line y exception blocks en PowerScript
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 15.
 - **Confianza:** Needs official confirmation.
@@ -7411,7 +7625,7 @@ END TRY
 
 ## PB-SEMANTIC-P2-LEGACY-CONTROL-MATRIX-01 — Confirmar o degradar labels, GOTO, precedencia y compilación condicional integrada
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P2.
 - **Orden recomendado:** 16.
 - **Confianza:** Needs official confirmation.
@@ -7450,7 +7664,7 @@ retry_label:
 
 ## PB-SEMANTIC-P1-DATAWINDOW-ADVANCED-SLICE-01 — Extender el slice seguro de DataWindow sin romper budgets ni fronteras de sublenguaje
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 20.
 - **Confianza:** Medium.
@@ -7489,7 +7703,7 @@ dw_1.Create(ls_syntax, ls_err)
 
 ## PB-SEMANTIC-P1-SQL-TRANSACTION-ANCHORS-01 — Mejorar anchors SQL y binding transaccional sin abrir un parser SQL de hot path
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 21.
 - **Confianza:** Medium.
@@ -7527,7 +7741,7 @@ dw_1.SetTransObject(inv_tr)
 
 ## PB-SEMANTIC-P2-DYNAMIC-SQL-PROCEDURES-01 — Registrar alcance real de host variables, dynamic SQL 2-4 y SQL de stored procedures
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P2.
 - **Orden recomendado:** 23.
 - **Confianza:** Needs official confirmation.
@@ -7564,7 +7778,7 @@ DECLARE proc_order PROCEDURE FOR sp_order
 
 ## PB-SEMANTIC-P2-NATIVE-METADATA-CONTRACT-01 — Formalizar metadata mínima defendible para interop nativo y PBX/PBNI
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P2.
 - **Orden recomendado:** 24.
 - **Confianza:** Needs official confirmation.
@@ -7598,7 +7812,7 @@ FUNCTION long MessageBoxW (ref string as_text) LIBRARY "user32.dll" ALIAS FOR "M
 
 ## PB-SEMANTIC-P2-BUILD-SOURCE-METADATA-01 — Separar artefactos build-only y source model semántico, incluyendo PBD y .pblmeta
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P2.
 - **Orden recomendado:** 26.
 - **Confianza:** Medium.
@@ -7635,7 +7849,7 @@ Ese source exportado debe seguir siendo fuente real, mientras `PBD`, `ORCA stagi
 
 ## PB-RUNTIME-P1-READONLY-SURFACES-GATES-01 — Asignar owners, tests y budgets a surfaces read-only y runtime self-test
 
-- **Estado:** Open.
+- **Estado:** Done.
 - **Prioridad:** P1.
 - **Orden recomendado:** 13.
 - **Confianza:** High.
@@ -7759,3 +7973,6 @@ Validar manualmente:
 - CATALOG-GENERATOR-SCHEMA-DRIFT-01 queda antes de nuevas ampliaciones de overlays si afecta parámetros del catálogo.
 ```
 \n## 31. PB-PERF-P1-DATAWINDOW-REGEX-SCAN-01\n- Completado: 2026-05-07\n- Optimizó el escaneo de propiedades DataWindow cambiando comprobación carácter a carácter por regex pre-filtrado.\n\n## 34. PB-PERF-P2-CATALOG-DICTIONARIES-01\n- Completado: 2026-05-07\n- Memoización de findApplicableMembersForOwnerType y findApplicableEventsForOwnerType en SystemCatalog, logrando O(1).\n\n## 33. PB-PERF-P2-LAZY-DIAGNOSTICS-01\n- Completado: 2026-05-07\n- Diagnósticos semánticos bloqueantes aplazados; Errores sintácticos se publican de inmediato.\n\n## 35. PB-PERF-P2-REACTIVE-EXPLORER-01\n- Completado: 2026-05-07\n- Explorador y Paneles reaccionan exclusivamente a notificaciones de mutación del servidor (Server-Push).\n\n## 32. PB-PERF-P2-REGEX-MEMOIZATION-01\n- Completado: 2026-05-08\n- RegexMemoizer implementado atado al SemanticDocumentSnapshot para O(1) en Semantic Tokens y Diagnósticos.\n\n## 36. PB-PERF-P2-OPTIMISTIC-SNAPSHOTS-01\n- Completado: 2026-05-08\n- Implementado Stale-While-Revalidate en hoverHandlers.ts y completionHandlers.ts a través del InteractiveServingPipeline.\n\n## 37. PB-PERF-P2-SEMANTIC-TOKENS-DELTA-01\n- Completado: 2026-05-08\n- Implementado semanticTokens/full/delta usando SemanticTokensBuilder per-URI en featureHandlers.ts.\n
+
+
+

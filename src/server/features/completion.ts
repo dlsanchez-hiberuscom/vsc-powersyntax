@@ -132,10 +132,11 @@ function getMembersForCompletion(
   kb: KnowledgeBase,
   graph: InheritanceGraph,
   hotContext?: HotContextCache,
-  kbVersion?: number
+  semanticEpoch?: number
 ): Entity[] {
   const cacheKey = typeName.toLowerCase();
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
+  const targetEpoch = semanticEpoch ?? kb.semanticEpoch;
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === targetEpoch) {
     const cached = hotContext.getInheritedMembers(cacheKey);
     if (cached) {
       return cached;
@@ -143,7 +144,7 @@ function getMembersForCompletion(
   }
 
   const members = graph.getMembers(typeName);
-  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getKbVersion() === (kbVersion ?? kb.version)) {
+  if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === targetEpoch) {
     hotContext.setInheritedMembers(cacheKey, members);
   }
   return members;

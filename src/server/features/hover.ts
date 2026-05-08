@@ -314,25 +314,26 @@ export function buildHoverPresentationResult(
   }
 
   const semanticFacade = createSemanticQueryFacade({ kb, graph, systemCatalog: catalog, hotContext });
-  const resolved = semanticFacade.resolveTargetInfo(document, position, { traceLabel: 'hover', consumer: 'hover' });
-  const cacheToken = resolved?.context.identifier.toLowerCase() ?? tokenProbe?.token.word.toLowerCase() ?? 'hover';
-  if (!resolved) {
+  const result = semanticFacade.resolveTarget(document, position, { traceLabel: 'hover', consumer: 'hover' });
+  const cacheToken = result.query.identifier?.toLowerCase() ?? tokenProbe?.token.word.toLowerCase() ?? 'hover';
+  
+  if (!result.target && result.kind === 'unknown') {
     return { kind: 'negative', reason: negativeProbe?.reason ?? 'unresolved', cacheToken: negativeProbe?.token ?? cacheToken };
   }
 
-  const userDefinitions = resolved.targets;
-  if (userDefinitions.length > 0) {
-    const definition = userDefinitions[0];
+  if (result.kind === 'workspace-symbol' && result.target) {
+    const definition = result.target;
     const lifecycleLines = splitMarkdownBlock(buildLifecycleHoverBlock(definition, kb, graph, catalog));
     const dataWindowLines = splitMarkdownBlock(buildDataWindowHoverBlock(definition, kb));
+    
     return {
       kind: 'viewmodel',
       viewModel: buildUserHoverViewModel(definition, {
-        confidence: resolved.confidence,
-        reasonCode: resolved.reasonCodes[0],
-        ambiguous: resolved.targets.length > 1,
-        ambiguityKind: resolved.ambiguityKind,
-        targetCount: resolved.targets.length,
+        confidence: result.confidence.level as any,
+        reasonCode: result.reasons[0],
+        ambiguous: (result.alternatives?.ambiguousTargets?.length ?? 0) > 0,
+        ambiguityKind: result.degraded?.state === 'cap-reached' ? 'distance-minimum' : undefined, // Simplificación
+        targetCount: 1 + (result.alternatives?.ambiguousTargets?.length ?? 0),
       }, {
         detailLines: [...lifecycleLines, ...dataWindowLines],
         locale: documentationLocale,
@@ -341,17 +342,21 @@ export function buildHoverPresentationResult(
     };
   }
 
-  const ownerType = resolved.context.qualifier
-    ? semanticFacade.resolveReceiverType(document, resolved.context.qualifier, position).ownerType ?? undefined
+  // Fallback a sistema si no es workspace-symbol o si es un system-symbol resuelto por la fachada
+  const identifier = result.query.identifier ?? tokenProbe?.token.word ?? '';
+  const qualifier = result.query.qualifier;
+
+  const ownerType = qualifier
+    ? semanticFacade.resolveReceiverType(document, qualifier, position).ownerType ?? undefined
     : undefined;
   const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
   const ownerScopedSymbol = ownerTypes.length > 0
-    ? catalog.resolveMemberFunctionForOwner(resolved.context.identifier, ownerTypes)
-      ?? catalog.resolveEventForOwner(resolved.context.identifier, ownerTypes)
+    ? catalog.resolveMemberFunctionForOwner(identifier, ownerTypes)
+      ?? catalog.resolveEventForOwner(identifier, ownerTypes)
     : undefined;
-  const systemSymbols = resolved.context.qualifier
+  const systemSymbols = qualifier
     ? (ownerScopedSymbol ? [ownerScopedSymbol] : [])
-    : catalog.findSystemSymbol(resolved.context.identifier);
+    : catalog.findSystemSymbol(identifier);
   if (systemSymbols.length > 0) {
     return {
       kind: 'viewmodel',
@@ -360,7 +365,7 @@ export function buildHoverPresentationResult(
     };
   }
 
-  const langSymbol = catalog.resolveLanguageSymbol(resolved.context.identifier);
+  const langSymbol = catalog.resolveLanguageSymbol(identifier);
   if (langSymbol) {
     if (langSymbol.kind === 'keyword' || langSymbol.kind === 'reserved-word') {
       return { kind: 'negative', reason: 'keyword', cacheToken };
