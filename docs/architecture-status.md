@@ -44,7 +44,7 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 | Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto. | Tratarlas como proyecciones acotadas con epoch, receipts, caps, redaction y tests. |
 | DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
-| Performance | Parcial | Existen budgets, pero deben conectarse a mediciones por provider/cache. | Alinear `performance-budget.md`. |
+| Performance | OK/Parcial | Arquitectura Server-Push reactiva, Memoización de Regex O(1), Semantic Tokens Delta y Stale-While-Revalidate activos. Falta background indexing inicial. | Finalizar `PB-PERF-P2-BACKGROUND-INDEXING-01`. |
 | Testing | Parcial | Debe cubrir contratos arquitectónicos, caches, semántica e integraciones. | Alinear `testing.md`. |
 | IA/agentes | Parcial | La documentación IA debe consumir arquitectura/status sin duplicarla. | Alinear bloque IA después de docs core. |
 
@@ -157,6 +157,18 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 - **Acción:** consumir snapshot/AST/symbol graph/cache y alinear el contrato de confidence con `queryContext` y las demás surfaces read-only.
 
 Las surfaces read-only ya publicadas, como Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis y Safe Edit Plan, deben seguir el mismo contrato de confidence, source origin, reason codes y degradación honesta aunque no sean providers LSP clásicos.
+
+### 4.9. Rendimiento Interactivo (Performance)
+
+- **Estado:** OK/Parcial.
+- **Arquitectura objetivo:** `docs/performance-budget.md`.
+- **Evidencia:** 
+  - La UI de VS Code está completamente desacoplada de eventos pesados de File System. Ahora opera en un flujo puro **Server-Push Reactivo** gobernado por el `semanticEpoch`.
+  - Las herramientas de validación estructural (expresiones regulares) utilizan **Memoización O(1)** vinculada al `SemanticDocumentSnapshot`, eliminando bloqueos de UI (jitter) durante pulsaciones rápidas.
+  - La canalización de respuestas interactivas cuenta con **Optimistic Snapshots (Stale-While-Revalidate)**, devolviendo respuestas antiguas inmediatamente mientras el AST se reconstruye en background (evitando timeouts o que el hover de LSP se bloquee).
+  - La sincronización de pintado de sintaxis utiliza `semanticTokens/full/delta` para emitir deltas fraccionales usando caches de `SemanticTokensBuilder`, reduciendo la saturación de JSON-RPC.
+- **Riesgo:** el proceso inicial de indexación de directorios completos (cargas frías de ORCA) sigue reteniendo el ciclo principal del LSP.
+- **Acción:** completar `PB-PERF-P2-BACKGROUND-INDEXING-01` moviendo el I/O pesado a Web Workers o `worker_threads`.
 
 ---
 
