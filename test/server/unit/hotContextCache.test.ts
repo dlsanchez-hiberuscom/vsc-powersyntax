@@ -77,7 +77,7 @@ suite('unit/HotContextCache', () => {
 
     cache.reset();
     assert.equal(cache.getActiveUri(), null);
-    assert.equal(cache.getKbVersion(), -1);
+    assert.equal(cache.getSemanticEpoch(), -1);
     assert.equal(cache.getActiveEntities(), undefined);
   });
 

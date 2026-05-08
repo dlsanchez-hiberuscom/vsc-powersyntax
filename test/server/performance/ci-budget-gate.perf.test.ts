@@ -96,12 +96,19 @@ end subroutine
     `);
     hotHarness.warmDocument(hotDocument);
 
+    const signatureDocument = createHotPathDocument(
+      'file:///performance_signature_hot.srw',
+      'powerbuilder-window',
+      'integer li_rtn\nli_rtn = MessageBox("Title", "Message"'
+    );
+    hotHarness.warmDocument(signatureDocument);
+
     const completionStart = performance.now();
     const completion = provideCompletion(hotDocument, Position.create(11, 3), hotHarness.kb, hotHarness.systemCatalog, hotHarness.graph);
     const completionElapsedMs = performance.now() - completionStart;
 
     const signatureStart = performance.now();
-    const signature = provideSignatureHelp(hotDocument, Position.create(12, 30), hotHarness.kb, hotHarness.systemCatalog, hotHarness.graph);
+    const signature = provideSignatureHelp(signatureDocument, Position.create(1, 38), hotHarness.kb, hotHarness.systemCatalog, hotHarness.graph);
     const signatureElapsedMs = performance.now() - signatureStart;
 
     const definitionStart = performance.now();

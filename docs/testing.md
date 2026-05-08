@@ -77,6 +77,28 @@ Static / Lint / Typecheck
 
 ---
 
+### 3.6 Matriz canónica de lanes
+
+Esta matriz registra los comandos reales declarados en `package.json`. Mantiene la estrategia de testing alineada con CI/release sin convertir este documento en backlog.
+
+| Lane | Comando | Uso esperado | CI/release |
+|---|---|---|---|
+| Build test | `npm run build:test` | Compila, bundlea y prepara tests VS Code. | Base de suites. |
+| Unit | `npm run test:unit` | Lógica pura, contratos pequeños y guards unitarios. | Rápido/local. |
+| Integration | `npm run test:integration` | Servidor/workspace/providers conectados. | Rápido/local según cambio. |
+| Smoke | `npm run test:smoke` | Activación y flujos críticos. | Rápido/local. |
+| Suite estándar | `npm test` | Build test + smoke/unit/integration. | Release. |
+| Architecture rapid | `npm run test:architecture:rapid` | Gate rápido de arquitectura/performance smoke. | Release. |
+| Architecture metrics | `npm run test:architecture:metrics` | Hotspot guard de tamaño/imports/declaraciones. | Local/diagnóstico. |
+| Docs drift | `npm run test:docs:drift` | Ownership documental y drift. | Release. |
+| Performance gate | `npm run test:performance:gate` | Budgets rápidos y artefactos `[perf-budget]`. | Release. |
+| Performance soak | `npm run test:performance:soak` | Estabilidad de sesión/cache/memoria. | Opt-in/local. |
+| Installed VSIX smoke | `npm run test:smoke:installed-vsix` | Smoke sobre VSIX empaquetado. | Release. |
+| Release verify | `npm run release:verify` | Gate completo de release-readiness. | CI release. |
+| Real corpora | `missing: test:real-corpora` | Corpora privados/locales PFC/STD/OrderEntry cuando existan. | No es dependencia obligatoria de CI. |
+
+---
+
 ## 4. Tipos de prueba
 
 ### 4.1. Static checks

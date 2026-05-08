@@ -12,6 +12,7 @@
     "tsBuildInfoFile": "out/.tsbuildinfo/test.tsbuildinfo"
   },
   "include": [
+    "src/server/indexer/worker.ts",
     "test/**/*.ts"
   ]
 }

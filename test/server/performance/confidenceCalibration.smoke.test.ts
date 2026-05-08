@@ -113,6 +113,15 @@ function buildExpectations(confidence: QueryResolutionConfidence): ConfidenceCal
         { feature: 'rename', expectedAction: 'block' },
         { feature: 'signature-help', expectedAction: 'allow' },
       ];
+    case 'unknown':
+      return [
+        { feature: 'hover', expectedAction: 'allow' },
+        { feature: 'completion', expectedAction: 'allow' },
+        { feature: 'definition', expectedAction: 'block' },
+        { feature: 'references', expectedAction: 'block' },
+        { feature: 'rename', expectedAction: 'block' },
+        { feature: 'signature-help', expectedAction: 'block' },
+      ];
   }
 }
 

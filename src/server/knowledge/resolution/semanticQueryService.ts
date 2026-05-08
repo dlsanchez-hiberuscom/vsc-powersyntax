@@ -1090,6 +1090,17 @@ export function resolveTargetEntityDetailed(
             });
           }
         }
+
+        if (possibleTargets.length === 0) {
+          const sysGlobal = resolveSystemGlobalFunction(identifier)
+            ?? resolveSystemGlobal(identifier)
+            ?? findSystemSymbolsByLookupKey(identifier)[0];
+          if (sysGlobal) {
+            possibleTargets = [systemSymbolToEntity(sysGlobal)];
+            reasonCodes.push('global-fallback');
+            recordTraceStep('targets:system-global', { name: sysGlobal.name, domain: sysGlobal.domain });
+          }
+        }
       } else {
         const sharedVars = globalCandidates.filter((e) => e.kind === EntityKind.Variable && e.scope === 'Compartida');
         const globalVars = globalCandidates.filter((e) => e.kind === EntityKind.Variable && e.scope === 'Global');
