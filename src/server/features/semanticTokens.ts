@@ -1,4 +1,4 @@
-import { SemanticTokens, SemanticTokensLegend } from 'vscode-languageserver/node';
+import { SemanticTokens, SemanticTokensBuilder, SemanticTokensDelta, SemanticTokensLegend } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
@@ -96,7 +96,9 @@ export function provideSemanticTokens(
   kb: KnowledgeBase,
   inheritanceGraph: InheritanceGraph,
   systemCatalog: SystemCatalog,
-): SemanticTokens {
+  builder?: SemanticTokensBuilder,
+  previousResultId?: string
+): SemanticTokens | SemanticTokensDelta {
   const snapshot = getDocumentAnalysis(document).snapshot;
 
   const tokens: TokenEntry[] = [];
@@ -107,7 +109,7 @@ export function provideSemanticTokens(
   // Coloreamos los usos
   emitUsages(document, snapshot, kb, inheritanceGraph, systemCatalog, tokens);
 
-  return formatSemanticTokensViewModel(buildSemanticTokensViewModel(tokens.map(toSemanticTokenViewModelEntry)));
+  return formatSemanticTokensViewModel(buildSemanticTokensViewModel(tokens.map(toSemanticTokenViewModelEntry)), builder, previousResultId);
 }
 
 function toSemanticTokenViewModelEntry(token: TokenEntry): SemanticTokenViewModelEntry {

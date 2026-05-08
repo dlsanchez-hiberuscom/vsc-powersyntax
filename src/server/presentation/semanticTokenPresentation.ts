@@ -1,4 +1,4 @@
-import { SemanticTokens, SemanticTokensBuilder } from 'vscode-languageserver/node';
+import { SemanticTokens, SemanticTokensBuilder, SemanticTokensDelta } from 'vscode-languageserver/node';
 
 import { buildCompactPayloadPolicy, type SemanticTokenViewModelEntry, type SemanticTokensViewModel } from './viewModels';
 
@@ -26,10 +26,19 @@ export function buildSemanticTokensViewModel(tokens: readonly SemanticTokenViewM
   };
 }
 
-export function formatSemanticTokensViewModel(viewModel: SemanticTokensViewModel): SemanticTokens {
-  const builder = new SemanticTokensBuilder();
+export function formatSemanticTokensViewModel(
+  viewModel: SemanticTokensViewModel,
+  builder: SemanticTokensBuilder = new SemanticTokensBuilder(),
+  previousResultId?: string
+): SemanticTokens | SemanticTokensDelta {
+  if (previousResultId) {
+    builder.previousResult(previousResultId);
+  }
   for (const token of viewModel.tokens) {
     builder.push(token.line, token.char, token.length, token.tokenType, token.tokenModifiers);
+  }
+  if (previousResultId && builder.canBuildEdits()) {
+    return builder.buildEdits();
   }
   return builder.build();
 }

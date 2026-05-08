@@ -1,4 +1,4 @@
-import { Range, type CompletionItem, type Connection, type TextDocuments } from 'vscode-languageserver/node';
+import { Range, SemanticTokensBuilder, type CompletionItem, type Connection, type TextDocuments } from 'vscode-languageserver/node';
 import { TaskPriority, type TaskScheduler } from '../runtime/scheduler';
 import { InteractiveLoopGuard } from '../runtime/interactiveLoopGuard';
 import { measureMs, formatTiming, type FirstInvocationTracker } from '../runtime/timing';
@@ -1583,6 +1583,13 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
     isSemanticallyServedDocument,
   } = context;
 
+  const semanticTokensBuilders = new Map<string, SemanticTokensBuilder>();
+
+  // Limpiar el builder si el documento se cierra o se invalida fuertemente
+  documents.onDidClose((e) => {
+    semanticTokensBuilders.delete(e.document.uri);
+  });
+
   connection.languages.semanticTokens.on((params) => {
     const document = documents.get(params.textDocument.uri);
     if (!document) {
@@ -1592,12 +1599,18 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
       return { data: [] };
     }
 
+    let builder = semanticTokensBuilders.get(document.uri);
+    if (!builder) {
+      builder = new SemanticTokensBuilder();
+      semanticTokensBuilders.set(document.uri, builder);
+    }
+
     try {
       return scheduler.runInteractive({
         id: `semanticTokens-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
-          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog));
+          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, builder));
 
           logInteractiveFeatureTiming(
             connection,
@@ -1608,12 +1621,53 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
             'Primer semanticTokens (desde el inicio)',
             serverStartTime,
           );
-          return result;
+          return result as import('vscode-languageserver/node').SemanticTokens;
         }
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       connection.console.error(`[ERROR] semanticTokens: ${message}`);
+      return { data: [] };
+    }
+  });
+
+  connection.languages.semanticTokens.onDelta((params) => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return { data: [] };
+    }
+    if (!isSemanticallyServedDocument(document)) {
+      return { data: [] };
+    }
+
+    let builder = semanticTokensBuilders.get(document.uri);
+    if (!builder) {
+      builder = new SemanticTokensBuilder();
+      semanticTokensBuilders.set(document.uri, builder);
+    }
+
+    try {
+      return scheduler.runInteractive({
+        id: `semanticTokensDelta-${document.uri}`,
+        priority: TaskPriority.Interactive,
+        execute: () => {
+          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, builder, params.previousResultId));
+
+          logInteractiveFeatureTiming(
+            connection,
+            'semanticTokensDelta',
+            elapsedMs,
+            undefined, // no tracker for delta
+            undefined,
+            undefined,
+            serverStartTime,
+          );
+          return result as import('vscode-languageserver/node').SemanticTokens | import('vscode-languageserver/node').SemanticTokensDelta;
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      connection.console.error(`[ERROR] semanticTokensDelta: ${message}`);
       return { data: [] };
     }
   });
