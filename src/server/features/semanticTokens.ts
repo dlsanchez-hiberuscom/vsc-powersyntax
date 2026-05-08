@@ -7,8 +7,9 @@ import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { resolveTargetEntityDetailed } from '../knowledge/resolution/semanticQueryService';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import type { PbSystemSymbolEntry } from '../knowledge/system/types';
-import { EntityKind, Scope, ScopeKind } from '../knowledge/types';
+import { EntityKind, Fact, Scope, ScopeKind } from '../knowledge/types';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
+import { execMemoized } from './regexMemoizer';
 import {
   buildSemanticTokensViewModel,
   formatSemanticTokensViewModel,
@@ -235,9 +236,8 @@ function emitUsages(
     const line = lines[i];
     if (line.trim() === '') continue;
 
-    ENUMERATED_VALUE_PATTERN.lastIndex = 0;
-    let enumMatch: RegExpExecArray | null;
-    while ((enumMatch = ENUMERATED_VALUE_PATTERN.exec(line)) !== null) {
+    const enumMatches = execMemoized(snapshot, ENUMERATED_VALUE_PATTERN, line);
+    for (const enumMatch of enumMatches) {
       const enumValue = enumMatch[0];
       if (!systemCatalog.resolveEnumeratedValue(enumValue)) {
         continue;
@@ -252,10 +252,8 @@ function emitUsages(
       });
     }
 
-    IDENTIFIER_PATTERN.lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = IDENTIFIER_PATTERN.exec(line)) !== null) {
+    const matches = execMemoized(snapshot, IDENTIFIER_PATTERN, line);
+    for (const match of matches) {
       const identifier = match[0];
       const startChar = match.index;
       if (line[startChar + identifier.length] === '!') {

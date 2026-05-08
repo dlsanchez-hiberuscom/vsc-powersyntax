@@ -90,6 +90,7 @@ import {
   LINE_COMMENT_PATTERN
 } from '../parsing/grammar';
 import type { LogicalStatement } from '../parsing/statementSplitter';
+import { execMemoized } from './regexMemoizer';
 import { findObsoleteCalls } from './obsoleteDetector';
 import {
   matchesEnumeratedPropertyContext,
@@ -590,7 +591,7 @@ export function validateSemantics(
 
   // --- SD2: Validación dentro de scopes Function/Event ---
   for (const rootScope of scopes) {
-    visitScopes(rootScope, document.uri, codeOnlyLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
+    visitScopes(snapshot, rootScope, document.uri, codeOnlyLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
   }
 
   // --- SD4: Variables locales no usadas ---
@@ -852,9 +853,8 @@ function checkTransactionBindings(
       if (!trimmed) continue;
       const line = statement.startLine;
 
-      DATAOBJECT_ASSIGN_REGEX.lastIndex = 0;
-      let dataObjectMatch: RegExpExecArray | null;
-      while ((dataObjectMatch = DATAOBJECT_ASSIGN_REGEX.exec(raw)) !== null) {
+      const dataObjectMatches = execMemoized(snapshot, DATAOBJECT_ASSIGN_REGEX, raw);
+      for (const dataObjectMatch of dataObjectMatches) {
         const targetName = dataObjectMatch[1];
         const expression = dataObjectMatch[2].trim();
         const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
@@ -882,9 +882,8 @@ function checkTransactionBindings(
         });
       }
 
-      TRANSACTION_BIND_CALL_REGEX.lastIndex = 0;
-      let bindMatch: RegExpExecArray | null;
-      while ((bindMatch = TRANSACTION_BIND_CALL_REGEX.exec(raw)) !== null) {
+      const bindMatches = execMemoized(snapshot, TRANSACTION_BIND_CALL_REGEX, raw);
+      for (const bindMatch of bindMatches) {
         const targetName = bindMatch[1];
         const methodName = bindMatch[2] as TransactionBinding['method'];
         const argument = bindMatch[3].trim();
@@ -898,9 +897,8 @@ function checkTransactionBindings(
         bindings.set(targetName.toLowerCase(), classifyTransactionBinding(argument, currentUri, line, mainType, kb, inheritanceGraph));
       }
 
-      TRANSACTION_OPERATION_CALL_REGEX.lastIndex = 0;
-      let operationMatch: RegExpExecArray | null;
-      while ((operationMatch = TRANSACTION_OPERATION_CALL_REGEX.exec(raw)) !== null) {
+      const opMatches = execMemoized(snapshot, TRANSACTION_OPERATION_CALL_REGEX, raw);
+      for (const operationMatch of opMatches) {
         const targetName = operationMatch[1];
         const operationName = operationMatch[2] as 'Retrieve' | 'Update';
         const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
@@ -972,9 +970,8 @@ function checkDataObjectBindings(
       if (!trimmed) continue;
       const line = statement.startLine;
 
-      DATAOBJECT_ASSIGN_REGEX.lastIndex = 0;
-      let assignMatch: RegExpExecArray | null;
-      while ((assignMatch = DATAOBJECT_ASSIGN_REGEX.exec(raw)) !== null) {
+      const assignMatches = execMemoized(snapshot, DATAOBJECT_ASSIGN_REGEX, raw);
+      for (const assignMatch of assignMatches) {
         const targetName = assignMatch[1];
         const expression = assignMatch[2].trim();
         const targetType = resolveQualifierType(targetName, currentUri, kb, line, mainType);
@@ -1076,9 +1073,8 @@ function checkEnumeratedValueContextDiagnostics(
           continue;
         }
 
-        ENUMERATED_PROPERTY_ASSIGN_REGEX.lastIndex = 0;
-        let propertyMatch: RegExpExecArray | null;
-        while ((propertyMatch = ENUMERATED_PROPERTY_ASSIGN_REGEX.exec(rawLine)) !== null) {
+        const propMatches = execMemoized(snapshot, ENUMERATED_PROPERTY_ASSIGN_REGEX, rawLine);
+        for (const propertyMatch of propMatches) {
           const qualifier = propertyMatch[1];
           const propertyName = propertyMatch[2];
           const enumValueName = propertyMatch[3];
@@ -1110,9 +1106,8 @@ function checkEnumeratedValueContextDiagnostics(
           ));
         }
 
-        ENUMERATED_VALUE_TOKEN_REGEX.lastIndex = 0;
-        let valueMatch: RegExpExecArray | null;
-        while ((valueMatch = ENUMERATED_VALUE_TOKEN_REGEX.exec(rawLine)) !== null) {
+        const valMatches = execMemoized(snapshot, ENUMERATED_VALUE_TOKEN_REGEX, rawLine);
+        for (const valueMatch of valMatches) {
           const enumValueName = valueMatch[1];
           const actualEnumValue = systemCatalog.resolveEnumeratedValue(enumValueName);
           if (!actualEnumValue) {
@@ -1511,6 +1506,7 @@ const SD2_CALL_REGEX = new RegExp(
 );
 
 function visitScopes(
+  snapshot: import('../analysis/semanticSnapshot').SemanticDocumentSnapshot,
   scope: import('../knowledge/types').Scope,
   currentUri: string,
   strippedLines: string[],
@@ -1549,9 +1545,8 @@ function visitScopes(
       ) continue;
 
       // SD2: Detectar llamadas a funciones: identifier(
-      SD2_CALL_REGEX.lastIndex = 0;
-      let callMatch: RegExpExecArray | null;
-      while ((callMatch = SD2_CALL_REGEX.exec(trimmed)) !== null) {
+      const callMatches = execMemoized(snapshot, SD2_CALL_REGEX, trimmed);
+      for (const callMatch of callMatches) {
         const qualifier = callMatch[1]; // this | super | undefined
         const funcName = callMatch[2];
         const funcLower = funcName.toLowerCase();
@@ -1625,7 +1620,7 @@ function visitScopes(
 
   // Recorrer scopes hijos
   for (const child of scope.children) {
-    visitScopes(child, currentUri, strippedLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
+      visitScopes(snapshot, child, currentUri, strippedLines, sections, diagnostics, kb, systemCatalog, inheritanceGraph, mainType);
   }
 }
 
