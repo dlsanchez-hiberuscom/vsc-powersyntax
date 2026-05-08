@@ -41,6 +41,7 @@ suite('unit/architectureConformanceScanner', () => {
       'import-cycle': 0,
       'parallel-store': 0,
       'provider-bypass': 0,
+      'provider-contract': 0,
       'published-state-write': 0,
     });
     assert.ok(first.report.summary.filesScanned >= 300, 'El scanner debe cubrir el árbol src completo.');
@@ -56,6 +57,7 @@ suite('unit/architectureConformanceScanner', () => {
     assert.ok(result.report.summary.byKind['import-cycle'] >= 1);
     assert.ok(result.report.summary.byKind['cache-contract'] >= 1);
     assert.ok(result.report.summary.byKind['parallel-store'] >= 1);
+    assert.ok(result.report.summary.byKind['provider-contract'] >= 1);
     assert.ok(result.report.summary.byKind['published-state-write'] >= 1);
   });
 

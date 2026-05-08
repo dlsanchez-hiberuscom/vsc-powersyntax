@@ -15,6 +15,7 @@ import {
   formatSemanticTokensViewModel,
 } from '../presentation/semanticTokenPresentation';
 import type { SemanticTokenViewModelEntry } from '../presentation/viewModels';
+import { SemanticTokensResultState } from './semanticTokensResultState';
 
 // ---------------------------------------------------------------------------
 // Legends
@@ -97,8 +98,9 @@ export function provideSemanticTokens(
   kb: KnowledgeBase,
   inheritanceGraph: InheritanceGraph,
   systemCatalog: SystemCatalog,
-  builder?: SemanticTokensBuilder,
-  previousResultId?: string
+  _builder?: SemanticTokensBuilder,
+  previousResultId?: string,
+  resultState?: SemanticTokensResultState,
 ): SemanticTokens | SemanticTokensDelta {
   const snapshot = getDocumentAnalysis(document).snapshot;
 
@@ -110,7 +112,63 @@ export function provideSemanticTokens(
   // Coloreamos los usos
   emitUsages(document, snapshot, kb, inheritanceGraph, systemCatalog, tokens);
 
-  return formatSemanticTokensViewModel(buildSemanticTokensViewModel(tokens.map(toSemanticTokenViewModelEntry)), builder, previousResultId);
+  const fullTokens = formatSemanticTokensViewModel(
+    buildSemanticTokensViewModel(tokens.map(toSemanticTokenViewModelEntry)),
+    new SemanticTokensBuilder(),
+  ) as SemanticTokens;
+
+  if (!resultState) {
+    return previousResultId ? { ...fullTokens } : fullTokens;
+  }
+
+  const resultId = resultState.store(
+    document.uri,
+    snapshot.version,
+    snapshot.fingerprint,
+    kb.version,
+    fullTokens.data,
+  );
+
+  if (!previousResultId) {
+    return {
+      data: fullTokens.data,
+      resultId,
+    };
+  }
+
+  const previousEntry = resultState.get(document.uri, previousResultId);
+  if (!previousEntry || !resultState.isCompatible(previousEntry, snapshot.version, snapshot.fingerprint, kb.version)) {
+    return {
+      data: fullTokens.data,
+      resultId,
+    };
+  }
+
+  if (sameTokenData(previousEntry.data, fullTokens.data)) {
+    return {
+      resultId,
+      edits: [],
+    };
+  }
+
+  return {
+    data: fullTokens.data,
+    resultId,
+  };
+}
+
+function sameTokenData(left: readonly number[], right: readonly number[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index++) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function toSemanticTokenViewModelEntry(token: TokenEntry): SemanticTokenViewModelEntry {

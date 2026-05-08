@@ -34,14 +34,20 @@ export type ProviderDegradedResult =
   | 'structural-only'
   | 'not-supported';
 
+export type ProviderCachePolicy = 'keyed' | 'none';
+
+export type ProviderSourceScope = 'document' | 'project' | 'workspace';
+
 export interface ProviderAdapterContract {
   feature: ProviderFeature;
   lane: ProviderLane;
   budgetMs: number;
+  cachePolicy: ProviderCachePolicy;
   cacheFeature?: string;
   staleGuard: boolean;
   cancelPolicy: ProviderCancelPolicy;
   degradedResult: ProviderDegradedResult;
+  sourceScope: ProviderSourceScope;
   requiresFacade: boolean;
   readonly allowsFullScan: false;
 }
@@ -51,10 +57,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'hover',
     lane: 'interactive',
     budgetMs: 150,
+    cachePolicy: 'keyed',
     cacheFeature: 'hover',
     staleGuard: true,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'stale',
+    sourceScope: 'document',
     requiresFacade: true,
     allowsFullScan: false,
   },
@@ -62,10 +70,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'completion',
     lane: 'interactive',
     budgetMs: 300,
+    cachePolicy: 'keyed',
     cacheFeature: 'completion',
     staleGuard: true,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'stale',
+    sourceScope: 'document',
     requiresFacade: true,
     allowsFullScan: false,
   },
@@ -73,10 +83,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'completion-resolve',
     lane: 'interactive',
     budgetMs: 100,
+    cachePolicy: 'keyed',
     cacheFeature: 'completion-resolve',
     staleGuard: false,
     cancelPolicy: 'deduplicate',
     degradedResult: 'empty',
+    sourceScope: 'document',
     requiresFacade: false,
     allowsFullScan: false,
   },
@@ -84,10 +96,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'signatureHelp',
     lane: 'interactive',
     budgetMs: 150,
+    cachePolicy: 'keyed',
     cacheFeature: 'signatureHelp',
     staleGuard: true,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'stale',
+    sourceScope: 'document',
     requiresFacade: true,
     allowsFullScan: false,
   },
@@ -95,10 +109,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'definition',
     lane: 'interactive',
     budgetMs: 200,
+    cachePolicy: 'keyed',
     cacheFeature: 'definition',
     staleGuard: true,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'empty',
+    sourceScope: 'document',
     requiresFacade: true,
     allowsFullScan: false,
   },
@@ -106,10 +122,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'references',
     lane: 'near',
     budgetMs: 400,
+    cachePolicy: 'keyed',
     cacheFeature: 'references',
     staleGuard: true,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'empty',
+    sourceScope: 'workspace',
     requiresFacade: true,
     allowsFullScan: false,
   },
@@ -117,10 +135,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'documentSymbols',
     lane: 'interactive',
     budgetMs: 100,
+    cachePolicy: 'keyed',
     cacheFeature: 'documentSymbols',
     staleGuard: false,
     cancelPolicy: 'deduplicate',
     degradedResult: 'stale',
+    sourceScope: 'document',
     requiresFacade: false,
     allowsFullScan: false,
   },
@@ -128,10 +148,12 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'semanticTokens',
     lane: 'interactive',
     budgetMs: 200,
+    cachePolicy: 'keyed',
     cacheFeature: 'semanticTokens',
     staleGuard: true,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'stale',
+    sourceScope: 'document',
     requiresFacade: false,
     allowsFullScan: false,
   },
@@ -139,9 +161,11 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'rename',
     lane: 'near',
     budgetMs: 500,
+    cachePolicy: 'none',
     staleGuard: true,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'not-supported',
+    sourceScope: 'project',
     requiresFacade: true,
     allowsFullScan: false,
   },
@@ -149,9 +173,11 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'linkedEditing',
     lane: 'interactive',
     budgetMs: 150,
+    cachePolicy: 'none',
     staleGuard: false,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'empty',
+    sourceScope: 'document',
     requiresFacade: true,
     allowsFullScan: false,
   },
@@ -159,9 +185,11 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'codeActions',
     lane: 'near',
     budgetMs: 300,
+    cachePolicy: 'none',
     staleGuard: false,
     cancelPolicy: 'queue',
     degradedResult: 'empty',
+    sourceScope: 'document',
     requiresFacade: false,
     allowsFullScan: false,
   },
@@ -169,9 +197,11 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'codeLens',
     lane: 'background',
     budgetMs: 600,
+    cachePolicy: 'none',
     staleGuard: false,
     cancelPolicy: 'deduplicate',
     degradedResult: 'empty',
+    sourceScope: 'document',
     requiresFacade: false,
     allowsFullScan: false,
   },
@@ -179,9 +209,11 @@ export const PROVIDER_ADAPTER_CONTRACTS: Record<ProviderFeature, ProviderAdapter
     feature: 'workspaceSymbols',
     lane: 'near',
     budgetMs: 400,
+    cachePolicy: 'none',
     staleGuard: false,
     cancelPolicy: 'cancel-on-new-request',
     degradedResult: 'empty',
+    sourceScope: 'workspace',
     requiresFacade: false,
     allowsFullScan: false,
   },
@@ -194,6 +226,12 @@ export function validateProviderAdapterContract(contract: ProviderAdapterContrac
   const errors: string[] = [];
   if (contract.budgetMs <= 0) {
     errors.push(`budgetMs debe ser positivo en feature '${contract.feature}'`);
+  }
+  if (contract.cachePolicy !== 'none' && !contract.cacheFeature) {
+    errors.push(`cacheFeature debe existir cuando cachePolicy no es 'none' en feature '${contract.feature}'`);
+  }
+  if (contract.cachePolicy === 'none' && contract.cacheFeature) {
+    errors.push(`cacheFeature debe omitirse cuando cachePolicy es 'none' en feature '${contract.feature}'`);
   }
   if (contract.allowsFullScan !== false) {
     errors.push(`allowsFullScan debe ser false en feature '${contract.feature}'`);

@@ -8,6 +8,10 @@
  * buildDiagnosticsForDocument se mantiene como capa de compatibilidad.
  */
 
+import type { Diagnostic } from 'vscode-languageserver/node';
+
+import { getDiagnosticCode } from '../../shared/diagnosticCodes';
+
 export type DiagnosticTier = 0 | 1 | 2 | 3 | 4;
 
 export type DiagnosticDomain =
@@ -55,6 +59,31 @@ export class DiagnosticRuleRegistry {
 
 export const DIAGNOSTIC_RULE_REGISTRY = new DiagnosticRuleRegistry();
 
+export function getDiagnosticRuleMetadata(
+  diagnostic: Pick<Diagnostic, 'code' | 'source'> | string | undefined,
+  registry: DiagnosticRuleRegistry = DIAGNOSTIC_RULE_REGISTRY,
+): DiagnosticRuleMetadata | undefined {
+  const code = typeof diagnostic === 'string'
+    ? diagnostic
+    : diagnostic
+      ? getDiagnosticCode(diagnostic)
+      : undefined;
+  return code ? registry.lookup(code) : undefined;
+}
+
+export function collectUnregisteredDiagnosticCodes(
+  diagnostics: readonly Pick<Diagnostic, 'code' | 'source'>[],
+  registry: DiagnosticRuleRegistry = DIAGNOSTIC_RULE_REGISTRY,
+): string[] {
+  return [...new Set(
+    diagnostics
+      .map((diagnostic) => getDiagnosticCode(diagnostic))
+      .filter((code): code is string => typeof code === 'string')
+      .filter((code) => !registry.lookup(code))
+      .sort(),
+  )];
+}
+
 // Reglas estructurales y sintácticas (Tier 1 - immediate, no requieren KB)
 DIAGNOSTIC_RULE_REGISTRY.register({ id: 'SD9', tier: 1, domain: 'structural', lane: 'immediate' });
 DIAGNOSTIC_RULE_REGISTRY.register({ id: 'SD10', tier: 1, domain: 'structural', lane: 'immediate' });
@@ -77,15 +106,17 @@ DIAGNOSTIC_RULE_REGISTRY.register({ id: 'SD8', tier: 2, domain: 'semantic', lane
 DIAGNOSTIC_RULE_REGISTRY.register({ id: 'enum-value-context-mismatch', tier: 2, domain: 'semantic', lane: 'interactive' });
 
 // Reglas de DataWindow (Tier 2 - interactive)
-DIAGNOSTIC_RULE_REGISTRY.register({ id: 'dataobject-assign-missing', tier: 2, domain: 'datawindow', lane: 'interactive' });
-DIAGNOSTIC_RULE_REGISTRY.register({ id: 'dataobject-type-mismatch', tier: 2, domain: 'datawindow', lane: 'interactive' });
-DIAGNOSTIC_RULE_REGISTRY.register({ id: 'datawindow-column-not-found', tier: 2, domain: 'datawindow', lane: 'interactive' });
-DIAGNOSTIC_RULE_REGISTRY.register({ id: 'datawindow-property-not-found', tier: 2, domain: 'datawindow', lane: 'interactive' });
+DIAGNOSTIC_RULE_REGISTRY.register({ id: 'dataobject-not-found', tier: 2, domain: 'datawindow', lane: 'interactive' });
+DIAGNOSTIC_RULE_REGISTRY.register({ id: 'dataobject-ambiguous', tier: 2, domain: 'datawindow', lane: 'interactive' });
+DIAGNOSTIC_RULE_REGISTRY.register({ id: 'dataobject-dynamic', tier: 2, domain: 'datawindow', lane: 'interactive', advisory: true });
+DIAGNOSTIC_RULE_REGISTRY.register({ id: 'datawindow-property-path-unresolved', tier: 2, domain: 'datawindow', lane: 'interactive' });
+DIAGNOSTIC_RULE_REGISTRY.register({ id: 'datawindow-expression-dependency-unresolved', tier: 2, domain: 'datawindow', lane: 'interactive' });
 DIAGNOSTIC_RULE_REGISTRY.register({ id: 'retrieve-arity-mismatch', tier: 2, domain: 'datawindow', lane: 'interactive' });
 
 // Reglas semánticas de transacción (Tier 2 - interactive)
 DIAGNOSTIC_RULE_REGISTRY.register({ id: 'transaction-binding-missing', tier: 2, domain: 'semantic', lane: 'interactive' });
-DIAGNOSTIC_RULE_REGISTRY.register({ id: 'transaction-binding-mismatch', tier: 2, domain: 'semantic', lane: 'interactive' });
+DIAGNOSTIC_RULE_REGISTRY.register({ id: 'transaction-binding-unknown', tier: 2, domain: 'semantic', lane: 'interactive' });
+DIAGNOSTIC_RULE_REGISTRY.register({ id: 'transaction-binding-dynamic', tier: 2, domain: 'semantic', lane: 'interactive', advisory: true });
 
 // Reglas advisory (Tier 2 - interactive, advisory: true)
 DIAGNOSTIC_RULE_REGISTRY.register({ id: 'native-dependency', tier: 2, domain: 'advisory', lane: 'interactive', advisory: true });

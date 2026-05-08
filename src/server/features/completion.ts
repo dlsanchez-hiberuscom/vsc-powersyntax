@@ -108,19 +108,14 @@ export type CompletionItemResolveData = CompletionResolveDataBase & (
 
 interface CompletionResolveContext extends CompletionResolveDataBase {}
 
-function createCompletionResolveContext(
-  document: TextDocument,
-  kb: KnowledgeBase,
-  documentationLocale: DocumentationLocale,
-  providerContext?: CompletionProviderContext,
-): CompletionResolveContext {
+function createCompletionResolveContext(document: TextDocument, documentFingerprint: number | string, kb: KnowledgeBase, documentationLocale: DocumentationLocale, providerContext?: CompletionProviderContext): CompletionResolveContext {
   return {
     protocol: COMPLETION_RESOLVE_DATA_PROTOCOL,
     version: COMPLETION_RESOLVE_DATA_VERSION,
     uri: document.uri,
     documentVersion: document.version,
     kbVersion: kb.version,
-    documentFingerprint: kb.semanticEpoch,
+    documentFingerprint,
     sourceOrigin: providerContext?.sourceOrigin ?? 'unknown',
     locale: documentationLocale,
   };
@@ -167,7 +162,7 @@ export function provideCompletion(
   const snapshot = getDocumentAnalysis(document).snapshot;
   const rawLineText = snapshot.maskedText.lines[position.line] ?? '';
   const lineText = rawLineText.substring(0, position.character);
-  const resolveContext = createCompletionResolveContext(document, kb, documentationLocale, providerContext);
+  const resolveContext = createCompletionResolveContext(document, snapshot.fingerprint, kb, documentationLocale, providerContext);
   const facade = createSemanticQueryFacade({ kb, graph, systemCatalog, hotContext });
   const semanticEpoch = kbVersion;
 

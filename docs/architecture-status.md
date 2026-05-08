@@ -40,7 +40,7 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 | Request Context | Parcial | Existen `queryContext` y `positionContext`, pero no un contrato transversal homogéneo para todos los consumers. | Formalizar el contrato sobre el slice actual y migrar providers por fases. |
 | Semantic Query Facade | Parcial/Riesgo | Hay un slice read-only activo, pero la adopción sigue desigual entre consumers interactivos y surfaces derivadas. | Converger consumer por consumer y documentar excepciones activas. |
 | Cache Layer | Parcial | Contratos L0-L3 están estabilizados, pero el target futuro exige un coordinador de invalidación cross-cache, keys estructuradas completas y no-op semantic publish cuando no cambian facts públicos. | Ejecutar `PB-ARCH-P1-CACHE-SEMANTIC-EPOCH-CONTRACT-01` y `PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01`. |
-| Providers LSP | Parcial | Hover/definition ya tienen slice de facade; completion, signature help, references, diagnostics y semantic tokens conservan excepciones o rutas híbridas. | Seguir el plan incremental de `docs/semantic-design-target.md` y los items `PB-ARCH-*` del backlog. |
+| Providers LSP | Parcial | Hover/definition ya tienen slice de facade; diagnostics y semantic tokens ya consumen contratos runtime explícitos (`DiagnosticRuleRegistry`, `SemanticTokensResultState`), pero completion, signature help y references conservan rutas híbridas o gaps de host validation. | Seguir el plan incremental de `docs/semantic-design-target.md` y los items `PB-ARCH-*` del backlog. |
 | Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto. | Tratarlas como proyecciones acotadas con epoch, receipts, caps, redaction y tests. |
 | DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
@@ -306,13 +306,19 @@ Módulos añadidos en la oleada de spec blocks waves 2-4:
 
 | Módulo | Ruta | Estado |
 |--------|------|--------|
-| DiagnosticRuleRegistry | `src/server/features/diagnosticRuleRegistry.ts` | Añadido |
-| SemanticTokensResultState | `src/server/features/semanticTokensResultState.ts` | Añadido |
-| CacheDescriptorRegistry | `src/server/serving/cacheDescriptorRegistry.ts` | Añadido |
+| DiagnosticRuleRegistry | `src/server/features/diagnosticRuleRegistry.ts` | Añadido y cableado al pipeline de diagnostics |
+| SemanticTokensResultState | `src/server/features/semanticTokensResultState.ts` | Añadido y cableado al provider real |
+| CacheDescriptorRegistry | `src/server/serving/cacheDescriptorRegistry.ts` | Añadido y cruzado con `cacheKeyContract.ts` |
 | IndexStateInvariants + PersistenceWriteQueue | `src/server/workspace/indexStateInvariants.ts` | Añadido |
 | GenerationGuard + SchedulerGenerationRegistry | `src/server/runtime/generationGuard.ts` | Añadido |
-| ProviderAdapterContract | `src/server/serving/providerAdapterContract.ts` | Añadido |
+| ProviderAdapterContract | `src/server/serving/providerAdapterContract.ts` | Añadido y validado por conformance scanner |
 | diagnosticScheduler (generation guard) | `src/server/analysis/diagnosticScheduler.ts` | Actualizado |
 | discovery (warm start + semaphore) | `src/server/workspace/discovery.ts` | Actualizado |
 
 Ninguno de estos módulos introduce escaneado completo de workspace en hot paths.
+
+Estado de wiring alcanzado tras foundation wiring:
+
+- `tools/architecture-conformance-scanner.mjs` ya crea su directorio de artefactos en clones frescos y valida `PROVIDER_ADAPTER_CONTRACTS` (campos obligatorios, `cachePolicy`/`cacheFeature`, `sourceScope`, `allowsFullScan: false`).
+- `buildDiagnosticsForDocument` ya particiona diagnósticos por tier usando `DiagnosticRuleRegistry` y falla en tests si aparece un código emitido no registrado.
+- `registerSemanticTokensHandler()` deja de depender de builders persistentes por URI: usa `SemanticTokensResultState`, `previousResultId` versionado por payload hash y evicción en `close/change`.

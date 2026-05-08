@@ -44,6 +44,19 @@ suite('unit/providerAdapterContract', () => {
     }
   });
 
+  test('todos los contratos declaran cachePolicy y sourceScope coherentes', () => {
+    for (const feature of ALL_FEATURES) {
+      const contract = PROVIDER_ADAPTER_CONTRACTS[feature];
+      assert.ok(contract.cachePolicy === 'none' || contract.cachePolicy === 'keyed');
+      assert.ok(contract.sourceScope === 'document' || contract.sourceScope === 'project' || contract.sourceScope === 'workspace');
+      if (contract.cachePolicy === 'none') {
+        assert.equal(contract.cacheFeature, undefined, `cacheFeature debe omitirse en '${feature}'`);
+      } else {
+        assert.ok(contract.cacheFeature, `cacheFeature debe existir en '${feature}'`);
+      }
+    }
+  });
+
   test('validateProviderAdapterContract no retorna errores para contratos válidos', () => {
     for (const feature of ALL_FEATURES) {
       const errors = validateProviderAdapterContract(PROVIDER_ADAPTER_CONTRACTS[feature]);

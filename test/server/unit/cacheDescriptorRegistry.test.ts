@@ -5,6 +5,7 @@ import {
   CacheDescriptorRegistry,
   type CacheDescriptor,
 } from '../../../src/server/serving/cacheDescriptorRegistry';
+import { buildInteractiveServingCacheKey, buildInteractiveServingStaleKeyMatcher } from '../../../src/server/serving/cacheKeyContract';
 
 suite('unit/cacheDescriptorRegistry', () => {
   suite('registro singleton', () => {
@@ -45,6 +46,73 @@ suite('unit/cacheDescriptorRegistry', () => {
 
     test('getAll retorna 12 entradas', () => {
       assert.equal(CACHE_DESCRIPTOR_REGISTRY.getAll().length, 12);
+    });
+
+    test('los descriptores hot/warm siguen siendo compatibles con el contrato de key/stale matcher', () => {
+      const samples = [
+        {
+          id: 'hover',
+          descriptor: {
+            cacheClass: 'serving' as const,
+            feature: 'hover' as const,
+            pressureClass: 'hot' as const,
+            uri: 'file:///w_main.srw',
+            documentVersion: 1,
+            kbVersion: 2,
+            documentFingerprint: 'fp-hover',
+            sourceOrigin: 'workspace-ws_objects' as const,
+            locale: 'es',
+            line: 5,
+            character: 7,
+            context: 'symbol:hover',
+          },
+        },
+        {
+          id: 'completion',
+          descriptor: {
+            cacheClass: 'serving' as const,
+            feature: 'completion' as const,
+            pressureClass: 'hot' as const,
+            uri: 'file:///w_main.srw',
+            documentVersion: 1,
+            kbVersion: 2,
+            documentFingerprint: 'fp-completion',
+            sourceOrigin: 'workspace-ws_objects' as const,
+            locale: 'es',
+            line: 5,
+            character: 7,
+            prefix: 'mes',
+            context: 'member-completion',
+            triggerKind: 1,
+            triggerCharacter: '.',
+          },
+        },
+        {
+          id: 'semanticTokens',
+          descriptor: {
+            cacheClass: 'serving' as const,
+            feature: 'semanticTokens' as const,
+            pressureClass: 'hot' as const,
+            uri: 'file:///w_main.srw',
+            documentVersion: 1,
+            kbVersion: 2,
+            documentFingerprint: 'fp-tokens',
+            sourceOrigin: 'workspace-ws_objects' as const,
+            locale: 'es',
+          },
+        },
+      ];
+
+      for (const sample of samples) {
+        const registryEntry = CACHE_DESCRIPTOR_REGISTRY.get(sample.id)!;
+        const key = buildInteractiveServingCacheKey(sample.descriptor);
+        const matcher = buildInteractiveServingStaleKeyMatcher(sample.descriptor);
+        assert.ok(registryEntry.invalidationPolicies.includes('document-fingerprint'));
+        if (sample.id !== 'documentSymbols' && sample.id !== 'hover-negative') {
+          assert.ok(registryEntry.invalidationPolicies.includes('kb-version'));
+        }
+        assert.ok(matcher(key), `El stale matcher debe reconocer la key de '${sample.id}'.`);
+      }
     });
   });
 

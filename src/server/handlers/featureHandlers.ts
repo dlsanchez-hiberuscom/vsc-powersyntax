@@ -1,4 +1,4 @@
-import { Range, SemanticTokensBuilder, type CompletionItem, type Connection, type TextDocuments } from 'vscode-languageserver/node';
+import { Range, type CompletionItem, type Connection, type TextDocuments } from 'vscode-languageserver/node';
 import { TaskPriority, type TaskScheduler } from '../runtime/scheduler';
 import { InteractiveLoopGuard } from '../runtime/interactiveLoopGuard';
 import { measureMs, formatTiming, type FirstInvocationTracker } from '../runtime/timing';
@@ -23,6 +23,7 @@ import {
 } from '../features/completion';
 import { provideWorkspaceSymbols } from '../features/workspaceSymbols';
 import { provideSemanticTokens } from '../features/semanticTokens';
+import { SemanticTokensResultState } from '../features/semanticTokensResultState';
 import { decideFeatureReadiness } from '../features/featureReadiness';
 import { createDocumentQueryContext, type DocumentQueryContext } from '../features/queryContext';
 import { resolveServingReadiness } from '../features/servingReadiness';
@@ -1583,12 +1584,9 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
     isSemanticallyServedDocument,
   } = context;
 
-  const semanticTokensBuilders = new Map<string, SemanticTokensBuilder>();
-
-  // Limpiar el builder si el documento se cierra o se invalida fuertemente
-  documents.onDidClose((e) => {
-    semanticTokensBuilders.delete(e.document.uri);
-  });
+  const semanticTokensState = new SemanticTokensResultState();
+  documents.onDidClose((e) => semanticTokensState.evict(e.document.uri));
+  documents.onDidChangeContent((e) => semanticTokensState.evict(e.document.uri));
 
   connection.languages.semanticTokens.on((params) => {
     const document = documents.get(params.textDocument.uri);
@@ -1599,18 +1597,12 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
       return { data: [] };
     }
 
-    let builder = semanticTokensBuilders.get(document.uri);
-    if (!builder) {
-      builder = new SemanticTokensBuilder();
-      semanticTokensBuilders.set(document.uri, builder);
-    }
-
     try {
       return scheduler.runInteractive({
         id: `semanticTokens-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
-          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, builder));
+          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, undefined, undefined, semanticTokensState));
 
           logInteractiveFeatureTiming(
             connection,
@@ -1640,18 +1632,12 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
       return { data: [] };
     }
 
-    let builder = semanticTokensBuilders.get(document.uri);
-    if (!builder) {
-      builder = new SemanticTokensBuilder();
-      semanticTokensBuilders.set(document.uri, builder);
-    }
-
     try {
       return scheduler.runInteractive({
         id: `semanticTokensDelta-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
-          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, builder, params.previousResultId));
+          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, undefined, params.previousResultId, semanticTokensState));
 
           logInteractiveFeatureTiming(
             connection,

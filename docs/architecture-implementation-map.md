@@ -244,7 +244,7 @@ Observaciones:
 | References | [src/server/features/references.ts](../src/server/features/references.ts) | `150ms`, `project`, `resultCap = 512` | Candidate pool compartido y acotado |
 | Rename | [src/server/features/rename.ts](../src/server/features/rename.ts) | `rename-prepare = 25ms`, `rename = 200ms` | Bloquea con confidence/sourceOrigin no defendibles |
 | Document Symbols | [src/server/features/documentSymbols.ts](../src/server/features/documentSymbols.ts) | Scheduler interactivo y reconciliación explícita | Reutiliza snapshot del documento |
-| Semantic Tokens | [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | Scheduler interactivo | Usa catálogo y snapshot, sin full scan del workspace; el contrato de confidence sigue pendiente de convergencia completa |
+| Semantic Tokens | [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | Scheduler interactivo + `SemanticTokensResultState` | Usa catálogo y snapshot, sin full scan del workspace; valida `previousResultId`, degrada a full cuando el estado es stale/desconocido y mantiene el contrato de confidence pendiente de convergencia completa |
 
 Guardrails ejecutables ya presentes:
 
@@ -6229,7 +6229,7 @@ Qué debería cachear:
 
 Qué existe hoy:
 
-- `semanticTokens.ts` recalcula el payload por request;
+- `semanticTokens.ts` recalcula el payload por request pero el handler ya gobierna `previousResultId`/fallback mediante `SemanticTokensResultState`;
 - reusa el análisis documental ya cacheado;
 - `interactiveHotPathGuards.test.ts` confirma que el request con snapshot caliente no hace IO, workspace scan ni full parse;
 - `queryScopePolicy.test.ts` fija payload budget declarativo para `semanticTokens`.

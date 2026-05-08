@@ -647,6 +647,13 @@ Los nombres exactos pueden adaptarse al repositorio, pero la separación concept
 | `test/server/unit/providerAdapterContract.test.ts` | ProviderAdapterContract: 13 providers, campos, budget, allowsFullScan |
 | `test/server/integration/lsp-providers.test.ts` | Integración LSP: completion, signatureHelp, definition, references, rename, linkedEditing, semanticTokens |
 
+Tras el foundation wiring posterior a esas oleadas, la cobertura relevante quedó reforzada con:
+
+- `test/server/unit/diagnostics.test.ts`: cobertura de `buildDiagnosticsForDocument` bajo `DiagnosticRuleRegistry` ejecutable.
+- `test/server/unit/semanticTokens.test.ts`: fallback full y delta vacío cuando `previousResultId` sigue siendo compatible.
+- `test/server/unit/cacheKeyContract.test.ts`: simetría builder/stale matcher para `prefix`.
+- `test/server/unit/architectureConformanceScanner.test.ts`: categoría negativa `provider-contract`.
+
 ---
 
 ## 15. Criterios de cierre de una tarea

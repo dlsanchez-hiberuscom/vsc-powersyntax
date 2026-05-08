@@ -15,6 +15,7 @@ export interface SemanticTokensResultStateEntry {
   fingerprint: string | number;
   kbVersion: number;
   resultId: string;
+  payloadHash: string;
   data: readonly number[];
 }
 
@@ -29,13 +30,15 @@ export class SemanticTokensResultState {
     kbVersion: number,
     data: readonly number[]
   ): string {
-    const resultId = this.computeResultId(uri, documentVersion, fingerprint, kbVersion);
+    const payloadHash = this.computePayloadHash(data);
+    const resultId = this.computeResultId(uri, documentVersion, fingerprint, kbVersion, payloadHash);
     const entry: SemanticTokensResultStateEntry = {
       uri,
       documentVersion,
       fingerprint,
       kbVersion,
       resultId,
+      payloadHash,
       data,
     };
     this.entries.set(resultId, entry);
@@ -79,9 +82,10 @@ export class SemanticTokensResultState {
     uri: string,
     documentVersion: number,
     fingerprint: string | number,
-    kbVersion: number
+    kbVersion: number,
+    payloadHash = ''
   ): string {
-    const raw = `${uri}|${documentVersion}|${fingerprint}|${kbVersion}`;
+    const raw = `${uri}|${documentVersion}|${fingerprint}|${kbVersion}|${payloadHash}`;
     return crypto.createHash('sha1').update(raw).digest('hex').slice(0, 16);
   }
 
@@ -118,5 +122,9 @@ export class SemanticTokensResultState {
       const oldest = this.lruOrder.shift();
       if (oldest) this.entries.delete(oldest);
     }
+  }
+
+  private computePayloadHash(data: readonly number[]): string {
+    return crypto.createHash('sha1').update(Buffer.from(JSON.stringify(data))).digest('hex').slice(0, 16);
   }
 }
