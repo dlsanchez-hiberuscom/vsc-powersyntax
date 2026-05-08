@@ -109,7 +109,7 @@ suite('unit/semanticConsistencyOracle (B264)', () => {
     const lines = document.getText().split(/\r?\n/);
     const retrieveLine = lines.findIndex((line) => line.includes('ids_orders.Retrieve('));
     const retrieveCharacter = lines[retrieveLine].indexOf('ids_orders') + 2;
-    const diagnostics = buildDiagnosticsForDocument(document, kb, catalog, graph);
+    const diagnostics = buildDiagnosticsForDocument(document, 'full', kb, catalog, graph);
 
     return {
       document,

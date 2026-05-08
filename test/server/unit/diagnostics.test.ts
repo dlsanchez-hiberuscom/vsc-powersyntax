@@ -44,7 +44,7 @@ suite('unit/diagnostics', () => {
 
   function buildDiagnostics(source: string, uri: string): ReturnType<typeof buildDiagnosticsForDocument> {
     const document = TextDocument.create(uri, 'powerbuilder', 1, source);
-    return buildDiagnosticsForDocument(document, kb, systemCatalog, inheritanceGraph);
+    return buildDiagnosticsForDocument(document, 'full', kb, systemCatalog, inheritanceGraph);
   }
 
   test('validateStructure no devuelve errores en estructura simple válida', () => {

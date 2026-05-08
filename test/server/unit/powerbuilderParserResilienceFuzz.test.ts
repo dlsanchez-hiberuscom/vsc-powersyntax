@@ -256,7 +256,7 @@ suite('unit/powerbuilderParserResilienceFuzz (B272)', () => {
     kb.upsertDocument(document.uri, analysis.semanticFacts, analysis.scopes, analysis.snapshot);
     const graph = new InheritanceGraph(kb);
     const catalog = new SystemCatalog();
-    const diagnostics = buildDiagnosticsForDocument(document, kb, catalog, graph);
+    const diagnostics = buildDiagnosticsForDocument(document, 'full', kb, catalog, graph);
     assertDiagnosticsSane(diagnostics, source.split(/\r?\n/).length, label);
   });
 });
@@ -293,7 +293,7 @@ function exerciseVariant(seed: FuzzSeed, variant: FuzzVariant, seedIndex: number
   const graph = new InheritanceGraph(kb);
   const catalog = new SystemCatalog();
   const diagnostics = runStep(label, 'buildDiagnosticsForDocument', () =>
-    buildDiagnosticsForDocument(document, kb, catalog, graph)
+    buildDiagnosticsForDocument(document, 'full', kb, catalog, graph)
   );
   assertDiagnosticsSane(diagnostics, lineCount, label);
 }

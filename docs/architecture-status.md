@@ -44,7 +44,7 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 | Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto. | Tratarlas como proyecciones acotadas con epoch, receipts, caps, redaction y tests. |
 | DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
-| Performance | OK/Parcial | Arquitectura Server-Push reactiva, Memoización de Regex O(1), Semantic Tokens Delta y Stale-While-Revalidate activos. Falta background indexing inicial. | Finalizar `PB-PERF-P2-BACKGROUND-INDEXING-01`. |
+| Performance | OK/Parcial | Arquitectura Server-Push reactiva, Memoización de Regex O(1), Semantic Tokens Delta y Background Indexing (WorkerPool) activos. | Mantener los budgets de rendimiento y monitorizar latencia de workers. |
 | Testing | Parcial | Debe cubrir contratos arquitectónicos, caches, semántica e integraciones. | Alinear `testing.md`. |
 | IA/agentes | Parcial | La documentación IA debe consumir arquitectura/status sin duplicarla. | Alinear bloque IA después de docs core. |
 
@@ -167,8 +167,9 @@ Las surfaces read-only ya publicadas, como Current Object Context, Diagnostics E
   - Las herramientas de validación estructural (expresiones regulares) utilizan **Memoización O(1)** vinculada al `SemanticDocumentSnapshot`, eliminando bloqueos de UI (jitter) durante pulsaciones rápidas.
   - La canalización de respuestas interactivas cuenta con **Optimistic Snapshots (Stale-While-Revalidate)**, devolviendo respuestas antiguas inmediatamente mientras el AST se reconstruye en background (evitando timeouts o que el hover de LSP se bloquee).
   - La sincronización de pintado de sintaxis utiliza `semanticTokens/full/delta` para emitir deltas fraccionales usando caches de `SemanticTokensBuilder`, reduciendo la saturación de JSON-RPC.
-- **Riesgo:** el proceso inicial de indexación de directorios completos (cargas frías de ORCA) sigue reteniendo el ciclo principal del LSP.
-- **Acción:** completar `PB-PERF-P2-BACKGROUND-INDEXING-01` moviendo el I/O pesado a Web Workers o `worker_threads`.
+  - **Background Indexing (WorkerPool)**: El I/O pesado y el parseo estructural/enriquecido inicial se han movido a `worker_threads` (paralelizados en batches de 5), eliminando el bloqueo del hilo principal durante la indexación en frío.
+- **Riesgo:** La sobrecarga de creación de workers y la transferencia de contenido grande via `postMessage` puede impactar en sistemas con pocos recursos.
+- **Acción:** Monitorizar latencias en CI y ajustar el `BATCH_SIZE` si es necesario.
 
 ---
 

@@ -104,7 +104,7 @@ suite('unit/presentationContracts (Bloque 7)', () => {
 
     assert.equal(viewModel.tokens.length, 2);
     assert.deepEqual(viewModel.tokens.map((token) => `${token.line}:${token.char}`), ['1:2', '2:4']);
-    assert.equal(formatted.data.length, 10);
+    assert.equal((formatted as any).data.length, 10);
   });
 
   test('DefinitionViewModel devuelve null, Location o Location[] sin exponer internals', () => {

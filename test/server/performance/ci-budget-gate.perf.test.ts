@@ -142,7 +142,7 @@ end subroutine
     assert.ok(signature);
     assert.ok(definition !== undefined);
     assert.ok(documentSymbols.length > 0);
-    assert.ok(semanticTokens.data.length > 0);
+    assert.ok((semanticTokens as any).data.length > 0);
     assert.ok(hoverElapsedMs < HOVER_BUDGET_MS, `Hover público demasiado lento: ${hoverElapsedMs.toFixed(2)}ms`);
     assert.ok(diagnosticsElapsedMs < DIAGNOSTICS_BUDGET_MS, `Diagnostics públicos demasiado lentos: ${diagnosticsElapsedMs.toFixed(2)}ms`);
     assert.ok(completionElapsedMs < HOT_COMPLETION_BUDGET_MS, `Completion hot demasiado lento: ${completionElapsedMs.toFixed(2)}ms`);

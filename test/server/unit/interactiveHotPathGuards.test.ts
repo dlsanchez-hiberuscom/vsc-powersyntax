@@ -84,7 +84,7 @@ end subroutine
       assert.ok(signature);
       assert.ok(definition !== undefined);
       assert.equal(documentSymbols.reconciliation.status, 'healthy');
-      assert.ok(semanticTokens.data.length > 0);
+      assert.ok((semanticTokens as any).data.length > 0);
     });
 
     assertNoHotPathSideEffects(stats);

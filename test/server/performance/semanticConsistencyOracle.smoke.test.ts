@@ -74,7 +74,7 @@ function assertHealthyRealCorpus(
   },
 ): void {
   const document = loadPowerBuilderDocument(targetPath);
-  const diagnostics = buildDiagnosticsForDocument(document, indexed.kb, indexed.catalog, indexed.graph);
+  const diagnostics = buildDiagnosticsForDocument(document, 'full', indexed.kb, indexed.catalog, indexed.graph);
   const report = buildSemanticConsistencyOracleReport({
     currentObjectContext: buildCurrentObjectContext(
       document,

@@ -1,3 +1,5 @@
+import * as os from 'os';
+import { WorkerPool } from './workerPool';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { CancellationToken } from '../runtime/cancellation';
 import { IFileSystem } from '../system/fileSystem';
@@ -270,6 +272,8 @@ export async function indexWorkspace(
   let structuralProcessed = 0;
   let enrichedProcessed = 0;
   let committed = false;
+  const workerPool = new WorkerPool(Math.max(1, os.cpus().length - 1));
+  const BATCH_SIZE = 5;
   const latencyGovernor = createLatencyGovernor({ initialBudgetMs: TIME_SLICE_MS });
   const preparedDocuments: PreparedDocument[] = [];
   // Spec 123: marcar todos como Pending al arrancar.
@@ -320,88 +324,85 @@ export async function indexWorkspace(
 
   let sliceStart = Date.now();
   try {
-    for (const uri of files) {
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
       if (token.isCancelled) {
         markPartial();
         return;
       }
 
-      try {
-        indexerStatus.lastProcessedUri = uri;
-        fileStates.set(uri, FileIndexState.Indexing);
-        const content = await fs.readFile(uri);
-        // Spec 126: skip si excede el budget.
-        if (content.length > MAX_FILE_BYTES) {
-          fileStates.set(uri, FileIndexState.Skipped);
-          structuralProcessed++;
-          updateStatus('structural', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
-          continue;
-        }
-        const hash = calculateHash(content);
-        const cachedEntry = cache.get(uri);
+      const batch = files.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(async (uri) => {
+        try {
+          indexerStatus.lastProcessedUri = uri;
+          fileStates.set(uri, FileIndexState.Indexing);
+          const content = await fs.readFile(uri);
+          if (content.length > MAX_FILE_BYTES) {
+            fileStates.set(uri, FileIndexState.Skipped);
+            return { type: 'skipped' as const };
+          }
+          const hash = calculateHash(content);
+          const cachedEntry = cache.get(uri);
 
-        // Si ya está en caché y el hash coincide, saltamos el parseo
-        if (cache.isValid(uri, hash) && cachedEntry?.snapshot && isEnrichedSnapshot(cachedEntry.snapshot)) {
-          const reusePublishedSnapshot = hasMatchingPublishedEnrichedSnapshot(kb, uri, cachedEntry.snapshot);
-          preparedDocuments.push({
+          if (cache.isValid(uri, hash) && cachedEntry?.snapshot && isEnrichedSnapshot(cachedEntry.snapshot)) {
+            const reusePublishedSnapshot = hasMatchingPublishedEnrichedSnapshot(kb, uri, cachedEntry.snapshot);
+            return {
+              type: 'prepared' as const,
+              doc: {
+                uri,
+                hash,
+                facts: cachedEntry.facts,
+                scopes: cachedEntry.scopes,
+                structuralSnapshot: createStructuralSnapshot(cachedEntry.snapshot),
+                enrichedSnapshot: cachedEntry.snapshot,
+                skipStructuralPublish: reusePublishedSnapshot,
+                skipEnrichedPublish: reusePublishedSnapshot
+              }
+            };
+          }
+
+          const analysis = await workerPool.runTask(
             uri,
-            hash,
-            facts: cachedEntry.facts,
-            scopes: cachedEntry.scopes,
-            structuralSnapshot: createStructuralSnapshot(cachedEntry.snapshot),
-            enrichedSnapshot: cachedEntry.snapshot,
-            skipStructuralPublish: reusePublishedSnapshot,
-            skipEnrichedPublish: reusePublishedSnapshot
-          });
-          structuralProcessed++;
-          updateStatus('structural', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
-          if (structuralProcessed % PROGRESS_INTERVAL === 0) {
-            reportProgress(onProgress, structuralProcessed, total, 'structural');
-          }
-          continue;
-        }
+            content,
+            resolveContextualSourceOrigin(uri, workspaceState),
+            'structural'
+          ) as { structuralSnapshot: SemanticDocumentSnapshot };
 
-        // El primer pase solo necesita un snapshot estructural barato.
-        const document = TextDocument.create(uri, 'powerbuilder', 1, content);
-        const analysis = analyzeDocumentStructural(document, {
-          sourceOrigin: resolveContextualSourceOrigin(uri, workspaceState)
-        });
-        preparedDocuments.push({
-          uri,
-          hash,
-          content,
-          structuralSnapshot: analysis.snapshot,
-          enrichedSnapshot: undefined
-        });
+          return {
+            type: 'prepared' as const,
+            doc: {
+              uri,
+              hash,
+              content,
+              structuralSnapshot: analysis.structuralSnapshot,
+              enrichedSnapshot: undefined
+            }
+          };
+        } catch (e) {
+          fileStates.set(uri, FileIndexState.Failed);
+          indexerStatus.lastFailedUri = uri;
+          log(`[INDEXER] Error procesando ${uri}: ${String(e)}`);
+          return { type: 'failed' as const };
+        }
+      }));
+
+      for (const res of results) {
         structuralProcessed++;
-        updateStatus('structural', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
-
-        // Reportar progreso intermedio
-        if (structuralProcessed % PROGRESS_INTERVAL === 0) {
-          reportProgress(onProgress, structuralProcessed, total, 'structural');
+        if (res.type === 'prepared') {
+          preparedDocuments.push(res.doc);
         }
+      }
 
-        // Ceder el control cada N archivos para no bloquear el hilo principal.
-        // Spec 073: tras el yield re-comprobamos cancellation para abortar
-        // de forma cooperativa lo antes posible.
-        // Spec 125: además del módulo cada 10, cedemos si la rebanada actual
-        // supera el presupuesto temporal (TIME_SLICE_MS).
-        if (structuralProcessed % 10 === 0 || (Date.now() - sliceStart) > latencyGovernor.getBudgetMs()) {
-          const elapsed = Date.now() - sliceStart;
-          latencyGovernor.recordElapsedMs(elapsed);
-          await new Promise(resolve => setImmediate(resolve));
-          sliceStart = Date.now();
-          indexerStatus.yielded++;
-          updateStatus('structural', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
-          if (token.isCancelled) {
-            markPartial();
-            return;
-          }
-        }
-      } catch (e) {
-        fileStates.set(uri, FileIndexState.Failed);
-        indexerStatus.lastFailedUri = uri;
-        log(`[INDEXER] Error procesando ${uri}: ${String(e)}`);
+      updateStatus('structural', structuralProcessed, total, latencyGovernor.getBudgetMs());
+      if (structuralProcessed % PROGRESS_INTERVAL === 0 || structuralProcessed >= total) {
+        reportProgress(onProgress, structuralProcessed, total, 'structural');
+      }
+
+      // Ceder brevemente tras cada batch si ha pasado mucho tiempo
+      if ((Date.now() - sliceStart) > latencyGovernor.getBudgetMs()) {
+        const elapsed = Date.now() - sliceStart;
+        latencyGovernor.recordElapsedMs(elapsed);
+        await new Promise(resolve => setImmediate(resolve));
+        sliceStart = Date.now();
       }
     }
 
@@ -431,55 +432,68 @@ export async function indexWorkspace(
       kb.beginBatchUpdate();
     }
     sliceStart = Date.now();
-    for (const prepared of preparedDocuments) {
+    for (let i = 0; i < preparedDocuments.length; i += BATCH_SIZE) {
       if (token.isCancelled) {
         markPartial();
         committed = enrichedProcessed > 0;
         break;
       }
 
-      indexerStatus.lastProcessedUri = prepared.uri;
-      let facts = prepared.facts;
-      let scopes = prepared.scopes;
-      let enrichedSnapshot = prepared.enrichedSnapshot;
+      const batch = preparedDocuments.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(async (prepared) => {
+        try {
+          indexerStatus.lastProcessedUri = prepared.uri;
+          let facts = prepared.facts;
+          let scopes = prepared.scopes;
+          let enrichedSnapshot = prepared.enrichedSnapshot;
 
-      if (!prepared.skipEnrichedPublish) {
-        if (!facts || !scopes || !enrichedSnapshot) {
-          const document = TextDocument.create(prepared.uri, 'powerbuilder', 1, prepared.content ?? '');
-          const analysis = analyzeDocument(document, {
-            sourceOrigin: resolveContextualSourceOrigin(prepared.uri, workspaceState)
-          });
-          facts = analysis.semanticFacts;
-          scopes = analysis.scopes;
-          enrichedSnapshot = analysis.snapshot;
-          cache.set(prepared.uri, {
-            version: prepared.hash,
-            facts,
-            symbols: [],
-            scopes,
-            snapshot: enrichedSnapshot
-          });
+          if (!prepared.skipEnrichedPublish) {
+            if (!facts || !scopes || !enrichedSnapshot) {
+              const analysis = await workerPool.runTask(
+                prepared.uri,
+                prepared.content ?? '',
+                resolveContextualSourceOrigin(prepared.uri, workspaceState),
+                'enriched'
+              ) as { facts: ReturnType<typeof analyzeDocument>['semanticFacts'], scopes: ReturnType<typeof analyzeDocument>['scopes'], enrichedSnapshot: SemanticDocumentSnapshot };
+              facts = analysis.facts;
+              scopes = analysis.scopes;
+              enrichedSnapshot = analysis.enrichedSnapshot;
+            }
+          }
+          return { uri: prepared.uri, facts, scopes, enrichedSnapshot, hash: prepared.hash, skip: prepared.skipEnrichedPublish };
+        } catch (e) {
+          log(`[INDEXER] Error en enriched pass para ${prepared.uri}: ${e}`);
+          return { uri: prepared.uri, error: true };
         }
+      }));
 
-        kb.upsertDocument(prepared.uri, facts, scopes, enrichedSnapshot);
-        enrichedPublished++;
-        indexerStatus.enrichedPublished = enrichedPublished;
+      for (const res of batchResults) {
+        if (!res.error && !res.skip && res.facts && res.scopes && res.enrichedSnapshot) {
+          kb.upsertDocument(res.uri, res.facts, res.scopes, res.enrichedSnapshot);
+          cache.set(res.uri, {
+            version: res.hash!,
+            facts: res.facts,
+            symbols: [],
+            scopes: res.scopes,
+            snapshot: res.enrichedSnapshot
+          });
+          enrichedPublished++;
+          indexerStatus.enrichedPublished = enrichedPublished;
+        }
+        fileStates.set(res.uri, res.error ? FileIndexState.Failed : FileIndexState.Indexed);
+        enrichedProcessed++;
       }
-      fileStates.set(prepared.uri, FileIndexState.Indexed);
-      enrichedProcessed++;
-      updateStatus('enriched', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
 
-      if (enrichedProcessed % PROGRESS_INTERVAL === 0) {
+      updateStatus('enriched', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
+      if (enrichedProcessed % PROGRESS_INTERVAL === 0 || enrichedProcessed >= total) {
         reportProgress(onProgress, enrichedProcessed, total, 'enriched');
       }
 
-      if (enrichedProcessed % 10 === 0 || (Date.now() - sliceStart) > latencyGovernor.getBudgetMs()) {
+      if ((Date.now() - sliceStart) > latencyGovernor.getBudgetMs()) {
         const elapsed = Date.now() - sliceStart;
         latencyGovernor.recordElapsedMs(elapsed);
         await new Promise(resolve => setImmediate(resolve));
         sliceStart = Date.now();
-        indexerStatus.yielded++;
-        updateStatus('enriched', structuralProcessed, enrichedProcessed, latencyGovernor.getBudgetMs());
       }
     }
     if (!token.isCancelled) {
@@ -497,6 +511,7 @@ export async function indexWorkspace(
         kb.rollbackBatchUpdate();
       }
     }
+    workerPool.terminate();
   }
 
   if (getIndexerStatus().phase !== 'partial') {

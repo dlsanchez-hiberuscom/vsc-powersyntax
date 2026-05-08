@@ -147,8 +147,8 @@ end function
     const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
 
     assert.ok(tokens, 'Should return semantic tokens');
-    assert.ok(tokens.data.length > 0, 'Should have token data');
-    const decoded = decodeTokens(code, tokens.data, legend);
+    assert.ok((tokens as any).data.length > 0, 'Should have token data');
+    const decoded = decodeTokens(code, (tokens as any).data, legend);
     const declarationMask = modifierMask(legend, 'declaration');
     const defaultLibraryMask = modifierMask(legend, 'defaultLibrary');
     const localMask = modifierMask(legend, 'local');
@@ -229,7 +229,7 @@ end function
 
     const document = TextDocument.create('file:///n_enum_tokens.sru', 'powerbuilder', 1, code);
     const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
-    const decoded = decodeTokens(code, tokens.data, legend);
+    const decoded = decodeTokens(code, (tokens as any).data, legend);
     const defaultLibraryMask = modifierMask(legend, 'defaultLibrary');
     const enumTokens = decoded.filter((token) => token.text === 'FromBeginning!');
 
@@ -257,7 +257,7 @@ end function
 
     const document = TextDocument.create('file:///n_catalog_tokens.sru', 'powerbuilder', 1, code);
     const tokens = provideSemanticTokens(document, kb, graph, systemCatalog);
-    const decoded = decodeTokens(code, tokens.data, legend);
+    const decoded = decodeTokens(code, (tokens as any).data, legend);
     const defaultLibraryMask = modifierMask(legend, 'defaultLibrary');
     const globalMask = modifierMask(legend, 'global');
 

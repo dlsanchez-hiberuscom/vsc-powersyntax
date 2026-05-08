@@ -310,7 +310,7 @@ async function buildCrossSurfaceMatrix(fixture: CrossSurfaceFixture): Promise<Re
     buildReferenceSources(fixture.contentsByUri),
     { includeDeclaration: true },
   );
-  const diagnostics = buildDiagnosticsForDocument(fixture.document, fixture.kb, fixture.catalog, fixture.graph);
+  const diagnostics = buildDiagnosticsForDocument(fixture.document, 'full', fixture.kb, fixture.catalog, fixture.graph);
   const semanticTokens = provideSemanticTokens(fixture.document, fixture.kb, fixture.graph, fixture.catalog);
   const currentObjectContext = buildCurrentObjectContext(
     fixture.document,
@@ -507,11 +507,11 @@ function summarizeSemanticTokens(document: TextDocument, tokens: ReturnType<type
   let currentLine = 0;
   let currentChar = 0;
 
-  for (let index = 0; index < tokens.data.length; index += 5) {
-    const deltaLine = tokens.data[index];
-    const deltaChar = tokens.data[index + 1];
-    const length = tokens.data[index + 2];
-    const typeIndex = tokens.data[index + 3];
+  for (let index = 0; index < (tokens as any).data.length; index += 5) {
+    const deltaLine = (tokens as any).data[index];
+    const deltaChar = (tokens as any).data[index + 1];
+    const length = (tokens as any).data[index + 2];
+    const typeIndex = (tokens as any).data[index + 3];
 
     if (deltaLine > 0) {
       currentLine += deltaLine;

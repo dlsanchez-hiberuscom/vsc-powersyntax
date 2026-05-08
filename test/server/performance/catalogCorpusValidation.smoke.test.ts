@@ -266,9 +266,9 @@ function runDiagnosticsProbe(
   const endLine = definition.endingNeedle
     ? findLineIndex(lines, definition.endingNeedle, definition.filePath)
     : startLine;
-  buildDiagnosticsForDocument(document, indexed.kb, indexed.catalog, indexed.graph);
+  buildDiagnosticsForDocument(document, 'full', indexed.kb, indexed.catalog, indexed.graph);
   const startedAt = performance.now();
-  const diagnostics = buildDiagnosticsForDocument(document, indexed.kb, indexed.catalog, indexed.graph);
+  const diagnostics = buildDiagnosticsForDocument(document, 'full', indexed.kb, indexed.catalog, indexed.graph);
   const durationMs = performance.now() - startedAt;
   const overlaps = diagnostics.filter((diagnostic) => overlapsLineRange(
     diagnostic.range.start.line,

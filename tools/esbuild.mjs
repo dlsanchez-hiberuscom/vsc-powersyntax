@@ -35,6 +35,11 @@ const buildTargets = [
     entryPoints: [path.join(repoRoot, 'src', 'server', 'server.ts')],
     outfile: path.join(distRoot, 'server', 'server.js'),
   },
+  {
+    ...sharedOptions,
+    entryPoints: [path.join(repoRoot, 'src', 'server', 'indexer', 'worker.ts')],
+    outfile: path.join(distRoot, 'server', 'worker.js'),
+  },
 ];
 
 async function ensureDistRoot() {

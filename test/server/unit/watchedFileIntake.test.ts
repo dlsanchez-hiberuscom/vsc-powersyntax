@@ -124,7 +124,7 @@ function stableDiagnostics(document: TextDocument, knowledgeBase: KnowledgeBase)
 }> {
   const catalog = new SystemCatalog();
   const graph = new InheritanceGraph(knowledgeBase);
-  return buildDiagnosticsForDocument(document, knowledgeBase, catalog, graph).map((diagnostic) => ({
+  return buildDiagnosticsForDocument(document, 'full', knowledgeBase, catalog, graph).map((diagnostic) => ({
     ...(diagnostic.code != null ? { code: String(diagnostic.code) } : {}),
     message: diagnostic.message,
     ...(diagnostic.severity != null ? { severity: diagnostic.severity } : {}),
