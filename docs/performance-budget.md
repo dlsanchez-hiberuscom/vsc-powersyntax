@@ -57,6 +57,12 @@ fallback
 
 Las caches interactivas deben discriminar, cuando aplique, `semanticEpoch`/`kbVersion`, `documentVersion`, `documentFingerprint`, `sourceOrigin`, `locale`, posición/rango y contexto. Un cambio textual que no altera facts públicos no debe provocar invalidación global del workspace.
 
+Para caches documentales/hot path:
+
+- `documentFingerprint` no debe degradarse a `semanticEpoch` global cuando existe fingerprint por documento;
+- cualquier discriminador usado por un stale matcher (por ejemplo `prefix`) debe serializarse también en la key materializada;
+- los providers con `previousResultId` (como semantic tokens) deben degradar a full de forma explícita cuando el estado previo es desconocido o stale.
+
 ### 2.5. Medir antes de cerrar
 
 Una mejora de rendimiento no se considera cerrada si no deja forma de medir latencia, hit/miss, fallback, memoria o regresión según corresponda.
@@ -283,6 +289,8 @@ Debe medir:
 - reuso de cache.
 
 No debe publicar diagnósticos obsoletos para una versión anterior de documento.
+
+Regla de wiring activo 2026-05: el pipeline de diagnostics debe apoyarse en un registry ejecutable por tier/lane y puede publicar primero los diagnósticos inmediatos (tier 0/1) antes de la fase interactiva semántica.
 
 ### 7.6. Semantic Tokens
 

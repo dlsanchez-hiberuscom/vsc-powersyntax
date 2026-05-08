@@ -40,14 +40,14 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 2. PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01 (cerrado; ver docs/done-log.md)
 3. PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01 (cerrado; ver docs/done-log.md)
 4. PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01 (cerrado; ver docs/done-log.md)
-5. PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (parcial; registry creado, pipeline pendiente)
-6. PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (parcial; descriptors creados, cross-val pendiente)
+5. PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (parcial; pipeline cableado, performance gate por tier pendiente)
+6. PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (parcial; cross-val ejecutable lista, métricas pendientes)
 7. PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 (parcial; state machine creada, integración pendiente)
 8. PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 (parcial; generation guard creado, migración open/change pendiente)
 9. PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 (parcial; bounded discovery creado, warm start wiring pendiente)
-10. PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (parcial; contratos definidos, integración conformance pendiente)
-11. PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (parcial; tests creados, validación CI pendiente)
-12. PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (parcial; resultState creado, wiring provider pendiente)
+10. PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (parcial; conformance scanner cableado, métricas/matriz pendientes)
+11. PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (parcial; validación local directa lista, CI VS Code pendiente)
+12. PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (parcial; provider cableado, validación host/range pendiente)
 13. PB-ARCH-P1-OBJECT-EXPLORER-PAGED-PROJECTIONS-01
 14. PB-ARCH-P1-READONLY-SURFACE-PROJECTION-ENVELOPE-01
 15. PB-AI-P1-CONTEXT-BUNDLE-EXECUTION-BUDGET-01
@@ -201,7 +201,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 7/9/11/22.
 - **Findings:** FINDING-025, FINDING-029, FINDING-039.
 - **Referencias de evidencia:** `src/server/features/diagnostics.ts`, `src/server/features/diagnosticsExtra.ts`, `src/server/features/obsoleteDetector.ts`, `test/server/unit/diagnosticScheduler.test.ts`.
-- **Estado actual:** diagnostics distingue `syntactic/full`, mezcla reglas/advisory checks y carece de registry ejecutable.
+- **Estado actual:** `buildDiagnosticsForDocument` ya usa `DiagnosticRuleRegistry` para separar diagnósticos inmediatos (tier 0/1) de los interactivos (tier 2), valida que todos los códigos emitidos estén registrados y preserva la compatibilidad de `publishDiagnostics`/scheduler.
 - **Estado objetivo:** reglas registradas con tier, lane, budget, cap, sourceOrigin policy, confidence floor, reason codes y tests.
 - **Riesgo:** ruido, bloqueos en open/change y checks advisory publicados como certeza.
 - **Objetivo:** diagnósticos rápidos, honestos y escalables.
@@ -218,10 +218,8 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** `npm run test:unit -- --grep "diagnostic"`, performance gate ampliado.
 - **Criterios de retirada:** borrar dispatch monolítico cuando registry cubra reglas existentes.
 - **Pendiente exacto:**
-  - Conectar `DiagnosticRuleRegistry` al pipeline de `buildDiagnosticsForDocument` para componer por tier.
-  - Asegurar que Tier 0/1 se ejecuten inmediatos en open/change sin Tier 3/4.
-  - Tests de paridad de diagnostics actuales con registry activo.
-  - Performance gate de diagnósticos por tier.
+  - Añadir métricas/performance gate por tier para `diagnostics`.
+  - Mantener cobertura de hot path para asegurar que open/change no reintroducen tiers altos inline fuera del scheduler.
 
 ## PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 — Registry de caches y discriminadores fingerprint/epoch/sourceOrigin
 
@@ -233,7 +231,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 0/5/17.
 - **Findings:** FINDING-002, FINDING-017, FINDING-018, FINDING-040.
 - **Referencias de evidencia:** `src/server/serving/cacheKeyContract.ts`, `test/server/unit/cacheKeyContract.test.ts`, completion resolve context, `HotContextCache`.
-- **Estado actual:** cache contracts existen pero algunos discriminadores son ambiguos o no entran en builder/stale matcher.
+- **Estado actual:** `cacheKeyContract.ts` y `CacheDescriptorRegistry` ya quedan cruzados por tests ejecutables; `prefix` participa tanto en builder como en stale matcher y `completion-resolve` usa `documentFingerprint` del snapshot del documento.
 - **Estado objetivo:** registry declarativo de caches con owner, key fields, invalidation, stale policy, memory/persistence y tests de simetría.
 - **Riesgo:** stale data, sobreinvalidación por epoch global y hit ratio bajo.
 - **Objetivo:** hacer cada cache una proyección invalidable, nunca verdad.
@@ -250,9 +248,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** unit tests y performance smoke de cache hit/miss.
 - **Criterios de retirada:** retirar builders ad hoc cuando registry cubra caches interactivos.
 - **Pendiente exacto:**
-  - Cruzar validación de descriptores con `cacheKeyContract.ts` (tests que fallen si divergen).
-  - Aclarar `prefix` y `documentFingerprint` en builder existente.
-  - Métricas de hit ratio y reason counts.
+  - Instrumentar métricas de hit ratio y reason counts por cache interactiva.
 
 ## PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 — Invariantes entre index state, caches y persistencia
 
@@ -357,7 +353,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 6/17/22.
 - **Findings:** FINDING-003, FINDING-010, FINDING-020, FINDING-021, FINDING-022, FINDING-023, FINDING-024, FINDING-041.
 - **Referencias de evidencia:** `featureHandlers`, references, CodeLens, Current Object Context, document/workspace symbols, health/status providers.
-- **Estado actual:** providers tienen hot path patterns heterogéneos y varios hacen scans/reports/pools inline.
+- **Estado actual:** `ProviderAdapterContract` ya declara `cachePolicy`/`sourceScope` además de lane, budget, degradación y `allowsFullScan: false`; `tools/architecture-conformance-scanner.mjs` falla si falta metadata, si `allowsFullScan` cambia o si `cachePolicy`/`cacheFeature` divergen.
 - **Estado objetivo:** cada provider declara feature, lane, budget, cache, stale guard, cancel policy, degraded result, metrics y facade usage.
 - **Riesgo:** regresiones de latencia y lógica semántica duplicada.
 - **Objetivo:** thin providers sobre facade/caches/projections.
@@ -374,9 +370,8 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** unit/integration/provider performance tests.
 - **Criterios de retirada:** borrar handlers monolíticos cuando adapters cubran providers.
 - **Pendiente exacto:**
-  - Integrar `PROVIDER_ADAPTER_CONTRACTS` en el scanner de conformance para detectar providers sin metadata.
-  - Tests de cross-surface matrix y hot path guards por provider.
-  - Métricas por provider (latency/payload/cache).
+  - Extender la matriz cross-surface/hot path por provider crítico.
+  - Publicar métricas por provider (latency/payload/cache).
 
 ## PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 — Matriz de integración LSP por provider crítico
 
@@ -388,7 +383,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 11.
 - **Findings:** FINDING-041.
 - **Referencias de evidencia:** `test/server/integration/lsp-hover.test.ts`, `lsp-documentSymbols.test.ts`, `lsp-diagnostics.test.ts`.
-- **Estado actual:** solo hover, documentSymbols y diagnostics tienen integración LSP observada.
+- **Estado actual:** existe una suite de integración mínima para completion, signature help, definition, references, rename, linked editing y semantic tokens; además la validación local directa compilada (`mocha` sobre `out/`) confirma el wiring en sandbox.
 - **Estado objetivo:** completion, resolve, signature, definition, references, rename, semantic tokens y linked editing tienen integración mínima.
 - **Riesgo:** wiring/capabilities se rompen aunque unit tests pasen.
 - **Objetivo:** probar entrypoints LSP reales de providers hot path.
@@ -405,8 +400,8 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** integration tests en CI.
 - **Criterios de retirada:** no aplica.
 - **Pendiente exacto:**
-  - Validar tests de integración en CI cuando el entorno de VS Code esté disponible.
-  - Añadir caso rename y linked editing con fixture real.
+  - Validar `npm run test:integration` en CI cuando el entorno de VS Code esté disponible.
+  - Añadir caso rename y linked editing con fixture real dentro del lane host.
 
 ## PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 — Semantic tokens delta/range/resultId versionado
 
@@ -418,7 +413,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 7/11/20.
 - **Findings:** FINDING-019, FINDING-026, FINDING-039.
 - **Referencias de evidencia:** `src/server/features/semanticTokens.ts`, `test/server/unit/semanticTokens.test.ts`.
-- **Estado actual:** tests cubren token types/modifiers, pero no delta/resultId/fingerprint; provider hace barrido completo con resolución por identificador.
+- **Estado actual:** el provider real usa `SemanticTokensResultState` para validar `previousResultId`, generar `resultId` con payload hash, degradar a full cuando el estado es desconocido/stale y evacuar estado en close/change sin depender de un builder persistente por URI.
 - **Estado objetivo:** full/range/delta con estado versionado por URI, documentVersion, fingerprint, epoch/kbVersion, sourceOrigin, legend y payload hash.
 - **Riesgo:** tokens obsoletos, coste global por request y payloads grandes.
 - **Objetivo:** tokens rápidos, correctos y degradables.
@@ -435,7 +430,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** tests tokens + performance gate ampliado.
 - **Criterios de retirada:** retirar estado ambiguo y resolution per token no acotada.
 - **Pendiente exacto:**
-  - Conectar `SemanticTokensResultState` al proveedor real de semantic tokens.
+  - Validar el lane host `vscode-test` para semantic tokens delta/full en CI.
   - Implementar presupuesto acotado de resolución semántica por token en el proveedor.
   - Métricas de compute time, payload bytes y delta hit rate.
 

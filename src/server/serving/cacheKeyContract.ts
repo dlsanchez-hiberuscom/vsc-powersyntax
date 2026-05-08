@@ -132,6 +132,7 @@ export function buildInteractiveServingCacheKey(descriptor: InteractiveServingCa
     buildRangeFragment(descriptor),
     `context:${normalizeStringValue(descriptor.context)}`,
     `trigger:${normalizeStringValue(descriptor.triggerKind)}:${normalizeStringValue(descriptor.triggerCharacter)}`,
+    `prefix:${normalizeStringValue(descriptor.prefix)}`,
     `extra:${normalizeStringValue(descriptor.extra)}`,
   ].join('|');
 }

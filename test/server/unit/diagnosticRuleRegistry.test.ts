@@ -1,10 +1,12 @@
 import * as assert from 'assert/strict';
 
 import {
+  collectUnregisteredDiagnosticCodes,
   DIAGNOSTIC_RULE_REGISTRY,
   DiagnosticRuleRegistry,
   type DiagnosticRuleMetadata,
 } from '../../../src/server/features/diagnosticRuleRegistry';
+import { DIAGNOSTIC_CODES } from '../../../src/shared/diagnosticCodes';
 
 suite('unit/diagnosticRuleRegistry', () => {
   suite('registro singleton', () => {
@@ -31,10 +33,10 @@ suite('unit/diagnosticRuleRegistry', () => {
       const tier2 = DIAGNOSTIC_RULE_REGISTRY.getByTier(2);
       const ids = tier2.map(r => r.id);
       for (const id of [
-        'dataobject-assign-missing',
-        'dataobject-type-mismatch',
-        'datawindow-column-not-found',
-        'datawindow-property-not-found',
+        'dataobject-not-found',
+        'dataobject-ambiguous',
+        'datawindow-expression-dependency-unresolved',
+        'datawindow-property-path-unresolved',
         'retrieve-arity-mismatch',
       ]) {
         assert.ok(ids.includes(id), `${id} debe estar en tier 2 datawindow`);
@@ -52,6 +54,11 @@ suite('unit/diagnosticRuleRegistry', () => {
     test('lookup retorna undefined para id desconocido', () => {
       const rule = DIAGNOSTIC_RULE_REGISTRY.lookup('no-existe');
       assert.equal(rule, undefined);
+    });
+
+    test('covers all codes emitted by the diagnostics pipeline', () => {
+      const diagnostics = Object.values(DIAGNOSTIC_CODES).map((code) => ({ code, source: `PowerScript:${code}` }));
+      assert.deepEqual(collectUnregisteredDiagnosticCodes(diagnostics), []);
     });
   });
 

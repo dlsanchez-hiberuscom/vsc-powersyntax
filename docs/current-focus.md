@@ -2,42 +2,40 @@
 
 ## 1. Foco activo
 
-`PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` — `OLEADA 2 / P0 — Conectar registry al pipeline`
+`PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01` — `OLEADA 3 / P1 — Conectar invariants y persistencia al indexer real`
 
 Cadena actual:
 ```txt
-docs/backlog.md -> Partial: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (registry creado, conexión pipeline pendiente)
-docs/backlog.md -> Partial: PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (descriptors creados)
+docs/backlog.md -> Partial: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (registry cableado; performance gate por tier pendiente)
+docs/backlog.md -> Partial: PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (cross-val ejecutable lista; métricas pendientes)
 docs/backlog.md -> Partial: PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 (state machine creada)
 docs/backlog.md -> Partial: PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 (generation guard creado)
 docs/backlog.md -> Partial: PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 (bounded discovery creado)
-docs/backlog.md -> Partial: PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (contratos definidos)
-docs/backlog.md -> Partial: PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (tests creados)
-docs/backlog.md -> Partial: PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (resultState creado)
+docs/backlog.md -> Partial: PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (scanner cableado; métricas/matriz pendientes)
+docs/backlog.md -> Partial: PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (validación local directa lista; CI VS Code pendiente)
+docs/backlog.md -> Partial: PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (provider cableado; validación host/range pendiente)
 docs/done-log.md -> Closed: PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01, PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01, PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01, PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01
 ```
 
 Estado de éxito alcanzado (spec blocks waves 2-4, primera oleada):
 ```txt
-- DiagnosticRuleRegistry creado con 20 reglas registradas con tier/domain/lane/budget/advisory.
-- SemanticTokensResultState con delta/resultId versionado y evicción LRU creado.
-- CacheDescriptorRegistry con 12 descriptores de InteractiveServingCacheFeature creado.
+- DiagnosticRuleRegistry gobierna `buildDiagnosticsForDocument` por tier y valida cobertura de códigos emitidos.
+- SemanticTokensResultState gobierna `previousResultId`/fallback full y se evacúa en close/change.
+- CacheDescriptorRegistry queda cruzado con `cacheKeyContract.ts`; `prefix` ya participa en builder+matcher y completion-resolve usa `documentFingerprint` documental.
 - IndexStateInvariants con ALLOWED_TRANSITIONS + PersistenceWriteQueue serializada creado.
 - GenerationGuard + SchedulerGenerationRegistry para commits stale creados e integrados en diagnosticScheduler.
 - discovery.ts ampliado con DISCOVERY_MAX_CONCURRENCY, WarmStartManifest, discoverWorkspaceBounded.
-- providerAdapterContract.ts: contrato para 13 features con allowsFullScan: false.
-- 76 tests nuevos (65 unit + 11 integration) añadidos; build:test limpio.
+- providerAdapterContract.ts queda validado por conformance scanner (campos requeridos, cachePolicy/sourceScope y `allowsFullScan: false`).
+- Las suites focales directas pasan en entorno sandbox: 100 unit + 11 integration.
 ```
 
 Pendiente para cerrar esta oleada:
 ```txt
-- Conectar DiagnosticRuleRegistry al pipeline de buildDiagnosticsForDocument.
-- Asegurar Tier 0/1 se ejecuten inmediatos en open/change sin Tier 3/4.
-- Integrar GenerationGuard en scheduler interactivo de references/semanticTokens.
-- Conectar SemanticTokensResultState al proveedor real de semantic tokens.
-- Integrar PROVIDER_ADAPTER_CONTRACTS en el scanner de conformance.
-- Cross-validar CacheDescriptorRegistry con cacheKeyContract.ts.
 - Integrar IndexStateInvariants en workspaceIndexer real.
+- Integrar PersistenceWriteQueue en los writes reales de persistencia/checkpoint.
+- Integrar GenerationGuard en los schedulers interactivos restantes (`references`/semantic tokens host path).
+- Cablear `discoverWorkspaceBounded` y warm start real con receipts/progreso y validación corpus.
+- Ejecutar los lanes `vscode-test`/CI reales para la matriz LSP y semantic tokens host.
 ```
 
 ---
@@ -46,16 +44,17 @@ Pendiente para cerrar esta oleada:
 
 - La primera oleada P0 quedó cerrada en orden estricto: testing docs, gate estructural, snapshot readonly y hardening del query contract.
 - Las oleadas 2-4 de spec blocks establecen la infraestructura base: registry de reglas, caches, state machine de índice, guards de generación y contratos de providers.
-- El siguiente paso es conectar DiagnosticRuleRegistry al pipeline ejecutable en buildDiagnosticsForDocument.
+- El cableado de diagnostics, semantic tokens, contracts de provider y key symmetry ya está aplicado.
+- El siguiente cuello de botella real sigue siendo conectar invariantes/persistencia al `workspaceIndexer` y al warm start verdadero.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Completar la conexión de DiagnosticRuleRegistry al pipeline de buildDiagnosticsForDocument.
-- Integrar GenerationGuard en scheduler interactivo de references/semanticTokens.
+- Completar la conexión de `IndexStateInvariants` y `PersistenceWriteQueue` al indexer/persistencia reales.
+- Integrar GenerationGuard en scheduler interactivo de `references` y validar host path de semantic tokens.
 - Mantener verde `npm run build:test`, `npm run test:architecture:rapid` y el baseline documental.
-- Conectar SemanticTokensResultState y ProviderAdapterContracts a sus proveedores reales.
+- Mantener alineadas las evidencias locales directas y la validación CI/VS Code pendiente.
 
 ---
 
@@ -69,13 +68,12 @@ Pendiente para cerrar esta oleada:
 
 ## 5. Siguiente paso recomendado
 
-- Conectar `DiagnosticRuleRegistry` al pipeline de `buildDiagnosticsForDocument` para cerrar `PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01`.
-- Integrar `GenerationGuard` en los schedulers interactivos restantes.
+- Conectar `IndexStateInvariants` y `PersistenceWriteQueue` al `workspaceIndexer`/checkpoint real para cerrar `PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01`.
+- Mantener `PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01` y `PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01` como los siguientes carriles de wiring.
 
 ---
 
 ## 6. Regla final
 
 No se marca ningún bloque como cerrado sin código, pruebas, docs y validación final reproducible. La documentación no puede presentar como soporte productivo lo que hoy solo es evidencia parcial, heuristic-only o target arquitectónico.
-
 

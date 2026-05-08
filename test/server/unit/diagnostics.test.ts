@@ -22,6 +22,7 @@ import { setAnalysisBackends, clearDocumentAnalysisCache } from '../../../src/se
 import { analyzeDocument } from '../../../src/server/analysis/documentAnalysis';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import type { WorkspaceState } from '../../../src/server/workspace/workspaceState';
+import { collectUnregisteredDiagnosticCodes, getDiagnosticRuleMetadata } from '../../../src/server/features/diagnosticRuleRegistry';
 
 suite('unit/diagnostics', () => {
   let kb: KnowledgeBase;
@@ -163,6 +164,31 @@ suite('unit/diagnostics', () => {
     );
 
     assert.equal(unwanted.length, 0, unwanted.map((diag) => diag.message).join('\n'));
+  });
+
+  test('buildDiagnosticsForDocument uses DiagnosticRuleRegistry for all emitted codes', () => {
+    const source = [
+      'global type w_diag_registry from window',
+      'end type',
+      '',
+      'forward prototypes',
+      'public function integer of_test ()',
+      'end prototypes',
+      '',
+      'public function integer of_test ();',
+      '  integer li_unused',
+      '  return of_missing()',
+      'end function',
+    ].join('\r\n');
+
+    const diagnostics = buildDiagnostics(source, 'file:///diagnostics_registry.srw');
+
+    assert.ok(diagnostics.length > 0);
+    assert.deepEqual(collectUnregisteredDiagnosticCodes(diagnostics), []);
+    assert.ok(diagnostics.every((diagnostic) => {
+      const metadata = getDiagnosticRuleMetadata(diagnostic);
+      return metadata && metadata.id === String(diagnostic.code);
+    }));
   });
 
   test('validateSemantics detecta las reglas implementadas (SD2-SD5)', () => {

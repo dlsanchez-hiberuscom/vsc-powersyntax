@@ -9,6 +9,7 @@ import {
   POWERBUILDER_SEMANTIC_TOKEN_CONTRACT,
   provideSemanticTokens,
 } from '../../../src/server/features/semanticTokens';
+import { SemanticTokensResultState } from '../../../src/server/features/semanticTokensResultState';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
 import { EntityKind } from '../../../src/server/knowledge/types';
 
@@ -69,6 +70,7 @@ suite('Semantic Tokens', () => {
   let graph: InheritanceGraph;
   let docCache: DocumentCache;
   let systemCatalog: SystemCatalog;
+  let resultState: SemanticTokensResultState;
   const legend = getSemanticTokensLegend();
 
   setup(() => {
@@ -76,6 +78,7 @@ suite('Semantic Tokens', () => {
     graph = new InheritanceGraph(kb);
     docCache = new DocumentCache();
     systemCatalog = new SystemCatalog();
+    resultState = new SemanticTokensResultState();
     setAnalysisBackends(docCache, kb);
 
     kb.upsertDocument('file:///sys.pbl', [
@@ -236,6 +239,27 @@ end function
     assert.ok(enumTokens.length >= 1, 'FromBeginning! should be colored');
     assert.equal(enumTokens[0].type, 'enumMember');
     assert.ok((enumTokens[0].mods & defaultLibraryMask) !== 0, 'Enum values should be marked as defaultLibrary.');
+  });
+
+  test('Should fallback to full semantic tokens when previousResultId is unknown', () => {
+    const code = 'global type n_tokens from nonvisualobject\nend type';
+    const document = TextDocument.create('file:///n_tokens.sru', 'powerbuilder', 1, code);
+    const result = provideSemanticTokens(document, kb, graph, systemCatalog, 'missing-result-id', resultState);
+
+    assert.ok('data' in result, 'Unknown previousResultId should return full tokens.');
+    assert.ok('resultId' in result && typeof result.resultId === 'string' && result.resultId.length > 0);
+  });
+
+  test('Should return empty delta edits when previousResultId is still compatible', () => {
+    const code = 'global type n_tokens from nonvisualobject\nend type';
+    const document = TextDocument.create('file:///n_tokens.sru', 'powerbuilder', 1, code);
+    const full = provideSemanticTokens(document, kb, graph, systemCatalog, undefined, resultState);
+
+    assert.ok('resultId' in full && typeof full.resultId === 'string');
+
+    const delta = provideSemanticTokens(document, kb, graph, systemCatalog, full.resultId, resultState);
+    assert.ok('edits' in delta, 'Compatible previousResultId should reuse state and return delta edits.');
+    assert.deepEqual(delta.edits, []);
   });
 
   test('Should color catalog-driven keywords, globals, pronouns and functions without resolver pesado', () => {

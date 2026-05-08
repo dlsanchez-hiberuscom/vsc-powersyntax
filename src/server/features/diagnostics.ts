@@ -98,6 +98,7 @@ import {
   resolveExpectedEnumTypeForCallArgumentAtPosition,
 } from './enumeratedContext';
 import { localize } from '../nls';
+import { collectUnregisteredDiagnosticCodes, getDiagnosticRuleMetadata } from './diagnosticRuleRegistry';
 
 
 export function publishDiagnostics(
@@ -130,22 +131,40 @@ export function buildDiagnosticsForDocument(
   systemCatalog?: SystemCatalog,
   inheritanceGraph?: InheritanceGraph
 ): Diagnostic[] {
-  const structural = validateStructure(document);
-  const obsolete = findObsoleteCalls(document.getText());
-  
+  const immediateDiagnostics = collectDiagnosticsByTier([
+    ...validateStructure(document),
+    ...runExtraDiagnostics(document),
+    ...findObsoleteCalls(document.getText()),
+  ], (tier) => tier <= 1);
+
   if (mode === 'syntactic') {
-    const all = applySeverityOverrides([...structural, ...obsolete]);
+    const all = applySeverityOverrides(immediateDiagnostics);
     const presented = formatDiagnosticMessageViewModels(buildDiagnosticMessageViewModels(all));
     return dedupAndCap(presented, MAX_DIAGNOSTICS_PER_FILE);
   }
 
-  const semantic = (kb && systemCatalog && inheritanceGraph)
+  const semanticDiagnostics = (kb && systemCatalog && inheritanceGraph)
     ? validateSemantics(document, kb, systemCatalog, inheritanceGraph)
     : [];
-  const extra = runExtraDiagnostics(document);
-  const all = applySeverityOverrides([...structural, ...semantic, ...extra, ...obsolete]);
+  const interactiveDiagnostics = collectDiagnosticsByTier(semanticDiagnostics, (tier) => tier >= 2);
+  const all = applySeverityOverrides([...immediateDiagnostics, ...interactiveDiagnostics]);
   const presented = formatDiagnosticMessageViewModels(buildDiagnosticMessageViewModels(all));
   return dedupAndCap(presented, MAX_DIAGNOSTICS_PER_FILE);
+}
+
+function collectDiagnosticsByTier(
+  diagnostics: readonly Diagnostic[],
+  includeTier: (tier: number) => boolean,
+): Diagnostic[] {
+  const unregistered = collectUnregisteredDiagnosticCodes(diagnostics);
+  if (unregistered.length > 0) {
+    throw new Error(`DiagnosticRuleRegistry does not cover emitted codes: ${unregistered.join(', ')}`);
+  }
+
+  return diagnostics.filter((diagnostic) => {
+    const metadata = getDiagnosticRuleMetadata(diagnostic);
+    return metadata ? includeTier(metadata.tier) : true;
+  });
 }
 
 /**

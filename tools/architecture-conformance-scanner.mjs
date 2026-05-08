@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,6 +58,32 @@ const CACHE_CONTRACT_TARGETS = new Set([
   'src/server/serving/cacheKeyContract.ts',
 ]);
 
+const PROVIDER_CONTRACT_TARGET = 'src/server/serving/providerAdapterContract.ts';
+const REQUIRED_PROVIDER_FEATURES = [
+  'hover',
+  'completion',
+  'completion-resolve',
+  'signatureHelp',
+  'definition',
+  'references',
+  'documentSymbols',
+  'semanticTokens',
+  'rename',
+  'linkedEditing',
+  'codeActions',
+  'codeLens',
+  'workspaceSymbols',
+];
+const REQUIRED_PROVIDER_CONTRACT_FIELDS = [
+  'feature',
+  'lane',
+  'budgetMs',
+  'cachePolicy',
+  'degradedResult',
+  'sourceScope',
+  'allowsFullScan',
+];
+
 const REQUIRED_CACHE_DISCRIMINATORS = [
   'documentFingerprint',
   'documentVersion',
@@ -73,6 +99,7 @@ function main() {
     const outputPath = path.isAbsolute(options.output)
       ? options.output
       : path.join(repoRoot, options.output);
+    mkdirSync(path.dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`);
   }
 
@@ -159,11 +186,12 @@ export function scanArchitectureConformance(options = {}) {
     ...collectFullScanViolations(sourceInfos),
     ...collectPublishedStateWriteViolations(sourceInfos),
     ...collectCacheContractViolations(sourceInfos),
+    ...collectProviderContractViolations(sourceInfos),
     ...collectParallelStoreViolations(sourceInfos),
   ].sort(compareViolations);
 
   const byKind = Object.fromEntries(
-    ['cache-contract', 'full-scan', 'import-cycle', 'parallel-store', 'provider-bypass', 'published-state-write']
+    ['cache-contract', 'full-scan', 'import-cycle', 'parallel-store', 'provider-bypass', 'provider-contract', 'published-state-write']
       .map((kind) => [kind, violations.filter((entry) => entry.kind === kind).length])
   );
 
@@ -692,6 +720,142 @@ function collectParallelStoreViolations(sourceInfos) {
   return dedupeViolations(violations);
 }
 
+function collectProviderContractViolations(sourceInfos) {
+  const violations = [];
+  const candidates = [...sourceInfos.keys()].filter((relativePath) =>
+    relativePath === PROVIDER_CONTRACT_TARGET
+      || relativePath.includes('/architecture-conformance/negative/provider-contract/')
+      || path.basename(relativePath) === 'providerAdapterContract.ts'
+  );
+
+  for (const relativePath of candidates) {
+    const info = sourceInfos.get(relativePath);
+    if (!info) {
+      continue;
+    }
+
+    const contracts = extractProviderContracts(info.sourceFile);
+    if (contracts.size === 0) {
+      violations.push({
+        kind: 'provider-contract',
+        ruleId: 'PB-ARCH-PROVIDER-CONTRACT-MISSING-REGISTRY-01',
+        path: relativePath,
+        message: 'PROVIDER_ADAPTER_CONTRACTS was not found as an executable object literal.',
+      });
+      continue;
+    }
+
+    for (const feature of REQUIRED_PROVIDER_FEATURES) {
+      const contract = contracts.get(feature);
+      if (!contract) {
+        violations.push({
+          kind: 'provider-contract',
+          ruleId: 'PB-ARCH-PROVIDER-CONTRACT-MISSING-FEATURE-01',
+          path: relativePath,
+          message: `Missing provider contract for '${feature}'.`,
+          evidence: { feature },
+        });
+        continue;
+      }
+
+      const missingFields = REQUIRED_PROVIDER_CONTRACT_FIELDS.filter((field) => !contract.fields.has(field));
+      if (missingFields.length > 0) {
+        violations.push({
+          kind: 'provider-contract',
+          ruleId: 'PB-ARCH-PROVIDER-CONTRACT-MISSING-FIELDS-01',
+          path: relativePath,
+          message: `Provider contract '${feature}' is missing required fields: ${missingFields.join(', ')}.`,
+          evidence: { feature, missingFields },
+        });
+      }
+
+      const allowsFullScan = contract.literalValues.get('allowsFullScan');
+      if (allowsFullScan !== 'false') {
+        violations.push({
+          kind: 'provider-contract',
+          ruleId: 'PB-ARCH-PROVIDER-CONTRACT-FULL-SCAN-01',
+          path: relativePath,
+          message: `Provider contract '${feature}' must declare allowsFullScan=false.`,
+          evidence: { feature, allowsFullScan },
+        });
+      }
+
+      const cachePolicy = contract.literalValues.get('cachePolicy');
+      const hasCacheFeature = contract.fields.has('cacheFeature');
+      if (cachePolicy === 'none' && hasCacheFeature) {
+        violations.push({
+          kind: 'provider-contract',
+          ruleId: 'PB-ARCH-PROVIDER-CONTRACT-CACHE-POLICY-01',
+          path: relativePath,
+          message: `Provider contract '${feature}' declares cacheFeature while cachePolicy='none'.`,
+          evidence: { feature, cachePolicy },
+        });
+      }
+      if (cachePolicy !== 'none' && !hasCacheFeature) {
+        violations.push({
+          kind: 'provider-contract',
+          ruleId: 'PB-ARCH-PROVIDER-CONTRACT-CACHE-FEATURE-01',
+          path: relativePath,
+          message: `Provider contract '${feature}' requires cacheFeature when cachePolicy is not 'none'.`,
+          evidence: { feature, cachePolicy },
+        });
+      }
+    }
+  }
+
+  return dedupeViolations(violations);
+}
+
+function extractProviderContracts(sourceFile) {
+  const contracts = new Map();
+
+  walk(sourceFile, (node) => {
+    if (
+      !ts.isVariableDeclaration(node)
+      || !ts.isIdentifier(node.name)
+      || node.name.text !== 'PROVIDER_ADAPTER_CONTRACTS'
+      || !node.initializer
+      || !ts.isObjectLiteralExpression(node.initializer)
+    ) {
+      return;
+    }
+
+    for (const property of node.initializer.properties) {
+      if (!ts.isPropertyAssignment(property) || !ts.isObjectLiteralExpression(property.initializer)) {
+        continue;
+      }
+
+      const feature = getPropertyNameText(property.name);
+      if (!feature) {
+        continue;
+      }
+
+      const fields = new Set();
+      const literalValues = new Map();
+      for (const contractProperty of property.initializer.properties) {
+        if (!ts.isPropertyAssignment(contractProperty) && !ts.isShorthandPropertyAssignment(contractProperty)) {
+          continue;
+        }
+        const fieldName = getPropertyNameText(contractProperty.name);
+        if (!fieldName) {
+          continue;
+        }
+        fields.add(fieldName);
+        if (ts.isPropertyAssignment(contractProperty)) {
+          const literalValue = getLiteralValue(contractProperty.initializer);
+          if (literalValue !== null) {
+            literalValues.set(fieldName, literalValue);
+          }
+        }
+      }
+
+      contracts.set(feature, { fields, literalValues });
+    }
+  });
+
+  return contracts;
+}
+
 function collectReferencedNames(sourceFile) {
   const names = new Set();
   walk(sourceFile, (node) => {
@@ -793,6 +957,22 @@ function getPropertyNameText(nameNode) {
     return nameNode.text;
   }
 
+  return null;
+}
+
+function getLiteralValue(node) {
+  if (ts.isStringLiteralLike(node)) {
+    return node.text;
+  }
+  if (node.kind === ts.SyntaxKind.TrueKeyword) {
+    return 'true';
+  }
+  if (node.kind === ts.SyntaxKind.FalseKeyword) {
+    return 'false';
+  }
+  if (ts.isNumericLiteral(node)) {
+    return node.text;
+  }
   return null;
 }
 

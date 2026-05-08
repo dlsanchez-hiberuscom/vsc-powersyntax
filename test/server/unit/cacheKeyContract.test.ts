@@ -3,6 +3,7 @@ import * as assert from 'assert/strict';
 import {
   buildInteractiveServingCacheKey,
   buildInteractiveServingInvalidationScope,
+  buildInteractiveServingStaleKeyMatcher,
 } from '../../../src/server/serving/cacheKeyContract';
 
 suite('unit/cacheKeyContract', () => {
@@ -110,5 +111,31 @@ suite('unit/cacheKeyContract', () => {
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, locale: 'en' }));
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, context: 'system:messagebox' }));
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, documentFingerprint: 12 }));
+  });
+
+  test('includes prefix in the key and keeps symmetry with the stale matcher', () => {
+    const descriptor = {
+      cacheClass: 'serving' as const,
+      feature: 'completion' as const,
+      pressureClass: 'hot' as const,
+      uri: 'file:///w_main.srw',
+      documentVersion: 3,
+      kbVersion: 7,
+      documentFingerprint: 11,
+      sourceOrigin: 'workspace-ws_objects' as const,
+      locale: 'es',
+      line: 12,
+      character: 8,
+      prefix: 'mes',
+      context: 'member-completion',
+      triggerKind: 1,
+      triggerCharacter: '.',
+    };
+
+    const key = buildInteractiveServingCacheKey(descriptor);
+    const matcher = buildInteractiveServingStaleKeyMatcher(descriptor);
+
+    assert.match(key, /\|prefix:mes\|/);
+    assert.ok(matcher(key), 'El stale matcher debe reconocer la key generada por el builder.');
   });
 });

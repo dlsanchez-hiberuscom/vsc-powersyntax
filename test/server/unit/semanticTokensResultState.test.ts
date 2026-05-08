@@ -79,6 +79,12 @@ suite('unit/semanticTokensResultState', () => {
     assert.deepEqual([...result.data], [10, 20]);
   });
 
+  test('resultId changes when payload changes even if fingerprint matches', () => {
+    const first = state.store('file:///a.sru', 1, 'fp1', 0, [10, 20]);
+    const second = state.store('file:///a.sru', 1, 'fp1', 0, [10, 21]);
+    assert.notEqual(first, second);
+  });
+
   test('evicción LRU respeta máximo de 100 entradas', () => {
     for (let i = 0; i < 105; i++) {
       state.store(`file:///f${i}.sru`, i, `fp${i}`, 0, [i]);
