@@ -79,7 +79,7 @@ suite('unit/semanticTokensResultState', () => {
     assert.deepEqual([...result.data], [10, 20]);
   });
 
-  test('resultId cambia cuando cambia el payload aunque el fingerprint sea igual', () => {
+  test('resultId changes when payload changes even if fingerprint matches', () => {
     const first = state.store('file:///a.sru', 1, 'fp1', 0, [10, 20]);
     const second = state.store('file:///a.sru', 1, 'fp1', 0, [10, 21]);
     assert.notEqual(first, second);

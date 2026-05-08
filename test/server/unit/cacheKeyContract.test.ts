@@ -113,7 +113,7 @@ suite('unit/cacheKeyContract', () => {
     assert.notEqual(stable, buildInteractiveServingCacheKey({ ...base, documentFingerprint: 12 }));
   });
 
-  test('incluye prefix en la key y mantiene simetría con el stale matcher', () => {
+  test('includes prefix in the key and keeps symmetry with the stale matcher', () => {
     const descriptor = {
       cacheClass: 'serving' as const,
       feature: 'completion' as const,

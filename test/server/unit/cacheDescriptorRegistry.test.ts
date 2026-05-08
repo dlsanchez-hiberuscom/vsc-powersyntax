@@ -48,7 +48,7 @@ suite('unit/cacheDescriptorRegistry', () => {
       assert.equal(CACHE_DESCRIPTOR_REGISTRY.getAll().length, 12);
     });
 
-    test('los descriptores hot/warm siguen siendo compatibles con el contrato de key/stale matcher', () => {
+    test('hot/warm descriptors remain compatible with the key/stale matcher contract', () => {
       const samples = [
         {
           id: 'hover',

@@ -166,7 +166,7 @@ suite('unit/diagnostics', () => {
     assert.equal(unwanted.length, 0, unwanted.map((diag) => diag.message).join('\n'));
   });
 
-  test('buildDiagnosticsForDocument usa DiagnosticRuleRegistry para todos los códigos emitidos', () => {
+  test('buildDiagnosticsForDocument uses DiagnosticRuleRegistry for all emitted codes', () => {
     const source = [
       'global type w_diag_registry from window',
       'end type',

@@ -44,7 +44,7 @@ suite('unit/providerAdapterContract', () => {
     }
   });
 
-  test('todos los contratos declaran cachePolicy y sourceScope coherentes', () => {
+  test('all contracts declare coherent cachePolicy and sourceScope', () => {
     for (const feature of ALL_FEATURES) {
       const contract = PROVIDER_ADAPTER_CONTRACTS[feature];
       assert.ok(contract.cachePolicy === 'none' || contract.cachePolicy === 'keyed');

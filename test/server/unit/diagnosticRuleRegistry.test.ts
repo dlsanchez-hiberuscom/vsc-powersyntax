@@ -56,7 +56,7 @@ suite('unit/diagnosticRuleRegistry', () => {
       assert.equal(rule, undefined);
     });
 
-    test('cubre todos los códigos emitidos por el pipeline de diagnostics', () => {
+    test('covers all codes emitted by the diagnostics pipeline', () => {
       const diagnostics = Object.values(DIAGNOSTIC_CODES).map((code) => ({ code, source: `PowerScript:${code}` }));
       assert.deepEqual(collectUnregisteredDiagnosticCodes(diagnostics), []);
     });
