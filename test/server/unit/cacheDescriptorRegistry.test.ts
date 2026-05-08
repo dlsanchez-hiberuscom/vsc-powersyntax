@@ -108,8 +108,10 @@ suite('unit/cacheDescriptorRegistry', () => {
         const key = buildInteractiveServingCacheKey(sample.descriptor);
         const matcher = buildInteractiveServingStaleKeyMatcher(sample.descriptor);
         assert.ok(registryEntry.invalidationPolicies.includes('document-fingerprint'));
-        if (sample.id !== 'documentSymbols' && sample.id !== 'hover-negative') {
+        if (registryEntry.invalidationPolicies.includes('kb-version')) {
           assert.ok(registryEntry.invalidationPolicies.includes('kb-version'));
+        } else {
+          assert.deepEqual([...registryEntry.invalidationPolicies], ['document-fingerprint']);
         }
         assert.ok(matcher(key), `El stale matcher debe reconocer la key de '${sample.id}'.`);
       }

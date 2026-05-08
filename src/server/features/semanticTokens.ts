@@ -98,7 +98,6 @@ export function provideSemanticTokens(
   kb: KnowledgeBase,
   inheritanceGraph: InheritanceGraph,
   systemCatalog: SystemCatalog,
-  _builder?: SemanticTokensBuilder,
   previousResultId?: string,
   resultState?: SemanticTokensResultState,
 ): SemanticTokens | SemanticTokensDelta {

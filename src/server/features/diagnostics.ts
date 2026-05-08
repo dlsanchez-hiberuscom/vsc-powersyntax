@@ -158,7 +158,7 @@ function collectDiagnosticsByTier(
 ): Diagnostic[] {
   const unregistered = collectUnregisteredDiagnosticCodes(diagnostics);
   if (unregistered.length > 0) {
-    throw new Error(`DiagnosticRuleRegistry no cubre los códigos emitidos: ${unregistered.join(', ')}`);
+    throw new Error(`DiagnosticRuleRegistry does not cover emitted codes: ${unregistered.join(', ')}`);
   }
 
   return diagnostics.filter((diagnostic) => {

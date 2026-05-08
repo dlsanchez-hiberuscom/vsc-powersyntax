@@ -1602,7 +1602,7 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
         id: `semanticTokens-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
-          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, undefined, undefined, semanticTokensState));
+          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, undefined, semanticTokensState));
 
           logInteractiveFeatureTiming(
             connection,
@@ -1637,7 +1637,7 @@ export function registerSemanticTokensHandler(context: FeatureHandlerContext): v
         id: `semanticTokensDelta-${document.uri}`,
         priority: TaskPriority.Interactive,
         execute: () => {
-          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, undefined, params.previousResultId, semanticTokensState));
+          const { result, elapsedMs } = measureMs(() => provideSemanticTokens(document, knowledgeBase, inheritanceGraph, systemCatalog, params.previousResultId, semanticTokensState));
 
           logInteractiveFeatureTiming(
             connection,

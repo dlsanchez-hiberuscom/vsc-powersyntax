@@ -244,19 +244,20 @@ end function
   test('Should fallback to full semantic tokens when previousResultId is unknown', () => {
     const code = 'global type n_tokens from nonvisualobject\nend type';
     const document = TextDocument.create('file:///n_tokens.sru', 'powerbuilder', 1, code);
-    const result = provideSemanticTokens(document, kb, graph, systemCatalog, undefined, 'missing-result-id', resultState);
+    const result = provideSemanticTokens(document, kb, graph, systemCatalog, 'missing-result-id', resultState);
 
     assert.ok('data' in result, 'Unknown previousResultId should return full tokens.');
+    assert.ok('resultId' in result && typeof result.resultId === 'string' && result.resultId.length > 0);
   });
 
   test('Should return empty delta edits when previousResultId is still compatible', () => {
     const code = 'global type n_tokens from nonvisualobject\nend type';
     const document = TextDocument.create('file:///n_tokens.sru', 'powerbuilder', 1, code);
-    const full = provideSemanticTokens(document, kb, graph, systemCatalog, undefined, undefined, resultState);
+    const full = provideSemanticTokens(document, kb, graph, systemCatalog, undefined, resultState);
 
     assert.ok('resultId' in full && typeof full.resultId === 'string');
 
-    const delta = provideSemanticTokens(document, kb, graph, systemCatalog, undefined, full.resultId, resultState);
+    const delta = provideSemanticTokens(document, kb, graph, systemCatalog, full.resultId, resultState);
     assert.ok('edits' in delta, 'Compatible previousResultId should reuse state and return delta edits.');
     assert.deepEqual(delta.edits, []);
   });

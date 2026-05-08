@@ -740,7 +740,7 @@ function collectProviderContractViolations(sourceInfos) {
         kind: 'provider-contract',
         ruleId: 'PB-ARCH-PROVIDER-CONTRACT-MISSING-REGISTRY-01',
         path: relativePath,
-        message: 'No se encontró PROVIDER_ADAPTER_CONTRACTS como objeto literal ejecutable.',
+        message: 'PROVIDER_ADAPTER_CONTRACTS was not found as an executable object literal.',
       });
       continue;
     }
@@ -752,7 +752,7 @@ function collectProviderContractViolations(sourceInfos) {
           kind: 'provider-contract',
           ruleId: 'PB-ARCH-PROVIDER-CONTRACT-MISSING-FEATURE-01',
           path: relativePath,
-          message: `Falta el contrato del provider '${feature}'.`,
+          message: `Missing provider contract for '${feature}'.`,
           evidence: { feature },
         });
         continue;
@@ -764,7 +764,7 @@ function collectProviderContractViolations(sourceInfos) {
           kind: 'provider-contract',
           ruleId: 'PB-ARCH-PROVIDER-CONTRACT-MISSING-FIELDS-01',
           path: relativePath,
-          message: `El contrato '${feature}' omite campos obligatorios: ${missingFields.join(', ')}.`,
+          message: `Provider contract '${feature}' is missing required fields: ${missingFields.join(', ')}.`,
           evidence: { feature, missingFields },
         });
       }
@@ -775,7 +775,7 @@ function collectProviderContractViolations(sourceInfos) {
           kind: 'provider-contract',
           ruleId: 'PB-ARCH-PROVIDER-CONTRACT-FULL-SCAN-01',
           path: relativePath,
-          message: `El contrato '${feature}' debe fijar allowsFullScan=false.`,
+          message: `Provider contract '${feature}' must declare allowsFullScan=false.`,
           evidence: { feature, allowsFullScan },
         });
       }
@@ -787,7 +787,7 @@ function collectProviderContractViolations(sourceInfos) {
           kind: 'provider-contract',
           ruleId: 'PB-ARCH-PROVIDER-CONTRACT-CACHE-POLICY-01',
           path: relativePath,
-          message: `El contrato '${feature}' declara cacheFeature aunque cachePolicy='none'.`,
+          message: `Provider contract '${feature}' declares cacheFeature while cachePolicy='none'.`,
           evidence: { feature, cachePolicy },
         });
       }
@@ -796,7 +796,7 @@ function collectProviderContractViolations(sourceInfos) {
           kind: 'provider-contract',
           ruleId: 'PB-ARCH-PROVIDER-CONTRACT-CACHE-FEATURE-01',
           path: relativePath,
-          message: `El contrato '${feature}' requiere cacheFeature cuando cachePolicy no es 'none'.`,
+          message: `Provider contract '${feature}' requires cacheFeature when cachePolicy is not 'none'.`,
           evidence: { feature, cachePolicy },
         });
       }
