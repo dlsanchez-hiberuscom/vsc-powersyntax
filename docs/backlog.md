@@ -36,7 +36,6 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 > Este orden prevalece sobre la prioridad individual cuando existan dependencias arquitectónicas.
 
 ```txt
-28. PLUGIN-INFRASTRUCTURE-NLS-01
 46. PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01
 47. PB-ARCH-P2-SQL-ANCHORS-SUBMODEL-01
 48. PB-ARCH-P2-NATIVE-METADATA-SUBMODEL-01
@@ -127,20 +126,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 
 # 3. Backlog actual
 
-## PLUGIN-INFRASTRUCTURE-NLS-01 — Plugin UI and Logic Internationalization (NLS)
-
-- **Estado:** Open.
-- **Prioridad:** P1.
-- **Orden recomendado:** 28.
-- **Origen:** Auditoría de Internacionalización (Conversación c736c88a).
-- **Evidencia:** Mezcla de idiomas en `package.json`, notificaciones hardcoded en español en `extension.ts` y mensajes de diagnóstico (linter) no localizables.
-- **Objetivo:** Implementar `vscode-nls` para separar los literales de la lógica.
-- **Depends on:** preferible después de `PB-ARCH-P0-SEMANTIC-QUERY-CONTRACT-01` y después de estabilizar reason codes/diagnostics visibles, para evitar mover textos semánticos antes de fijar el contrato.
-- **Pendiente exacto:**
-  - **package.json**: Mover comandos, settings y descripciones a `package.nls.json`.
-  - **Client/Server Strings**: Externalizar logs, notificaciones y nombres de canales de salida.
-  - **Linter Messages**: Mover los mensajes de error de `diagnostics.ts` y `documentAnalysis.ts` a un catálogo de mensajes localizable.
-  - **Metadata Labels**: Traducir etiquetas de análisis como "Argumento", "Instancia", "Resumen", etc.
 
 ---
 

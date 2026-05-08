@@ -205,6 +205,7 @@ import {
   type OrcaRunResult as OrcaRunResultProtocol,
 } from '../shared/orcaProtocol';
 import { registerFormatting } from './formatting/registerFormatting';
+import { localize } from './nls';
 
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
@@ -319,10 +320,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
   const channel = outputChannel;
 
   if (!channel) {
-    throw new Error('No se pudo inicializar el canal de salida de VSC PowerSyntax.');
+    throw new Error(localize('outputChannelInitializationError', 'No se pudo inicializar el canal de salida de VSC PowerSyntax.'));
   }
 
-  channel.appendLine('[VSC PowerSyntax] Activando extensión...');
+  channel.appendLine(localize('activationStarting', '[VSC PowerSyntax] Activando extensión...'));
 
   try {
     await startClient(context, { activationStart });
@@ -331,11 +332,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<VscPow
     const message = error instanceof Error ? error.message : String(error);
     lastClientStartupFailure = message;
     channel.appendLine(
-      `[VSC PowerSyntax] ERROR al iniciar el cliente LSP: ${message}`
+      localize('clientStartupError', '[VSC PowerSyntax] ERROR al iniciar el cliente LSP: {0}', message)
     );
 
     vscode.window.showErrorMessage(
-      `No se pudo iniciar VSC PowerSyntax: ${message}`
+      localize('clientStartupFailure', 'No se pudo iniciar VSC PowerSyntax: {0}', message)
     );
 
     await stopClient();
@@ -360,15 +361,15 @@ async function restartClient(context: vscode.ExtensionContext): Promise<void> {
 
     const elapsed = performance.now() - restartStart;
     outputChannel?.appendLine(
-      `[TIEMPO] Reinicio total del servidor: ${elapsed.toFixed(2)}ms`
+      localize('restartTimeTotal', '[TIEMPO] Reinicio total del servidor: {0}ms', elapsed.toFixed(2))
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     outputChannel?.appendLine(
-      `[VSC PowerSyntax] ERROR al reiniciar: ${message}`
+      localize('restartError', '[VSC PowerSyntax] ERROR al reiniciar: {0}', message)
     );
     vscode.window.showErrorMessage(
-      `Error al reiniciar VSC PowerSyntax: ${message}`
+      localize('restartFailure', 'Error al reiniciar VSC PowerSyntax: {0}', message)
     );
   }
 }
@@ -379,12 +380,12 @@ async function stopClient(): Promise<void> {
     try {
       await client.dispose(CLIENT_STOP_TIMEOUT_MS);
       outputChannel?.appendLine(
-        '[VSC PowerSyntax] Cliente LSP detenido correctamente.'
+        localize('clientStopped', '[VSC PowerSyntax] Cliente LSP detenido correctamente.')
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       outputChannel?.appendLine(
-        `[VSC PowerSyntax] ERROR al detener el cliente LSP: ${message}`
+        localize('clientStopError', '[VSC PowerSyntax] ERROR al detener el cliente LSP: {0}', message)
       );
     } finally {
       client = undefined;
@@ -458,13 +459,13 @@ function ensureRuntimeViewProvidersRegistered(): void {
 
   for (const registration of registrations) {
     if (registration.alreadyRegistered) {
-      outputChannel?.appendLine(`[VIEWS] duplicate registration prevented ${registration.viewId}`);
+      outputChannel?.appendLine(localize('duplicateViewRegistration', '[VIEWS] duplicate registration prevented {0}', registration.viewId));
       continue;
     }
 
     registration.register();
-    outputChannel?.appendLine(`[VIEWS] registered ${registration.viewId}`);
-    outputChannel?.appendLine(`[VIEWS] state ${registration.viewId} loading`);
+    outputChannel?.appendLine(localize('viewRegistered', '[VIEWS] registered {0}', registration.viewId));
+    outputChannel?.appendLine(localize('viewLoading', '[VIEWS] state {0} loading', registration.viewId));
   }
 }
 
@@ -548,7 +549,7 @@ function ensureCommandsRegistered(context: vscode.ExtensionContext): void {
 
   registerClientCommands(context, {
     restartServer: async () => {
-      outputChannel?.appendLine('[VSC PowerSyntax] Reiniciando servidor...');
+      outputChannel?.appendLine(localize('restartingServer', '[VSC PowerSyntax] Reiniciando servidor...'));
       await restartClient(context);
     },
     inspectHierarchy,
@@ -664,8 +665,7 @@ function buildClientRuntime(
 
   if (!serverModule) {
     throw new Error(
-      `No se ha encontrado el servidor LSP en ninguna ruta conocida: ${serverModuleCandidates.join(', ')}. ` +
-      'Ejecuta la compilación y el bundle del servidor antes de iniciar la extensión.'
+      localize('serverNotFound', 'No se ha encontrado el servidor LSP en ninguna ruta conocida: {0}. Ejecuta la compilación y el bundle del servidor antes de iniciar la extensión.', serverModuleCandidates.join(', '))
     );
   }
 
@@ -738,7 +738,7 @@ async function startClient(
   const clientStartTime = performance.now();
 
   channel.appendLine(
-    `[VSC PowerSyntax] Iniciando cliente LSP usando: ${serverModule}`
+    localize('startingLspClient', '[VSC PowerSyntax] Iniciando cliente LSP usando: {0}', serverModule)
   );
 
   client = nextClient;
@@ -781,7 +781,7 @@ async function startClient(
     }
 
     channel.appendLine(
-      '[VSC PowerSyntax] Cliente LSP activado correctamente.'
+      localize('lspClientActivated', '[VSC PowerSyntax] Cliente LSP activado correctamente.')
     );
   } catch (error) {
     await stopClient();

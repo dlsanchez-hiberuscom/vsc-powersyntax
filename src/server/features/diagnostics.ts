@@ -97,6 +97,7 @@ import {
   matchesEnumeratedPropertyContext,
   resolveExpectedEnumTypeForCallArgumentAtPosition,
 } from './enumeratedContext';
+import { localize } from '../nls';
 
 
 export function publishDiagnostics(
@@ -369,7 +370,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
               Position.create(i, 0),
               Position.create(i, displayRaw.length)
             ),
-            message: `Se ha detectado un cierre de bloque '${closeKind}' sin una apertura previa compatible.`,
+            message: localize('closingBlockMismatch', "Se ha detectado un cierre de bloque '{0}' sin una apertura previa compatible.", closeKind),
             source: DIAGNOSTIC_SOURCE
           });
         } else {
@@ -399,7 +400,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
               Position.create(logicalStartLine, 0),
               Position.create(logicalStartLine, logicalStartText.length)
             ),
-            message: `La cláusula '${clause}' solo puede utilizarse dentro de un bloque 'try'.`,
+            message: localize('clauseInTryOnly', "La cláusula '{0}' solo puede utilizarse dentro de un bloque 'try'.", clause),
             source: DIAGNOSTIC_SOURCE
           });
         }
@@ -417,7 +418,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
               Position.create(logicalStartLine, 0),
               Position.create(logicalStartLine, logicalStartText.length)
             ),
-            message: `La cláusula '${clause}' solo puede utilizarse dentro de un bloque 'if' o 'choose case'.`,
+            message: localize('clauseInIfOrChooseOnly', "La cláusula '{0}' solo puede utilizarse dentro de un bloque 'if' o 'choose case'.", clause),
             source: DIAGNOSTIC_SOURCE
           });
         }
@@ -502,7 +503,7 @@ export function validateStructure(document: TextDocument): Diagnostic[] {
         Position.create(open.line, 0),
         Position.create(open.line, open.text.length)
       ),
-      message: `El bloque '${open.kind}' se encuentra abierto pero no ha sido cerrado correctamente.`,
+      message: localize('blockNotClosed', "El bloque '{0}' se encuentra abierto pero no ha sido cerrado correctamente.", open.kind),
       source: DIAGNOSTIC_SOURCE
     });
   }
@@ -583,7 +584,7 @@ export function validateSemantics(
             Position.create(fact.line, fact.character),
             Position.create(fact.line, fact.character + fact.name.length)
           ),
-          message: `El tipo base '${fact.baseTypeName}' no se encuentra en el workspace ni en el catálogo del lenguaje.`,
+          message: localize('missingBaseType', "El tipo base '{0}' no se encuentra en el workspace ni en el catálogo del lenguaje.", fact.baseTypeName),
           source: DIAGNOSTIC_SOURCE
         }, DIAGNOSTIC_CODES.sd3MissingBaseType));
       }
@@ -652,8 +653,8 @@ function checkExternalDependencies(
 
     const isRpcFunction = fact.externalCallableKind === 'rpcfunc';
     const message = isRpcFunction
-      ? `La declaración RPCFUNC '${fact.name}' apunta a un stored procedure DBMS${fact.externalAlias ? ` (alias '${fact.externalAlias}')` : ''} y no tiene implementación interna navegable.`
-      : `La declaración externa '${fact.name}' apunta a la dependencia nativa '${fact.externalLibraryName ?? 'unknown'}' y no tiene implementación interna navegable.`;
+      ? localize('rpcfuncMissingImplementation', "La declaración RPCFUNC '{0}' apunta a un stored procedure DBMS{1} y no tiene implementación interna navegable.", fact.name, fact.externalAlias ? ` (alias '${fact.externalAlias}')` : '')
+      : localize('externalMissingImplementation', "La declaración externa '{0}' apunta a la dependencia nativa '{1}' y no tiene implementación interna navegable.", fact.name, fact.externalLibraryName ?? 'unknown');
 
     diagnostics.push(withDiagnosticCode({
       severity: DiagnosticSeverity.Information,
@@ -699,7 +700,7 @@ function checkDataWindowExpressionDiagnostics(
           Position.create(expression.selectionRange.start.line, expression.selectionRange.start.character),
           Position.create(expression.selectionRange.end.line, expression.selectionRange.end.character),
         ),
-        message: `La expresión DataWindow '${expression.name}' referencia '${dependency.name}' y no es resoluble de forma segura como columna o control del .srd.`,
+        message: localize('dataWindowExpressionUnresolved', "La expresión DataWindow '{0}' referencia '{1}' y no es resoluble de forma segura como columna o control del .srd.", expression.name, dependency.name),
         source: DIAGNOSTIC_SOURCE,
         data: {
           kind: 'datawindow-expression-dependency',
@@ -753,13 +754,13 @@ function buildLifecycleDiagnostic(
 ): Diagnostic {
   const hook = phase === 'create' ? 'constructor' : 'destructor';
 
-  let message = `El lifecycle '${phase}' del objeto '${focusType}' tiene wiring sospechoso.`;
+  let message = localize('lifecycleSuspicious', "El lifecycle '{0}' del objeto '{1}' tiene wiring sospechoso.", phase, focusType);
   if (warningCode === `missing-super-${phase}`) {
-    message = `El lifecycle '${phase}' del objeto '${focusType}' no llama a super::${phase} pese a tener ancestro directo.`;
+    message = localize('lifecycleMissingSuper', "El lifecycle '{0}' del objeto '{1}' no llama a super::{0} pese a tener ancestro directo.", phase, focusType);
   } else if (warningCode === `missing-trigger-${hook}`) {
-    message = `El lifecycle '${phase}' del objeto '${focusType}' declara el hook '${hook}' pero no lo dispara con TriggerEvent(this, "${hook}").`;
+    message = localize('lifecycleMissingTrigger', "El lifecycle '{0}' del objeto '{1}' declara el hook '{2}' pero no lo dispara con TriggerEvent(this, \"{2}\").", phase, focusType, hook);
   } else if (warningCode === `unresolved-${hook}`) {
-    message = `El lifecycle '${phase}' del objeto '${focusType}' dispara el hook '${hook}' pero no existe un event resoluble para ese hook.`;
+    message = localize('lifecycleUnresolvedHook', "El lifecycle '{0}' del objeto '{1}' dispara el hook '{2}' pero no existe un event resoluble para ese hook.", phase, focusType, hook);
   }
 
   return withDiagnosticCode({
@@ -1158,10 +1159,10 @@ function buildEnumeratedValueContextDiagnostic(
   context: 'property-assignment' | 'call-argument',
   target?: string,
 ): Diagnostic {
-  const actualTypeSuffix = actualEnumType ? ` de tipo '${actualEnumType}'` : '';
+  const actualTypeSuffix = actualEnumType ? localize('actualTypeSuffix', " de tipo '{0}'", actualEnumType) : '';
   const message = context === 'property-assignment'
-    ? `El valor enumerado '${enumValueName}'${actualTypeSuffix} no aplica a '${target ?? 'la asignación'}'; se esperaba un valor compatible con '${expectedEnumType}'.`
-    : `El valor enumerado '${enumValueName}'${actualTypeSuffix} no coincide con el tipo esperado '${expectedEnumType}' en esta llamada.`;
+    ? localize('enumValueNotApplicable', "El valor enumerado '{0}'{1} no aplica a '{2}'; se esperaba un valor compatible con '{3}'.", enumValueName, actualTypeSuffix, target ?? 'la asignación', expectedEnumType)
+    : localize('enumValueMismatch', "El valor enumerado '{0}'{1} no coincide con el tipo esperado '{2}' en esta llamada.", enumValueName, actualTypeSuffix, expectedEnumType);
 
   return withDiagnosticCode({
     severity: DiagnosticSeverity.Warning,
@@ -1237,7 +1238,7 @@ function buildDataWindowPropertyPathDiagnostic(
       Position.create(line, Math.max(0, col)),
       Position.create(line, Math.max(0, col) + Math.max(1, path.length))
     ),
-    message: `La ruta DataWindow '${path}' no es resoluble de forma segura para '${targetName}'.`,
+    message: localize('dataWindowPathUnresolved', "La ruta DataWindow '{0}' no es resoluble de forma segura para '{1}'.", path, targetName),
     source: DIAGNOSTIC_SOURCE,
     data: {
       kind: 'datawindow-property-path',
@@ -1272,7 +1273,7 @@ function buildDataObjectBindingDiagnostic(
     return withDiagnosticCode({
       severity: DiagnosticSeverity.Hint,
       range,
-      message: `La asignación dinámica de DataObject en '${targetName}' impide una navegación fiable hacia un .srd.`,
+      message: localize('dynamicDataObjectAssignment', "La asignación dinámica de DataObject en '{0}' impide una navegación fiable hacia un .srd.", targetName),
       source: DIAGNOSTIC_SOURCE,
       data: {
         kind: 'dataobject-binding',
@@ -1288,8 +1289,8 @@ function buildDataObjectBindingDiagnostic(
     severity: state === 'missing' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
     range,
     message: state === 'missing'
-      ? `El DataObject literal '${options.literal ?? 'unknown'}' asignado a '${targetName}' no se encuentra como .srd indexado en el workspace.`
-      : `El DataObject literal '${options.literal ?? 'unknown'}' asignado a '${targetName}' no tiene un target único en el workspace; se degrada la confidence semántica.`,
+      ? localize('dataObjectLiteralNotFound', "El DataObject literal '{0}' asignado a '{1}' no se encuentra como .srd indexado en el workspace.", options.literal ?? 'unknown', targetName)
+      : localize('dataObjectLiteralAmbiguous', "El DataObject literal '{0}' asignado a '{1}' no tiene un target único en el workspace; se degrada la confidence semántica.", options.literal ?? 'unknown', targetName),
     source: DIAGNOSTIC_SOURCE,
     data: {
       kind: 'dataobject-binding',
@@ -1399,12 +1400,12 @@ function buildRetrieveArgumentDiagnostic(
     Position.create(line, Math.max(0, col) + 'Retrieve'.length)
   );
   const expectedArgumentCount = expectedArguments.length;
-  const expectedArgumentWord = expectedArgumentCount === 1 ? 'argumento' : 'argumentos';
+  const expectedArgumentWord = expectedArgumentCount === 1 ? localize('argumentSingular', 'argumento') : localize('argumentPlural', 'argumentos');
 
   return withDiagnosticCode({
     severity: DiagnosticSeverity.Warning,
     range,
-    message: `La llamada '${targetName}.Retrieve(...)' enlazada al DataObject '${dataObject}' espera ${expectedArgumentCount} ${expectedArgumentWord} de retrieve y recibió ${actualArgumentCount}.`,
+    message: localize('retrieveArityMismatch', "La llamada '{0}.Retrieve(...)' enlazada al DataObject '{1}' espera {2} {3} de retrieve y recibió {4}.", targetName, dataObject, expectedArgumentCount, expectedArgumentWord, actualArgumentCount),
     source: DIAGNOSTIC_SOURCE,
     data: {
       kind: 'dataobject-retrieve-args',
@@ -1463,7 +1464,7 @@ function buildTransactionDiagnostic(
     return withDiagnosticCode({
       severity: DiagnosticSeverity.Hint,
       range,
-      message: `La operación '${targetName}.${operationName}()' usa un transaction object dinámico ('${binding?.argument ?? 'unknown'}'); se degrada la confidence semántica.`,
+      message: localize('dynamicTransactionBinding', "La operación '{0}.{1}()' usa un transaction object dinámico ('{2}'); se degrada la confidence semántica.", targetName, operationName, binding?.argument ?? 'unknown'),
       source: DIAGNOSTIC_SOURCE,
       data: {
         kind: 'transaction-binding',
@@ -1480,8 +1481,8 @@ function buildTransactionDiagnostic(
     severity: DiagnosticSeverity.Warning,
     range,
     message: state === 'missing'
-      ? `La operación '${targetName}.${operationName}()' no está asociada a un transaction object conocido mediante SetTransObject/SetTrans o SQLCA.`
-      : `La operación '${targetName}.${operationName}()' referencia un transaction object no resuelto ('${binding?.argument ?? 'unknown'}').`,
+      ? localize('transactionBindingMissing', "La operación '{0}.{1}()' no está asociada a un transaction object conocido mediante SetTransObject/SetTrans o SQLCA.", targetName, operationName)
+      : localize('transactionBindingUnresolved', "La operación '{0}.{1}()' referencia un transaction object no resuelto ('{2}').", targetName, operationName, binding?.argument ?? 'unknown'),
     source: DIAGNOSTIC_SOURCE,
     data: {
       kind: 'transaction-binding',
@@ -1579,7 +1580,7 @@ function visitScopes(
                 Position.create(i, col >= 0 ? col : 0),
                 Position.create(i, (col >= 0 ? col : 0) + funcName.length)
               ),
-              message: `La función '${funcName}' no aplica al tipo '${qualifiedTargetType}' resuelto para '${qualifiedTarget}'.`,
+              message: localize('functionNotApplicable', "La función '{0}' no aplica al tipo '{1}' resuelto para '{2}'.", funcName, qualifiedTargetType, qualifiedTarget),
               source: DIAGNOSTIC_SOURCE,
               data: buildOwnerMismatchDiagnosticData(qualifiedTarget, qualifiedTargetType)
             }, DIAGNOSTIC_CODES.sd2UnresolvedCallable));

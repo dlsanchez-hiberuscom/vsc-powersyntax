@@ -23,6 +23,23 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 ---
 
+## 1.262 PLUGIN-INFRASTRUCTURE-NLS-01 — **Cerrado (infrastructure / localization / 2026-05)**
+
+**Objetivo:** Implementar la infraestructura de internacionalización (NLS) para el cliente y el servidor de lenguaje, externalizando todas las cadenas visibles.
+
+**Resultado registrado:**
+- Integración de `vscode-nls` en cliente (`src/client/nls.ts`) y servidor (`src/server/nls.ts`).
+- Externalización del 100% de las cadenas en `package.json` mediante archivos `.nls.json` y `.nls.es.json`.
+- Refactorización de `extension.ts` y `diagnostics.ts` para eliminar literales en español y usar `localize()`.
+- Resolución de advertencias de metadatos (iconos faltantes) en el explorador de VS Code.
+
+**Validación registrada:**
+- Verificación manual de la carga de cadenas en inglés y español.
+- Compilación exitosa del servidor y cliente.
+- Resolución de 3 advertencias de validación en `package.json`.
+
+---
+
 ## 1.261 PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01 — **Cerrado (architecture / cache / 2026-05)**
 
 **Objetivo:** Coordinar invalidación entre niveles de caché usando epoch/fingerprint.
