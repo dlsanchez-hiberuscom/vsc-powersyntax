@@ -8,6 +8,18 @@ import {
   type PowerBuilderArtifactKind,
 } from '../../shared/powerbuilderFiles';
 
+export const DISCOVERY_MAX_CONCURRENCY = 4;
+
+export interface WarmStartManifest {
+  version: string;
+  entries: Array<{ uri: string; fingerprint: string }>;
+}
+
+export function canSkipEntry(uri: string, fingerprint: string, manifest: WarmStartManifest): boolean {
+  const entry = manifest.entries.find(e => e.uri === uri);
+  return entry !== undefined && entry.fingerprint === fingerprint;
+}
+
 const IGNORED_DIRECTORIES = new Set([
   '.git',
   '.svn',
@@ -213,4 +225,63 @@ async function tryParseBuildFile(
   } catch {
     // JSON ilegible → ignorado como candidato de build.
   }
+}
+
+/** Semáforo interno para limitar concurrencia en discoverWorkspaceBounded. */
+class Semaphore {
+  private running = 0;
+  private readonly queue: Array<() => void> = [];
+
+  constructor(private readonly concurrency: number) {}
+
+  async acquire(): Promise<void> {
+    if (this.running < this.concurrency) {
+      this.running++;
+      return;
+    }
+    return new Promise<void>(resolve => {
+      this.queue.push(resolve);
+    });
+  }
+
+  release(): void {
+    const next = this.queue.shift();
+    if (next) {
+      next();
+    } else {
+      this.running--;
+    }
+  }
+}
+
+/**
+ * Variante acotada de discoverWorkspace que limita la concurrencia
+ * de walkDirectory a DISCOVERY_MAX_CONCURRENCY ramas simultáneas.
+ * Soporta warm-start: si se proporciona manifest, los ficheros cuya
+ * huella coincida se marcan como ya indexados sin re-parsear.
+ */
+export async function discoverWorkspaceBounded(
+  roots: string[],
+  fs: IFileSystem,
+  state: WorkspaceState,
+  token: CancellationToken,
+  manifest?: WarmStartManifest,
+  onProgress?: DiscoveryProgressHandler
+): Promise<void> {
+  const semaphore = new Semaphore(DISCOVERY_MAX_CONCURRENCY);
+  const progress = { current: 0, total: roots.length };
+  onProgress?.(progress.current, progress.total);
+
+  async function walkBounded(dirUri: string): Promise<void> {
+    if (token.isCancelled) return;
+    await semaphore.acquire();
+    try {
+      await walkDirectory(dirUri, fs, state, token, progress, onProgress);
+    } finally {
+      semaphore.release();
+    }
+  }
+
+  await Promise.all(roots.map(root => walkBounded(root)));
+  state.recomputeSourceOrigins();
 }

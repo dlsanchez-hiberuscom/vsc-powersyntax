@@ -297,3 +297,22 @@ Las desviaciones que deben tener prioridad de normalización o spec son:
 7. **Adapters externos:** aislar ORCA y PBAutoBuild completamente del core semántico.
 8. **Testing/performance:** conectar cada refactor a pruebas y budgets.
 9. **Docs IA:** evitar que agentes/prompts dupliquen arquitectura o backlog.
+
+---
+
+## 13. Infraestructura de oleadas 2-4 (spec blocks)
+
+Módulos añadidos en la oleada de spec blocks waves 2-4:
+
+| Módulo | Ruta | Estado |
+|--------|------|--------|
+| DiagnosticRuleRegistry | `src/server/features/diagnosticRuleRegistry.ts` | Añadido |
+| SemanticTokensResultState | `src/server/features/semanticTokensResultState.ts` | Añadido |
+| CacheDescriptorRegistry | `src/server/serving/cacheDescriptorRegistry.ts` | Añadido |
+| IndexStateInvariants + PersistenceWriteQueue | `src/server/workspace/indexStateInvariants.ts` | Añadido |
+| GenerationGuard + SchedulerGenerationRegistry | `src/server/runtime/generationGuard.ts` | Añadido |
+| ProviderAdapterContract | `src/server/serving/providerAdapterContract.ts` | Añadido |
+| diagnosticScheduler (generation guard) | `src/server/analysis/diagnosticScheduler.ts` | Actualizado |
+| discovery (warm start + semaphore) | `src/server/workspace/discovery.ts` | Actualizado |
+
+Ninguno de estos módulos introduce escaneado completo de workspace en hot paths.

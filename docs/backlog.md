@@ -195,8 +195,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 ## PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 — Pipeline diagnostics por tiers y registry de reglas
 
 - **ID:** PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01.
-- **Title:** Pipeline diagnostics por tiers y registry de reglas.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P0.
 - **Orden recomendado:** 5.
 - **Origen:** Macroauditoría PHASE 7/9/11/22.
@@ -223,7 +222,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01.
 - **Title:** Registry de caches y discriminadores fingerprint/epoch/sourceOrigin.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 6.
 - **Origen:** Macroauditoría PHASE 0/5/17.
@@ -250,7 +249,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01.
 - **Title:** Invariantes entre index state, caches y persistencia.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 7.
 - **Origen:** Macroauditoría PHASE 4/5/9B.
@@ -277,7 +276,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01.
 - **Title:** Migrar open/change y cancelación a Near/Background seguro.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 8.
 - **Origen:** Macroauditoría PHASE 4/6.
@@ -304,7 +303,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01.
 - **Title:** Discovery bounded async y warm start validable.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 9.
 - **Origen:** Macroauditoría PHASE 4/19.
@@ -331,7 +330,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01.
 - **Title:** Adapter contract para providers interactivos.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 10.
 - **Origen:** Macroauditoría PHASE 6/17/22.

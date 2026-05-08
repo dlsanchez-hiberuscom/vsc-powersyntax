@@ -8057,3 +8057,16 @@ Validar manualmente:
 
 
 
+
+
+## 38. Spec blocks waves 2-4 — Oleada de infraestructura de diagnósticos, caches, estado, scheduler y providers
+- Completado: 2026-05-08
+- `DiagnosticRuleRegistry` + 20 reglas registradas con tier/domain/lane/budget/advisory.
+- `SemanticTokensResultState` con delta/resultId versionado y evicción LRU (MAX=100).
+- `CacheDescriptorRegistry` con los 12 descriptores de `InteractiveServingCacheFeature`.
+- `IndexStateInvariants` con state machine + `ALLOWED_TRANSITIONS` + `PersistenceWriteQueue` serializada.
+- `GenerationGuard` + `SchedulerGenerationRegistry` para prevenir commits stale.
+- `diagnosticScheduler.ts` actualizado: generation guard integrado en scheduleDiagnostics/cancelScheduledDiagnostics.
+- `discovery.ts` ampliado: `DISCOVERY_MAX_CONCURRENCY`, `WarmStartManifest`, `canSkipEntry`, `discoverWorkspaceBounded` con Semaphore.
+- `providerAdapterContract.ts`: contrato declarativo para 13 features con `allowsFullScan: false` garantizado.
+- 65 unit tests + 11 integration tests; todos pasan: `npm run build:test` limpio.

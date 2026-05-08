@@ -2,21 +2,34 @@
 
 ## 1. Foco activo
 
-`PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` — `OLEADA 2 / P0 — Diagnostics por tiers`
+`PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` — `OLEADA 2 / P0 — Diagnostics por tiers` — Partial
 
 Cadena obligatoria vigente:
 ```txt
-docs/backlog.md -> Active: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01
-docs/done-log.md -> Closed prerequisites: PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01, PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01, PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01, PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01
+docs/backlog.md -> Partial: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01
+docs/backlog.md -> Partial: PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01, PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01
+docs/backlog.md -> Partial: PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01, PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01
+docs/backlog.md -> Partial: PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01
 ```
 
-Estado de éxito:
+Estado de éxito parcial (spec blocks waves 2-4):
 ```txt
-- El backlog activo ya no arrastra cierres documentales pendientes y el done-log absorbe el cierre de `PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01`.
-- El gate de conformance ya es estructural, emite JSON estable y queda integrado en `npm run test:architecture:rapid`.
-- `KnowledgeBase.publishedState` ya es observablemente readonly en query paths y `scopeIndex` vive en una proyección versionada con owner explícito.
-- `SemanticQueryResult` ya refleja la policy efectiva real consumida por cada surface crítica y publica metadata base de `source/degraded`.
-- El siguiente P0 puede arrancar sobre diagnostics porque la cadena previa testing/conformance/snapshot/query quedó cerrada y documentada.
+- DiagnosticRuleRegistry creado con 20 reglas registradas con tier/domain/lane/budget/advisory.
+- SemanticTokensResultState con delta/resultId versionado y evicción LRU creado.
+- CacheDescriptorRegistry con 12 descriptores de InteractiveServingCacheFeature creado.
+- IndexStateInvariants con ALLOWED_TRANSITIONS + PersistenceWriteQueue serializada creado.
+- GenerationGuard + SchedulerGenerationRegistry para commits stale creados.
+- diagnosticScheduler.ts actualizado con generation guard.
+- discovery.ts ampliado con DISCOVERY_MAX_CONCURRENCY, WarmStartManifest, discoverWorkspaceBounded.
+- providerAdapterContract.ts: contrato para 13 features con allowsFullScan: false.
+- 65 unit tests + 11 integration tests pasan; build:test limpio.
+```
+
+Pendiente para cerrar P0:
+```txt
+- Conectar DiagnosticRuleRegistry al pipeline de buildDiagnosticsForDocument.
+- Integrar GenerationGuard en el scheduler interactivo de referencias/semanticTokens.
+- Tests de performance gate para diagnostics por tier.
 ```
 
 ---
@@ -24,8 +37,8 @@ Estado de éxito:
 ## 2. Por qué este foco está activo
 
 - La primera oleada P0 quedó cerrada en orden estricto: testing docs, gate estructural, snapshot readonly y hardening del query contract.
-- El siguiente cuello de botella ahora es `buildDiagnosticsForDocument`, que sigue mezclando tiers/reglas/advisory sin registry ejecutable ni metadata homogénea por rule.
-- La transición de foco ya no depende de abrir nuevos contratos semánticos base, sino de convertir diagnostics en un pipeline por tiers con budgets y caps explícitos.
+- Las oleadas 2-4 de spec blocks establecen la infraestructura base: registry de reglas, caches, state machine de índice, guards de generación y contratos de providers.
+- El siguiente paso es conectar DiagnosticRuleRegistry al pipeline ejecutable en buildDiagnosticsForDocument.
 
 ---
 
