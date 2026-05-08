@@ -40,14 +40,14 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 2. PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01 (cerrado; ver docs/done-log.md)
 3. PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01 (cerrado; ver docs/done-log.md)
 4. PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01 (cerrado; ver docs/done-log.md)
-5. PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01
-6. PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01
-7. PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01
-8. PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01
-9. PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01
-10. PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01
-11. PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01
-12. PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01
+5. PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (parcial; registry creado, pipeline pendiente)
+6. PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (parcial; descriptors creados, cross-val pendiente)
+7. PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 (parcial; state machine creada, integración pendiente)
+8. PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 (parcial; generation guard creado, migración open/change pendiente)
+9. PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 (parcial; bounded discovery creado, warm start wiring pendiente)
+10. PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (parcial; contratos definidos, integración conformance pendiente)
+11. PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (parcial; tests creados, validación CI pendiente)
+12. PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (parcial; resultState creado, wiring provider pendiente)
 13. PB-ARCH-P1-OBJECT-EXPLORER-PAGED-PROJECTIONS-01
 14. PB-ARCH-P1-READONLY-SURFACE-PROJECTION-ENVELOPE-01
 15. PB-AI-P1-CONTEXT-BUNDLE-EXECUTION-BUDGET-01
@@ -195,8 +195,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 ## PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 — Pipeline diagnostics por tiers y registry de reglas
 
 - **ID:** PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01.
-- **Title:** Pipeline diagnostics por tiers y registry de reglas.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P0.
 - **Orden recomendado:** 5.
 - **Origen:** Macroauditoría PHASE 7/9/11/22.
@@ -218,12 +217,17 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** latencia por tier, count por rule, cap/truncation.
 - **Validación:** `npm run test:unit -- --grep "diagnostic"`, performance gate ampliado.
 - **Criterios de retirada:** borrar dispatch monolítico cuando registry cubra reglas existentes.
+- **Pendiente exacto:**
+  - Conectar `DiagnosticRuleRegistry` al pipeline de `buildDiagnosticsForDocument` para componer por tier.
+  - Asegurar que Tier 0/1 se ejecuten inmediatos en open/change sin Tier 3/4.
+  - Tests de paridad de diagnostics actuales con registry activo.
+  - Performance gate de diagnósticos por tier.
 
 ## PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 — Registry de caches y discriminadores fingerprint/epoch/sourceOrigin
 
 - **ID:** PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01.
 - **Title:** Registry de caches y discriminadores fingerprint/epoch/sourceOrigin.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 6.
 - **Origen:** Macroauditoría PHASE 0/5/17.
@@ -245,12 +249,16 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** hit ratio y invalidation reason counts.
 - **Validación:** unit tests y performance smoke de cache hit/miss.
 - **Criterios de retirada:** retirar builders ad hoc cuando registry cubra caches interactivos.
+- **Pendiente exacto:**
+  - Cruzar validación de descriptores con `cacheKeyContract.ts` (tests que fallen si divergen).
+  - Aclarar `prefix` y `documentFingerprint` en builder existente.
+  - Métricas de hit ratio y reason counts.
 
 ## PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 — Invariantes entre index state, caches y persistencia
 
 - **ID:** PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01.
 - **Title:** Invariantes entre index state, caches y persistencia.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 7.
 - **Origen:** Macroauditoría PHASE 4/5/9B.
@@ -272,12 +280,16 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** warm restore time, skipped files, checkpoint size, pending writes.
 - **Validación:** unit/performance tests de persistence y warm start.
 - **Criterios de retirada:** retirar fallback que trata LRU como corpus persisted.
+- **Pendiente exacto:**
+  - Integrar `IndexStateInvariants` y `PersistenceWriteQueue` en el `workspaceIndexer` real.
+  - Tests de checkpoint completo/particionado, journal concurrent y watcher invalidation.
+  - Warm restore que evita full read/hash cuando fingerprints compatibles.
 
 ## PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 — Migrar open/change y cancelación a Near/Background seguro
 
 - **ID:** PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01.
 - **Title:** Migrar open/change y cancelación a Near/Background seguro.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 8.
 - **Origen:** Macroauditoría PHASE 4/6.
@@ -299,12 +311,16 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** cancel latency, open/change duration, background backlog.
 - **Validación:** unit + performance hot path gate.
 - **Criterios de retirada:** retirar path síncrono de invalidación semántica completa en open/change.
+- **Pendiente exacto:**
+  - Integrar `GenerationGuard` en scheduler interactivo de references y semanticTokens.
+  - Migrar open/change a Near/Background bounded para fanout semántico.
+  - Tests de hot path guards para open/change sin full semantic cascade.
 
 ## PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 — Discovery bounded async y warm start validable
 
 - **ID:** PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01.
 - **Title:** Discovery bounded async y warm start validable.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 9.
 - **Origen:** Macroauditoría PHASE 4/19.
@@ -326,12 +342,16 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** files/sec, cancel latency, skipped files, manifest validation time.
 - **Validación:** `test:performance:gate` ampliado y nightly 10k.
 - **Criterios de retirada:** retirar full index obligatorio en restore compatible.
+- **Pendiente exacto:**
+  - Wiring de progress receipts en `discoverWorkspaceBounded`.
+  - Tests de performance gate con corpus 10k smoke.
+  - Integración con el indexer principal para usar warm start real.
 
 ## PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 — Adapter contract para providers interactivos
 
 - **ID:** PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01.
 - **Title:** Adapter contract para providers interactivos.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 10.
 - **Origen:** Macroauditoría PHASE 6/17/22.
@@ -353,12 +373,16 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** latency/payload/cache per provider.
 - **Validación:** unit/integration/provider performance tests.
 - **Criterios de retirada:** borrar handlers monolíticos cuando adapters cubran providers.
+- **Pendiente exacto:**
+  - Integrar `PROVIDER_ADAPTER_CONTRACTS` en el scanner de conformance para detectar providers sin metadata.
+  - Tests de cross-surface matrix y hot path guards por provider.
+  - Métricas por provider (latency/payload/cache).
 
 ## PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 — Matriz de integración LSP por provider crítico
 
 - **ID:** PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01.
 - **Title:** Matriz de integración LSP por provider crítico.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 11.
 - **Origen:** Macroauditoría PHASE 11.
@@ -380,12 +404,15 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** duración de integration suite.
 - **Validación:** integration tests en CI.
 - **Criterios de retirada:** no aplica.
+- **Pendiente exacto:**
+  - Validar tests de integración en CI cuando el entorno de VS Code esté disponible.
+  - Añadir caso rename y linked editing con fixture real.
 
 ## PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 — Semantic tokens delta/range/resultId versionado
 
 - **ID:** PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01.
 - **Title:** Semantic tokens delta/range/resultId versionado.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 12.
 - **Origen:** Macroauditoría PHASE 7/11/20.
@@ -407,6 +434,10 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** token compute time, payload bytes, delta hit rate.
 - **Validación:** tests tokens + performance gate ampliado.
 - **Criterios de retirada:** retirar estado ambiguo y resolution per token no acotada.
+- **Pendiente exacto:**
+  - Conectar `SemanticTokensResultState` al proveedor real de semantic tokens.
+  - Implementar presupuesto acotado de resolución semántica por token en el proveedor.
+  - Métricas de compute time, payload bytes y delta hit rate.
 
 ## PB-ARCH-P1-OBJECT-EXPLORER-PAGED-PROJECTIONS-01 — Object Explorer server-owned paginado/lazy
 

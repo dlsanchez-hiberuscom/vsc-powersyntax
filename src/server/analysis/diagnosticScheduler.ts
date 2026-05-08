@@ -7,6 +7,9 @@ import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { WorkspaceState } from '../workspace/workspaceState';
+import { SchedulerGenerationRegistry } from '../runtime/generationGuard';
+
+export const SCHEDULER_GENERATION_REGISTRY = new SchedulerGenerationRegistry();
 
 const DEFAULT_DIAGNOSTIC_DELAY_MS = 180;
 
@@ -24,6 +27,8 @@ export function scheduleDiagnostics(
 ): void {
   cancelScheduledDiagnostics(document.uri);
 
+  const generation = SCHEDULER_GENERATION_REGISTRY.cancelGeneration(document.uri);
+
   // PB-PERF-P2-LAZY-DIAGNOSTICS-01: Tier 1 (Syntactic) se envía inmediatamente
   // al cliente para que vea los errores de sintaxis al vuelo sin lag.
   publishDiagnostics(connection, document, undefined, undefined, undefined, undefined, 'syntactic');
@@ -34,7 +39,10 @@ export function scheduleDiagnostics(
       id: `diagnostics-${document.uri}`,
       priority: TaskPriority.Interactive,
       workload: 'diagnostics',
-      execute: () => publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState, 'full')
+      execute: () => {
+        if (SCHEDULER_GENERATION_REGISTRY.getGuard(document.uri).isStale(generation)) return;
+        publishDiagnostics(connection, document, kb, systemCatalog, inheritanceGraph, workspaceState, 'full');
+      }
     });
   }, delayMs);
 
@@ -61,12 +69,11 @@ export function publishDiagnosticsNow(
 
 export function cancelScheduledDiagnostics(uri: string): void {
   const handle = scheduledDiagnosticsByUri.get(uri);
-  if (!handle) {
-    return;
+  if (handle) {
+    clearTimeout(handle);
+    scheduledDiagnosticsByUri.delete(uri);
   }
-
-  clearTimeout(handle);
-  scheduledDiagnosticsByUri.delete(uri);
+  SCHEDULER_GENERATION_REGISTRY.cancelGeneration(uri);
 }
 
 export function clearAllScheduledDiagnostics(): void {

@@ -634,6 +634,19 @@ npm run test:e2e
 
 Los nombres exactos pueden adaptarse al repositorio, pero la separación conceptual debe mantenerse.
 
+### Nuevos tests de oleadas 2-4 (spec blocks)
+
+| Archivo | Cubre |
+|---------|-------|
+| `test/server/unit/diagnosticRuleRegistry.test.ts` | DiagnosticRuleRegistry: tiers, dominios, carriles, caps y advisory |
+| `test/server/unit/semanticTokensResultState.test.ts` | SemanticTokensResultState: store/get/evict/LRU/getOrFull |
+| `test/server/unit/cacheDescriptorRegistry.test.ts` | CacheDescriptorRegistry: 12 descriptores y campos requeridos |
+| `test/server/unit/indexStateInvariants.test.ts` | IndexStateInvariants: transiciones válidas/inválidas, isCoherent, PersistenceWriteQueue |
+| `test/server/unit/generationGuard.test.ts` | GenerationGuard y SchedulerGenerationRegistry: stale commit prevention |
+| `test/server/unit/discoveryWarmStart.test.ts` | canSkipEntry y discoverWorkspaceBounded: warm start y concurrencia acotada |
+| `test/server/unit/providerAdapterContract.test.ts` | ProviderAdapterContract: 13 providers, campos, budget, allowsFullScan |
+| `test/server/integration/lsp-providers.test.ts` | Integración LSP: completion, signatureHelp, definition, references, rename, linkedEditing, semanticTokens |
+
 ---
 
 ## 15. Criterios de cierre de una tarea

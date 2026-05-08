@@ -2,21 +2,42 @@
 
 ## 1. Foco activo
 
-`PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` — `OLEADA 2 / P0 — Diagnostics por tiers`
+`PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` — `OLEADA 2 / P0 — Conectar registry al pipeline`
 
-Cadena obligatoria vigente:
+Cadena actual:
 ```txt
-docs/backlog.md -> Active: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01
-docs/done-log.md -> Closed prerequisites: PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01, PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01, PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01, PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01
+docs/backlog.md -> Partial: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (registry creado, conexión pipeline pendiente)
+docs/backlog.md -> Partial: PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (descriptors creados)
+docs/backlog.md -> Partial: PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 (state machine creada)
+docs/backlog.md -> Partial: PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 (generation guard creado)
+docs/backlog.md -> Partial: PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 (bounded discovery creado)
+docs/backlog.md -> Partial: PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (contratos definidos)
+docs/backlog.md -> Partial: PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (tests creados)
+docs/backlog.md -> Partial: PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (resultState creado)
+docs/done-log.md -> Closed: PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01, PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01, PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01, PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01
 ```
 
-Estado de éxito:
+Estado de éxito alcanzado (spec blocks waves 2-4, primera oleada):
 ```txt
-- El backlog activo ya no arrastra cierres documentales pendientes y el done-log absorbe el cierre de `PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01`.
-- El gate de conformance ya es estructural, emite JSON estable y queda integrado en `npm run test:architecture:rapid`.
-- `KnowledgeBase.publishedState` ya es observablemente readonly en query paths y `scopeIndex` vive en una proyección versionada con owner explícito.
-- `SemanticQueryResult` ya refleja la policy efectiva real consumida por cada surface crítica y publica metadata base de `source/degraded`.
-- El siguiente P0 puede arrancar sobre diagnostics porque la cadena previa testing/conformance/snapshot/query quedó cerrada y documentada.
+- DiagnosticRuleRegistry creado con 20 reglas registradas con tier/domain/lane/budget/advisory.
+- SemanticTokensResultState con delta/resultId versionado y evicción LRU creado.
+- CacheDescriptorRegistry con 12 descriptores de InteractiveServingCacheFeature creado.
+- IndexStateInvariants con ALLOWED_TRANSITIONS + PersistenceWriteQueue serializada creado.
+- GenerationGuard + SchedulerGenerationRegistry para commits stale creados e integrados en diagnosticScheduler.
+- discovery.ts ampliado con DISCOVERY_MAX_CONCURRENCY, WarmStartManifest, discoverWorkspaceBounded.
+- providerAdapterContract.ts: contrato para 13 features con allowsFullScan: false.
+- 76 tests nuevos (65 unit + 11 integration) añadidos; build:test limpio.
+```
+
+Pendiente para cerrar esta oleada:
+```txt
+- Conectar DiagnosticRuleRegistry al pipeline de buildDiagnosticsForDocument.
+- Asegurar Tier 0/1 se ejecuten inmediatos en open/change sin Tier 3/4.
+- Integrar GenerationGuard en scheduler interactivo de references/semanticTokens.
+- Conectar SemanticTokensResultState al proveedor real de semantic tokens.
+- Integrar PROVIDER_ADAPTER_CONTRACTS en el scanner de conformance.
+- Cross-validar CacheDescriptorRegistry con cacheKeyContract.ts.
+- Integrar IndexStateInvariants en workspaceIndexer real.
 ```
 
 ---
@@ -24,30 +45,32 @@ Estado de éxito:
 ## 2. Por qué este foco está activo
 
 - La primera oleada P0 quedó cerrada en orden estricto: testing docs, gate estructural, snapshot readonly y hardening del query contract.
-- El siguiente cuello de botella ahora es `buildDiagnosticsForDocument`, que sigue mezclando tiers/reglas/advisory sin registry ejecutable ni metadata homogénea por rule.
-- La transición de foco ya no depende de abrir nuevos contratos semánticos base, sino de convertir diagnostics en un pipeline por tiers con budgets y caps explícitos.
+- Las oleadas 2-4 de spec blocks establecen la infraestructura base: registry de reglas, caches, state machine de índice, guards de generación y contratos de providers.
+- El siguiente paso es conectar DiagnosticRuleRegistry al pipeline ejecutable en buildDiagnosticsForDocument.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Implementar en orden estricto el registry tiered de diagnostics y mantener cerrado el carril P0 anterior.
-- Mantener verde `npm test`, `npm run test:architecture:rapid` y el baseline documental mientras avance la cadena P0.
-- Ajustar sólo la ruta mínima necesaria en `buildDiagnosticsForDocument`, metadata de reglas/tier y adapters de compatibilidad diagnóstica.
+- Completar la conexión de DiagnosticRuleRegistry al pipeline de buildDiagnosticsForDocument.
+- Integrar GenerationGuard en scheduler interactivo de references/semanticTokens.
+- Mantener verde `npm run build:test`, `npm run test:architecture:rapid` y el baseline documental.
+- Conectar SemanticTokensResultState y ProviderAdapterContracts a sus proveedores reales.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Nuevas oleadas P1/P2 mientras la secuencia P0 siga abierta o el baseline global esté rojo.
-- Reescrituras amplias de parser, cache o providers fuera de la ruta mínima necesaria para el P0 activo.
-- Apertura de submodelos DataWindow/SQL o surfaces read-only adicionales antes de cerrar el contrato base de conformance/snapshot/query.
+- Nuevas oleadas P2 mientras los ítems P0/P1 actuales sigan parciales.
+- Reescrituras amplias de parser, cache o providers fuera de la ruta mínima necesaria para los ítems activos.
+- Apertura de submodelos DataWindow/SQL o surfaces read-only adicionales antes de completar la integración actual.
 
 ---
 
 ## 5. Siguiente paso recomendado
 
-- Ejecutar `PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` sobre `buildDiagnosticsForDocument`, el registry de reglas y los adapters compat para separar tiers, budgets, caps y metadata por rule.
+- Conectar `DiagnosticRuleRegistry` al pipeline de `buildDiagnosticsForDocument` para cerrar `PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01`.
+- Integrar `GenerationGuard` en los schedulers interactivos restantes.
 
 ---
 
