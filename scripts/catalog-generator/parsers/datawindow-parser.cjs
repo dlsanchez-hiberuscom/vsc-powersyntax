@@ -180,8 +180,21 @@ function parseDataWindowPage(html, url, chapterTitle) {
     }
 
     const obsolete = /\((?:obsolete|obsoleta)\)$/i.test(title) || /obsolete method/i.test(primaryContentHtml);
-    const obsoleteMessage = obsolete ? (primaryContentHtml.match(/obsolete method\. ([\s\S]*?)\./i)?.[1] || 'Obsolete method.') : undefined;
-    const replacementMatch = obsoleteMessage?.match(/use ([\s\S]*?) instead/i);
+    const obsoleteParagraphs = [...primaryContentHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+        .map(match => normalizeWhitespace(stripTags(match[1])));
+    const obsoleteNoteDetail = primaryContentHtml.match(/<div class="note">[\s\S]*?<h3 class="title">Obsolete method<\/h3>[\s\S]*?<p>([\s\S]*?)<\/p>[\s\S]*?<\/div>/i)?.[1];
+    const obsoleteDetail = normalizeWhitespace(stripTags(
+        obsoleteNoteDetail
+            ?? obsoleteParagraphs.find(paragraph => /^Obsolete method/i.test(paragraph))?.replace(/^Obsolete method\.?\s*/i, '')
+            ?? '',
+    ));
+    const replacementMatch = obsoleteDetail.match(/use\s+([A-Za-z_][A-Za-z0-9_]*)\s+instead/i);
+    const cleanedObsoleteDetail = normalizeWhitespace(
+        obsoleteDetail.replace(/\s*Use\s+[A-Za-z_][A-Za-z0-9_]*\s+instead\.?/i, ''),
+    );
+    const obsoleteMessage = obsolete
+        ? (cleanedObsoleteDetail ? normalizeWhitespace(`Obsolete method ${cleanedObsoleteDetail}`) : 'Obsolete method.')
+        : undefined;
     const replacement = replacementMatch?.[1];
 
     const returnSectionHtml = extractSectionHtml(primaryContentHtml, 'Return value', [
@@ -193,7 +206,9 @@ function parseDataWindowPage(html, url, chapterTitle) {
         .map(match => normalizeWhitespace(stripTags(match[1])))
         .filter(Boolean);
     const returnTypeMatch = returnParagraphs[0]?.match(/^([A-Za-z_][A-Za-z0-9_]*)\./);
-    const returnType = returnTypeMatch?.[1];
+    const inferredReturnType = signatures[0]?.label.match(/^([A-Za-z_][A-Za-z0-9_]*)\s+/)?.[1];
+    const returnType = returnTypeMatch?.[1]
+        ?? (inferredReturnType ? `${inferredReturnType.charAt(0).toUpperCase()}${inferredReturnType.slice(1)}` : undefined);
 
     const argumentRows = extractTableRows(extractSectionHtml(primaryContentHtml, 'Arguments', [
         'Return value',
@@ -224,8 +239,9 @@ function parseDataWindowPage(html, url, chapterTitle) {
         };
     });
 
-    return {
+    return [{
         name: sanitizeOfficialTitle(title),
+        appliesTo: rawAppliesToLabels,
         description,
         ownerInfo: {
             appliesTo: rawAppliesToLabels,
@@ -240,7 +256,7 @@ function parseDataWindowPage(html, url, chapterTitle) {
         signatures: finalSignatures,
         examples: examples.length > 0 ? examples : undefined,
         sourceUrl: url,
-    };
+    }];
 }
 
 async function loadDataWindowMethodChapterPages() {

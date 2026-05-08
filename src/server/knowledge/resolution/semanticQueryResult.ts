@@ -2,8 +2,29 @@ import type { Position, Range } from 'vscode-languageserver/node';
 import type { Entity, EntityKind, EntityLineageConfidence } from '../types';
 import type { QueryConsumerId } from '../../features/queryScopePolicy';
 import type { SourceOrigin } from '../../../shared/sourceOrigin';
-import type { QueryReasonCode, QueryInvocationKind, QueryInvocationRisk, QueryAmbiguityKind, QueryEvidenceEntry, QueryCandidate, ResolvedTargetInfo } from './semanticQueryService';
+import type {
+  QueryReasonCode,
+  QueryInvocationKind,
+  QueryInvocationRisk,
+  QueryEvidenceEntry,
+  QueryCandidate,
+  ResolvedTargetInfo,
+} from './semanticQueryService';
 import type { TraceStep } from '../queryTrace';
+
+const CATALOG_URI_PREFIX = 'catalog:';
+const SEMANTIC_EPOCH_SNAPSHOT_ID_PREFIX = 'semantic-epoch';
+const TRACE_STEP_BUDGET_EXCEEDED = 'budget:exceeded';
+const QUERY_REASON_GLOBAL_FALLBACK = 'global-fallback';
+
+const SOURCE_AUTHORITY_OFFICIAL = 'official';
+const SOURCE_AUTHORITY_DERIVED = 'derived';
+const OWNER_KIND_CONTAINER = 'container';
+
+const DEGRADED_STATE_TIMEOUT = 'timeout';
+const DEGRADED_STATE_LOW_READINESS = 'low-readiness';
+const DEGRADED_STATE_DYNAMIC = 'dynamic';
+const DEGRADED_STATE_UNSUPPORTED_DOMAIN = 'unsupported-domain';
 
 /**
  * Confianza de la resolución semántica.
@@ -36,6 +57,7 @@ export interface SemanticQuery {
     allowExternal: boolean;
   };
   budgetMs?: number;
+  resultCap?: number;
   cancellation?: boolean;
   readiness?: 'low' | 'partial' | 'ready';
 }
@@ -43,19 +65,28 @@ export interface SemanticQuery {
 export interface SemanticQueryResult {
   /** Query original que produjo este resultado. */
   query: SemanticQuery;
-  
+
   /** Target principal resuelto. */
   target: Entity | null;
-  
+
   /** Categoría del target. */
-  kind: 'workspace-symbol' | 'system-symbol' | 'datawindow' | 'sql-anchor' | 'transaction' | 'external-native' | 'framework-advisory' | 'diagnostic' | 'unknown';
-  
+  kind:
+    | 'workspace-symbol'
+    | 'system-symbol'
+    | 'datawindow'
+    | 'sql-anchor'
+    | 'transaction'
+    | 'external-native'
+    | 'framework-advisory'
+    | 'diagnostic'
+    | 'unknown';
+
   /** Owner lógico normalizado. */
   owner?: {
     name: string;
     kind: 'object' | 'type' | 'container' | 'callable' | 'project' | 'library' | 'system-domain';
   };
-  
+
   /** Contexto de visibilidad y scope. */
   scope?: {
     pbScope?: string;
@@ -63,7 +94,7 @@ export interface SemanticQueryResult {
     currentObject?: string;
     librarySearchPath?: string[];
   };
-  
+
   /** Detalles del origen del símbolo. */
   source?: {
     origin: SourceOrigin | 'unknown';
@@ -74,19 +105,19 @@ export interface SemanticQueryResult {
     library?: string;
     snapshotIdentity?: string;
   };
-  
+
   /** Confianza y evidencia de la resolución. */
   confidence: {
     level: SemanticConfidence;
     lineage?: LineageConfidence;
   };
-  
+
   /** Entradas de evidencia que justifican el resultado. */
   evidence: QueryEvidenceEntry[];
-  
+
   /** Reason codes estables mapeables a diagnósticos. */
   reasons: QueryReasonCode[];
-  
+
   /** Candidatos alternativos o rechazados. */
   alternatives?: {
     ambiguousTargets?: Entity[];
@@ -97,7 +128,7 @@ export interface SemanticQueryResult {
       reason: string;
     }>;
   };
-  
+
   /** Detalles de degradación si el resultado no es óptimo. */
   degraded?: {
     state: 'low-readiness' | 'timeout' | 'unsupported-domain' | 'dynamic' | 'cap-reached';
@@ -105,7 +136,7 @@ export interface SemanticQueryResult {
     userVisible: boolean;
     fallbackAction?: string;
   };
-  
+
   /** Información para el control de caches. */
   cacheability?: {
     cacheable: boolean;
@@ -115,7 +146,7 @@ export interface SemanticQueryResult {
     epoch?: number;
     fingerprint?: string;
   };
-  
+
   /** Versión de la KnowledgeBase usada. */
   semanticEpoch: number;
 
@@ -124,7 +155,7 @@ export interface SemanticQueryResult {
 
   /** Nivel de riesgo técnico de la invocación (segura, dinámica, fallback). */
   invocationRisk: QueryInvocationRisk;
-  
+
   /** Trazas internas de resolución (opcional). */
   trace?: TraceStep[];
 }
@@ -139,18 +170,20 @@ export function toSemanticQueryResult(
   epoch: number
 ): SemanticQueryResult {
   const target = info.targets[0] ?? null;
+  const source = buildSource(target, epoch);
+  const scope = buildScope(target);
+  const degraded = buildDegradedState(info, query);
 
   return {
     query,
     target,
-    kind: target ? (target.uri.startsWith('catalog:') ? 'system-symbol' : 'workspace-symbol') : 'unknown',
-    owner: target?.containerName ? {
-      name: target.containerName,
-      kind: 'container' // Simplificación inicial
-    } : undefined,
+    kind: mapResultKind(target),
+    owner: buildOwner(target),
+    ...(scope ? { scope } : {}),
+    ...(source ? { source } : {}),
     confidence: {
       level: info.confidence,
-      lineage: mapLineageConfidence(info.winnerLineage?.confidence)
+      lineage: mapLineageConfidence(info.winnerLineage?.confidence),
     },
     evidence: info.evidence,
     reasons: info.reasonCodes,
@@ -158,22 +191,144 @@ export function toSemanticQueryResult(
     invocationKind: info.invocationKind,
     invocationRisk: info.invocationRisk,
     trace: info.trace,
-    cacheability: {
-      cacheable: true,
-      epoch: epoch
-    },
-    alternatives: {
-      ambiguousTargets: info.targets.length > 1 ? info.targets.slice(1) : undefined,
-      fallbackTargets: info.reasonCodes.includes('global-fallback') ? info.targets : undefined
-    }
+    cacheability: buildCacheability(epoch),
+    ...(degraded ? { degraded } : {}),
+    alternatives: buildAlternatives(info),
   };
 }
 
-function mapLineageConfidence(c?: EntityLineageConfidence): LineageConfidence {
-  switch (c) {
-    case 'direct': return 'direct';
-    case 'inherited': return 'inherited';
-    case 'fallback': return 'fallback';
-    default: return 'unknown';
+function isCatalogUri(uri: string): boolean {
+  return uri.startsWith(CATALOG_URI_PREFIX);
+}
+
+function buildSemanticSnapshotIdentity(epoch: number): string {
+  return `${SEMANTIC_EPOCH_SNAPSHOT_ID_PREFIX}:${epoch}`;
+}
+
+function buildOwner(target: Entity | null): SemanticQueryResult['owner'] | undefined {
+  if (!target?.containerName) {
+    return undefined;
+  }
+
+  return {
+    name: target.containerName,
+    kind: OWNER_KIND_CONTAINER,
+  };
+}
+
+function buildAlternatives(info: ResolvedTargetInfo): SemanticQueryResult['alternatives'] {
+  return {
+    ambiguousTargets: info.targets.length > 1 ? info.targets.slice(1) : undefined,
+    fallbackTargets: info.reasonCodes.includes(QUERY_REASON_GLOBAL_FALLBACK) ? info.targets : undefined,
+  };
+}
+
+function buildCacheability(epoch: number): SemanticQueryResult['cacheability'] {
+  return {
+    cacheable: true,
+    epoch,
+  };
+}
+
+function mapResultKind(target: Entity | null): SemanticQueryResult['kind'] {
+  if (!target) {
+    return 'unknown';
+  }
+
+  if (target.isExternal) {
+    return 'external-native';
+  }
+
+  return isCatalogUri(target.uri) ? 'system-symbol' : 'workspace-symbol';
+}
+
+function buildScope(target: Entity | null): SemanticQueryResult['scope'] | undefined {
+  if (!target) {
+    return undefined;
+  }
+
+  const scope: NonNullable<SemanticQueryResult['scope']> = {
+    ...(target.scope ? { pbScope: target.scope } : {}),
+    ...(target.access ? { visibility: target.access } : {}),
+    ...(target.fileObjectName ?? target.containerName
+      ? { currentObject: target.fileObjectName ?? target.containerName }
+      : {}),
+  };
+
+  return Object.keys(scope).length > 0 ? scope : undefined;
+}
+
+function buildSource(target: Entity | null, epoch: number): SemanticQueryResult['source'] | undefined {
+  if (!target) {
+    return undefined;
+  }
+
+  return {
+    origin: target.lineage?.sourceOrigin ?? 'unknown',
+    authority: target.lineage?.authority ?? (isCatalogUri(target.uri) ? SOURCE_AUTHORITY_OFFICIAL : SOURCE_AUTHORITY_DERIVED),
+    uri: target.uri,
+    range: {
+      start: { line: target.line, character: target.character },
+      end: { line: target.line, character: target.character + target.name.length },
+    },
+    ...(target.externalLibraryName ? { library: target.externalLibraryName } : {}),
+    snapshotIdentity: buildSemanticSnapshotIdentity(epoch),
+  };
+}
+
+function buildDegradedState(
+  info: ResolvedTargetInfo,
+  query: SemanticQuery,
+): SemanticQueryResult['degraded'] | undefined {
+  if (info.trace.some((step) => step.name === TRACE_STEP_BUDGET_EXCEEDED)) {
+    return {
+      state: DEGRADED_STATE_TIMEOUT,
+      reason: query.budgetMs !== undefined
+        ? `Semantic query exceeded its ${query.budgetMs}ms budget.`
+        : 'Semantic query exceeded its configured budget.',
+      userVisible: true,
+    };
+  }
+
+  if (query.readiness && query.readiness !== 'ready') {
+    return {
+      state: DEGRADED_STATE_LOW_READINESS,
+      reason: `Semantic readiness=${query.readiness}.`,
+      userVisible: query.readiness === 'low',
+    };
+  }
+
+  if (info.invocationRisk === 'dynamic' || info.invocationRisk === 'fallback') {
+    return {
+      state: DEGRADED_STATE_DYNAMIC,
+      reason: `Semantic resolution uses invocationRisk=${info.invocationRisk}.`,
+      userVisible: true,
+    };
+  }
+
+  if (info.invocationRisk === 'external' && info.targets.length === 0) {
+    return {
+      state: DEGRADED_STATE_UNSUPPORTED_DOMAIN,
+      reason: 'Semantic resolution depends on external/native metadata not materialized in the result.',
+      userVisible: true,
+    };
+  }
+
+  return undefined;
+}
+
+function mapLineageConfidence(confidence?: EntityLineageConfidence): LineageConfidence {
+  switch (confidence) {
+    case 'direct':
+      return 'direct';
+
+    case 'inherited':
+      return 'inherited';
+
+    case 'fallback':
+      return 'fallback';
+
+    default:
+      return 'unknown';
   }
 }

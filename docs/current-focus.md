@@ -2,60 +2,52 @@
 
 ## 1. Foco activo
 
-`PHASE 2 / P1 — Publicación de Submodelos (DataWindow / SQL)`
+`PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` — `OLEADA 2 / P0 — Diagnostics por tiers`
 
 Cadena obligatoria vigente:
 ```txt
-docs/backlog.md -> Done: PB-ARCH-P1-CONSUMER-CONVERGENCE-COMPLETION-SIGNATURE-01
-                -> Done: PB-ARCH-P1-REFERENCES-STRUCTURAL-CONFIRMATION-01
-                -> Done: PB-ARCH-P1-SEMANTIC-TOKENS-EVIDENCE-CONTRACT-01
-                -> Done: PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01
-                -> Done: PB-ARCH-P1-READONLY-SURFACES-PROJECTIONS-01
-                -> Done: PLUGIN-INFRASTRUCTURE-NLS-01
-                -> Active: PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01
+docs/backlog.md -> Active: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01
+docs/done-log.md -> Closed prerequisites: PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01, PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01, PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01, PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01
 ```
 
 Estado de éxito:
 ```txt
-- El backlog, current-focus, roadmap y done-log vuelven a contar el mismo estado real.
-- La arquitectura objetivo deja claro que SemanticQueryFacade es target de convergencia, no rollout completo ya cerrado.
-- Hover y definition mantienen su slice read-only actual sin reabrir hot paths, mientras completion/signature/references/semantic tokens/document surfaces documentan o reducen sus excepciones.
-- Current Object Context, Diagnostics Explainability, Object Explorer y runtime self-test tienen owners, tests y budgets explícitos.
-- Confidence, riesgo y frameworkKnowledgeConflict dejan de publicarse con certeza alta no defendible en surfaces read-only.
+- El backlog activo ya no arrastra cierres documentales pendientes y el done-log absorbe el cierre de `PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01`.
+- El gate de conformance ya es estructural, emite JSON estable y queda integrado en `npm run test:architecture:rapid`.
+- `KnowledgeBase.publishedState` ya es observablemente readonly en query paths y `scopeIndex` vive en una proyección versionada con owner explícito.
+- `SemanticQueryResult` ya refleja la policy efectiva real consumida por cada surface crítica y publica metadata base de `source/degraded`.
+- El siguiente P0 puede arrancar sobre diagnostics porque la cadena previa testing/conformance/snapshot/query quedó cerrada y documentada.
 ```
 
 ---
 
 ## 2. Por qué este foco está activo
 
-- La ultra auditoría semántica dejó cerrados varios hechos técnicos, pero encontró deriva entre backlog, current-focus, roadmap, architecture-status y done-log.
-- El runtime ya tiene un slice semántico útil y prudente, pero la adopción de `SemanticQueryFacade` sigue siendo parcial y desigual según consumer.
-- Algunas surfaces read-only ya forman parte del producto público y hoy carecen de owner documental, budgets o matrices de prueba tan explícitas como los hot paths clásicos.
-- `docs/semantic-design-target.md` y la sección `4.2` de `docs/backlog.md` añaden el plan PB-ARCH; el foco inmediato sigue siendo normalización documental y conformance antes de implementar slices nuevos.
-- El siguiente trabajo valioso no es reabrir caché o discovery, sino alinear contrato semántico, confidence y documentación para evitar falsas promesas del producto.
+- La primera oleada P0 quedó cerrada en orden estricto: testing docs, gate estructural, snapshot readonly y hardening del query contract.
+- El siguiente cuello de botella ahora es `buildDiagnosticsForDocument`, que sigue mezclando tiers/reglas/advisory sin registry ejecutable ni metadata homogénea por rule.
+- La transición de foco ya no depende de abrir nuevos contratos semánticos base, sino de convertir diagnostics en un pipeline por tiers con budgets y caps explícitos.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Normalizar owners documentales en `docs/backlog.md`, `docs/current-focus.md`, `docs/roadmap.md`, `docs/done-log.md`, `docs/architecture-status.md` y `docs/architecture-implementation-map.md`.
-- Converger consumer por consumer hacia un contrato semántico común, empezando por completion/signature help frente al slice ya activo de hover/definition.
-- Corregir publication de confidence y conflictos advisory en semantic tokens, Current Object Context y reportes read-only.
-- Asignar tests, troubleshooting y budgets a Object Explorer, Current Object Context, Diagnostics Explainability, Impact Analysis, Safe Edit Plan y runtime self-test.
+- Implementar en orden estricto el registry tiered de diagnostics y mantener cerrado el carril P0 anterior.
+- Mantener verde `npm test`, `npm run test:architecture:rapid` y el baseline documental mientras avance la cadena P0.
+- Ajustar sólo la ruta mínima necesaria en `buildDiagnosticsForDocument`, metadata de reglas/tier y adapters de compatibilidad diagnóstica.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Reescrituras amplias del parser PowerScript o de la capa de caché estabilizada.
-- Soporte total de DataWindow, SQL avanzado o conditional compilation más allá del slice defendible ya documentado.
-- Nuevos carriles ORCA/PBAutoBuild o nuevas surfaces write-enabled sin depender antes del contrato semántico y los owners read-only.
+- Nuevas oleadas P1/P2 mientras la secuencia P0 siga abierta o el baseline global esté rojo.
+- Reescrituras amplias de parser, cache o providers fuera de la ruta mínima necesaria para el P0 activo.
+- Apertura de submodelos DataWindow/SQL o surfaces read-only adicionales antes de cerrar el contrato base de conformance/snapshot/query.
 
 ---
 
 ## 5. Siguiente paso recomendado
 
-- Cerrar primero la normalización documental, enlazar el target semántico desde los owner docs y fijar la matriz real de adopción de `SemanticQueryFacade`, `queryContext`, `SemanticQueryResult` y `confidence` por consumer antes de abrir trabajo semántico más amplio.
+- Ejecutar `PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01` sobre `buildDiagnosticsForDocument`, el registry de reglas y los adapters compat para separar tiers, budgets, caps y metadata por rule.
 
 ---
 

@@ -196,6 +196,69 @@ type GeneratedCompletenessEntry = (typeof PB_GENERATED_COMPLETENESS)[GeneratedCo
 const CALLABLE_KINDS = new Set<PbSystemSymbolKind>(['callable', 'event', 'statement']);
 const APPLIES_TO_KINDS = new Set<PbSystemSymbolKind>(['callable', 'event', 'statement', 'datatype', 'system-type', 'enumerated-type']);
 const GENERATED_COMPLETENESS_BY_DOMAIN = PB_GENERATED_COMPLETENESS as Partial<Record<PbSystemSymbolDomain, GeneratedCompletenessEntry>>;
+const ADR_MANUAL_PRIMARY_ALLOWED_DOMAINS = new Set<PbSystemSymbolDomain>([
+  'datawindow-events',
+  'operators',
+  'pronouns',
+  'system-globals',
+]);
+
+function buildCatalogIdentityFingerprint(entry: PbSystemSymbolEntry): string {
+  return [
+    entry.domain,
+    entry.kind,
+    entry.namespace,
+    entry.invocation,
+    entry.normalizedName,
+    entry.enumValueOf ?? '',
+    entry.normalizedOwnerTypes.join('+'),
+  ].join('|');
+}
+
+function canonicalizeCatalogEntries(entries: readonly PbSystemSymbolEntry[]): {
+  canonicalEntries: readonly PbSystemSymbolEntry[];
+  duplicateIds: readonly string[];
+} {
+  const canonicalEntries: PbSystemSymbolEntry[] = [];
+  const firstEntryById = new Map<string, PbSystemSymbolEntry>();
+  const seenFingerprintsById = new Map<string, string>();
+  const duplicateIds = new Set<string>();
+  const duplicateSamples: string[] = [];
+
+  for (const entry of entries) {
+    const fingerprint = buildCatalogIdentityFingerprint(entry);
+    const existingFingerprint = seenFingerprintsById.get(entry.id);
+
+    if (!existingFingerprint) {
+      firstEntryById.set(entry.id, entry);
+      seenFingerprintsById.set(entry.id, fingerprint);
+      canonicalEntries.push(entry);
+      continue;
+    }
+
+    if (existingFingerprint !== fingerprint) {
+      duplicateIds.add(entry.id);
+
+      if (duplicateSamples.length < 10) {
+        const firstEntry = firstEntryById.get(entry.id);
+        duplicateSamples.push([
+          entry.id,
+          `${firstEntry?.dataset ?? 'unknown'}:${firstEntry?.domain ?? 'unknown'}:${firstEntry?.kind ?? 'unknown'}:${firstEntry?.name ?? 'unknown'}:${firstEntry?.normalizedOwnerTypes.join('+') || 'all'}`,
+          `${entry.dataset}:${entry.domain}:${entry.kind}:${entry.name}:${entry.normalizedOwnerTypes.join('+') || 'all'}`,
+        ].join(' => '));
+      }
+    }
+  }
+
+  if (duplicateIds.size > 0) {
+    throw new Error(`[catalogConsistency] duplicateIdSamples ${JSON.stringify(duplicateSamples)}`);
+  }
+
+  return {
+    canonicalEntries,
+    duplicateIds: Array.from(duplicateIds).sort((left, right) => left.localeCompare(right)),
+  };
+}
 
 function incrementCount(
   counts: Record<string, number>,
@@ -298,6 +361,10 @@ function buildCoverageMetric(covered: number, total: number): CatalogCoverageMet
     total,
     ratio: total === 0 ? 1 : covered / total,
   };
+}
+
+function requiresSignatureAudit(entry: Pick<PbSystemSymbolEntry, 'kind'>): boolean {
+  return entry.kind !== 'event' && entry.kind !== 'system-type';
 }
 
 function createAdoptionAccumulator(): CatalogDatasetAdoptionAccumulator {
@@ -488,25 +555,29 @@ function countLogicalDuplicatesInDomain(
 }
 
 function buildDomainRecommendedPolicy(
+  domain: PbSystemSymbolDomain,
   generatedCount: number,
   manualCount: number,
   officialCoverage: CatalogDomainAdoptionReport['officialCoverage'],
 ): CatalogAdoptionRecommendedPolicy {
-  if (generatedCount === 0 && manualCount > 0) {
-    return 'manual-primary';
-  }
-
   if (officialCoverage && officialCoverage.missingCount > 0) {
     return 'hybrid-by-domain';
+  }
+
+  if (generatedCount === 0 && manualCount > 0) {
+    if (!officialCoverage || ADR_MANUAL_PRIMARY_ALLOWED_DOMAINS.has(domain)) {
+      return 'manual-primary';
+    }
+
+    return 'generated-primary-with-manual-overlays';
   }
 
   return 'generated-primary-with-manual-overlays';
 }
 
 export function buildCatalogConsistencyReport(): CatalogReport {
-  const entries = PB_SYSTEM_SYMBOL_REGISTRY.entries;
+  const { canonicalEntries: entries, duplicateIds } = canonicalizeCatalogEntries(PB_SYSTEM_SYMBOL_REGISTRY.entries);
   const localization = getSystemSymbolLocalizationCatalogReport();
-  const seen = new Map<string, number>();
   const entryById = new Map<string, PbSystemSymbolEntry>();
   const logicalBuckets = new Map<string, PbSystemSymbolEntry[]>();
   const missingSignatures: string[] = [];
@@ -530,14 +601,13 @@ export function buildCatalogConsistencyReport(): CatalogReport {
 
   for (const entry of entries) {
     entryById.set(entry.id, entry);
-    seen.set(entry.id, (seen.get(entry.id) ?? 0) + 1);
 
     const logicalKey = buildLogicalOverlapKey(entry);
     const logicalBucket = logicalBuckets.get(logicalKey) ?? [];
     logicalBucket.push(entry);
     logicalBuckets.set(logicalKey, logicalBucket);
 
-    if (entry.signatures.length === 0) {
+    if (requiresSignatureAudit(entry) && entry.signatures.length === 0) {
       missingSignatures.push(entry.id);
     }
     if (!entry.name.trim()) {
@@ -596,13 +666,6 @@ export function buildCatalogConsistencyReport(): CatalogReport {
     if (entry.provenance.authority === 'official' && !entry.provenance.sourceUrl?.trim()) {
       domainSummary.missingSourceUrlCount += 1;
       missingSourceUrlForOfficial.push(entry.id);
-    }
-  }
-
-  const duplicateIds: string[] = [];
-  for (const [id, occurrences] of seen) {
-    if (occurrences > 1) {
-      duplicateIds.push(id);
     }
   }
 
@@ -671,6 +734,7 @@ export function buildCatalogConsistencyReport(): CatalogReport {
         }
       : undefined;
     const recommendedPolicy = buildDomainRecommendedPolicy(
+      domain,
       domainGeneratedEntries.length,
       domainManualEntries.length,
       officialCoverage,
@@ -685,9 +749,11 @@ export function buildCatalogConsistencyReport(): CatalogReport {
     if (officialCoverage && officialCoverage.missingCount === 0) {
       rationale.push('generated completeness mantiene missingCount = 0 en este dominio.');
     }
-    if (domainGeneratedEntries.length === 0 && domainManualEntries.length > 0) {
+    if (recommendedPolicy === 'manual-primary' && domainGeneratedEntries.length === 0 && domainManualEntries.length > 0) {
       rationale.push('no existe rail official generated para este dominio, así que manual-core sigue siendo la base operativa.');
       manualOnlyDomains.push(domain);
+    } else if (domainGeneratedEntries.length === 0 && domainManualEntries.length > 0 && officialCoverage && officialCoverage.missingCount === 0) {
+      rationale.push('el rail official medido está completo para este dominio aunque la materialización runtime siga apoyándose en overlays manuales.');
     }
     if (overlayCounts.gap > 0 || overlayCounts.enrichment > 0 || overlayCounts.override > 0) {
       rationale.push(`manualOverlay clasifica ${overlayCounts.gap} gaps, ${overlayCounts.enrichment} enrichments y ${overlayCounts.override} overrides en este dominio.`);
@@ -749,7 +815,7 @@ export function buildCatalogConsistencyReport(): CatalogReport {
 
   return {
     total: entries.length,
-    duplicateIds,
+    duplicateIds: [...duplicateIds],
     missingSignatures,
     emptyName,
     invalidEnumeratedTypeNames,

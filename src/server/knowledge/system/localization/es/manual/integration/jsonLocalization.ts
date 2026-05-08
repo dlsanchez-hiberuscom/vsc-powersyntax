@@ -38,7 +38,7 @@ export const jsonLocalization: PbSystemSymbolLocalizationOverlay[] = [
             ]
         },
         parameters: [
-            { signatureLabel: 'objectname.LoadString ( json )', parameterName: 'json', documentation: 'La cadena con formato JSON.' }
+            { signatureLabel: 'objectname.LoadString ( JsonData )', parameterName: 'JsonData', documentation: 'La cadena con formato JSON.' }
         ]
     },
     {
@@ -53,7 +53,7 @@ export const jsonLocalization: PbSystemSymbolLocalizationOverlay[] = [
             ]
         },
         parameters: [
-            { signatureLabel: 'objectname.GetItemString ( ParentItemHandle, Key )', parameterName: 'Key', documentation: 'La clave del ítem.' }
+            { signatureLabel: 'objectname.GetItemString ( ItemHandle )', parameterName: 'ItemHandle', documentation: 'Handle del ítem JSON.' }
         ]
     },
     {
@@ -67,7 +67,7 @@ export const jsonLocalization: PbSystemSymbolLocalizationOverlay[] = [
             ]
         },
         parameters: [
-            { signatureLabel: 'objectname.GetItemNumber ( ParentItemHandle, Key )', parameterName: 'Key', documentation: 'La clave del ítem.' }
+            { signatureLabel: 'objectname.GetItemNumber ( ItemHandle )', parameterName: 'ItemHandle', documentation: 'Handle del ítem JSON.' }
         ]
     },
     {

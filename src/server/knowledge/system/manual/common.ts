@@ -36,21 +36,22 @@ function defineManualEntry(
     entry: Omit<PbSystemSymbolEntryDraft, 'dataset' | 'source'> & { dataset?: PbSystemSymbolDataset },
     source: string,
     defaultSourceUrl?: string,
+    options?: { defaultOverlayMode?: 'defer' | 'override' },
 ): PbSystemSymbolEntry {
     const draft: PbSystemSymbolEntryDraft = {
         ...entry,
         dataset: entry.dataset ?? 'manual-core',
         source,
         sourceUrl: entry.sourceUrl ?? defaultSourceUrl,
-        // By default, manual-core entries are considered 'enrichment'
-        // when they don't explicitly specify an overlay. This allows
-        // manual overlays to provide editorial enrichments
-        // (e.g. category) over generated entries.
-        manualOverlay: entry.manualOverlay ?? {
-            mode: 'override',
-            reason: 'Curated manual-core entry with localization priority.',
-            evidence: ['manual-core'],
-        },
+        manualOverlay: entry.manualOverlay ?? (
+            options?.defaultOverlayMode === 'defer'
+                ? undefined
+                : {
+                    mode: 'override',
+                    reason: 'Curated manual-core entry with localization priority.',
+                    evidence: ['manual-core'],
+                }
+        ),
     };
 
     return finalizeSystemSymbolEntry(draft);

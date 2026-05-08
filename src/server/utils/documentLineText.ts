@@ -7,6 +7,11 @@ export function getDocumentLineText(document: TextDocument, line: number): strin
   }
 
   const text = document.getText();
+  if (typeof (document as { offsetAt?: unknown }).offsetAt !== 'function') {
+    const lines = text.split(/\r?\n/);
+    return lines[line] ?? '';
+  }
+
   const startOffset = document.offsetAt(Position.create(line, 0));
   let endOffset = startOffset;
 

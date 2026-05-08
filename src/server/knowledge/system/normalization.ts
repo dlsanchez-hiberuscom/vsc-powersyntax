@@ -2,6 +2,7 @@ import {
     PbSystemSymbolEntry,
     PbSystemSymbolEntryDraft,
     PbSystemSymbolProvenance,
+    PbSystemSymbolSignatureParameter,
 } from './types';
 import type { EntityLineage } from '../types';
 
@@ -89,6 +90,41 @@ function finalizeSystemSymbolProvenance(
     };
 }
 
+function extractSignatureParameterLabel(token: string): string | undefined {
+    const cleanedToken = token.replace(/[{}]/g, ' ').trim();
+    if (!cleanedToken) {
+        return undefined;
+    }
+
+    const parts = cleanedToken.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+        return undefined;
+    }
+
+    const candidate = parts[parts.length - 1]
+        ?.replace(/^\*+/, '')
+        .replace(/\[\]$/g, '')
+        .trim();
+
+    return candidate ? candidate : undefined;
+}
+
+function inferSignatureParameters(signatureLabel: string): readonly PbSystemSymbolSignatureParameter[] | undefined {
+    const start = signatureLabel.indexOf('(');
+    const end = signatureLabel.lastIndexOf(')');
+    if (start < 0 || end <= start + 1) {
+        return undefined;
+    }
+
+    const parameters = signatureLabel.slice(start + 1, end)
+        .split(',')
+        .map(extractSignatureParameterLabel)
+        .filter((label): label is string => Boolean(label))
+        .map((label) => ({ label }));
+
+    return parameters.length > 0 ? parameters : undefined;
+}
+
 export function normalizeSystemSymbolName(value?: string): string | undefined {
     const normalized = value?.trim().replace(/\s+/g, ' ').toLowerCase();
     return normalized ? normalized : undefined;
@@ -161,11 +197,29 @@ export function finalizeSystemSymbolEntry(
     const normalizedOwnerTypes = normalizeOwnerTypeNames(entry.ownerTypes);
     const normalizedLookupAliases = buildSystemSymbolLookupKeys('', entry.lookupAliases)
         .filter(value => value.length > 0);
+    const normalizedSignatures = entry.signatures.map(signature => {
+        const normalizedLabel = signature.label.trim();
+        const normalizedParameters = (signature.parameters?.map(parameter => ({
+            label: parameter.label.trim(),
+            documentation: parameter.documentation?.trim() || undefined,
+        })).filter(parameter => parameter.label.length > 0))
+            ?? inferSignatureParameters(normalizedLabel);
+
+        return {
+            label: normalizedLabel,
+            documentation: signature.documentation?.trim() || undefined,
+            returnType: signature.returnType?.trim() || undefined,
+            parameters: normalizedParameters && normalizedParameters.length > 0
+                ? normalizedParameters
+                : undefined,
+        };
+    });
     const normalizedEntry: PbSystemSymbolEntryDraft = {
         ...entry,
         name: entry.name.trim(),
         category: entry.category.trim(),
         summary: entry.summary.trim(),
+        signatures: normalizedSignatures,
         documentation: entry.documentation?.trim() || undefined,
         returnType: entry.returnType?.trim() || undefined,
         returnDocumentation: entry.returnDocumentation?.trim() || undefined,

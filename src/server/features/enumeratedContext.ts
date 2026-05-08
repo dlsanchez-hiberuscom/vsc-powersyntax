@@ -11,7 +11,7 @@ import {
   extractSignatureContext,
   getSignatureParameterLabel,
   resolveExpectedEnumTypeForParameterLabel,
-} from './signatureHelp';
+} from './signatureContext';
 
 export interface ExpectedEnumCallArgumentContext {
   enumTypeName: string;

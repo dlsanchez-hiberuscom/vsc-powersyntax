@@ -45,7 +45,7 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 | DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
 | Performance | OK/Parcial | Arquitectura Server-Push reactiva, Memoización de Regex O(1), Semantic Tokens Delta y Background Indexing (WorkerPool) activos. | Mantener los budgets de rendimiento y monitorizar latencia de workers. |
-| Testing | Parcial | Debe cubrir contratos arquitectónicos, caches, semántica e integraciones. | Alinear `testing.md`. |
+| Testing | OK/Parcial | La matriz de lanes ya está alineada, `test:architecture:rapid` incorpora scanner estructural y los P0 de conformance, snapshot readonly y `SemanticQueryResult` ya quedaron cerrados. | Mantener `testing.md` sincronizado y ampliar gates al abrir diagnostics tiered y carriles P1. |
 | IA/agentes | Parcial | La documentación IA debe consumir arquitectura/status sin duplicarla. | Alinear bloque IA después de docs core. |
 
 ---
@@ -107,7 +107,7 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 
 - **Estado:** Parcial/Riesgo.
 - **Arquitectura objetivo:** `docs/architecture.md`, sección Semantic Query Facade.
-- **Evidencia:** hover y definition ya consumen el slice principal read-only, mientras completion, signature help, references, diagnostics, semantic tokens y varias surfaces read-only siguen apoyándose en rutas paralelas o híbridas para scopes, receiver type, callable resolution, inheritance, built-ins o DataWindow binding.
+- **Evidencia:** el facade ya publica policy efectiva (`sourceOriginPolicy`, `budgetMs`, `resultCap`), `source` y degradación base para timeout/dynamic, y `rename` dejó de depender de `ResolvedTargetInfo` crudo en su preflight principal; aun así completion, signature help, references, diagnostics, semantic tokens y varias surfaces read-only siguen apoyándose en rutas paralelas o híbridas para scopes, receiver type, callable resolution, inheritance, built-ins o DataWindow binding.
 - **Riesgo:** duplicar resolución en hover, completion, diagnostics, references o semantic tokens.
 - **Acción:** converger consumer por consumer hacia una fachada semántica común y documentar explícitamente cada excepción mientras exista.
 - **Criterio de avance:** ningún provider o surface read-only relevante debe reimplementar resolución global fuera de la fachada sin owner, evidencia y justificación de la excepción.
@@ -270,6 +270,7 @@ Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asum
 - **Acción:** asegurar tests para parsing, indexing, cache invalidation, semantic facade, providers, DataWindow y adapters externos.
 - **Criterio de avance:** todo cambio de capa debe tener al menos test unitario/contrato; hot paths deben tener smoke/performance cuando aplique.
 - **Estado validado 2026-05:** la smoke de activación vuelve a medir solo `activate()` + handshake mínimo; los barridos read-only largos se trocean por superficie y el carril de snapshots usa fixture importado/diff para seguir siendo smoke en lugar de export E2E pesado.
+- **Estado validado 2026-05 (conformance):** `npm run test:architecture:rapid` ejecuta `tools/architecture-conformance-scanner.mjs` antes de smoke/performance, guarda `artifacts/performance/architecture-conformance-report.json` y bloquea bypasses del facade, ciclos de imports, contratos de cache incompletos, stores paralelos y full scans en hot paths críticos mediante fixtures negativos dedicados.
 
 ---
 

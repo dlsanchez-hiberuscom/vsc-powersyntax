@@ -1,5 +1,4 @@
 import {
-    PB_GENERATED_DATAWINDOW_FUNCTIONS,
     PB_GENERATED_DATATYPES,
     PB_GENERATED_EVENTS,
     PB_GENERATED_GLOBAL_FUNCTIONS,
@@ -17,6 +16,14 @@ import {
     PB_GENERATED_OBJECT_OWNER_TYPES,
 } from '../generated/common';
 import {
+    PB_GENERATED_RUNTIME_DATATYPES,
+    PB_GENERATED_RUNTIME_DATAWINDOW_FUNCTIONS,
+    PB_GENERATED_RUNTIME_GLOBAL_FUNCTIONS,
+    PB_GENERATED_RUNTIME_KEYWORDS,
+    PB_GENERATED_RUNTIME_RESERVED_WORDS,
+    PB_GENERATED_RUNTIME_STATEMENTS,
+} from '../generated/runtimeSupplement';
+import {
     PB_MANUAL_CORE_DATASET_SLICES,
     PB_MANUAL_CORE_OWNER_TYPE_GROUPS,
 } from '../manual';
@@ -28,22 +35,22 @@ export const PB_SYSTEM_SYMBOL_DATASET_SLICES: readonly PbSystemSymbolDatasetSlic
     {
         dataset: 'generated',
         domain: 'keywords',
-        entries: PB_GENERATED_KEYWORDS,
+        entries: PB_GENERATED_RUNTIME_KEYWORDS,
     },
     {
         dataset: 'generated',
         domain: 'reserved-words',
-        entries: PB_GENERATED_RESERVED_WORDS,
+        entries: PB_GENERATED_RUNTIME_RESERVED_WORDS,
     },
     {
         dataset: 'generated',
         domain: 'datatypes',
-        entries: PB_GENERATED_DATATYPES,
+        entries: PB_GENERATED_DATATYPES.length > 0 ? PB_GENERATED_DATATYPES : PB_GENERATED_RUNTIME_DATATYPES,
     },
     {
         dataset: 'generated',
         domain: 'global-functions',
-        entries: PB_GENERATED_GLOBAL_FUNCTIONS,
+        entries: PB_GENERATED_RUNTIME_GLOBAL_FUNCTIONS,
     },
     {
         dataset: 'generated',
@@ -54,7 +61,7 @@ export const PB_SYSTEM_SYMBOL_DATASET_SLICES: readonly PbSystemSymbolDatasetSlic
     {
         dataset: 'generated',
         domain: 'datawindow-functions',
-        entries: PB_GENERATED_DATAWINDOW_FUNCTIONS,
+        entries: PB_GENERATED_RUNTIME_DATAWINDOW_FUNCTIONS,
         allowedOwnerTypes: PB_GENERATED_DATAWINDOW_FUNCTION_OWNER_TYPES,
     },
     {
@@ -86,7 +93,7 @@ export const PB_SYSTEM_SYMBOL_DATASET_SLICES: readonly PbSystemSymbolDatasetSlic
     {
         dataset: 'generated',
         domain: 'statements',
-        entries: PB_GENERATED_STATEMENTS,
+        entries: PB_GENERATED_RUNTIME_STATEMENTS,
     },
 ];
 

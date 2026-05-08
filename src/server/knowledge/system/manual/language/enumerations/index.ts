@@ -522,7 +522,7 @@ export const PB_MANUAL_CORE_ENUMERATED_TYPES: readonly PbSystemSymbolEntry[] = [
         documentation: 'Used to indicate whether a file offset is calculated from the beginning, the current position, or the end of the file.',
         allowedInParameters: ['origin'],
         enumValues: SEEK_TYPE_VALUES,
-        manualOverlay: { mode: 'override', reason: 'Hardening SeekType documentation.', evidence: ['manual-core:language:enums:seektype'] }
+        manualOverlay: { mode: 'enrichment', reason: 'Hardening SeekType documentation.', evidence: ['manual-core:language:enums:seektype'] }
     }),
 ];
 

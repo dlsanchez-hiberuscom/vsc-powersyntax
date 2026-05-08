@@ -4,6 +4,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { buildExplainSystemSymbolMarkdown } from '../../../src/client/explainSystemSymbolReport';
 import { buildExplainSystemSymbolReport } from '../../../src/server/features/explainSystemSymbol';
 import { SystemCatalog } from '../../../src/server/knowledge/system/SystemCatalog';
+import { getSystemSymbolLocalizationOverlay } from '../../../src/server/knowledge/system/localization';
 import { PB_SYSTEM_SYMBOL_REGISTRY } from '../../../src/server/knowledge/system/registry/registry';
 
 suite('unit/explainSystemSymbol (B380)', () => {
@@ -66,7 +67,7 @@ suite('unit/explainSystemSymbol (B380)', () => {
     const fallbackEntry = PB_SYSTEM_SYMBOL_REGISTRY.entries.find(
       (entry) => entry.dataset === 'generated'
         && entry.domain === 'global-functions'
-        && !['Abs', 'DayName', 'MessageBox'].includes(entry.name)
+        && !getSystemSymbolLocalizationOverlay(entry.id, 'es')
         && typeof entry.summary === 'string'
         && entry.summary.length > 0,
     );

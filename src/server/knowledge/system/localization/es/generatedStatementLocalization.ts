@@ -14,7 +14,6 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_STATEMENTS = [
 		},
 		text: {
 			summary: 'Estructura de control que ejecuta una accion cuando una condicion indicada es verdadera.',
-			documentation: 'Usa la sintaxis de una sola linea para decisiones breves y la multilinea cuando necesites varias instrucciones o ramas ELSE/ELSEIF. El flujo entra en la primera rama cuya condicion resulte verdadera.',
 		},
 	},
 	{
@@ -29,8 +28,7 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_STATEMENTS = [
 			name: 'CHOOSE CASE',
 		},
 		text: {
-			summary: 'Estructura de control que dirige la ejecucion segun el valor de una expresion de prueba.',
-			documentation: 'Conviene cuando varias ramas dependen del mismo valor y quieres evitar cadenas largas de IF...ELSEIF. CASE ELSE actua como fallback cuando ningun CASE coincide.',
+			summary: 'Estructura de control que selecciona una rama segun el valor de una expresion.',
 		},
 	},
 	{
@@ -45,8 +43,7 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_STATEMENTS = [
 			name: 'FOR...NEXT',
 		},
 		text: {
-			summary: 'Iteracion numerica que ejecuta uno o mas statements un numero determinado de veces.',
-			documentation: 'Usa FOR...NEXT cuando conoces el rango y el paso de iteracion. STEP controla el incremento o decremento y EXIT o CONTINUE permiten alterar el flujo dentro del bucle.',
+			summary: 'Bucle contado que recorre un rango numerico y se cierra con NEXT.',
 		},
 	},
 	{

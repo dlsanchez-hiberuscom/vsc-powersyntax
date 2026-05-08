@@ -21,13 +21,19 @@ import { Entity, EntityKind } from '../knowledge/types';
 import { normalizeUri } from '../system/uriUtils';
 import { getDocumentLineText } from '../utils/documentLineText';
 import { getEventApiInvocationContext, getInvocationContext, type InvocationContext } from '../utils/invocationContext';
-import { getQueryConsumerPolicy, getQueryConsumerPolicyByLabel, type QueryConsumerId } from './queryScopePolicy';
+import {
+  getQueryConsumerPolicy,
+  getQueryConsumerPolicyByLabel,
+  type QueryConsumerId,
+  type QueryConsumerPolicy,
+} from './queryScopePolicy';
 
 export interface DocumentQueryContext {
   context: InvocationContext | null;
   currentUri: string;
   documentEntities: Entity[];
   currentMainObject: Entity | undefined;
+  consumerPolicy: QueryConsumerPolicy | null;
   resolvedTargets: ResolvedTargetInfo | null;
   resolutionConfidence?: QueryResolutionConfidence;
   ambiguityKind?: QueryAmbiguityKind;
@@ -70,6 +76,7 @@ export function createDocumentQueryContext(
     currentUri,
     documentEntities,
     currentMainObject,
+    consumerPolicy: policy,
     resolvedTargets,
     resolutionConfidence: resolvedTargets?.confidence,
     ambiguityKind: resolvedTargets?.ambiguityKind,

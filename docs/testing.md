@@ -88,7 +88,7 @@ Esta matriz registra los comandos reales declarados en `package.json`. Mantiene 
 | Integration | `npm run test:integration` | Servidor/workspace/providers conectados. | Rápido/local según cambio. |
 | Smoke | `npm run test:smoke` | Activación y flujos críticos. | Rápido/local. |
 | Suite estándar | `npm test` | Build test + smoke/unit/integration. | Release. |
-| Architecture rapid | `npm run test:architecture:rapid` | Gate rápido de arquitectura/performance smoke. | Release. |
+| Architecture rapid | `npm run test:architecture:rapid` | Gate rápido de arquitectura: scanner estructural + smoke/performance sobre corpora reales. | Release. |
 | Architecture metrics | `npm run test:architecture:metrics` | Hotspot guard de tamaño/imports/declaraciones. | Local/diagnóstico. |
 | Docs drift | `npm run test:docs:drift` | Ownership documental y drift. | Release. |
 | Performance gate | `npm run test:performance:gate` | Budgets rápidos y artefactos `[perf-budget]`. | Release. |
@@ -96,6 +96,12 @@ Esta matriz registra los comandos reales declarados en `package.json`. Mantiene 
 | Installed VSIX smoke | `npm run test:smoke:installed-vsix` | Smoke sobre VSIX empaquetado. | Release. |
 | Release verify | `npm run release:verify` | Gate completo de release-readiness. | CI release. |
 | Real corpora | `missing: test:real-corpora` | Corpora privados/locales PFC/STD/OrderEntry cuando existan. | No es dependencia obligatoria de CI. |
+
+### 3.7 Gate estructural de arquitectura
+
+`npm run test:architecture:rapid` ya no depende solo de smokes/performance sobre corpora reales. El lane ejecuta primero `tools/architecture-conformance-scanner.mjs`, genera JSON estable en `artifacts/performance/architecture-conformance-report.json` y falla si detecta bypass de `SemanticQueryFacade`, ciclos de imports, contratos de cache sin discriminadores, stores paralelos o full scans en hot paths críticos.
+
+Los fixtures negativos de ese scanner viven en `test/fixtures/architecture-conformance/negative/` y su modo report-only/fail mode queda bloqueado por `test/server/unit/architectureConformanceScanner.test.ts`.
 
 ---
 

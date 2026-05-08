@@ -19,9 +19,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'Abs(number)',
-        parameterName: 'number',
-        documentation: 'Valor numérico del que quieres obtener el valor absoluto.',
+        signatureLabel: 'Abs ( n )',
+        parameterName: 'n',
+        documentation: 'Numero del que quieres obtener el valor absoluto.',
       },
     ],
   },
@@ -65,7 +65,7 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
       name: 'MessageBox',
     },
     text: {
-      summary: 'Muestra un cuadro de mensaje del sistema con el titulo, texto, icono y botones indicados.',
+      summary: 'Muestra un cuadro de mensaje y devuelve el botón pulsado.',
       documentation: 'Utiliza MessageBox para interacciones bloqueantes y visibles del usuario; no cambia la semantica oficial del simbolo ni sus nombres reales.',
       usageNotes: [
         'Evita usarlo en rutas de cambio de foco sensibles porque la ventana captura la atencion del usuario.',
@@ -77,29 +77,29 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
+        signatureLabel: 'MessageBox(title, text, icon, button, default)',
         parameterName: 'title',
-        documentation: 'Titulo visible en la barra del cuadro de mensaje.',
+        documentation: 'Título de la ventana de mensaje.',
       },
       {
-        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
+        signatureLabel: 'MessageBox(title, text, icon, button, default)',
         parameterName: 'text',
         documentation: 'Texto principal que se muestra al usuario.',
       },
       {
-        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
-        parameterName: 'icon?',
-        documentation: 'Icono opcional para el cuadro de mensaje.',
+        signatureLabel: 'MessageBox(title, text, icon, button, default)',
+        parameterName: 'icon',
+        documentation: 'Icono opcional del cuadro de mensaje.',
       },
       {
-        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
-        parameterName: 'button?',
+        signatureLabel: 'MessageBox(title, text, icon, button, default)',
+        parameterName: 'button',
         documentation: 'Conjunto opcional de botones.',
       },
       {
-        signatureLabel: 'MessageBox(title, text, icon?, button?, default?)',
-        parameterName: 'default?',
-        documentation: 'Boton predeterminado opcional.',
+        signatureLabel: 'MessageBox(title, text, icon, button, default)',
+        parameterName: 'default',
+        documentation: 'Botón por defecto opcional.',
       },
     ],
   },
@@ -125,8 +125,8 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'IsNull(value)',
-        parameterName: 'value',
+        signatureLabel: 'IsNull ( any )',
+        parameterName: 'any',
         documentation: 'Variable o expresion que quieres verificar si es NULL.',
       },
     ],
@@ -153,9 +153,9 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'SetNull(variable)',
-        parameterName: 'variable',
-        documentation: 'Variable a la que quieres asignar el valor NULL.',
+        signatureLabel: 'SetNull(anyvariable)',
+        parameterName: 'anyvariable',
+        documentation: 'Variable compatible que quieres dejar explicitamente en null.',
       },
     ],
   },
@@ -181,8 +181,8 @@ export const PB_SYSTEM_SYMBOL_LOCALIZATION_ES_GENERATED_FUNCTIONS = [
     },
     parameters: [
       {
-        signatureLabel: 'Len(value)',
-        parameterName: 'value',
+        signatureLabel: 'Len ( stringorblob )',
+        parameterName: 'stringorblob',
         documentation: 'Cadena o blob cuya longitud quieres conocer.',
       },
     ],

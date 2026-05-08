@@ -191,8 +191,9 @@ function applyCatalogMergePolicy(
         }
 
         const manualOverrides = nonCandidateEntries.filter(entry => entry.dataset === 'manual-core' && entry.manualOverlay?.mode === 'override');
+        const domain = nonCandidateEntries[0]?.domain;
 
-        if (manualOverrides.length > 0) {
+        if (manualOverrides.length > 0 && domain !== 'system-object-datatypes') {
             resolved.push(manualOverrides[0]);
             continue;
         }
@@ -201,7 +202,10 @@ function applyCatalogMergePolicy(
 
         if (generatedEntries.length > 0) {
             let mergedEntry = generatedEntries[0];
-            const manualEnrichments = nonCandidateEntries.filter(entry => entry.dataset === 'manual-core' && entry.manualOverlay?.mode === 'enrichment');
+            const manualEnrichments = nonCandidateEntries.filter(entry => entry.dataset === 'manual-core' && (
+                entry.manualOverlay?.mode === 'enrichment'
+                || (domain === 'system-object-datatypes' && entry.manualOverlay?.mode === 'override')
+            ));
 
             for (const enrichmentEntry of manualEnrichments) {
                 mergedEntry = mergeEnrichmentIntoBase(mergedEntry, enrichmentEntry);

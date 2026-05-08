@@ -406,23 +406,25 @@ function parsePowerScriptReservedWordPage(html, url) {
 }
 
 function buildGeneratedReservedWordEntry(entry) {
-    const isLiteral = OFFICIAL_LITERAL_RESERVED_WORDS.has(entry.name.toLowerCase());
-    const isLogical = OFFICIAL_LOGICAL_RESERVED_WORDS.has(entry.name.toLowerCase());
+    const canonicalName = entry.name.toUpperCase();
+    const normalizedName = canonicalName.toLowerCase();
+    const isLiteral = OFFICIAL_LITERAL_RESERVED_WORDS.has(normalizedName);
+    const isLogical = OFFICIAL_LOGICAL_RESERVED_WORDS.has(normalizedName);
 
-    const category = OFFICIAL_GENERATED_KEYWORD_CATEGORY_OVERRIDES.get(entry.name.toLowerCase())
+    const category = OFFICIAL_GENERATED_KEYWORD_CATEGORY_OVERRIDES.get(normalizedName)
         ?? (isLiteral ? 'Literales' : isLogical ? 'Operadores lógicos' : 'Palabras reservadas');
 
-    const identifierPolicy = entry.canBeFunctionName ? 'allowed-as-function-name' : undefined;
+    const identifierPolicy = entry.canBeFunctionName ? 'allowed-as-function-name' : 'reserved';
     const summary = entry.canBeFunctionName
-        ? `Palabra reservada oficial de PowerBuilder que puede utilizarse como nombre de función. Fuente: ${entry.sourceUrl}`
-        : `Palabra reservada oficial de PowerBuilder. Fuente: ${entry.sourceUrl}`;
+        ? 'Palabra reservada oficial de PowerScript. Puede usarse también como nombre de función.'
+        : 'Palabra reservada oficial de PowerScript.';
 
     return {
         category,
         identifierPolicy,
-        name: entry.name,
+        name: canonicalName,
         reservedWordCanBeFunctionName: entry.canBeFunctionName,
-        signatures: [{ label: entry.name }],
+        signatures: [{ label: canonicalName }],
         sourceUrl: entry.sourceUrl,
         summary,
     };
@@ -470,6 +472,8 @@ function extractStatementSignatures(html) {
 }
 
 module.exports = {
+    extractAppliesToLabels,
+    extractSignatureGroups,
     parsePowerScriptPage,
     parsePowerScriptStatementPage,
     parsePowerScriptReservedWordPage,

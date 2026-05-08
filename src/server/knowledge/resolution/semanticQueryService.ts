@@ -989,14 +989,6 @@ export function resolveTargetEntityDetailed(
           }
           recordTraceStep('targets:qualifier-type', { count: possibleTargets.length });
         }
-        if (candidatePool.length === 0) {
-          contextDiscards.push({
-            kind: 'discarded-context',
-            stage: 'qualifier',
-            reason: 'qualifier-no-match',
-            qualifier,
-            resolvedType: resolvedQualifierType
-          });
         }
         if (!resolvedQualifierType) {
           contextDiscards.push({
@@ -1005,7 +997,14 @@ export function resolveTargetEntityDetailed(
             reason: 'qualifier-unresolved',
             qualifier
           });
-        }
+        } else if (candidatePool.length === 0 && possibleTargets.length === 0) {
+          contextDiscards.push({
+            kind: 'discarded-context',
+            stage: 'qualifier',
+            reason: 'qualifier-no-match',
+            qualifier,
+            resolvedType: resolvedQualifierType
+          });
         }
       }
     } else if (context.separator === '::') {

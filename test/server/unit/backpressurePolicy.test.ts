@@ -9,7 +9,7 @@ suite('unit/backpressurePolicy (B267)', () => {
   test('declara workload classes canonicas con lane y throttling explicitos', () => {
     const policies = listRuntimeWorkloadPolicies();
 
-    assert.equal(policies.length, 9);
+    assert.equal(policies.length, 10);
     assert.deepEqual(
       policies.map((policy) => policy.workload),
       [
@@ -22,6 +22,7 @@ suite('unit/backpressurePolicy (B267)', () => {
         'legacy-orca',
         'ai-tooling',
         'maintenance',
+        'critical-initialization',
       ]
     );
   });
@@ -39,5 +40,7 @@ suite('unit/backpressurePolicy (B267)', () => {
     assert.equal(getRuntimeWorkloadPolicy('legacy-orca').preemptible, false);
     assert.equal(getRuntimeWorkloadPolicy('export-reporting').preemptible, true);
     assert.equal(getRuntimeWorkloadPolicy('maintenance').preemptible, true);
+    assert.equal(getRuntimeWorkloadPolicy('critical-initialization').preemptible, false);
+    assert.equal(getRuntimeWorkloadPolicy('critical-initialization').throttledByLatency, false);
   });
 });

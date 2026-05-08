@@ -477,6 +477,18 @@ No incluir código propietario o datos sensibles sin sanitizar.
 - Repetir release desde estado limpio.
 - Añadir smoke post-package.
 
+### 13.1. Clases de fallo del carril de release
+
+Cuando el carril moderno de release o packaging falle, clasificar primero el motivo antes de repetir el proceso completo:
+
+- `tool-missing`: falta tooling requerido del carril moderno o una dependencia ejecutable esperada.
+- `config-json-invalid`: un archivo JSON de configuración, manifest o support config es inválido.
+- `source-control-auth-failure`: el entorno no puede leer metadata del repositorio o autenticarse contra el remoto cuando el carril lo requiere.
+- `unsupported-platform`: el host actual no soporta una parte del carril ejecutable o de la smoke instalada.
+- `orca-tool-missing`: la rail opcional de ORCA/PBAutoBuild no está disponible; no debe bloquear features normales del lenguaje, pero sí debe diagnosticarse con claridad cuando se invoca.
+- `packaging-disabled`: el empaquetado quedó deshabilitado por configuración, entorno o política del workflow.
+- `Workspace Trust`: VS Code o el entorno bloquea operaciones de build/release porque el workspace no está confiado.
+
 ---
 
 ## 14. Support bundle

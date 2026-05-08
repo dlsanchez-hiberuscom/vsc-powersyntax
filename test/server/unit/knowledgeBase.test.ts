@@ -477,6 +477,42 @@ suite('unit/knowledge', () => {
       assert.equal(kb.getScopeAt(uri, 2)?.id, 'defensive_scope');
       assert.equal(kb.getDocumentSnapshot(uri)?.symbols[0].name, 'f_defensive');
     });
+    test('getScopeAtReadonly materializa el índice en una proyección versionada sin tocar publishedState', () => {
+      const kb = new KnowledgeBase();
+      const uri = 'file:///scope-projection.sru';
+      const scope = {
+        id: 'projection_scope',
+        kind: ScopeKind.Function,
+        uri,
+        startLine: 1,
+        endLine: 4,
+        children: [],
+        symbols: []
+      };
+
+      kb.upsertDocument(
+        uri,
+        [{ id: 'f_scope_projection', name: 'f_scope_projection', kind: EntityKind.Function, uri, line: 1, character: 0 }],
+        [scope],
+        { ...createSnapshot(uri, 123), scopes: [scope] }
+      );
+
+      const rawPublishedState = (kb as any).publishedState;
+      assert.equal('scopeIndex' in rawPublishedState, false);
+      assert.equal(kb.getStats().indexedScopes, 0);
+
+      const resolvedScope = kb.getScopeAtReadonly(uri, 2);
+      assert.equal(resolvedScope?.id, 'projection_scope');
+
+      const projection = (kb as any).scopeIndexProjection.get(uri);
+      assert.ok(projection);
+      assert.equal(projection.owner, 'KnowledgeBase.scopeIndexProjection');
+      assert.equal(projection.semanticEpoch, kb.semanticEpoch);
+      assert.equal(projection.index.length, 1);
+      assert.equal((kb as any).publishedState, rawPublishedState);
+      assert.equal('scopeIndex' in (kb as any).publishedState, false);
+      assert.equal(kb.getStats().indexedScopes, 1);
+    });
     test('lecturas públicas readonly devuelven referencia congelada', () => {
       const kb = new KnowledgeBase();
       const uri = 'file:///readonly.sru';

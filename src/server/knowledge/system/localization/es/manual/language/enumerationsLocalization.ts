@@ -11,6 +11,7 @@ export const enumerationsLocalization: PbSystemSymbolLocalizationOverlay[] = [
         text: {
             summary: 'Tipo enumerado de formatos de exportación de DataWindow.',
             documentation: 'Se usa como datatype en operaciones SaveAs y otras APIs que eligen un formato de salida concreto.',
+            obsoleteMessage: 'Marcada como obsoleta en la referencia oficial de Appeon.',
         },
     },
     {
@@ -202,7 +203,7 @@ export const enumerationsLocalization: PbSystemSymbolLocalizationOverlay[] = [
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'enumerated-values', kind: 'enumerated-value', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'Primary!', enumValueOf: 'DWBuffer' },
-        text: { summary: 'Buffer principal del DataWindow.', documentation: 'Buffer principal del DataWindow.' },
+        text: { summary: 'Selecciona el buffer principal del DataWindow.', documentation: 'Representa las filas activas del DataWindow, es decir, las que no han sido eliminadas ni filtradas, sin traducir el valor enumerado real Primary!.' },
     },
     {
         locale: 'es', reviewed: true, source: 'manual-curated',

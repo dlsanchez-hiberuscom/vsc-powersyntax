@@ -37,9 +37,9 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 
 ```txt
 1. PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01
-2. PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01
-3. PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01
-4. PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01
+2. PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01 (cerrado; ver docs/done-log.md)
+3. PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01 (cerrado; ver docs/done-log.md)
+4. PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01 (cerrado; ver docs/done-log.md)
 5. PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01
 6. PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01
 7. PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01
@@ -191,115 +191,6 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 # 5. Backlog derivado — Macroauditoría Instant Semantic and Indexing Runtime
 
 Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semantic-indexing`, después de completar PHASE 24. Los ítems agrupan hallazgos relacionados para evitar specs duplicadas y deben enlazarse con [docs/audits/macro-instant-semantic-indexing-findings.md](audits/macro-instant-semantic-indexing-findings.md) y [docs/instant-semantic-indexing-target.md](instant-semantic-indexing-target.md).
-
-## PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01 — Alinear matriz documental de testing con tests existentes
-
-- **ID:** PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01.
-- **Title:** Alinear matriz documental de testing con tests existentes.
-- **Estado:** Ready for closure.
-- **Prioridad:** P0.
-- **Orden recomendado:** 1.
-- **Origen:** Macroauditoría PHASE 11/13.
-- **Findings:** FINDING-037.
-- **Referencias de evidencia:** `test/server/unit/testingMatrixDocs.test.ts`, `docs/testing.md`, `package.json` scripts.
-- **Estado actual:** PHASE 14 añadió la sección `### 3.6 Matriz canónica de lanes` con los comandos reales esperados por el test; PHASE 15 revalidó el test focal y docs drift.
-- **Estado objetivo:** `docs/testing.md` declara lanes canónicas reales y el test documental queda verde.
-- **Riesgo:** `npm test` puede fallar o la estrategia de validación quedar implícita.
-- **Objetivo:** corregir drift documental sin debilitar el test.
-- **Depends on:** none.
-- **Tipo de refactor:** Test gate.
-- **Impacto arquitectónico:** bajo, pero protege governance.
-- **Impacto hot path:** indirecto.
-- **Impacto 10,000+ archivos:** documenta lanes de corpora reales/sintéticos.
-- **Impacto semántico PowerBuilder:** indirecto sobre validación PB/PFC/DataWindow.
-- **Acceptance criteria:** `docs/testing.md` contiene `### 3.6 Matriz canónica de lanes`; lista comandos reales; declara `missing: test:real-corpora`; test focal pasa.
-- **Docs afectadas:** `docs/testing.md`.
-- **Tests requeridos:** `npm run test:unit -- --grep "testingMatrixDocs"`, `npm run test:docs:drift`.
-- **Métricas requeridas:** ninguna.
-- **Validación:** PHASE 15: `npm run test:unit -- --grep "testingMatrixDocs"` pasó con 2 tests; `npm run test:docs:drift` pasó sin findings.
-- **Pendiente exacto:** mover a [docs/done-log.md](done-log.md) y retirarlo del backlog activo en el siguiente cierre documental agrupado.
-- **Criterios de retirada:** cuando el test y docs usen el mismo owner de matriz; no aplica path temporal.
-
-## PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01 — Scanner estructural de conformance semántica y arquitectura
-
-- **ID:** PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01.
-- **Title:** Scanner estructural de conformance semántica y arquitectura.
-- **Estado:** Open.
-- **Prioridad:** P0.
-- **Orden recomendado:** 2.
-- **Origen:** Macroauditoría PHASE 1/11/17/24.
-- **Findings:** FINDING-004, FINDING-040.
-- **Referencias de evidencia:** `test/server/unit/semanticArchitectureConformance.test.ts`, `test/server/unit/architectureImports.test.ts`, `tools/run-architecture-rapid-gate.mjs`.
-- **Estado actual:** gates útiles pero textuales/parciales.
-- **Estado objetivo:** scanner AST/import graph con allowlists para facade bypass, stores paralelos, full scans, cycles, cache contracts y provider declarations.
-- **Riesgo:** drift arquitectónico silencioso en providers/caches/source-of-truth.
-- **Objetivo:** convertir reglas de arquitectura objetivo en fitness functions ejecutables.
-- **Depends on:** PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01.
-- **Tipo de refactor:** Architecture gate.
-- **Impacto arquitectónico:** alto.
-- **Impacto hot path:** alto; bloquea scans y bypasses.
-- **Impacto 10,000+ archivos:** alto.
-- **Impacto semántico PowerBuilder:** protege submodelos DataWindow/SQL/native y resolución PowerScript.
-- **Acceptance criteria:** scanner emite JSON estable; incluye fixtures negativos; falla ante provider bypass no allowlisted, import cycle, cache discriminator incompleto y store paralelo.
-- **Docs afectadas:** `docs/testing.md`, `docs/architecture-status.md`, `docs/instant-semantic-indexing-target.md`.
-- **Tests requeridos:** unit tests del scanner, `npm run test:architecture:rapid`.
-- **Métricas requeridas:** duración del gate y conteo de violations/warnings.
-- **Validación:** ejecutar scanner en modo report-only y luego en fail mode para categorías estables.
-- **Criterios de retirada:** retirar checks textuales cuando el scanner cubra su matriz con fixtures negativos.
-
-## PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01 — Hacer readonly verificable el estado semántico publicado
-
-- **ID:** PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01.
-- **Title:** Hacer readonly verificable el estado semántico publicado.
-- **Estado:** Open.
-- **Prioridad:** P0.
-- **Orden recomendado:** 3.
-- **Origen:** Macroauditoría PHASE 3/13.
-- **Findings:** FINDING-008.
-- **Referencias de evidencia:** `src/server/knowledge/KnowledgeBase.ts` getters `getScopeAt`/`getScopeAtReadonly` y `publishedState.scopeIndex`.
-- **Estado actual:** consultas readonly pueden materializar `scopeIndex` dentro de `publishedState`.
-- **Estado objetivo:** índices lazy viven en proyección/cache versionada o se materializan durante publicación.
-- **Riesgo:** source-of-truth no es observablemente inmutable y los hot paths pueden pagar coste no presupuestado.
-- **Objetivo:** separar verdad publicada de proyecciones derivadas.
-- **Depends on:** PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01.
-- **Tipo de refactor:** Contract centralization.
-- **Impacto arquitectónico:** alto.
-- **Impacto hot path:** medio.
-- **Impacto 10,000+ archivos:** medio/alto.
-- **Impacto semántico PowerBuilder:** scopes, variables, completion, diagnostics y tokens.
-- **Acceptance criteria:** test demuestra que getters readonly no mutan snapshot; scope index tiene owner y version; conformance bloquea writes en query paths.
-- **Docs afectadas:** `docs/architecture.md`, `docs/instant-semantic-indexing-target.md`.
-- **Tests requeridos:** unit tests de inmutabilidad y cache/projection owner.
-- **Métricas requeridas:** tiempo de construcción de scope index si se mueve a publish/lazy cache.
-- **Validación:** `npm run test:unit -- --grep "KnowledgeBase|scope"` y gate de conformance.
-- **Criterios de retirada:** borrar compat lazy write cuando todos los consumers usen proyección versionada.
-
-## PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01 — Endurecer SemanticQueryResult y policy efectiva
-
-- **ID:** PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01.
-- **Title:** Endurecer SemanticQueryResult y policy efectiva.
-- **Estado:** Open.
-- **Prioridad:** P0.
-- **Orden recomendado:** 4.
-- **Origen:** Macroauditoría PHASE 3/6/13.
-- **Findings:** FINDING-009, FINDING-010.
-- **Referencias de evidencia:** `src/server/features/queryContext.ts`, `src/server/features/semanticQueryFacade.ts`, providers LSP.
-- **Estado actual:** `SemanticQueryResult.query.sourceOriginPolicy` puede declarar policy más permisiva que la usada; convergencia del facade es parcial.
-- **Estado objetivo:** todo consumer recibe `SemanticQueryResult` con confidence/evidence/reason/sourceOrigin/stale/degraded y policy efectiva real.
-- **Riesgo:** decisiones de UI/diagnostics/refactor se basan en metadata falsa o incompleta.
-- **Objetivo:** hacer la facade el límite único y honesto de resolución semántica.
-- **Depends on:** PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01.
-- **Tipo de refactor:** Facade.
-- **Impacto arquitectónico:** alto.
-- **Impacto hot path:** alto.
-- **Impacto 10,000+ archivos:** medio.
-- **Impacto semántico PowerBuilder:** herencia, funciones/eventos, variables, DataWindow/generated/external policies.
-- **Acceptance criteria:** tests cubren policies por consumer; providers críticos no leen `ResolvedTargetInfo` crudo salvo compat allowlist; result transporta stale/degraded.
-- **Docs afectadas:** `docs/semantic-design-target.md`, `docs/instant-semantic-indexing-target.md`.
-- **Tests requeridos:** `semanticQueryFacade`, cross-surface golden matrix y conformance scanner.
-- **Métricas requeridas:** ninguna nueva.
-- **Validación:** unit tests + provider parity tests.
-- **Criterios de retirada:** retirar compat result crudo cuando todos los providers usen envelope.
 
 ## PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 — Pipeline diagnostics por tiers y registry de reglas
 

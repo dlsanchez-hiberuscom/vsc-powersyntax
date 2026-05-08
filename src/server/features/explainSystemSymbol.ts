@@ -306,6 +306,17 @@ function selectPreferredExplainSystemSymbolCandidate(
     return undefined;
   }
 
+  const exactGlobalCallableCandidates = candidates.filter((candidate) =>
+    candidate.domain === 'global-functions'
+    && candidate.kind === 'callable'
+    && candidate.namespace === 'powerscript'
+    && candidate.invocation === 'global'
+    && candidate.provenance.authority === 'official'
+  );
+  if (exactGlobalCallableCandidates.length === 1) {
+    return exactGlobalCallableCandidates[0];
+  }
+
   const officialCandidates = candidates.filter((candidate) => candidate.provenance.authority === 'official');
   return officialCandidates.length === 1 ? officialCandidates[0] : undefined;
 }

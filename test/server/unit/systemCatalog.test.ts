@@ -150,7 +150,7 @@ suite('unit/systemCatalog', () => {
     assert.ok(currentRow);
     assert.equal(currentRow?.domain, 'datawindow-expression-functions');
     assert.equal(currentRow?.namespace, 'datawindow-expression');
-    assert.match(currentRow?.summary ?? '', /expresión DataWindow/i);
+    assert.match(currentRow?.summary ?? '', /DataWindow expression/i);
   });
 
   test('isKnownOwnerType reconoce ancestros nativos y raíces runtime como crypterobject/powerobject', () => {

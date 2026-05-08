@@ -1593,7 +1593,7 @@ function visitScopes(
 
         const facade = createSemanticQueryFacade({ kb, graph: inheritanceGraph, systemCatalog });
         const result = facade.resolveTarget(
-          { uri: currentUri, lineCount: strippedLines.length, getText: () => '' } as any,
+          { uri: currentUri, lineCount: strippedLines.length, getText: () => strippedLines.join('\n') } as any,
           Position.create(i, raw.indexOf(funcName)),
           {
             traceLabel: 'diagnostics:sd2',
@@ -1611,10 +1611,7 @@ function visitScopes(
           ),
           message: `La función '${funcName}' no se encuentra en la jerarquía del objeto ni en el catálogo del lenguaje.`,
           source: DIAGNOSTIC_SOURCE,
-          data: {
-            reasonCodes: result.reasons,
-            confidence: result.confidence.level
-          }
+          data: buildResolutionDiagnosticData(result)
         }, DIAGNOSTIC_CODES.sd2UnresolvedCallable));
       }
     }
@@ -1626,7 +1623,20 @@ function visitScopes(
   }
 }
 
-function buildResolutionDiagnosticData(resolution: ResolvedTargetInfo): Record<string, unknown> {
+function buildResolutionDiagnosticData(resolution: ResolvedTargetInfo | SemanticQueryResult): Record<string, unknown> {
+  if ('reasons' in resolution) {
+    const ambiguousTargets = resolution.alternatives?.ambiguousTargets?.length ?? 0;
+    return {
+      kind: 'semantic-evidence',
+      confidence: resolution.confidence.level,
+      reasonCodes: resolution.reasons,
+      evidenceKinds: resolution.evidence.map((entry) => entry.kind),
+      targetCount: resolution.target ? 1 + ambiguousTargets : ambiguousTargets,
+      candidateCount: resolution.alternatives?.rejected?.length ?? 0,
+      hasAmbiguity: ambiguousTargets > 0 || resolution.evidence.some((entry) => entry.kind === 'distance-ambiguity')
+    };
+  }
+
   return {
     kind: 'semantic-evidence',
     confidence: resolution.confidence,

@@ -182,9 +182,18 @@ Actualizar versión, manifest, changelog/notas y cualquier metadata necesaria de
 
 Ejecutar las suites definidas en `docs/testing.md` según el alcance de la release.
 
+Carril ejecutable canónico:
+
+- `npm run release:verify` es la validación local completa de release readiness.
+- Este carril incluye empaquetado VSIX, verificación de contenidos, smoke instalada con `npm run test:smoke:installed-vsix` y resumen final.
+
 ### Paso 4 — Generar artefacto
 
 Generar el paquete publicable del plugin con el proceso estándar del repositorio.
+
+Artefacto esperado:
+
+- el paquete resultante debe quedar en `.dist/vsc-powersyntax.vsix`.
 
 ### Paso 5 — Validar instalación local
 
@@ -204,6 +213,12 @@ Las notas deben incluir:
 ### Paso 7 — Publicar
 
 Publicar solo si todas las validaciones obligatorias están completas o las excepciones están justificadas.
+
+Política de publicación:
+
+- la credencial de publicación requerida es `VSCE_PAT`.
+- el workflow de release readiness conserva artefactos con `retention-days: 14`.
+- el carril de readiness `never publishes automatically`; la publicación sigue siendo un paso explícito y aprobado.
 
 ### Paso 8 — Verificación post-release
 

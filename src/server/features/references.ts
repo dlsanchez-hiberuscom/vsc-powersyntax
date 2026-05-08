@@ -83,6 +83,13 @@ function buildResolvedFamilyKeys(targets: ReadonlyArray<Parameters<typeof buildS
   return keys;
 }
 
+function collectFallbackDefinitions(kb: KnowledgeBase, identifier: string): Parameters<typeof buildSymbolKey>[0][] {
+  const normalizedIdentifier = identifier.toLowerCase();
+  return kb.queryEntities({
+    include: (entity) => entity.name.toLowerCase() === normalizedIdentifier,
+  });
+}
+
 function matchesResolvedFamily(
   lines: string[],
   uri: string,
@@ -97,7 +104,32 @@ function matchesResolvedFamily(
   }
 
   const facade = createSemanticQueryFacade({ kb, graph });
-  const docSimulated: TextDocument = { uri, languageId: 'powerscript', version: 0, getText: () => lines.join('\n'), positionAt: () => Position.create(line, character), offsetAt: () => 0, lineCount: lines.length };
+  const fullText = lines.join('\n');
+  const lineStartOffsets: number[] = [];
+  let runningOffset = 0;
+  for (const currentLine of lines) {
+    lineStartOffsets.push(runningOffset);
+    runningOffset += currentLine.length + 1;
+  }
+  const docSimulated: TextDocument = {
+    uri,
+    languageId: 'powerscript',
+    version: 0,
+    getText: () => fullText,
+    positionAt: (offset: number) => {
+      let targetLine = 0;
+      for (let index = 0; index < lineStartOffsets.length; index++) {
+        const nextOffset = lineStartOffsets[index + 1] ?? Number.MAX_SAFE_INTEGER;
+        if (offset >= lineStartOffsets[index] && offset < nextOffset) {
+          targetLine = index;
+          break;
+        }
+      }
+      return Position.create(targetLine, Math.max(0, offset - (lineStartOffsets[targetLine] ?? 0)));
+    },
+    offsetAt: (position: Position) => (lineStartOffsets[position.line] ?? 0) + position.character,
+    lineCount: lines.length,
+  };
   const position = Position.create(line, character);
   const result = facade.resolveTarget(docSimulated, position, { traceLabel: 'references-fallback' });
   const allTargets = [result.target!, ...(result.alternatives?.ambiguousTargets ?? [])].filter(t => t !== null);
@@ -122,13 +154,10 @@ export function provideReferences(
   const word = result.query.identifier ?? getWordAt(document, position);
   if (!word) return [];
   const wordLower = word.toLowerCase();
-  
-  if (!result.target && result.kind === 'unknown') {
-    return [];
-  }
 
   const resultLocations: Location[] = [];
-  const defs = [result.target!, ...(result.alternatives?.ambiguousTargets ?? [])].filter(t => t !== null);
+  const semanticDefs = [result.target!, ...(result.alternatives?.ambiguousTargets ?? [])].filter(t => t !== null);
+  const defs = semanticDefs.length > 0 ? semanticDefs : collectFallbackDefinitions(kb, word);
   const targetKeys = buildResolvedFamilyKeys(defs);
   const allowEventLiteralReferences = defs.some((def) => def.kind === EntityKind.Event);
   const hasExternalDependencyTargets = defs.some((def) => def.isExternal);

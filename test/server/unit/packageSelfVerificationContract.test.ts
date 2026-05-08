@@ -21,9 +21,9 @@ suite('unit/packageSelfVerificationContract (B315)', () => {
     assert.match(source, /get\('formatting\.maxDocumentLines'\), 4000/);
     assert.match(source, /commands\.includes\('powerbuilder\.openWorkspaceCheck'\)/);
     assert.match(source, /commands\.includes\('powerbuilder\.openExtensionUpgradeCompatibilityCheck'\)/);
-    assert.match(source, /await api!\.getServerStats\(\)/);
-    assert.match(source, /await api!\.querySymbols\(/);
-    assert.match(source, /await api!\.getCurrentObjectContext\(/);
+    assert.match(source, /await api!?\.getServerStats\(\)/);
+    assert.match(source, /await api!?\.querySymbols\(/);
+    assert.match(source, /await api!?\.getCurrentObjectContext\(/);
     assert.match(source, /invokeReadOnlyTool\(\{ tool: 'contract' \}\)/);
   });
 

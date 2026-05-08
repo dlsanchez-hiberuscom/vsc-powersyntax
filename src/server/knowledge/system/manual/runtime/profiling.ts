@@ -30,4 +30,4 @@ export const PB_MANUAL_CORE_RUNTIME_PROFILING_TYPES: readonly PbSystemSymbolEntr
   systemObjectDatatype({ name: 'TraceTreeRoutine', category: 'Profiling and Tracing', summary: 'Routine node within the trace tree.' }),
   systemObjectDatatype({ name: 'TraceTreeUser', category: 'Profiling and Tracing', summary: 'User node within the trace tree.' }),
   systemObjectDatatype({ name: 'TraceUser', category: 'Profiling and Tracing', summary: 'Trace associated with user activity.' }),
-];
+];

@@ -15,6 +15,7 @@ suite('unit/semanticQueryResult (PB-ARCH-P0)', () => {
       containerName: 'w_main',
       lineage: {
         confidence: 'direct',
+        sourceOrigin: 'solution-source',
         sourceKind: 'document',
         authority: 'derived'
       }
@@ -49,7 +50,14 @@ suite('unit/semanticQueryResult (PB-ARCH-P0)', () => {
 
     const query: SemanticQuery = {
       uri: 'file:///w_main.sru',
-      invocationKind: 'this-call'
+      invocationKind: 'this-call',
+      sourceOriginPolicy: {
+        allowStaging: false,
+        allowGenerated: false,
+        allowExternal: true,
+      },
+      budgetMs: 50,
+      resultCap: 8,
     };
 
     const result = toSemanticQueryResult(info, query, 123);
@@ -63,6 +71,11 @@ suite('unit/semanticQueryResult (PB-ARCH-P0)', () => {
     assert.equal(result.owner?.name, 'w_main');
     assert.equal(result.evidence.length, 1);
     assert.equal(result.evidence[0].kind, 'winner-target');
+    assert.equal(result.scope?.currentObject, 'w_main');
+    assert.equal(result.source?.origin, 'solution-source');
+    assert.equal(result.source?.authority, 'derived');
+    assert.equal(result.source?.snapshotIdentity, 'semantic-epoch:123');
+    assert.equal(result.query.resultCap, 8);
   });
 
   test('toSemanticQueryResult maneja resoluciones fallidas', () => {
@@ -90,5 +103,38 @@ suite('unit/semanticQueryResult (PB-ARCH-P0)', () => {
     assert.equal(result.confidence.level, 'low');
     assert.equal(result.confidence.lineage, 'unknown');
     assert.equal(result.semanticEpoch, 456);
+    assert.equal(result.degraded?.state, 'dynamic');
+  });
+
+  test('toSemanticQueryResult marca timeout degradado cuando la traza excede el budget', () => {
+    const info: ResolvedTargetInfo = {
+      context: { identifier: 'of_slow' },
+      targets: [],
+      reasonCodes: ['global-fallback'],
+      invocationKind: 'local-symbol',
+      invocationRisk: 'fallback',
+      confidence: 'low',
+      evidence: [],
+      candidatePool: [],
+      trace: [
+        {
+          name: 'budget:exceeded',
+          phase: 'budget',
+          action: 'exceeded',
+          detail: {
+            budgetMs: 25,
+            durationMs: 40,
+            exceededByMs: 15,
+          },
+          ts: 0,
+        },
+      ],
+      winnerLineage: null
+    };
+
+    const result = toSemanticQueryResult(info, { uri: 'file:///w_main.sru', budgetMs: 25 }, 789);
+
+    assert.equal(result.degraded?.state, 'timeout');
+    assert.match(result.degraded?.reason ?? '', /25ms/i);
   });
 });

@@ -1,13 +1,13 @@
-import { Position, CompletionItem } from 'vscode-languageserver/node';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import type { Position, CompletionItem } from 'vscode-languageserver/node';
+import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 
-import { KnowledgeBase } from '../knowledge/KnowledgeBase';
-import { SystemCatalog } from '../knowledge/system/SystemCatalog';
-import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
+import type { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import type { SystemCatalog } from '../knowledge/system/SystemCatalog';
+import type { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import type { HotContextCache } from '../knowledge/HotContextCache';
 import type { DocumentationLocale } from '../knowledge/system/localization';
-import { Entity, EntityKind } from '../knowledge/types';
+import { EntityKind, type Entity } from '../knowledge/types';
 import { getDocumentAnalysis } from '../analysis/analysisCache';
 import { CharType } from '../utils/comments';
 import { resolveCatalogOwnerTypes } from './dataWindowBindingModel';
@@ -136,6 +136,7 @@ function getMembersForCompletion(
 ): Entity[] {
   const cacheKey = typeName.toLowerCase();
   const targetEpoch = semanticEpoch ?? kb.semanticEpoch;
+
   if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === targetEpoch) {
     const cached = hotContext.getInheritedMembers(cacheKey);
     if (cached) {
@@ -144,9 +145,11 @@ function getMembersForCompletion(
   }
 
   const members = graph.getMembers(typeName);
+
   if (hotContext && hotContext.getActiveUri() === currentUri && hotContext.getSemanticEpoch() === targetEpoch) {
     hotContext.setInheritedMembers(cacheKey, members);
   }
+
   return members;
 }
 
@@ -162,15 +165,23 @@ export function provideCompletion(
   providerContext?: CompletionProviderContext,
 ): CompletionItem[] | null {
   const snapshot = getDocumentAnalysis(document).snapshot;
-  const lineText = snapshot.maskedText.lines[position.line].substring(0, position.character);
+  const rawLineText = snapshot.maskedText.lines[position.line] ?? '';
+  const lineText = rawLineText.substring(0, position.character);
   const resolveContext = createCompletionResolveContext(document, kb, documentationLocale, providerContext);
   const facade = createSemanticQueryFacade({ kb, graph, systemCatalog, hotContext });
+  const semanticEpoch = kbVersion;
 
-  const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(document, position, systemCatalog, documentationLocale, resolveContext);
+  const dataWindowExpressionCompletion = provideDataWindowExpressionCompletion(
+    document,
+    position,
+    systemCatalog,
+    documentationLocale,
+    resolveContext,
+  );
   if (dataWindowExpressionCompletion) {
     return dataWindowExpressionCompletion;
   }
-  
+
   const dataWindowCompletion = provideDataWindowCompletionAdapter({
     document,
     position,
@@ -183,11 +194,13 @@ export function provideCompletion(
     return dataWindowCompletion;
   }
 
-  const mask = snapshot.maskedText.masks[position.line];
-  
-  // If the character before the cursor is a comment or string, we should probably not show completions
-  // unless we are specifically in a string-only completion context (not yet implemented)
-  if (position.character > 0 && mask && (mask[position.character - 1] === CharType.Comment || mask[position.character - 1] === CharType.String)) {
+  const mask = snapshot.maskedText.masks[position.line] ?? [];
+
+  // DataWindow-specific completion is intentionally evaluated before generic string/comment blocking.
+  if (
+    position.character > 0
+    && (mask[position.character - 1] === CharType.Comment || mask[position.character - 1] === CharType.String)
+  ) {
     return null;
   }
 
@@ -198,6 +211,7 @@ export function provideCompletion(
     const ownerType = facade.resolveReceiverType(document, enumAssignmentContext.qualifier, position).ownerType ?? undefined;
     const ownerTypes = resolveCatalogOwnerTypes(ownerType, graph);
     const enumType = systemCatalog.resolveEnumeratedType(enumAssignmentContext.enumTypeName);
+
     if (ownerTypes.length > 0 && enumType) {
       const enumValueItems = createEnumeratedValueCompletionItemsForType(
         systemCatalog,
@@ -208,6 +222,7 @@ export function provideCompletion(
         documentationLocale,
         resolveContext,
       );
+
       if (enumValueItems.length > 0) {
         return enumValueItems;
       }
@@ -234,80 +249,88 @@ export function provideCompletion(
   if (qualMatch) {
     qualifier = qualMatch[1];
     identifierPrefix = (qualMatch[2] || '').toLowerCase();
-  } else {
-    if (!identifierPrefix) {
-      // If we don't match anything but we are at a whitespace, we just show global scope (no prefix)
-      // Or we can return null to not show completions everywhere.
-      // But let's allow empty prefix for now.
-    }
+  } else if (!identifierPrefix) {
+    // Empty prefix intentionally exposes global-scope completions.
   }
-  
+
   const queryContext = facade.createPositionContext(document, position, { consumer: 'completion', traceLabel: 'completion' });
   const { currentUri, documentEntities, currentMainObject } = queryContext;
   const items: CompletionItem[] = [];
 
   if (qualifier) {
-    // -----------------------------------------------------
-    // SCENARIO 1: We have a qualifier (e.g. this. , ls_var.)
-    // -----------------------------------------------------
     const varType = facade.resolveReceiverType(document, qualifier, position).ownerType ?? undefined;
     if (varType) {
       let members: Entity[] = [];
       let catalogOwnerType = varType;
 
       if (varType.toLowerCase() === 'super' && currentMainObject?.baseTypeName) {
-        members = getMembersForCompletion(currentMainObject.baseTypeName, currentUri, kb, graph, hotContext, kbVersion);
+        members = getMembersForCompletion(currentMainObject.baseTypeName, currentUri, kb, graph, hotContext, semanticEpoch);
         catalogOwnerType = currentMainObject.baseTypeName;
       } else if (varType.toLowerCase() === 'this' && currentMainObject) {
-        members = getMembersForCompletion(currentMainObject.name, currentUri, kb, graph, hotContext, kbVersion);
+        members = getMembersForCompletion(currentMainObject.name, currentUri, kb, graph, hotContext, semanticEpoch);
         catalogOwnerType = currentMainObject.name;
       } else {
-        members = getMembersForCompletion(varType, currentUri, kb, graph, hotContext, kbVersion);
+        members = getMembersForCompletion(varType, currentUri, kb, graph, hotContext, semanticEpoch);
       }
 
       const catalogOwnerTypes = resolveCatalogOwnerTypes(catalogOwnerType, graph);
-
-      // Deduplicate members by name (in case of overrides, we just want to show it once in completion)
       const seen = new Set<string>();
-      for (const m of members) {
-        if (!m.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(m.name.toLowerCase())) continue;
-        seen.add(m.name.toLowerCase());
-        
-        items.push(createCompletionItem(m, COMPLETION_RANK_SORT_PREFIX['qualified-member'], resolveContext));
+
+      for (const member of members) {
+        const normalizedName = member.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
+
+        seen.add(normalizedName);
+        items.push(createCompletionItem(member, COMPLETION_RANK_SORT_PREFIX['qualified-member'], resolveContext));
       }
 
       for (const sys of systemCatalog.listMembersForOwner(catalogOwnerTypes)) {
-        if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(sys.name.toLowerCase())) continue;
-        seen.add(sys.name.toLowerCase());
+        const normalizedName = sys.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
 
+        seen.add(normalizedName);
         items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX['qualified-member'], documentationLocale, resolveContext));
       }
 
       for (const sys of systemCatalog.listEventsForOwner(catalogOwnerTypes)) {
-        if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(sys.name.toLowerCase())) continue;
-        seen.add(sys.name.toLowerCase());
+        const normalizedName = sys.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
 
+        seen.add(normalizedName);
         items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX['qualified-member'], documentationLocale, resolveContext));
       }
     }
   } else {
-    // -----------------------------------------------------
-    // SCENARIO 2: No qualifier (e.g. just started typing)
-    // -----------------------------------------------------
-
     const seen = new Set<string>();
 
-    // 1. Local variables
     const scope = kb.getScopeAtReadonly(currentUri, position.line);
     if (scope) {
       for (const local of scope.symbols) {
-        if (!local.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(local.name.toLowerCase())) continue;
-        seen.add(local.name.toLowerCase());
-        
+        const normalizedName = local.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
+
+        seen.add(normalizedName);
+
         const priority = local.scope === 'Argumento'
           ? COMPLETION_RANK_SORT_PREFIX.argument
           : COMPLETION_RANK_SORT_PREFIX.local;
@@ -315,35 +338,49 @@ export function provideCompletion(
       }
     }
 
-    // 2. Members of 'this'
     if (currentMainObject) {
-      const members = getMembersForCompletion(currentMainObject.name, currentUri, kb, graph, hotContext, kbVersion);
-      for (const m of members) {
-        if (!m.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(m.name.toLowerCase())) continue;
-        seen.add(m.name.toLowerCase());
-        
-        const priority = m.scope === 'Compartida'
+      const members = getMembersForCompletion(currentMainObject.name, currentUri, kb, graph, hotContext, semanticEpoch);
+      for (const member of members) {
+        const normalizedName = member.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
+
+        seen.add(normalizedName);
+
+        const priority = member.scope === 'Compartida'
           ? COMPLETION_RANK_SORT_PREFIX['current-shared-member']
           : COMPLETION_RANK_SORT_PREFIX['current-instance-member'];
-        items.push(createCompletionItem(m, priority, resolveContext));
+        items.push(createCompletionItem(member, priority, resolveContext));
       }
     }
 
-    // 3. Global and System symbols
     for (const sys of systemCatalog.listGlobalFunctions()) {
-      if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
-      if (seen.has(sys.name.toLowerCase())) continue;
-      seen.add(sys.name.toLowerCase());
+      const normalizedName = sys.name.toLowerCase();
+      if (!normalizedName.startsWith(identifierPrefix)) {
+        continue;
+      }
+      if (seen.has(normalizedName)) {
+        continue;
+      }
 
+      seen.add(normalizedName);
       items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX.global, documentationLocale, resolveContext));
     }
 
     for (const sys of systemCatalog.listStatements()) {
-      if (!sys.name.toLowerCase().startsWith(identifierPrefix)) continue;
-      if (seen.has(sys.name.toLowerCase())) continue;
-      seen.add(sys.name.toLowerCase());
+      const normalizedName = sys.name.toLowerCase();
+      if (!normalizedName.startsWith(identifierPrefix)) {
+        continue;
+      }
+      if (seen.has(normalizedName)) {
+        continue;
+      }
 
+      seen.add(normalizedName);
       items.push(createSystemCompletionItem(sys, COMPLETION_RANK_SORT_PREFIX.global, documentationLocale, resolveContext));
     }
 
@@ -353,40 +390,108 @@ export function provideCompletion(
         const isGlobalCandidate = entity.kind === EntityKind.Type
           || (entity.kind === EntityKind.Function && !entity.containerName)
           || (entity.kind === EntityKind.Variable && entity.scope === 'Global');
+
         return isGlobalCandidate && entity.name.toLowerCase().startsWith(identifierPrefix);
       }
     })) {
-      if (seen.has(entity.name.toLowerCase())) continue;
-      seen.add(entity.name.toLowerCase());
+      const normalizedName = entity.name.toLowerCase();
+      if (seen.has(normalizedName)) {
+        continue;
+      }
 
+      seen.add(normalizedName);
       items.push(createCompletionItem(entity, COMPLETION_RANK_SORT_PREFIX.global, resolveContext));
     }
 
-    // 4. Keywords and datatypes from catalog v2 (only if prefix matches)
     if (identifierPrefix.length >= 2) {
-      appendCatalogCompletionItems(items, seen, systemCatalog.listReservedWords(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['reserved-word'], documentationLocale, resolveContext);
-      for (const kw of systemCatalog.listKeywords()) {
-        if (!kw.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(kw.name.toLowerCase())) continue;
-        seen.add(kw.name.toLowerCase());
-        items.push(createSystemCompletionItem(kw, COMPLETION_RANK_SORT_PREFIX.keyword, documentationLocale, resolveContext));
+      appendCatalogCompletionItems(
+        items,
+        seen,
+        systemCatalog.listReservedWords(),
+        identifierPrefix,
+        COMPLETION_RANK_SORT_PREFIX['reserved-word'],
+        documentationLocale,
+        resolveContext,
+      );
+
+      for (const keyword of systemCatalog.listKeywords()) {
+        const normalizedName = keyword.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
+
+        seen.add(normalizedName);
+        items.push(createSystemCompletionItem(keyword, COMPLETION_RANK_SORT_PREFIX.keyword, documentationLocale, resolveContext));
       }
-      appendCatalogCompletionItems(items, seen, systemCatalog.listPronouns(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX.pronoun, documentationLocale, resolveContext);
-      for (const dt of systemCatalog.listDatatypes()) {
-        if (!dt.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(dt.name.toLowerCase())) continue;
-        seen.add(dt.name.toLowerCase());
-        items.push(createSystemCompletionItem(dt, COMPLETION_RANK_SORT_PREFIX.datatype, documentationLocale, resolveContext));
+
+      appendCatalogCompletionItems(
+        items,
+        seen,
+        systemCatalog.listPronouns(),
+        identifierPrefix,
+        COMPLETION_RANK_SORT_PREFIX.pronoun,
+        documentationLocale,
+        resolveContext,
+      );
+
+      for (const datatype of systemCatalog.listDatatypes()) {
+        const normalizedName = datatype.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
+
+        seen.add(normalizedName);
+        items.push(createSystemCompletionItem(datatype, COMPLETION_RANK_SORT_PREFIX.datatype, documentationLocale, resolveContext));
       }
-      for (const st of systemCatalog.listSystemTypes()) {
-        if (!st.name.toLowerCase().startsWith(identifierPrefix)) continue;
-        if (seen.has(st.name.toLowerCase())) continue;
-        seen.add(st.name.toLowerCase());
-        items.push(createSystemCompletionItem(st, COMPLETION_RANK_SORT_PREFIX.datatype, documentationLocale, resolveContext));
+
+      for (const systemType of systemCatalog.listSystemTypes()) {
+        const normalizedName = systemType.name.toLowerCase();
+        if (!normalizedName.startsWith(identifierPrefix)) {
+          continue;
+        }
+        if (seen.has(normalizedName)) {
+          continue;
+        }
+
+        seen.add(normalizedName);
+        items.push(createSystemCompletionItem(systemType, COMPLETION_RANK_SORT_PREFIX.datatype, documentationLocale, resolveContext));
       }
-      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedTypes(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['enumerated-type'], documentationLocale, resolveContext);
-      appendCatalogCompletionItems(items, seen, systemCatalog.listSystemGlobals(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['system-global'], documentationLocale, resolveContext);
-      appendCatalogCompletionItems(items, seen, systemCatalog.listEnumeratedValues(), identifierPrefix, COMPLETION_RANK_SORT_PREFIX['enumerated-value'], documentationLocale, resolveContext);
+
+      appendCatalogCompletionItems(
+        items,
+        seen,
+        systemCatalog.listEnumeratedTypes(),
+        identifierPrefix,
+        COMPLETION_RANK_SORT_PREFIX['enumerated-type'],
+        documentationLocale,
+        resolveContext,
+      );
+
+      appendCatalogCompletionItems(
+        items,
+        seen,
+        systemCatalog.listSystemGlobals(),
+        identifierPrefix,
+        COMPLETION_RANK_SORT_PREFIX['system-global'],
+        documentationLocale,
+        resolveContext,
+      );
+
+      appendCatalogCompletionItems(
+        items,
+        seen,
+        systemCatalog.listEnumeratedValues(),
+        identifierPrefix,
+        COMPLETION_RANK_SORT_PREFIX['enumerated-value'],
+        documentationLocale,
+        resolveContext,
+      );
     }
   }
 
@@ -633,8 +738,13 @@ function appendCatalogCompletionItems(
 ): void {
   for (const entry of entries) {
     const normalizedName = entry.name.toLowerCase();
-    if (!normalizedName.startsWith(identifierPrefix)) continue;
-    if (seen.has(normalizedName)) continue;
+    if (!normalizedName.startsWith(identifierPrefix)) {
+      continue;
+    }
+    if (seen.has(normalizedName)) {
+      continue;
+    }
+
     seen.add(normalizedName);
     items.push(createSystemCompletionItem(entry, sortPrefix, documentationLocale, resolveContext));
   }
@@ -665,6 +775,7 @@ function createEnumeratedValueCompletionItemsForType(
 ): CompletionItem[] {
   const items: CompletionItem[] = [];
   const seen = new Set<string>();
+
   appendCatalogCompletionItems(
     items,
     seen,
@@ -676,6 +787,7 @@ function createEnumeratedValueCompletionItemsForType(
     documentationLocale,
     resolveContext,
   );
+
   return items;
 }
 
@@ -702,6 +814,7 @@ function createEnumeratedValueCompletionItemsForCallArgument(
 
   const items: CompletionItem[] = [];
   const seen = new Set<string>();
+
   appendCatalogCompletionItems(
     items,
     seen,
@@ -711,6 +824,7 @@ function createEnumeratedValueCompletionItemsForCallArgument(
     documentationLocale,
     resolveContext,
   );
+
   return items;
 }
 

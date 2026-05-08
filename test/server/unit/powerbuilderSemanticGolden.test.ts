@@ -367,7 +367,7 @@ suite('unit/powerbuilderSemanticGolden (B222)', () => {
     const diagnostics = validateSemantics(document, kb, catalog, graph);
     const dynamic = diagnostics.find((diagnostic) => diagnostic.message.includes('asignación dinámica de DataObject'));
     assert.ok(dynamic);
-    assert.equal(dynamic?.severity, 3);
+    assert.equal(dynamic?.severity, 4);
 
     assert.ok(compareSourceOriginPriority('solution-source', 'orca-staging') < 0);
     assert.equal(pickPreferredSourceOrigin('orca-staging', 'workspace-ws_objects'), 'workspace-ws_objects');

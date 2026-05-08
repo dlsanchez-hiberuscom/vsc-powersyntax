@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const reportDir = path.join(repoRoot, 'artifacts', 'performance');
 const reportPath = path.join(reportDir, 'architecture-rapid-gate.json');
+const conformanceReportPath = path.join(reportDir, 'architecture-conformance-report.json');
 const nodeCommand = process.execPath;
+const conformanceScannerEntry = path.join(repoRoot, 'tools', 'architecture-conformance-scanner.mjs');
 const tscEntry = path.join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc');
 const vscodeTestEntry = path.join(repoRoot, 'node_modules', '@vscode', 'test-cli', 'out', 'bin.mjs');
 
@@ -47,6 +49,14 @@ function summarizeOutput(output) {
 function writeReport(payload) {
   mkdirSync(reportDir, { recursive: true });
   writeFileSync(reportPath, JSON.stringify(payload, null, 2));
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function runCommand(command, args) {
@@ -90,6 +100,35 @@ const availability = Object.fromEntries(
   Object.entries(corpora).map(([key, rootPath]) => [key, corpusStatus(rootPath)]),
 );
 
+const steps = [];
+
+console.log('[arch-gate] Running architecture conformance scanner');
+const conformanceResult = await runCommand(nodeCommand, [
+  conformanceScannerEntry,
+  '--json',
+  '--output',
+  conformanceReportPath,
+]);
+const conformanceReport = tryParseJson(conformanceResult.stdout);
+
+steps.push({
+  name: 'architecture-conformance',
+  exitCode: conformanceResult.code,
+  reportPath: path.relative(repoRoot, conformanceReportPath).replace(/\\/g, '/'),
+  summary: conformanceReport?.summary ?? null,
+});
+
+if (conformanceResult.code !== 0) {
+  writeReport({
+    status: 'failed',
+    generatedAt: new Date().toISOString(),
+    availability,
+    failedStep: 'architecture-conformance',
+    steps,
+  });
+  process.exit(conformanceResult.code);
+}
+
 console.log('[arch-gate] Corpus availability');
 for (const [name, info] of Object.entries(availability)) {
   console.log(`[arch-gate] ${name}: ${info.present ? 'present' : 'missing'} (${info.path})`);
@@ -97,14 +136,14 @@ for (const [name, info] of Object.entries(availability)) {
 
 if (!Object.values(availability).some((info) => info.present)) {
   const report = {
-    status: 'skipped',
+    status: 'passed-with-skips',
     generatedAt: new Date().toISOString(),
     availability,
-    reason: 'No hay corpus locales PFC/STD disponibles.',
-    steps: [],
+    reason: 'No hay corpus locales PFC/STD disponibles; el scanner de conformance sí se ejecutó.',
+    steps,
   };
   writeReport(report);
-  console.log(`[arch-gate] No hay corpus locales; gate marcado como skipped. Report: ${reportPath}`);
+  console.log(`[arch-gate] No hay corpus locales; gate marcado como passed-with-skips. Report: ${reportPath}`);
   process.exit(0);
 }
 
@@ -130,8 +169,6 @@ if (testBuildResult.code !== 0) {
   });
   process.exit(testBuildResult.code);
 }
-
-const steps = [];
 
 if (availability.pfcWorkspace.present || availability.pfcSolution.present) {
   console.log(`[arch-gate] Running smoke suites filtered by ${smokeGrep}`);

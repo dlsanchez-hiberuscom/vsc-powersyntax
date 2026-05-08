@@ -12,11 +12,11 @@ export const globalFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
             summary: 'Muestra un cuadro de mensaje y devuelve el botón pulsado.',
         },
         parameters: [
-            { signatureLabel: 'MessageBox(title, text, icon?, button?, default?)', parameterName: 'title', documentation: 'Título de la ventana de mensaje.' },
-            { signatureLabel: 'MessageBox(title, text, icon?, button?, default?)', parameterName: 'text', documentation: 'Texto principal que se muestra al usuario.' },
-            { signatureLabel: 'MessageBox(title, text, icon?, button?, default?)', parameterName: 'icon?', documentation: 'Icono opcional del cuadro de mensaje.' },
-            { signatureLabel: 'MessageBox(title, text, icon?, button?, default?)', parameterName: 'button?', documentation: 'Conjunto opcional de botones.' },
-            { signatureLabel: 'MessageBox(title, text, icon?, button?, default?)', parameterName: 'default?', documentation: 'Botón por defecto opcional.' }
+            { signatureLabel: 'MessageBox(title, text, icon, button, default)', parameterName: 'title', documentation: 'Título de la ventana de mensaje.' },
+            { signatureLabel: 'MessageBox(title, text, icon, button, default)', parameterName: 'text', documentation: 'Texto principal que se muestra al usuario.' },
+            { signatureLabel: 'MessageBox(title, text, icon, button, default)', parameterName: 'icon', documentation: 'Icono opcional del cuadro de mensaje.' },
+            { signatureLabel: 'MessageBox(title, text, icon, button, default)', parameterName: 'button', documentation: 'Conjunto opcional de botones.' },
+            { signatureLabel: 'MessageBox(title, text, icon, button, default)', parameterName: 'default', documentation: 'Botón por defecto opcional.' }
         ]
     },
     {
@@ -62,7 +62,18 @@ export const globalFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'global-functions', kind: 'callable', namespace: 'powerscript', invocation: 'global', name: 'IsNull' },
-        text: { summary: 'Devuelve TRUE si la variable es NULL.' },
+        text: {
+            summary: 'Indica si una variable o expresion contiene null.',
+            documentation: 'Usa IsNull para validar entradas del usuario, resultados recuperados o valores intermedios antes de seguir con logica que no acepta null.',
+            usageNotes: [
+                'En validaciones de datos recuperados, IsNull evita tratar null como si fuera un valor real.',
+                'Para asignar null de forma explicita a una variable, usa SetNull antes de volver a evaluarla con IsNull.',
+            ],
+            returnDocumentation: 'Boolean. Devuelve true si any es null y false en caso contrario.',
+        },
+        parameters: [
+            { signatureLabel: 'IsNull ( any )', parameterName: 'any', documentation: 'Variable o expresion que quieres verificar si es NULL.' },
+        ],
     },
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
@@ -538,7 +549,14 @@ export const globalFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'global-functions', kind: 'callable', namespace: 'powerscript', invocation: 'global', name: 'Abs' },
-        text: { summary: 'Devuelve el valor absoluto.' },
+        text: {
+            summary: 'Calcula el valor absoluto de un numero.',
+            documentation: 'Usa Abs cuando necesites conservar el tipo numerico y obtener siempre la magnitud positiva del valor.',
+            returnDocumentation: 'Devuelve el mismo tipo de dato de n con su valor absoluto. Si n es null, devuelve null.',
+        },
+        parameters: [
+            { signatureLabel: 'Abs ( n )', parameterName: 'n', documentation: 'Numero del que quieres obtener el valor absoluto.' },
+        ],
     },
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
@@ -857,7 +875,18 @@ export const globalFunctionsLocalization: PbSystemSymbolLocalizationOverlay[] = 
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'global-functions', kind: 'callable', namespace: 'powerscript', invocation: 'global', name: 'Len' },
-        text: { summary: 'Devuelve la longitud de una cadena.' },
+        text: {
+            summary: 'Devuelve la longitud de una cadena o blob.',
+            documentation: 'Usa Len para medir texto visible o buffers binarios sin convertir el valor a otro datatype antes de inspeccionarlo.',
+            usageNotes: [
+                'En strings, Len cuenta caracteres y no incluye el terminador null.',
+                'En blobs, el tamano reportado depende de como se haya dimensionado o poblado el valor.',
+            ],
+            returnDocumentation: 'Long. Devuelve la longitud de stringorblob o -1 si ocurre un error. Si stringorblob es null, Len devuelve null.',
+        },
+        parameters: [
+            { signatureLabel: 'Len ( stringorblob )', parameterName: 'stringorblob', documentation: 'Cadena o blob cuya longitud quieres conocer.' },
+        ],
     },
     {
         locale: 'es', reviewed: true, source: 'manual-curated',

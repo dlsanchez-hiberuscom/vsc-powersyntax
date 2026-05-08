@@ -4,22 +4,12 @@ import {
   Position
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
-import { PbSystemSymbolEntry } from '../knowledge/system/types';
 import type { HotContextCache } from '../knowledge/HotContextCache';
-import {
-  getDisplayDocumentation,
-  getDisplayObsoleteMessage,
-  getDisplayParameterDocumentation,
-  getDisplayReturnDocumentation,
-  getDisplaySummary,
-  getDisplayUsageNotes,
-  type DocumentationLocale,
-} from '../knowledge/system/localization';
-import { EntityKind } from '../knowledge/types';
+import type { DocumentationLocale } from '../knowledge/system/localization';
+import { EntityKind, type Entity } from '../knowledge/types';
 import { resolveCatalogOwnerTypes } from './dataWindowBindingModel';
 import { provideDataWindowHoverAdapter } from './dataWindowServingAdapters';
 import { buildHierarchyInspection } from './hierarchyInspection';
@@ -39,7 +29,7 @@ import { CharType, stripCommentsSmart } from '../utils/comments';
 import { findPowerBuilderIdentifierSpan, type IdentifierSpan } from '../utils/pbIdentifier';
 
 function buildLifecycleHoverBlock(
-  entity: import('../knowledge/types').Entity,
+  entity: Entity,
   kb: KnowledgeBase,
   graph: InheritanceGraph,
   catalog: SystemCatalog
@@ -60,6 +50,7 @@ function buildLifecycleHoverBlock(
 
   const inspection = buildHierarchyInspection(focusType, graph, kb, catalog);
   const lines: string[] = ['', '**Lifecycle**'];
+  const formatBooleanEs = (value: boolean): string => value ? 'sí' : 'no';
 
   if (eventName === 'create' || eventName === 'destroy') {
     const phase = inspection.lifecycle.find((entry) => entry.phase === eventName);
@@ -69,11 +60,13 @@ function buildLifecycleHoverBlock(
 
     lines.push(`- Fase: ${phase.phase}`);
     lines.push(`- Declarado en: ${phase.declaredIn ?? 'origen desconocido'}`);
-    lines.push(`- call super::${phase.phase}: ${phase.callsAncestor ? 'sí' : 'no'}`);
+    lines.push(`- call super::${phase.phase}: ${formatBooleanEs(phase.callsAncestor)}`);
     lines.push(`- Hook: ${phase.triggersHook ? `${phase.triggersHook}${phase.hookResolved ? ` → ${phase.hookDeclaredIn ?? 'origen desconocido'}` : ' no resuelto'}` : 'sin trigger explícito'}`);
+
     for (const warning of phase.warnings) {
-      lines.push(`- Warning: ${warning}`);
+      lines.push(`- Advertencia: ${warning}`);
     }
+
     return lines.join('\n');
   }
 
@@ -84,17 +77,18 @@ function buildLifecycleHoverBlock(
 
   lines.push(`- Hook: ${eventName}`);
   lines.push(`- Disparado desde: ${relatedPhase.phase}`);
-  lines.push(`- call super::${relatedPhase.phase}: ${relatedPhase.callsAncestor ? 'sí' : 'no'}`);
+  lines.push(`- call super::${relatedPhase.phase}: ${formatBooleanEs(relatedPhase.callsAncestor)}`);
   lines.push(`- Declarado en hook: ${relatedPhase.hookDeclaredIn ?? 'origen desconocido'}`);
+
   for (const warning of relatedPhase.warnings) {
-    lines.push(`- Warning: ${warning}`);
+    lines.push(`- Advertencia: ${warning}`);
   }
 
   return lines.join('\n');
 }
 
 function buildDataWindowHoverBlock(
-  entity: import('../knowledge/types').Entity,
+  entity: Entity,
   kb: KnowledgeBase
 ): string | null {
   if (entity.kind !== EntityKind.Type || (entity.baseTypeName ?? '').toLowerCase() !== 'datawindow') {
@@ -107,17 +101,24 @@ function buildDataWindowHoverBlock(
   }
 
   const lines: string[] = ['', '**DataWindow Safe Mode**'];
+
   if (summary.retrieve) {
     lines.push(`- SQL base: \`${summary.retrieve}\``);
   }
+
   if (summary.retrieveArguments.length > 0) {
-    lines.push(`- Args retrieve: ${summary.retrieveArguments.map((argument) => `\`${argument.label}\``).join(', ')}`);
+    lines.push(`- Argumentos retrieve: ${summary.retrieveArguments.map((argument) => `\`${argument.label}\``).join(', ')}`);
   }
+
   if (summary.columns.length > 0) {
-    const preview = summary.columns.slice(0, 4).map((column) => `\`${column.name}: ${column.type}\``).join(', ');
+    const preview = summary.columns
+      .slice(0, 4)
+      .map((column) => `\`${column.name}: ${column.type}\``)
+      .join(', ');
     const suffix = summary.columns.length > 4 ? ` (+${summary.columns.length - 4} más)` : '';
     lines.push(`- Columnas: ${preview}${suffix}`);
   }
+
   if (summary.bands.length > 0) {
     lines.push(`- Bandas: ${summary.bands.map((band) => `\`${band}\``).join(', ')}`);
   }
@@ -150,9 +151,13 @@ function extractHoverMarkdownValue(hover: Hover): string {
   if (typeof hover.contents === 'string') {
     return hover.contents;
   }
+
   if (Array.isArray(hover.contents)) {
-    return hover.contents.map((entry) => typeof entry === 'string' ? entry : ('value' in entry ? entry.value : '')).join('\n');
+    return hover.contents
+      .map((entry) => typeof entry === 'string' ? entry : ('value' in entry ? entry.value : ''))
+      .join('\n');
   }
+
   return hover.contents.value;
 }
 
@@ -165,6 +170,7 @@ function getDocumentLineText(document: TextDocument, line: number): string {
   const end = line < document.lineCount - 1
     ? Position.create(line + 1, 0)
     : Position.create(line, Number.MAX_SAFE_INTEGER);
+
   return document.getText({ start, end }).replace(/\r?\n$/, '');
 }
 
@@ -183,12 +189,14 @@ function resolveHoverNegativeReason(
   if (maskAtCursor === CharType.Comment) {
     return { reason: 'comment', token: 'comment', definitive: true };
   }
+
   if (maskAtCursor === CharType.String) {
     return { reason: 'string', token: 'string', definitive: false };
   }
 
   if (!token) {
     const probe = lineText[position.character] ?? lineText[Math.max(0, position.character - 1)] ?? '';
+
     return {
       reason: probe.trim().length === 0 ? 'whitespace' : 'separator',
       token: probe.trim().length === 0 ? 'whitespace' : probe,
@@ -230,6 +238,7 @@ function isQualifiedHoverToken(probe: HoverTokenProbe): boolean {
 
   const previous = probe.lineText[probe.token.start - 1] ?? '';
   const beforePrevious = probe.lineText[probe.token.start - 2] ?? '';
+
   return previous === '.' || (previous === ':' && beforePrevious === ':');
 }
 
@@ -244,6 +253,7 @@ function resolveCatalogHoverByToken(
 
   const cacheToken = probe.token.word.toLowerCase();
   const systemSymbols = catalog.findSystemSymbol(probe.token.word);
+
   if (systemSymbols.length > 0) {
     return {
       kind: 'viewmodel',
@@ -298,6 +308,7 @@ export function buildHoverPresentationResult(
     hotContext,
     activeSnapshot,
   });
+
   if (dataWindowHover) {
     return {
       kind: 'viewmodel',
@@ -316,23 +327,27 @@ export function buildHoverPresentationResult(
   const semanticFacade = createSemanticQueryFacade({ kb, graph, systemCatalog: catalog, hotContext });
   const result = semanticFacade.resolveTarget(document, position, { traceLabel: 'hover', consumer: 'hover' });
   const cacheToken = result.query.identifier?.toLowerCase() ?? tokenProbe?.token.word.toLowerCase() ?? 'hover';
-  
+
   if (!result.target && result.kind === 'unknown') {
-    return { kind: 'negative', reason: negativeProbe?.reason ?? 'unresolved', cacheToken: negativeProbe?.token ?? cacheToken };
+    return {
+      kind: 'negative',
+      reason: negativeProbe?.reason ?? 'unresolved',
+      cacheToken: negativeProbe?.token ?? cacheToken,
+    };
   }
 
-  if (result.kind === 'workspace-symbol' && result.target) {
+  if ((result.kind === 'workspace-symbol' || result.kind === 'external-native') && result.target) {
     const definition = result.target;
     const lifecycleLines = splitMarkdownBlock(buildLifecycleHoverBlock(definition, kb, graph, catalog));
     const dataWindowLines = splitMarkdownBlock(buildDataWindowHoverBlock(definition, kb));
-    
+
     return {
       kind: 'viewmodel',
       viewModel: buildUserHoverViewModel(definition, {
         confidence: result.confidence.level as any,
         reasonCode: result.reasons[0],
         ambiguous: (result.alternatives?.ambiguousTargets?.length ?? 0) > 0,
-        ambiguityKind: result.degraded?.state === 'cap-reached' ? 'distance-minimum' : undefined, // Simplificación
+        ambiguityKind: result.degraded?.state === 'cap-reached' ? 'distance-minimum' : undefined,
         targetCount: 1 + (result.alternatives?.ambiguousTargets?.length ?? 0),
       }, {
         detailLines: [...lifecycleLines, ...dataWindowLines],
@@ -342,7 +357,7 @@ export function buildHoverPresentationResult(
     };
   }
 
-  // Fallback a sistema si no es workspace-symbol o si es un system-symbol resuelto por la fachada
+  // System fallback when the facade does not return a workspace symbol.
   const identifier = result.query.identifier ?? tokenProbe?.token.word ?? '';
   const qualifier = result.query.qualifier;
 
@@ -357,6 +372,7 @@ export function buildHoverPresentationResult(
   const systemSymbols = qualifier
     ? (ownerScopedSymbol ? [ownerScopedSymbol] : [])
     : catalog.findSystemSymbol(identifier);
+
   if (systemSymbols.length > 0) {
     return {
       kind: 'viewmodel',
@@ -386,7 +402,7 @@ export function buildHoverPresentationResult(
 }
 
 /**
- * Provee la información de Hover cuando el usuario pone el ratón sobre una palabra.
+ * Provides Hover information when the user hovers over a PowerBuilder symbol.
  */
 export function provideHover(
   document: TextDocument,
@@ -408,6 +424,7 @@ export function provideHover(
     documentationLocale,
     activeSnapshot,
   );
+
   if (presentation.kind === 'negative') {
     return null;
   }
@@ -415,7 +432,7 @@ export function provideHover(
   return {
     contents: {
       kind: MarkupKind.Markdown,
-      value: formatHoverViewModel(presentation.viewModel)
-    }
+      value: formatHoverViewModel(presentation.viewModel),
+    },
   };
 }

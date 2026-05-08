@@ -4,6 +4,7 @@ import { Position } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { createSemanticQueryFacade } from '../../../src/server/features/semanticQueryFacade';
+import { getQueryConsumerPolicy, type QueryConsumerId } from '../../../src/server/features/queryScopePolicy';
 import { KnowledgeBase } from '../../../src/server/knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../../../src/server/knowledge/resolution/InheritanceGraph';
 import { buildSymbolKey } from '../../../src/server/knowledge/symbolKey';
@@ -142,6 +143,39 @@ suite('unit/semanticQueryFacade', () => {
     const inheritance = facade.resolveInheritance('w_main');
     assert.deepEqual(inheritance.ancestors, ['w_base']);
     assert.ok(inheritance.memberClosure.some((entry) => entry.entity.name === 'of_Base' && entry.relation === 'inherited'));
+  });
+
+  test('resolveTarget refleja policy efectiva, budget, cap e identificador por consumer', () => {
+    const document = TextDocument.create('file:///w_main.sru', 'powerbuilder', 1, 'this.of_SetData("x")');
+    const facade = createSemanticQueryFacade({ kb, graph, systemCatalog });
+    const position = Position.create(0, document.getText().indexOf('of_SetData') + 1);
+    const consumers: QueryConsumerId[] = [
+      'hover',
+      'completion',
+      'references',
+      'rename',
+      'diagnostics-unresolved-callable',
+    ];
+
+    for (const consumer of consumers) {
+      const result = facade.resolveTarget(document, position, { consumer, traceLabel: consumer });
+      const policy = getQueryConsumerPolicy(consumer);
+
+      assert.equal(result.query.consumer, consumer);
+      assert.equal(result.query.identifier, 'of_SetData');
+      assert.equal(result.query.qualifier, 'this');
+      assert.deepEqual(result.query.sourceOriginPolicy, {
+        allowStaging: policy.allowStaging,
+        allowGenerated: policy.allowGenerated,
+        allowExternal: policy.allowExternal,
+      });
+      assert.equal(result.query.budgetMs, policy.budgetMs);
+      assert.equal(result.query.resultCap, policy.resultCap);
+    }
+
+    const labelOnly = facade.resolveTarget(document, position, { traceLabel: 'hover' });
+    assert.equal(labelOnly.query.consumer, 'hover');
+    assert.equal(labelOnly.query.budgetMs, getQueryConsumerPolicy('hover').budgetMs);
   });
 
   test('expone enum context y built-ins catalog owner-aware desde SystemCatalog', () => {

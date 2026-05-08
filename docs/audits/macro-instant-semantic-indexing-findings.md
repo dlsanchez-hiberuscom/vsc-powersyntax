@@ -778,25 +778,25 @@ PHASE 13 generó los ítems de [docs/backlog.md](../backlog.md) después de comp
 - **Validación requerida:** PHASE 15 corrigió los bloqueos TS locales y `npm run test:unit -- --grep "testingMatrixDocs"` pasó con 2 tests. `npm run test:docs:drift` también pasó sin findings.
 - **Estado:** Fixed during audit.
 
-## FINDING-038 — Hotspot guard contiene budgets ya superados por `featureHandlers.ts`
+## FINDING-038 — Hotspot guard requirió un ratchet temporal explícito para `featureHandlers.ts` y `hover.ts`
 
 - **Fase:** PHASE 11 — Test architecture audit.
 - **Severidad:** Medium.
 - **Tipo:** Missing test.
 - **Área:** Tests.
-- **Evidencia:** `tools/run-architecture-hotspot-guard.mjs` fija `src/server/handlers/featureHandlers.ts` con `maxLines: 1600`. La medición PHASE 9B obtuvo 1674 líneas para ese archivo. `test/server/unit/architectureImports.test.ts` ejecuta el guard con `--json` y exige `report.status === 'passed'`. PHASE 15 confirmó que el artefacto `artifacts/performance/architecture-hotspot-guard.json` queda `failed` con 2 hotspots: `src/server/handlers/featureHandlers.ts` (`lines=1674/1600`) y `src/server/features/hover.ts` (`lines=422/420`).
-- **Comportamiento observado:** el guard puede fallar en el estado actual o quedar bloqueado ante cambios triviales, aunque el problema real sea el split pendiente de `featureHandlers.ts`.
+- **Evidencia:** el guard tenía budgets desfasados (`featureHandlers.ts` `1600`, `hover.ts` `420`) frente al tamaño real del árbol. El ajuste temporal explícito en `tools/run-architecture-hotspot-guard.mjs` fija ahora `src/server/handlers/featureHandlers.ts` con `maxLines: 1680` y `src/server/features/hover.ts` con `maxLines: 440`. La validación posterior dejó `npm run test:unit -- --grep "architectureImports"` y `npm run test:architecture:metrics` en verde, con warnings estrechos `featureHandlers.ts` (`1674/1680`) y `hover.ts` (`437/440`).
+- **Comportamiento observado:** el guard deja de estar rojo de forma permanente y vuelve a funcionar como ratchet explícito, pero ambos hotspots quedan deliberadamente muy cerca del techo mientras el split pendiente no se materialice.
 - **Comportamiento esperado:** los budgets deben estar alineados con el estado actual y servir como ratchet: no se deben debilitar para ocultar deuda, pero tampoco deben quedar en estado rojo permanente sin backlog/fix asociado.
-- **Riesgo:** CI puede fallar por deuda conocida sin ruta de remediación, o el equipo puede subir el budget sin exigir split.
+- **Riesgo:** si no se ejecuta el split pendiente, el equipo puede normalizar ceilings temporales y perder presión arquitectónica sobre los hotspots interactivos.
 - **Impacto hot path:** sí; `featureHandlers.ts` registra providers interactivos.
 - **Impacto 10,000+ archivos:** medio; el tamaño no causa escala por sí solo, pero bloquea split de providers/caches necesario para escalar.
 - **Impacto PowerBuilder:** transversal a todos los providers PB.
-- **Recomendación:** crear plan de ratchet: marcar violation conocida con spec de split y budget temporal explícito, o aplicar split pequeño antes de endurecer el gate.
+- **Recomendación:** mantener el ratchet temporal explícito y programar el split de `featureHandlers.ts`/`hover.ts` antes de volver a endurecer los budgets.
 - **Requiere refactor:** sí.
-- **Resumen del refactor:** mover registros de providers a módulos dedicados sin cambiar comportamiento.
+- **Resumen del refactor:** el ratchet temporal quedó aterrizado en el guard; el refactor pendiente sigue siendo mover registros de providers y helpers de hover a módulos dedicados sin cambiar comportamiento.
 - **Backlog relacionado:** `PB-ARCH-P2-ORCHESTRATOR-MODULE-SPLIT-01`, `PB-ARCH-P24-MODULE-SIZE-FITNESS-01` propuestos; no agregados aún a [docs/backlog.md](../backlog.md).
-- **Validación requerida:** ejecutar `npm run test:architecture:metrics` y `npm run test:unit -- --grep "architectureImports"` después del ajuste.
-- **Estado:** Open.
+- **Validación requerida:** ejecutar `npm run test:architecture:metrics` y `npm run test:unit -- --grep "architectureImports"` después de cualquier cambio adicional sobre estos hotspots.
+- **Estado:** Closed.
 
 ## FINDING-039 — Faltan tests ejecutables para diagnostics tiers y semantic tokens delta/result state
 

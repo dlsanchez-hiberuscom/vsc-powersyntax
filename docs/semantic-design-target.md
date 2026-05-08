@@ -17,7 +17,7 @@ Estado actual resumido:
 - `KnowledgeBase.publishedState`: implementado y es la verdad semántica actual más fuerte.
 - `PublishedSemanticSnapshot`: contrato objetivo sobre `KnowledgeBase.publishedState`; no debe implementarse como store paralelo.
 - `SemanticQueryFacade`: implementado parcialmente; hover y definition están más alineados que completion, signature help, references, diagnostics y semantic tokens.
-- `SemanticQueryResult`: contrato objetivo; pendiente de formalización técnica completa.
+- `SemanticQueryResult`: envelope activo en la facade para policy efectiva, source metadata, degraded base y evidence/reasons; la convergencia total de consumers y stale signaling de serving sigue siendo incremental.
 - `DocumentCache`, `ServingCache`, `HotContextCache` y `PresentationCache`: implementados como caches/aceleradores.
 - `NegativeCache`: concepto implementado mediante `PresentationCache` y structured keys con `cacheClass: negative`; no es módulo independiente actual.
 - `ReadOnlyReportCache`: contrato objetivo para projections/report pages; no existe necesariamente como módulo standalone. El nombre recomendado para implementación futura es `ReadOnlyProjectionCache`.
@@ -288,7 +288,7 @@ Regla de dirección: cada flecha va de input a derivación o de verdad publicada
 
 ## SemanticQueryResult
 
-- query: `{consumer, uri, position/range, identifier, qualifier, invocationKind, expectedKind, project, library, sourceOriginPolicy, budgetMs, cancellation, readiness}`.
+- query: `{consumer, uri, position/range, identifier, qualifier, invocationKind, expectedKind, project, library, sourceOriginPolicy, budgetMs, resultCap, cancellation, readiness}`.
 - target: símbolo/callable/type/DataWindow/SQL/transaction/framework advisory principal, o `null` si no resuelve.
 - kind: `workspace-symbol`, `system-symbol`, `datawindow`, `sql-anchor`, `transaction`, `external-native`, `framework-advisory`, `diagnostic`, `unknown`.
 - owner: owner lógico normalizado: object/type, container, callable, project/library o system catalog domain.
@@ -302,6 +302,8 @@ Regla de dirección: cada flecha va de input a derivación o de verdad publicada
 - cacheability: `{cacheable, cacheClass, keyParts, ttlHint, invalidation}` con epoch/fingerprint/sourceOrigin/locale cuando corresponda.
 - semanticEpoch: epoch de `PublishedSemanticSnapshot` usado; si el result cruza API pública, debe exponerse o quedar trazable en metadata.
 - consumerProjection: nombre del consumer y reglas aplicadas: fields omitidos, confidence threshold, result cap, payload budget y redaction.
+
+Estado 2026-05: el core de `SemanticQueryFacade` ya deriva `query.sourceOriginPolicy`, `budgetMs`, `resultCap`, `identifier` y `qualifier` desde la policy efectiva del consumer; `SemanticQueryResult` ya publica `source` y un `degraded` base para timeout/dynamic/low-readiness. La señal `stale` sigue viviendo hoy en la serving pipeline y todavía no es un contrato completo del facade.
 
 ### Reglas del contrato Query
 

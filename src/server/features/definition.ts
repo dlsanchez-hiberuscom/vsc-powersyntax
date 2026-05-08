@@ -17,6 +17,19 @@ function createCatalogDefinitionLocation(uri: string): Location {
   });
 }
 
+function resolveCatalogDefinitionLocation(
+  entityUri: string,
+  systemCatalog: SystemCatalog,
+): Location | null {
+  if (!entityUri.startsWith('catalog:')) {
+    return null;
+  }
+
+  const symbol = systemCatalog.getSymbolById(entityUri.replace('catalog:', ''));
+  const targetUri = symbol?.sourceUrl ?? symbol?.provenance.sourceUrl;
+  return targetUri ? createCatalogDefinitionLocation(targetUri) : createCatalogDefinitionLocation(entityUri);
+}
+
 function resolveCatalogOwnerType(
   document: TextDocument,
   position: Position,
@@ -113,8 +126,9 @@ export function provideDefinition(
 
   const allTargets = [result.target!, ...(result.alternatives?.ambiguousTargets ?? [])];
 
-  const locations = allTargets.map(entity =>
-    Location.create(
+  const locations = allTargets.map((entity) =>
+    resolveCatalogDefinitionLocation(entity.uri, catalog)
+    ?? Location.create(
       entity.uri,
       {
         start: Position.create(entity.line, entity.character),

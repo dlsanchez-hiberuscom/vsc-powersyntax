@@ -23,6 +23,70 @@ Este archivo recoge trabajo **cerrado** e hitos **históricos** que ya no deben 
 
 ---
 
+## 1.266 PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01 — **Cerrado (architecture / semantic-query / 2026-05)**
+
+**Objetivo:** Hacer que `SemanticQueryResult` refleje la policy efectiva real del consumer y que el envelope transporte metadata semántica honesta para surfaces críticas.
+
+**Resultado registrado:**
+- `src/server/features/queryContext.ts` publica la `consumerPolicy` efectiva para que la facade derive el envelope desde el mismo contrato que usa el resolver real.
+- `src/server/features/semanticQueryFacade.ts` deja de hardcodear `allowStaging/generated/external=true` y ahora copia `sourceOriginPolicy`, `budgetMs`, `resultCap`, `identifier` y `qualifier` al `SemanticQueryResult.query`.
+- `src/server/knowledge/resolution/semanticQueryResult.ts` ya materializa `source` y un `degraded` base para timeout/dynamic/low-readiness/external-unsupported; además clasifica `external-native` sin depender de presentation layers.
+- `src/server/features/rename.ts` deja de consumir `ResolvedTargetInfo` crudo en su preflight principal y usa el envelope del facade para decidir bloqueos por dependencias externas.
+- `test/server/unit/semanticQueryFacade.test.ts` y `test/server/unit/semanticQueryResult.test.ts` fijan la policy efectiva por consumer, budget/cap, source metadata y degradación por timeout/dynamic.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "semanticQueryFacade|semanticQueryResult|rename"`.
+
+---
+
+## 1.265 PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01 — **Cerrado (architecture / knowledge / 2026-05)**
+
+**Objetivo:** Hacer observablemente readonly el estado publicado de `KnowledgeBase` y mover los índices lazy fuera de `publishedState`.
+
+**Resultado registrado:**
+- `src/server/knowledge/KnowledgeBase.ts` elimina `scopeIndex` del `publishedState` y lo reubica en `scopeIndexProjection`, una proyección versionada con owner explícito `KnowledgeBase.scopeIndexProjection`.
+- `getScopeAt` y `getScopeAtReadonly` ya no escriben sobre la verdad publicada; reutilizan una proyección derivada y mantienen el contrato visible de búsqueda por scope.
+- `tools/architecture-conformance-scanner.mjs` añade la regla `published-state-write` para bloquear nuevas escrituras a `publishedState` dentro de query paths.
+- `test/server/unit/knowledgeBase.test.ts` fija la inmutabilidad observable y el owner/version de la proyección; `test/server/unit/architectureConformanceScanner.test.ts` y su fixture negativa bloquean la regresión arquitectónica.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "KnowledgeBase|architectureConformanceScanner"`.
+- `npm run test:unit -- --grep "KnowledgeBase|scope"`.
+- `npm run test:architecture:rapid`.
+
+---
+
+## 1.264 PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01 — **Cerrado (architecture / conformance / 2026-05)**
+
+**Objetivo:** Convertir los checks arquitectónicos textuales en fitness functions estructurales ejecutables y meterlos en el carril rápido de arquitectura.
+
+**Resultado registrado:**
+- `tools/architecture-conformance-scanner.mjs` construye el import graph desde AST, emite JSON estable y falla ante provider bypass, import cycles, cache contracts incompletos, parallel stores y full scans en hot paths críticos.
+- `src/server/features/signatureContext.ts` extrae utilidades compartidas de signature help para romper el ciclo real `enumeratedContext -> signatureHelp -> semanticQueryFacade`; `semanticTokens.ts` deja de importar directamente `semanticQueryService`.
+- `test/server/unit/architectureConformanceScanner.test.ts` y `test/fixtures/architecture-conformance/negative/` bloquean report-only, fail mode y las categorías negativas del scanner.
+- `tools/run-architecture-rapid-gate.mjs` ejecuta el scanner antes de smoke/performance y persiste `artifacts/performance/architecture-conformance-report.json` junto al reporte del gate rápido.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "architectureConformanceScanner|PB-ARCH-P0-SEMANTIC-CONFORMANCE-TESTS-01"`.
+- `npm run test:architecture:rapid`.
+
+---
+
+## 1.263 PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01 — **Cerrado (testing / docs-governance / 2026-05)**
+
+**Objetivo:** Alinear la matriz documental canónica de lanes de testing con los comandos reales del repositorio y con el gate documental que la valida.
+
+**Resultado registrado:**
+- `docs/testing.md` publica la sección `### 3.6 Matriz canónica de lanes` con los comandos reales de build, unit, integration, smoke, architecture, docs drift, performance y release.
+- El documento deja explícito el carril `missing: test:real-corpora` para corpora locales/privados sin fingir cobertura de CI.
+- El backlog activo deja de arrastrar este ítem una vez completada la validación focal y el cierre documental.
+
+**Validación registrada:**
+- `npm run test:unit -- --grep "testingMatrixDocs"`.
+- `npm run test:docs:drift`.
+
+---
+
 ## 1.262 PLUGIN-INFRASTRUCTURE-NLS-01 — **Cerrado (infrastructure / localization / 2026-05)**
 
 **Objetivo:** Implementar la infraestructura de internacionalización (NLS) para el cliente y el servidor de lenguaje, externalizando todas las cadenas visibles.

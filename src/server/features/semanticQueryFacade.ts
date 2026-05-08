@@ -99,6 +99,7 @@ export class SemanticQueryFacade {
     options: CreateFeatureSemanticContextOptions = {},
   ): SemanticQueryResult {
     const context = this.createPositionContext(document, position, options);
+    const effectivePolicy = context.consumerPolicy;
     const info = context.resolvedTargets ?? {
       context: context.context ?? { identifier: '' },
       targets: [],
@@ -113,15 +114,23 @@ export class SemanticQueryFacade {
     };
 
     const query: SemanticQuery = {
-      consumer: options.consumer,
+      consumer: options.consumer ?? effectivePolicy?.consumer,
       uri: document.uri,
       position: position,
+      ...(info.context.identifier ? { identifier: info.context.identifier } : {}),
+      ...(info.context.qualifier ? { qualifier: info.context.qualifier } : {}),
       invocationKind: info.invocationKind,
-      sourceOriginPolicy: {
-        allowStaging: true, // Default por ahora
-        allowGenerated: true,
-        allowExternal: true
-      }
+      ...(effectivePolicy
+        ? {
+          sourceOriginPolicy: {
+            allowStaging: effectivePolicy.allowStaging,
+            allowGenerated: effectivePolicy.allowGenerated,
+            allowExternal: effectivePolicy.allowExternal,
+          },
+          budgetMs: effectivePolicy.budgetMs,
+          resultCap: effectivePolicy.resultCap,
+        }
+        : {})
     };
 
     return toSemanticQueryResult(info, query, this.dependencies.kb.semanticEpoch);

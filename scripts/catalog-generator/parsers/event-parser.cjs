@@ -126,6 +126,52 @@ function extractExamples(html) {
     return examples.map(fixBrokenExample);
 }
 
+function mapOwnerLabelToOwnerTypes(ownerLabel) {
+    return unique(
+        splitAppliesToText(ownerLabel ?? '')
+            .flatMap(label => {
+                const normalized = normalizeLabel(label);
+                const mapped = APPLY_TO_OWNER_TYPE_OVERRIDES.get(normalized);
+
+                if (Array.isArray(mapped)) {
+                    return mapped;
+                }
+
+                if (typeof mapped === 'string') {
+                    return mapped.startsWith('__') ? [] : [mapped];
+                }
+
+                if (!normalized || normalized.includes(':') || normalized.includes('birthday')) {
+                    return [];
+                }
+
+                return [normalized.replace(/\s+controls?$/i, '').replace(/\s+objects?$/i, '').replace(/\s+/g, '')];
+            })
+            .filter(Boolean),
+    );
+}
+
+function extractAppliesToFromSectionTitle(sectionTitle) {
+    const tail = sectionTitle.match(/:\s*(?:For\s+)?([\s\S]+)$/i)?.[1];
+    if (!tail) {
+        return [];
+    }
+
+    return unique(
+        splitAppliesToText(tail.replace(/\s+controls?$/i, '').replace(/\s+objects?$/i, '')),
+    );
+}
+
+function buildEventSignatureFallback(eventName, argumentRows) {
+    const argumentNames = argumentRows
+        .map(([label]) => normalizeWhitespace(label))
+        .filter(Boolean);
+
+    return argumentNames.length > 0
+        ? [{ label: `${eventName}(${argumentNames.join(', ')})` }]
+        : [];
+}
+
 function parsePowerScriptEventPage(html, url, metadata = {}) {
     const title = extractTitle(html);
     if (title.toLowerCase().startsWith('about')) {
@@ -142,13 +188,7 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
     const eventIds = eventIdRows
         .filter(row => row.length >= 1 && row[0].toLowerCase().startsWith('pbm_'))
         .map(([id, ownerLabel]) => {
-            const normalized = normalizeLabel(ownerLabel ?? '');
-            const mapped = APPLY_TO_OWNER_TYPE_OVERRIDES.get(normalized);
-            const ownerTypes = Array.isArray(mapped) ? mapped : mapped ? [mapped] : [];
-
-            if (ownerTypes.length === 0 && normalized && normalized.includes('object') && normalized.length < 50 && !normalized.includes(':') && !normalized.includes('birthday')) {
-                ownerTypes.push(normalized.replace(/\s+objects?$/, '').trim());
-            }
+            const ownerTypes = mapOwnerLabelToOwnerTypes(ownerLabel);
 
             if (ownerTypes.length === 0 && ownerLabel && !ownerLabel.includes('  ')) {
                 unknownPowerScriptEventOwnerLabels.set(url, [ownerLabel]);
@@ -157,25 +197,36 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
             return { id: normalizeWhitespace(id), ownerTypes };
         });
 
-    const sections = [...primaryContentHtml.matchAll(/<h4 class="title">Syntax\s+\d+<\/h4>([\s\S]*?)(?=<h4 class="title">Syntax\s+\d+<\/h4>|$)/gi)];
+    const sections = [...primaryContentHtml.matchAll(/<h4 class="title">([\s\S]*?)<\/h4>([\s\S]*?)(?=<h4 class="title">[\s\S]*?<\/h4>|$)/gi)]
+        .filter(match => /^Syntax\s+\d+/i.test(normalizeWhitespace(stripTags(match[1]))));
 
     if (sections.length > 0) {
         return sections.map(match => {
-            const sectionHtml = match[1];
-            const sectionEventIdMatch = sectionHtml.match(/<p><span class="bold"><strong>Event ID<\/strong><\/span><\/p>\s*<table>[\s\S]*?<td>([\s\S]*?)<\/td>/i);
-            const sectionEventId = sectionEventIdMatch ? normalizeWhitespace(stripTags(sectionEventIdMatch[1])) : undefined;
-
-            const signatures = extractSignatureLabels(extractSectionHtml(sectionHtml, 'Syntax', [
-                'Event ID',
+            const sectionTitle = normalizeWhitespace(stripTags(match[1]));
+            const sectionHtml = match[2];
+            const sectionAppliesTo = extractAppliesToFromSectionTitle(sectionTitle);
+            const sectionEventRows = extractTableRows(extractSectionHtml(sectionHtml, 'Event ID', [
                 'Arguments',
                 'Return value',
-            ])).map(label => ({ label }));
+            ]));
+            const sectionEventIds = sectionEventRows
+                .filter(row => row.length >= 1 && row[0].toLowerCase().startsWith('pbm_'))
+                .map(([id, ownerLabel]) => ({
+                    id: normalizeWhitespace(id),
+                    ownerTypes: mapOwnerLabelToOwnerTypes(ownerLabel),
+                }));
+            const sectionEventId = sectionEventIds[0]?.id;
 
+            const signatureLabels = extractSignatureLabels(sectionHtml);
             const argumentRows = extractTableRows(extractSectionHtml(sectionHtml, 'Arguments', [
                 'Return value',
                 'Examples',
                 'See also',
             ]));
+            const signatures = (signatureLabels.length > 0
+                ? signatureLabels.map(label => ({ label }))
+                : buildEventSignatureFallback(sanitizeOfficialTitle(title), argumentRows)
+            ).map(signature => ({ ...signature }));
 
             const examples = extractExamples(sectionHtml);
 
@@ -191,18 +242,23 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
                 };
             });
 
-            const ownerTypes = unique(eventId ? [] : (eventIds.flatMap(ei => ei.ownerTypes) || []));
+            const ownerTypes = unique([
+                ...sectionAppliesTo.flatMap(label => mapOwnerLabelToOwnerTypes(label)),
+                ...sectionEventIds.flatMap(entry => entry.ownerTypes),
+            ]).sort();
 
             return {
                 name: sanitizeOfficialTitle(title),
+                title: `${sanitizeOfficialTitle(title)} — ${sectionTitle}`,
                 description,
+                appliesTo: sectionAppliesTo.length > 0 ? sectionAppliesTo : undefined,
                 eventId: sectionEventId,
-                eventIds: sectionEventId ? undefined : eventIds.length > 0 ? eventIds : undefined,
+                eventIds: sectionEventIds.length > 1 ? sectionEventIds : undefined,
                 signatures: finalSignatures,
                 sourceUrl: url,
                 obsolete: metadata.obsolete,
                 ownerInfo: {
-                    appliesTo: [],
+                    appliesTo: sectionAppliesTo,
                     ownerScope: ownerTypes.length > 0 ? 'specific' : 'any',
                     ownerTypes,
                 },
@@ -213,17 +269,20 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
 
     const examples = extractExamples(primaryContentHtml);
 
-    const signatures = extractSignatureLabels(extractSectionHtml(primaryContentHtml, 'Syntax', [
-        'Event ID',
-        'Arguments',
-        'Return value',
-    ])).map(label => ({ label }));
-
     const argumentRows = extractTableRows(extractSectionHtml(primaryContentHtml, 'Arguments', [
         'Return value',
         'Examples',
         'See also',
     ]));
+    const signatureLabels = extractSignatureLabels(extractSectionHtml(primaryContentHtml, 'Syntax', [
+                'Event ID',
+                'Arguments',
+                'Return value',
+    ]));
+    const signatures = (signatureLabels.length > 0
+        ? signatureLabels.map(label => ({ label }))
+        : buildEventSignatureFallback(sanitizeOfficialTitle(title), argumentRows)
+    ).map(signature => ({ ...signature }));
 
     const finalSignatures = signatures.map(signature => {
         const parameters = argumentRows.map(([label, documentation]) => ({
@@ -237,11 +296,12 @@ function parsePowerScriptEventPage(html, url, metadata = {}) {
         };
     });
 
-    const ownerTypes = unique(eventIds.flatMap(ei => ei.ownerTypes) || []);
+    const ownerTypes = unique(eventIds.flatMap(ei => ei.ownerTypes) || []).sort();
 
     return [{
         name: sanitizeOfficialTitle(title),
         description,
+        eventId: eventIds.length === 1 ? eventIds[0].id : undefined,
         eventIds: eventIds.length > 0 ? eventIds : undefined,
         signatures: finalSignatures,
         sourceUrl: url,

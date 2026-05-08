@@ -152,6 +152,10 @@ function collectBlockedReasons(impact: ApiImpactAnalysis): string[] {
   return blockedReasons;
 }
 
+function isPlanFileUri(uri: string): boolean {
+  return !uri.startsWith('catalog:');
+}
+
 export async function buildSafeEditPlan(
   document: TextDocument,
   request: ApiSafeEditPlanRequest | undefined,
@@ -167,11 +171,13 @@ export async function buildSafeEditPlan(
 
 export function buildSafeEditPlanFromImpact(impact: ApiImpactAnalysis): ApiSafeEditPlan {
   const blockedReasons = collectBlockedReasons(impact);
-  const files = impact.probableImpactFiles.map((file) => ({
-    uri: file.uri,
-    reason: describeFileReason(file.role),
-    risk: classifyFileRisk(file.role),
-  } satisfies ApiSafeEditPlanFile));
+  const files = impact.probableImpactFiles
+    .filter((file) => isPlanFileUri(file.uri))
+    .map((file) => ({
+      uri: file.uri,
+      reason: describeFileReason(file.role),
+      risk: classifyFileRisk(file.role),
+    } satisfies ApiSafeEditPlanFile));
 
   return {
     available: impact.available,

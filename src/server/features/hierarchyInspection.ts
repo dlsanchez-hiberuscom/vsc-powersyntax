@@ -60,6 +60,14 @@ export interface HierarchyInspectionSelectionOptions {
   workspaceState?: WorkspaceState;
 }
 
+const LIFECYCLE_PHASES: ReadonlyArray<{
+  phase: 'create' | 'destroy';
+  hook: 'constructor' | 'destructor';
+}> = [
+  { phase: 'create', hook: 'constructor' },
+  { phase: 'destroy', hook: 'destructor' },
+];
+
 function normalizeTypeName(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? '';
 }
@@ -82,10 +90,12 @@ function visitScopes(scopes: Scope[], visitor: (scope: Scope) => Scope | undefin
 
 function findEventScope(snapshot: SemanticDocumentSnapshot, ownerName: string, eventName: 'create' | 'destroy'): Scope | undefined {
   const wantedScopeId = `${normalizeTypeName(ownerName)}.${eventName}`;
+
   return visitScopes(snapshot.scopes, (scope) => {
     if (scope.id.toLowerCase() === wantedScopeId) {
       return scope;
     }
+
     return undefined;
   });
 }
@@ -99,10 +109,6 @@ function findEffectiveEvent(
     && entry.entity.name.toLowerCase() === eventName
     && !entry.overriddenByCurrentType
   );
-}
-
-function isImplicitLifecycleHook(hook: 'constructor' | 'destructor'): boolean {
-  return hook === 'constructor' || hook === 'destructor';
 }
 
 function isLifecycleDefinitionBoilerplate(
@@ -130,12 +136,7 @@ function buildLifecycleInspection(
   closure: MemberClosureEntry[],
   knowledge: HierarchyInspectionKnowledge
 ): HierarchyLifecyclePhase[] {
-  const phases: Array<{ phase: 'create' | 'destroy'; hook: 'constructor' | 'destructor' }> = [
-    { phase: 'create', hook: 'constructor' },
-    { phase: 'destroy', hook: 'destructor' }
-  ];
-
-  return phases.flatMap(({ phase, hook }) => {
+  return LIFECYCLE_PHASES.flatMap(({ phase, hook }) => {
     const lifecycleEvent = findEffectiveEvent(closure, phase);
     if (!lifecycleEvent) {
       return [];
@@ -153,21 +154,19 @@ function buildLifecycleInspection(
     const triggersHook = triggerRegex.test(body) ? hook : null;
     const hookEvent = findEffectiveEvent(closure, hook);
     const explicitHookDeclaredIn = hookEvent?.declaredIn ?? hookEvent?.entity.containerName ?? null;
-    const hookResolved = triggersHook !== null && (Boolean(hookEvent) || isImplicitLifecycleHook(hook));
-    const hookDeclaredIn = explicitHookDeclaredIn ?? (triggersHook !== null && hookResolved ? focusType : null);
+
+    // Constructor/destructor hooks are treated as implicit lifecycle hooks when explicitly triggered.
+    const hookResolved = triggersHook !== null;
+    const hookDeclaredIn = explicitHookDeclaredIn ?? (triggersHook ? focusType : null);
+
     const warnings: string[] = [];
     const ownsLifecycleEvent = normalizeTypeName(declaredIn) === normalizeTypeName(focusType);
     const ownsHook = normalizeTypeName(explicitHookDeclaredIn) === normalizeTypeName(focusType);
     const isDefinitionBoilerplate = !ownsHook && isLifecycleDefinitionBoilerplate(body, phase, hook);
-
     const hasAnyLifecycleWiring = callsAncestor || triggersHook !== null;
 
     if (!isDefinitionBoilerplate && ancestorChain.length > 0 && ownsLifecycleEvent && !hasAnyLifecycleWiring) {
       warnings.push(`missing-super-${phase}`);
-    }
-
-    if (!isDefinitionBoilerplate && triggersHook !== null && !hookResolved) {
-      warnings.push(`unresolved-${hook}`);
     }
 
     if (!isDefinitionBoilerplate && !hasAnyLifecycleWiring && ownsLifecycleEvent && ownsHook) {
@@ -181,7 +180,7 @@ function buildLifecycleInspection(
       triggersHook,
       hookResolved,
       hookDeclaredIn,
-      warnings
+      warnings,
     } satisfies HierarchyLifecyclePhase];
   });
 }
@@ -206,10 +205,10 @@ export function buildHierarchyInspection(
         own: 0,
         inherited: 0,
         override: 0,
-        inaccessible: 0
+        inaccessible: 0,
       },
       lifecycle: [],
-      lifecycleWarnings: []
+      lifecycleWarnings: [],
     };
   }
 
@@ -223,14 +222,16 @@ export function buildHierarchyInspection(
     own: 0,
     inherited: 0,
     override: 0,
-    inaccessible: 0
+    inaccessible: 0,
   };
 
   for (const entry of closure) {
     summary[entry.relation]++;
+
     if (!entry.accessible) {
       summary.inaccessible++;
     }
+
     if (entry.relation === 'inherited') {
       const key = `${entry.entity.kind}:${entry.entity.name.toLowerCase()}`;
       const siblings = inheritedByKey.get(key) ?? [];
@@ -245,13 +246,15 @@ export function buildHierarchyInspection(
     .map((entry) => {
       const key = `${entry.entity.kind}:${entry.entity.name.toLowerCase()}`;
       const inheritedFrom = inheritedByKey.get(key)?.[0]?.declaredIn ?? ancestorChain[0] ?? null;
+
       return {
         name: entry.entity.name,
         kind: entry.entity.kind,
         inheritedFrom,
-        inaccessible: !entry.accessible
+        inaccessible: !entry.accessible,
       };
     });
+
   const lifecycle = knowledge ? buildLifecycleInspection(focusType, ancestorChain, closure, knowledge) : [];
 
   return {
@@ -264,6 +267,6 @@ export function buildHierarchyInspection(
     overriddenMembers,
     closureSummary: summary,
     lifecycle,
-    lifecycleWarnings: lifecycle.flatMap((entry) => entry.warnings)
+    lifecycleWarnings: lifecycle.flatMap((entry) => entry.warnings),
   };
 }

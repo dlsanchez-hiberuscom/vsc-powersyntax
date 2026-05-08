@@ -110,6 +110,35 @@ function buildAdvisorySymbolSamples(
   return samples;
 }
 
+function resolvePackStructuralSymbols(
+  systemCatalog: SystemCatalog,
+  ownerTypes: readonly string[],
+): { members: string[]; events: string[]; all: string[] } {
+  const normalizedOwnerTypes = dedupeStrings(ownerTypes).map((ownerType) => ownerType.toLowerCase());
+  const members: string[] = [];
+  const events: string[] = [];
+
+  for (const ownerType of normalizedOwnerTypes) {
+    const typeEntries = systemCatalog.findSystemSymbol(ownerType).filter((entry) =>
+      entry.kind === 'system-type'
+      && entry.normalizedName === ownerType,
+    );
+
+    for (const entry of typeEntries) {
+      members.push(...(entry.functions ?? []));
+      events.push(...(entry.events ?? []));
+    }
+  }
+
+  const dedupedMembers = dedupeStrings(members);
+  const dedupedEvents = dedupeStrings(events);
+  return {
+    members: dedupedMembers,
+    events: dedupedEvents,
+    all: dedupeStrings([...dedupedEvents, ...dedupedMembers]),
+  };
+}
+
 function resolvePackEntries(
   systemCatalog: SystemCatalog,
   ownerTypes: readonly string[],
@@ -126,9 +155,12 @@ function resolvePackSummary(
   definition: CuratedFrameworkKnowledgePackDefinition,
 ): ApiFrameworkKnowledgePackSummary {
   const entries = resolvePackEntries(systemCatalog, definition.ownerTypes);
+  const structuralSymbols = resolvePackStructuralSymbols(systemCatalog, definition.ownerTypes);
   const advisoryMembers = dedupeStrings(definition.advisoryMembers);
   const advisoryEvents = dedupeStrings(definition.advisoryEvents);
-  const advisorySymbols = dedupeStrings([...advisoryEvents, ...advisoryMembers]);
+  const fallbackMembers = dedupeStrings([...structuralSymbols.members, ...advisoryMembers]);
+  const fallbackEvents = dedupeStrings([...structuralSymbols.events, ...advisoryEvents]);
+  const fallbackSymbols = dedupeStrings([...fallbackEvents, ...fallbackMembers]);
   const hasCatalogEntries = entries.all.length > 0;
 
   return {
@@ -137,12 +169,12 @@ function resolvePackSummary(
     title: definition.title,
     summary: definition.summary,
     ownerTypes: [...definition.ownerTypes],
-    symbolCount: hasCatalogEntries ? entries.all.length : advisorySymbols.length,
-    memberCount: hasCatalogEntries ? entries.members.length : advisoryMembers.length,
-    eventCount: hasCatalogEntries ? entries.events.length : advisoryEvents.length,
+    symbolCount: hasCatalogEntries ? entries.all.length : fallbackSymbols.length,
+    memberCount: hasCatalogEntries ? entries.members.length : fallbackMembers.length,
+    eventCount: hasCatalogEntries ? entries.events.length : fallbackEvents.length,
     symbolSamples: hasCatalogEntries
       ? buildSymbolSamples(entries.all, definition.spotlightSymbols)
-      : buildAdvisorySymbolSamples(advisoryMembers, advisoryEvents, definition.spotlightSymbols),
+      : buildAdvisorySymbolSamples(fallbackMembers, fallbackEvents, definition.spotlightSymbols),
     source: definition.source,
     ...(definition.sourceUrl ? { sourceUrl: definition.sourceUrl } : {}),
   };

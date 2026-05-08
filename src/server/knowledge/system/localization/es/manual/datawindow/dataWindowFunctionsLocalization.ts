@@ -609,9 +609,9 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Retrieve', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
         text: {
-            summary: 'Recupera filas desde la base de datos para el DataWindow o DataStore.',
-            documentation: 'Puebla el buffer primario ejecutando la sentencia SQL asociada; requiere un objeto de transacción válido previamente configurado.',
-            returnDocumentation: 'Long. Devuelve el número de filas recuperadas o -1 si ocurre un error.',
+            summary: 'Recupera filas desde la fuente de datos usando los retrieve arguments definidos y un transaction binding valido.',
+            documentation: 'Puebla el buffer primario del DataWindow, DataStore o DataWindowChild ejecutando la sentencia SQL asociada; si la fuente de datos es External, la llamada no recupera filas nuevas desde la base de datos.',
+            returnDocumentation: 'Long. Devuelve el numero de filas visibles en el buffer primario o -1 si ocurre un error.',
         },
         parameters: [
             {
@@ -659,7 +659,21 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'SetItemStatus', ownerTypes: ['datawindow', 'datawindowchild', 'datastore'] },
-        text: { summary: 'Cambia el estado de modificación de una fila o de una columna dentro de una fila.' },
+        text: {
+            summary: 'Cambia el estado de modificacion de una fila o de una columna dentro de una fila.',
+            documentation: 'Usa SetItemStatus para marcar filas o columnas con el estado que Update usara al generar INSERT, UPDATE o DELETE sobre la fila.',
+            usageNotes: [
+                'Usa 0 en column para cambiar el estado de toda la fila en lugar de una columna concreta.',
+            ],
+            returnDocumentation: 'Integer. Devuelve 1 si lo consigue y -1 si ocurre un error. Si alguno de los argumentos es null, el metodo devuelve null.',
+        },
+        parameters: [
+            {
+                signatureLabel: 'SetItemStatus(row, column, dwbuffer, status)',
+                parameterName: 'status',
+                documentation: 'Valor DWItemStatus que determina como Update tratara la fila o la columna al generar SQL.'
+            }
+        ]
     },
     {
         locale: 'es', reviewed: true, source: 'manual-curated',
@@ -696,20 +710,20 @@ export const dataWindowFunctionsLocalization: PbSystemSymbolLocalizationOverlay[
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'datawindow-functions', kind: 'callable', namespace: 'datawindow', invocation: 'member', name: 'Update', ownerTypes: ['datastore', 'datawindow', 'datawindowchild'] },
         text: {
-            summary: 'Envía los cambios acumulados en el DataWindow a la base de datos.',
-            documentation: 'Actualiza la base de datos con los cambios pendientes; el argumento accept controla si se ejecuta AcceptText y resetflag decide si se mantienen las flags de modificación.',
-            returnDocumentation: 'Integer. Devuelve 1 si tiene éxito y -1 si ocurre un error. Si no hay cambios pendientes, devuelve 1.',
+            summary: 'Usa Update para persistir los cambios acumulados del DataWindow en la base de datos.',
+            documentation: 'Usa Update para persistir los cambios acumulados; accept controla si se ejecuta AcceptText antes de enviar SQL y resetflag decide si las marcas de actualizacion se limpian cuando la actualizacion termina correctamente.',
+            returnDocumentation: 'Integer. Devuelve 1 si la actualizacion termina correctamente y -1 si ocurre un error. Si no hay cambios pendientes, devuelve 1.',
         },
         parameters: [
             {
                 signatureLabel: 'Update(accept?, resetflag?)',
                 parameterName: 'accept?',
-                documentation: 'Si es True (por defecto), ejecuta AcceptText antes del update; si es False, se salta ese paso.'
+                documentation: 'Si es True (por defecto), ejecuta AcceptText antes del update; si es False, deja ese paso bajo control explicito del caller.'
             },
             {
                 signatureLabel: 'Update(accept?, resetflag?)',
                 parameterName: 'resetflag?',
-                documentation: 'Si es True (por defecto), limpia las flags de modificación; si es False, las mantiene para commits manuales o actualizaciones encadenadas.'
+                documentation: 'Si es True (por defecto), limpia las flags de actualizacion; si es False, las mantiene para flujos de commit o rollback manual y actualizaciones encadenadas.'
             }
         ]
     },

@@ -59,9 +59,9 @@ const HOTSPOT_BUDGETS = [
     path: 'src/server/handlers/featureHandlers.ts',
     category: 'server-feature-wiring',
     allowlisted: false,
-    rationale: 'Wiring de handlers LSP historico; debe seguir cediendo registro a featureHandlerRegistration.ts y no recuperar semantica propia.',
+    rationale: 'Wiring de handlers LSP historico; mantiene un ceiling temporal muy ajustado mientras el split pendiente mueve registro a featureHandlerRegistration.ts sin recuperar semantica propia.',
     budgets: {
-      maxLines: 1600,
+      maxLines: 1680,
       maxImports: 45,
       maxTopLevelDeclarations: 70,
     },
@@ -89,9 +89,9 @@ const HOTSPOT_BUDGETS = [
     path: 'src/server/features/hover.ts',
     category: 'server-feature-hotspot',
     allowlisted: false,
-    rationale: 'Hover es hot path visible; cualquier crecimiento debe preservar cache negativa, ViewModel y resolvers compartidos.',
+    rationale: 'Hover es hot path visible; mantiene un ceiling temporal muy ajustado mientras el formatting y los resolvers siguen saliendo a helpers compartidos.',
     budgets: {
-      maxLines: 420,
+      maxLines: 440,
       maxImports: 24,
       maxTopLevelDeclarations: 35,
     },

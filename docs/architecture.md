@@ -50,6 +50,8 @@ Toda resolución semántica consumida por features LSP debe pasar por una API/fa
 
 El contrato futuro de esa fachada se define en `docs/semantic-design-target.md`: `KnowledgeBase.publishedState`/`PublishedSemanticSnapshot` es la verdad publicada, `SemanticQueryResult` es respuesta semántica acotada y los consumers son proyecciones.
 
+Los query paths read-only no pueden mutar `KnowledgeBase.publishedState`. Índices derivados como `scopeIndex` deben vivir en proyecciones versionadas con owner explícito dentro de `KnowledgeBase` o construirse durante publicación, nunca escribirse perezosamente sobre el estado publicado.
+
 ### 2.5. PowerBuilder como dominio propio
 
 PowerBuilder no debe modelarse como un lenguaje C-like genérico. La arquitectura debe reconocer explícitamente workspaces/solutions, targets/projects, libraries, objetos PB, scripts, eventos, funciones, variables, estructuras, herencia, DataWindows e integraciones de build.

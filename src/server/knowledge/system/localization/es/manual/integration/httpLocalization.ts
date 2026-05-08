@@ -8,7 +8,8 @@ export const httpLocalization: PbSystemSymbolLocalizationOverlay[] = [
         locale: 'es', reviewed: true, source: 'manual-curated',
         targetKey: { domain: 'system-object-datatypes', kind: 'system-type', namespace: 'powerbuilder-runtime', invocation: 'global', name: 'HTTPClient' },
         text: {
-            summary: 'Cliente HTTP para requests REST y servicios web.',
+            summary: 'HTTPClient es un objeto base para enviar solicitudes HTTP y recibir respuestas HTTP desde un recurso identificado por una URI.',
+            documentation: 'Es mas facil de usar que Inet y soporta mas metodos HTTP y protocolos SSL/TLS. Frente a RESTClient maneja requests mas variados y respuestas jerarquicas, pero no es la mejor opcion para datos grandes si dejas AutoReadData habilitado, no soporta multithreading ni maneja automaticamente redirects HTTP 30X.',
         },
     },
     {

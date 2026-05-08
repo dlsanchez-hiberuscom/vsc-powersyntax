@@ -43,9 +43,11 @@ suite('unit/diagnosticScheduler', () => {
 
     scheduleDiagnostics(connection as never, document, scheduler, 10);
 
+    assert.equal(connection.calls.length, 1);
+
     await new Promise((resolve) => setTimeout(resolve, 30));
 
-    assert.equal(connection.calls.length, 1);
+    assert.equal(connection.calls.length, 2);
   });
 
   test('cancelScheduledDiagnostics cancela una publicación pendiente', async () => {
@@ -58,7 +60,7 @@ suite('unit/diagnosticScheduler', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 40));
 
-    assert.equal(connection.calls.length, 0);
+    assert.equal(connection.calls.length, 1);
     clearAllScheduledDiagnostics();
   });
 });

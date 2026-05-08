@@ -5,7 +5,7 @@ import {
   type ApiPowerBuilderDependencyGraphNode,
   type ApiPowerBuilderDependencyGraphRequest,
 } from '../../shared/publicApi';
-import { KnowledgeBase } from '../knowledge/KnowledgeBase';
+import type { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { resolveByLibraryOrder } from '../knowledge/resolution/libraryOrder';
 import { buildSymbolKey } from '../knowledge/symbolKey';
 import { EntityKind, type Entity } from '../knowledge/types';
@@ -54,6 +54,7 @@ function clamp(value: number | undefined, fallback: number): number {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     return fallback;
   }
+
   return Math.min(MAX_NEIGHBORS, Math.max(0, Math.trunc(value)));
 }
 
@@ -61,10 +62,12 @@ function normalizeDependencyKey(raw: string | undefined): string | null {
   if (!raw) {
     return null;
   }
+
   const normalized = raw.trim().replace(/\[\]$/, '').toLowerCase();
   if (!normalized || BUILTIN_DEPENDENCIES.has(normalized)) {
     return null;
   }
+
   return normalized;
 }
 
@@ -90,14 +93,20 @@ function createUnavailableGraph(reason: string): ApiPowerBuilderDependencyGraph 
 }
 
 function collectDependencyEvidence(snapshot: SemanticDocumentSnapshot): Map<string, Set<DependencyEvidenceKind>> {
-  const exportedIds = new Set(snapshot.symbols.map((symbol) => symbol.id));
+  const exportedDependencyKeys = new Set(
+    snapshot.symbols
+      .map((symbol) => normalizeDependencyKey(symbol.name))
+      .filter((key): key is string => key !== null)
+  );
+
   const evidence = new Map<string, Set<DependencyEvidenceKind>>();
 
   const addEvidence = (candidate: string | undefined, kind: DependencyEvidenceKind): void => {
     const dependencyKey = normalizeDependencyKey(candidate);
-    if (!dependencyKey || exportedIds.has(dependencyKey)) {
+    if (!dependencyKey || exportedDependencyKeys.has(dependencyKey)) {
       return;
     }
+
     const bucket = evidence.get(dependencyKey) ?? new Set<DependencyEvidenceKind>();
     bucket.add(kind);
     evidence.set(dependencyKey, bucket);
@@ -139,6 +148,7 @@ function buildNodeId(kind: string, value: string): string {
 function createFocusDescriptor(entity: Entity, workspaceState: WorkspaceState): ApiPowerBuilderDependencyGraphFocus {
   const projectContext = workspaceState.getProjectContextForFile(entity.uri);
   const library = workspaceState.resolveLibraryForFile(entity.uri, projectContext?.libraries);
+
   return {
     objectName: entity.name,
     uri: entity.uri,
@@ -160,6 +170,7 @@ function createEntityNode(
 ): ApiPowerBuilderDependencyGraphNode {
   const projectContext = workspaceState.getProjectContextForFile(entity.uri);
   const library = workspaceState.resolveLibraryForFile(entity.uri, projectContext?.libraries);
+
   return {
     id: buildNodeId('uri', entity.uri),
     label: entity.name,
@@ -188,6 +199,7 @@ function createDependencyKeyNode(key: string, evidence: string[]): ApiPowerBuild
 function createDocumentNode(uri: string, workspaceState: WorkspaceState): ApiPowerBuilderDependencyGraphNode {
   const projectContext = workspaceState.getProjectContextForFile(uri);
   const library = workspaceState.resolveLibraryForFile(uri, projectContext?.libraries);
+
   return {
     id: buildNodeId('uri', uri),
     label: uri.slice(uri.lastIndexOf('/') + 1),
@@ -206,9 +218,15 @@ function addNode(target: Map<string, ApiPowerBuilderDependencyGraphNode>, node: 
 }
 
 function addEdge(target: ApiPowerBuilderDependencyGraphEdge[], edge: ApiPowerBuilderDependencyGraphEdge): void {
-  if (target.some((existing) => existing.sourceId === edge.sourceId && existing.targetId === edge.targetId && existing.relation === edge.relation && existing.reason === edge.reason)) {
+  if (target.some((existing) =>
+    existing.sourceId === edge.sourceId
+    && existing.targetId === edge.targetId
+    && existing.relation === edge.relation
+    && existing.reason === edge.reason
+  )) {
     return;
   }
+
   target.push(edge);
 }
 
@@ -221,7 +239,11 @@ function mermaidNodeId(id: string): string {
 }
 
 function escapeMermaid(text: string): string {
-  return text.replace(/"/g, '\\"');
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/\|/g, '\\|');
 }
 
 function buildMermaidFlowchart(
@@ -246,12 +268,18 @@ function buildMermaidFlowchart(
     lines.push(`  ${mermaidNodeId(edge.sourceId)} -->|${escapeMermaid(edge.relation)}| ${mermaidNodeId(edge.targetId)}`);
   }
 
-  const focusIds = nodes.filter((node) => node.kind === 'focus-object').map((node) => mermaidNodeId(node.id));
-  const unresolvedIds = nodes.filter((node) => node.resolution === 'unresolved').map((node) => mermaidNodeId(node.id));
+  const focusIds = nodes
+    .filter((node) => node.kind === 'focus-object')
+    .map((node) => mermaidNodeId(node.id));
+  const unresolvedIds = nodes
+    .filter((node) => node.resolution === 'unresolved')
+    .map((node) => mermaidNodeId(node.id));
+
   if (focusIds.length > 0) {
     lines.push('  classDef focus fill:#0b7285,stroke:#0b7285,color:#ffffff;');
     lines.push(`  class ${focusIds.join(',')} focus;`);
   }
+
   if (unresolvedIds.length > 0) {
     lines.push('  classDef unresolved fill:#fff3bf,stroke:#f08c00,color:#5c3d00;');
     lines.push(`  class ${unresolvedIds.join(',')} unresolved;`);
@@ -266,17 +294,17 @@ export function buildPowerBuilderDependencyGraph(
   workspaceState: WorkspaceState,
 ): ApiPowerBuilderDependencyGraph {
   if (!request?.uri) {
-    return createUnavailableGraph('Se requiere una URI activa o explícita para construir el grafo.');
+    return createUnavailableGraph('An active or explicit URI is required to build the dependency graph.');
   }
 
   const focusEntity = buildFocus(request, kb);
   if (!focusEntity) {
-    return createUnavailableGraph('No se pudo resolver un objeto PowerBuilder foco para la URI solicitada.');
+    return createUnavailableGraph('Could not resolve a focus PowerBuilder object for the requested URI.');
   }
 
   const snapshot = kb.getDocumentSnapshot(focusEntity.uri);
   if (!snapshot) {
-    return createUnavailableGraph('El documento foco no tiene snapshot semántico publicado todavía.');
+    return createUnavailableGraph('The focus document does not have a published semantic snapshot yet.');
   }
 
   const maxDependencies = clamp(request.maxDependencies, DEFAULT_MAX_DEPENDENCIES);
@@ -297,12 +325,14 @@ export function buildPowerBuilderDependencyGraph(
     if (!evidenceKinds) {
       continue;
     }
+
     const evidence = toEvidenceList(evidenceKinds);
     const definitions = kb.findAllDefinitions(dependencyKey);
     const rankedDefinitions = definitions.length > 1
       ? resolveByLibraryOrder(definitions, { activeUri: focusEntity.uri, state: workspaceState })
       : definitions;
     const resolvedEntity = rankedDefinitions.find((entity) => entity.kind === EntityKind.Type) ?? rankedDefinitions[0];
+
     const node = resolvedEntity
       ? createEntityNode(
           resolvedEntity,
@@ -313,11 +343,13 @@ export function buildPowerBuilderDependencyGraph(
           evidence,
         )
       : createDependencyKeyNode(dependencyKey, evidence);
+
     addNode(nodeIndex, node);
 
     if (node.resolution === 'unresolved') {
       unresolvedDependencyCount++;
     }
+
     if (node.resolution === 'ambiguous') {
       ambiguousDependencyCount++;
     }
@@ -345,11 +377,13 @@ export function buildPowerBuilderDependencyGraph(
   }
 
   const dependentUris = kb.getDependentDocumentsForUri(focusEntity.uri).slice(0, maxDependents);
+
   for (const dependentUri of dependentUris) {
     const dependentEntity = kb.getEntitiesByUri(dependentUri).find((entity) => entity.kind === EntityKind.Type);
     const node = dependentEntity
       ? createEntityNode(dependentEntity, workspaceState, 'dependent-object', 'resolved')
       : createDocumentNode(dependentUri, workspaceState);
+
     addNode(nodeIndex, node);
     addEdge(edges, {
       sourceId: focusNode.id,

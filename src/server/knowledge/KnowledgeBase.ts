@@ -1,6 +1,6 @@
 import { normalizeUri } from '../system/uriUtils';
 import { compareSourceOriginPriority } from '../../shared/sourceOrigin';
-import { Entity, EntityKind, Fact, Scope } from './types';
+import { EntityKind, type Entity, type Fact, type Scope } from './types';
 import type { SemanticCacheDocumentRecord } from '../cache/cacheSchema';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { collectSnapshotDependencyKeys } from './semanticDiff';
@@ -14,6 +14,13 @@ interface ScopeIndexEntry {
   scope: Scope;
 }
 
+interface ScopeIndexProjectionEntry {
+  owner: 'KnowledgeBase.scopeIndexProjection';
+  semanticEpoch: number;
+  scopeSource: Scope[];
+  index: ScopeIndexEntry[];
+}
+
 interface PublishedKnowledgeState {
   globalSymbols: Map<string, Entity[]>;
   entitiesByKind: Map<EntityKind, Entity[]>;
@@ -22,7 +29,6 @@ interface PublishedKnowledgeState {
   documentSymbols: Map<string, Set<string>>;
   entitiesByUri: Map<string, Entity[]>;
   documentScopes: Map<string, Scope[]>;
-  scopeIndex: Map<string, ScopeIndexEntry[]>;
   documentSnapshots: Map<string, SemanticDocumentSnapshot>;
   documentDependencies: Map<string, Set<string>>;
   reverseDependencies: Map<string, Set<string>>;
@@ -46,6 +52,7 @@ function freezeValue<T>(value: T): Readonly<T> {
   if (process.env.NODE_ENV === 'development' && value && typeof value === 'object') {
     return Object.freeze(value);
   }
+
   return value;
 }
 
@@ -58,13 +65,12 @@ function createEmptyState(): PublishedKnowledgeState {
     documentSymbols: new Map(),
     entitiesByUri: new Map(),
     documentScopes: new Map(),
-    scopeIndex: new Map(),
     documentSnapshots: new Map(),
     documentDependencies: new Map(),
     reverseDependencies: new Map(),
     totalEntities: 0,
     semanticEpoch: 0,
-    publishedAt: Date.now()
+    publishedAt: Date.now(),
   };
 }
 
@@ -77,14 +83,37 @@ function cloneState(state: PublishedKnowledgeState): PublishedKnowledgeState {
     documentSymbols: new Map(state.documentSymbols),
     entitiesByUri: new Map(state.entitiesByUri),
     documentScopes: new Map(state.documentScopes),
-    scopeIndex: new Map(state.scopeIndex),
     documentSnapshots: new Map(state.documentSnapshots),
     documentDependencies: new Map(state.documentDependencies),
     reverseDependencies: new Map(state.reverseDependencies),
     totalEntities: state.totalEntities,
     semanticEpoch: state.semanticEpoch,
-    publishedAt: state.publishedAt
+    publishedAt: state.publishedAt,
   };
+}
+
+function buildScopeIndex(scopes: Scope[]): ScopeIndexEntry[] {
+  const index: ScopeIndexEntry[] = [];
+
+  const walk = (list: Scope[], depth: number): void => {
+    for (const scope of list) {
+      index.push({
+        start: scope.startLine,
+        end: scope.endLine,
+        depth,
+        scope,
+      });
+
+      if (scope.children.length > 0) {
+        walk(scope.children, depth + 1);
+      }
+    }
+  };
+
+  walk(scopes, 0);
+  index.sort((left, right) => left.start - right.start);
+
+  return index;
 }
 
 function cloneArrayBucket<K, T>(map: Map<K, T[]>, key: K, touchedKeys: Set<K>): T[] {
@@ -103,6 +132,7 @@ function cloneArrayBucket<K, T>(map: Map<K, T[]>, key: K, touchedKeys: Set<K>): 
   const cloned = [...existing];
   map.set(key, cloned);
   touchedKeys.add(key);
+
   return cloned;
 }
 
@@ -145,6 +175,7 @@ export class KnowledgeBase {
   private stagedState: PublishedKnowledgeState | null = null;
   private publishedStringInterner = new ManagedStringInterner();
   private stagedStringInterner: ManagedStringInterner | null = null;
+  private readonly scopeIndexProjection = new Map<string, ScopeIndexProjectionEntry>();
 
   /**
    * Profundidad de batch update. Mientras sea > 0, las operaciones
@@ -152,6 +183,8 @@ export class KnowledgeBase {
    * Patrón portado del plugin_old (SymbolIndex.beginBatchUpdate).
    */
   private batchDepth = 0;
+
+  private epochChangeListeners: ((epoch: number) => void)[] = [];
 
   /**
    * Inicia un batch update. Mientras esté activo, los consumidores
@@ -162,6 +195,7 @@ export class KnowledgeBase {
       this.stagedState = cloneState(this.publishedState);
       this.stagedStringInterner = this.publishedStringInterner.clone();
     }
+
     this.batchDepth++;
   }
 
@@ -179,6 +213,7 @@ export class KnowledgeBase {
   commitBatchUpdate(): void {
     if (this.batchDepth > 0) {
       this.batchDepth--;
+
       if (this.batchDepth === 0 && this.stagedState && this.stagedStringInterner) {
         this.publishState(this.stagedState);
         this.publishedStringInterner = this.stagedStringInterner;
@@ -211,13 +246,18 @@ export class KnowledgeBase {
    * (1 si todo va bien).
    */
   resyncDocuments(updates: ReadonlyArray<{ uri: string; facts: Fact[]; scopes?: Scope[] }>): number {
-    if (updates.length === 0) return 0;
+    if (updates.length === 0) {
+      return 0;
+    }
+
     const before = this.semanticEpoch;
     this.beginBatchUpdate();
+
     try {
-      for (const u of updates) {
-        this.upsertDocument(u.uri, u.facts, u.scopes ?? []);
+      for (const update of updates) {
+        this.upsertDocument(update.uri, update.facts, update.scopes ?? []);
       }
+
       this.commitBatchUpdate();
     } catch (error) {
       this.rollbackBatchUpdate();
@@ -227,6 +267,7 @@ export class KnowledgeBase {
         this.rollbackBatchUpdate();
       }
     }
+
     return this.semanticEpoch - before;
   }
 
@@ -277,6 +318,7 @@ export class KnowledgeBase {
   removeDocument(uri: string): void {
     const normalizedUri = normalizeUri(uri);
     this.currentStringInterner().removeDocument(normalizedUri);
+
     this.writeState((state) => {
       this.removeDocumentFromState(state, normalizedUri);
     });
@@ -287,11 +329,13 @@ export class KnowledgeBase {
    */
   findDefinition(symbolName: string): Entity | null {
     const entities = this.publishedState.globalSymbols.get(symbolName.toLowerCase());
+
     return entities && entities.length > 0 ? cloneValue(entities[0]) : null;
   }
 
   findDefinitionReadonly(symbolName: string): Readonly<Entity> | null {
     const entities = this.publishedState.globalSymbols.get(symbolName.toLowerCase());
+
     return entities && entities.length > 0 ? freezeValue(entities[0]) : null;
   }
 
@@ -315,31 +359,59 @@ export class KnowledgeBase {
    */
   findCallable(name: string, container?: string): Entity | null {
     const entities = this.publishedState.globalSymbols.get(name.toLowerCase());
-    if (!entities) return null;
-    const containerLc = container?.toLowerCase();
-    for (const e of entities) {
-      const isCallable = e.kind === EntityKind.Function
-        || e.kind === EntityKind.Subroutine
-        || e.kind === EntityKind.Event;
-      if (!isCallable) continue;
-      if (!containerLc) return cloneValue(e);
-      if ((e.containerName ?? '').toLowerCase() === containerLc) return cloneValue(e);
+    if (!entities) {
+      return null;
     }
+
+    const containerLc = container?.toLowerCase();
+
+    for (const entity of entities) {
+      const isCallable = entity.kind === EntityKind.Function
+        || entity.kind === EntityKind.Subroutine
+        || entity.kind === EntityKind.Event;
+
+      if (!isCallable) {
+        continue;
+      }
+
+      if (!containerLc) {
+        return cloneValue(entity);
+      }
+
+      if ((entity.containerName ?? '').toLowerCase() === containerLc) {
+        return cloneValue(entity);
+      }
+    }
+
     return null;
   }
 
   findCallableReadonly(name: string, container?: string): Readonly<Entity> | null {
     const entities = this.publishedState.globalSymbols.get(name.toLowerCase());
-    if (!entities) return null;
-    const containerLc = container?.toLowerCase();
-    for (const e of entities) {
-      const isCallable = e.kind === EntityKind.Function
-        || e.kind === EntityKind.Subroutine
-        || e.kind === EntityKind.Event;
-      if (!isCallable) continue;
-      if (!containerLc) return freezeValue(e);
-      if ((e.containerName ?? '').toLowerCase() === containerLc) return freezeValue(e);
+    if (!entities) {
+      return null;
     }
+
+    const containerLc = container?.toLowerCase();
+
+    for (const entity of entities) {
+      const isCallable = entity.kind === EntityKind.Function
+        || entity.kind === EntityKind.Subroutine
+        || entity.kind === EntityKind.Event;
+
+      if (!isCallable) {
+        continue;
+      }
+
+      if (!containerLc) {
+        return freezeValue(entity);
+      }
+
+      if ((entity.containerName ?? '').toLowerCase() === containerLc) {
+        return freezeValue(entity);
+      }
+    }
+
     return null;
   }
 
@@ -348,9 +420,11 @@ export class KnowledgeBase {
    */
   getAllEntities(): Entity[] {
     const result: Entity[] = [];
+
     for (const entities of this.publishedState.globalSymbols.values()) {
       result.push(...entities);
     }
+
     return cloneValue(result);
   }
 
@@ -366,13 +440,23 @@ export class KnowledgeBase {
     }
 
     const result: Entity[] = [];
+
     for (const entities of getEntityBuckets(this.publishedState, kinds)) {
       for (const entity of entities) {
-        if (kinds && !kinds.has(entity.kind)) continue;
-        if (query && !entity.id.includes(query)) continue;
-        if (options.include && !options.include(entity)) continue;
+        if (kinds && !kinds.has(entity.kind)) {
+          continue;
+        }
+
+        if (query && !entity.id.includes(query)) {
+          continue;
+        }
+
+        if (options.include && !options.include(entity)) {
+          continue;
+        }
 
         result.push(entity);
+
         if (result.length >= limit) {
           return cloneValue(result);
         }
@@ -394,15 +478,23 @@ export class KnowledgeBase {
     }
 
     let count = 0;
+
     for (const entities of getEntityBuckets(this.publishedState, kinds)) {
       for (const entity of entities) {
-        if (kinds && !kinds.has(entity.kind)) continue;
-        if (query && !entity.id.includes(query)) continue;
+        if (kinds && !kinds.has(entity.kind)) {
+          continue;
+        }
+
+        if (query && !entity.id.includes(query)) {
+          continue;
+        }
+
         if (!normalizedOptions.include || normalizedOptions.include(entity)) {
           count++;
         }
       }
     }
+
     return count;
   }
 
@@ -419,6 +511,7 @@ export class KnowledgeBase {
     }
 
     const entities = this.publishedState.entitiesByUri.get(normalizedUri);
+
     return cloneValue(entities ?? []);
   }
 
@@ -430,6 +523,7 @@ export class KnowledgeBase {
     }
 
     const entities = this.publishedState.entitiesByUri.get(normalizedUri);
+
     return freezeValue(entities ?? []);
   }
 
@@ -473,11 +567,13 @@ export class KnowledgeBase {
   /** Snapshot semántico publicado de un documento. */
   getDocumentSnapshot(uri: string): SemanticDocumentSnapshot | null {
     const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
+
     return snapshot ? cloneValue(snapshot) : null;
   }
 
   getDocumentSnapshotReadonly(uri: string): Readonly<SemanticDocumentSnapshot> | null {
     const snapshot = this.publishedState.documentSnapshots.get(normalizeUri(uri));
+
     return snapshot ? freezeValue(snapshot) : null;
   }
 
@@ -494,9 +590,13 @@ export class KnowledgeBase {
     }
 
     const dependentUris = new Set<string>();
+
     for (const exportId of exportedIds) {
       const dependents = this.publishedState.reverseDependencies.get(exportId);
-      if (!dependents) continue;
+      if (!dependents) {
+        continue;
+      }
+
       for (const dependentUri of dependents) {
         if (dependentUri !== normalizedUri) {
           dependentUris.add(dependentUri);
@@ -516,112 +616,98 @@ export class KnowledgeBase {
    */
   getScopeAt(uri: string, line: number): Scope | null {
     const normalizedUri = normalizeUri(uri);
-    const scopes = this.publishedState.documentSnapshots.get(normalizedUri)?.scopes
-      ?? this.publishedState.documentScopes.get(normalizedUri);
-    if (!scopes || scopes.length === 0) return null;
-
-    let index = this.publishedState.scopeIndex.get(normalizedUri);
-    if (!index) {
-      index = [];
-      const walk = (list: Scope[], depth: number) => {
-        for (const s of list) {
-          index!.push({ start: s.startLine, end: s.endLine, depth, scope: s });
-          if (s.children.length > 0) walk(s.children, depth + 1);
-        }
-      };
-      walk(scopes, 0);
-      index.sort((a, b) => a.start - b.start);
-      this.publishedState.scopeIndex.set(normalizedUri, index);
+    const scopes = this.getPublishedScopes(normalizedUri);
+    if (!scopes || scopes.length === 0) {
+      return null;
     }
+
+    const index = this.getScopeIndexProjection(normalizedUri, scopes);
 
     // Búsqueda binaria: índice del primero con start > line.
     let lo = 0;
     let hi = index.length;
+
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
-      if (index[mid].start <= line) lo = mid + 1;
-      else hi = mid;
+      if (index[mid].start <= line) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
     }
 
     let best: Scope | null = null;
     let bestDepth = -1;
+
     // Recorrer de derecha a izquierda los candidatos cuyo start <= line.
-    for (let k = lo - 1; k >= 0; k--) {
-      const c = index[k];
-      if (c.end < line) continue;
-      if (c.depth > bestDepth) {
-        best = c.scope;
-        bestDepth = c.depth;
+    for (let indexPosition = lo - 1; indexPosition >= 0; indexPosition--) {
+      const candidate = index[indexPosition];
+      if (candidate.end < line) {
+        continue;
       }
+
+      if (candidate.depth > bestDepth) {
+        best = candidate.scope;
+        bestDepth = candidate.depth;
+      }
+
       // En árboles bien formados podríamos parar al primer candidato ancestro,
       // pero no podemos asumirlo porque hay scopes raíces consecutivos. El
       // recorrido es lineal acotado por la profundidad real (típico ≤ 3).
     }
+
     return best ? cloneValue(best) : null;
   }
 
   getScopeAtReadonly(uri: string, line: number): Readonly<Scope> | null {
     const normalizedUri = normalizeUri(uri);
-    const scopes = this.publishedState.documentSnapshots.get(normalizedUri)?.scopes
-      ?? this.publishedState.documentScopes.get(normalizedUri);
-    if (!scopes || scopes.length === 0) return null;
-
-    let index = this.publishedState.scopeIndex.get(normalizedUri);
-    if (!index) {
-      index = [];
-      const walk = (list: Scope[], depth: number) => {
-        for (const s of list) {
-          index!.push({ start: s.startLine, end: s.endLine, depth, scope: s });
-          if (s.children.length > 0) walk(s.children, depth + 1);
-        }
-      };
-      walk(scopes, 0);
-      index.sort((a, b) => a.start - b.start);
-      this.publishedState.scopeIndex.set(normalizedUri, index);
+    const scopes = this.getPublishedScopes(normalizedUri);
+    if (!scopes || scopes.length === 0) {
+      return null;
     }
+
+    const index = this.getScopeIndexProjection(normalizedUri, scopes);
 
     // Búsqueda binaria: índice del primero con start > line.
     let lo = 0;
     let hi = index.length;
+
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
-      if (index[mid].start <= line) lo = mid + 1;
-      else hi = mid;
+      if (index[mid].start <= line) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
     }
 
     let best: Scope | null = null;
     let bestDepth = -1;
+
     // Recorrer de derecha a izquierda los candidatos cuyo start <= line.
-    for (let k = lo - 1; k >= 0; k--) {
-      const c = index[k];
-      if (c.end < line) continue;
-      if (c.depth > bestDepth) {
-        best = c.scope;
-        bestDepth = c.depth;
+    for (let indexPosition = lo - 1; indexPosition >= 0; indexPosition--) {
+      const candidate = index[indexPosition];
+      if (candidate.end < line) {
+        continue;
+      }
+
+      if (candidate.depth > bestDepth) {
+        best = candidate.scope;
+        bestDepth = candidate.depth;
       }
     }
+
     return best ? freezeValue(best) : null;
   }
 
-  private epochChangeListeners: ((epoch: number) => void)[] = [];
-
   public onEpochChange(listener: (epoch: number) => void): { dispose: () => void } {
     this.epochChangeListeners.push(listener);
+
     return {
       dispose: () => {
-        this.epochChangeListeners = this.epochChangeListeners.filter(l => l !== listener);
-      }
+        this.epochChangeListeners = this.epochChangeListeners.filter((registeredListener) => registeredListener !== listener);
+      },
     };
-  }
-
-  private notifyEpochChange(epoch: number): void {
-    for (const listener of this.epochChangeListeners) {
-      try {
-        listener(epoch);
-      } catch (e) {
-        console.error('Error in epoch change listener', e);
-      }
-    }
   }
 
   /**
@@ -629,6 +715,8 @@ export class KnowledgeBase {
    */
   clear(): void {
     this.writeState(() => createEmptyState(), true);
+    this.scopeIndexProjection.clear();
+
     if (this.isBatchUpdating) {
       this.stagedStringInterner = new ManagedStringInterner();
     } else {
@@ -637,24 +725,39 @@ export class KnowledgeBase {
   }
 
   /**
-  /**
    * Retorna estadísticas del índice.
    * Spec 101: añade `indexedScopes` (cardinalidad del scopeIndex) para que
    * features de observabilidad puedan vigilar el coste real del índice.
    */
   getStats() {
     let indexedScopes = 0;
-    for (const arr of this.publishedState.scopeIndex.values()) indexedScopes += arr.length;
+    for (const entry of this.scopeIndexProjection.values()) {
+      indexedScopes += entry.index.length;
+    }
+
     let structuralSnapshots = 0;
     let enrichedSnapshots = 0;
     let structuralOnlySnapshots = 0;
     let nearbySemanticReadySnapshots = 0;
+
     for (const snapshot of this.publishedState.documentSnapshots.values()) {
-      if (snapshot.pass === 'structural') structuralSnapshots++;
-      if (snapshot.pass === 'enriched') enrichedSnapshots++;
-      if (snapshot.readiness === 'structural-only') structuralOnlySnapshots++;
-      if (snapshot.readiness === 'nearby-semantic-ready') nearbySemanticReadySnapshots++;
+      if (snapshot.pass === 'structural') {
+        structuralSnapshots++;
+      }
+
+      if (snapshot.pass === 'enriched') {
+        enrichedSnapshots++;
+      }
+
+      if (snapshot.readiness === 'structural-only') {
+        structuralOnlySnapshots++;
+      }
+
+      if (snapshot.readiness === 'nearby-semantic-ready') {
+        nearbySemanticReadySnapshots++;
+      }
     }
+
     return {
       totalEntities: this.publishedState.totalEntities,
       indexedDocuments: this.publishedState.documentSymbols.size,
@@ -668,17 +771,75 @@ export class KnowledgeBase {
       nearbySemanticReadySnapshots,
       dependencyDocuments: this.publishedState.documentDependencies.size,
       reverseDependencyKeys: this.publishedState.reverseDependencies.size,
-      publishedAt: this.publishedState.publishedAt
+      publishedAt: this.publishedState.publishedAt,
     };
+  }
+
+  exportDocumentRecords(): SemanticCacheDocumentRecord[] {
+    return Array.from(this.publishedState.entitiesByUri.entries()).map(([uri, facts]) => ({
+      uri,
+      facts: structuredClone(facts),
+      scopes: structuredClone(this.publishedState.documentScopes.get(uri) ?? []),
+      snapshot: structuredClone(this.publishedState.documentSnapshots.get(uri)),
+    }));
+  }
+
+  restoreDocumentRecords(records: SemanticCacheDocumentRecord[], semanticEpoch = 0): void {
+    const nextState = createEmptyState();
+    const nextInterner = new ManagedStringInterner();
+
+    for (const record of records) {
+      const restoredRecord = structuredClone(record);
+      const { facts, scopes, snapshot } = nextInterner.replaceDocument(
+        normalizeUri(restoredRecord.uri),
+        (intern) => ({
+          facts: restoredRecord.facts.map((fact) => internEntity(fact, intern)),
+          scopes: internScopes(restoredRecord.scopes, intern),
+          snapshot: restoredRecord.snapshot ? internSemanticSnapshot(restoredRecord.snapshot, intern) : undefined,
+        })
+      );
+
+      this.indexDocumentIntoState(
+        nextState,
+        normalizeUri(restoredRecord.uri),
+        facts,
+        scopes,
+        snapshot
+      );
+    }
+
+    nextState.semanticEpoch = semanticEpoch;
+    nextState.publishedAt = Date.now();
+
+    this.publishedState = nextState;
+    this.publishedStringInterner = nextInterner;
+    this.stagedState = null;
+    this.stagedStringInterner = null;
+    this.batchDepth = 0;
+    this.scopeIndexProjection.clear();
+
+    this.notifyEpochChange(nextState.semanticEpoch);
+  }
+
+  private notifyEpochChange(epoch: number): void {
+    for (const listener of this.epochChangeListeners) {
+      try {
+        listener(epoch);
+      } catch (error) {
+        console.error('Error in epoch change listener', error);
+      }
+    }
   }
 
   private publishState(next: PublishedKnowledgeState): void {
     next.semanticEpoch = this.publishedState.semanticEpoch + 1;
     next.publishedAt = Date.now();
+
     this.publishedState = next;
+    this.scopeIndexProjection.clear();
+
     this.notifyEpochChange(next.semanticEpoch);
   }
-
 
   private writeState(
     mutator: ((state: PublishedKnowledgeState) => void) | (() => PublishedKnowledgeState),
@@ -688,11 +849,13 @@ export class KnowledgeBase {
       if (!this.stagedState) {
         this.stagedState = cloneState(this.publishedState);
       }
+
       if (replace) {
         this.stagedState = (mutator as () => PublishedKnowledgeState)();
       } else {
         (mutator as (state: PublishedKnowledgeState) => void)(this.stagedState);
       }
+
       return;
     }
 
@@ -703,6 +866,7 @@ export class KnowledgeBase {
     if (!replace) {
       (mutator as (state: PublishedKnowledgeState) => void)(draft);
     }
+
     this.publishState(draft);
   }
 
@@ -715,14 +879,16 @@ export class KnowledgeBase {
       state.documentSymbols.delete(normalizedUri);
       state.documentScopes.delete(normalizedUri);
       state.entitiesByUri.delete(normalizedUri);
-      state.scopeIndex.delete(normalizedUri);
+      this.scopeIndexProjection.delete(normalizedUri);
       state.documentSnapshots.delete(normalizedUri);
       return;
     }
 
     for (const id of existingSymbolIds ?? new Set<string>()) {
       const entities = state.globalSymbols.get(id);
-      if (!entities) continue;
+      if (!entities) {
+        continue;
+      }
 
       const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
       if (filtered.length > 0) {
@@ -733,9 +899,12 @@ export class KnowledgeBase {
     }
 
     const kinds = new Set(existingEntities.map((entity) => entity.kind));
+
     for (const kind of kinds) {
       const entities = state.entitiesByKind.get(kind);
-      if (!entities) continue;
+      if (!entities) {
+        continue;
+      }
 
       const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
       if (filtered.length > 0) {
@@ -750,9 +919,12 @@ export class KnowledgeBase {
         .map((entity) => normalizeContainerKey(entity.containerName))
         .filter((containerName) => containerName.length > 0)
     );
+
     for (const containerName of containers) {
       const entities = state.entitiesByContainer.get(containerName);
-      if (!entities) continue;
+      if (!entities) {
+        continue;
+      }
 
       const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
       if (filtered.length > 0) {
@@ -768,9 +940,12 @@ export class KnowledgeBase {
         .map((entity) => normalizeBaseTypeKey(entity.baseTypeName))
         .filter((baseTypeName) => baseTypeName.length > 0)
     );
+
     for (const baseTypeName of baseTypes) {
       const entities = state.typeEntitiesByBaseType.get(baseTypeName);
-      if (!entities) continue;
+      if (!entities) {
+        continue;
+      }
 
       const filtered = entities.filter((entity) => normalizeUri(entity.uri) !== normalizedUri);
       if (filtered.length > 0) {
@@ -783,7 +958,7 @@ export class KnowledgeBase {
     state.documentSymbols.delete(normalizedUri);
     state.documentScopes.delete(normalizedUri);
     state.entitiesByUri.delete(normalizedUri);
-    state.scopeIndex.delete(normalizedUri);
+    this.scopeIndexProjection.delete(normalizedUri);
     state.documentSnapshots.delete(normalizedUri);
     state.totalEntities = Math.max(0, state.totalEntities - existingEntities.length);
   }
@@ -801,6 +976,7 @@ export class KnowledgeBase {
     }
 
     state.documentDependencies.set(normalizedUri, dependencies);
+
     for (const dependency of dependencies) {
       const reverse = new Set(state.reverseDependencies.get(dependency) ?? []);
       reverse.add(normalizedUri);
@@ -816,10 +992,13 @@ export class KnowledgeBase {
 
     for (const dependency of dependencies) {
       const reverse = state.reverseDependencies.get(dependency);
-      if (!reverse) continue;
+      if (!reverse) {
+        continue;
+      }
 
       const nextReverse = new Set(reverse);
       nextReverse.delete(normalizedUri);
+
       if (nextReverse.size === 0) {
         state.reverseDependencies.delete(dependency);
       } else {
@@ -828,45 +1007,6 @@ export class KnowledgeBase {
     }
 
     state.documentDependencies.delete(normalizedUri);
-  }
-
-  exportDocumentRecords(): SemanticCacheDocumentRecord[] {
-    return Array.from(this.publishedState.entitiesByUri.entries()).map(([uri, facts]) => ({
-      uri,
-      facts: structuredClone(facts),
-      scopes: structuredClone(this.publishedState.documentScopes.get(uri) ?? []),
-      snapshot: structuredClone(this.publishedState.documentSnapshots.get(uri))
-    }));
-  }
-
-  restoreDocumentRecords(records: SemanticCacheDocumentRecord[], semanticEpoch = 0): void {
-    const nextState = createEmptyState();
-    const nextInterner = new ManagedStringInterner();
-    for (const record of records) {
-      const restoredRecord = structuredClone(record);
-      const { facts, scopes, snapshot } = nextInterner.replaceDocument(
-        normalizeUri(restoredRecord.uri),
-        (intern) => ({
-          facts: restoredRecord.facts.map((fact) => internEntity(fact, intern)),
-          scopes: internScopes(restoredRecord.scopes, intern),
-          snapshot: restoredRecord.snapshot ? internSemanticSnapshot(restoredRecord.snapshot, intern) : undefined,
-        })
-      );
-      this.indexDocumentIntoState(
-        nextState,
-        normalizeUri(restoredRecord.uri),
-        facts,
-        scopes,
-        snapshot
-      );
-    }
-    nextState.semanticEpoch = semanticEpoch;
-    nextState.publishedAt = Date.now();
-    this.publishedState = nextState;
-    this.publishedStringInterner = nextInterner;
-    this.stagedState = null;
-    this.stagedStringInterner = null;
-    this.batchDepth = 0;
   }
 
   private currentStringInterner(): ManagedStringInterner {
@@ -944,16 +1084,44 @@ export class KnowledgeBase {
 
     state.documentSymbols.set(normalizedUri, symbolIds);
     state.documentScopes.set(normalizedUri, scopes);
-    state.scopeIndex.delete(normalizedUri);
+    this.scopeIndexProjection.delete(normalizedUri);
+
     if (uriEntities.length > 0) {
       state.entitiesByUri.set(normalizedUri, uriEntities);
       state.totalEntities += uriEntities.length;
     }
+
     if (snapshot) {
       state.documentSnapshots.set(normalizedUri, snapshot);
       this.updateDependenciesFromSnapshot(state, normalizedUri, snapshot);
     } else {
       this.removeDependenciesFromState(state, normalizedUri);
     }
+  }
+
+  private getPublishedScopes(normalizedUri: string): Scope[] | undefined {
+    return this.publishedState.documentSnapshots.get(normalizedUri)?.scopes
+      ?? this.publishedState.documentScopes.get(normalizedUri);
+  }
+
+  private getScopeIndexProjection(normalizedUri: string, scopes: Scope[]): ScopeIndexEntry[] {
+    const cached = this.scopeIndexProjection.get(normalizedUri);
+    if (
+      cached
+      && cached.semanticEpoch === this.publishedState.semanticEpoch
+      && cached.scopeSource === scopes
+    ) {
+      return cached.index;
+    }
+
+    const index = buildScopeIndex(scopes);
+    this.scopeIndexProjection.set(normalizedUri, {
+      owner: 'KnowledgeBase.scopeIndexProjection',
+      semanticEpoch: this.publishedState.semanticEpoch,
+      scopeSource: scopes,
+      index,
+    });
+
+    return index;
   }
 }

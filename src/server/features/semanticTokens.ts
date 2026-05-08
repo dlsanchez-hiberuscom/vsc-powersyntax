@@ -4,7 +4,6 @@ import { getDocumentAnalysis } from '../analysis/analysisCache';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
-import { resolveTargetEntityDetailed } from '../knowledge/resolution/semanticQueryService';
 import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import type { PbSystemSymbolEntry } from '../knowledge/system/types';
 import { EntityKind, Fact, Scope, ScopeKind } from '../knowledge/types';

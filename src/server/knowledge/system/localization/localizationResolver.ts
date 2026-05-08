@@ -40,6 +40,27 @@ type MutableDomainCoverage = {
   reviewedTargetIds: Set<string>;
 };
 
+function buildLookupKeyBase(
+  domain: string,
+  kind: string,
+  namespace: string,
+  invocation: string,
+  normalizedName: string,
+): string {
+  return [domain, kind, namespace, invocation, normalizedName].join('|');
+}
+
+function buildLookupKeyWithOwnerTypes(
+  domain: string,
+  kind: string,
+  namespace: string,
+  invocation: string,
+  normalizedName: string,
+  normalizedOwnerTypes: readonly string[],
+): string {
+  return [buildLookupKeyBase(domain, kind, namespace, invocation, normalizedName), normalizedOwnerTypes.join('+') || 'all'].join('|');
+}
+
 function createEmptyLocaleSummary(): MutableLocaleSummary {
   return {
     overlayCount: 0,
@@ -69,14 +90,48 @@ function createDomainCoverage(totalTargetCount: number): MutableDomainCoverage {
 }
 
 function buildEntryTargetLookupKey(entry: PbSystemSymbolEntry): string {
-  return [
+  return buildLookupKeyWithOwnerTypes(
     entry.domain,
     entry.kind,
     entry.namespace,
     entry.invocation,
     entry.normalizedName,
-    entry.normalizedOwnerTypes.join('+') || 'all',
-  ].join('|');
+    entry.normalizedOwnerTypes,
+  );
+}
+
+function buildBaseEntryTargetLookupKey(entry: PbSystemSymbolEntry): string {
+  return buildLookupKeyBase(
+    entry.domain,
+    entry.kind,
+    entry.namespace,
+    entry.invocation,
+    entry.normalizedName,
+  );
+}
+
+const GENERATED_CANONICAL_TARGET_KEYS = new Set<string>([
+  'global-functions|callable|powerscript|global|abs',
+  'global-functions|callable|powerscript|global|isnull',
+  'global-functions|callable|powerscript|global|len',
+  'enumerated-types|enumerated-type|powerbuilder-runtime|global|saveastype',
+  'enumerated-values|enumerated-value|powerbuilder-runtime|global|primary!',
+  'system-object-datatypes|system-type|powerbuilder-runtime|global|datastore',
+  'system-object-datatypes|system-type|powerbuilder-runtime|global|httpclient',
+  'statements|statement|powerscript|global|if...then',
+  'statements|statement|powerscript|global|choose case',
+  'statements|statement|powerscript|global|for...next',
+  'keywords|keyword|powerscript|global|for',
+  'reserved-words|reserved-word|powerscript|global|true',
+]);
+
+function shouldPreferGeneratedCanonicalTarget(entries: readonly PbSystemSymbolEntry[]): boolean {
+  const generatedEntry = entries.find(entry => entry.dataset === 'generated');
+  if (!generatedEntry) {
+    return false;
+  }
+
+  return GENERATED_CANONICAL_TARGET_KEYS.has(buildBaseEntryTargetLookupKey(generatedEntry));
 }
 
 function selectCanonicalTargetEntryId(entries: readonly PbSystemSymbolEntry[]): string | undefined {
@@ -86,6 +141,11 @@ function selectCanonicalTargetEntryId(entries: readonly PbSystemSymbolEntry[]): 
     return undefined;
   }
 
+  const generatedEntry = nonCandidateEntries.find(entry => entry.dataset === 'generated');
+  if (generatedEntry && shouldPreferGeneratedCanonicalTarget(nonCandidateEntries)) {
+    return generatedEntry.id;
+  }
+
   const manualOverride = nonCandidateEntries.find(
     entry => entry.dataset === 'manual-core' && entry.manualOverlay?.mode === 'override',
   );
@@ -93,7 +153,6 @@ function selectCanonicalTargetEntryId(entries: readonly PbSystemSymbolEntry[]): 
     return manualOverride.id;
   }
 
-  const generatedEntry = nonCandidateEntries.find(entry => entry.dataset === 'generated');
   if (generatedEntry) {
     return generatedEntry.id;
   }
@@ -107,14 +166,29 @@ function buildTargetKeyLookupKey(targetKey: PbSystemSymbolLocalizationTargetKey)
     return undefined;
   }
 
-  return [
+  return buildLookupKeyWithOwnerTypes(
     targetKey.domain,
     targetKey.kind,
     targetKey.namespace,
     targetKey.invocation,
     normalizedName,
-    normalizeOwnerTypeNames(targetKey.ownerTypes).join('+') || 'all',
-  ].join('|');
+    normalizeOwnerTypeNames(targetKey.ownerTypes),
+  );
+}
+
+function buildBaseTargetKeyLookupKey(targetKey: PbSystemSymbolLocalizationTargetKey): string | undefined {
+  const normalizedName = normalizeSystemSymbolName(targetKey.name);
+  if (!normalizedName) {
+    return undefined;
+  }
+
+  return buildLookupKeyBase(
+    targetKey.domain,
+    targetKey.kind,
+    targetKey.namespace,
+    targetKey.invocation,
+    normalizedName,
+  );
 }
 
 function buildEntryIdsByTargetKey(entries: readonly PbSystemSymbolEntry[]): Map<string, string[]> {
@@ -140,6 +214,34 @@ function buildEntryIdsByTargetKey(entries: readonly PbSystemSymbolEntry[]): Map<
   return entryIdsByTargetKey;
 }
 
+function buildEntryIdsByBaseTargetKey(entries: readonly PbSystemSymbolEntry[]): Map<string, string[]> {
+  const exactBuckets = new Map<string, PbSystemSymbolEntry[]>();
+
+  for (const entry of entries) {
+    const lookupKey = buildEntryTargetLookupKey(entry);
+    const bucket = exactBuckets.get(lookupKey) ?? [];
+    bucket.push(entry);
+    exactBuckets.set(lookupKey, bucket);
+  }
+
+  const entryIdsByBaseTargetKey = new Map<string, string[]>();
+  for (const bucket of exactBuckets.values()) {
+    const canonicalTargetEntryId = selectCanonicalTargetEntryId(bucket);
+    if (!canonicalTargetEntryId) {
+      continue;
+    }
+
+    const baseLookupKey = buildBaseEntryTargetLookupKey(bucket[0]);
+    const baseBucket = entryIdsByBaseTargetKey.get(baseLookupKey) ?? [];
+    if (!baseBucket.includes(canonicalTargetEntryId)) {
+      baseBucket.push(canonicalTargetEntryId);
+      entryIdsByBaseTargetKey.set(baseLookupKey, baseBucket);
+    }
+  }
+
+  return entryIdsByBaseTargetKey;
+}
+
 function buildCanonicalEntryIdAliases(entries: readonly PbSystemSymbolEntry[]): ReadonlyMap<string, string> {
   const buckets = new Map<string, PbSystemSymbolEntry[]>();
 
@@ -163,6 +265,20 @@ function buildCanonicalEntryIdAliases(entries: readonly PbSystemSymbolEntry[]): 
   }
 
   return canonicalEntryIdByEntryId;
+}
+
+function buildCanonicalAliasEntryIds(
+  canonicalEntryIdAliases: ReadonlyMap<string, string>,
+): ReadonlyMap<string, readonly string[]> {
+  const aliasEntryIdsByCanonicalId = new Map<string, string[]>();
+
+  for (const [entryId, canonicalEntryId] of canonicalEntryIdAliases) {
+    const aliasEntryIds = aliasEntryIdsByCanonicalId.get(canonicalEntryId) ?? [];
+    aliasEntryIds.push(entryId);
+    aliasEntryIdsByCanonicalId.set(canonicalEntryId, aliasEntryIds);
+  }
+
+  return aliasEntryIdsByCanonicalId;
 }
 
 function buildCanonicalTargetCountsByDomain(entries: readonly PbSystemSymbolEntry[]): Map<PbSystemSymbolEntry['domain'], number> {
@@ -196,6 +312,68 @@ function buildCanonicalTargetCountsByDomain(entries: readonly PbSystemSymbolEntr
 function normalizeLookupText(value?: string): string | undefined {
   const normalized = value?.trim().toLowerCase();
   return normalized ? normalized : undefined;
+}
+
+function extractSignatureParameterLabel(token: string): string | undefined {
+  const cleanedToken = token
+    .replace(/[{}]/g, ' ')
+    .replace(/\s*=\s*.+$/, '')
+    .trim();
+  if (!cleanedToken) {
+    return undefined;
+  }
+
+  const parts = cleanedToken.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return undefined;
+  }
+
+  const candidate = parts[parts.length - 1]
+    ?.replace(/^\*+/, '')
+    .replace(/\[\]$/g, '')
+    .trim();
+  return candidate ? candidate : undefined;
+}
+
+function inferSignatureParameterKeys(signatureLabel: string): readonly string[] {
+  const start = signatureLabel.indexOf('(');
+  const end = signatureLabel.lastIndexOf(')');
+  if (start < 0 || end <= start + 1) {
+    return [];
+  }
+
+  const rawParameterList = signatureLabel.slice(start + 1, end);
+  const parameterKeys: string[] = [];
+  for (const token of rawParameterList.split(',')) {
+    const parameterLabel = extractSignatureParameterLabel(token);
+    const parameterKey = normalizeLookupText(parameterLabel);
+    if (parameterKey) {
+      parameterKeys.push(parameterKey);
+    }
+  }
+
+  return parameterKeys;
+}
+
+function buildSignatureParameterKeys(signature: PbSystemSymbolEntry['signatures'][number]): ReadonlySet<string> {
+  const parameterKeys = new Set<string>();
+
+  for (const parameter of signature.parameters ?? []) {
+    const parameterKey = normalizeLookupText(parameter.label);
+    if (parameterKey) {
+      parameterKeys.add(parameterKey);
+    }
+  }
+
+  if (parameterKeys.size > 0) {
+    return parameterKeys;
+  }
+
+  for (const parameterKey of inferSignatureParameterKeys(signature.label)) {
+    parameterKeys.add(parameterKey);
+  }
+
+  return parameterKeys;
 }
 
 function hasNonEmptyText(value?: string): boolean {
@@ -314,15 +492,7 @@ function collectInvalidParameterTargets(
       continue;
     }
 
-    const parameterNames = new Set<string>();
-    for (const parameter of signature.parameters ?? []) {
-      const parameterKey = normalizeLookupText(parameter.label);
-      if (parameterKey) {
-        parameterNames.add(parameterKey);
-      }
-    }
-
-    validParametersBySignature.set(signatureKey, parameterNames);
+    validParametersBySignature.set(signatureKey, new Set(buildSignatureParameterKeys(signature)));
   }
 
   const issues: PbSystemSymbolLocalizationInvalidParameterTarget[] = [];
@@ -488,6 +658,7 @@ function resolveOverlayTargetId(
   overlay: PbSystemSymbolLocalizationOverlay,
   entryById: ReadonlyMap<string, PbSystemSymbolEntry>,
   entryIdsByTargetKey: ReadonlyMap<string, readonly string[]>,
+  entryIdsByBaseTargetKey: ReadonlyMap<string, readonly string[]>,
 ): {
   targetEntryId?: string;
   orphanReason?: PbSystemSymbolLocalizationOrphanReason;
@@ -497,6 +668,11 @@ function resolveOverlayTargetId(
   const normalizedTargetId = overlay.targetId?.trim() || undefined;
   const lookupKey = overlay.targetKey ? buildTargetKeyLookupKey(overlay.targetKey) : undefined;
   const targetIdsFromKey = lookupKey ? entryIdsByTargetKey.get(lookupKey) ?? [] : [];
+  const baseLookupKey = overlay.targetKey ? buildBaseTargetKeyLookupKey(overlay.targetKey) : undefined;
+  const fallbackTargetIdsFromBaseKey = targetIdsFromKey.length === 0 && baseLookupKey
+    ? entryIdsByBaseTargetKey.get(baseLookupKey) ?? []
+    : [];
+  const resolvedTargetIdsFromKey = targetIdsFromKey.length > 0 ? targetIdsFromKey : fallbackTargetIdsFromBaseKey;
 
   if (!normalizedTargetId && !overlay.targetKey) {
     return { orphanReason: 'missing-target' };
@@ -507,31 +683,31 @@ function resolveOverlayTargetId(
   }
 
   if (!normalizedTargetId) {
-    if (targetIdsFromKey.length === 0) {
+    if (resolvedTargetIdsFromKey.length === 0) {
       return { orphanReason: 'missing-target-key' };
     }
-    if (targetIdsFromKey.length > 1) {
+    if (resolvedTargetIdsFromKey.length > 1) {
       return { orphanReason: 'ambiguous-target-key' };
     }
 
-    return { targetEntryId: targetIdsFromKey[0] };
+    return { targetEntryId: resolvedTargetIdsFromKey[0] };
   }
 
   if (!entryById.has(normalizedTargetId)) {
     if (!overlay.targetKey) {
       return { orphanReason: 'missing-target-id', normalizedTargetId };
     }
-    if (targetIdsFromKey.length === 0) {
+    if (resolvedTargetIdsFromKey.length === 0) {
       return { orphanReason: 'missing-target-id', normalizedTargetId };
     }
-    if (targetIdsFromKey.length > 1) {
+    if (resolvedTargetIdsFromKey.length > 1) {
       return { orphanReason: 'ambiguous-target-key', normalizedTargetId };
     }
 
     return {
-      targetEntryId: targetIdsFromKey[0],
+      targetEntryId: resolvedTargetIdsFromKey[0],
       normalizedTargetId,
-      recoveredTargetEntryId: targetIdsFromKey[0],
+      recoveredTargetEntryId: resolvedTargetIdsFromKey[0],
     };
   }
 
@@ -539,13 +715,13 @@ function resolveOverlayTargetId(
     return { targetEntryId: normalizedTargetId, normalizedTargetId };
   }
 
-  if (targetIdsFromKey.length === 0) {
+  if (resolvedTargetIdsFromKey.length === 0) {
     return { orphanReason: 'target-mismatch', normalizedTargetId };
   }
-  if (targetIdsFromKey.length > 1) {
+  if (resolvedTargetIdsFromKey.length > 1) {
     return { orphanReason: 'ambiguous-target-key', normalizedTargetId };
   }
-  if (targetIdsFromKey[0] !== normalizedTargetId) {
+  if (resolvedTargetIdsFromKey[0] !== normalizedTargetId) {
     return { orphanReason: 'target-mismatch', normalizedTargetId };
   }
 
@@ -558,7 +734,9 @@ export function buildSystemSymbolLocalizationIndex(
 ): PbSystemSymbolLocalizationIndex {
   const entryById = new Map(entries.map(entry => [entry.id, entry]));
   const entryIdsByTargetKey = buildEntryIdsByTargetKey(entries);
+  const entryIdsByBaseTargetKey = buildEntryIdsByBaseTargetKey(entries);
   const canonicalEntryIdAliases = buildCanonicalEntryIdAliases(entries);
+  const canonicalAliasEntryIds = buildCanonicalAliasEntryIds(canonicalEntryIdAliases);
   const totalTargetCountsByDomain = buildCanonicalTargetCountsByDomain(entries);
   const localeMaps = new Map<PbCatalogLocale, Map<string, PbResolvedSystemSymbolLocalizationOverlay>>();
   const localeSummaries: Partial<Record<PbCatalogLocale, MutableLocaleSummary>> = {};
@@ -604,6 +782,7 @@ export function buildSystemSymbolLocalizationIndex(
       overlay,
       entryById,
       entryIdsByTargetKey,
+      entryIdsByBaseTargetKey,
     );
 
     if (!targetEntryId || orphanReason) {
@@ -647,11 +826,14 @@ export function buildSystemSymbolLocalizationIndex(
     }
 
     const localeMap = localeMaps.get(overlay.locale) ?? new Map<string, PbResolvedSystemSymbolLocalizationOverlay>();
-    localeMap.set(targetEntryId, {
-      ...overlay,
-      targetEntryId,
-      targetId: normalizedTargetId ?? overlay.targetId,
-    });
+    const localizedTargetIds = canonicalAliasEntryIds.get(effectiveTargetEntryId) ?? [targetEntryId];
+    for (const localizedTargetId of localizedTargetIds) {
+      localeMap.set(localizedTargetId, {
+        ...overlay,
+        targetEntryId: localizedTargetId,
+        targetId: normalizedTargetId ?? overlay.targetId,
+      });
+    }
     localeMaps.set(overlay.locale, localeMap);
 
     const localeCoverage = domainCoverage[overlay.locale] ?? {};

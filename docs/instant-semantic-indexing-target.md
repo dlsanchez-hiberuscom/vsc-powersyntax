@@ -72,11 +72,15 @@ Los índices hot deben cubrir nombre, kind, contenedor, URI, base type, scopes, 
 
 El estado publicado debe ser observablemente readonly para consumers. Los índices derivados, como scope indexes materializados de forma lazy, deben declararse como proyecciones versionadas o construirse durante publicación; no deben confundirse con la verdad semántica autoritativa.
 
+Estado 2026-05: `KnowledgeBase` ya movió `scopeIndex` fuera de `publishedState` a una proyección versionada con owner explícito (`KnowledgeBase.scopeIndexProjection`) y el scanner estructural bloquea nuevas escrituras a `publishedState` desde query paths.
+
 ## 10. SemanticQueryFacade y SemanticQueryResult
 
 `SemanticQueryFacade` debe ser el límite para resolver identidad semántica, receivers, callables, inheritance, enum context y targets de workspace/catalog. `SemanticQueryResult` debe transportar confidence, evidence, reason codes y stale/degraded status cuando corresponda.
 
 `SemanticQueryResult.query` debe reflejar la policy efectiva usada por el resolver. No puede declarar `allowStaging`, `allowGenerated` o `allowExternal` con defaults permisivos si el consumer real los bloqueó.
+
+Estado 2026-05: `SemanticQueryFacade` ya copia la policy efectiva del consumer al envelope (`sourceOriginPolicy`, `budgetMs`, `resultCap`, `identifier`, `qualifier`), `SemanticQueryResult` publica `source` y degradación base por timeout/dynamic, y `rename` dejó de depender de `ResolvedTargetInfo` crudo en su preflight principal. La señal `stale` sigue estando por encima, en la serving pipeline.
 
 ## 11. Modelo de caché
 
@@ -304,6 +308,8 @@ PHASE 17 define los gates mínimos ejecutables:
 - DataWindow/SQL/native deep analysis solo advisory/background;
 - cada provider declara lane, budget, cancelación, cache, stale/degraded behavior y métricas;
 - detección de ciclos de imports en dominios semantic/indexing/runtime/shared.
+
+Estado 2026-05: `test:architecture:rapid` ya ejecuta `tools/architecture-conformance-scanner.mjs` con AST/import graph, JSON estable y artefacto en `artifacts/performance/architecture-conformance-report.json`. El lane queda protegido por fixtures negativos para provider bypass, import cycle, cache contract incompleto, parallel store y full scan en hot path.
 
 ## 30. Simplification and maintainability fitness functions
 

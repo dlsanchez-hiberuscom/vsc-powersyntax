@@ -5,6 +5,17 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const outDir = path.join(repoRoot, 'src/server/knowledge/system/generated');
+const generatedOutputLayout = {
+    catalog: path.join(repoRoot, 'src/server/knowledge/system/generated/generated.generated.ts'),
+    enumeratedTypes: path.join(repoRoot, 'src/server/knowledge/system/generated/enumeratedTypes.generated.ts'),
+    enumeratedValues: path.join(repoRoot, 'src/server/knowledge/system/generated/enumeratedValues.generated.ts'),
+    enumeratedCoverage: path.join(repoRoot, 'src/server/knowledge/system/generated/enumeratedCoverage.generated.ts'),
+    enumeratedProvenance: path.join(repoRoot, 'src/server/knowledge/system/generated/enumeratedProvenance.generated.ts'),
+    officialCoverage: path.join(repoRoot, 'src/server/knowledge/system/generated/officialCoverage.generated.ts'),
+    generatedCompleteness: path.join(repoRoot, 'src/server/knowledge/system/generated/generatedCompleteness.generated.ts'),
+    provenance: path.join(repoRoot, 'src/server/knowledge/system/generated/provenance.generated.ts'),
+    generatedKeywordLexemes: path.join(repoRoot, 'src/server/parsing/generatedKeywordLexemes.generated.ts'),
+};
 
 const {
     listSystemDataWindowFunctions,
@@ -43,11 +54,14 @@ const {
 } = require('./catalog-generator/processor.cjs');
 
 const {
+    renderBuilderCall,
     renderCatalogFile,
     renderProvenanceFile,
 } = require('./catalog-generator/renderers.cjs');
 
 const {
+    extractAppliesToLabels,
+    extractSignatureGroups,
     parsePowerScriptPage,
     parsePowerScriptStatementPage,
     parsePowerScriptReservedWordPage,
@@ -147,10 +161,10 @@ async function main() {
         return parsePowerScriptEventPage(html, link.url, { obsolete: link.obsolete });
     })).flat();
 
-    const parsedDataWindowPages = await mapConcurrent(officialDataWindowMethodReferences, 20, async reference => {
+    const parsedDataWindowPages = (await mapConcurrent(officialDataWindowMethodReferences, 20, async reference => {
         const html = await fetchText(reference.url);
         return parseDataWindowPage(html, reference.url, reference.chapterTitle);
-    });
+    })).flat();
 
     const parsedSystemObjectDatatypePages = await mapConcurrent(
         [...officialSystemObjectDatatypeEntries, ...officialUndocumentedBaseClassEntries],
@@ -285,7 +299,7 @@ async function main() {
     if (!isDryRun) {
         const timestamp = new Date().toISOString();
         await fs.mkdir(outDir, { recursive: true });
-        await fs.writeFile(path.join(outDir, 'generated.generated.ts'), renderCatalogFile(
+        await fs.writeFile(generatedOutputLayout.catalog, renderCatalogFile(
             mergeGeneratedEntries(generatedGlobalEntries),
             { entries: mergeGeneratedEntries(generatedObjectEntries), __keywords__: mergeGeneratedEntries(generatedKeywordEntries), __reservedWords__: mergeGeneratedEntries(generatedReservedWordEntries) },
             [], // datatypes
@@ -294,14 +308,29 @@ async function main() {
             mergeGeneratedEntries(generatedEventEntries),
             mergeGeneratedEntries(generatedStatementEntries)
         ));
-        await fs.writeFile(path.join(outDir, 'provenance.generated.ts'), renderProvenanceFile(timestamp));
+        await fs.writeFile(generatedOutputLayout.provenance, renderProvenanceFile(timestamp));
         console.log('Catálogo generado con éxito.');
     } else {
         console.log('Modo Dry Run completado sin errores.');
     }
 }
 
-main().catch(error => {
-    console.error('Error crítico:', error);
-    process.exit(1);
-});
+module.exports = {
+    main,
+    extractAppliesToLabels,
+    extractSignatureGroups,
+    parsePowerScriptPage,
+    parseDataWindowPage,
+    parsePowerScriptEventPage,
+    parseOfficialSystemObjectDatatypePage,
+    parsePowerScriptReservedWordPage,
+    buildGeneratedReservedWordEntry,
+    renderBuilderCall,
+};
+
+if (require.main === module) {
+    main().catch(error => {
+        console.error('Error crítico:', error);
+        process.exit(1);
+    });
+}

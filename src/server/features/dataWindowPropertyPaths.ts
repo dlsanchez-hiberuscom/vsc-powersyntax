@@ -12,6 +12,7 @@ import {
   type DataWindowRange,
   rangeContains,
 } from './dataWindowModel';
+import { summarizeDataWindowSafeMode } from './dataWindowSafeMode';
 
 interface DataWindowPropertyInvocation {
   targetName: string;
@@ -250,6 +251,20 @@ export function providePowerScriptDataWindowPropertyHover(
 
   const canonicalPath = getCanonicalDataWindowPropertyPath(resolved);
   const catalogEntry = canonicalPath ? lookupDataWindowPropertyEntry(canonicalPath) : undefined;
+  const safeModeSummary = resolved.kind === 'dataobject' && resolved.targetUri
+    ? summarizeDataWindowSafeMode(kb.getDocumentSnapshotReadonly(resolved.targetUri))
+    : null;
+  const safeModeLines = safeModeSummary
+    ? [
+        resolved.targetDataObject ? `**Inherits:** \`${resolved.targetDataObject} -> datawindow\`` : undefined,
+        '**DataWindow Safe Mode**',
+        safeModeSummary.retrieve ? `SQL base: \`${safeModeSummary.retrieve}\`` : undefined,
+        safeModeSummary.columns.length > 0
+          ? `Columnas: ${safeModeSummary.columns.slice(0, 4).map((column) => `\`${column.name}: ${column.type}\``).join(', ')}${safeModeSummary.columns.length > 4 ? ` (+${safeModeSummary.columns.length - 4} más)` : ''}`
+          : undefined,
+        safeModeSummary.bands.length > 0 ? `Bandas: ${safeModeSummary.bands.map((band) => `\`${band}\``).join(', ')}` : undefined,
+      ]
+    : [];
 
   const lines: Array<string | undefined> = [
     `**${resolved.path}**`,
@@ -259,6 +274,7 @@ export function providePowerScriptDataWindowPropertyHover(
         : 'Propiedad avanzada DataWindow'),
     resolved.breadcrumbs.length > 0 ? `Ruta: \`${resolved.breadcrumbs.join(' > ')}\`` : undefined,
     resolved.targetDataObject ? `DataObject destino: \`${resolved.targetDataObject}\`` : undefined,
+    ...safeModeLines,
     resolved.statement ? '```sql' : undefined,
     resolved.statement,
     resolved.statement ? '```' : undefined,
