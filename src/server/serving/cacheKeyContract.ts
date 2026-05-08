@@ -132,7 +132,30 @@ export function buildInteractiveServingCacheKey(descriptor: InteractiveServingCa
     buildRangeFragment(descriptor),
     `context:${normalizeStringValue(descriptor.context)}`,
     `trigger:${normalizeStringValue(descriptor.triggerKind)}:${normalizeStringValue(descriptor.triggerCharacter)}`,
+    `extra:${normalizeStringValue(descriptor.extra)}`,
+  ].join('|');
+}
+
+export function buildInteractiveServingStaleKeyMatcher(descriptor: InteractiveServingCacheKeyDescriptor): (key: string) => boolean {
+  const scope = buildInteractiveServingInvalidationScope(descriptor);
+
+  const prefixParts = [
+    `class:${scope.cacheClass}`,
+    `feature:${scope.feature}`,
+    `pressure:${scope.pressureClass}`,
+    `uri:${normalizeStringValue(scope.uri)}`,
+  ].join('|');
+
+  const suffixParts = [
+    `origin:${normalizeStringValue(scope.sourceOrigin)}`,
+    `locale:${normalizeStringValue(scope.locale)}`,
+    buildPositionFragment(descriptor),
+    buildRangeFragment(descriptor),
+    `context:${normalizeStringValue(descriptor.context)}`,
+    `trigger:${normalizeStringValue(descriptor.triggerKind)}:${normalizeStringValue(descriptor.triggerCharacter)}`,
     `prefix:${normalizeStringValue(descriptor.prefix)}`,
     `extra:${normalizeStringValue(descriptor.extra)}`,
   ].join('|');
+
+  return (key: string) => key.startsWith(prefixParts) && key.endsWith(suffixParts);
 }

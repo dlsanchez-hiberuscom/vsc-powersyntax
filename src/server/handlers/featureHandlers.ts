@@ -46,7 +46,7 @@ import type { DocumentationLocale } from '../knowledge/system/localization';
 import { Entity, EntityKind } from '../knowledge/types';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ActiveDocumentServingSnapshot } from '../serving/activeDocumentServingSnapshot';
-import { buildInteractiveServingCacheKey } from '../serving/cacheKeyContract';
+import { buildInteractiveServingCacheKey, buildInteractiveServingStaleKeyMatcher } from '../serving/cacheKeyContract';
 import { recordInteractiveServingEvent, runInteractiveServingPipeline } from '../serving/interactiveServingPipeline';
 import type { InteractiveServingRequestState, InteractiveServingStaleGuard } from '../serving/staleGuard';
 import { formatHoverViewModel } from '../features/hoverFormat';
@@ -468,6 +468,22 @@ export function registerHoverHandler(context: FeatureHandlerContext): void {
               cancellationToken: token,
               ensureRuntimeMemoryPressureRelief,
               getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideHover> | undefined,
+              getStaleResult: () => {
+                const matcher = buildInteractiveServingStaleKeyMatcher({
+                  cacheClass: 'serving',
+                  feature: 'hover',
+                  pressureClass: 'hot',
+                  uri: snapshot.uri,
+                  documentVersion: snapshot.documentVersion,
+                  kbVersion: snapshot.kbVersion,
+                  documentFingerprint: snapshot.documentFingerprint,
+                  sourceOrigin: snapshot.sourceOrigin,
+                  locale: snapshot.locale,
+                  line: params.position.line,
+                  character: params.position.character,
+                });
+                return servingCache.getStale('hover', matcher) as ReturnType<typeof provideHover> | undefined;
+              },
               resolveEarlyResult: () => {
                 const cachedNegative = getHoverNegativeCacheEntry(hoverNegativeCacheKey);
                 if (cachedNegative) {
@@ -670,6 +686,22 @@ export function registerSignatureHelpHandler(context: FeatureHandlerContext): vo
             ensureRuntimeMemoryPressureRelief,
             allowCachedWhileBlocked: false,
             getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideSignatureHelp> | undefined,
+            getStaleResult: () => {
+              const matcher = buildInteractiveServingStaleKeyMatcher({
+                cacheClass: 'serving',
+                feature: 'signatureHelp',
+                pressureClass: 'hot',
+                uri: snapshot.uri,
+                documentVersion: snapshot.documentVersion,
+                kbVersion: snapshot.kbVersion,
+                documentFingerprint: snapshot.documentFingerprint,
+                sourceOrigin: snapshot.sourceOrigin,
+                locale: snapshot.locale,
+                line: params.position.line,
+                character: params.position.character,
+              });
+              return servingCache.getStale('signatureHelp', matcher) as ReturnType<typeof provideSignatureHelp> | undefined;
+            },
             execute: () => provideSignatureHelp(document, params.position, knowledgeBase, systemCatalog, inheritanceGraph, hotContextCache, documentationLocale),
             writeCache: (value) => cacheServingResultWithMemoryPressure(cacheKey, value),
             onBlocked: (message) => connection.console.warn(message),
@@ -802,6 +834,24 @@ export function registerCompletionHandler(context: FeatureHandlerContext): void 
             cancellationToken: token,
             ensureRuntimeMemoryPressureRelief,
             getCachedResult: () => servingCache.get(cacheKey) as ReturnType<typeof provideCompletion> | undefined,
+            getStaleResult: () => {
+              const matcher = buildInteractiveServingStaleKeyMatcher({
+                cacheClass: 'serving',
+                feature: 'completion',
+                pressureClass: 'heavy',
+                uri: snapshot.uri,
+                documentVersion: snapshot.documentVersion,
+                kbVersion: snapshot.kbVersion,
+                documentFingerprint: snapshot.documentFingerprint,
+                sourceOrigin: snapshot.sourceOrigin,
+                locale: snapshot.locale,
+                line: params.position.line,
+                character: params.position.character,
+                triggerKind: params.context?.triggerKind,
+                triggerCharacter: params.context?.triggerCharacter,
+              });
+              return servingCache.getStale('completion', matcher) as ReturnType<typeof provideCompletion> | undefined;
+            },
             execute: () => provideCompletion(
               document,
               params.position,

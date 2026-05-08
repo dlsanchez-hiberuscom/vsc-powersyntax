@@ -12,6 +12,7 @@ export type InteractiveServingReason =
   | 'cache-hit'
   | 'viewmodel-hit'
   | 'negative-hit'
+  | 'stale-hit'
   | 'miss'
   | 'blocked'
   | 'readiness-degraded'

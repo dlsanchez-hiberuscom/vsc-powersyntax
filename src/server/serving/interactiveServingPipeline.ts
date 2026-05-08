@@ -56,6 +56,7 @@ export interface InteractiveServingPipelineRequest<TResult, TCache = TResult> {
   cancellationToken?: CancellationToken | null;
   ensureRuntimeMemoryPressureRelief?: () => void;
   getCachedResult: () => TResult | undefined;
+  getStaleResult?: () => TResult | undefined;
   resolveEarlyResult?: () => InteractiveServingPipelineEarlyResult<TResult, TCache> | undefined;
   execute?: () => TResult;
   resolve?: () => unknown;
@@ -194,6 +195,26 @@ export function runInteractiveServingPipeline<TResult, TCache = TResult>(
   }
 
   if (readinessBlocked) {
+    const staleResult = request.getStaleResult?.();
+    if (staleResult !== undefined && request.allowCachedWhileBlocked !== false) {
+      if (request.readiness.warningMessage) {
+        request.onBlocked?.(request.readiness.warningMessage);
+      }
+      recordInteractiveServingEvent(request.runtimeJournal, request.interactiveServingStats, {
+        feature: request.feature,
+        reason: 'stale-hit',
+        totalMs: nowMs() - cacheLookupStartedAt,
+        locale: request.locale,
+        kbVersion: request.kbVersion,
+        documentFingerprint: request.documentFingerprint,
+        budgetMs: request.budgetMs,
+        readinessAction: request.readiness.action,
+        readinessReason: request.readiness.reason,
+        ...resolvePayloadMetric(request.feature, request.payloadBudgetFeature, staleResult),
+      });
+      return staleResult;
+    }
+
     if (request.readiness.warningMessage) {
       request.onBlocked?.(request.readiness.warningMessage);
     }

@@ -315,6 +315,27 @@ export class ServingCache<T = unknown> {
     return value;
   }
 
+  /**
+   * PB-PERF-P2-OPTIMISTIC-SNAPSHOTS-01:
+   * Recupera un resultado obsoleto buscando una clave que coincida con el matcher
+   * dentro de una feature dada.
+   */
+  getStale(feature: ServingFeature | 'generic', matcher: (key: string) => boolean): T | undefined {
+    const partition = this.partitions[feature];
+    if (!partition) {
+      return undefined;
+    }
+    const keys = Array.from(partition.entries.keys());
+    for (let i = keys.length - 1; i >= 0; i--) {
+      if (matcher(keys[i])) {
+        const key = keys[i];
+        // Opcional: no emitimos hit/miss porque es lectura de fondo stale
+        return partition.entries.get(key);
+      }
+    }
+    return undefined;
+  }
+
   /** Inserta un valor; si la caché está llena, evicta el más antiguo. */
   set(key: string, value: T): void {
     const partition = this.getPartition(key);
