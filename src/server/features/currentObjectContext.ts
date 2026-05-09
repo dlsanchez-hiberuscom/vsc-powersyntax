@@ -9,11 +9,11 @@ import { buildHierarchyInspection } from './hierarchyInspection';
 import { buildObjectInfo } from './objectInfo';
 import { inferPowerBuilderObjectKindFromUri } from './powerBuilderObjectKind';
 import { createDocumentQueryContext } from './queryContext';
-import { collectEmbeddedSqlAnchors } from './embeddedSqlAnchors';
+import { collectEmbeddedSqlAnchorsProjection } from './embeddedSqlAnchors';
 import {
-  collectDataObjectBindings,
   type DataWindowBindingSummary,
 } from './dataWindowBindingModel';
+import { collectDataObjectBindingsProjection } from '../semantic/submodels/datawindow';
 import { KnowledgeBase } from '../knowledge/KnowledgeBase';
 import { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph';
 import { HotContextCache } from '../knowledge/HotContextCache';
@@ -27,6 +27,7 @@ import { SystemCatalog } from '../knowledge/system/SystemCatalog';
 import { buildFrameworkKnowledgeConflictPolicy } from '../knowledge/system/frameworkKnowledgePackPolicy';
 import { inferSourceOrigin, type SourceOrigin } from '../../shared/sourceOrigin';
 import {
+  createReadyProjectionEnvelope,
   type ApiCurrentObjectAncestor,
   type ApiCurrentObjectContext,
   type ApiCurrentObjectDiagnostic,
@@ -523,8 +524,52 @@ export function buildCurrentObjectContext(
   } satisfies ApiCurrentObjectDiagnostic));
   const bindingStartLine = 0;
   const bindingEndLine = Math.max(snapshot.maskedText.lines.length - 1, 0);
-  const dataWindowBindings = collectDataObjectBindings(snapshot, kb, bindingStartLine, bindingEndLine).map(mapDataWindowBinding);
-  const embeddedSqlAnchors = collectEmbeddedSqlAnchors(snapshot);
+  const resolvedSourceOrigin = currentObject?.lineage?.sourceOrigin ?? pickSourceOrigin(document.uri, options.workspaceState);
+  const dataWindowBindingCollection = collectDataObjectBindingsProjection(snapshot, kb, {
+    consumer: 'current-object-context',
+    startLine: bindingStartLine,
+    endLine: bindingEndLine,
+  });
+  const dataWindowBindings = dataWindowBindingCollection.bindings.map(mapDataWindowBinding);
+  const dataWindowBindingProjection = createReadyProjectionEnvelope({
+    projectionId: 'current-object-context:datawindow-bindings',
+    projectionOwner: 'current-object-context.datawindow-bindings',
+    generatedAt: new Date().toISOString(),
+    sourceOrigin: resolvedSourceOrigin,
+    ...(snapshot.readiness ? { readiness: snapshot.readiness } : {}),
+    ...(typeof dataWindowBindingCollection.receipt.maxBindings === 'number'
+      ? { caps: { maxItems: dataWindowBindingCollection.receipt.maxBindings } }
+      : {}),
+    truncated: dataWindowBindingCollection.receipt.truncated,
+    ...(dataWindowBindingCollection.receipt.truncatedReason
+      ? { truncatedReason: dataWindowBindingCollection.receipt.truncatedReason }
+      : {}),
+    refreshHint: {
+      strategy: 'refresh-on-demand',
+      detail: 'Reejecutar Current Object Context para refrescar el resumen de DataWindow bindings.',
+    },
+  });
+  const embeddedSql = collectEmbeddedSqlAnchorsProjection(snapshot, {
+    consumer: 'current-object-context',
+  });
+  const embeddedSqlProjection = createReadyProjectionEnvelope({
+    projectionId: 'current-object-context:embedded-sql',
+    projectionOwner: 'current-object-context.embedded-sql',
+    generatedAt: new Date().toISOString(),
+    sourceOrigin: resolvedSourceOrigin,
+    ...(snapshot.readiness ? { readiness: snapshot.readiness } : {}),
+    ...(typeof embeddedSql.receipt.maxAnchors === 'number'
+      ? { caps: { maxItems: embeddedSql.receipt.maxAnchors } }
+      : {}),
+    truncated: embeddedSql.receipt.truncated,
+    ...(embeddedSql.receipt.truncatedReason
+      ? { truncatedReason: embeddedSql.receipt.truncatedReason }
+      : {}),
+    refreshHint: {
+      strategy: 'refresh-on-demand',
+      detail: 'Reejecutar Current Object Context para refrescar el resumen de SQL embebido.',
+    },
+  });
   const referencedSymbols = collectReferencedSymbols(
     document,
     rawLines,
@@ -558,8 +603,6 @@ export function buildCurrentObjectContext(
   for (const reference of referencedSymbols) {
     addRelatedFile(relatedFiles, relatedSeen, reference.target.uri, 'reference-target');
   }
-
-  const resolvedSourceOrigin = currentObject?.lineage?.sourceOrigin ?? pickSourceOrigin(document.uri, options.workspaceState);
   const frameworkKnowledgeConflict = buildCurrentObjectFrameworkKnowledgeConflict({
     objectInfo,
     ancestorChain: hierarchy.ancestorChain,
@@ -595,7 +638,15 @@ export function buildCurrentObjectContext(
     referencedSymbols,
     diagnostics: summarizeDiagnostics(diagnostics),
     dataWindowBindings,
-    ...(embeddedSqlAnchors.length > 0 ? { embeddedSqlAnchors } : {}),
+    dataWindowBindingReceipt: {
+      ...dataWindowBindingCollection.receipt,
+      projection: dataWindowBindingProjection,
+    },
+    ...(embeddedSql.anchors.length > 0 ? { embeddedSqlAnchors: embeddedSql.anchors } : {}),
+    embeddedSqlReceipt: {
+      ...embeddedSql.receipt,
+      projection: embeddedSqlProjection,
+    },
     evidence: {
       readiness: snapshot.readiness,
       ...(queryContext?.context?.identifier ? { identifier: queryContext.context.identifier } : {}),

@@ -54,6 +54,17 @@ interface QueuedTask {
   cancellation: CancellationSource;
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
+  enqueuedAt: number;
+}
+
+export interface SchedulerLaneMetrics {
+  enqueued: number;
+  completed: number;
+  cancelled: number;
+  avgWaitMs?: number;
+  avgRunMs?: number;
+  lastWaitMs?: number;
+  lastRunMs?: number;
 }
 
 export interface SchedulerStatus {
@@ -72,6 +83,47 @@ export interface SchedulerStatus {
     interactiveCancelledNear: number;
     interactiveCancelledBackground: number;
     nearCancelledBackground: number;
+  };
+  metrics?: {
+    interactive: SchedulerLaneMetrics;
+    near: SchedulerLaneMetrics;
+    background: SchedulerLaneMetrics;
+  };
+}
+
+type MutableSchedulerLaneMetrics = {
+  enqueued: number;
+  completed: number;
+  cancelled: number;
+  waitMsSum: number;
+  waitSamples: number;
+  runMsSum: number;
+  runSamples: number;
+  lastWaitMs?: number;
+  lastRunMs?: number;
+};
+
+function createLaneMetrics(): MutableSchedulerLaneMetrics {
+  return {
+    enqueued: 0,
+    completed: 0,
+    cancelled: 0,
+    waitMsSum: 0,
+    waitSamples: 0,
+    runMsSum: 0,
+    runSamples: 0,
+  };
+}
+
+function toLaneMetricsSnapshot(metrics: MutableSchedulerLaneMetrics): SchedulerLaneMetrics {
+  return {
+    enqueued: metrics.enqueued,
+    completed: metrics.completed,
+    cancelled: metrics.cancelled,
+    ...(metrics.waitSamples > 0 ? { avgWaitMs: metrics.waitMsSum / metrics.waitSamples } : {}),
+    ...(metrics.runSamples > 0 ? { avgRunMs: metrics.runMsSum / metrics.runSamples } : {}),
+    ...(metrics.lastWaitMs !== undefined ? { lastWaitMs: metrics.lastWaitMs } : {}),
+    ...(metrics.lastRunMs !== undefined ? { lastRunMs: metrics.lastRunMs } : {}),
   };
 }
 
@@ -134,6 +186,11 @@ export class TaskScheduler {
     interactiveCancelledBackground: 0,
     nearCancelledBackground: 0
   };
+  private readonly laneMetrics = {
+    interactive: createLaneMetrics(),
+    near: createLaneMetrics(),
+    background: createLaneMetrics(),
+  };
   private backgroundAdmissionGate: ((task: ScheduledTask<unknown>) => BackgroundAdmissionDecision | boolean) | undefined;
   private throttledBackground: { workload: RuntimeWorkloadClass; reason: string } | null = null;
 
@@ -165,8 +222,12 @@ export class TaskScheduler {
    */
   async runInteractive<T>(task: ScheduledTask<T>): Promise<T> {
     const workload = resolveTaskWorkload(task, 'interactive');
+    const startedAt = performance.now();
     this.activeInteractiveCount++;
     incrementWorkloadCount(this.activeInteractiveWorkloads, workload);
+    this.laneMetrics.interactive.enqueued++;
+    this.laneMetrics.interactive.waitSamples++;
+    this.laneMetrics.interactive.lastWaitMs = 0;
     this.log(`[PLANIFICADOR] Inicio interactivo: ${task.id} (activos: ${this.activeInteractiveCount})`);
 
     // Cancelar tareas inferiores en curso para liberar el thread.
@@ -177,8 +238,13 @@ export class TaskScheduler {
       const result = await task.execute({ isCancelled: false, onCancelled() {} });
       return result;
     } finally {
+      const runMs = performance.now() - startedAt;
       this.activeInteractiveCount--;
       decrementWorkloadCount(this.activeInteractiveWorkloads, workload);
+      this.laneMetrics.interactive.completed++;
+      this.laneMetrics.interactive.runMsSum += runMs;
+      this.laneMetrics.interactive.runSamples++;
+      this.laneMetrics.interactive.lastRunMs = runMs;
       this.log(`[PLANIFICADOR] Fin interactivo: ${task.id} (activos: ${this.activeInteractiveCount})`);
       this.scheduleDrain();
     }
@@ -200,8 +266,10 @@ export class TaskScheduler {
         task: normalizedTask,
         cancellation,
         resolve: resolve as (v: unknown) => void,
-        reject
+        reject,
+        enqueuedAt: performance.now(),
       });
+      this.laneMetrics.near.enqueued++;
       this.log(`[PLANIFICADOR] Tarea Near encolada: ${normalizedTask.id} (cola: ${this.nearQueue.length})`);
     });
 
@@ -227,8 +295,10 @@ export class TaskScheduler {
         task: normalizedTask,
         cancellation,
         resolve: resolve as (v: unknown) => void,
-        reject
+        reject,
+        enqueuedAt: performance.now(),
       });
+      this.laneMetrics.background.enqueued++;
       this.log(`[PLANIFICADOR] Tarea de fondo encolada: ${normalizedTask.id} (cola: ${this.backgroundQueue.length})`);
       this.scheduleDrain();
     });
@@ -243,6 +313,7 @@ export class TaskScheduler {
     for (const queued of this.nearQueue) {
       queued.cancellation.cancel();
       queued.cancellation.dispose();
+      this.laneMetrics.near.cancelled++;
       queued.reject(new Error(`Tarea ${queued.task.id} cancelada`));
     }
     this.nearQueue.length = 0;
@@ -259,6 +330,7 @@ export class TaskScheduler {
     for (const queued of this.backgroundQueue) {
       queued.cancellation.cancel();
       queued.cancellation.dispose();
+      this.laneMetrics.background.cancelled++;
       queued.reject(new Error(`Tarea ${queued.task.id} cancelada`));
     }
     this.backgroundQueue.length = 0;
@@ -302,7 +374,12 @@ export class TaskScheduler {
       activeBackgroundWorkload,
       ...(throttledBackground?.workload ? { throttledBackgroundWorkload: throttledBackground.workload } : {}),
       ...(throttledBackground?.reason ? { throttledBackgroundReason: throttledBackground.reason } : {}),
-      preemptions: { ...this.preemptions }
+      preemptions: { ...this.preemptions },
+      metrics: {
+        interactive: toLaneMetricsSnapshot(this.laneMetrics.interactive),
+        near: toLaneMetricsSnapshot(this.laneMetrics.near),
+        background: toLaneMetricsSnapshot(this.laneMetrics.background),
+      }
     };
   }
 
@@ -320,6 +397,7 @@ export class TaskScheduler {
   private cancelActiveNear(reason: 'interactive' | 'manual'): void {
     if (this.activeNearTask) {
       this.activeNearTask.cancellation.cancel();
+      this.laneMetrics.near.cancelled++;
       if (reason === 'interactive') {
         this.preemptions.interactiveCancelledNear++;
       }
@@ -336,6 +414,7 @@ export class TaskScheduler {
         return;
       }
       this.activeBackgroundTask.cancellation.cancel();
+      this.laneMetrics.background.cancelled++;
       if (reason === 'interactive') {
         this.preemptions.interactiveCancelledBackground++;
       } else if (reason === 'near') {
@@ -376,11 +455,17 @@ export class TaskScheduler {
         this.throttledBackground = null;
         const queued = this.nearQueue.shift()!;
         if (queued.cancellation.token.isCancelled) {
+          this.laneMetrics.near.cancelled++;
           queued.reject(new Error(`Tarea ${queued.task.id} cancelada antes de ejecución`));
           queued.cancellation.dispose();
           continue;
         }
+        const startedAt = performance.now();
+        const waitMs = startedAt - queued.enqueuedAt;
         this.activeNearTask = queued;
+        this.laneMetrics.near.waitMsSum += waitMs;
+        this.laneMetrics.near.waitSamples++;
+        this.laneMetrics.near.lastWaitMs = waitMs;
         this.log(`[PLANIFICADOR] Inicio Near: ${queued.task.id}`);
         try {
           const result = await queued.task.execute(queued.cancellation.token);
@@ -388,6 +473,11 @@ export class TaskScheduler {
         } catch (error) {
           queued.reject(error);
         } finally {
+          const runMs = performance.now() - startedAt;
+          this.laneMetrics.near.completed++;
+          this.laneMetrics.near.runMsSum += runMs;
+          this.laneMetrics.near.runSamples++;
+          this.laneMetrics.near.lastRunMs = runMs;
           queued.cancellation.dispose();
           if (this.activeNearTask === queued) {
             this.activeNearTask = null;
@@ -423,11 +513,17 @@ export class TaskScheduler {
         this.throttledBackground = null;
         const queued = this.backgroundQueue.shift()!;
         if (queued.cancellation.token.isCancelled) {
+          this.laneMetrics.background.cancelled++;
           queued.reject(new Error(`Tarea ${queued.task.id} cancelada antes de ejecución`));
           queued.cancellation.dispose();
           continue;
         }
+        const startedAt = performance.now();
+        const waitMs = startedAt - queued.enqueuedAt;
         this.activeBackgroundTask = queued;
+        this.laneMetrics.background.waitMsSum += waitMs;
+        this.laneMetrics.background.waitSamples++;
+        this.laneMetrics.background.lastWaitMs = waitMs;
         this.log(`[PLANIFICADOR] Inicio fondo: ${queued.task.id}`);
         try {
           const result = await queued.task.execute(queued.cancellation.token);
@@ -435,6 +531,11 @@ export class TaskScheduler {
         } catch (error) {
           queued.reject(error);
         } finally {
+          const runMs = performance.now() - startedAt;
+          this.laneMetrics.background.completed++;
+          this.laneMetrics.background.runMsSum += runMs;
+          this.laneMetrics.background.runSamples++;
+          this.laneMetrics.background.lastRunMs = runMs;
           queued.cancellation.dispose();
           if (this.activeBackgroundTask === queued) {
             this.activeBackgroundTask = null;

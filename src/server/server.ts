@@ -36,6 +36,7 @@ import { getRuntimeWorkloadPolicy } from './runtime/backpressurePolicy';
 import { createManagedBuildWorkloads } from './runtime/managedBuildWorkloads';
 import { createManagedRuntimeWorkloads } from './runtime/managedRuntimeWorkloads';
 import { createLatencyGovernor } from './runtime/latencyGovernor';
+import { RuntimeEventLoopMonitor } from './runtime/eventLoopMonitor';
 import { buildRuntimeHealthReport } from './runtime/runtimeHealth';
 import { buildRuntimeMemoryReport } from './runtime/memoryBudgets';
 import {
@@ -107,6 +108,8 @@ const serverStartTime = performance.now();
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 const scheduler = new TaskScheduler();
+const eventLoopMonitor = new RuntimeEventLoopMonitor();
+eventLoopMonitor.start();
 const servingLatencyGovernor = createLatencyGovernor();
 const firstInvocation = new FirstInvocationTracker();
 
@@ -757,6 +760,7 @@ registerInitializedHandler({
     semanticCacheRuntimeController.setCacheStore(store);
   },
   buildCacheCheckpointMetadata,
+  persistCheckpoint: (checkpoint) => semanticCacheRuntimeController.persistCheckpoint(checkpoint),
   persistServingSnapshot: () => semanticCacheRuntimeController.persistServingSnapshot(),
   setPersistenceRestoreReport: (report) => {
     semanticCacheRuntimeController.setPersistenceRestoreReport(report);
@@ -858,6 +862,9 @@ registerShutdownHandler({
   disposeWatcherIntake: () => {
     watcherIntake.dispose();
   },
+  disposeEventLoopMonitor: () => {
+    eventLoopMonitor.stop();
+  },
   invalidateCodeLensCache,
   invalidateHoverPresentationCaches,
 });
@@ -924,13 +931,22 @@ registerServerCommandHandler({
     getLastRestoredCheckpointDocuments: () => semanticCacheRuntimeController.getLastRestoredCheckpointDocuments(),
     getLastServingSnapshotRestoreEntries: () => semanticCacheRuntimeController.getLastServingSnapshotRestoreEntries(),
     getLastServingSnapshotPersistEntries: () => semanticCacheRuntimeController.getLastServingSnapshotPersistEntries(),
-    getInteractiveServingStats: () => interactiveServingStats.snapshot(32),
+    getInteractiveServingStats: () => ({
+      ...interactiveServingStats.snapshot(32),
+      performanceEvents: interactiveServingStats.runtimeMetricsSnapshot(32),
+    }),
+    recordPerformanceEvent: (event) => {
+      interactiveServingStats.recordPerformanceEvent(event);
+    },
+    getEventLoopSnapshot: () => eventLoopMonitor.snapshot(),
+    getRuntimeMemoryPressurePolicy: () => getRuntimeMemoryPressurePolicy(),
     getLastHealthJournalSignature: () => lastHealthJournalSignature,
     setLastHealthJournalSignature: (signature: string) => {
       lastHealthJournalSignature = signature;
     },
     ensureRuntimeMemoryPressureRelief,
     resolveAdaptiveLimit,
+    runNearContextWorkload,
     runExportReportingWorkload,
     runMaintenanceWorkload,
     buildCacheCheckpointMetadata,

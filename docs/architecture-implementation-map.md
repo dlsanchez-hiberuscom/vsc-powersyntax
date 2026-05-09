@@ -74,7 +74,7 @@ Superficies principales:
 
 - [src/client/extension.ts](../src/client/extension.ts): `activate()`, `startClient()`, creación del `LanguageClient`, bootstrap de estado visible, export de API pública y materialización lazy de controllers mediante `ensureObjectExplorerController()`, `ensureCurrentObjectContextPanelController()` y `ensureDiagnosticsExplainabilityPanelController()`.
 - [src/client/commandRegistration.ts](../src/client/commandRegistration.ts): registro declarativo de comandos canónicos y legacy aliases.
-- [src/client/objectExplorer.ts](../src/client/objectExplorer.ts), [src/client/currentObjectContextPanel.ts](../src/client/currentObjectContextPanel.ts), [src/client/diagnosticsExplainabilityPanel.ts](../src/client/diagnosticsExplainabilityPanel.ts): Tree Views y paneles read-only bajo demanda.
+- [src/client/objectExplorer.ts](../src/client/objectExplorer.ts), [src/client/currentObjectContextPanel.ts](../src/client/currentObjectContextPanel.ts), [src/client/diagnosticsExplainabilityPanel.ts](../src/client/diagnosticsExplainabilityPanel.ts), [src/client/readOnlyProjectionState.ts](../src/client/readOnlyProjectionState.ts): Tree Views y paneles read-only bajo demanda con microcopy compacta de estado y receipts visibles cuando la surface ya expone envelope/projection.
 - [src/client/statusBarPresentation.ts](../src/client/statusBarPresentation.ts) y [src/client/statusMenuActions.ts](../src/client/statusMenuActions.ts): proyección de stats y acciones rápidas.
 - [src/client/support/supportBundle.ts](../src/client/support/supportBundle.ts), [src/client/semanticWorkspaceSnapshot.ts](../src/client/semanticWorkspaceSnapshot.ts), [src/client/runtimeSelfTest.ts](../src/client/runtimeSelfTest.ts): export offline, snapshotting y troubleshooting.
 
@@ -113,6 +113,7 @@ Superficies principales:
 Notas verificadas:
 
 - en warm start limpio, `workspaceIndexer.ts` ya puede cortar la indexación completa reutilizando snapshots publicados en `KnowledgeBase`, aunque `DocumentCache` haya evictado parte del corpus real;
+- `lifecycleHandlers.ts` ya puede usar `discoverWorkspaceBounded` como path real opt-in/warm-resume, manteniendo `discoverWorkspace` como default y compartiendo el mismo canal de progreso;
 - la validación real sobre OrderEntry/PFC confirmó `discoverWorkspace=545.49ms`, `index cold=17736.90ms` y `warm=9.48ms`.
 
 ### 4.4 Parsing, análisis y snapshots
@@ -155,26 +156,31 @@ Superficies principales:
 - Hot path: [src/server/features/hover.ts](../src/server/features/hover.ts), [src/server/features/completion.ts](../src/server/features/completion.ts), [src/server/features/signatureHelp.ts](../src/server/features/signatureHelp.ts), [src/server/features/definition.ts](../src/server/features/definition.ts), [src/server/features/references.ts](../src/server/features/references.ts), [src/server/features/rename.ts](../src/server/features/rename.ts), [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts), [src/server/features/documentSymbols.ts](../src/server/features/documentSymbols.ts), [src/server/features/workspaceSymbols.ts](../src/server/features/workspaceSymbols.ts).
 - Policies: [src/server/features/queryScopePolicy.ts](../src/server/features/queryScopePolicy.ts), [src/server/features/queryContext.ts](../src/server/features/queryContext.ts), [src/server/features/servingReadiness.ts](../src/server/features/servingReadiness.ts), [src/server/features/featureReadiness.ts](../src/server/features/featureReadiness.ts).
 - Presentación: [src/server/presentation/viewModels.ts](../src/server/presentation/viewModels.ts), [src/server/presentation/hoverPresentation.ts](../src/server/presentation/hoverPresentation.ts), [src/server/presentation/completionPresentation.ts](../src/server/presentation/completionPresentation.ts), [src/server/presentation/signatureHelpPresentation.ts](../src/server/presentation/signatureHelpPresentation.ts), [src/server/presentation/definitionPresentation.ts](../src/server/presentation/definitionPresentation.ts), [src/server/presentation/diagnosticPresentation.ts](../src/server/presentation/diagnosticPresentation.ts), [src/server/presentation/semanticTokenPresentation.ts](../src/server/presentation/semanticTokenPresentation.ts), [src/server/presentation/aiContextPresentation.ts](../src/server/presentation/aiContextPresentation.ts). Esta capa no consulta `KnowledgeBase`, parser, filesystem ni discovery; recibe modelos ya resueltos y devuelve DTOs LSP/read models compactos.
-- DataWindow: [src/server/features/dataWindowModel.ts](../src/server/features/dataWindowModel.ts), [src/server/features/dataWindowBindingModel.ts](../src/server/features/dataWindowBindingModel.ts), [src/server/features/dataWindowFastContext.ts](../src/server/features/dataWindowFastContext.ts), [src/server/features/dataWindowServingAdapters.ts](../src/server/features/dataWindowServingAdapters.ts), [src/server/features/dataWindowColumnAccess.ts](../src/server/features/dataWindowColumnAccess.ts), [src/server/features/dataWindowPropertyPaths.ts](../src/server/features/dataWindowPropertyPaths.ts), [src/server/features/dataWindowSafeMode.ts](../src/server/features/dataWindowSafeMode.ts), [src/server/features/dataWindowSqlLineage.ts](../src/server/features/dataWindowSqlLineage.ts).
-- Reports y planificación segura: [src/server/features/currentObjectContext.ts](../src/server/features/currentObjectContext.ts), [src/server/features/impactAnalysis.ts](../src/server/features/impactAnalysis.ts), [src/server/features/safeEditPlan.ts](../src/server/features/safeEditPlan.ts), [src/server/features/safeBatchRefactorPlan.ts](../src/server/features/safeBatchRefactorPlan.ts), [src/server/features/workspaceMigrationAssistant.ts](../src/server/features/workspaceMigrationAssistant.ts), [src/server/features/powerBuilderCodeMetrics.ts](../src/server/features/powerBuilderCodeMetrics.ts), [src/server/features/powerBuilderTechnicalDebtReport.ts](../src/server/features/powerBuilderTechnicalDebtReport.ts).
+- DataWindow: [src/server/semantic/submodels/datawindow/index.ts](../src/server/semantic/submodels/datawindow/index.ts), [src/server/semantic/submodels/datawindow/bindingProjection.ts](../src/server/semantic/submodels/datawindow/bindingProjection.ts), [src/server/features/dataWindowBindingProjection.ts](../src/server/features/dataWindowBindingProjection.ts), [src/server/features/dataWindowModel.ts](../src/server/features/dataWindowModel.ts), [src/server/features/dataWindowBindingModel.ts](../src/server/features/dataWindowBindingModel.ts), [src/server/features/dataWindowFastContext.ts](../src/server/features/dataWindowFastContext.ts), [src/server/features/dataWindowServingAdapters.ts](../src/server/features/dataWindowServingAdapters.ts), [src/server/features/dataWindowColumnAccess.ts](../src/server/features/dataWindowColumnAccess.ts), [src/server/features/dataWindowPropertyPaths.ts](../src/server/features/dataWindowPropertyPaths.ts), [src/server/features/dataWindowSafeMode.ts](../src/server/features/dataWindowSafeMode.ts), [src/server/features/dataWindowSqlLineage.ts](../src/server/features/dataWindowSqlLineage.ts).
+- Reports y planificación segura: [src/server/features/currentObjectContext.ts](../src/server/features/currentObjectContext.ts), [src/server/features/objectExplorerProjection.ts](../src/server/features/objectExplorerProjection.ts), [src/server/features/impactAnalysis.ts](../src/server/features/impactAnalysis.ts), [src/server/features/safeEditPlan.ts](../src/server/features/safeEditPlan.ts), [src/server/features/safeBatchRefactorPlan.ts](../src/server/features/safeBatchRefactorPlan.ts), [src/server/features/workspaceMigrationAssistant.ts](../src/server/features/workspaceMigrationAssistant.ts), [src/server/features/powerBuilderCodeMetrics.ts](../src/server/features/powerBuilderCodeMetrics.ts), [src/server/features/powerBuilderTechnicalDebtReport.ts](../src/server/features/powerBuilderTechnicalDebtReport.ts).
 
 Notas verificadas:
 
 - `hover.ts` resuelve built-ins/system functions por catálogo antes del índice de workspace y deja serving cache/negative cache instrumentadas en el hot path;
-- las views runtime read-only quedan registradas durante `activate()` y degradan por estado propio, no por ausencia de provider nativo de VS Code.
+- las views runtime read-only quedan registradas durante `activate()` y degradan por estado propio, no por ausencia de provider nativo de VS Code;
+- Object Explorer ya no depende del manifest plano en el path normal: el cliente consume `powerbuilder.objectExplorerProjection`, pagina por `parentPath` y conserva el manifest legacy solo como fallback reversible;
+- el bundle IA read-only ya planifica secciones antes de ejecutarlas (`aiTaskContextBundle`) y publica receipts compactos de skipped-before-execution.
+- Wave 07 introduce un boundary mínimo `src/server/semantic/submodels/datawindow/`; `bindingProjection` vive ya ahí, `currentObjectContext` lo consume desde el boundary y `src/server/features/dataWindowBindingProjection.ts` queda como re-export compatible mientras el resto de imports migra de forma incremental.
 
 ### 4.7 Persistencia, runtime, build y release lane
 
 Superficies principales:
 
 - Persistencia: [src/server/cache/cacheStore.ts](../src/server/cache/cacheStore.ts), [src/server/cache/cacheCheckpoint.ts](../src/server/cache/cacheCheckpoint.ts), [src/server/cache/cacheJournal.ts](../src/server/cache/cacheJournal.ts), [src/server/cache/servingCachePersistence.ts](../src/server/cache/servingCachePersistence.ts), [src/server/cache/semanticCacheRuntimeController.ts](../src/server/cache/semanticCacheRuntimeController.ts).
-- Runtime: [src/server/runtime/scheduler.ts](../src/server/runtime/scheduler.ts), [src/server/runtime/backpressurePolicy.ts](../src/server/runtime/backpressurePolicy.ts), [src/server/runtime/memoryBudgets.ts](../src/server/runtime/memoryBudgets.ts), [src/server/runtime/memoryPressurePolicy.ts](../src/server/runtime/memoryPressurePolicy.ts), [src/server/runtime/runtimeJournal.ts](../src/server/runtime/runtimeJournal.ts), [src/server/runtime/runtimeHealth.ts](../src/server/runtime/runtimeHealth.ts), [src/server/runtime/runtimeProgressController.ts](../src/server/runtime/runtimeProgressController.ts).
+- Runtime: [src/server/runtime/scheduler.ts](../src/server/runtime/scheduler.ts), [src/server/runtime/backpressurePolicy.ts](../src/server/runtime/backpressurePolicy.ts), [src/server/runtime/memoryBudgets.ts](../src/server/runtime/memoryBudgets.ts), [src/server/runtime/memoryPressurePolicy.ts](../src/server/runtime/memoryPressurePolicy.ts), [src/server/runtime/performanceEvents.ts](../src/server/runtime/performanceEvents.ts), [src/server/runtime/eventLoopMonitor.ts](../src/server/runtime/eventLoopMonitor.ts), [src/server/runtime/runtimeJournal.ts](../src/server/runtime/runtimeJournal.ts), [src/server/runtime/runtimeHealth.ts](../src/server/runtime/runtimeHealth.ts), [src/server/runtime/runtimeProgressController.ts](../src/server/runtime/runtimeProgressController.ts).
 - Build/legacy: [src/server/build/pbAutoBuildRunner.ts](../src/server/build/pbAutoBuildRunner.ts), [src/server/build/pbAutoBuildLogParser.ts](../src/server/build/pbAutoBuildLogParser.ts), [src/server/build/pbAutoBuildProblems.ts](../src/server/build/pbAutoBuildProblems.ts), [src/server/build/orcaRunner.ts](../src/server/build/orcaRunner.ts), [src/server/build/orcaStagingExport.ts](../src/server/build/orcaStagingExport.ts), [src/server/build/orcaStagingImport.ts](../src/server/build/orcaStagingImport.ts), [src/server/build/specDrivenPblUpdate.ts](../src/server/build/specDrivenPblUpdate.ts).
-- Scripts y empaquetado: [package.json](../package.json), [tools/esbuild.mjs](../tools/esbuild.mjs), [tools/run-architecture-hotspot-guard.mjs](../tools/run-architecture-hotspot-guard.mjs), [tools/run-architecture-rapid-gate.mjs](../tools/run-architecture-rapid-gate.mjs), [tools/run-performance-budget-gate.mjs](../tools/run-performance-budget-gate.mjs), [tools/verify-vsix-contents.mjs](../tools/verify-vsix-contents.mjs).
+- Scripts y empaquetado: [package.json](../package.json), [tools/esbuild.mjs](../tools/esbuild.mjs), [tools/run-architecture-hotspot-guard.mjs](../tools/run-architecture-hotspot-guard.mjs), [tools/run-architecture-rapid-gate.mjs](../tools/run-architecture-rapid-gate.mjs), [tools/run-performance-budget-gate.mjs](../tools/run-performance-budget-gate.mjs), [tools/run-performance-10k-gate.mjs](../tools/run-performance-10k-gate.mjs), [tools/generate-synthetic-powerbuilder-corpus.mjs](../tools/generate-synthetic-powerbuilder-corpus.mjs), [tools/verify-vsix-contents.mjs](../tools/verify-vsix-contents.mjs).
 
 Notas verificadas:
 
 - `runtimeHealth.ts`, `projectHealthDashboard.ts`, `pbAutoBuildHealth.ts` y `buildOrcaFailureClassification.ts` ya separan estado interactivo de capacidades opcionales build/ORCA;
+- `semanticCacheRuntimeController.ts` serializa journal/checkpoint/serving snapshot con `PersistenceWriteQueue`, y `lifecycleHandlers.ts` persiste checkpoints a través de esa ruta para no competir entre writes concurrentes;
+- Wave 08 añade `PerformanceEvent`, `RuntimeEventLoopMonitor` y snapshots bounded de scheduler/worker/memory pressure en `showStats`, además de un generador sintético reusable para carriles `smoke` y `10k`;
 - la ausencia de ORCA o build files se refleja en dashboards/capabilities sin convertirse en bloqueo del runtime LSP interactivo.
 
 ## 5. Flujos end-to-end reales
@@ -190,7 +196,7 @@ Notas verificadas:
 ### 5.2 Discovery, warm resume e indexación
 
 1. `onInitialized` intenta restore desde `cacheStore` y `restoreServingCacheSnapshot()`.
-2. [src/server/workspace/discovery.ts](../src/server/workspace/discovery.ts) recorre roots, detecta markers PB, registra source files y topología.
+2. [src/server/workspace/discovery.ts](../src/server/workspace/discovery.ts) recorre roots, detecta markers PB, registra source files y topología; [src/server/handlers/lifecycleHandlers.ts](../src/server/handlers/lifecycleHandlers.ts) puede usar `discoverWorkspaceBounded()` como path opt-in/warm-resume cuando necesita mantener el default clásico intacto.
 3. [src/server/indexer/workspaceIndexer.ts](../src/server/indexer/workspaceIndexer.ts) prioriza el activo, corre fase structural y luego enriched.
 4. [src/server/knowledge/KnowledgeBase.ts](../src/server/knowledge/KnowledgeBase.ts) publica snapshots atómicamente y aumenta `semanticEpoch`.
 5. [src/server/runtime/runtimeProgressController.ts](../src/server/runtime/runtimeProgressController.ts) proyecta readiness/progreso al cliente.
@@ -244,7 +250,7 @@ Observaciones:
 | References | [src/server/features/references.ts](../src/server/features/references.ts) | `150ms`, `project`, `resultCap = 512` | Candidate pool compartido y acotado |
 | Rename | [src/server/features/rename.ts](../src/server/features/rename.ts) | `rename-prepare = 25ms`, `rename = 200ms` | Bloquea con confidence/sourceOrigin no defendibles |
 | Document Symbols | [src/server/features/documentSymbols.ts](../src/server/features/documentSymbols.ts) | Scheduler interactivo y reconciliación explícita | Reutiliza snapshot del documento |
-| Semantic Tokens | [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | Scheduler interactivo + `SemanticTokensResultState` | Usa catálogo y snapshot, sin full scan del workspace; valida `previousResultId`, degrada a full cuando el estado es stale/desconocido y mantiene el contrato de confidence pendiente de convergencia completa |
+| Semantic Tokens | [src/server/features/semanticTokens.ts](../src/server/features/semanticTokens.ts) | Scheduler interactivo + `SemanticTokensResultState` | Usa catálogo y snapshot, sin full scan del workspace; valida `previousResultId` con estado versionado por `uri`/`documentVersion`/`fingerprint`/`kbVersion`/`sourceOrigin`/`legendVersion`/payload hash, degrada a full cuando deriva y mantiene pendiente `range`, host validation y convergencia completa de confidence |
 
 Guardrails ejecutables ya presentes:
 
@@ -1936,6 +1942,7 @@ Entry points:
 Responsabilidades reales:
 
 - exponer stats de cachés, scheduler, memory, persistence y health;
+- proyectar `interactiveServing.performanceEvents`, `runtimeMetrics.eventLoop` y `runtimeMetrics.memoryPressure` desde el runtime real ya existente;
 - ejecutar maintenance fuera del hot path;
 - exportar manifest semántico con caps adaptativos.
 
@@ -7334,7 +7341,8 @@ Implementaciones encontradas:
 - [src/server/features/explainSemanticQuery.ts](../src/server/features/explainSemanticQuery.ts)
 - [src/server/features/explainSystemSymbol.ts](../src/server/features/explainSystemSymbol.ts)
 - [src/server/features/currentObjectContext.ts](../src/server/features/currentObjectContext.ts)
-- [src/server/features/workspaceCheckReport.ts](../src/server/features/workspaceCheckReport.ts)
+- [src/client/workspaceCheckReport.ts](../src/client/workspaceCheckReport.ts)
+- [src/shared/publicApi.ts](../src/shared/publicApi.ts)
 
 Owner esperado:
 

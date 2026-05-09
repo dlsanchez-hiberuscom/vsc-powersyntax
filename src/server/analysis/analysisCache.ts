@@ -92,8 +92,14 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
   const key = normalizeUri(document.uri);
   const currentSourceOrigin = resolveDocumentSourceOrigin(document.uri);
   const cached = analysisByUri.get(key);
+  const currentFingerprint = cached ? fingerprintOnly(document.getText()) : undefined;
 
-  if (cached && cached.version === document.version && cached.sourceOrigin === currentSourceOrigin) {
+  if (
+    cached &&
+    cached.version === document.version &&
+    cached.sourceOrigin === currentSourceOrigin &&
+    currentFingerprint === cached.analysis.fingerprint
+  ) {
     // Re-insertamos para LRU (Map preserva orden de inserción).
     analysisByUri.delete(key);
     analysisByUri.set(key, cached);
@@ -106,7 +112,7 @@ export function getDocumentAnalysis(document: TextDocument): DocumentAnalysis {
   // análisis previo evitando reparseo y reindex de KB.
   if (cached && cached.sourceOrigin === currentSourceOrigin) {
     const t0fp = PERF_LOG_ENABLED ? Date.now() : 0;
-    const fp = fingerprintOnly(document.getText());
+    const fp = currentFingerprint ?? fingerprintOnly(document.getText());
     if (fp === cached.analysis.fingerprint) {
       const mergedSnapshot = mergeOrReplaceSnapshot(
         cached.analysis.snapshot,

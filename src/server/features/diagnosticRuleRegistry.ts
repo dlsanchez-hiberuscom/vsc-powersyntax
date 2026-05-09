@@ -8,7 +8,7 @@
  * buildDiagnosticsForDocument se mantiene como capa de compatibilidad.
  */
 
-import type { Diagnostic } from 'vscode-languageserver/node';
+import { DiagnosticSeverity, type Diagnostic } from 'vscode-languageserver/node';
 
 import { getDiagnosticCode } from '../../shared/diagnosticCodes';
 
@@ -82,6 +82,58 @@ export function collectUnregisteredDiagnosticCodes(
       .filter((code) => !registry.lookup(code))
       .sort(),
   )];
+}
+
+export function filterDiagnosticsByRegistryMetadata(
+  diagnostics: readonly Diagnostic[],
+  includeTier: (tier: DiagnosticTier) => boolean,
+  options?: {
+    registry?: DiagnosticRuleRegistry;
+    allowUnregisteredCodes?: readonly string[];
+  },
+): Diagnostic[] {
+  const registry = options?.registry ?? DIAGNOSTIC_RULE_REGISTRY;
+  const allowUnregisteredCodes = new Set(options?.allowUnregisteredCodes ?? []);
+  const unregistered = collectUnregisteredDiagnosticCodes(diagnostics, registry)
+    .filter((code) => !allowUnregisteredCodes.has(code));
+
+  if (unregistered.length > 0) {
+    throw new Error(`DiagnosticRuleRegistry does not cover emitted codes: ${unregistered.join(', ')}`);
+  }
+
+  const perRuleCount = new Map<string, number>();
+
+  return diagnostics.filter((diagnostic) => {
+    const metadata = getDiagnosticRuleMetadata(diagnostic, registry);
+    if (!metadata) {
+      return true;
+    }
+
+    if (!includeTier(metadata.tier)) {
+      return false;
+    }
+
+    if (metadata.advisory) {
+      const severity = diagnostic.severity ?? DiagnosticSeverity.Error;
+      if (severity < DiagnosticSeverity.Information) {
+        throw new Error(
+          `Diagnostic '${metadata.id}' is advisory in DiagnosticRuleRegistry and cannot emit warning/error severity.`,
+        );
+      }
+    }
+
+    if (metadata.cap === undefined) {
+      return true;
+    }
+
+    const emitted = perRuleCount.get(metadata.id) ?? 0;
+    if (emitted >= metadata.cap) {
+      return false;
+    }
+
+    perRuleCount.set(metadata.id, emitted + 1);
+    return true;
+  });
 }
 
 // Reglas estructurales y sintácticas (Tier 1 - immediate, no requieren KB)

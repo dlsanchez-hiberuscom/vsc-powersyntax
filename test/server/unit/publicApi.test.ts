@@ -2,6 +2,10 @@ import * as assert from 'assert/strict';
 import {
   PUBLIC_API_EXTENSION_ID,
   PUBLIC_API_VERSION,
+  createDegradedProjectionEnvelope,
+  createReadOnlyProjectionEnvelope,
+  createReadyProjectionEnvelope,
+  createStaleProjectionEnvelope,
   type ApiPowerBuilderCodeMetrics,
   type ApiPowerBuilderTechnicalDebtReport,
   getPublicApiContractDescriptor,
@@ -47,6 +51,59 @@ suite('unit/publicApi (B109)', () => {
   test('versión exportada', () => {
     assert.match(PUBLIC_API_VERSION, /^\d+\.\d+\.\d+$/);
     assert.equal(PUBLIC_API_VERSION.split('.')[0], '2');
+  });
+
+  test('helpers del projection envelope normalizan estado y copian metadata defensivamente', () => {
+    const caps = { maxFiles: 8, maxFindings: 24, pageSize: 25 };
+    const pageInfo = { page: 1, pageSize: 25, nextCursor: 'cursor-2', totalItems: 50, hasMore: true };
+    const refreshHint = { strategy: 'refresh-on-demand' as const, detail: 'rerun tool' };
+
+    const ready = createReadyProjectionEnvelope({
+      projectionId: 'workspace-check',
+      projectionOwner: 'workspace-check-report',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      generatedFromCache: true,
+      caps,
+      truncated: true,
+      truncatedReason: 'findings capped by maxFindings',
+      refreshHint,
+    });
+    const stale = createStaleProjectionEnvelope({
+      projectionId: 'workspace-check',
+      projectionOwner: 'workspace-check-report',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      staleReason: 'cache restored before ready',
+    });
+    const degraded = createDegradedProjectionEnvelope({
+      projectionId: 'workspace-check',
+      projectionOwner: 'workspace-check-report',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      degradedReason: 'readiness=indexing',
+    });
+    const paged = createReadOnlyProjectionEnvelope({
+      projectionId: 'dependency-graph',
+      projectionOwner: 'dependency-graph-report',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      caps,
+      pageInfo,
+    });
+
+    caps.maxFiles = 99;
+    pageInfo.page = 9;
+    refreshHint.detail = 'mutated';
+
+    assert.equal(ready.state, 'ready');
+    assert.equal(ready.generatedFromCache, true);
+    assert.equal(ready.truncated, true);
+    assert.equal(ready.caps?.maxFiles, 8);
+    assert.equal(ready.refreshHint?.detail, 'rerun tool');
+    assert.equal(stale.state, 'stale');
+    assert.equal(stale.stale, true);
+    assert.equal(degraded.state, 'degraded');
+    assert.equal(degraded.degraded, true);
+    assert.equal(paged.state, 'paged');
+    assert.equal(paged.paged, true);
+    assert.equal(paged.pageInfo?.page, 1);
   });
 
   test('descriptor contractual v2 expone inventario estable', () => {
@@ -109,6 +166,7 @@ suite('unit/publicApi (B109)', () => {
     assert.ok(descriptor.methods.some((method) => method.name === 'diffSemanticWorkspaceSnapshots' && method.responseSchema === 'ApiSemanticWorkspaceSnapshotDiff'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiPublicContractDescriptor' && schema.version === PUBLIC_API_VERSION));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiTaskExecutionContractCatalog' && schema.version === '1.0.0'));
+    assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiReadOnlyProjectionEnvelope' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiBuildProfileMatrix' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiWorkspaceCheckReport' && schema.version === '1.0.0'));
     assert.ok(descriptor.schemas.some((schema) => schema.name === 'ApiObjectCheckReport' && schema.version === '1.0.0'));

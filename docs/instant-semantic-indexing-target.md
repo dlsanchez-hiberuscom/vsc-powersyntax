@@ -153,11 +153,15 @@ PHASE 6 confirma que semantic tokens debe tratarse como proyección incremental,
 
 PHASE 7 añade que `resultId`/`previousResultId` deben estar respaldados por estado versionado propio: URI, documentVersion, documentFingerprint, semanticEpoch/kbVersion, sourceOrigin, legend version y hash de payload. El builder debe ser efímero por respuesta; si `previousResultId` no coincide con el snapshot actual, el servidor devuelve full tokens o structural-only degraded tokens, no edits basados en estado ambiguo.
 
+Wave 05 reduce esa brecha: `SemanticTokensResultState` ya serializa `sourceOrigin`, `legendVersion` y `createdAt`, y el provider real degrada a full cuando cualquiera de esos discriminadores deriva; siguen abiertos `range`, la validación host `vscode-test` dedicada y las métricas de payload/delta hit rate.
+
 ## 17. Submodelo DataWindow
 
 DataWindow es subdominio separado y advisory por defecto. Debe preservar origen `.srd`/generated source, confidence gates, bindings, columnas, controles y property paths sin inyectarse como PowerScript normal.
 
 El submodelo objetivo puede exponer fast context para `.srd`, `DataObject`, `GetChild`, columnas, computed fields, property paths, buffers y built-ins, pero debe usar fingerprint documental real cuando exista y no depender de epoch global como sustituto permanente de identidad documental.
+
+Wave 07 abre el boundary mínimo real en `src/server/semantic/submodels/datawindow/`: por ahora mueve sólo el wrapper bounded de `DataWindow bindings`, mantiene el path legacy como re-export compatible y añade receipt read-only en Current Object Context. Siguen pendientes la migración segura de helpers/tipos adicionales y la convergencia de consumers fuera de ese primer slice.
 
 ## 18. Submodelo SQL/Transaction
 
@@ -183,7 +187,11 @@ Runtime health/status también debe tener niveles de snapshot. El status bar con
 
 PHASE 8 añade un contrato común para superficies read-only: cada proyección debe exponer de forma compacta freshness, source snapshot, cache/projection owner, caps, truncation reason, readiness/stale/degraded state, redaction receipt y refresh trigger cuando aplique. Este contrato puede entrar como envelope opcional para mantener compatibilidad de API pública.
 
+Wave 05 ya introdujo ese envelope opcional en la API pública (`ApiReadOnlyProjectionEnvelope`) y lo pilotó en `workspace-check`. Wave 06 ya aterrizó el siguiente slice real: Object Explorer consume una proyección paginada server-owned, Current Object Context acota SQL anchors por consumer con truncation receipt y las views runtime principales comparten microcopy compacta de `loading/ready/paged/degraded/error`; siguen pendientes la adopción más amplia de receipts/redaction owner y la cobertura stale/readiness en surfaces restantes.
+
 Los bundles de soporte e IA no deben usar el budget solo para recortar salida. Deben planificar ejecución: estimar coste/tokens por sección, priorizar por intent, omitir antes de ejecutar cuando el presupuesto no alcanza y registrar reason codes de omisión. La poda final sigue siendo guard defensivo, no la primera línea de control de coste.
+
+Estado 2026-05: el bundle IA público ya hace ese preflight de ejecución, publica un receipt compacto de `executionPlan` y deja la poda final como guard defensivo; la extensión del mismo patrón a bundles de soporte sigue abierta.
 
 PHASE 21 añade el contrato de instantaneidad percibida: toda superficie read-only debe renderizar `loading`, `degraded`, `stale`, `ready`, `paged` y `error` de forma uniforme, con refresh manual y receipts visibles cuando el servidor trunca, pagina, usa cache stale o degrada por indexing incompleto. Hover y completion deben tener tests que demuestren utilidad mínima durante `discovering/indexing`, especialmente para built-ins/catalog symbols.
 
@@ -268,6 +276,8 @@ PHASE 23 ordena los grandes bloques así: primero contracts/tests (`SemanticQuer
 Métricas objetivo: latencia interactiva, hit ratio, no-op publish, throughput de indexación, worker busy/idle, event loop blocking, diagnostics tiers, semantic tokens, payload de Object Explorer, memoria, GC y LSP payload size.
 
 PHASE 10 confirma que existe una base útil (`InteractiveServingStatsTracker`, runtime journal, cache stats, memory budgets, payload budgets y performance gate), pero el contrato objetivo debe ser un `PerformanceEvent` homogéneo. Cada provider, diagnostics tier, semantic tokens full/delta, read-only projection y workload de background debe emitir eventos con método, URI/version/fingerprint, workspace/project, lane, cache outcome, fallback, cancel/error, payload/result size, budget y semantic epoch. Los snapshots agregados deben exponer promedios y percentiles de ventana acotada; los artefactos CI deben guardar métricas JSON estables.
+
+Wave 08 valida el primer corte ejecutable de ese objetivo: `PerformanceEvent` ya existe, `showStats` publica snapshots bounded de scheduler/worker/event loop/memory pressure y el gate rápido incorpora un corpus sintético smoke mientras el lane `10k` completo vive en un carril opcional/report-only con artefacto JSON propio.
 
 Worker pool y scheduler lanes deben reportar queue depth, busy/idle, wait/run duration, preemptions, restarts, throughput y event-loop delay/GC pressure cuando esté disponible. Estas métricas son observabilidad; no deben introducir trabajo pesado ni serializar payloads completos.
 

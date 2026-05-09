@@ -61,7 +61,8 @@ Para caches documentales/hot path:
 
 - `documentFingerprint` no debe degradarse a `semanticEpoch` global cuando existe fingerprint por documento;
 - cualquier discriminador usado por un stale matcher (por ejemplo `prefix`) debe serializarse también en la key materializada;
-- los providers con `previousResultId` (como semantic tokens) deben degradar a full de forma explícita cuando el estado previo es desconocido o stale.
+- los providers con `previousResultId` (como semantic tokens) deben degradar a full de forma explícita cuando el estado previo es desconocido o stale, y serializar `sourceOrigin`/`legendVersion` cuando formen parte del contrato versionado.
+- journal/checkpoint/serving snapshot persistidos no deben competir entre sí; sus writes deben serializarse en el runtime.
 
 ### 2.5. Medir antes de cerrar
 
@@ -70,6 +71,8 @@ Una mejora de rendimiento no se considera cerrada si no deja forma de medir late
 ### 2.6. Proyecciones read-only acotadas
 
 Reports, panels y bundles IA deben usar caps, page tokens, receipts o truncation flags. No deben materializar todo el workspace para responder a una acción interactiva ni actuar como caches semánticas de larga vida.
+
+Cuando un bundle IA o surface equivalente combine varias secciones costosas, el control de coste no debe empezar en la poda final del payload: debe existir planificación previa de ejecución para omitir secciones antes de invocar trabajo caro cuando el budget ya no alcanza.
 
 ---
 
@@ -148,6 +151,7 @@ Validación real 2026-05:
 
 - corpus OrderEntry/PFC: `discoverWorkspace=545.49ms`, `index cold=17736.90ms`, `warm=9.48ms`;
 - el warm path limpio debe reutilizar snapshots publicados y no reindexar todo el corpus si el workspace no está dirty.
+- `discoverWorkspaceBounded` puede ejecutarse ya como path opt-in/warm-resume con progreso compartido, pero no sustituye al discovery clásico por defecto hasta que el skip por manifest/fingerprint quede validado.
 
 ---
 
@@ -187,7 +191,7 @@ El servidor debe mantener memoria proporcional al workspace y evitar crecimiento
 | Completion list cache | ≥ 70% en contexto estable | ≤ 30% | Invalidar por scope/configuración. |
 | Completion resolve cache | ≥ 80% en item repetido | ≤ 20% | TTL corto aceptable. |
 | Catalog lookup cache | ≥ 95% | ≤ 5% | Catálogos versionados. |
-| Semantic tokens cache | ≥ 80% si documento no cambia | ≤ 20% | Por versión de documento. |
+| Semantic tokens cache | ≥ 80% si documento no cambia | ≤ 20% | Por versión/fingerprint y por discriminadores de legend/source origin cuando apliquen. |
 | Diagnostics cache | ≥ 70% en revalidación sin cambios | ≤ 30% | Por fuente y versión. |
 | DataWindow model cache | ≥ 80% en DW ya vista | ≤ 20% | Invalidar por hash/source. |
 
@@ -301,7 +305,8 @@ Debe medir:
 - latencia;
 - documento/versión;
 - uso de snapshot/AST/cache;
-- tamaño de respuesta.
+- tamaño de respuesta;
+- `delta hit rate` y fallbacks full por `fingerprint`/`legendVersion`/`sourceOrigin`.
 
 ### 7.7. Surfaces read-only y runtime self-test
 
@@ -312,6 +317,7 @@ Debe medir:
 | Current Object Context | ≤ 200 ms | ≤ 600 ms | Reusar `queryContext`, diagnostics y snapshots activos; no reindexar ni escanear workspace completo. |
 | Diagnostics Explainability | ≤ 250 ms | ≤ 800 ms | Reusar evidence y reason codes ya calculados; no recomputar diagnósticos completos por panel. |
 | Object Explorer refresh visible | ≤ 300 ms | ≤ 1000 ms | Resolver solo el proyecto/archivo activo y nodos visibles; no hacer full refresh global por expansión local. |
+| AI task context bundle read-only | ≤ 300 ms | ≤ 1000 ms | Planificar secciones antes de ejecutar; el pruning final solo actúa como guard defensivo. |
 | Impact Analysis / Safe Edit Plan read-only | ≤ 400 ms | ≤ 1200 ms | Ejecutar bajo demanda y con caps explícitos; degradar si falta evidence defendible. |
 | Runtime self-test explícito | ≤ 1500 ms | ≤ 5000 ms | Correr sólo bajo comando explícito; nunca bloquear activación ni abrir carriles build/ORCA no pedidos. |
 
@@ -319,7 +325,10 @@ Reglas:
 
 - estas superficies no deben ejecutarse durante activación salvo wiring mínimo del provider/command;
 - cualquier recomputación cara debe ir fuera del hot path y apoyarse en caches, snapshots o payloads ya publicados;
+- `objectExplorerProjection` y superficies equivalentes deben usar lane interactiva (`near-context`) cuando alimentan views bajo demanda; no deben quedar detrás de colas background pensadas para export/reporting;
 - si una surface publica confidence, risk o frameworkKnowledgeConflict, esos datos deben venir del contrato semántico y no de valores fijos optimistas.
+- si una surface publica envelope de proyección, debe preservar caps, truncation y refresh trigger como parte del payload, no como metadata implícita fuera de contrato.
+- si una surface read-only publica datos DataWindow, debe acotar `bindings`/columnas/rutas por consumer y exponer receipt de truncación cuando el slice supere el cap interactivo.
 
 ---
 
@@ -343,6 +352,7 @@ DataWindow es un subdominio propio y puede tener costes distintos al PowerScript
 - No bloquear completion por análisis SQL profundo.
 - Cachear modelo DW por source/hash.
 - Separar safe mode de análisis avanzado.
+- Las proyecciones read-only de DataWindow deben publicar caps/receipts por consumer antes de ampliar payloads a más surfaces.
 
 ---
 
@@ -463,11 +473,15 @@ La estrategia completa vive en `docs/testing.md`, pero este documento exige como
 - tests de DataWindow model cache;
 - tests de adapters externos con fake/mocks;
 - performance smoke tests para hover/completion/diagnostics/indexing;
+- smoke sintético de discovery/indexing gobernado por budgets `[perf-budget]` y artefacto JSON estable;
+- lane opcional `10k` con artefacto dedicado y `report-only` por defecto mientras se estabilizan budgets de escala;
 - fixtures de workspaces reales o representativos.
 
 ---
 
 ## 13. Política de degradación
+
+Regla validada 2026-05: la observabilidad runtime no debe abrir una surface paralela. `powerbuilder.showStats` es el owner del snapshot bounded y debe derivar `PerformanceEvent`, scheduler lanes, worker pool, event loop y memory pressure sin serializar payloads completos ni introducir coste alto en hot path. El snapshot agregado puede publicar percentiles bounded (`p50/p95/p99`) y máximos sobre la ventana actual cuando el coste de cálculo siga siendo proporcional a esa ventana pequeña.
 
 Cuando una feature no pueda cumplir presupuesto:
 

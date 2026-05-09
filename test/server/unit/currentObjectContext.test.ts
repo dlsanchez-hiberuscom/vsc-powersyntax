@@ -128,6 +128,21 @@ suite('unit/currentObjectContext (B217)', () => {
     assert.ok(context.referencedSymbols?.some((entry) => entry.target.name === 'of_inherited' && entry.reasonCode === 'member-hierarchy'));
     assert.equal(context.dataWindowBindings?.[0]?.dataObject, 'd_sales_orders');
     assert.equal(context.dataWindowBindings?.[0]?.retrieveArguments[0]?.name, 'custarg');
+    assert.equal(context.dataWindowBindingReceipt?.consumer, 'current-object-context');
+    assert.equal(context.dataWindowBindingReceipt?.totalBindings, 1);
+    assert.equal(context.dataWindowBindingReceipt?.emittedBindings, 1);
+    assert.equal(context.dataWindowBindingReceipt?.maxBindings, 12);
+    assert.equal(context.dataWindowBindingReceipt?.truncated, false);
+    assert.equal(context.dataWindowBindingReceipt?.projection?.projectionId, 'current-object-context:datawindow-bindings');
+    assert.equal(context.dataWindowBindingReceipt?.projection?.projectionOwner, 'current-object-context.datawindow-bindings');
+    assert.equal(context.dataWindowBindingReceipt?.projection?.state, 'ready');
+    assert.equal(context.dataWindowBindingReceipt?.projection?.sourceOrigin, 'pbl-folder-source');
+    assert.equal(context.dataWindowBindingReceipt?.projection?.readiness, 'nearby-semantic-ready');
+    assert.equal(context.dataWindowBindingReceipt?.projection?.caps?.maxItems, 12);
+    assert.equal(
+      context.dataWindowBindingReceipt?.projection?.refreshHint?.detail,
+      'Reejecutar Current Object Context para refrescar el resumen de DataWindow bindings.',
+    );
     assert.ok(context.diagnostics?.items.some((entry) => entry.message.includes('ids_orders.Retrieve(...)') && entry.message.includes('espera 1 argumento')));
     assert.equal(context.evidence?.primaryReasonCode, 'member-hierarchy');
     assert.ok(context.evidence?.evidenceKinds.includes('winner-target'));
@@ -254,6 +269,26 @@ suite('unit/currentObjectContext (B217)', () => {
 
     assert.equal(context.available, true);
     assert.equal(context.embeddedSqlAnchors?.length, 2);
+    assert.deepEqual(context.embeddedSqlReceipt, {
+      consumer: 'current-object-context',
+      totalAnchors: 2,
+      emittedAnchors: 2,
+      maxAnchors: 12,
+      truncated: false,
+      projection: {
+        projectionId: 'current-object-context:embedded-sql',
+        projectionOwner: 'current-object-context.embedded-sql',
+        state: 'ready',
+        generatedAt: context.embeddedSqlReceipt?.projection?.generatedAt,
+        sourceOrigin: 'pbl-folder-source',
+        readiness: 'nearby-semantic-ready',
+        caps: { maxItems: 12 },
+        refreshHint: {
+          strategy: 'refresh-on-demand',
+          detail: 'Reejecutar Current Object Context para refrescar el resumen de SQL embebido.',
+        },
+      },
+    });
     assert.deepEqual(context.embeddedSqlAnchors?.[0], {
       startLine: 8,
       endLine: 8,
@@ -297,6 +332,8 @@ suite('unit/currentObjectContext (B217)', () => {
 
     assert.equal(context.available, true);
     assert.equal(context.embeddedSqlAnchors?.length, 1);
+    assert.equal(context.embeddedSqlReceipt?.truncated, false);
+    assert.equal(context.embeddedSqlReceipt?.projection?.truncated, undefined);
     assert.deepEqual(context.embeddedSqlAnchors?.[0], {
       startLine: 7,
       endLine: 7,
@@ -305,6 +342,78 @@ suite('unit/currentObjectContext (B217)', () => {
       confidence: 'medium',
       transactionTarget: 'SQLCA'
     });
+  });
+
+  test('acota anchors SQL densos y publica receipt de truncación en current object context', () => {
+    const document = setupAnalyzedDocument('file:///proj/lib_app.pbl/w_sql_dense.srw', [
+      'forward',
+      'global type w_sql_dense from window',
+      'end type',
+      'end forward',
+      'global type w_sql_dense from window',
+      'end type',
+      'event open();',
+      '  long ll_order_id',
+      '  CONNECT USING SQLCA;',
+      ...Array.from({ length: 20 }, () => [
+        '  SELECT order_id',
+        '    INTO :ll_order_id',
+        '    FROM sales_order;',
+      ]).flat(),
+      'end event',
+    ].join('\r\n'));
+
+    const context = buildCurrentObjectContext(
+      document,
+      { line: 9, character: 4 },
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.equal(context.embeddedSqlReceipt?.consumer, 'current-object-context');
+    assert.equal(context.embeddedSqlReceipt?.truncated, true);
+    assert.equal(context.embeddedSqlReceipt?.projection?.truncated, true);
+    assert.equal(context.embeddedSqlReceipt?.projection?.truncatedReason, 'sql-anchor-cap:current-object-context');
+    assert.equal(context.embeddedSqlAnchors?.length, context.embeddedSqlReceipt?.emittedAnchors);
+    assert.equal(context.embeddedSqlReceipt?.projection?.caps?.maxItems, context.embeddedSqlReceipt?.maxAnchors);
+    assert.ok((context.embeddedSqlReceipt?.totalAnchors ?? 0) > (context.embeddedSqlAnchors?.length ?? 0));
+  });
+
+  test('acota DataWindow bindings densos y publica receipt de truncación en current object context', () => {
+    const document = setupAnalyzedDocument('file:///proj/lib_app.pbl/w_dense_dw_context.srw', [
+      'forward',
+      'global type w_dense_dw_context from window',
+      'end type',
+      'end forward',
+      'global type w_dense_dw_context from window',
+      'end type',
+      'event open();',
+      ...Array.from({ length: 20 }, (_, index) => `  ids_${index + 1}.DataObject = "d_sales_orders_${index + 1}"`),
+      'end event',
+    ].join('\r\n'));
+
+    const context = buildCurrentObjectContext(
+      document,
+      { line: 7, character: 4 },
+      kb,
+      graph,
+      catalog,
+      { workspaceState }
+    );
+
+    assert.equal(context.available, true);
+    assert.equal(context.dataWindowBindingReceipt?.consumer, 'current-object-context');
+    assert.equal(context.dataWindowBindingReceipt?.totalBindings, 20);
+    assert.equal(context.dataWindowBindingReceipt?.emittedBindings, 12);
+    assert.equal(context.dataWindowBindings?.length, 12);
+    assert.equal(context.dataWindowBindingReceipt?.truncated, true);
+    assert.equal(context.dataWindowBindingReceipt?.truncatedReason, 'datawindow-binding-cap:current-object-context');
+    assert.equal(context.dataWindowBindingReceipt?.projection?.truncated, true);
+    assert.equal(context.dataWindowBindingReceipt?.projection?.truncatedReason, 'datawindow-binding-cap:current-object-context');
+    assert.equal(context.dataWindowBindingReceipt?.projection?.caps?.maxItems, 12);
   });
 
   test('expone policy de knowledge packs cuando un objeto custom hereda de un owner curado', () => {

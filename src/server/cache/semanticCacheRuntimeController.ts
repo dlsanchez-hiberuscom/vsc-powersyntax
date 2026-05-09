@@ -1,8 +1,13 @@
-import type { SemanticCacheDocumentRecord, SemanticCacheCheckpointMetadata } from './cacheSchema';
+import type {
+  SemanticCacheCheckpoint,
+  SemanticCacheDocumentRecord,
+  SemanticCacheCheckpointMetadata,
+} from './cacheSchema';
 import type { SemanticCacheStore } from './cacheStore';
 import { persistServingCacheSnapshot } from './servingCachePersistence';
 import { ServingCacheFlushCoordinator } from './servingCacheFlushCoordinator';
 import type { ServingCache } from '../knowledge/ServingCache';
+import { PersistenceWriteQueue } from '../workspace/indexStateInvariants';
 
 type PersistenceRestoreState = 'restored' | 'reused' | 'rebuilt' | undefined;
 
@@ -19,7 +24,9 @@ export interface SemanticCacheRuntimeController {
   getCacheStore(): SemanticCacheStore | null;
   appendUpsert(record: SemanticCacheDocumentRecord, semanticEpoch: number): void | Promise<void>;
   appendRemove(uri: string, semanticEpoch: number): void | Promise<void>;
+  persistCheckpoint(checkpoint: SemanticCacheCheckpoint): Promise<void>;
   persistServingSnapshot(): Promise<void>;
+  flushPersistenceWrites(): Promise<void>;
   setPersistenceRestoreReport(report: PersistenceRestoreReport): void;
   getLastPersistenceRestoreState(): PersistenceRestoreState;
   getLastPersistenceRestoreReason(): string | undefined;
@@ -39,6 +46,10 @@ export function createSemanticCacheRuntimeController(
   let lastPersistenceRestoreState: PersistenceRestoreState;
   let lastPersistenceRestoreReason: string | undefined;
   let lastRestoredCheckpointDocuments = 0;
+  const writeQueue = new PersistenceWriteQueue(async (_key, value) => {
+    const write = value as () => Promise<void>;
+    await write();
+  });
 
   const persistServingSnapshot = async (): Promise<void> => {
     if (!cacheStore) {
@@ -80,27 +91,37 @@ export function createSemanticCacheRuntimeController(
     },
     appendUpsert(record: SemanticCacheDocumentRecord, semanticEpoch: number): void | Promise<void> {
       if (!cacheStore) return;
-      const promise = cacheStore.appendJournalMutation({
+      const promise = writeQueue.enqueue(`journal-upsert:${record.uri}`, () => cacheStore!.appendJournalMutation({
         semanticEpoch,
         kind: 'upsert',
         uris: [record.uri],
         documents: [record],
-      });
-      void checkCompactionThreshold();
+      }));
+      void promise.then(() => checkCompactionThreshold());
       return promise;
     },
     appendRemove(uri: string, semanticEpoch: number): void | Promise<void> {
       if (!cacheStore) return;
-      const promise = cacheStore.appendJournalMutation({
+      const promise = writeQueue.enqueue(`journal-remove:${uri}`, () => cacheStore!.appendJournalMutation({
         semanticEpoch,
         kind: 'remove',
         uris: [uri],
-      });
-      void checkCompactionThreshold();
+      }));
+      void promise.then(() => checkCompactionThreshold());
       return promise;
     },
+    async persistCheckpoint(checkpoint: SemanticCacheCheckpoint): Promise<void> {
+      if (!cacheStore) {
+        return;
+      }
+
+      await writeQueue.enqueue(`checkpoint:${checkpoint.semanticEpoch}`, () => cacheStore!.persistCheckpoint(checkpoint));
+    },
     async persistServingSnapshot(): Promise<void> {
-      await persistServingSnapshot();
+      await writeQueue.enqueue('serving-snapshot', () => persistServingSnapshot());
+    },
+    flushPersistenceWrites(): Promise<void> {
+      return writeQueue.flush();
     },
     setPersistenceRestoreReport(report: PersistenceRestoreReport): void {
       lastPersistenceRestoreReason = report.reason;

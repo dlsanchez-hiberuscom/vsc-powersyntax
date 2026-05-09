@@ -3,11 +3,12 @@ import { CodeActionKind, type Connection, type InitializeParams, type Initialize
 import { PROGRESS_NOTIFICATION, SERVER_NAME, type ProgressNotification } from '../../shared/types';
 import { createSemanticCacheStore, type SemanticCacheStore } from '../cache/cacheStore';
 import { createCacheCheckpoint } from '../cache/cacheCheckpoint';
+import type { SemanticCacheCheckpoint } from '../cache/cacheSchema';
 import { restoreServingCacheSnapshot } from '../cache/servingCachePersistence';
 import { BuildOrcaJournalStore } from '../runtime/buildOrcaJournalStore';
 import { getSemanticTokensLegend } from '../features/semanticTokens';
 import { formatTiming, measureMsAsync } from '../runtime/timing';
-import { discoverWorkspace } from '../workspace/discovery';
+import { discoverWorkspace, discoverWorkspaceBounded } from '../workspace/discovery';
 import { WorkspaceState } from '../workspace/workspaceState';
 import { restoreOrcaStagingAliases } from '../build/orcaStagingExport';
 import { indexWorkspace } from '../indexer/workspaceIndexer';
@@ -40,6 +41,7 @@ export const SERVER_EXECUTE_COMMANDS = [
   'powerbuilder.explainSemanticQuery',
   'powerbuilder.applySpecDrivenPblUpdate',
   'powerbuilder.applySpecDrivenPblUpdateBatch',
+  'powerbuilder.objectExplorerProjection',
   'powerbuilder.semanticWorkspaceManifest',
   'powerbuilder.formatDocument',
   'powerbuilder.listPbAutoBuildBuildFiles',
@@ -108,6 +110,7 @@ export interface InitializedHandlerContext {
   republishOpenDiagnostics(uris?: readonly string[]): void;
   setCacheStore(store: SemanticCacheStore | null): void;
   buildCacheCheckpointMetadata(): Partial<SemanticCacheCheckpointMetadata>;
+  persistCheckpoint(checkpoint: SemanticCacheCheckpoint): Promise<void>;
   persistServingSnapshot(): Promise<void>;
   setPersistenceRestoreReport(report: {
     reason?: string;
@@ -199,6 +202,7 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
     republishOpenDiagnostics,
     setCacheStore,
     buildCacheCheckpointMetadata,
+    persistCheckpoint,
     persistServingSnapshot,
     setPersistenceRestoreReport,
   } = context;
@@ -257,12 +261,23 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
           }
 
           const discoveredState = new WorkspaceState();
+          const useBoundedDiscovery = earlyRestoreApplied || process.env.PB_USE_BOUNDED_DISCOVERY === '1';
+          let boundedDiscoveryResult: { skipped: number; processed: number } | undefined;
           const { elapsedMs: discoveryMs } = await measureMsAsync(async () => {
-            await discoverWorkspace(workspaceFolders, fs, discoveredState, token, (current, total) => {
+            const onProgress = (current: number, total: number) => {
               discoveryProgress.current = current;
               discoveryProgress.total = total;
               publishRuntimeProgressReadiness();
-            });
+            };
+
+            if (useBoundedDiscovery) {
+              boundedDiscoveryResult = await discoverWorkspaceBounded(workspaceFolders, fs, discoveredState, token, {
+                onProgress,
+              });
+              return;
+            }
+
+            await discoverWorkspace(workspaceFolders, fs, discoveredState, token, onProgress);
           });
 
           if (token.isCancelled) {
@@ -289,6 +304,11 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
           connection.console.log(`  - PBW: ${roots.workspaces.length}, PBT: ${roots.targets.length}, PBL: ${roots.libraries.length}`);
           connection.console.log(`  - PBSLN: ${roots.solutions.length}, PBPROJ: ${roots.projects.length}`);
           connection.console.log(`  - Modo: ${workspaceState.getMode()}`);
+          if (boundedDiscoveryResult) {
+            connection.console.log(
+              `  - Bounded discovery: processed=${boundedDiscoveryResult.processed}, skipped=${boundedDiscoveryResult.skipped}`,
+            );
+          }
 
           const projectModel = workspaceState.getProjectModel();
           connection.console.log(`  - Proyectos detectados: ${projectModel?.getProjects().length ?? 0}`);
@@ -357,7 +377,7 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
               );
             }
 
-            await currentCacheStore.persistCheckpoint(
+            await persistCheckpoint(
               createCacheCheckpoint(
                 knowledgeBase.semanticEpoch,
                 documentCache.exportDocumentRecords(),
@@ -395,7 +415,7 @@ export function registerInitializedHandler(context: InitializedHandlerContext): 
                 publishRuntimeProgressReadiness();
               } else {
                 if (currentCacheStore) {
-                  await currentCacheStore.persistCheckpoint(
+                  await persistCheckpoint(
                     createCacheCheckpoint(
                       knowledgeBase.semanticEpoch,
                       documentCache.exportDocumentRecords(),

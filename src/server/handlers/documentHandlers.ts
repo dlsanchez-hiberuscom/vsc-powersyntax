@@ -195,6 +195,7 @@ export interface ShutdownHandlerContext {
   firstInvocation: FirstInvocationTracker;
   disposeTraceSnapshotSubscription(): void;
   disposeWatcherIntake(): void;
+  disposeEventLoopMonitor?(): void;
   invalidateCodeLensCache(uri?: string): void;
   invalidateHoverPresentationCaches(uri?: string): void;
 }
@@ -208,6 +209,7 @@ export function registerShutdownHandler(context: ShutdownHandlerContext): void {
     firstInvocation,
     disposeTraceSnapshotSubscription,
     disposeWatcherIntake,
+    disposeEventLoopMonitor,
     invalidateCodeLensCache,
     invalidateHoverPresentationCaches,
   } = context;
@@ -215,6 +217,7 @@ export function registerShutdownHandler(context: ShutdownHandlerContext): void {
   connection.onShutdown(async () => {
     disposeTraceSnapshotSubscription();
     disposeWatcherIntake();
+    disposeEventLoopMonitor?.();
     invalidateServingCacheEntries(servingCache, undefined, servingCacheFlushCoordinator);
     invalidateCodeLensCache();
     invalidateHoverPresentationCaches();

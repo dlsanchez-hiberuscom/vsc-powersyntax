@@ -7,13 +7,23 @@
 
 import * as crypto from 'node:crypto';
 
+import type { SourceOrigin } from '../../shared/sourceOrigin';
+
 const MAX_ENTRIES = 100;
+
+export interface SemanticTokensResultStateDescriptor {
+  sourceOrigin?: SourceOrigin;
+  legendVersion?: string;
+}
 
 export interface SemanticTokensResultStateEntry {
   uri: string;
   documentVersion: number;
   fingerprint: string | number;
   kbVersion: number;
+  sourceOrigin?: SourceOrigin;
+  legendVersion?: string;
+  createdAt: number;
   resultId: string;
   payloadHash: string;
   data: readonly number[];
@@ -28,15 +38,26 @@ export class SemanticTokensResultState {
     documentVersion: number,
     fingerprint: string | number,
     kbVersion: number,
-    data: readonly number[]
+    data: readonly number[],
+    descriptor?: SemanticTokensResultStateDescriptor,
   ): string {
     const payloadHash = this.computePayloadHash(data);
-    const resultId = this.computeResultId(uri, documentVersion, fingerprint, kbVersion, payloadHash);
+    const resultId = this.computeResultId(
+      uri,
+      documentVersion,
+      fingerprint,
+      kbVersion,
+      payloadHash,
+      descriptor,
+    );
     const entry: SemanticTokensResultStateEntry = {
       uri,
       documentVersion,
       fingerprint,
       kbVersion,
+      ...(descriptor?.sourceOrigin ? { sourceOrigin: descriptor.sourceOrigin } : {}),
+      ...(descriptor?.legendVersion ? { legendVersion: descriptor.legendVersion } : {}),
+      createdAt: Date.now(),
       resultId,
       payloadHash,
       data,
@@ -69,12 +90,15 @@ export class SemanticTokensResultState {
     entry: SemanticTokensResultStateEntry,
     documentVersion: number,
     fingerprint: string | number,
-    kbVersion: number
+    kbVersion: number,
+    descriptor?: SemanticTokensResultStateDescriptor,
   ): boolean {
     return (
       entry.documentVersion === documentVersion &&
       entry.fingerprint === fingerprint &&
-      entry.kbVersion === kbVersion
+      entry.kbVersion === kbVersion &&
+      entry.sourceOrigin === descriptor?.sourceOrigin &&
+      entry.legendVersion === descriptor?.legendVersion
     );
   }
 
@@ -83,9 +107,18 @@ export class SemanticTokensResultState {
     documentVersion: number,
     fingerprint: string | number,
     kbVersion: number,
-    payloadHash = ''
+    payloadHash = '',
+    descriptor?: SemanticTokensResultStateDescriptor,
   ): string {
-    const raw = `${uri}|${documentVersion}|${fingerprint}|${kbVersion}|${payloadHash}`;
+    const raw = [
+      uri,
+      documentVersion,
+      fingerprint,
+      kbVersion,
+      descriptor?.sourceOrigin ?? '',
+      descriptor?.legendVersion ?? '',
+      payloadHash,
+    ].join('|');
     return crypto.createHash('sha1').update(raw).digest('hex').slice(0, 16);
   }
 
@@ -100,14 +133,15 @@ export class SemanticTokensResultState {
     documentVersion: number,
     fingerprint: string | number,
     kbVersion: number,
-    compute: () => readonly number[]
+    compute: () => readonly number[],
+    descriptor?: SemanticTokensResultStateDescriptor,
   ): { data: readonly number[]; resultId: string; wasFull: boolean } {
     const cached = this.get(uri, previousResultId);
-    if (cached && this.isCompatible(cached, documentVersion, fingerprint, kbVersion)) {
+    if (cached && this.isCompatible(cached, documentVersion, fingerprint, kbVersion, descriptor)) {
       return { data: cached.data, resultId: cached.resultId, wasFull: false };
     }
     const data = compute();
-    const resultId = this.store(uri, documentVersion, fingerprint, kbVersion, data);
+    const resultId = this.store(uri, documentVersion, fingerprint, kbVersion, data, descriptor);
     return { data, resultId, wasFull: true };
   }
 

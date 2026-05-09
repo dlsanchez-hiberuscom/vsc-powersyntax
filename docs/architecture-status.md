@@ -39,12 +39,12 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 | Language Server | Parcial | Debe tender a composition root fino y delegar handlers/capas. | Crear o mantener specs de reducción de `server.ts`. |
 | Request Context | Parcial | Existen `queryContext` y `positionContext`, pero no un contrato transversal homogéneo para todos los consumers. | Formalizar el contrato sobre el slice actual y migrar providers por fases. |
 | Semantic Query Facade | Parcial/Riesgo | Hay un slice read-only activo, pero la adopción sigue desigual entre consumers interactivos y surfaces derivadas. | Converger consumer por consumer y documentar excepciones activas. |
-| Cache Layer | Parcial | Contratos L0-L3 están estabilizados, pero el target futuro exige un coordinador de invalidación cross-cache, keys estructuradas completas y no-op semantic publish cuando no cambian facts públicos. | Ejecutar `PB-ARCH-P1-CACHE-SEMANTIC-EPOCH-CONTRACT-01` y `PB-ARCH-P1-CROSS-CACHE-INVALIDATION-COORDINATOR-01`. |
-| Providers LSP | Parcial | Hover/definition ya tienen slice de facade; diagnostics y semantic tokens ya consumen contratos runtime explícitos (`DiagnosticRuleRegistry`, `SemanticTokensResultState`), pero completion, signature help y references conservan rutas híbridas o gaps de host validation. | Seguir el plan incremental de `docs/semantic-design-target.md` y los items `PB-ARCH-*` del backlog. |
-| Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto. | Tratarlas como proyecciones acotadas con epoch, receipts, caps, redaction y tests. |
-| DataWindow Domain | Parcial | DataWindow debe ser subdominio propio, no lógica secundaria mezclada. | Spec de DataWindow model/binding/cache. |
+| Cache Layer | Parcial | Los contratos L0-L3 siguen estabilizados y la persistencia runtime ya serializa journal/checkpoint/serving snapshot con `PersistenceWriteQueue`, pero el warm restore compatible por manifest/fingerprint y algunas métricas de cache aún están pendientes. | Completar `PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01` y mantener `PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01` hasta publicar métricas/hit ratios. |
+| Providers LSP | Parcial | Hover/definition ya tienen slice de facade; diagnostics y semantic tokens ya consumen contratos runtime explícitos (`DiagnosticRuleRegistry`, `SemanticTokensResultState`), y semantic tokens ya versiona `previousResultId` por `sourceOrigin`/`legendVersion`, pero completion, signature help y references conservan rutas híbridas o gaps de host validation/range. | Seguir el plan incremental de `docs/semantic-design-target.md` y los items `PB-ARCH-*` del backlog. |
+| Surfaces read-only / API pública | Parcial | Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis, Safe Edit Plan y runtime self-test ya son superficie real del producto; además la API pública ya expone un `ApiReadOnlyProjectionEnvelope` opcional, `workspace-check` lo pilota y Wave 06 ya añadió receipt SQL bounded en Current Object Context, Object Explorer paginado server-owned y receipt de preflight en el bundle IA. Wave 07 añade receipt bounded para `DataWindow bindings` en Current Object Context. | Extender el envelope/receipts al resto de surfaces, publicar métricas por surface y cerrar stale/readiness coverage. |
+| DataWindow Domain | Parcial | DataWindow ya tiene un boundary mínimo en `src/server/semantic/submodels/datawindow/` y un wrapper bounded para `bindings`, pero parser, property paths, fast context y consumers siguen repartidos entre modules legacy y compat layers. | Converger incrementalmente hacia el boundary del submodelo, manteniendo re-exports y paridad antes de mover piezas de alto riesgo. |
 | ORCA/PBAutoBuild | Parcial | Deben permanecer como adapters externos aislados. | Specs de adapters y errores/build diagnostics. |
-| Performance | OK/Parcial | Arquitectura Server-Push reactiva, Memoización de Regex O(1), Semantic Tokens Delta y Background Indexing (WorkerPool) activos. | Mantener los budgets de rendimiento y monitorizar latencia de workers. |
+| Performance | OK/Parcial | Arquitectura Server-Push reactiva, Memoización de Regex O(1), Semantic Tokens Delta y Background Indexing activos; Wave 08 añade `PerformanceEvent`, snapshots bounded de scheduler/worker/event-loop/memory y corpus sintético release-facing. | Extender cobertura del contrato de métricas y decidir promoción del lane 10k a fail mode. |
 | Testing | OK/Parcial | La matriz de lanes ya está alineada, `test:architecture:rapid` incorpora scanner estructural y los P0 de conformance, snapshot readonly y `SemanticQueryResult` ya quedaron cerrados. | Mantener `testing.md` sincronizado y ampliar gates al abrir diagnostics tiered y carriles P1. |
 | IA/agentes | Parcial | La documentación IA debe consumir arquitectura/status sin duplicarla. | Alinear bloque IA después de docs core. |
 
@@ -153,10 +153,10 @@ Congelado — Documento o área que no debe tocarse en esta fase salvo instrucci
 #### Semantic Tokens
 
 - **Estado:** Parcial/Riesgo.
-- **Riesgo:** reparsing innecesario, tokens no alineados con symbol graph o publication de confidence no convergida con el resto de consumers.
-- **Acción:** consumir snapshot/AST/symbol graph/cache y alinear el contrato de confidence con `queryContext` y las demás surfaces read-only.
+- **Riesgo:** falta `range`, la validación host `vscode-test` sigue corta y la publication de confidence no converge todavía con el resto de consumers.
+- **Acción:** mantener el `SemanticTokensResultState` versionado por `sourceOrigin`/`legendVersion`/`createdAt`, añadir host coverage real y cerrar el presupuesto/métricas del provider.
 
-Las surfaces read-only ya publicadas, como Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis y Safe Edit Plan, deben seguir el mismo contrato de confidence, source origin, reason codes y degradación honesta aunque no sean providers LSP clásicos.
+Las surfaces read-only ya publicadas, como Current Object Context, Diagnostics Explainability, Object Explorer, Impact Analysis y Safe Edit Plan, deben seguir el mismo contrato de confidence, source origin, reason codes y degradación honesta aunque no sean providers LSP clásicos. `workspace-check` ya sirve como piloto del envelope compartido, pero ya no es la única adopción: Current Object Context expone receipts bounded tanto para SQL como para `DataWindow bindings`, y Object Explorer consume una proyección paginada server-owned con estados compactos de loading/ready/paged/degraded/error.
 
 ### 4.9. Rendimiento Interactivo (Performance)
 
@@ -168,8 +168,9 @@ Las surfaces read-only ya publicadas, como Current Object Context, Diagnostics E
   - La canalización de respuestas interactivas cuenta con **Optimistic Snapshots (Stale-While-Revalidate)**, devolviendo respuestas antiguas inmediatamente mientras el AST se reconstruye en background (evitando timeouts o que el hover de LSP se bloquee).
   - La sincronización de pintado de sintaxis utiliza `semanticTokens/full/delta` para emitir deltas fraccionales usando caches de `SemanticTokensBuilder`, reduciendo la saturación de JSON-RPC.
   - **Background Indexing (WorkerPool)**: El I/O pesado y el parseo estructural/enriquecido inicial se han movido a `worker_threads` (paralelizados en batches de 5), eliminando el bloqueo del hilo principal durante la indexación en frío.
+  - **Wave 08**: `PerformanceEvent` ya unifica la proyección inicial de métricas runtime; `powerbuilder.showStats` publica snapshots bounded de scheduler lanes, worker pool, event loop, memory pressure y `interactiveServing.performanceEvents`; además existe un corpus sintético determinístico con smoke release-facing y lane opcional `10k` con artefactos JSON.
 - **Riesgo:** La sobrecarga de creación de workers y la transferencia de contenido grande via `postMessage` puede impactar en sistemas con pocos recursos.
-- **Acción:** Monitorizar latencias en CI y ajustar el `BATCH_SIZE` si es necesario.
+- **Acción:** Extender la cobertura de `PerformanceEvent`, seguir monitorizando latencias en CI y decidir cuándo el lane `10k` deja de ser `report-only`.
 
 ---
 
@@ -177,11 +178,11 @@ Las surfaces read-only ya publicadas, como Current Object Context, Diagnostics E
 
 ### 5.1. Estado general
 
-- **Estado:** OK.
+- **Estado:** Parcial.
 - **Arquitectura objetivo:** `docs/architecture.md`, sección Cache Layer.
-- **Evidencia:** Las 7 specs de la auditoría P0/P1 se han completado. El modelo está alineado.
-- **Riesgo:** Bajo. El sistema ahora soporta workspaces masivos usando `memoryPressurePolicy` y LRU document cache.
-- **Acción:** Mantener los budgets de memoria documentados e instrumentar caídas de latencia para futuras optimizaciones.
+- **Evidencia:** `semanticCacheRuntimeController` ya serializa `appendUpsert`, `appendRemove`, `persistCheckpoint` y `persistServingSnapshot` mediante `PersistenceWriteQueue`; además, las invariants de indexado/restauración ya quedan cubiertas por tests ejecutables sobre flujos reales de restore/index y sobre warm start con evicción del `DocumentCache` sin pérdida semántica publicada.
+- **Riesgo:** el restore compatible todavía no evita el full read/hash cuando faltan manifest/fingerprints reutilizables, y varias caches interactivas siguen sin métricas publicadas de hit ratio/reason counts.
+- **Acción:** completar el warm start compatible por manifest/fingerprint y seguir instrumentando métricas de cache/hot path antes de declarar la capa cerrada.
 
 ### 5.2. Caches gobernadas exitosamente
 
@@ -202,7 +203,7 @@ Caches concretas que ahora tienen contrato explícito en `ServingCache` o `Docum
 
 ### 5.3. Acción recomendada
 
-Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asumiendo que la infraestructura de caché subyacente es confiable y O(1)/O(dependents) en invalidación.
+Completar el skip real de warm restore compatible y seguir endureciendo la instrumentación de caches/proveedores interactivos antes de declarar la capa completamente alineada.
 
 ---
 
@@ -220,10 +221,11 @@ Avanzar hacia la estabilización de los providers interactivos (Fase 6C/P2) asum
 
 - **Estado:** Parcial.
 - **Arquitectura objetivo:** `docs/architecture.md`, sección DataWindow Domain.
-- **Evidencia:** el mapa de implementación contiene secciones específicas para DataWindow model, binding model, fast context, column access, property paths, safe mode y SQL lineage.
+- **Evidencia:** el mapa de implementación contiene secciones específicas para DataWindow model, binding model, fast context, column access, property paths, safe mode y SQL lineage; además ya existe un boundary mínimo `src/server/semantic/submodels/datawindow/` con facade y re-export compatible para `bindingProjection`.
 - **Riesgo:** mezclar lógica DataWindow dentro del parser PowerScript o resolverla solo con heurísticas locales.
-- **Acción:** tratar DataWindow como subdominio propio con extractor, parser, modelo, SQL model, binding resolver y semantic provider.
+- **Acción:** tratar DataWindow como subdominio propio con extractor, parser, modelo, SQL model, binding resolver y semantic provider; mover sólo helpers/tipos de bajo riesgo al boundary y mantener compat layers mientras sigan existiendo imports legacy.
 - **Estado validado 2026-05:** diagnostics y estructura ya toman `Describe(...)`, `Modify(...)` y `SyntaxFromSQL(...)` como frontera de sublenguaje; sus strings no se reinterpretan como PowerScript general.
+- **Estado validado 2026-05 (Wave 07):** `Current Object Context` ya consume un wrapper bounded desde `src/server/semantic/submodels/datawindow/` y publica `dataWindowBindingReceipt` con caps/truncation envelope sin cambiar la semántica profunda del parser.
 - **Documentos afectados:** `docs/backlog.md`, `docs/testing.md`, `docs/performance-budget.md`.
 
 ---

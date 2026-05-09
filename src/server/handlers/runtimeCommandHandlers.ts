@@ -1,9 +1,12 @@
+import { performance } from 'node:perf_hooks';
+
 import type { ExecuteCommandParams } from 'vscode-languageserver/node';
 
 import { getAnalysisCacheStats } from '../analysis/analysisCache';
 import type { SemanticCacheStore } from '../cache/cacheStore';
 import type { SemanticCacheCheckpointMetadata } from '../cache/cacheSchema';
 import { getDiagnosticsSummary } from '../features/diagnostics';
+import { buildObjectExplorerProjection } from '../features/objectExplorerProjection';
 import { buildSemanticWorkspaceManifest } from '../features/semanticWorkspaceManifest';
 import { getIndexerStatus } from '../indexer/workspaceIndexer';
 import type { DocumentCache } from '../knowledge/DocumentCache';
@@ -15,9 +18,11 @@ import type { InheritanceGraph } from '../knowledge/resolution/InheritanceGraph'
 import type { OrcaRunner } from '../build/orcaRunner';
 import type { PbAutoBuildRunner } from '../build/pbAutoBuildRunner';
 import type { BuildOrcaJournalStore } from '../runtime/buildOrcaJournalStore';
-import type { InteractiveServingStatsSnapshot } from '../runtime/interactiveServingStats';
+import type { RuntimeEventLoopSnapshot } from '../runtime/eventLoopMonitor';
+import { estimateLspPayloadBytes, type InteractiveServingStatsSnapshot } from '../runtime/interactiveServingStats';
 import { buildRuntimeMemoryReport } from '../runtime/memoryBudgets';
 import type { RuntimeMemoryPressurePolicy } from '../runtime/memoryPressurePolicy';
+import type { PerformanceEvent } from '../runtime/performanceEvents';
 import type { RuntimeJournal } from '../runtime/runtimeJournal';
 import { buildRuntimeHealthReport } from '../runtime/runtimeHealth';
 import type { TaskScheduler } from '../runtime/scheduler';
@@ -66,13 +71,35 @@ export interface RuntimeCommandHandlerContext {
   getLastServingSnapshotRestoreEntries(): number;
   getLastServingSnapshotPersistEntries(): number;
   getInteractiveServingStats(): InteractiveServingStatsSnapshot;
+  recordPerformanceEvent(event: PerformanceEvent): void;
+  getEventLoopSnapshot(): RuntimeEventLoopSnapshot;
+  getRuntimeMemoryPressurePolicy(): RuntimeMemoryPressurePolicy;
   getLastHealthJournalSignature(): string;
   setLastHealthJournalSignature(signature: string): void;
   ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy;
   resolveAdaptiveLimit(requested: unknown, cap: number | undefined, minValue?: number): number | undefined;
+  runNearContextWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runExportReportingWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runMaintenanceWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   buildCacheCheckpointMetadata(): Partial<SemanticCacheCheckpointMetadata>;
+}
+
+function recordRuntimeCommandPerformanceEvent(
+  recordPerformanceEvent: RuntimeCommandHandlerContext['recordPerformanceEvent'],
+  knowledgeBase: KnowledgeBase,
+  event: PerformanceEvent,
+): void {
+  recordPerformanceEvent({
+    ...event,
+    ...(event.kbVersion !== undefined ? {} : { kbVersion: knowledgeBase.version }),
+    ...(event.semanticEpoch !== undefined ? {} : { semanticEpoch: knowledgeBase.semanticEpoch }),
+  });
+}
+
+function resolveRuntimeCommandErrorKind(error: unknown): string {
+  return error instanceof Error && error.name.length > 0
+    ? error.name
+    : 'runtime-command-error';
 }
 
 export async function tryHandleRuntimeCommand(
@@ -103,10 +130,14 @@ export async function tryHandleRuntimeCommand(
     getLastServingSnapshotRestoreEntries,
     getLastServingSnapshotPersistEntries,
     getInteractiveServingStats,
+    recordPerformanceEvent,
+    getEventLoopSnapshot,
+    getRuntimeMemoryPressurePolicy,
     getLastHealthJournalSignature,
     setLastHealthJournalSignature,
     ensureRuntimeMemoryPressureRelief,
     resolveAdaptiveLimit,
+    runNearContextWorkload,
     runExportReportingWorkload,
     runMaintenanceWorkload,
     buildCacheCheckpointMetadata,
@@ -131,6 +162,7 @@ export async function tryHandleRuntimeCommand(
       const cacheStore = getCacheStore();
       const cacheMaintenance = cacheStore ? await cacheStore.inspectMaintenance() : undefined;
       const memory = buildRuntimeMemorySnapshot();
+      const memoryPressure = getRuntimeMemoryPressurePolicy();
       const baseStats = {
         kb: stats,
         scheduler: sched,
@@ -162,6 +194,18 @@ export async function tryHandleRuntimeCommand(
         },
         interactiveServing: getInteractiveServingStats(),
         memory,
+        runtimeMetrics: {
+          eventLoop: getEventLoopSnapshot(),
+          memoryPressure: {
+            level: memoryPressure.level,
+            reason: memoryPressure.reason,
+            ...(memoryPressure.triggerLayer ? { triggerLayer: memoryPressure.triggerLayer } : {}),
+            purgeServingCache: memoryPressure.purgeServingCache,
+            allowServingCacheWrites: memoryPressure.allowServingCacheWrites,
+            requestDocumentCacheEviction: memoryPressure.requestDocumentCacheEviction,
+            deferredWorkloads: [...memoryPressure.deferredWorkloads],
+          }
+        },
         projectModel: projectStats,
         buildFiles: workspaceState.getBuildFileSummary(),
         buildRunner: pbAutoBuildRunner.getSnapshot(),
@@ -224,15 +268,62 @@ export async function tryHandleRuntimeCommand(
         }
       };
     }
+    case 'powerbuilder.objectExplorerProjection': {
+      const [requestArg] = params.arguments ?? [];
+      const request = requestArg && typeof requestArg === 'object'
+        ? requestArg as import('../../shared/publicApi').ApiObjectExplorerProjectionRequest
+        : undefined;
+      const progressReadiness = buildRuntimeProgressReadiness(request?.activeUri ?? null);
+      const startedAt = performance.now();
+      try {
+        const result = await runNearContextWorkload('object-explorer-projection', () => buildObjectExplorerProjection(
+          request,
+          knowledgeBase,
+          workspaceState,
+          {
+            state: progressReadiness.readiness.state,
+            detail: progressReadiness.readiness.detail,
+          },
+        ));
+        recordRuntimeCommandPerformanceEvent(recordPerformanceEvent, knowledgeBase, {
+          feature: 'objectExplorer',
+          lane: 'near',
+          outcome: result.projection.state === 'degraded' ? 'degraded' : 'success',
+          durationMs: performance.now() - startedAt,
+          ...(request?.activeUri ? { uri: request.activeUri } : {}),
+          ...(request?.parentPath?.projectUri ? { projectId: request.parentPath.projectUri } : {}),
+          payloadBytes: estimateLspPayloadBytes(result),
+          resultSize: result.nodes.length,
+          ...(result.projection.state === 'degraded'
+            ? { degradedReason: result.projection.degradedReason ?? progressReadiness.readiness.detail }
+            : {}),
+        });
+        return {
+          handled: true,
+          result,
+        };
+      } catch (error) {
+        recordRuntimeCommandPerformanceEvent(recordPerformanceEvent, knowledgeBase, {
+          feature: 'objectExplorer',
+          lane: 'near',
+          outcome: 'error',
+          durationMs: performance.now() - startedAt,
+          ...(request?.activeUri ? { uri: request.activeUri } : {}),
+          ...(request?.parentPath?.projectUri ? { projectId: request.parentPath.projectUri } : {}),
+          errorKind: resolveRuntimeCommandErrorKind(error),
+        });
+        throw error;
+      }
+    }
     case 'powerbuilder.semanticWorkspaceManifest': {
       const [maxObjectsArg, maxSymbolsArg] = params.arguments ?? [];
       const progressReadiness = buildRuntimeProgressReadiness();
       const reportLimits = ensureRuntimeMemoryPressureRelief().reportLimits?.semanticWorkspaceManifest;
       const maxObjects = resolveAdaptiveLimit(maxObjectsArg, reportLimits?.maxObjects, 1);
       const maxSymbols = resolveAdaptiveLimit(maxSymbolsArg, reportLimits?.maxSymbols, 1);
-      return {
-        handled: true,
-        result: await runExportReportingWorkload('semantic-workspace-manifest', () => buildSemanticWorkspaceManifest(
+      const startedAt = performance.now();
+      try {
+        const result = await runExportReportingWorkload('semantic-workspace-manifest', () => buildSemanticWorkspaceManifest(
           {
             ...(typeof maxObjects === 'number' ? { maxObjects } : {}),
             ...(typeof maxSymbols === 'number' ? { maxSymbols } : {}),
@@ -245,8 +336,33 @@ export async function tryHandleRuntimeCommand(
             state: progressReadiness.readiness.state,
             detail: progressReadiness.readiness.detail,
           }
-        ))
-      };
+        ));
+        const readinessState = result.readiness?.state;
+        recordRuntimeCommandPerformanceEvent(recordPerformanceEvent, knowledgeBase, {
+          feature: 'semanticWorkspaceManifest',
+          lane: 'reporting',
+          outcome: readinessState && readinessState !== 'ready' ? 'degraded' : 'success',
+          durationMs: performance.now() - startedAt,
+          payloadBytes: estimateLspPayloadBytes(result),
+          resultSize: result.projects.length + result.objects.length + result.exportedSymbols.length,
+          ...(readinessState && readinessState !== 'ready'
+            ? { degradedReason: result.readiness?.detail ?? `workspace-readiness:${readinessState}` }
+            : {}),
+        });
+        return {
+          handled: true,
+          result,
+        };
+      } catch (error) {
+        recordRuntimeCommandPerformanceEvent(recordPerformanceEvent, knowledgeBase, {
+          feature: 'semanticWorkspaceManifest',
+          lane: 'reporting',
+          outcome: 'error',
+          durationMs: performance.now() - startedAt,
+          errorKind: resolveRuntimeCommandErrorKind(error),
+        });
+        throw error;
+      }
     }
     case 'powerbuilder.runSemanticCacheMaintenance': {
       const cacheStore = getCacheStore();

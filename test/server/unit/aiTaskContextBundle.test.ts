@@ -1,8 +1,10 @@
 import * as assert from 'assert/strict';
 
 import {
+  buildAiTaskContextExecutionPlan,
   buildAiTaskContextBundle,
   buildUnavailableAiTaskContextBundle,
+  shouldExecuteAiTaskContextSection,
 } from '../../../src/client/aiTaskContextBundle';
 import type {
   ApiCurrentObjectContext,
@@ -338,5 +340,68 @@ suite('unit/aiTaskContextBundle (B381)', () => {
     assert.ok((bundle.tokenBudget.estimatedTokens ?? 0) <= 220);
     assert.ok(bundle.reasonCodes.some((code) => code.startsWith('token-budget')));
     assert.equal(bundle.context.workspaceCheck, undefined);
+  });
+
+  test('planifica skips previos a ejecucion cuando el budget no alcanza para secciones costosas', () => {
+    const plan = buildAiTaskContextExecutionPlan({
+      intent: 'diagnose',
+      uri: 'file:///workspace/sample.sru',
+      maxTokensHint: 900,
+      includeWorkspaceCheck: true,
+      includeObjectCheck: true,
+      includeSafeEditPlan: true,
+      includeDependencyGraph: true,
+      includeDiagnosticsExplanation: true,
+      includeSystemSymbolExplanations: true,
+      maxDiagnostics: 4,
+      maxSymbols: 4,
+      maxFiles: 4,
+    });
+
+    assert.equal(shouldExecuteAiTaskContextSection(plan, 'currentObjectContext'), true);
+    assert.equal(shouldExecuteAiTaskContextSection(plan, 'objectCheck'), true);
+    assert.equal(shouldExecuteAiTaskContextSection(plan, 'workspaceCheck'), false);
+    assert.ok(plan.receipt.skippedSections.some((section) => section.key === 'workspaceCheck' && section.reason === 'budget-preflight'));
+    assert.ok(plan.receipt.estimatedRequestedTokens > plan.receipt.estimatedScheduledTokens);
+  });
+
+  test('mantiene guard-pruning como fallback despues del skip previo a ejecucion', () => {
+    const executionPlan = buildAiTaskContextExecutionPlan({
+      intent: 'diagnose',
+      uri: 'file:///workspace/sample.sru',
+      maxTokensHint: 80,
+      includeWorkspaceCheck: true,
+      includeObjectCheck: true,
+      includeSafeEditPlan: true,
+      includeDependencyGraph: true,
+      includeDiagnosticsExplanation: true,
+      includeSystemSymbolExplanations: true,
+      maxDiagnostics: 4,
+      maxSymbols: 4,
+      maxFiles: 4,
+    });
+
+    const bundle = buildAiTaskContextBundle({
+      request: {
+        intent: 'diagnose',
+        uri: 'file:///workspace/sample.sru',
+        maxTokensHint: 80,
+        includeWorkspaceCheck: true,
+        includeObjectCheck: true,
+        includeSafeEditPlan: true,
+        includeDependencyGraph: true,
+        includeDiagnosticsExplanation: true,
+        includeSystemSymbolExplanations: true,
+      },
+      executionPlan: executionPlan.receipt,
+      objectCheck: createObjectCheck(),
+      currentObjectContext: createCurrentObjectContext(),
+    });
+
+    assert.ok(bundle.executionPlan);
+    assert.ok((bundle.executionPlan?.skippedSections.length ?? 0) > 0);
+    assert.ok(bundle.reasonCodes.includes('token-budget-preflight'));
+    assert.ok(bundle.reasonCodes.includes('token-budget-context') || bundle.reasonCodes.includes('token-budget-minimal'));
+    assert.equal(bundle.tokenBudget.truncated, true);
   });
 });

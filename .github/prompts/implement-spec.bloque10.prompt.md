@@ -600,6 +600,375 @@ Do not leave compatibility layers undocumented.
 
 Update audit report:
 
+## PHASE 6.1
+
+The current unsafe lifecycle patterns are:
+
+```txt
+executeServerCommand calls client.start() directly when client.needsStart().
+stopClient clears global client only after awaiting dispose.
+startClient assigns global client = nextClient before nextClient.start() completes.
+startClient catch calls global stopClient().
+inspectHierarchy bypasses executeServerCommand and calls client.sendRequest directly.
+scheduleStatusRefresh can call server commands after stop/restart starts.
+No lifecycle lock/generation guard exists.
+```
+
+---
+
+### Scope
+
+Allowed files:
+
+```txt
+src/client/extension.ts
+test/**/extension*.test.ts or existing lifecycle/smoke-adjacent unit tests
+docs/audits/wave-08-runtime-metrics-10k-ci-gates-report.md
+```
+
+Do not modify unrelated server/runtime code.
+Do not modify package scripts.
+Do not weaken smoke tests.
+
+---
+
+### Required implementation
+
+#### 1. Add lifecycle serialization and generation guard
+
+Add minimal module-level state near the existing `client` globals:
+
+```ts
+let clientLifecycleOperation: Promise<void> | undefined;
+let clientGeneration = 0;
+let clientStopping = false;
+
+async function runClientLifecycleOperation(operation: () => Promise<void>): Promise<void> {
+  const previous = clientLifecycleOperation;
+  const run = async (): Promise<void> => {
+    if (previous) {
+      await previous.catch(() => undefined);
+    }
+    await operation();
+  };
+
+  clientLifecycleOperation = run();
+  try {
+    await clientLifecycleOperation;
+  } finally {
+    if (clientLifecycleOperation === run as unknown as Promise<void>) {
+      clientLifecycleOperation = undefined;
+    }
+  }
+}
+```
+
+If TypeScript rejects the identity comparison above, implement the lock with a local `operationPromise` variable:
+
+```ts
+async function runClientLifecycleOperation(operation: () => Promise<void>): Promise<void> {
+  const previous = clientLifecycleOperation;
+  const operationPromise = (async () => {
+    if (previous) {
+      await previous.catch(() => undefined);
+    }
+    await operation();
+  })();
+
+  clientLifecycleOperation = operationPromise;
+  try {
+    await operationPromise;
+  } finally {
+    if (clientLifecycleOperation === operationPromise) {
+      clientLifecycleOperation = undefined;
+    }
+  }
+}
+```
+
+Use this helper for start/stop/restart only. Do not wrap every request in a long-running lock.
+
+---
+
+#### 2. Fix `stopClient`
+
+Replace the current pattern:
+
+```ts
+if (client) {
+  await client.dispose(...);
+  client = undefined;
+}
+```
+
+with identity-safe early clearing:
+
+```ts
+async function stopClient(): Promise<void> {
+  await runClientLifecycleOperation(async () => {
+    clearStatusRefreshHandle();
+    clientStopping = true;
+    clientGeneration++;
+
+    const stoppingClient = client;
+    client = undefined;
+
+    if (!stoppingClient) {
+      clientStopping = false;
+      return;
+    }
+
+    try {
+      await stoppingClient.dispose(CLIENT_STOP_TIMEOUT_MS);
+      outputChannel?.appendLine('PowerBuilder language client stopped.');
+    } catch (error) {
+      outputChannel?.appendLine(`PowerBuilder language client stop failed: ${formatErrorMessage(error)}`);
+    } finally {
+      clientStopping = false;
+    }
+  });
+}
+```
+
+If nested lifecycle calls would deadlock in the current file, split into:
+
+```ts
+async function stopClientUnlocked(): Promise<void> { ... }
+async function stopClient(): Promise<void> { await runClientLifecycleOperation(stopClientUnlocked); }
+```
+
+and call `stopClientUnlocked()` only from inside the lifecycle lock.
+
+---
+
+#### 3. Fix `startClient`
+
+Do not publish a globally usable client before the failed-start cleanup is identity-safe.
+
+Inside `startClient`, keep the existing behavior, but the catch must not call global `stopClient()` blindly.
+
+Required catch pattern:
+
+```ts
+try {
+  client = nextClient;
+  clientGeneration++;
+  await nextClient.start();
+  lastClientStartupFailure = undefined;
+  outputChannel?.appendLine('PowerBuilder language client started.');
+} catch (error) {
+  const message = formatErrorMessage(error);
+  lastClientStartupFailure = message;
+
+  if (client === nextClient) {
+    client = undefined;
+    clientGeneration++;
+  }
+
+  try {
+    await nextClient.dispose(CLIENT_STOP_TIMEOUT_MS);
+  } catch {
+    // Best-effort cleanup only. Do not mask the startup failure.
+  }
+
+  throw error;
+}
+```
+
+If `startClient` is externally callable, wrap it through `runClientLifecycleOperation`. If `restartClient` calls it from inside the lifecycle lock, create `startClientUnlocked(context)` and `startClient(context)` wrappers.
+
+---
+
+#### 4. Fix `restartClient`
+
+`restartClient` must be serialized and must not allow overlapping stop/start operations.
+
+Required structure:
+
+```ts
+async function restartClient(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    await runClientLifecycleOperation(async () => {
+      await stopClientUnlocked();
+      await startClientUnlocked(context);
+    });
+
+    if (!client || client.needsStart()) {
+      throw new Error('El cliente LSP no quedó operativo tras el reinicio.');
+    }
+
+    vscode.window.showInformationMessage('Servidor PowerBuilder reiniciado.');
+    scheduleStatusRefresh(statusBarItem);
+  } catch (error) {
+    const message = formatErrorMessage(error);
+    outputChannel?.appendLine(`PowerBuilder language client restart failed: ${message}`);
+    vscode.window.showErrorMessage(`No se pudo reiniciar el servidor PowerBuilder: ${message}`);
+  }
+}
+```
+
+Adapt names to the current file, but keep the behavior equivalent.
+
+---
+
+#### 5. Fix `executeServerCommand`
+
+`executeServerCommand` must never call `client.start()` directly.
+
+Remove all patterns like:
+
+```ts
+if (client!.needsStart()) {
+  await client!.start();
+}
+```
+
+and:
+
+```ts
+if (client.needsStart()) {
+  await client.start();
+}
+```
+
+Use a safe helper:
+
+```ts
+function getRunningClientOrThrow(): LanguageClient {
+  const current = client;
+  if (!current || clientStopping || current.needsStart()) {
+    const detail = lastClientStartupFailure
+      ? ` Ultimo error de arranque: ${lastClientStartupFailure}`
+      : '';
+    throw new Error(`El cliente LSP no está disponible.${detail}`);
+  }
+  return current;
+}
+```
+
+Then:
+
+```ts
+async function executeServerCommand<T>(command: string, args: unknown[] = []): Promise<T> {
+  const activeClient = getRunningClientOrThrow();
+
+  try {
+    const result = await activeClient.sendRequest('workspace/executeCommand', {
+      command,
+      arguments: args,
+    });
+    return clonePlainData(result) as T;
+  } catch (error) {
+    if (activeClient !== client) {
+      throw new Error('El cliente LSP cambió durante la ejecución del comando. Reintenta la operación.');
+    }
+    throw error;
+  }
+}
+```
+
+Do not retry by restarting the same instance.
+
+---
+
+#### 6. Fix `inspectHierarchy`
+
+Replace direct `client.sendRequest(...)` with `executeServerCommand(...)`.
+
+Required behavior:
+
+```ts
+const payload = await executeServerCommand<InspectHierarchyPayload>('powerbuilder.inspectHierarchy', [
+  editor.document.uri.toString(),
+  editor.selection.active.line,
+  editor.selection.active.character,
+]);
+```
+
+Adapt `InspectHierarchyPayload` to the current local type/shape.
+
+---
+
+#### 7. Fix status refresh stale generation
+
+`scheduleStatusRefresh` must not call the server after a stop/restart begins.
+
+Capture generation:
+
+```ts
+const scheduledGeneration = clientGeneration;
+```
+
+Before calling `fetchRuntimeStatusStats()` inside the timeout:
+
+```ts
+if (scheduledGeneration !== clientGeneration || clientStopping || !client) {
+  return;
+}
+```
+
+After the awaited fetch, before rendering:
+
+```ts
+if (scheduledGeneration !== clientGeneration || requestVersion !== statusRefreshVersion) {
+  return;
+}
+```
+
+Keep existing `requestVersion` behavior.
+
+---
+
+### Required tests
+
+Add or update tests proving:
+
+```txt
+double stopClient is safe
+stopClient clears global client before awaiting dispose
+startClient failure does not stop a newer client
+executeServerCommand does not call start on a disposed/stopped client
+restartClient serializes stop/start
+inspectHierarchy uses the safe command path
+scheduled status refresh does not call server for stale/stopping client generation
+```
+
+If the functions are not directly testable because they are private inside `extension.ts`, add minimal exported test hooks guarded by a clear internal/test-only name, or test through existing public commands/smoke tests. Do not expose unstable hooks in the public API.
+
+---
+
+### Required validation
+
+Run:
+
+```bash
+npm run build:test
+npm test
+npm run test:smoke
+npm run release:verify
+```
+
+If a command fails:
+
+```txt
+classify exact command
+classify exact failing test/check
+state whether it is caused by this lifecycle fix or pre-existing
+fix if caused by this lifecycle fix
+document owner and next action if not fixable within this scope
+```
+
+---
+
+### Required documentation
+
+Update:
+
+```txt
+docs/audits/wave-08-runtime-metrics-10k-ci-gates-report.md
+```
+
+
 ```md
 ## PHASE 6 — Compatibility and legacy verification
 

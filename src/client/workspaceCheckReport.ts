@@ -6,6 +6,10 @@ import {
   type ApiDiagnosticsSnapshot,
   type ApiPowerBuilderCodeMetrics,
   type ApiPowerBuilderTechnicalDebtReport,
+  createDegradedProjectionEnvelope,
+  createReadOnlyProjectionEnvelope,
+  createReadyProjectionEnvelope,
+  type ApiReadOnlyProjectionEnvelope,
   type ApiRuntimeHealthFinding,
   type ApiSemanticWorkspaceManifest,
   type ApiServerStats,
@@ -14,6 +18,7 @@ import {
   type ApiWorkspaceCheckMode,
   type ApiWorkspaceCheckReport,
   type ApiWorkspaceCheckRequest,
+  type ApiWorkspaceCheckSummary,
   type ApiWorkspaceCheckUpgradeCompatibility,
   type ApiWorkspaceMigrationAssistant,
 } from '../shared/publicApi';
@@ -148,9 +153,10 @@ export function buildUnavailableWorkspaceCheckReport(
   request: ApiWorkspaceCheckRequest = {},
 ): ApiWorkspaceCheckReport {
   const normalized = normalizeWorkspaceCheckRequest(request);
+  const generatedAt = new Date().toISOString();
   return {
     schemaVersion: '1.0.0',
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     apiVersion: PUBLIC_API_VERSION,
     mode: normalized.mode,
     status: 'failed',
@@ -166,6 +172,18 @@ export function buildUnavailableWorkspaceCheckReport(
       warningFindings: 0,
       truncated: false,
     },
+    projection: createReadOnlyProjectionEnvelope({
+      projectionId: 'workspace-check',
+      projectionOwner: 'workspace-check-report',
+      state: 'error',
+      generatedAt,
+      degradedReason: reason,
+      caps: buildWorkspaceProjectionCaps(normalized),
+      refreshHint: {
+        strategy: 'rerun-command',
+        detail: 'Reejecutar el workspace check cuando el runtime vuelva a exponer estadisticas base.',
+      },
+    }),
     findings: [
       {
         code: 'workspace-check-unavailable',
@@ -194,6 +212,54 @@ function trimDiagnosticsSnapshot(snapshot: ApiDiagnosticsSnapshot, maxFiles: num
     documents: snapshot.documents.slice(0, maxFiles),
     projects: snapshot.projects.slice(0, maxFiles),
   };
+}
+
+function buildWorkspaceProjectionCaps(
+  normalized: NormalizedWorkspaceCheckRequest,
+): ApiReadOnlyProjectionEnvelope['caps'] {
+  return {
+    maxFiles: normalized.maxFiles,
+    maxDiagnostics: normalized.maxDiagnostics,
+    maxFindings: normalized.maxFindings,
+  };
+}
+
+function buildWorkspaceProjection(
+  normalized: NormalizedWorkspaceCheckRequest,
+  generatedAt: string,
+  summary: ApiWorkspaceCheckSummary,
+  readiness: ApiServerStats['readiness'] | undefined,
+  truncatedReason?: string,
+): ApiReadOnlyProjectionEnvelope {
+  const common = {
+    projectionId: 'workspace-check',
+    projectionOwner: 'workspace-check-report',
+    generatedAt,
+    ...(summary.generatedFromCache ? { generatedFromCache: true } : {}),
+    ...(readiness?.state ? { readiness: readiness.state } : {}),
+    caps: buildWorkspaceProjectionCaps(normalized),
+    truncated: summary.truncated,
+    ...(truncatedReason ? { truncatedReason } : {}),
+  };
+
+  if (readiness?.state && readiness.state !== 'ready') {
+    return createDegradedProjectionEnvelope({
+      ...common,
+      degradedReason: readiness.detail ?? `workspace-readiness:${readiness.state}`,
+      refreshHint: {
+        strategy: 'wait-for-readiness',
+        detail: 'Esperar a que el runtime alcance ready antes de tratar esta proyeccion como estable.',
+      },
+    });
+  }
+
+  return createReadyProjectionEnvelope({
+    ...common,
+    refreshHint: {
+      strategy: 'refresh-on-demand',
+      detail: 'Reejecutar el workspace check para refrescar la proyeccion read-only.',
+    },
+  });
 }
 
 function catalogIssueCount(summary: ApiWorkspaceCheckCatalogSummary | undefined): number {
@@ -981,28 +1047,49 @@ export function buildWorkspaceCheckReport(input: WorkspaceCheckBuildInput): ApiW
     || warningFindings > 0
   );
 
+  const generatedAt = new Date().toISOString();
+  const summary: ApiWorkspaceCheckSummary = {
+    projectCount: input.manifest?.projects.length ?? (input.serverStats.projectModel?.projects ?? 0),
+    objectCount: input.manifest?.inheritanceSummary.totalTypes ?? input.manifest?.objects.length ?? 0,
+    exportedSymbolCount: input.manifest?.exportedSymbols.length ?? 0,
+    diagnostics: { ...diagnosticsTotals },
+    ...(healthStatus ? { healthStatus } : {}),
+    ...(readinessState ? { readinessState } : {}),
+    catalogIssues: catalogIssueCount(input.catalog),
+    blockingFindings,
+    warningFindings,
+    ...(input.serverStats.persistence?.restoreState === 'restored' || input.serverStats.persistence?.restoreState === 'reused'
+      ? { generatedFromCache: true }
+      : {}),
+    truncated,
+  };
+  const truncationReasons: string[] = [];
+  if (sortedFindings.length > visibleFindings.length) {
+    truncationReasons.push('findings capped by maxFindings');
+  }
+  if (input.manifest?.limits.objectsTruncated || input.manifest?.limits.symbolsTruncated) {
+    truncationReasons.push('manifest limits reached');
+  }
+  if (input.serverStats.diagnostics && (input.serverStats.diagnostics.documents.length > visibleDiagnosticsDocumentCount)) {
+    truncationReasons.push('diagnostic documents capped by maxFiles');
+  }
+  const truncatedReason = truncationReasons.length > 0 ? truncationReasons.join('; ') : undefined;
+
   return {
     schemaVersion: '1.0.0',
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     apiVersion: PUBLIC_API_VERSION,
     mode: normalized.mode,
     status: failed ? 'failed' : warning ? 'warning' : 'passed',
     available: true,
-    summary: {
-      projectCount: input.manifest?.projects.length ?? (input.serverStats.projectModel?.projects ?? 0),
-      objectCount: input.manifest?.inheritanceSummary.totalTypes ?? input.manifest?.objects.length ?? 0,
-      exportedSymbolCount: input.manifest?.exportedSymbols.length ?? 0,
-      diagnostics: { ...diagnosticsTotals },
-      ...(healthStatus ? { healthStatus } : {}),
-      ...(readinessState ? { readinessState } : {}),
-      catalogIssues: catalogIssueCount(input.catalog),
-      blockingFindings,
-      warningFindings,
-      ...(input.serverStats.persistence?.restoreState === 'restored' || input.serverStats.persistence?.restoreState === 'reused'
-        ? { generatedFromCache: true }
-        : {}),
-      truncated,
-    },
+    summary,
+    projection: buildWorkspaceProjection(
+      normalized,
+      generatedAt,
+      summary,
+      normalized.includeHealth ? input.serverStats.readiness : undefined,
+      truncatedReason,
+    ),
     ...(normalized.includeHealth && input.serverStats.readiness ? { readiness: input.serverStats.readiness } : {}),
     ...(normalized.includeHealth && input.serverStats.health ? { health: input.serverStats.health } : {}),
     ...(normalized.includeDiagnostics && diagnostics ? { diagnostics } : {}),

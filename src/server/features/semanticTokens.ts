@@ -16,6 +16,7 @@ import {
 } from '../presentation/semanticTokenPresentation';
 import type { SemanticTokenViewModelEntry } from '../presentation/viewModels';
 import { SemanticTokensResultState } from './semanticTokensResultState';
+import { inferSourceOrigin } from '../../shared/sourceOrigin';
 
 // ---------------------------------------------------------------------------
 // Legends
@@ -49,6 +50,16 @@ export const POWERBUILDER_SEMANTIC_TOKEN_CONTRACT = {
   sharedVariableModifier: 'global' as const,
   dynamicDataWindowBindingPolicy: 'skip' as const,
 } as const;
+
+export const SEMANTIC_TOKENS_LEGEND_VERSION = [
+  'v1',
+  POWERBUILDER_SEMANTIC_TOKEN_TYPES.join(','),
+  POWERBUILDER_SEMANTIC_TOKEN_MODIFIERS.join(','),
+  POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.customTokenTypes.join(','),
+  POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.customTokenModifiers.join(','),
+  POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.sharedVariableModifier,
+  POWERBUILDER_SEMANTIC_TOKEN_CONTRACT.dynamicDataWindowBindingPolicy,
+].join('|');
 
 export function getSemanticTokensLegend(): SemanticTokensLegend {
   return {
@@ -102,6 +113,10 @@ export function provideSemanticTokens(
   resultState?: SemanticTokensResultState,
 ): SemanticTokens | SemanticTokensDelta {
   const snapshot = getDocumentAnalysis(document).snapshot;
+  const sourceOrigin = inferSourceOrigin(document.uri);
+  const previousEntry = previousResultId && resultState
+    ? resultState.get(document.uri, previousResultId)
+    : undefined;
 
   const tokens: TokenEntry[] = [];
 
@@ -120,12 +135,23 @@ export function provideSemanticTokens(
     return previousResultId ? { ...fullTokens } : fullTokens;
   }
 
+  const previousEntryIsCompatible = previousEntry
+    ? resultState.isCompatible(previousEntry, snapshot.version, snapshot.fingerprint, kb.version, {
+        sourceOrigin,
+        legendVersion: SEMANTIC_TOKENS_LEGEND_VERSION,
+      })
+    : false;
+
   const resultId = resultState.store(
     document.uri,
     snapshot.version,
     snapshot.fingerprint,
     kb.version,
     fullTokens.data,
+    {
+      sourceOrigin,
+      legendVersion: SEMANTIC_TOKENS_LEGEND_VERSION,
+    },
   );
 
   if (!previousResultId) {
@@ -135,8 +161,7 @@ export function provideSemanticTokens(
     };
   }
 
-  const previousEntry = resultState.get(document.uri, previousResultId);
-  if (!previousEntry || !resultState.isCompatible(previousEntry, snapshot.version, snapshot.fingerprint, kb.version)) {
+  if (!previousEntry || !previousEntryIsCompatible) {
     return {
       data: fullTokens.data,
       resultId,

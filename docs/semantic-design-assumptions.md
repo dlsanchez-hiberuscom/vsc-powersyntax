@@ -329,7 +329,7 @@ Ledger vivo de hechos, supuestos, dudas, decisiones y validaciones del plan maes
 ## Capa: DataWindowModel
 
 - Responsabilidad actual: parsear `.srd`/DataWindow source y producir bands, columns, controls, expressions, reports, retrieve args y SQL references simples.
-- Archivos: `src/server/features/dataWindowModel.ts`, `src/server/features/dataWindowBindingModel.ts`, `src/server/features/dataWindowFastContext.ts`, `src/server/features/dataWindowServingAdapters.ts`.
+- Archivos: `src/server/semantic/submodels/datawindow/index.ts`, `src/server/semantic/submodels/datawindow/bindingProjection.ts`, `src/server/features/dataWindowModel.ts`, `src/server/features/dataWindowBindingModel.ts`, `src/server/features/dataWindowFastContext.ts`, `src/server/features/dataWindowServingAdapters.ts`.
 - Produce: `DataWindowModel`, bindings, fast context, completion/signature adapters, columns/expressions.
 - Consume: semantic snapshots, KB, system catalog, receiver owner types.
 - Consumers: hover, completion, signature help, diagnostics, current object context, SQL lineage.
@@ -341,6 +341,7 @@ Ledger vivo de hechos, supuestos, dudas, decisiones y validaciones del plan maes
 - Escala a 5000+ archivos: parcial; necesita submodelo publicado y límites.
 - Mantener/fusionar/degradar/eliminar: mantener y publicar como submodelo derivado con confidence.
 - Motivo: aporta valor alto, pero no debe ejecutarse como análisis profundo en cada request.
+- Estado validado 2026-05 (Wave 07): existe un boundary mínimo `src/server/semantic/submodels/datawindow/` y `bindingProjection` ya vive ahí con re-export compatible desde `src/server/features/dataWindowBindingProjection.ts`.
 
 ## Capa: SqlAnchors
 
@@ -604,7 +605,7 @@ Ledger vivo de hechos, supuestos, dudas, decisiones y validaciones del plan maes
 - Candidato FASE 10: `PB-ARCH-P0-SEMANTIC-QUERY-CONTRACT-01` debe absorber/conectar la adopción incompleta de `SemanticQueryFacade`.
 - Candidato FASE 10: `PB-ARCH-P1-CONSUMER-CONVERGENCE-COMPLETION-SIGNATURE-01` debe incluir completion/signature y revisar references/semantic tokens/diagnostics.
 - Candidato FASE 10: `PB-ARCH-P1-READONLY-SURFACES-PROJECTIONS-01` debe definir owners, caps y paging por surface.
-- Candidato FASE 10: `PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01`, `PB-ARCH-P2-SQL-ANCHORS-SUBMODEL-01` y posible transaction subitem deben evitar duplicar ítems PB-SEMANTIC existentes.
+- Estado 2026-05: `PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01` queda como histórico `Open by conformance` con owner ejecutable en `PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01`; `PB-ARCH-P2-SQL-ANCHORS-SUBMODEL-01` queda absorbido por `PB-SEMANTIC-P2-DYNAMIC-SQL-PROCEDURES-01` y por el tramo runtime `PB-SQL-P2-SQL-ANCHORS-BOUNDED-PROJECTION-01`.
 
 ---
 
@@ -717,7 +718,7 @@ Ledger vivo de hechos, supuestos, dudas, decisiones y validaciones del plan maes
 - Fuente de verdad objetivo: `DataWindowSubmodel` derivado, publicado por documento/objeto, con source origin, confidence, evidence, owner, columns/properties/retrieve args y DataObject target.
 - Qué debe ser proyección: adapters LSP, current object dataWindowBindings, diagnostics, lineage SQL y bundle IA.
 - Qué debe eliminarse o fusionarse: reparsers locales y reglas de binding/arity duplicadas fuera del submodelo/adapters oficiales.
-- Backlog: candidato FASE 10 `PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01`, coordinado con reglas DataWindow existentes.
+- Backlog 2026-05: owner ejecutable activo `PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01`; `PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01` permanece sólo como histórico `Open by conformance`.
 
 ### Duplicidad: SQL anchors y transactions
 
@@ -1154,7 +1155,7 @@ Ledger vivo de hechos, supuestos, dudas, decisiones y validaciones del plan maes
 - Riesgo: medio-alto; puede aparentar soporte nativo profundo.
 - Propuesta: degradar.
 - Motivo: conservar metadata mínima como `ExternalNativeSubmodel`, pero marcar ABI/PBNI/bitness como unsupported o needs official confirmation.
-- Backlog: absorber en `PB-SEMANTIC-P2-NATIVE-METADATA-CONTRACT-01` y FASE 10 `PB-ARCH-P2-NATIVE-METADATA-SUBMODEL-01`.
+- Backlog 2026-05: `PB-ARCH-P2-NATIVE-METADATA-SUBMODEL-01` queda superseded por `PB-SEMANTIC-P2-NATIVE-METADATA-CONTRACT-01`; la trazabilidad histórica se mantiene en backlog/spec, no como owner ejecutable independiente.
 
 ## Candidato: Influencia legacy no suficientemente aislada en nombres/runtime
 

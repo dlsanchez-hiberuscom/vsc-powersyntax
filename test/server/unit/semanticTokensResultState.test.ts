@@ -32,15 +32,53 @@ suite('unit/semanticTokensResultState', () => {
   });
 
   test('isCompatible retorna true para parámetros iguales', () => {
-    const rid = state.store('file:///a.sru', 2, 'fp2', 5, [1, 2]);
+    const rid = state.store('file:///a.sru', 2, 'fp2', 5, [1, 2], {
+      sourceOrigin: 'pbl-folder-source',
+      legendVersion: 'legend-v1',
+    });
     const entry = state.get('file:///a.sru', rid)!;
-    assert.ok(state.isCompatible(entry, 2, 'fp2', 5));
+    assert.ok(state.isCompatible(entry, 2, 'fp2', 5, {
+      sourceOrigin: 'pbl-folder-source',
+      legendVersion: 'legend-v1',
+    }));
   });
 
   test('isCompatible retorna false si versión cambia', () => {
-    const rid = state.store('file:///a.sru', 2, 'fp2', 5, [1, 2]);
+    const rid = state.store('file:///a.sru', 2, 'fp2', 5, [1, 2], {
+      sourceOrigin: 'pbl-folder-source',
+      legendVersion: 'legend-v1',
+    });
     const entry = state.get('file:///a.sru', rid)!;
-    assert.ok(!state.isCompatible(entry, 3, 'fp2', 5));
+    assert.ok(!state.isCompatible(entry, 3, 'fp2', 5, {
+      sourceOrigin: 'pbl-folder-source',
+      legendVersion: 'legend-v1',
+    }));
+  });
+
+  test('store conserva sourceOrigin, legendVersion y createdAt', () => {
+    const rid = state.store('file:///a.sru', 2, 'fp2', 5, [1, 2], {
+      sourceOrigin: 'pbl-folder-source',
+      legendVersion: 'legend-v1',
+    });
+    const entry = state.get('file:///a.sru', rid)!;
+
+    assert.equal(entry.sourceOrigin, 'pbl-folder-source');
+    assert.equal(entry.legendVersion, 'legend-v1');
+    assert.equal(typeof entry.createdAt, 'number');
+    assert.ok(entry.createdAt > 0);
+  });
+
+  test('isCompatible retorna false si legendVersion cambia', () => {
+    const rid = state.store('file:///a.sru', 2, 'fp2', 5, [1, 2], {
+      sourceOrigin: 'pbl-folder-source',
+      legendVersion: 'legend-v1',
+    });
+    const entry = state.get('file:///a.sru', rid)!;
+
+    assert.ok(!state.isCompatible(entry, 2, 'fp2', 5, {
+      sourceOrigin: 'pbl-folder-source',
+      legendVersion: 'legend-v2',
+    }));
   });
 
   test('evict elimina entradas del URI', () => {
@@ -82,6 +120,17 @@ suite('unit/semanticTokensResultState', () => {
   test('resultId changes when payload changes even if fingerprint matches', () => {
     const first = state.store('file:///a.sru', 1, 'fp1', 0, [10, 20]);
     const second = state.store('file:///a.sru', 1, 'fp1', 0, [10, 21]);
+    assert.notEqual(first, second);
+  });
+
+  test('resultId changes when legendVersion changes even if payload matches', () => {
+    const first = state.store('file:///a.sru', 1, 'fp1', 0, [10, 20], {
+      legendVersion: 'legend-v1',
+    });
+    const second = state.store('file:///a.sru', 1, 'fp1', 0, [10, 20], {
+      legendVersion: 'legend-v2',
+    });
+
     assert.notEqual(first, second);
   });
 

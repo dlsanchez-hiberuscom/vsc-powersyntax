@@ -1,5 +1,5 @@
 import * as os from 'os';
-import { WorkerPool } from './workerPool';
+import { WorkerPool, type WorkerPoolStatsSnapshot } from './workerPool';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { CancellationToken } from '../runtime/cancellation';
 import { IFileSystem } from '../system/fileSystem';
@@ -12,7 +12,7 @@ import { PB_IDENTIFIER_SOURCE, PB_KEYWORDS } from '../parsing/grammar';
 import { WorkspaceState } from '../workspace/workspaceState';
 import { analyzeDocument, analyzeDocumentStructural } from '../analysis/documentAnalysis';
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
-import { createLatencyGovernor } from '../runtime/latencyGovernor';
+import { createLatencyGovernor, type LatencyGovernorSnapshot } from '../runtime/latencyGovernor';
 import { inferSourceOrigin } from '../../shared/sourceOrigin';
 import type { ProgressPass } from '../../shared/types';
 
@@ -143,6 +143,8 @@ const indexerStatus: {
   lastFailedUri?: string;
   partialRuns: number;
   prioritySummary?: IndexPrioritySummary;
+  worker?: WorkerPoolStatsSnapshot;
+  latencyGovernor?: LatencyGovernorSnapshot;
 } = {
   phase: 'idle',
   total: 0,
@@ -189,6 +191,8 @@ export function getIndexerStatus(): {
   lastFailedUri?: string;
   partialRuns: number;
   prioritySummary?: IndexPrioritySummary;
+  worker?: WorkerPoolStatsSnapshot;
+  latencyGovernor?: LatencyGovernorSnapshot;
   byState: Record<FileIndexState, number>;
 } {
   const byState: Record<FileIndexState, number> = {
@@ -294,6 +298,8 @@ export async function indexWorkspace(
   indexerStatus.pass = 'structural';
   indexerStatus.lastProcessedUri = undefined;
   indexerStatus.lastFailedUri = undefined;
+  indexerStatus.worker = workerPool.getStats();
+  indexerStatus.latencyGovernor = latencyGovernor.getSnapshot();
 
   reportProgress(onProgress, 0, total, 'structural');
 
@@ -317,6 +323,8 @@ export async function indexWorkspace(
     indexerStatus.enrichedPublished = 0;
     indexerStatus.pass = undefined;
     indexerStatus.lastProcessedUri = files[files.length - 1];
+    indexerStatus.worker = workerPool.getStats();
+    indexerStatus.latencyGovernor = latencyGovernor.getSnapshot();
     workspaceState.markIndexClean();
     reportProgress(onProgress, total, total, 'enriched');
     return;
@@ -529,6 +537,8 @@ export async function indexWorkspace(
     indexerStatus.structuralProcessed = nextStructuralProcessed;
     indexerStatus.enrichedProcessed = nextEnrichedProcessed;
     indexerStatus.workBudgetMs = budgetMs;
+    indexerStatus.worker = workerPool.getStats();
+    indexerStatus.latencyGovernor = latencyGovernor.getSnapshot();
     const status = getIndexerStatus();
     indexerStatus.degraded = status.degraded;
     indexerStatus.degradedReason = status.degradedReason;

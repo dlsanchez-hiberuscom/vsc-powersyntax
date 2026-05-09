@@ -14,6 +14,8 @@
 - `docs/performance-budget.md`
 - `docs/testing.md`
 - `docs/audits/run-implement-spec-blocks-strict-execution.md`
+- `docs/audits/macro-instant-semantic-indexing-findings.md`
+- `docs/audits/macro-instant-semantic-indexing-audit.md`
 
 ### Partial items and exact pending work
 - `PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01`: runtime wiring pendiente en el pipeline real.
@@ -147,42 +149,50 @@
 ## PHASE 5 — IndexStateInvariants and persistence wiring
 
 ### Integration points
-- Revisados `workspaceIndexer`, `workspaceState`, `cacheStore`, `cacheCheckpoint` y `server.ts`.
+- `semanticCacheRuntimeController` serializa `appendUpsert`, `appendRemove`, `persistCheckpoint` y `persistServingSnapshot` mediante `PersistenceWriteQueue`.
+- `lifecycleHandlers` dejó de llamar `currentCacheStore.persistCheckpoint(...)` directamente y usa la ruta centralizada del runtime controller.
+- Las invariants se ejercitan sobre flujos reales de `workspaceIndexer`/`KnowledgeBase` y de restore desde `cacheStore` sin añadir checks pesados al runtime.
 
 ### Runtime behavior preservation
-- No se hizo un rewrite de warm start/persistencia sin pruebas.
+- No se reescribió warm start ni persistencia de forma amplia; el cambio se limitó a serializar writes reales y a cubrir el comportamiento con tests ejecutables.
 
 ### Tests added/updated
-- Sin cambios de código en esta fase.
+- `test/server/unit/semanticCacheRuntimeController.test.ts`
+- `test/server/unit/workspaceIndexer.test.ts`
+- `test/server/unit/cacheStore.test.ts`
 
 ### Done/Partial decision
-- **Partial**.
+- **Partial reducido**.
 
 ### Remaining gaps
-- `workspaceIndexer` aún no consume `IndexStateInvariants`.
-- `PersistenceWriteQueue` aún no serializa writes reales de checkpoint/journal.
+- Falta convertir el warm restore compatible en un skip real por manifest/fingerprint dentro del indexer principal.
+- Faltan `watcher invalidation` / `dirty restore transitions` como evidencia ejecutable del siguiente tramo.
+- Siguen pendientes las métricas de warm restore/pending writes en los gates de performance.
 
 ## PHASE 6 — Scheduler/open-change/discovery wiring
 
 ### Generation guard runtime coverage
-- `diagnosticScheduler` sigue cubierto.
-- No se introdujo wiring adicional riesgoso en `references` ni host path de semantic tokens.
+- `diagnosticScheduler` sigue cubierto por `GenerationGuard` y la validación focal confirma que evita commits stale.
+- No se añadió wiring riesgoso adicional en `references` ni en host paths que todavía no tengan cobertura suficiente.
 
 ### Open/change behavior
-- Se preservó el comportamiento actual.
+- Se preservó el comportamiento actual de `open/change`; la migración pendiente hacia fanout Near/Background bounded queda documentada como trabajo posterior, no como cambio especulativo en este prompt.
 
 ### Bounded discovery status
-- Sigue sin cablearse al indexer principal / warm start real.
+- `discoverWorkspaceBounded` ya es un path real opt-in/warm-resume desde `lifecycleHandlers` y comparte el mismo canal de progreso que el discovery clásico.
+- `discoverWorkspace` sigue siendo el default; la sustitución por defecto queda bloqueada hasta validar skip real por manifest/fingerprint y gates de performance.
 
 ### Tests added/updated
-- Sin cambios de código en esta fase.
+- `test/server/unit/workspace.test.ts`
 
 ### Done/Partial decision
-- **Partial**.
+- `PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01`: **Partial reducido**.
+- `PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01`: **Partial**.
 
 ### Remaining gaps
-- `references`/semantic tokens host path siguen sin migración adicional.
-- Falta wiring de progress receipts y warm start real.
+- `references` y cualquier scheduler interactivo restante siguen sin `GenerationGuard` explícito.
+- Falta la migración bounded de `open/change` para evitar full semantic cascade.
+- Falta materializar `skipped files`/manifest receipts y el skip real por fingerprint compatible.
 
 ## PHASE 7 — Documentation and backlog reconciliation
 
@@ -209,7 +219,7 @@
 - `PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01`
 
 ### Current focus
-- `PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01`
+- `PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01`
 
 ### Remaining doc risks
 - Las validaciones host/CI deben seguir documentándose aparte del sandbox local.
@@ -217,37 +227,38 @@
 ## PHASE 8 — Full validation
 
 ### Commands executed
-- `npm ci`
 - `npm run build:test`
 - `npm run test:docs:drift`
 - `npm run test:architecture:rapid`
 - `npm run test:architecture:metrics`
 - `npm run test:performance:gate`
 - `npm test`
-- `npx mocha --ui tdd out/test/server/unit/architectureConformanceScanner.test.js out/test/server/unit/diagnosticRuleRegistry.test.js out/test/server/unit/diagnostics.test.js out/test/server/unit/diagnosticsObsoleteIntegration.test.js out/test/server/unit/semanticTokens.test.js out/test/server/unit/semanticTokensResultState.test.js out/test/server/unit/providerAdapterContract.test.js out/test/server/unit/cacheDescriptorRegistry.test.js out/test/server/unit/cacheKeyContract.test.js out/test/server/unit/diagnosticScheduler.test.js`
-- `npx mocha --ui tdd out/test/server/integration/lsp-providers.test.js`
+- `npm run test:unit -- --grep 'semanticTokens|analysisCache|featureHandlers'`
+- `npm run test:smoke`
 
 ### Passing gates
 - `npm run build:test`
 - `npm run test:docs:drift`
 - `npm run test:architecture:rapid`
 - `npm run test:architecture:metrics`
-- Mocha directo foundation unit/integration (`100 passing`, `11 passing`)
+- `npm run test:performance:gate`
+- `npm run test:unit -- --grep 'semanticTokens|analysisCache|featureHandlers'` (`20 passing`)
 
 ### Failing/skipped gates
-- `npm run test:performance:gate` → entorno/host (`vscode-test` no puede resolver descargar VS Code)
-- `npm test` → entorno (`vscode-test` descarga VS Code)
+- `npm test` → falla en el label `smoke` del runner multi-label.
+- `npm run test:smoke` → reproduce el mismo fallo del lane `smoke` (`13 passing`, `17 failing`).
 
 ### Failure classification
-- `npm test` / `npm run test:unit` / `npm run test:integration` estándar: **entorno** (`ENOTFOUND update.code.visualstudio.com`).
-- `test:architecture:rapid` inicial: **caused-by-repo/fix aplicado**; quedó corregido.
+- Primer `npm test`: **caused-by-prompt/local defect**. El caso `Semantic Tokens -> Should fallback to full semantic tokens when fingerprint changes` fallaba porque `analysisCache` reutilizaba un snapshot cuando coincidían URI/version aunque el texto ya hubiera cambiado.
+- `npm run test:unit -- --grep 'semanticTokens|analysisCache|featureHandlers'`: **green tras fix**; confirmó la corrección local del fallback full.
+- `npm test` final y `npm run test:smoke`: **pre-existing / out-of-scope repo smoke failures**. El rojo actual vive en `smoke/support-bundle-extension`, `smoke/semantic-repro-pack-extension`, `smoke/lsp-guards-extension`, `smoke/health-report-extension`, múltiples aserciones de `smoke/extension`, `smoke/datawindow-b344-extension` y `smoke/code-actions-extension`.
 
 ### Fixes applied
-- Creación recursiva del directorio de artefactos en el scanner.
-- Sustitución de builders persistentes por estado explícito en semantic tokens.
-- Simetría `prefix` builder/stale matcher.
+- `analysisCache` ya no reutiliza un snapshot por misma URI/version sin verificar también el fingerprint ligero del texto.
+- `semanticCacheRuntimeController` serializa journal/checkpoint/serving snapshot y `lifecycleHandlers` persiste checkpoints por esa ruta real.
+- `discoverWorkspaceBounded` quedó cableado como path real opt-in/warm-resume con paridad básica documentada y probada.
 
 ### Final validation state
 - Código y tests focales de foundation wiring: **validados en sandbox**.
-- Gates documentales y de arquitectura: **green / passed-with-skips honestos**.
-- Gates host/VS Code (`test:performance:gate`, `npm test`): **pendientes de CI/entorno con red**.
+- Gates documentales, de arquitectura y de performance: **green**.
+- `npm test`: **no green** por fallos preexistentes del lane `smoke`; unit/integration quedaron en verde dentro del mismo runner tras corregir el defecto local de semantic tokens.

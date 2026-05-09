@@ -9,6 +9,10 @@ import {
   type ExplainableDiagnosticInput,
 } from './diagnosticsExplainabilityPanelModel';
 import { getDiagnosticCode } from '../shared/diagnosticCodes';
+import {
+  buildReadOnlyProjectionStateMessage,
+  mergeReadOnlySurfaceMessages,
+} from './readOnlyProjectionState';
 
 type DiagnosticsLoader = () => Promise<ExplainableDiagnosticInput[]>;
 
@@ -40,6 +44,7 @@ class DiagnosticsExplainabilityPanelProvider implements vscode.TreeDataProvider<
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<DiagnosticsExplainabilityPanelNode | undefined>();
   private model: DiagnosticsExplainabilityPanelModel | undefined;
   private pendingModel: Promise<DiagnosticsExplainabilityPanelModel> | undefined;
+  private viewMessage: string | undefined;
   private dirty = true;
 
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
@@ -86,8 +91,8 @@ class DiagnosticsExplainabilityPanelProvider implements vscode.TreeDataProvider<
   }
 
   async getViewMessage(): Promise<string | undefined> {
-    const model = await this.ensureModel();
-    return model.message;
+    await this.ensureModel();
+    return this.viewMessage ?? this.model?.message;
   }
 
   async getFocusedNode(): Promise<DiagnosticsExplainabilityPanelNode | undefined> {
@@ -110,6 +115,24 @@ class DiagnosticsExplainabilityPanelProvider implements vscode.TreeDataProvider<
 
     this.pendingModel = this.loadDiagnostics()
       .then((diagnostics) => buildDiagnosticsExplainabilityPanelModel(diagnostics))
+      .then((model) => {
+        this.viewMessage = mergeReadOnlySurfaceMessages(
+          buildReadOnlyProjectionStateMessage('Diagnostics Explainability', { state: 'ready' }),
+          model.message,
+        );
+        return model;
+      })
+      .catch((error) => {
+        const errorMessage = `Diagnostics Explainability no disponible: ${error instanceof Error ? error.message : String(error)}`;
+        this.viewMessage = buildReadOnlyProjectionStateMessage('Diagnostics Explainability', {
+          state: 'error',
+          detail: errorMessage,
+        });
+        return {
+          message: errorMessage,
+          roots: [],
+        };
+      })
       .then((model) => {
         this.model = model;
         this.dirty = false;
@@ -151,6 +174,7 @@ export class DiagnosticsExplainabilityPanelController implements vscode.Disposab
 
   async refresh(): Promise<void> {
     this.provider.invalidate();
+    this.treeView.message = buildReadOnlyProjectionStateMessage('Diagnostics Explainability', { state: 'loading' });
     this.treeView.message = await this.provider.getViewMessage();
   }
 

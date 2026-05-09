@@ -1,9 +1,12 @@
 import * as assert from 'assert/strict';
 
+import { DiagnosticSeverity, Range } from 'vscode-languageserver/node';
+
 import {
   collectUnregisteredDiagnosticCodes,
   DIAGNOSTIC_RULE_REGISTRY,
   DiagnosticRuleRegistry,
+  filterDiagnosticsByRegistryMetadata,
   type DiagnosticRuleMetadata,
 } from '../../../src/server/features/diagnosticRuleRegistry';
 import { DIAGNOSTIC_CODES } from '../../../src/shared/diagnosticCodes';
@@ -60,6 +63,19 @@ suite('unit/diagnosticRuleRegistry', () => {
       const diagnostics = Object.values(DIAGNOSTIC_CODES).map((code) => ({ code, source: `PowerScript:${code}` }));
       assert.deepEqual(collectUnregisteredDiagnosticCodes(diagnostics), []);
     });
+
+    test('todas las reglas registradas tienen tier y lane válidos', () => {
+      for (const rule of DIAGNOSTIC_RULE_REGISTRY.getAll()) {
+        assert.ok([0, 1, 2, 3, 4].includes(rule.tier), `${rule.id} debe declarar tier válido`);
+        assert.ok(rule.lane.length > 0, `${rule.id} debe declarar lane`);
+      }
+    });
+
+    test('las reglas advisory registradas están marcadas como advisory', () => {
+      const advisoryRules = DIAGNOSTIC_RULE_REGISTRY.getAll().filter((rule) => rule.domain === 'advisory' || rule.id.includes('dynamic'));
+      assert.ok(advisoryRules.length > 0, 'Debe existir al menos una regla advisory');
+      assert.ok(advisoryRules.every((rule) => rule.advisory === true), 'Las reglas advisory deben marcar advisory=true');
+    });
   });
 
   suite('DiagnosticRuleRegistry instancia aislada', () => {
@@ -103,6 +119,75 @@ suite('unit/diagnosticRuleRegistry', () => {
       registry.register({ id: 'DUP', tier: 2, domain: 'semantic', lane: 'interactive' });
       const found = registry.lookup('DUP');
       assert.equal(found?.tier, 2);
+    });
+
+    test('filterDiagnosticsByRegistryMetadata filtra por tier y aplica cap por regla', () => {
+      registry.register({ id: 'TEST-CAP', tier: 2, domain: 'semantic', lane: 'interactive', cap: 1 });
+      registry.register({ id: 'TEST-TIER1', tier: 1, domain: 'syntactic', lane: 'immediate' });
+
+      const diagnostics = [
+        {
+          code: 'TEST-CAP',
+          severity: DiagnosticSeverity.Warning,
+          range: Range.create(0, 0, 0, 1),
+          message: 'cap-1',
+          source: 'PowerScript:TEST-CAP',
+        },
+        {
+          code: 'TEST-CAP',
+          severity: DiagnosticSeverity.Warning,
+          range: Range.create(1, 0, 1, 1),
+          message: 'cap-2',
+          source: 'PowerScript:TEST-CAP',
+        },
+        {
+          code: 'TEST-TIER1',
+          severity: DiagnosticSeverity.Warning,
+          range: Range.create(2, 0, 2, 1),
+          message: 'tier-1',
+          source: 'PowerScript:TEST-TIER1',
+        },
+      ];
+
+      const filtered = filterDiagnosticsByRegistryMetadata(diagnostics, (tier) => tier >= 2, { registry });
+      assert.equal(filtered.length, 1);
+      assert.equal(filtered[0].message, 'cap-1');
+    });
+
+    test('filterDiagnosticsByRegistryMetadata rechaza severidad warning/error para reglas advisory', () => {
+      registry.register({ id: 'TEST-ADVISORY', tier: 2, domain: 'advisory', lane: 'interactive', advisory: true });
+
+      assert.throws(() => {
+        filterDiagnosticsByRegistryMetadata([
+          {
+            code: 'TEST-ADVISORY',
+            severity: DiagnosticSeverity.Warning,
+            range: Range.create(0, 0, 0, 1),
+            message: 'advisory-warning',
+            source: 'PowerScript:TEST-ADVISORY',
+          },
+        ], (tier) => tier >= 2, { registry });
+      }, /advisory/i);
+    });
+
+    test('filterDiagnosticsByRegistryMetadata permite códigos no registrados solo si están allowlisted', () => {
+      const diagnostics = [
+        {
+          code: 'ALLOWLISTED',
+          severity: DiagnosticSeverity.Information,
+          range: Range.create(0, 0, 0, 1),
+          message: 'allowlisted',
+          source: 'PowerScript:ALLOWLISTED',
+        },
+      ];
+
+      const filtered = filterDiagnosticsByRegistryMetadata(diagnostics, () => true, {
+        registry,
+        allowUnregisteredCodes: ['ALLOWLISTED'],
+      });
+
+      assert.equal(filtered.length, 1);
+      assert.equal(filtered[0].message, 'allowlisted');
     });
   });
 });

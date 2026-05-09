@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 
-import type { ApiCurrentObjectContext } from '../shared/publicApi';
+import type {
+  ApiCurrentObjectContext,
+  ApiReadOnlyProjectionEnvelope,
+} from '../shared/publicApi';
 import {
   buildCurrentObjectContextPanelModel,
   findCurrentObjectContextPanelNodeById,
@@ -8,8 +11,24 @@ import {
   type CurrentObjectContextPanelModel,
   type CurrentObjectContextPanelNode,
 } from './currentObjectContextPanelModel';
+import {
+  buildReadOnlyProjectionStateMessage,
+  mergeReadOnlySurfaceMessages,
+} from './readOnlyProjectionState';
 
 type ContextLoader = () => Promise<ApiCurrentObjectContext>;
+
+function buildProjectionStatusMessage(projection: ApiReadOnlyProjectionEnvelope | undefined): string | undefined {
+  if (!projection) {
+    return undefined;
+  }
+
+  if (projection.state === 'ready' && !projection.truncatedReason) {
+    return undefined;
+  }
+
+  return buildReadOnlyProjectionStateMessage('Current Object Context', { projection });
+}
 
 export interface CurrentObjectContextPanelFocusResult {
   objectName?: string;
@@ -40,6 +59,7 @@ class CurrentObjectContextPanelProvider implements vscode.TreeDataProvider<Curre
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<CurrentObjectContextPanelNode | undefined>();
   private model: CurrentObjectContextPanelModel | undefined;
   private pendingModel: Promise<CurrentObjectContextPanelModel> | undefined;
+  private viewMessage: string | undefined;
   private dirty = true;
 
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
@@ -86,8 +106,8 @@ class CurrentObjectContextPanelProvider implements vscode.TreeDataProvider<Curre
   }
 
   async getViewMessage(): Promise<string | undefined> {
-    const model = await this.ensureModel();
-    return model.message;
+    await this.ensureModel();
+    return this.viewMessage ?? this.model?.message;
   }
 
   async getFocusedNode(): Promise<CurrentObjectContextPanelNode | undefined> {
@@ -114,11 +134,31 @@ class CurrentObjectContextPanelProvider implements vscode.TreeDataProvider<Curre
     }
 
     this.pendingModel = this.loadContext()
-      .then((context) => buildCurrentObjectContextPanelModel(context))
-      .catch((error) => ({
-        message: `Current Object Context no disponible: ${error instanceof Error ? error.message : String(error)}`,
-        roots: [],
-      }))
+      .then((context) => {
+        const model = buildCurrentObjectContextPanelModel(context);
+        const projectionMessage = mergeReadOnlySurfaceMessages(
+          buildProjectionStatusMessage(context.dataWindowBindingReceipt?.projection),
+          buildProjectionStatusMessage(context.embeddedSqlReceipt?.projection),
+        );
+        this.viewMessage = mergeReadOnlySurfaceMessages(
+          projectionMessage ?? buildReadOnlyProjectionStateMessage('Current Object Context', {
+            projection: context.dataWindowBindingReceipt?.projection ?? context.embeddedSqlReceipt?.projection,
+          }),
+          model.message,
+        );
+        return model;
+      })
+      .catch((error) => {
+        const errorMessage = `Current Object Context no disponible: ${error instanceof Error ? error.message : String(error)}`;
+        this.viewMessage = buildReadOnlyProjectionStateMessage('Current Object Context', {
+          state: 'error',
+          detail: errorMessage,
+        });
+        return {
+          message: errorMessage,
+          roots: [],
+        };
+      })
       .then((model) => {
         this.model = model;
         this.dirty = false;
@@ -167,10 +207,12 @@ export class CurrentObjectContextPanelController implements vscode.Disposable {
     
     if (immediate) {
       this.provider.invalidate();
+      this.treeView.message = buildReadOnlyProjectionStateMessage('Current Object Context', { state: 'loading' });
       this.treeView.message = await this.provider.getViewMessage();
     } else {
       this.refreshTimeout = setTimeout(async () => {
         this.provider.invalidate();
+        this.treeView.message = buildReadOnlyProjectionStateMessage('Current Object Context', { state: 'loading' });
         this.treeView.message = await this.provider.getViewMessage();
       }, 500);
     }

@@ -143,6 +143,10 @@ suite('unit/workspaceCheckReport (B376)', () => {
     assert.equal(report.status, 'passed');
     assert.equal(report.summary.generatedFromCache, true);
     assert.equal(report.summary.catalogIssues, 0);
+    assert.equal(report.projection?.state, 'ready');
+    assert.equal(report.projection?.projectionId, 'workspace-check');
+    assert.equal(report.projection?.generatedFromCache, true);
+    assert.equal(report.projection?.caps?.maxFindings, 24);
     assert.match(buildWorkspaceCheckMarkdown(report), /# Workspace Check/);
   });
 
@@ -348,6 +352,8 @@ suite('unit/workspaceCheckReport (B376)', () => {
 
     assert.equal(report.status, 'warning');
     assert.equal(report.summary.truncated, true);
+    assert.equal(report.projection?.truncated, true);
+    assert.match(report.projection?.truncatedReason ?? '', /(findings capped by maxFindings|diagnostic documents capped by maxFiles|manifest limits reached)/);
     assert.equal(report.findings.length, 3);
     assert.ok(report.buildProfiles);
     assert.ok(report.recommendedActions.length > 0);
@@ -359,6 +365,8 @@ suite('unit/workspaceCheckReport (B376)', () => {
     assert.equal(report.available, false);
     assert.equal(report.status, 'failed');
     assert.match(report.reason ?? '', /missing stats/);
+    assert.equal(report.projection?.state, 'error');
+    assert.equal(report.projection?.projectionOwner, 'workspace-check-report');
   });
 
   test('resume dependencias externas en health reutilizando la evidencia del debt report', () => {

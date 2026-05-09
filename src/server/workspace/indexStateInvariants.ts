@@ -104,6 +104,10 @@ export class PersistenceWriteQueue {
   private chain: Promise<void> = Promise.resolve();
   private pending = 0;
 
+  constructor(
+    private readonly executeWrite: (key: string, value: unknown) => Promise<void> = async () => undefined,
+  ) {}
+
   get pendingCount(): number {
     return this.pending;
   }
@@ -121,10 +125,5 @@ export class PersistenceWriteQueue {
 
   flush(): Promise<void> {
     return this.chain.catch(() => undefined);
-  }
-
-  // Implementación concreta delegada al caller; aquí solo serializa el orden
-  private executeWrite(_key: string, _value: unknown): Promise<void> {
-    return Promise.resolve();
   }
 }

@@ -186,6 +186,7 @@ Carril ejecutable canónico:
 
 - `npm run release:verify` es la validación local completa de release readiness.
 - Este carril incluye empaquetado VSIX, verificación de contenidos, smoke instalada con `npm run test:smoke:installed-vsix` y resumen final.
+- Desde Wave 08, `release:verify` mantiene el gate rápido de performance con smoke sintético a través de `npm run test:performance:gate`, pero el lane `10k` completo queda fuera del carril obligatorio y vive en `npm run test:performance:10k:nightly`/workflow opcional.
 
 ### Paso 4 — Generar artefacto
 
@@ -219,6 +220,7 @@ Política de publicación:
 - la credencial de publicación requerida es `VSCE_PAT`.
 - el workflow de release readiness conserva artefactos con `retention-days: 14`.
 - el carril de readiness `never publishes automatically`; la publicación sigue siendo un paso explícito y aprobado.
+- el workflow también puede ejecutar un job `synthetic-10k` por `schedule` o `workflow_dispatch` explícito, en `report-only`, para mantener trazabilidad de escala sin bloquear releases normales.
 
 ### Paso 8 — Verificación post-release
 

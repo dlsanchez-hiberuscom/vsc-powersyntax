@@ -1,3 +1,10 @@
+import {
+  RuntimeMetricsRegistry,
+  type PerformanceEvent,
+  type PerformanceEventCacheOutcome,
+  type RuntimeMetricsSnapshot,
+} from './performanceEvents';
+
 export type InteractiveServingFeature =
   | 'hover'
   | 'completion'
@@ -55,6 +62,7 @@ export interface InteractiveServingFeatureStats {
 export interface InteractiveServingStatsSnapshot {
   features: Partial<Record<InteractiveServingFeature, InteractiveServingFeatureStats>>;
   recentEvents: InteractiveServingMetricEvent[];
+  performanceEvents?: RuntimeMetricsSnapshot;
 }
 
 type MutableFeatureStats = {
@@ -77,6 +85,135 @@ type MutableFeatureStats = {
 const DEFAULT_RECENT_EVENT_CAPACITY = 32;
 const MAX_PAYLOAD_ESTIMATE_DEPTH = 3;
 const MAX_PAYLOAD_ESTIMATE_NODES = 512;
+
+function toPerformanceEventCacheOutcome(reason: InteractiveServingReason): PerformanceEventCacheOutcome | undefined {
+  switch (reason) {
+    case 'cache-hit':
+      return 'hit';
+    case 'viewmodel-hit':
+      return 'viewmodel-hit';
+    case 'negative-hit':
+      return 'negative-hit';
+    case 'stale-hit':
+      return 'stale-hit';
+    case 'miss':
+      return 'miss';
+    default:
+      return undefined;
+  }
+}
+
+function toPerformanceEventOutcome(reason: InteractiveServingReason): PerformanceEvent['outcome'] {
+  switch (reason) {
+    case 'blocked':
+      return 'blocked';
+    case 'readiness-degraded':
+    case 'stale-discarded':
+      return 'degraded';
+    default:
+      return 'success';
+  }
+}
+
+function toPerformanceEvent(event: InteractiveServingMetricEvent): PerformanceEvent {
+  return {
+    feature: event.feature,
+    lane: 'interactive',
+    outcome: toPerformanceEventOutcome(event.reason),
+    ...(event.ts !== undefined ? { ts: event.ts } : {}),
+    ...(event.locale ? { locale: event.locale } : {}),
+    ...(event.kbVersion !== undefined ? { kbVersion: event.kbVersion } : {}),
+    ...(event.documentFingerprint !== undefined ? { documentFingerprint: event.documentFingerprint } : {}),
+    durationMs: event.totalMs,
+    ...(event.providerMs !== undefined ? { providerMs: event.providerMs } : {}),
+    ...(event.formatterMs !== undefined ? { formatterMs: event.formatterMs } : {}),
+    ...(event.cacheWriteMs !== undefined ? { cacheWriteMs: event.cacheWriteMs } : {}),
+    ...(toPerformanceEventCacheOutcome(event.reason) ? { cacheOutcome: toPerformanceEventCacheOutcome(event.reason) } : {}),
+    ...(event.reason === 'readiness-degraded' ? { fallbackKind: 'readiness-degraded' } : {}),
+    ...(event.reason === 'stale-discarded' ? { fallbackKind: 'stale-discarded', cancelled: true } : {}),
+    ...(event.payloadBytes !== undefined ? { payloadBytes: event.payloadBytes } : {}),
+    ...(event.budgetMs !== undefined ? { budgetMs: event.budgetMs } : {}),
+    ...(event.payloadBudgetBytes !== undefined ? { payloadBudgetBytes: event.payloadBudgetBytes } : {}),
+    ...(event.payloadBudgetExceeded !== undefined ? { payloadBudgetExceeded: event.payloadBudgetExceeded } : {}),
+    ...(event.readinessReason ? { degradedReason: event.readinessReason } : {}),
+    ...(event.staleReason ? { staleReason: event.staleReason } : {}),
+  };
+}
+
+function toInteractiveServingReason(event: PerformanceEvent): InteractiveServingReason | undefined {
+  if (event.outcome === 'blocked') {
+    return 'blocked';
+  }
+
+  if (event.fallbackKind === 'readiness-degraded') {
+    return 'readiness-degraded';
+  }
+
+  if (event.fallbackKind === 'stale-discarded' || event.cancelled) {
+    return 'stale-discarded';
+  }
+
+  switch (event.cacheOutcome) {
+    case 'hit':
+      return 'cache-hit';
+    case 'viewmodel-hit':
+      return 'viewmodel-hit';
+    case 'negative-hit':
+      return 'negative-hit';
+    case 'stale-hit':
+      return 'stale-hit';
+    case 'miss':
+      return 'miss';
+    default:
+      return event.outcome === 'success' ? 'miss' : undefined;
+  }
+}
+
+function toInteractiveServingMetricEvent(event: PerformanceEvent): InteractiveServingMetricEvent | null {
+  if (!isInteractiveServingFeature(event.feature)) {
+    return null;
+  }
+
+  const reason = toInteractiveServingReason(event);
+  if (!reason) {
+    return null;
+  }
+
+  return {
+    feature: event.feature,
+    reason,
+    totalMs: typeof event.durationMs === 'number' ? event.durationMs : 0,
+    ...(event.providerMs !== undefined ? { providerMs: event.providerMs } : {}),
+    ...(event.formatterMs !== undefined ? { formatterMs: event.formatterMs } : {}),
+    ...(event.cacheWriteMs !== undefined ? { cacheWriteMs: event.cacheWriteMs } : {}),
+    ...(event.payloadBytes !== undefined ? { payloadBytes: event.payloadBytes } : {}),
+    ...(event.payloadBudgetBytes !== undefined ? { payloadBudgetBytes: event.payloadBudgetBytes } : {}),
+    ...(event.payloadBudgetExceeded !== undefined ? { payloadBudgetExceeded: event.payloadBudgetExceeded } : {}),
+    ...(event.locale ? { locale: event.locale } : {}),
+    ...(event.kbVersion !== undefined ? { kbVersion: event.kbVersion } : {}),
+    ...(event.documentFingerprint !== undefined ? { documentFingerprint: event.documentFingerprint } : {}),
+    ...(event.budgetMs !== undefined ? { budgetMs: event.budgetMs } : {}),
+    ...(event.degradedReason ? { readinessReason: event.degradedReason } : {}),
+    ...(event.staleReason ? { staleReason: event.staleReason } : {}),
+    ...(event.ts !== undefined ? { ts: event.ts } : {}),
+  };
+}
+
+function isInteractiveServingFeature(feature: PerformanceEvent['feature']): feature is InteractiveServingFeature {
+  switch (feature) {
+    case 'hover':
+    case 'completion':
+    case 'completion-resolve':
+    case 'signatureHelp':
+    case 'definition':
+    case 'references':
+    case 'documentSymbols':
+    case 'semanticTokens':
+      return true;
+    default:
+      return false;
+  }
+}
 
 function cloneMetricEvent(event: InteractiveServingMetricEvent): InteractiveServingMetricEvent {
   return {
@@ -129,8 +266,11 @@ function createMutableFeatureStats(): MutableFeatureStats {
 export class InteractiveServingStatsTracker {
   private readonly featureStats = new Map<InteractiveServingFeature, MutableFeatureStats>();
   private readonly recentEvents: InteractiveServingMetricEvent[] = [];
+  private readonly runtimeMetrics: RuntimeMetricsRegistry;
 
-  constructor(private readonly maxRecentEvents = DEFAULT_RECENT_EVENT_CAPACITY) {}
+  constructor(private readonly maxRecentEvents = DEFAULT_RECENT_EVENT_CAPACITY) {
+    this.runtimeMetrics = new RuntimeMetricsRegistry(maxRecentEvents);
+  }
 
   record(event: InteractiveServingMetricEvent): void {
     const normalized: InteractiveServingMetricEvent = {
@@ -138,6 +278,33 @@ export class InteractiveServingStatsTracker {
       totalMs: Number.isFinite(event.totalMs) ? event.totalMs : 0,
       ts: event.ts ?? Date.now(),
     };
+
+    this.runtimeMetrics.record(toPerformanceEvent(normalized));
+    this.recordNormalized(normalized);
+  }
+
+  recordPerformanceEvent(event: PerformanceEvent): void {
+    this.runtimeMetrics.record(event);
+
+    const projected = toInteractiveServingMetricEvent(event);
+    if (!projected) {
+      return;
+    }
+
+    const normalized: InteractiveServingMetricEvent = {
+      ...projected,
+      totalMs: Number.isFinite(projected.totalMs) ? projected.totalMs : 0,
+      ts: projected.ts ?? Date.now(),
+    };
+
+    this.recordNormalized(normalized);
+  }
+
+  runtimeMetricsSnapshot(limit = this.maxRecentEvents): RuntimeMetricsSnapshot {
+    return this.runtimeMetrics.snapshot(limit);
+  }
+
+  private recordNormalized(normalized: InteractiveServingMetricEvent): void {
 
     let stats = this.featureStats.get(normalized.feature);
     if (!stats) {

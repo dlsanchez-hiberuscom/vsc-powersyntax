@@ -1,12 +1,76 @@
 import type { SemanticDocumentSnapshot } from '../analysis/semanticSnapshot';
 
-import type { ApiEmbeddedSqlAnchor } from '../../shared/publicApi';
+import type {
+  ApiEmbeddedSqlAnchor,
+  ApiEmbeddedSqlAnchorConsumer,
+  ApiEmbeddedSqlAnchorReceipt,
+} from '../../shared/publicApi';
 import { findSqlRegions } from '../parsing/sqlRegions';
 
 const CONNECT_USING_REGEX = /\b(?:connect|disconnect)\s+using\s+([A-Za-z_$#%][\w$#%-]*)\b/gi;
 const SQLCA_REGEX = /\bsqlca\b/i;
-const DEFAULT_MAX_ANCHORS = Number.MAX_SAFE_INTEGER;
+const DEFAULT_MAX_ANCHORS = 16;
 const MAX_PREVIEW_LENGTH = 160;
+
+const MAX_ANCHORS_BY_CONSUMER: Record<ApiEmbeddedSqlAnchorConsumer, number> = {
+  default: DEFAULT_MAX_ANCHORS,
+  'current-object-context': 12,
+  'code-metrics': 4,
+  'ai-bundle': 8,
+  'support-bundle': 8,
+  'debug/deep-report': 64,
+};
+
+export interface CollectEmbeddedSqlAnchorsOptions {
+  consumer?: ApiEmbeddedSqlAnchorConsumer;
+  maxAnchors?: number;
+  allowUnbounded?: boolean;
+}
+
+export interface EmbeddedSqlAnchorCollection {
+  anchors: ApiEmbeddedSqlAnchor[];
+  receipt: ApiEmbeddedSqlAnchorReceipt;
+}
+
+function normalizeMaxAnchors(maxAnchors: number | undefined, fallback: number): number {
+  if (typeof maxAnchors !== 'number' || !Number.isFinite(maxAnchors)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.trunc(maxAnchors));
+}
+
+function resolveEmbeddedSqlAnchorPolicy(
+  optionsOrMaxAnchors: number | CollectEmbeddedSqlAnchorsOptions | undefined,
+): { consumer: ApiEmbeddedSqlAnchorConsumer; maxAnchors?: number; unbounded: boolean } {
+  if (typeof optionsOrMaxAnchors === 'number') {
+    return {
+      consumer: 'default',
+      maxAnchors: normalizeMaxAnchors(optionsOrMaxAnchors, DEFAULT_MAX_ANCHORS),
+      unbounded: false,
+    };
+  }
+
+  const consumer = optionsOrMaxAnchors?.consumer ?? 'default';
+  const requestedUnbounded = optionsOrMaxAnchors?.allowUnbounded === true;
+  const unbounded = requestedUnbounded && consumer === 'debug/deep-report';
+
+  if (unbounded) {
+    return {
+      consumer,
+      unbounded: true,
+    };
+  }
+
+  return {
+    consumer,
+    maxAnchors: normalizeMaxAnchors(
+      optionsOrMaxAnchors?.maxAnchors,
+      MAX_ANCHORS_BY_CONSUMER[consumer],
+    ),
+    unbounded: false,
+  };
+}
 
 function buildPreview(lines: readonly string[], startLine: number, endLine: number): string {
   const preview = lines.slice(startLine, endLine + 1).join(' ').replace(/\s+/g, ' ').trim();
@@ -38,21 +102,36 @@ function inferTransactionAnchor(content: string): { transactionTarget?: string; 
 
 export function collectEmbeddedSqlAnchors(
   snapshot: SemanticDocumentSnapshot | null | undefined,
-  maxAnchors = DEFAULT_MAX_ANCHORS,
+  optionsOrMaxAnchors?: number | CollectEmbeddedSqlAnchorsOptions,
 ): ApiEmbeddedSqlAnchor[] {
+  return collectEmbeddedSqlAnchorsProjection(snapshot, optionsOrMaxAnchors).anchors;
+}
+
+export function collectEmbeddedSqlAnchorsProjection(
+  snapshot: SemanticDocumentSnapshot | null | undefined,
+  optionsOrMaxAnchors?: number | CollectEmbeddedSqlAnchorsOptions,
+): EmbeddedSqlAnchorCollection {
+  const policy = resolveEmbeddedSqlAnchorPolicy(optionsOrMaxAnchors);
   if (!snapshot) {
-    return [];
+    return {
+      anchors: [],
+      receipt: {
+        consumer: policy.consumer,
+        totalAnchors: 0,
+        emittedAnchors: 0,
+        ...(typeof policy.maxAnchors === 'number' ? { maxAnchors: policy.maxAnchors } : {}),
+        ...(policy.unbounded ? { unbounded: true } : {}),
+        truncated: false,
+      },
+    };
   }
 
   const lines = snapshot.maskedText.lines;
   const content = lines.join('\n');
   const transactionAnchor = inferTransactionAnchor(content);
-  const limit = Number.isFinite(maxAnchors)
-    ? Math.max(0, Math.trunc(maxAnchors))
-    : DEFAULT_MAX_ANCHORS;
-
-  return findSqlRegions(content)
-    .slice(0, limit)
+  const regions = findSqlRegions(content);
+  const anchors = regions
+    .slice(0, policy.unbounded ? regions.length : policy.maxAnchors)
     .map((region) => ({
       startLine: region.startLine,
       endLine: region.endLine,
@@ -61,4 +140,19 @@ export function collectEmbeddedSqlAnchors(
       confidence: transactionAnchor.confidence,
       ...(transactionAnchor.transactionTarget ? { transactionTarget: transactionAnchor.transactionTarget } : {}),
     }));
+
+  return {
+    anchors,
+    receipt: {
+      consumer: policy.consumer,
+      totalAnchors: regions.length,
+      emittedAnchors: anchors.length,
+      ...(typeof policy.maxAnchors === 'number' ? { maxAnchors: policy.maxAnchors } : {}),
+      ...(policy.unbounded ? { unbounded: true } : {}),
+      truncated: regions.length > anchors.length,
+      ...(regions.length > anchors.length
+        ? { truncatedReason: `sql-anchor-cap:${policy.consumer}` }
+        : {}),
+    },
+  };
 }

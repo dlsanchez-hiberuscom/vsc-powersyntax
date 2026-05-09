@@ -4,6 +4,9 @@ import {
   type ApiAiTaskContextBundleRequest,
   type ApiAiTaskIntent,
   type ApiAiTaskContextBundleReasonCode,
+  type ApiAiTaskContextBundleSectionKey,
+  type ApiAiTaskContextExecutionPlanReceipt,
+  type ApiAiTaskContextExecutionPlanSkipReceipt,
   type ApiCurrentObjectContext,
   type ApiExplainDiagnosticReport,
   type ApiExplainSystemSymbolReport,
@@ -13,7 +16,7 @@ import {
   type ApiWorkspaceCheckReport,
 } from '../shared/publicApi';
 
-type AiTaskContextSectionKey = keyof ApiAiTaskContextBundle['context'];
+type AiTaskContextSectionKey = ApiAiTaskContextBundleSectionKey;
 
 type AiTaskContextPaginationState = {
   diagnosticExplanations: {
@@ -25,6 +28,21 @@ type AiTaskContextPaginationState = {
     available: number;
   };
 };
+
+type AiTaskContextExecutionSkipReason = ApiAiTaskContextExecutionPlanSkipReceipt['reason'];
+type AiTaskContextExecutionSectionStatus = 'scheduled' | 'skipped-before-execution' | 'not-requested';
+
+export interface AiTaskContextExecutionPlan {
+  estimatedRequestedTokens: number;
+  estimatedScheduledTokens: number;
+  sections: Array<{
+    key: AiTaskContextSectionKey;
+    status: AiTaskContextExecutionSectionStatus;
+    reason: 'requested' | 'disabled-by-request' | AiTaskContextExecutionSkipReason;
+    estimatedTokens: number;
+  }>;
+  receipt: ApiAiTaskContextExecutionPlanReceipt;
+}
 
 interface NormalizedAiTaskContextBundleRequest {
   intent: ApiAiTaskIntent;
@@ -46,6 +64,7 @@ interface NormalizedAiTaskContextBundleRequest {
 
 export interface AiTaskContextBundleBuildInput {
   request?: ApiAiTaskContextBundleRequest;
+  executionPlan?: ApiAiTaskContextExecutionPlanReceipt;
   workspaceCheck?: ApiWorkspaceCheckReport;
   objectCheck?: ApiObjectCheckReport;
   currentObjectContext?: ApiCurrentObjectContext;
@@ -59,6 +78,7 @@ const DEFAULT_MAX_TOKENS = 2400;
 const DEFAULT_MAX_DIAGNOSTICS = 4;
 const DEFAULT_MAX_SYMBOLS = 4;
 const DEFAULT_MAX_FILES = 4;
+const EXECUTION_PLAN_META_RESERVE = 700;
 
 const DEFAULTS_BY_INTENT: Record<ApiAiTaskIntent, Omit<NormalizedAiTaskContextBundleRequest, 'intent'>> = {
   'bug-fix': {
@@ -178,6 +198,173 @@ export function normalizeAiTaskContextBundleRequest(
     maxSymbols: clampNumber(request.maxSymbols, 0, 32, defaults.maxSymbols),
     maxFiles: clampNumber(request.maxFiles, 1, 32, defaults.maxFiles),
   };
+}
+
+function estimateExecutionSectionTokens(
+  normalizedRequest: NormalizedAiTaskContextBundleRequest,
+  key: AiTaskContextSectionKey,
+): number {
+  switch (key) {
+    case 'currentObjectContext':
+      return 180 + Math.min(96, normalizedRequest.maxFiles * 12);
+    case 'objectCheck':
+      return 220 + (normalizedRequest.maxDiagnostics * 18);
+    case 'safeEditPlan':
+      return 260 + (normalizedRequest.maxFiles * 24);
+    case 'dependencyGraph':
+      return 300 + (normalizedRequest.maxFiles * 32);
+    case 'workspaceCheck':
+      return 360 + (normalizedRequest.maxFiles * 36) + (normalizedRequest.maxDiagnostics * 24);
+    case 'diagnosticExplanations':
+      return normalizedRequest.maxDiagnostics > 0
+        ? 120 + (normalizedRequest.maxDiagnostics * 90)
+        : 0;
+    case 'systemSymbolExplanations':
+      return normalizedRequest.maxSymbols > 0
+        ? 140 + (normalizedRequest.maxSymbols * 100)
+        : 0;
+  }
+}
+
+function isExecutionSectionEnabledByRequest(
+  normalizedRequest: NormalizedAiTaskContextBundleRequest,
+  key: AiTaskContextSectionKey,
+): boolean {
+  switch (key) {
+    case 'workspaceCheck':
+      return normalizedRequest.includeWorkspaceCheck;
+    case 'objectCheck':
+      return normalizedRequest.includeObjectCheck;
+    case 'currentObjectContext':
+      return true;
+    case 'safeEditPlan':
+      return normalizedRequest.includeSafeEditPlan;
+    case 'dependencyGraph':
+      return normalizedRequest.includeDependencyGraph;
+    case 'diagnosticExplanations':
+      return normalizedRequest.includeDiagnosticsExplanation && normalizedRequest.maxDiagnostics > 0;
+    case 'systemSymbolExplanations':
+      return normalizedRequest.includeSystemSymbolExplanations && normalizedRequest.maxSymbols > 0;
+  }
+}
+
+function resolveExecutionSectionSkipReason(
+  normalizedRequest: NormalizedAiTaskContextBundleRequest,
+  key: AiTaskContextSectionKey,
+): AiTaskContextExecutionSkipReason | undefined {
+  switch (key) {
+    case 'currentObjectContext':
+    case 'safeEditPlan':
+    case 'diagnosticExplanations':
+      return normalizedRequest.uri ? undefined : 'missing-uri';
+    case 'objectCheck':
+    case 'dependencyGraph':
+    case 'systemSymbolExplanations':
+      return normalizedRequest.uri || normalizedRequest.objectName ? undefined : 'missing-focus';
+    case 'workspaceCheck':
+      return undefined;
+  }
+}
+
+function isExecutionAnchorSection(key: AiTaskContextSectionKey): boolean {
+  return key === 'currentObjectContext' || key === 'objectCheck';
+}
+
+export function buildAiTaskContextExecutionPlan(
+  request: ApiAiTaskContextBundleRequest = {},
+): AiTaskContextExecutionPlan {
+  const normalizedRequest = normalizeAiTaskContextBundleRequest(request);
+  const sections: AiTaskContextExecutionPlan['sections'] = [];
+  let estimatedRequestedTokens = 0;
+  let estimatedScheduledTokens = 0;
+  const optionalKeys = ([
+    'safeEditPlan',
+    'diagnosticExplanations',
+    'dependencyGraph',
+    'systemSymbolExplanations',
+    'workspaceCheck',
+  ] as AiTaskContextSectionKey[])
+    .sort((left, right) => getDropPriority(normalizedRequest.intent, left) - getDropPriority(normalizedRequest.intent, right));
+  const orderedKeys: AiTaskContextSectionKey[] = ['currentObjectContext', 'objectCheck', ...optionalKeys];
+  const preflightBudget = Math.max(0, normalizedRequest.maxTokensHint - EXECUTION_PLAN_META_RESERVE);
+
+  for (const key of orderedKeys) {
+    if (!isExecutionSectionEnabledByRequest(normalizedRequest, key)) {
+      sections.push({
+        key,
+        status: 'not-requested',
+        reason: 'disabled-by-request',
+        estimatedTokens: 0,
+      });
+      continue;
+    }
+
+    const estimatedTokens = estimateExecutionSectionTokens(normalizedRequest, key);
+    estimatedRequestedTokens += estimatedTokens;
+
+    const missingReason = resolveExecutionSectionSkipReason(normalizedRequest, key);
+    if (missingReason) {
+      sections.push({
+        key,
+        status: 'skipped-before-execution',
+        reason: missingReason,
+        estimatedTokens,
+      });
+      continue;
+    }
+
+    if (isExecutionAnchorSection(key) || estimatedScheduledTokens + estimatedTokens <= preflightBudget) {
+      estimatedScheduledTokens += estimatedTokens;
+      sections.push({
+        key,
+        status: 'scheduled',
+        reason: 'requested',
+        estimatedTokens,
+      });
+      continue;
+    }
+
+    sections.push({
+      key,
+      status: 'skipped-before-execution',
+      reason: 'budget-preflight',
+      estimatedTokens,
+    });
+  }
+
+  const skippedSections: ApiAiTaskContextExecutionPlanSkipReceipt[] = [];
+  for (const section of sections) {
+    if (section.status !== 'skipped-before-execution') {
+      continue;
+    }
+
+    skippedSections.push({
+      key: section.key,
+      reason: section.reason as AiTaskContextExecutionSkipReason,
+      estimatedTokens: section.estimatedTokens,
+    });
+  }
+
+  const receipt: ApiAiTaskContextExecutionPlanReceipt = {
+    maxTokensHint: normalizedRequest.maxTokensHint,
+    estimatedRequestedTokens,
+    estimatedScheduledTokens,
+    skippedSections,
+  };
+
+  return {
+    estimatedRequestedTokens,
+    estimatedScheduledTokens,
+    sections,
+    receipt,
+  };
+}
+
+export function shouldExecuteAiTaskContextSection(
+  plan: AiTaskContextExecutionPlan,
+  key: AiTaskContextSectionKey,
+): boolean {
+  return plan.sections.some((section) => section.key === key && section.status === 'scheduled');
 }
 
 function estimateTokens(value: unknown): number {
@@ -341,6 +528,21 @@ function sectionLabel(key: AiTaskContextSectionKey): string {
       return 'diagnosticExplanations';
     case 'systemSymbolExplanations':
       return 'systemSymbolExplanations';
+  }
+}
+
+function applyExecutionPlanOmissions(
+  executionPlan: ApiAiTaskContextExecutionPlanReceipt | undefined,
+  omissions: string[],
+  reasonCodes: Set<ApiAiTaskContextBundleReasonCode>,
+): void {
+  for (const skippedSection of executionPlan?.skippedSections ?? []) {
+    addOmission(
+      omissions,
+      reasonCodes,
+      `Pre-ejecucion omitio ${sectionLabel(skippedSection.key)} (${skippedSection.reason}).`,
+      skippedSection.reason === 'budget-preflight' ? 'token-budget-preflight' : undefined,
+    );
   }
 }
 
@@ -508,6 +710,7 @@ function getDropPriority(intent: ApiAiTaskIntent, key: AiTaskContextSectionKey):
 function pruneContextToBudget(input: {
   normalizedRequest: NormalizedAiTaskContextBundleRequest;
   focus: ApiAiTaskContextBundle['focus'];
+  executionPlan?: ApiAiTaskContextExecutionPlanReceipt;
   rules: string[];
   context: ApiAiTaskContextBundle['context'];
   omissions: string[];
@@ -521,6 +724,7 @@ function pruneContextToBudget(input: {
 
   const estimateCurrent = (): number => estimateTokens({
     focus,
+    ...(input.executionPlan ? { executionPlan: input.executionPlan } : {}),
     rules,
     context,
     omissions,
@@ -552,12 +756,19 @@ function pruneContextToBudget(input: {
 
 function compactOmissions(omissions: string[]): string[] {
   const budgetSections: string[] = [];
+  const preExecutionBudgetSections: string[] = [];
   const compacted: string[] = [];
 
   for (const omission of omissions) {
     const budgetMatch = /^Budget omitio (.+)\.$/u.exec(omission);
     if (budgetMatch) {
       budgetSections.push(budgetMatch[1]);
+      continue;
+    }
+
+    const preExecutionBudgetMatch = /^Pre-ejecucion omitio (.+) \(budget-preflight\)\.$/u.exec(omission);
+    if (preExecutionBudgetMatch) {
+      preExecutionBudgetSections.push(preExecutionBudgetMatch[1]);
       continue;
     }
 
@@ -568,12 +779,17 @@ function compactOmissions(omissions: string[]): string[] {
     compacted.push(`Budget omitio: ${budgetSections.join(', ')}.`);
   }
 
+  if (preExecutionBudgetSections.length > 0) {
+    compacted.push(`Pre-ejecucion omitio por budget: ${preExecutionBudgetSections.join(', ')}.`);
+  }
+
   return compacted;
 }
 
 function minimizeBundleMeta(input: {
   normalizedRequest: NormalizedAiTaskContextBundleRequest;
   focus: ApiAiTaskContextBundle['focus'];
+  executionPlan?: ApiAiTaskContextExecutionPlanReceipt;
   context: ApiAiTaskContextBundle['context'];
   omissions: string[];
   reasonCodes: Set<ApiAiTaskContextBundleReasonCode>;
@@ -597,6 +813,7 @@ function minimizeBundleMeta(input: {
 
   const estimateCurrent = (minimalSummary = false): number => estimateTokens({
     focus: input.focus,
+    ...(input.executionPlan ? { executionPlan: input.executionPlan } : {}),
     summary: minimalSummary
       ? buildMinimalSummary(input.normalizedRequest.intent, input.focus)
       : buildSummary(input.normalizedRequest.intent, input.focus, input.context, omissions),
@@ -719,6 +936,7 @@ export function buildAiTaskContextBundle(
 
   const omissions: string[] = [];
   const reasonCodes = new Set<ApiAiTaskContextBundleReasonCode>();
+  applyExecutionPlanOmissions(input.executionPlan, omissions, reasonCodes);
   const builtContext = buildContext(normalizedRequest, input, omissions, reasonCodes);
   const context = builtContext.context;
   const rules = buildBaseRules(normalizedRequest.intent);
@@ -728,6 +946,7 @@ export function buildAiTaskContextBundle(
   const pruned = pruneContextToBudget({
     normalizedRequest,
     focus,
+    executionPlan: input.executionPlan,
     rules,
     context,
     omissions,
@@ -739,6 +958,7 @@ export function buildAiTaskContextBundle(
   const minimized = minimizeBundleMeta({
     normalizedRequest,
     focus,
+    executionPlan: input.executionPlan,
     context: pruned.context,
     omissions,
     reasonCodes,
@@ -769,6 +989,7 @@ export function buildAiTaskContextBundle(
     finalSummary = buildMinimalSummary(normalizedRequest.intent, focus);
     finalEstimatedTokens = estimateTokens({
       focus,
+      ...(input.executionPlan ? { executionPlan: input.executionPlan } : {}),
       summary: finalSummary,
       context: finalContext,
       omissions: finalOmissions,
@@ -820,6 +1041,7 @@ export function buildAiTaskContextBundle(
       estimatedTokens: finalEstimatedTokens,
       truncated: pruned.truncated || finalOmissions.some((entry) => entry.toLowerCase().includes('budget')),
     },
+    ...(input.executionPlan ? { executionPlan: input.executionPlan } : {}),
     reasonCodes: [...reasonCodes],
     pagination,
     focus,

@@ -13,6 +13,7 @@ import type { ServingCacheEntry } from '../../../src/server/knowledge/ServingCac
 import { ScopeKind, type Scope } from '../../../src/server/knowledge/types';
 import { NodeFileSystem } from '../../../src/server/system/fileSystem';
 import { fsPathToUri } from '../../../src/server/system/uriUtils';
+import { IndexStateInvariants } from '../../../src/server/workspace/indexStateInvariants';
 import type { UnifiedProjectModel } from '../../../src/server/workspace/unifiedProjectModel';
 
 function createCircularRecord(uri = 'file:///a.sru', version = 'hash-a'): SemanticCacheDocumentRecord {
@@ -160,6 +161,46 @@ suite('unit/cacheStore', () => {
       const persistedRoot = path.join(tempRoot, store.workspaceKey);
       const journalRaw = await fs.readFile(path.join(persistedRoot, 'semantic-journal.json'), 'utf8');
       assert.doesNotMatch(journalRaw, /"parent"\s*:/);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('restore de checkpoint soporta una transición restoring -> restored coherente', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vsc-powersyntax-store-'));
+    const storageUri = fsPathToUri(tempRoot);
+    const store = createSemanticCacheStore(new NodeFileSystem(), storageUri, ['file:///workspace']);
+
+    try {
+      await store.persistCheckpoint(createCacheCheckpoint(5, [createCircularRecord('file:///restored.sru', 'hash-restored')], {
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      }));
+
+      const restored = await store.load({
+        workspaceMode: 'workspace',
+        rootUris: ['file:///workspace']
+      });
+
+      const invariants = new IndexStateInvariants({
+        phase: 'empty',
+        epoch: 0,
+        fingerprintMap: new Map(),
+        publishedSnapshotVersion: 0,
+      });
+
+      invariants.transition('restoring');
+      invariants.transition('restored', {
+        epoch: restored.checkpoint.semanticEpoch,
+        fingerprintMap: new Map(restored.checkpoint.documents.map((document) => [document.uri, String(document.version ?? '')])),
+        publishedSnapshotVersion: restored.checkpoint.semanticEpoch,
+      });
+
+      assert.equal(invariants.isCoherent(), true);
+      assert.equal(
+        invariants.assertCanRestore(new Map(restored.checkpoint.documents.map((document) => [document.uri, String(document.version ?? '')]))),
+        true,
+      );
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

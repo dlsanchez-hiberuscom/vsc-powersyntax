@@ -4,7 +4,7 @@
  * @module shared/publicApi
  */
 
-export const PUBLIC_API_VERSION = '2.25.0';
+export const PUBLIC_API_VERSION = '2.28.0';
 export const PUBLIC_API_EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 export type ApiReadOnlyToolName =
@@ -58,6 +58,142 @@ export interface ApiReadOnlyToolCallResult {
   mode: 'read-only';
   schema: string;
   payload: unknown;
+}
+
+export type ApiReadOnlyProjectionState = 'loading' | 'degraded' | 'stale' | 'ready' | 'paged' | 'error';
+
+export interface ApiReadOnlyProjectionCaps {
+  maxItems?: number;
+  maxFiles?: number;
+  maxDiagnostics?: number;
+  maxFindings?: number;
+  maxBytes?: number;
+  pageSize?: number;
+}
+
+export interface ApiReadOnlyProjectionPageInfo {
+  page?: number;
+  pageSize?: number;
+  nextCursor?: string;
+  totalItems?: number;
+  hasMore?: boolean;
+}
+
+export interface ApiReadOnlyProjectionRefreshHint {
+  strategy: 'rerun-command' | 'refresh-on-demand' | 'wait-for-readiness';
+  detail?: string;
+}
+
+export interface ApiReadOnlyProjectionEnvelope {
+  projectionId: string;
+  projectionOwner: string;
+  state: ApiReadOnlyProjectionState;
+  generatedAt: string;
+  generatedFromCache?: boolean;
+  semanticEpoch?: number;
+  documentFingerprint?: string | number;
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+  readiness?: string;
+  stale?: boolean;
+  staleReason?: string;
+  degraded?: boolean;
+  degradedReason?: string;
+  truncated?: boolean;
+  truncatedReason?: string;
+  paged?: boolean;
+  caps?: ApiReadOnlyProjectionCaps;
+  pageInfo?: ApiReadOnlyProjectionPageInfo;
+  refreshHint?: ApiReadOnlyProjectionRefreshHint;
+}
+
+type ApiReadOnlyProjectionEnvelopeInput = Omit<ApiReadOnlyProjectionEnvelope, 'state'> & {
+  state?: ApiReadOnlyProjectionState;
+};
+
+function inferReadOnlyProjectionState(
+  input: ApiReadOnlyProjectionEnvelopeInput,
+): ApiReadOnlyProjectionState {
+  if (input.state) {
+    return input.state;
+  }
+
+  if (input.degraded) {
+    return 'degraded';
+  }
+
+  if (input.stale) {
+    return 'stale';
+  }
+
+  if (input.paged || input.pageInfo) {
+    return 'paged';
+  }
+
+  return 'ready';
+}
+
+export function createReadOnlyProjectionEnvelope(
+  input: ApiReadOnlyProjectionEnvelopeInput,
+): ApiReadOnlyProjectionEnvelope {
+  const state = inferReadOnlyProjectionState(input);
+  const stale = input.stale || state === 'stale';
+  const degraded = input.degraded || state === 'degraded';
+  const paged = input.paged || state === 'paged' || Boolean(input.pageInfo);
+
+  return {
+    projectionId: input.projectionId,
+    projectionOwner: input.projectionOwner,
+    state,
+    generatedAt: input.generatedAt,
+    ...(typeof input.generatedFromCache === 'boolean'
+      ? { generatedFromCache: input.generatedFromCache }
+      : {}),
+    ...(typeof input.semanticEpoch === 'number' ? { semanticEpoch: input.semanticEpoch } : {}),
+    ...(typeof input.documentFingerprint !== 'undefined'
+      ? { documentFingerprint: input.documentFingerprint }
+      : {}),
+    ...(input.sourceOrigin ? { sourceOrigin: input.sourceOrigin } : {}),
+    ...(input.readiness ? { readiness: input.readiness } : {}),
+    ...(stale ? { stale: true } : {}),
+    ...(input.staleReason ? { staleReason: input.staleReason } : {}),
+    ...(degraded ? { degraded: true } : {}),
+    ...(input.degradedReason ? { degradedReason: input.degradedReason } : {}),
+    ...(input.truncated ? { truncated: true } : {}),
+    ...(input.truncatedReason ? { truncatedReason: input.truncatedReason } : {}),
+    ...(paged ? { paged: true } : {}),
+    ...(input.caps ? { caps: { ...input.caps } } : {}),
+    ...(input.pageInfo ? { pageInfo: { ...input.pageInfo } } : {}),
+    ...(input.refreshHint ? { refreshHint: { ...input.refreshHint } } : {}),
+  };
+}
+
+export function createReadyProjectionEnvelope(
+  input: Omit<ApiReadOnlyProjectionEnvelopeInput, 'state'>,
+): ApiReadOnlyProjectionEnvelope {
+  return createReadOnlyProjectionEnvelope({
+    ...input,
+    state: 'ready',
+  });
+}
+
+export function createStaleProjectionEnvelope(
+  input: Omit<ApiReadOnlyProjectionEnvelopeInput, 'state' | 'stale'>,
+): ApiReadOnlyProjectionEnvelope {
+  return createReadOnlyProjectionEnvelope({
+    ...input,
+    state: 'stale',
+    stale: true,
+  });
+}
+
+export function createDegradedProjectionEnvelope(
+  input: Omit<ApiReadOnlyProjectionEnvelopeInput, 'state' | 'degraded'>,
+): ApiReadOnlyProjectionEnvelope {
+  return createReadOnlyProjectionEnvelope({
+    ...input,
+    state: 'degraded',
+    degraded: true,
+  });
 }
 
 export interface ApiSemanticWorkspaceSnapshotSummary {
@@ -559,6 +695,7 @@ export interface ApiWorkspaceCheckReport {
   available: boolean;
   reason?: string;
   summary: ApiWorkspaceCheckSummary;
+  projection?: ApiReadOnlyProjectionEnvelope;
   readiness?: ApiServerStats['readiness'];
   health?: ApiRuntimeHealthReport;
   diagnostics?: ApiDiagnosticsSnapshot;
@@ -964,9 +1101,32 @@ export type ApiAiTaskContextBundleReasonCode =
   | 'missing-focus'
   | 'diagnostics-limit'
   | 'system-symbol-limit'
+  | 'token-budget-preflight'
   | 'token-budget-context'
   | 'token-budget-meta'
   | 'token-budget-minimal';
+
+export type ApiAiTaskContextBundleSectionKey =
+  | 'workspaceCheck'
+  | 'objectCheck'
+  | 'currentObjectContext'
+  | 'safeEditPlan'
+  | 'dependencyGraph'
+  | 'diagnosticExplanations'
+  | 'systemSymbolExplanations';
+
+export interface ApiAiTaskContextExecutionPlanSkipReceipt {
+  key: ApiAiTaskContextBundleSectionKey;
+  reason: 'budget-preflight' | 'missing-uri' | 'missing-focus';
+  estimatedTokens: number;
+}
+
+export interface ApiAiTaskContextExecutionPlanReceipt {
+  maxTokensHint: number;
+  estimatedRequestedTokens: number;
+  estimatedScheduledTokens: number;
+  skippedSections: ApiAiTaskContextExecutionPlanSkipReceipt[];
+}
 
 export interface ApiAiTaskContextBundlePaginationEntry {
   requested: number;
@@ -990,6 +1150,8 @@ export interface ApiAiTaskContextBundle {
     estimatedTokens?: number;
     truncated: boolean;
   };
+
+  executionPlan?: ApiAiTaskContextExecutionPlanReceipt;
 
   reasonCodes: ApiAiTaskContextBundleReasonCode[];
 
@@ -1978,6 +2140,7 @@ const PUBLIC_API_CONTRACT_SCHEMAS: ReadonlyArray<ApiPublicContractSchema> = [
   { name: 'ApiTaskExecutionContractCatalog', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiObservabilityContractDescriptor', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiReadOnlyToolBridgeDescriptor', version: '1.0.0', kind: 'descriptor' },
+  { name: 'ApiReadOnlyProjectionEnvelope', version: '1.0.0', kind: 'descriptor' },
   { name: 'ApiReadOnlyToolCallRequest', version: '1.0.0', kind: 'request' },
   { name: 'ApiReadOnlyToolCallResult', version: '1.0.0', kind: 'response' },
   { name: 'ApiSemanticWorkspaceSnapshot', version: '1.0.0', kind: 'response' },
@@ -2207,6 +2370,25 @@ export interface ApiEmbeddedSqlAnchor {
   transactionTarget?: string;
 }
 
+export type ApiEmbeddedSqlAnchorConsumer =
+  | 'default'
+  | 'current-object-context'
+  | 'code-metrics'
+  | 'ai-bundle'
+  | 'support-bundle'
+  | 'debug/deep-report';
+
+export interface ApiEmbeddedSqlAnchorReceipt {
+  consumer: ApiEmbeddedSqlAnchorConsumer;
+  totalAnchors: number;
+  emittedAnchors: number;
+  maxAnchors?: number;
+  unbounded?: boolean;
+  truncated: boolean;
+  truncatedReason?: string;
+  projection?: ApiReadOnlyProjectionEnvelope;
+}
+
 export interface ApiCurrentObjectInfo {
   uri: string;
   globalType?: string;
@@ -2271,6 +2453,25 @@ export interface ApiCurrentObjectDiagnostic {
   character: number;
 }
 
+export type ApiDataWindowBindingConsumer =
+  | 'default'
+  | 'current-object-context'
+  | 'code-metrics'
+  | 'ai-bundle'
+  | 'support-bundle'
+  | 'debug/deep-report';
+
+export interface ApiDataWindowBindingReceipt {
+  consumer: ApiDataWindowBindingConsumer;
+  totalBindings: number;
+  emittedBindings: number;
+  maxBindings?: number;
+  unbounded?: boolean;
+  truncated: boolean;
+  truncatedReason?: string;
+  projection?: ApiReadOnlyProjectionEnvelope;
+}
+
 export interface ApiCurrentObjectDataWindowBinding {
   targetName: string;
   line: number;
@@ -2319,7 +2520,9 @@ export interface ApiCurrentObjectContext {
     items: ApiCurrentObjectDiagnostic[];
   };
   dataWindowBindings?: ApiCurrentObjectDataWindowBinding[];
+  dataWindowBindingReceipt?: ApiDataWindowBindingReceipt;
   embeddedSqlAnchors?: ApiEmbeddedSqlAnchor[];
+  embeddedSqlReceipt?: ApiEmbeddedSqlAnchorReceipt;
   evidence?: {
     readiness?: string;
     identifier?: string;
@@ -2503,6 +2706,52 @@ export interface ApiSpecDrivenPblUpdateBatchResult {
 export interface ApiSemanticWorkspaceManifestRequest {
   maxObjects?: number;
   maxSymbols?: number;
+}
+
+export type ApiObjectExplorerScope = 'workspace' | 'current-project' | 'current-file';
+
+export interface ApiObjectExplorerProjectionNodePath {
+  projectUri?: string;
+  library?: string;
+  objectKind?: ApiSemanticWorkspaceManifestObject['objectKind'];
+}
+
+export interface ApiObjectExplorerProjectionRequest {
+  scope?: ApiObjectExplorerScope;
+  activeUri?: string;
+  parentId?: string;
+  parentPath?: ApiObjectExplorerProjectionNodePath;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export interface ApiObjectExplorerProjectionNode {
+  id: string;
+  type: 'project' | 'library' | 'kind' | 'object';
+  label: string;
+  description?: string;
+  tooltip?: string;
+  hasChildren: boolean;
+  path?: ApiObjectExplorerProjectionNodePath;
+  uri?: string;
+  projectUri?: string;
+  library?: string;
+  objectKind?: ApiSemanticWorkspaceManifestObject['objectKind'];
+  baseType?: string;
+  readiness?: string;
+  sourceOrigin?: import('./sourceOrigin').SourceOrigin;
+}
+
+export interface ApiObjectExplorerProjectionPage {
+  schemaVersion: '1.0.0';
+  scope: ApiObjectExplorerScope;
+  effectiveScope: ApiObjectExplorerScope;
+  parentId?: string;
+  parentPath?: ApiObjectExplorerProjectionNodePath;
+  focusNodeId?: string;
+  message?: string;
+  nodes: ApiObjectExplorerProjectionNode[];
+  projection: ApiReadOnlyProjectionEnvelope;
 }
 
 export interface ApiSemanticWorkspaceManifestProject {
@@ -2882,6 +3131,35 @@ export interface ApiServerStats {
     activeBackgroundWorkload?: string;
     throttledBackgroundWorkload?: string;
     throttledBackgroundReason?: string;
+    metrics?: {
+      interactive?: {
+        enqueued?: number;
+        completed?: number;
+        cancelled?: number;
+        avgWaitMs?: number;
+        avgRunMs?: number;
+        lastWaitMs?: number;
+        lastRunMs?: number;
+      };
+      near?: {
+        enqueued?: number;
+        completed?: number;
+        cancelled?: number;
+        avgWaitMs?: number;
+        avgRunMs?: number;
+        lastWaitMs?: number;
+        lastRunMs?: number;
+      };
+      background?: {
+        enqueued?: number;
+        completed?: number;
+        cancelled?: number;
+        avgWaitMs?: number;
+        avgRunMs?: number;
+        lastWaitMs?: number;
+        lastRunMs?: number;
+      };
+    };
   };
   workspace?: {
     mode?: string;
@@ -2897,6 +3175,31 @@ export interface ApiServerStats {
     total?: number;
     current?: number;
     degraded?: boolean;
+    worker?: {
+      totalWorkers?: number;
+      busyWorkers?: number;
+      idleWorkers?: number;
+      queuedTasks?: number;
+      completedTasks?: number;
+      failedTasks?: number;
+      workerErrors?: number;
+      unexpectedExits?: number;
+      restartedWorkers?: number;
+      avgWaitMs?: number;
+      avgRunMs?: number;
+      lastWaitMs?: number;
+      lastRunMs?: number;
+    };
+    latencyGovernor?: {
+      currentBudgetMs?: number;
+      minBudgetMs?: number;
+      maxBudgetMs?: number;
+      targetLatencyMs?: number;
+      lastElapsedMs?: number;
+      overloaded?: boolean;
+      cooldownMs?: number;
+      blockedUntilMs?: number;
+    };
   };
   projectModel?: {
     projects?: number;
@@ -2992,6 +3295,89 @@ export interface ApiServerStats {
       staleReason?: string;
       ts?: number;
     }>;
+    performanceEvents?: {
+      totalRecorded?: number;
+      dropped?: number;
+      durationMs?: {
+        samples?: number;
+        avg?: number;
+        max?: number;
+        p50?: number;
+        p95?: number;
+        p99?: number;
+      };
+      payloadBytes?: {
+        samples?: number;
+        avg?: number;
+        max?: number;
+        p50?: number;
+        p95?: number;
+        p99?: number;
+      };
+      resultSize?: {
+        samples?: number;
+        avg?: number;
+        max?: number;
+        p50?: number;
+        p95?: number;
+        p99?: number;
+      };
+      recentEvents?: Array<{
+        feature?: string;
+        lane?: string;
+        outcome?: string;
+        ts?: number;
+        traceId?: string;
+        uri?: string;
+        documentVersion?: number;
+        documentFingerprint?: number | string;
+        locale?: string;
+        workspaceId?: string;
+        projectId?: string;
+        semanticEpoch?: number;
+        kbVersion?: number;
+        durationMs?: number;
+        waitMs?: number;
+        runMs?: number;
+        providerMs?: number;
+        formatterMs?: number;
+        cacheWriteMs?: number;
+        cacheOutcome?: string;
+        fallbackKind?: string;
+        cancelled?: boolean;
+        errorKind?: string;
+        payloadBytes?: number;
+        resultSize?: number;
+        budgetMs?: number;
+        payloadBudgetBytes?: number;
+        payloadBudgetExceeded?: boolean;
+        degradedReason?: string;
+        staleReason?: string;
+      }>;
+    };
+  };
+  runtimeMetrics?: {
+    eventLoop?: {
+      enabled?: boolean;
+      resolutionMs?: number;
+      samples?: number;
+      utilization?: number;
+      activeMs?: number;
+      idleMs?: number;
+      meanMs?: number;
+      maxMs?: number;
+      p95Ms?: number;
+      p99Ms?: number;
+    };
+    memoryPressure?: {
+      level?: 'healthy' | 'warning' | 'error';
+      reason?: string;
+      triggerLayer?: string;
+      purgeServingCache?: boolean;
+      allowServingCacheWrites?: boolean;
+      requestDocumentCacheEviction?: boolean;
+      deferredWorkloads?: string[];
+    };
   };
   lastQueryTrace?: {
     label?: string;

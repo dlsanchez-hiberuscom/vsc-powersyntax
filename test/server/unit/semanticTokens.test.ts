@@ -6,7 +6,10 @@ import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
 import { setAnalysisBackends } from '../../../src/server/analysis/analysisCache';
 import {
   getSemanticTokensLegend,
+  POWERBUILDER_SEMANTIC_TOKEN_MODIFIERS,
+  POWERBUILDER_SEMANTIC_TOKEN_TYPES,
   POWERBUILDER_SEMANTIC_TOKEN_CONTRACT,
+  SEMANTIC_TOKENS_LEGEND_VERSION,
   provideSemanticTokens,
 } from '../../../src/server/features/semanticTokens';
 import { SemanticTokensResultState } from '../../../src/server/features/semanticTokensResultState';
@@ -260,6 +263,68 @@ end function
     const delta = provideSemanticTokens(document, kb, graph, systemCatalog, full.resultId, resultState);
     assert.ok('edits' in delta, 'Compatible previousResultId should reuse state and return delta edits.');
     assert.deepEqual(delta.edits, []);
+  });
+
+  test('Should fallback to full semantic tokens when documentVersion changes', () => {
+    const code = 'global type n_tokens from nonvisualobject\nend type';
+    const first = TextDocument.create('file:///n_tokens_version.sru', 'powerbuilder', 1, code);
+    const full = provideSemanticTokens(first, kb, graph, systemCatalog, undefined, resultState);
+
+    assert.ok('resultId' in full && typeof full.resultId === 'string');
+
+    const updated = TextDocument.create('file:///n_tokens_version.sru', 'powerbuilder', 2, code);
+    const fallback = provideSemanticTokens(updated, kb, graph, systemCatalog, full.resultId, resultState);
+
+    assert.ok('data' in fallback, 'Changed documentVersion must force a full fallback.');
+    assert.ok(!('edits' in fallback), 'Full fallback must not reuse delta edits after version drift.');
+  });
+
+  test('Should fallback to full semantic tokens when fingerprint changes', () => {
+    const first = TextDocument.create('file:///n_tokens_fingerprint.sru', 'powerbuilder', 1, 'global type n_tokens from nonvisualobject\nend type');
+    const full = provideSemanticTokens(first, kb, graph, systemCatalog, undefined, resultState);
+
+    assert.ok('resultId' in full && typeof full.resultId === 'string');
+
+    const changed = TextDocument.create('file:///n_tokens_fingerprint.sru', 'powerbuilder', 1, 'global type n_tokens from nonvisualobject\nstring ls_name\nend type');
+    const fallback = provideSemanticTokens(changed, kb, graph, systemCatalog, full.resultId, resultState);
+
+    assert.ok('data' in fallback, 'Changed fingerprint must force a full fallback.');
+    assert.ok(!('edits' in fallback), 'Full fallback must not reuse delta edits after fingerprint drift.');
+  });
+
+  test('Should fallback to full semantic tokens when legend version changes', () => {
+    const code = 'global type n_tokens from nonvisualobject\nend type';
+    const document = TextDocument.create('file:///n_tokens_legend.sru', 'powerbuilder', 1, code);
+    const full = provideSemanticTokens(document, kb, graph, systemCatalog, undefined, resultState);
+
+    assert.ok('resultId' in full && typeof full.resultId === 'string');
+
+    const currentEntry = resultState.get(document.uri, full.resultId);
+    assert.ok(currentEntry, 'The initial full request should seed the result state.');
+
+    const legacyResultId = resultState.store(
+      document.uri,
+      currentEntry!.documentVersion,
+      currentEntry!.fingerprint,
+      currentEntry!.kbVersion,
+      currentEntry!.data,
+      {
+        sourceOrigin: currentEntry!.sourceOrigin,
+        legendVersion: 'legacy-legend-v0',
+      },
+    );
+
+    const fallback = provideSemanticTokens(document, kb, graph, systemCatalog, legacyResultId, resultState);
+
+    assert.ok('data' in fallback, 'Changed legend version must force a full fallback.');
+    assert.ok(!('edits' in fallback), 'Full fallback must not reuse delta edits after legend drift.');
+    assert.ok('resultId' in fallback && fallback.resultId !== legacyResultId);
+  });
+
+  test('Legend order remains stable', () => {
+    assert.deepEqual(legend.tokenTypes, [...POWERBUILDER_SEMANTIC_TOKEN_TYPES]);
+    assert.deepEqual(legend.tokenModifiers, [...POWERBUILDER_SEMANTIC_TOKEN_MODIFIERS]);
+    assert.ok(SEMANTIC_TOKENS_LEGEND_VERSION.includes('defaultLibrary,local,instance,global'));
   });
 
   test('Should color catalog-driven keywords, globals, pronouns and functions without resolver pesado', () => {

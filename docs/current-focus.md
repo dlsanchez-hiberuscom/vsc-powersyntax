@@ -2,74 +2,67 @@
 
 ## 1. Foco activo
 
-`PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01` — `OLEADA 3 / P1 — Conectar invariants y persistencia al indexer real`
+`PB-PERF-P1-RUNTIME-METRICS-EVENT-CONTRACT-01` — Wave 08: cerrar observabilidad runtime bounded, corpus sintético y gates 10k sin romper `release:verify`.
 
 Cadena actual:
 ```txt
-docs/backlog.md -> Partial: PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (registry cableado; performance gate por tier pendiente)
-docs/backlog.md -> Partial: PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (cross-val ejecutable lista; métricas pendientes)
-docs/backlog.md -> Partial: PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 (state machine creada)
-docs/backlog.md -> Partial: PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 (generation guard creado)
-docs/backlog.md -> Partial: PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 (bounded discovery creado)
-docs/backlog.md -> Partial: PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (scanner cableado; métricas/matriz pendientes)
-docs/backlog.md -> Partial: PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (validación local directa lista; CI VS Code pendiente)
-docs/backlog.md -> Partial: PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (provider cableado; validación host/range pendiente)
+docs/backlog.md -> Partial: PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01 (boundary mínimo y receipt bounded listos; convergencia cross-consumer pendiente)
+docs/backlog.md -> Partial: PB-PERF-P1-RUNTIME-METRICS-EVENT-CONTRACT-01 (PerformanceEvent, scheduler/worker/event-loop/memory snapshots y showStats bounded ya operativos)
+docs/backlog.md -> Partial: PB-PERF-P2-10K-SEMANTIC-CORPUS-01 (generador determinístico smoke/medium/10k y lanes performance ya operativos; dominios/mutaciones extra pendientes)
+docs/backlog.md -> Partial: PB-CI-P1-REGRESSION-GATE-10K-PAYLOAD-01 (smoke sintético en release gate y lane 10k opcional/report-only ya operativos; fail mode y payload depth pendientes)
+docs/backlog.md -> Partial: PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (scanner cableado; falta cobertura de más providers en el contrato de métricas)
+docs/backlog.md -> Partial: PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (validación local directa lista; CI VS Code y corpus ampliado pendientes)
 docs/done-log.md -> Closed: PB-TEST-P0-TESTING-DOCS-LANE-MATRIX-ALIGNMENT-01, PB-ARCH-P0-CONFORMANCE-SCANNER-AST-IMPORT-GATE-01, PB-ARCH-P0-PUBLISHED-SNAPSHOT-IMMUTABILITY-01, PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01
 ```
 
 Estado de éxito alcanzado (spec blocks waves 2-4, primera oleada):
 ```txt
-- DiagnosticRuleRegistry gobierna `buildDiagnosticsForDocument` por tier y valida cobertura de códigos emitidos.
-- SemanticTokensResultState gobierna `previousResultId`/fallback full y se evacúa en close/change.
-- CacheDescriptorRegistry queda cruzado con `cacheKeyContract.ts`; `prefix` ya participa en builder+matcher y completion-resolve usa `documentFingerprint` documental.
-- IndexStateInvariants con ALLOWED_TRANSITIONS + PersistenceWriteQueue serializada creado.
-- GenerationGuard + SchedulerGenerationRegistry para commits stale creados e integrados en diagnosticScheduler.
-- discovery.ts ampliado con DISCOVERY_MAX_CONCURRENCY, WarmStartManifest, discoverWorkspaceBounded.
-- providerAdapterContract.ts queda validado por conformance scanner (campos requeridos, cachePolicy/sourceScope y `allowsFullScan: false`).
-- Las suites focales directas pasan en entorno sandbox: 100 unit + 11 integration.
+- `PerformanceEvent` ya existe como contrato homogéneo y `InteractiveServingStatsTracker` conserva compatibilidad con el snapshot histórico.
+- `powerbuilder.showStats` publica snapshots bounded de scheduler lanes, worker pool, event loop, memory pressure y `performanceEvents` sin crear otra surface paralela.
+- `runtimeCommandHandlers` ya emite `PerformanceEvent` bounded también para `powerbuilder.objectExplorerProjection` y `powerbuilder.semanticWorkspaceManifest`, de modo que el contrato ya no vive sólo en el pipeline interactivo inicial.
+- El snapshot agregado de `performanceEvents` ya publica `p50/p95/p99` para `durationMs`, `payloadBytes` y `resultSize` sobre la ventana bounded actual.
+- El gate rápido `npm run test:performance:gate` ya incorpora `performance/synthetic-corpus-smoke` y produce artefactos JSON estables.
+- Existe un generador determinístico reusable para corpus `smoke`, `medium` y `10k`, ya enriquecido con `.sra/.srf/.srp` y con un mutador deterministic `while-indexing`, además de un lane `10k` opcional/report-only con artefacto propio.
+- Las validaciones focales del slice Wave 08 están verdes: unit runtime, gate rápido, smoke sintético y lane 10k opcional.
 ```
 
 Pendiente para cerrar esta oleada:
 ```txt
-- Integrar IndexStateInvariants en workspaceIndexer real.
-- Integrar PersistenceWriteQueue en los writes reales de persistencia/checkpoint.
-- Integrar GenerationGuard en los schedulers interactivos restantes (`references`/semantic tokens host path).
-- Cablear `discoverWorkspaceBounded` y warm start real con receipts/progreso y validación corpus.
-- Ejecutar los lanes `vscode-test`/CI reales para la matriz LSP y semantic tokens host.
+- Extender `PerformanceEvent` a más providers/workloads adicionales ahora que ya cubre también commands read-only de runtime, sin mezclar refactor estructural con instrumentación.
+- Enriquecer el corpus sintético con más superficie native/external y conectar más consumers reales al corpus mutado sin duplicar datasets.
+- Decidir cuándo el lane `synthetic-10k` pasa de `report-only` a `fail mode` dentro del workflow opcional y cuándo los percentiles actuales se convierten en ratchets de budget.
 ```
 
 ---
 
 ## 2. Por qué este foco está activo
 
-- La primera oleada P0 quedó cerrada en orden estricto: testing docs, gate estructural, snapshot readonly y hardening del query contract.
-- Las oleadas 2-4 de spec blocks establecen la infraestructura base: registry de reglas, caches, state machine de índice, guards de generación y contratos de providers.
-- El cableado de diagnostics, semantic tokens, contracts de provider y key symmetry ya está aplicado.
-- El siguiente cuello de botella real sigue siendo conectar invariantes/persistencia al `workspaceIndexer` y al warm start verdadero.
+- Wave 08 es el primer punto donde performance deja de ser evidencia fragmentada y pasa a contrato observable con artefactos reproducibles.
+- El release gate necesitaba una muestra sintética controlada antes de abrir refactors mayores de runtime/indexing.
+- El lane 10k tenía que existir como carril opcional separado para proteger `release:verify` y, al mismo tiempo, evitar una falsa sensación de escala cubierta.
 
 ---
 
 ## 3. Trabajo permitido ahora
 
-- Completar la conexión de `IndexStateInvariants` y `PersistenceWriteQueue` al indexer/persistencia reales.
-- Integrar GenerationGuard en scheduler interactivo de `references` y validar host path de semantic tokens.
-- Mantener verde `npm run build:test`, `npm run test:architecture:rapid` y el baseline documental.
-- Mantener alineadas las evidencias locales directas y la validación CI/VS Code pendiente.
+- Extender instrumentación runtime bounded provider por provider.
+- Mantener verdes `build:test`, unit focales, `test:performance:gate`, `test:performance:10k:nightly`, `test:architecture:rapid` y `test:docs:drift`.
+- Endurecer el corpus sintético y los artefactos JSON sin volver obligatorio el lane 10k en cada PR.
 
 ---
 
 ## 4. Trabajo fuera de foco
 
-- Nuevas oleadas P2 mientras los ítems P0/P1 actuales sigan parciales.
-- Reescrituras amplias de parser, cache o providers fuera de la ruta mínima necesaria para los ítems activos.
-- Apertura de submodelos DataWindow/SQL o surfaces read-only adicionales antes de completar la integración actual.
+- Reescrituras amplias del scheduler, worker pool o providers sólo para instrumentar métricas.
+- Convertir `release:verify` en dependiente obligatorio del lane 10k completo.
+- Introducir corpora gigantes versionados dentro del repositorio.
 
 ---
 
 ## 5. Siguiente paso recomendado
 
-- Conectar `IndexStateInvariants` y `PersistenceWriteQueue` al `workspaceIndexer`/checkpoint real para cerrar `PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01`.
-- Mantener `PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01` y `PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01` como los siguientes carriles de wiring.
+- Ampliar la emisión de `PerformanceEvent` a más hot paths y conectar payload/result metrics donde aún falten.
+- Enriquecer el corpus sintético con mutaciones y dominios adicionales antes de promover el lane 10k a `fail mode`.
 
 ---
 

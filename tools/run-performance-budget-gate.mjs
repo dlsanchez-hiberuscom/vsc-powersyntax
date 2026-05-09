@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const reportDir = path.join(repoRoot, 'artifacts', 'performance');
 const reportPath = path.join(reportDir, 'performance-budget-gate.json');
-const grepPattern = 'performance/ci-budget-gate|performance/knowledgeBase|performance/large-workspace-incremental';
+const grepPattern = 'performance/ci-budget-gate|performance/knowledgeBase|performance/large-workspace-incremental|performance/synthetic-corpus-smoke';
 const nodeCommand = process.execPath;
 const tscEntry = path.join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc');
 const vscodeTestEntry = path.join(repoRoot, 'node_modules', '@vscode', 'test-cli', 'out', 'bin.mjs');

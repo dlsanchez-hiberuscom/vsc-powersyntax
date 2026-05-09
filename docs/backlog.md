@@ -42,18 +42,18 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 4. PB-ARCH-P0-SEMANTIC-QUERY-RESULT-CONTRACT-HARDENING-01 (cerrado; ver docs/done-log.md)
 5. PB-DIAG-P0-TIERED-DIAGNOSTICS-REGISTRY-01 (parcial; pipeline cableado, performance gate por tier pendiente)
 6. PB-CACHE-P1-CACHE-REGISTRY-FINGERPRINT-EPOCH-01 (parcial; cross-val ejecutable lista, métricas pendientes)
-7. PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 (parcial; state machine creada, integración pendiente)
-8. PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 (parcial; generation guard creado, migración open/change pendiente)
-9. PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 (parcial; bounded discovery creado, warm start wiring pendiente)
+7. PB-CACHE-P1-PERSISTENCE-INDEX-STATE-INVARIANTS-01 (parcial; cola serializada e invariants ejecutables ya gobiernan runtime/tests, warm restore compatible pendiente)
+8. PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 (parcial; diagnosticScheduler protegido, open/change bounded pendiente)
+9. PB-DISCOVERY-P1-BOUNDED-ASYNC-DISCOVERY-WARMSTART-01 (parcial; bounded discovery ya es path opt-in/warm-resume, manifest skip real pendiente)
 10. PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 (parcial; conformance scanner cableado, métricas/matriz pendientes)
 11. PB-TEST-P1-LSP-PROVIDER-INTEGRATION-MATRIX-01 (parcial; validación local directa lista, CI VS Code pendiente)
-12. PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (parcial; provider cableado, validación host/range pendiente)
+12. PB-SEMANTIC-P1-SEMANTIC-TOKENS-DELTA-RESULT-STATE-01 (parcial; result state ya versiona `sourceOrigin`/`legendVersion` y el provider degrada a full, host/range/métricas pendientes)
 13. PB-ARCH-P1-OBJECT-EXPLORER-PAGED-PROJECTIONS-01
-14. PB-ARCH-P1-READONLY-SURFACE-PROJECTION-ENVELOPE-01
+14. PB-ARCH-P1-READONLY-SURFACE-PROJECTION-ENVELOPE-01 (parcial; `ApiReadOnlyProjectionEnvelope` opcional y piloto en `workspace-check`, adopción cross-surface pendiente)
 15. PB-AI-P1-CONTEXT-BUNDLE-EXECUTION-BUDGET-01
-16. PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01
+16. PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01 (parcial; boundary mínimo, wrapper bounded y receipt en Current Object Context listos, convergencia cross-consumer pendiente)
 17. PB-SQL-P2-SQL-ANCHORS-BOUNDED-PROJECTION-01
-18. PB-DOCS-P1-SUBMODEL-STATUS-OWNERSHIP-01
+18. PB-DOCS-P1-SUBMODEL-STATUS-OWNERSHIP-01 (parcial; estados históricos 46/47/48 reconciliados, cierre final tras convergencia documental completa del submodelo DataWindow)
 19. PB-PERF-P1-RUNTIME-METRICS-EVENT-CONTRACT-01
 20. PB-PERF-P2-10K-SEMANTIC-CORPUS-01
 21. PB-CI-P1-REGRESSION-GATE-10K-PAYLOAD-01
@@ -141,6 +141,7 @@ Estas decisiones gobiernan la ejecución del backlog semántico y arquitectónic
 - **Blocked:** no puede avanzar por dependencia, entorno o decisión explícita.
 - **Done:** código, tests, documentación y validación cerrados; vive en `done-log.md`, no en backlog activo.
 - **Superseded:** ítem absorbido por otra spec activa o cerrada; no debe ejecutarse de forma independiente.
+- **Open by conformance:** ítem histórico cuyo contrato sigue siendo relevante como trazabilidad, pero cuyo owner ejecutable activo vive en otro ítem/spec y requiere evidencia adicional antes de cerrarse.
 
 Un ítem `Partial` debe incluir, siempre que sea posible:
 
@@ -165,26 +166,31 @@ Un ítem `Partial` debe incluir, siempre que sea posible:
 ---
 
 ## PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01 — DataWindow Submodel Publication
-- **Estado:** Open.
+- **Estado:** Open by conformance.
 - **Prioridad:** P1.
 - **Orden recomendado:** 46.
 - **Objetivo:** Publicar el submodelo DataWindow (columns, retrieve args, expressions) como parte del snapshot semántico y la fachada.
+- **Owner ejecutable:** `PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01`.
+- **Estado actual:** existe un boundary mínimo en `src/server/semantic/submodels/datawindow/`, `Current Object Context` ya consume un wrapper bounded de bindings y el path legacy `src/server/features/dataWindowBindingProjection.ts` quedó como compat layer.
+- **Pendiente exacto:** publicar el boundary para más consumers sin mover el parser principal ni `propertyPaths` sin paridad adicional.
 
 ---
 
 ## PB-ARCH-P2-SQL-ANCHORS-SUBMODEL-01 — SQL Anchors Submodel
-- **Estado:** Open.
+- **Estado:** Superseded.
 - **Prioridad:** P2.
 - **Orden recomendado:** 47.
 - **Objetivo:** Implementar el submodelo de anchors SQL para host variables y lineage de statements.
+- **Owner ejecutable:** `specs/PB-SEMANTIC-P2-DYNAMIC-SQL-PROCEDURES-01.md` y el tramo runtime activo `PB-SQL-P2-SQL-ANCHORS-BOUNDED-PROJECTION-01`.
 
 ---
 
 ## PB-ARCH-P2-NATIVE-METADATA-SUBMODEL-01 — Native Metadata Submodel
-- **Estado:** Open.
+- **Estado:** Superseded.
 - **Prioridad:** P2.
 - **Orden recomendado:** 48.
 - **Objetivo:** Clasificar y exponer metadatos de funciones externas y tipos nativos con riesgo de invocación explícito.
+- **Owner ejecutable:** `specs/PB-SEMANTIC-P2-NATIVE-METADATA-CONTRACT-01.md`.
 
 ---
 
@@ -260,7 +266,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 4/5/9B.
 - **Findings:** FINDING-011, FINDING-015, FINDING-016, FINDING-033.
 - **Referencias de evidencia:** `workspaceState`, `analysisCache`, `DocumentCache`, `workspaceIndexer`, cache journal/checkpoint.
-- **Estado actual:** warm resume restaura snapshots pero `indexDirty` fuerza full index; checkpoint depende de LRU y writes concurrentes no están serializados.
+- **Estado actual:** `semanticCacheRuntimeController` serializa journal/checkpoint/serving snapshot mediante `PersistenceWriteQueue`, `lifecycleHandlers` persiste checkpoints a través del runtime controller y las invariants ya se ejercitan sobre flujos reales `indexed/restored` y sobre warm start con evicción del `DocumentCache` sin pérdida semántica publicada.
 - **Estado objetivo:** state machine con invariantes: indexed/restored/fingerprint/sourceOrigin/published snapshot coherentes; persistence no depende de LRU; writes serializados.
 - **Riesgo:** warm start falso, pérdida de mutaciones, reindex costoso y stale state.
 - **Objetivo:** hacer warm start seguro y verificable a escala.
@@ -277,9 +283,9 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** unit/performance tests de persistence y warm start.
 - **Criterios de retirada:** retirar fallback que trata LRU como corpus persisted.
 - **Pendiente exacto:**
-  - Integrar `IndexStateInvariants` y `PersistenceWriteQueue` en el `workspaceIndexer` real.
-  - Tests de checkpoint completo/particionado, journal concurrent y watcher invalidation.
-  - Warm restore que evita full read/hash cuando fingerprints compatibles.
+  - Conectar warm restore compatible con manifest/fingerprints para evitar full read/hash real cuando la evidencia lo permita.
+  - Añadir cobertura de `watcher invalidation` / `dirty restore transitions` sobre el indexer principal.
+  - Publicar métricas de warm restore/pending writes en los gates de performance correspondientes.
 
 ## PB-RUNTIME-P1-SCHEDULER-CANCELLATION-HOTPATH-MIGRATION-01 — Migrar open/change y cancelación a Near/Background seguro
 
@@ -291,7 +297,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 4/6.
 - **Findings:** FINDING-012, FINDING-013.
 - **Referencias de evidencia:** scheduler, document handlers, open/change diagnostics/invalidation paths.
-- **Estado actual:** cancelación puede liberar slot antes de terminar trabajo cancelado; open/change ejecuta análisis e invalidación semántica inmediata.
+- **Estado actual:** `diagnosticScheduler` ya usa `GenerationGuard` y evita commits stale; la migración pendiente se concentra en `open/change` y en los schedulers interactivos restantes que todavía no están acotados a fanout Near/Background.
 - **Estado objetivo:** cancelación con generation guards y open/change bounded: local parse/Tier 0-1 inmediato, semantic fanout Near/Background.
 - **Riesgo:** commits stale, event loop ocupado y latencia al escribir.
 - **Objetivo:** preservar instantaneidad mientras indexa o edita.
@@ -308,7 +314,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** unit + performance hot path gate.
 - **Criterios de retirada:** retirar path síncrono de invalidación semántica completa en open/change.
 - **Pendiente exacto:**
-  - Integrar `GenerationGuard` en scheduler interactivo de references y semanticTokens.
+  - Integrar `GenerationGuard` en los schedulers interactivos restantes (`references` y cualquier host path adicional que siga sin guard explícito).
   - Migrar open/change a Near/Background bounded para fanout semántico.
   - Tests de hot path guards para open/change sin full semantic cascade.
 
@@ -322,7 +328,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Origen:** Macroauditoría PHASE 4/19.
 - **Findings:** FINDING-011, FINDING-014, FINDING-036.
 - **Referencias de evidencia:** workspace discovery, workspaceIndexer, rapid architecture gate, performance tests.
-- **Estado actual:** discovery recursivo secuencial y warm resume no puede saltar full index de forma demostrada.
+- **Estado actual:** `discoverWorkspaceBounded` ya puede ejecutarse como path real opt-in/warm-resume desde `lifecycleHandlers`, comparte progreso con el discovery clásico y tiene paridad básica probada sin manifest; el skip real por manifest/fingerprints compatibles sigue pendiente.
 - **Estado objetivo:** discovery I/O async con concurrencia acotada, ignores/caps, progress receipts y warm start que evita full read/hash si manifest/fingerprints son compatibles.
 - **Riesgo:** activación/indexing lentos en workspaces grandes.
 - **Objetivo:** descubrir e indexar sin bloquear VS Code.
@@ -339,9 +345,9 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Validación:** `test:performance:gate` ampliado y nightly 10k.
 - **Criterios de retirada:** retirar full index obligatorio en restore compatible.
 - **Pendiente exacto:**
-  - Wiring de progress receipts en `discoverWorkspaceBounded`.
+  - Wiring de manifest/receipts para materializar `skipped files` reales en warm start compatible.
   - Tests de performance gate con corpus 10k smoke.
-  - Integración con el indexer principal para usar warm start real.
+  - Integración con el indexer principal para evitar full read/hash cuando el restore sea compatible.
 
 ## PB-ARCH-P1-PROVIDER-ADAPTER-HOTPATH-CONTRACT-01 — Adapter contract para providers interactivos
 
@@ -412,8 +418,8 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Orden recomendado:** 12.
 - **Origen:** Macroauditoría PHASE 7/11/20.
 - **Findings:** FINDING-019, FINDING-026, FINDING-039.
-- **Referencias de evidencia:** `src/server/features/semanticTokens.ts`, `test/server/unit/semanticTokens.test.ts`.
-- **Estado actual:** el provider real usa `SemanticTokensResultState` para validar `previousResultId`, generar `resultId` con payload hash, degradar a full cuando el estado es desconocido/stale y evacuar estado en close/change sin depender de un builder persistente por URI.
+- **Referencias de evidencia:** `src/server/features/semanticTokensResultState.ts`, `src/server/features/semanticTokens.ts`, `test/server/unit/semanticTokensResultState.test.ts`, `test/server/unit/semanticTokens.test.ts`.
+- **Estado actual:** el provider real usa `SemanticTokensResultState` para validar `previousResultId`, generar `resultId` con payload hash y descriptor versionado (`uri`, `documentVersion`, `fingerprint`, `kbVersion`, `sourceOrigin`, `legendVersion`, `createdAt`), degradar a full cuando ese estado deriva y evacuar estado en close/change sin depender de un builder persistente por URI.
 - **Estado objetivo:** full/range/delta con estado versionado por URI, documentVersion, fingerprint, epoch/kbVersion, sourceOrigin, legend y payload hash.
 - **Riesgo:** tokens obsoletos, coste global por request y payloads grandes.
 - **Objetivo:** tokens rápidos, correctos y degradables.
@@ -431,6 +437,7 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Criterios de retirada:** retirar estado ambiguo y resolution per token no acotada.
 - **Pendiente exacto:**
   - Validar el lane host `vscode-test` para semantic tokens delta/full en CI.
+  - Añadir soporte `range` sólo cuando el entrypoint LSP y su budget queden defendidos.
   - Implementar presupuesto acotado de resolución semántica por token en el proveedor.
   - Métricas de compute time, payload bytes y delta hit rate.
 
@@ -438,13 +445,13 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 
 - **ID:** PB-ARCH-P1-OBJECT-EXPLORER-PAGED-PROJECTIONS-01.
 - **Title:** Object Explorer server-owned paginado/lazy.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 13.
 - **Origen:** Macroauditoría PHASE 0/8/21.
 - **Findings:** FINDING-001.
-- **Referencias de evidencia:** `semanticWorkspaceManifest`, `objectExplorerModel`, manifest limits/truncation.
-- **Estado actual:** Object Explorer consume manifiesto plano grande y agrupa árbol en cliente.
+- **Referencias de evidencia:** `objectExplorerProjection`, `objectExplorerProjectionModel`, `objectExplorer`, smoke de foco en archivo activo.
+- **Estado actual:** Object Explorer ya expone una proyección server-owned paginada/lazy con cursores, `parentPath`, nodo local `Cargar más`, fallback legado a manifest y validación smoke del foco en archivo activo; la ruta legacy sigue viva como compat layer.
 - **Estado objetivo:** TreeDataProvider lazy con proyección server-side, cursores, filtros, receipts y acceso completo sin truncación global.
 - **Riesgo:** payload/memoria/render cost en workspaces grandes.
 - **Objetivo:** navegación de objetos instantánea y completa.
@@ -460,18 +467,21 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** first render, expand latency, page size, payload bytes.
 - **Validación:** smoke UI + performance 10k.
 - **Criterios de retirada:** retirar consumo de manifest plano completo para tree normal.
+- **Pendiente exacto:**
+  - Añadir coverage integration/smoke adicional para expansión paginada y fallback legado.
+  - Publicar métricas de payload/expand latency y validar el caso 10k antes de cerrar el compat layer.
 
 ## PB-ARCH-P1-READONLY-SURFACE-PROJECTION-ENVELOPE-01 — Envelope común para proyecciones read-only
 
 - **ID:** PB-ARCH-P1-READONLY-SURFACE-PROJECTION-ENVELOPE-01.
 - **Title:** Envelope común para proyecciones read-only.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 14.
 - **Origen:** Macroauditoría PHASE 8/21.
 - **Findings:** FINDING-006, FINDING-021, FINDING-024, FINDING-027, FINDING-043.
 - **Referencias de evidencia:** Current Object Context, Diagnostics Explainability, health/status, SQL anchors, shared public API.
-- **Estado actual:** surfaces read-only usan contratos parciales y pueden calcular secciones profundas inline.
+- **Estado actual:** la API pública ya expone `ApiReadOnlyProjectionEnvelope` opcional con helpers para estados `ready/stale/degraded/paged/error`; `workspace-check` sigue siendo el piloto principal, pero Wave 06 ya añadió receipt SQL bounded en Current Object Context, proyección paginada server-owned en Object Explorer y microcopy uniforme de `loading/ready/paged/degraded/error` en las views runtime tocadas.
 - **Estado objetivo:** envelope con freshness, source snapshot, cache owner, caps, truncation, readiness, stale/degraded, redaction y refresh trigger.
 - **Riesgo:** UI incompleta, payloads grandes y cálculos repetidos.
 - **Objetivo:** read-only surfaces reactivas, honestas y presupuestadas.
@@ -487,18 +497,22 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** payload, cache hit, refresh latency.
 - **Validación:** smoke + performance payload.
 - **Criterios de retirada:** retirar DTOs surface-specific duplicados cuando envelope cubra todas.
+- **Pendiente exacto:**
+  - Extender el envelope/receipt a Diagnostics Explainability, Impact Analysis y Safe Edit Plan sin romper compatibilidad.
+  - Añadir receipts/redaction owner y smoke coverage adicional de panels/comandos read-only.
+  - Publicar métricas de payload, cache hit y refresh latency por surface.
 
 ## PB-AI-P1-CONTEXT-BUNDLE-EXECUTION-BUDGET-01 — Planificación previa de coste para bundles IA/soporte
 
 - **ID:** PB-AI-P1-CONTEXT-BUNDLE-EXECUTION-BUDGET-01.
 - **Title:** Planificación previa de coste para bundles IA/soporte.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 15.
 - **Origen:** Macroauditoría PHASE 8.
 - **Findings:** FINDING-028.
-- **Referencias de evidencia:** AI/support context bundle builders y token pruning posterior.
-- **Estado actual:** secciones costosas pueden ejecutarse antes de ser podadas por tokens.
+- **Referencias de evidencia:** `aiTaskContextBundle`, `extension.ts#getAiTaskContextBundle`, smoke del bundle IA read-only.
+- **Estado actual:** el bundle IA ya construye un execution plan previo, omite secciones antes de ejecutar cuando el budget no alcanza, publica receipt compacto de skipped sections y deja la poda tardía como guard defensivo.
 - **Estado objetivo:** plan de ejecución estima coste/tokens, prioriza por intent y omite antes de ejecutar con reason codes.
 - **Riesgo:** comandos IA compiten con hot paths sobre workspaces grandes.
 - **Objetivo:** controlar coste antes de ejecutar trabajo read-only pesado.
@@ -514,18 +528,21 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** skippedBeforeExecution, sections executed, estimated tokens.
 - **Validación:** unit tests y smoke bundle.
 - **Criterios de retirada:** retirar poda tardía como mecanismo principal; queda solo guard defensivo.
+- **Pendiente exacto:**
+  - Extender el mismo preflight a support bundles o documentar explícitamente la excepción.
+  - Publicar métricas de `skippedBeforeExecution`/`estimatedScheduledTokens` fuera de las unit tests.
 
 ## PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01 — Split modular del submodelo DataWindow con caps
 
 - **ID:** PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01.
 - **Title:** Split modular del submodelo DataWindow con caps.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 16.
 - **Origen:** Macroauditoría PHASE 2/8/9B/22.
 - **Findings:** FINDING-030.
-- **Referencias de evidencia:** `dataWindowModel`, `dataWindowPropertyPaths`, binding/fast context/serving adapters.
-- **Estado actual:** parser/model/property paths/bindings/fast context están repartidos en módulos grandes.
+- **Referencias de evidencia:** `src/server/semantic/submodels/datawindow/index.ts`, `src/server/semantic/submodels/datawindow/bindingProjection.ts`, `dataWindowModel`, `dataWindowPropertyPaths`, binding/fast context/serving adapters, `currentObjectContext`.
+- **Estado actual:** parser/model/property paths/bindings/fast context siguen repartidos en módulos grandes, pero ya existe un boundary mínimo `src/server/semantic/submodels/datawindow/`; `bindingProjection` se movió allí con re-export compatible desde `src/server/features/dataWindowBindingProjection.ts`, y `Current Object Context` ya publica `dataWindowBindingReceipt` bounded por consumer.
 - **Estado objetivo:** `semantic/submodels/datawindow` con parser, model, bindings, property paths, projections, diagnostics advisory y caps.
 - **Riesgo:** scans duplicados y confidence/sourceOrigin inconsistentes.
 - **Objetivo:** DataWindow separado, advisory y escalable.
@@ -541,18 +558,22 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** parse/context time, payload/cap count.
 - **Validación:** datawindow tests + corpus `.srd` grande.
 - **Criterios de retirada:** borrar facades viejas cuando imports target path estén migrados.
+- **Pendiente exacto:**
+- Converger más consumers read-only/advisory sobre el boundary (`code metrics`, bundles y surfaces adicionales) sin mover parser/property paths de alto riesgo.
+- Añadir más migraciones seguras de helpers/tipos al boundary y mantener re-exports mientras existan imports legacy.
+- Validar corpus `.srd`/consumers adicionales antes de considerar cerrado el histórico `PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01`.
 
 ## PB-SQL-P2-SQL-ANCHORS-BOUNDED-PROJECTION-01 — SQL anchors bounded por consumer
 
 - **ID:** PB-SQL-P2-SQL-ANCHORS-BOUNDED-PROJECTION-01.
 - **Title:** SQL anchors bounded por consumer.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P2.
 - **Orden recomendado:** 17.
 - **Origen:** Macroauditoría PHASE 2/8.
 - **Findings:** FINDING-006.
-- **Referencias de evidencia:** `embeddedSqlAnchors`, `currentObjectContext`, `sqlRegions`.
-- **Estado actual:** `DEFAULT_MAX_ANCHORS = Number.MAX_SAFE_INTEGER` y algunos consumers no pasan límite.
+- **Referencias de evidencia:** `embeddedSqlAnchors`, `currentObjectContext`, `embeddedSqlAnchors.test.ts`, `currentObjectContext.test.ts`.
+- **Estado actual:** el collector ya aplica caps por consumer y Current Object Context publica receipt de truncación con envelope nested; quedan consumers secundarios por converger y profundización fuera del path interactivo.
 - **Estado objetivo:** caps por consumer, receipts de truncation y análisis profundo fuera de hot/read-only path.
 - **Riesgo:** documentos SQL densos inflan payload/latencia.
 - **Objetivo:** SQL advisory bounded.
@@ -568,18 +589,21 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** anchors scanned/emitted/truncated.
 - **Validación:** unit tests SQL/current context.
 - **Criterios de retirada:** retirar default no acotado en paths interactivos.
+- **Pendiente exacto:**
+  - Converger consumers restantes (`ai-bundle`, `support-bundle`, métricas) sobre receipts/caps homogéneos.
+  - Mantener el modo unbounded solo en `debug/deep-report` y seguir validando payload real sobre SQL denso.
 
 ## PB-DOCS-P1-SUBMODEL-STATUS-OWNERSHIP-01 — Normalizar estado backlog/spec de submodelos PowerBuilder
 
 - **ID:** PB-DOCS-P1-SUBMODEL-STATUS-OWNERSHIP-01.
 - **Title:** Normalizar estado backlog/spec de submodelos PowerBuilder.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 18.
 - **Origen:** Macroauditoría PHASE 2.
 - **Findings:** FINDING-005.
-- **Referencias de evidencia:** `docs/backlog.md`, specs DataWindow/SQL/native.
-- **Estado actual:** backlog y specs tienen estados contradictorios o absorbidos.
+- **Referencias de evidencia:** `docs/backlog.md`, `specs/PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01.md`, `specs/PB-SEMANTIC-P2-DYNAMIC-SQL-PROCEDURES-01.md`, `specs/PB-SEMANTIC-P2-NATIVE-METADATA-CONTRACT-01.md`.
+- **Estado actual:** Wave 07 normaliza `PB-ARCH-P1-DATAWINDOW-SUBMODEL-PUBLICATION-01` a histórico `Open by conformance`, y `PB-ARCH-P2-SQL-ANCHORS-SUBMODEL-01` / `PB-ARCH-P2-NATIVE-METADATA-SUBMODEL-01` a `Superseded` por sus specs absorbentes; el cierre final sigue parcial mientras el submodelo DataWindow continúe abierto y haya que mantener compat layers/documentación de transición.
 - **Estado objetivo:** un owner de estado por submodelo: Open, Done, Superseded o Open por conformance.
 - **Riesgo:** reabrir trabajo cerrado o saltar hardening pendiente.
 - **Objetivo:** alinear arquitectura y specs funcionales.
@@ -595,18 +619,21 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** ninguna.
 - **Validación:** `npm run test:docs:drift`.
 - **Criterios de retirada:** cuando estado submodelo sea único y estable.
+- **Pendiente exacto:**
+- Mantener el estado histórico de DataWindow en `Open by conformance` hasta que `PB-DW-P1-DATAWINDOW-SUBMODEL-SPLIT-AND-CAPS-01` cierre boundary, consumers y documentación de salida.
+- Revisar futuras docs de submodelos para que no reintroduzcan a `46/47/48` como owners ejecutables independientes.
 
 ## PB-PERF-P1-RUNTIME-METRICS-EVENT-CONTRACT-01 — PerformanceEvent y métricas runtime unificadas
 
 - **ID:** PB-PERF-P1-RUNTIME-METRICS-EVENT-CONTRACT-01.
 - **Title:** PerformanceEvent y métricas runtime unificadas.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 19.
 - **Origen:** Macroauditoría PHASE 10/18.
 - **Findings:** FINDING-034, FINDING-035, FINDING-042.
 - **Referencias de evidencia:** `interactiveServingStats`, `interactiveServingPipeline`, `workerPool`, `scheduler`, `memoryBudgets`, performance budget.
-- **Estado actual:** métricas fragmentadas y providers fuera de pipeline.
+- **Estado actual:** `src/server/runtime/performanceEvents.ts` ya define el contrato homogéneo; `interactiveServingStats` proyecta `PerformanceEvent` al snapshot legacy compatible, `powerbuilder.showStats` expone snapshots bounded de `performanceEvents`, scheduler lanes, worker pool, event loop y memory pressure, `runtimeCommandHandlers` ya emite eventos bounded también para `powerbuilder.objectExplorerProjection` y `powerbuilder.semanticWorkspaceManifest` con `duration/payload/resultSize`, y el snapshot agregado ya publica percentiles `p50/p95/p99` para `durationMs`, `payloadBytes` y `resultSize` sobre la ventana bounded.
 - **Estado objetivo:** `PerformanceEvent` homogéneo con method/URI/version/fingerprint/lane/cache/payload/cancel/error/budget/epoch y percentiles.
 - **Riesgo:** regresiones invisibles y p95 oculto por promedio.
 - **Objetivo:** probar y explicar performance real.
@@ -622,18 +649,21 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** p50/p95/p99, payload, wait/run, worker busy/idle, event loop delay, memory.
 - **Validación:** performance tests y report JSON.
 - **Criterios de retirada:** retirar métricas ad hoc no derivadas del event contract.
+- **Pendiente exacto:**
+- Extender la emisión de `PerformanceEvent` a más providers/workloads adicionales una vez cubiertos `objectExplorerProjection` y `semanticWorkspaceManifest`, sin reescribir providers en bloque.
+- Publicar ratchets adicionales donde exista ventana estadística estable y bajo overhead, a partir del snapshot bounded que ya expone `p50/p95/p99` para `durationMs/payloadBytes/resultSize`.
 
 ## PB-PERF-P2-10K-SEMANTIC-CORPUS-01 — Corpus sintético 10,000+ PowerBuilder multi-dominio
 
 - **ID:** PB-PERF-P2-10K-SEMANTIC-CORPUS-01.
 - **Title:** Corpus sintético 10,000+ PowerBuilder multi-dominio.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P2.
 - **Orden recomendado:** 20.
 - **Origen:** Macroauditoría PHASE 2/19.
 - **Findings:** FINDING-007, FINDING-036.
 - **Referencias de evidencia:** performance tests 5000 KB, 256 watcher, PFC/OrderEntry optional.
-- **Estado actual:** no hay corpus 10k que combine dominios PowerBuilder.
+- **Estado actual:** `test/server/helpers/syntheticPowerBuilderCorpus.ts` y `tools/generate-synthetic-powerbuilder-corpus.mjs` ya materializan corpus determinísticos `smoke`, `medium` y `10k`; el helper ya cubre `.sru/.srw/.srm/.srd/.sra/.srf/.srp`, publica metadata con resumen por extensión y expone una mutación deterministic `while-indexing` para reescritura controlada; existe smoke release-facing y lane opcional `10k` con artefactos JSON.
 - **Estado objetivo:** generador determinístico con SR*, herencia, DataWindow, SQL, native, PFC/STD-like, edit while indexing, Object Explorer, references/rename.
 - **Riesgo:** escalabilidad basada en extrapolación.
 - **Objetivo:** validar arquitectura objetivo en escala realista.
@@ -649,18 +679,21 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** indexing throughput, memory, payload, latency per provider.
 - **Validación:** gate local/nightly.
 - **Criterios de retirada:** reemplaza extrapolaciones parciales como evidencia de escala.
+- **Pendiente exacto:**
+- Enriquecer el generador con más superficie native/external y otros dominios aún no cubiertos por el helper, además de consumers read-only/interactivos adicionales sobre el corpus mutado.
+- Añadir consumers adicionales del corpus sintético a más suites read-only e interactivas sin duplicar datasets.
 
 ## PB-CI-P1-REGRESSION-GATE-10K-PAYLOAD-01 — Gates CI/release para 10k, payload y performance regression
 
 - **ID:** PB-CI-P1-REGRESSION-GATE-10K-PAYLOAD-01.
 - **Title:** Gates CI/release para 10k, payload y performance regression.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P1.
 - **Orden recomendado:** 21.
 - **Origen:** Macroauditoría PHASE 20.
 - **Findings:** FINDING-036, FINDING-042.
 - **Referencias de evidencia:** `package.json` `release:verify`, `.github/workflows/release-readiness.yml`, `run-performance-budget-gate`.
-- **Estado actual:** release verifica tests/performance baseline, pero no lane 10k/payload/tokens delta.
+- **Estado actual:** `test:performance:gate` ya incluye el smoke sintético y genera `artifacts/performance/performance-budget-gate.json`; `.github/workflows/release-readiness.yml` conserva `release:verify` bounded y añade un lane `synthetic-10k` opcional/scheduled con `performance-10k-gate.json` en modo `report-only`.
 - **Estado objetivo:** fast PR gate, release gate y optional/nightly 10k con payload budgets y metrics artifacts.
 - **Riesgo:** release verde sin probar escala/payload.
 - **Objetivo:** hacer no-regresable la velocidad.
@@ -676,18 +709,21 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** payload bytes, latency, memory, worker/event-loop, corpus size.
 - **Validación:** `npm run release:verify` y lane nuevo cuando estable.
 - **Criterios de retirada:** no aplica; gate permanece.
+- **Pendiente exacto:**
+- Decidir cuándo el lane `10k` deja de ser `report-only` y pasa a `fail mode` con budgets ratcheted.
+- Añadir cobertura específica de payload/tokens delta/read-only surfaces grandes sobre el carril 10k cuando el contrato de métricas esté más extendido.
 
 ## PB-UX-P2-DEGRADED-STALE-MESSAGING-UI-01 — UX uniforme para stale/degraded/paged/loading
 
 - **ID:** PB-UX-P2-DEGRADED-STALE-MESSAGING-UI-01.
 - **Title:** UX uniforme para stale/degraded/paged/loading.
-- **Estado:** Open.
+- **Estado:** Partial.
 - **Prioridad:** P2.
 - **Orden recomendado:** 22.
 - **Origen:** Macroauditoría PHASE 21.
 - **Findings:** FINDING-027, FINDING-043.
-- **Referencias de evidencia:** readiness tracker, shared public API partial fields, views/panels.
-- **Estado actual:** estados existen parcialmente pero no se muestran uniformemente.
+- **Referencias de evidencia:** `readOnlyProjectionState`, `objectExplorer`, `currentObjectContextPanel`, `diagnosticsExplainabilityPanel`.
+- **Estado actual:** las views runtime de Wave 06 ya usan microcopy compacta y uniforme para `loading/error` y, cuando existe envelope, también para `ready/paged/degraded`; faltan casos `stale` reales y coverage más amplia de readiness incompleto.
 - **Estado objetivo:** UI compacta y consistente para loading/degraded/stale/ready/paged/error, con refresh manual y receipts.
 - **Riesgo:** el plugin puede sentirse vacío o roto durante indexing.
 - **Objetivo:** mejorar instantaneidad percibida.
@@ -703,6 +739,9 @@ Esta sección se generó en PHASE 13 de la macroauditoría `audit-instant-semant
 - **Métricas requeridas:** time-to-first-useful-state, refresh latency.
 - **Validación:** smoke tests y manual UX check.
 - **Criterios de retirada:** retirar mensajes/sentinels específicos cuando envelope sea común.
+- **Pendiente exacto:**
+  - Cubrir `stale` y degradación por indexing/readiness real en smokes o integration tests.
+  - Extender la misma microcopy compacta a surfaces read-only no tocadas aún por Wave 06.
 
 ## PB-ARCH-P2-ORCHESTRATOR-MODULE-SPLIT-01 — Split incremental de orquestadores principales
 

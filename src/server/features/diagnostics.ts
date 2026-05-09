@@ -98,7 +98,7 @@ import {
   resolveExpectedEnumTypeForCallArgumentAtPosition,
 } from './enumeratedContext';
 import { localize } from '../nls';
-import { collectUnregisteredDiagnosticCodes, getDiagnosticRuleMetadata } from './diagnosticRuleRegistry';
+import { filterDiagnosticsByRegistryMetadata } from './diagnosticRuleRegistry';
 
 
 export function publishDiagnostics(
@@ -156,15 +156,7 @@ function collectDiagnosticsByTier(
   diagnostics: readonly Diagnostic[],
   includeTier: (tier: number) => boolean,
 ): Diagnostic[] {
-  const unregistered = collectUnregisteredDiagnosticCodes(diagnostics);
-  if (unregistered.length > 0) {
-    throw new Error(`DiagnosticRuleRegistry does not cover emitted codes: ${unregistered.join(', ')}`);
-  }
-
-  return diagnostics.filter((diagnostic) => {
-    const metadata = getDiagnosticRuleMetadata(diagnostic);
-    return metadata ? includeTier(metadata.tier) : true;
-  });
+  return filterDiagnosticsByRegistryMetadata(diagnostics, includeTier);
 }
 
 /**

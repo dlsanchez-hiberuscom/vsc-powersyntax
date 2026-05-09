@@ -5,6 +5,7 @@ import {
   prioritizeFilesForIndexing
 } from '../../../src/server/indexer/workspaceIndexer';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
+import { IndexStateInvariants } from '../../../src/server/workspace/indexStateInvariants';
 import type { SemanticDocumentSnapshot } from '../../../src/server/analysis/semanticSnapshot';
 import type { UnifiedProjectModel } from '../../../src/server/workspace/unifiedProjectModel';
 import { DocumentCache } from '../../../src/server/knowledge/DocumentCache';
@@ -60,6 +61,15 @@ function createSnapshot(uri: string, symbols: Fact[], lines: string[] = []): Sem
     },
     controlBlocks: []
   };
+}
+
+function buildPublishedFingerprintMap(state: WorkspaceState, kb: KnowledgeBase): Map<string, string> {
+  return new Map(
+    state.getAllSourceFiles().map((uri) => [
+      uri,
+      String(kb.getDocumentSnapshot(uri)?.fingerprint ?? ''),
+    ]),
+  );
 }
 
 suite('unit/workspaceIndexer/progress', () => {
@@ -374,6 +384,34 @@ suite('unit/workspaceIndexer/progress', () => {
     assert.equal(getIndexerStatus().enrichedPublished, 1);
   });
 
+  test('workspaceIndexer produce un estado indexed coherente para las invariantes', async () => {
+    const fs = new FakeFileSystem();
+    const state = new WorkspaceState();
+    const cache = new DocumentCache();
+    const kb = new KnowledgeBase();
+    const cancelSource = createCancellationSource();
+
+    fs.files.set('file:///proj/invariant.sru', 'forward prototypes\nend prototypes\n');
+    state.addSourceFile('file:///proj/invariant.sru');
+
+    await indexWorkspace(fs, cache, kb, state, cancelSource.token);
+
+    const invariants = new IndexStateInvariants({
+      phase: 'dirty',
+      epoch: 0,
+      fingerprintMap: new Map(),
+      publishedSnapshotVersion: 0,
+    });
+    invariants.transition('indexing');
+    invariants.transition('indexed', {
+      epoch: kb.semanticEpoch,
+      fingerprintMap: buildPublishedFingerprintMap(state, kb),
+      publishedSnapshotVersion: kb.getStats().publishedAt,
+    });
+
+    assert.equal(invariants.isCoherent(), true);
+  });
+
   test('warm start no republica documentos sin cambios ni avanza semanticEpoch', async () => {
     const fs = new FakeFileSystem();
     const state = new WorkspaceState();
@@ -414,6 +452,16 @@ suite('unit/workspaceIndexer/progress', () => {
     assert.equal(kb.semanticEpoch, epochAfterColdRun);
     assert.equal(getIndexerStatus().structuralPublished, 0);
     assert.equal(getIndexerStatus().enrichedPublished, 0);
+
+    const invariants = new IndexStateInvariants({
+      phase: 'indexed',
+      epoch: kb.semanticEpoch,
+      fingerprintMap: buildPublishedFingerprintMap(state, kb),
+      publishedSnapshotVersion: kb.getStats().publishedAt,
+    });
+
+    assert.equal(invariants.getSnapshot().fingerprintMap.size, 2, 'La pérdida de DocumentCache no debe borrar semántica publicada.');
+    assert.equal(invariants.isCoherent(), true);
   });
 
   test('status expone resumen de prioridad semantica del activo', async () => {

@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict';
-import { discoverWorkspace } from '../../../src/server/workspace/discovery';
+import { discoverWorkspace, discoverWorkspaceBounded } from '../../../src/server/workspace/discovery';
 import { WorkspaceState } from '../../../src/server/workspace/workspaceState';
 import { IFileSystem, FileStat } from '../../../src/server/system/fileSystem';
 import { createCancellationSource } from '../../../src/server/runtime/cancellation';
@@ -338,6 +338,27 @@ suite('unit/workspace', () => {
       assert.ok(progress[index]!.current >= progress[index - 1]!.current);
       assert.ok(progress[index]!.total >= progress[index - 1]!.current);
     }
+  });
+
+  test('discoverWorkspaceBounded mantiene paridad básica con discoverWorkspace sin manifest', async () => {
+    const fs = new FakeFileSystem();
+    const classicState = new WorkspaceState();
+    const boundedState = new WorkspaceState();
+    const cancelSource = createCancellationSource();
+
+    fs.addDir('file:///workspace');
+    fs.addFile('file:///workspace/app.pbw');
+    fs.addDir('file:///workspace/lib.pbl');
+    fs.addFile('file:///workspace/lib.pbl/u_demo.sru');
+    fs.addFile('file:///workspace/lib.pbl/w_demo.srw');
+
+    await discoverWorkspace(['file:///workspace'], fs, classicState, cancelSource.token);
+    const bounded = await discoverWorkspaceBounded(['file:///workspace'], fs, boundedState, cancelSource.token);
+
+    assert.deepEqual(boundedState.getRoots(), classicState.getRoots());
+    assert.deepEqual(boundedState.getAllSourceFiles().sort(), classicState.getAllSourceFiles().sort());
+    assert.equal(bounded.skipped, 0);
+    assert.equal(bounded.processed, classicState.getAllSourceFiles().length);
   });
 
   test('discovery procesa siblings en orden estable antes de profundizar subárboles grandes', async () => {

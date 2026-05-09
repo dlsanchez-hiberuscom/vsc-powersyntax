@@ -92,6 +92,8 @@ Esta matriz registra los comandos reales declarados en `package.json`. Mantiene 
 | Architecture metrics | `npm run test:architecture:metrics` | Hotspot guard de tamaño/imports/declaraciones. | Local/diagnóstico. |
 | Docs drift | `npm run test:docs:drift` | Ownership documental y drift. | Release. |
 | Performance gate | `npm run test:performance:gate` | Budgets rápidos y artefactos `[perf-budget]`. | Release. |
+| Performance 10K smoke | `npm run test:performance:10k:smoke` | Discovery/indexing smoke sobre corpus sintético deterministic. | Local/release hardening. |
+| Performance 10K nightly | `npm run test:performance:10k:nightly` | Lane opcional/report-only sobre corpus 10k con artefacto JSON dedicado. | Scheduled/workflow dispatch. |
 | Performance soak | `npm run test:performance:soak` | Estabilidad de sesión/cache/memoria. | Opt-in/local. |
 | Installed VSIX smoke | `npm run test:smoke:installed-vsix` | Smoke sobre VSIX empaquetado. | Release. |
 | Release verify | `npm run release:verify` | Gate completo de release-readiness. | CI release. |
@@ -132,6 +134,7 @@ Deben cubrir lógica pura:
 - ranking/filtrado de completion;
 - formatting de hover/signature/diagnostics;
 - invalidación de caches;
+- invariantes de indexado/restauración, orden serial de persistencia y paridad de discovery bounded;
 - modelos DataWindow;
 - parsers de salida de herramientas externas.
 
@@ -148,12 +151,16 @@ Deben validar contratos entre capas:
 - `PublishedSemanticSnapshot` / `KnowledgeBase` read contract;
 - `SemanticQueryResult` envelope y consumer projections;
 - cache contracts;
+- simetría `CacheDescriptorRegistry` ↔ key builders ↔ stale matchers;
 - cache event/invalidation contract;
-- read-only projections con epoch, caps, receipts y redaction;
+- read-only projections con envelope opcional, epoch, caps, receipts y redaction;
+- execution plans/read receipts para bundles IA cuando el budget omite secciones antes de ejecutar;
 - provider result models;
+- `ProviderAdapterContract` y su enforcement en el scanner de arquitectura;
+- `SemanticTokensResultState` como contrato de `previousResultId`/fallback full;
 - diagnostics model;
 - workspace/index API;
-- DataWindow binding API;
+- DataWindow binding API y facades/re-exports de compatibilidad del submodelo;
 - ORCA/PBAutoBuild adapters con fakes.
 
 **Regla:** si una capa publica una interfaz consumida por varias features, debe tener contract tests.
@@ -199,10 +206,11 @@ Reglas operativas adicionales:
 
 Cobertura mínima para surfaces read-only ya publicadas:
 
-- `Current Object Context`: unit/contract sobre payload, confidence, reason codes y degradación; smoke mínima del comando/panel con archivo activo válido.
+- `Current Object Context`: unit/contract sobre payload, confidence, reason codes, receipts bounded de SQL y `DataWindow bindings`, y degradación; smoke mínima del comando/panel con archivo activo válido.
 - `Diagnostics Explainability`: unit/contract sobre proyección de evidence, severidad y explainability; smoke del comando/panel.
-- `Object Explorer`: unit del modelo de árbol, proyecto activo y estados degradados; smoke de activación del provider.
+- `Object Explorer`: unit del modelo de árbol, proyección paginada/lazy, merge de páginas y estados degradados/paged; smoke de activación/foco del provider.
 - `Impact Analysis` y `Safe Edit Plan`: unit/contract del payload read-only, conflictos de framework y receipts visibles; smoke ligera cuando exista comando público.
+- `AI task context bundle`: unit/contract sobre pruning, receipts de paginación y skipped-before-execution; smoke de API/tool/comando read-only.
 - `runtime self-test`: unit del builder/report y probes funcionales reales de hot path interactivo.
 
 ---
@@ -216,11 +224,18 @@ Deben validar budgets de `docs/performance-budget.md`:
 - latencia de signature help;
 - latencia de diagnostics documento abierto;
 - indexación incremental;
+- discovery/indexing sobre corpus sintético `smoke` y lane `10k` opcional;
 - cache hit/miss;
 - rehidratación de cache persistente si aplica;
 - apertura de workspace representativo.
 
 **Regla:** los tests de performance deben guardar métricas comparables y no mezclarse con unit tests rápidos.
+
+Reglas operativas adicionales:
+
+- el generador sintético canónico vive en `test/server/helpers/syntheticPowerBuilderCorpus.ts` y la herramienta CLI en `tools/generate-synthetic-powerbuilder-corpus.mjs`;
+- el gate rápido release-facing añade el smoke sintético a `test:performance:gate` sin volver obligatorio el lane `10k` completo;
+- el lane `10k` usa `report-only` por defecto y sólo debe pasar a `fail mode` cuando budgets y variabilidad estén ratchetados.
 
 ---
 
@@ -384,7 +399,8 @@ Debe validar:
 
 - tokens básicos;
 - tokens semánticos basados en symbol graph;
-- invalidación por versión;
+- invalidación por versión, fingerprint, `legendVersion` y `sourceOrigin` cuando apliquen;
+- fallback full cuando `previousResultId` es desconocido o incompatible;
 - respuesta estable sin reparsing innecesario.
 
 ---
@@ -475,6 +491,8 @@ Debe validar:
 - controles;
 - propiedades;
 - bindings desde PowerScript;
+- boundary/facade del submodelo y re-exports de compatibilidad;
+- caps/receipts de `DataWindow bindings` en surfaces read-only tocadas;
 - cache por hash/source;
 - safe mode;
 - diagnostics DataWindow;

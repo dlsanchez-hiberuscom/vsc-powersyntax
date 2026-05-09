@@ -15,6 +15,16 @@ type LocationTarget = {
 };
 
 type ObjectExplorerTarget = { uri?: string } | string;
+type ObjectExplorerLoadMoreTarget = {
+  parentId?: string;
+  parentPath?: {
+    projectUri?: string;
+    library?: string;
+    objectKind?: string;
+  };
+  cursor?: string;
+  pageSize?: number;
+};
 
 interface ClientCommandRegistration {
   id: string;
@@ -37,6 +47,7 @@ export interface ClientCommandRegistrationDependencies {
   focusObjectExplorerOnCurrentProject(): unknown;
   focusObjectExplorerOnCurrentFile(): unknown;
   clearObjectExplorerFocus(): unknown;
+  loadMoreObjectExplorerNodes(target?: ObjectExplorerLoadMoreTarget): unknown;
   openObjectExplorerObject(target?: ObjectExplorerTarget): unknown;
   openProjectHealthDashboard(): unknown;
   openWorkspaceCheck(): unknown;
@@ -212,6 +223,10 @@ function buildPanelCommands(
     {
       id: 'vscPowerSyntax.clearObjectExplorerFocus',
       handler: () => dependencies.clearObjectExplorerFocus(),
+    },
+    {
+      id: 'vscPowerSyntax.loadMoreObjectExplorerNodes',
+      handler: (target?: ObjectExplorerLoadMoreTarget) => dependencies.loadMoreObjectExplorerNodes(target),
     },
     {
       id: 'vscPowerSyntax.openObjectExplorerObject',
