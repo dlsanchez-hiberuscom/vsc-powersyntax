@@ -5,6 +5,7 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  State,
   TransportKind
 } from 'vscode-languageclient/node';
 
@@ -230,6 +231,7 @@ let diagnosticsExplainabilityPanelController: DiagnosticsExplainabilityPanelCont
 let extensionContextRef: vscode.ExtensionContext | undefined;
 let publicApiInstance: VscPowerSyntaxApi | undefined;
 let lastClientStartupFailure: string | undefined;
+let clientStopRequested = false;
 const publicApiSingleton = createLazyPublicApi();
 const LAST_PBAUTOBUILD_PROFILE_KEY = 'pbAutoBuild.lastProfile';
 const MAX_SEMANTIC_REPRO_FILES = 20;
@@ -383,6 +385,7 @@ async function restartClient(context: vscode.ExtensionContext): Promise<void> {
 async function stopClient(): Promise<void> {
   clearStatusRefreshHandle();
   if (client) {
+    clientStopRequested = true;
     try {
       await client.dispose(CLIENT_STOP_TIMEOUT_MS);
       outputChannel?.appendLine(
@@ -395,6 +398,7 @@ async function stopClient(): Promise<void> {
       );
     } finally {
       client = undefined;
+      clientStopRequested = false;
     }
   }
 }
@@ -751,6 +755,20 @@ async function startClient(
   const { serverModule, serverOptions, clientOptions } = buildClientRuntime(context, channel);
   const nextClient = createLanguageClient(serverOptions, clientOptions);
   const clientStartTime = performance.now();
+
+  nextClient.onDidChangeState(({ newState }) => {
+    if (newState !== State.Stopped || client !== nextClient) {
+      return;
+    }
+
+    if (!clientStopRequested) {
+      lastClientStartupFailure = 'El cliente LSP se detuvo de forma inesperada.';
+      channel.appendLine(
+        localize('clientUnexpectedStop', '[VSC PowerSyntax] El cliente LSP se detuvo de forma inesperada; se recreará bajo demanda.')
+      );
+      void stopClient();
+    }
+  });
 
   channel.appendLine(
     localize('startingLspClient', '[VSC PowerSyntax] Iniciando cliente LSP usando: {0}', serverModule)
@@ -1358,27 +1376,41 @@ function createPublicApi(): VscPowerSyntaxApi {
     },
     async explainSystemSymbol(request: ApiExplainSystemSymbolRequest = {}): Promise<ApiExplainSystemSymbolReport> {
       const resolvedSource = resolveExplainSystemSymbolSource(request);
+      const resolvedRequest: ApiExplainSystemSymbolRequest = {
+        ...request,
+        ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
+        ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+        ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+      };
 
-      return executeServerCommand<ApiExplainSystemSymbolReport>('powerbuilder.explainSystemSymbol', [
-        {
-          ...request,
-          ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
-          ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
-          ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
-        },
-      ]);
+      try {
+        return await executeServerCommand<ApiExplainSystemSymbolReport>('powerbuilder.explainSystemSymbol', [resolvedRequest]);
+      } catch (error) {
+        if (extensionContextRef) {
+          await restartClient(extensionContextRef);
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        return createUnavailableExplainSystemSymbolReport(resolvedRequest, message);
+      }
     },
     async explainSemanticQuery(request: ApiExplainSemanticQueryRequest = {}): Promise<ApiExplainSemanticQueryReport> {
       const resolvedSource = resolveExplainSemanticQuerySource(request);
+      const resolvedRequest: ApiExplainSemanticQueryRequest = {
+        ...request,
+        ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
+        ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
+        ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
+      };
 
-      return executeServerCommand<ApiExplainSemanticQueryReport>('powerbuilder.explainSemanticQuery', [
-        {
-          ...request,
-          ...(resolvedSource.uri ? { uri: resolvedSource.uri } : {}),
-          ...(typeof resolvedSource.line === 'number' ? { line: resolvedSource.line } : {}),
-          ...(typeof resolvedSource.character === 'number' ? { character: resolvedSource.character } : {}),
-        },
-      ]);
+      try {
+        return await executeServerCommand<ApiExplainSemanticQueryReport>('powerbuilder.explainSemanticQuery', [resolvedRequest]);
+      } catch (error) {
+        if (extensionContextRef) {
+          await restartClient(extensionContextRef);
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        return createUnavailableExplainSemanticQueryReport(resolvedRequest, message);
+      }
     },
     async getAiTaskContextBundle(request: ApiAiTaskContextBundleRequest = {}): Promise<ApiAiTaskContextBundle> {
       const normalized = normalizeAiTaskContextBundleRequest(request);
@@ -1631,7 +1663,55 @@ function createPublicApi(): VscPowerSyntaxApi {
       const limit = typeof request.limit === 'number'
         ? Math.max(0, Math.trunc(request.limit))
         : Number.POSITIVE_INFINITY;
-      return executeServerCommand<ApiSymbol[]>('powerbuilder.querySymbols', [query, limit]);
+
+      const isRecoverableQueryError = (error: unknown): error is Error => {
+        return error instanceof Error
+          && (
+            /disposed and can't be restarted/i.test(error.message)
+            || /connection got disposed/i.test(error.message)
+          );
+      };
+
+      if (!client && extensionContextRef) {
+        await startClient(extensionContextRef);
+      } else if (client?.needsStart()) {
+        try {
+          await client.start();
+        } catch (error) {
+          if (!(error instanceof Error) || !/disposed and can't be restarted/i.test(error.message)) {
+            throw error;
+          }
+
+          await stopClient();
+          if (extensionContextRef) {
+            await startClient(extensionContextRef);
+          }
+        }
+      }
+
+      let result: unknown[] | undefined;
+      try {
+        result = await vscode.commands.executeCommand<unknown[]>('vscode.executeWorkspaceSymbolProvider', query);
+      } catch (error) {
+        if (!isRecoverableQueryError(error)) {
+          throw error;
+        }
+
+        await stopClient();
+        if (extensionContextRef) {
+          await startClient(extensionContextRef);
+        }
+        result = await vscode.commands.executeCommand<unknown[]>('vscode.executeWorkspaceSymbolProvider', query);
+      }
+
+      if (!Array.isArray(result)) {
+        return [];
+      }
+
+      return result
+        .map((symbol) => toApiSymbolFromWorkspaceSymbolCandidate(symbol))
+        .filter((symbol): symbol is ApiSymbol => Boolean(symbol))
+        .slice(0, limit);
     },
     async getCrossProjectSymbolConflicts(request: ApiCrossProjectSymbolConflictsRequest = {}): Promise<ApiCrossProjectSymbolConflicts> {
       return executeServerCommand<ApiCrossProjectSymbolConflicts>('powerbuilder.crossProjectSymbolConflicts', [
@@ -1663,12 +1743,20 @@ function createPublicApi(): VscPowerSyntaxApi {
         throw new Error('No hay un editor activo para construir el grafo de dependencias.');
       }
 
-      return executeServerCommand<ApiPowerBuilderDependencyGraph>('powerbuilder.dependencyGraph', [
-        uri,
-        request.objectName,
-        request.maxDependencies,
-        request.maxDependents,
-      ]);
+      try {
+        return await executeServerCommand<ApiPowerBuilderDependencyGraph>('powerbuilder.dependencyGraph', [
+          uri,
+          request.objectName,
+          request.maxDependencies,
+          request.maxDependents,
+        ]);
+      } catch (error) {
+        if (extensionContextRef) {
+          await restartClient(extensionContextRef);
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        return createUnavailablePowerBuilderDependencyGraph(message);
+      }
     },
     async getPowerBuilderCodeMetrics(request: ApiPowerBuilderCodeMetricsRequest = {}): Promise<ApiPowerBuilderCodeMetrics> {
       return executeServerCommand<ApiPowerBuilderCodeMetrics>('powerbuilder.codeMetrics', [
@@ -1884,18 +1972,55 @@ function createPublicApi(): VscPowerSyntaxApi {
 }
 
 async function executeServerCommand<T>(command: string, args: unknown[] = []): Promise<T> {
-  if (!client) {
-    const detail = lastClientStartupFailure
-      ? ` Ultimo error de arranque: ${lastClientStartupFailure}`
-      : '';
-    throw new Error(`El cliente LSP no está disponible.${detail}`);
-  }
+  const ensureClientAvailable = async (): Promise<LanguageClient> => {
+    if (!client && extensionContextRef) {
+      await startClient(extensionContextRef);
+    }
+
+    if (!client) {
+      const detail = lastClientStartupFailure
+        ? ` Ultimo error de arranque: ${lastClientStartupFailure}`
+        : '';
+      throw new Error(`El cliente LSP no está disponible.${detail}`);
+    }
+
+    if (client.needsStart()) {
+      try {
+        await client.start();
+      } catch (error) {
+        if (!(error instanceof Error) || !/disposed and can't be restarted/i.test(error.message)) {
+          throw error;
+        }
+
+        await stopClient();
+        if (extensionContextRef) {
+          await startClient(extensionContextRef);
+        }
+      }
+    }
+
+    if (!client) {
+      const detail = lastClientStartupFailure
+        ? ` Ultimo error de arranque: ${lastClientStartupFailure}`
+        : '';
+      throw new Error(`El cliente LSP no está disponible.${detail}`);
+    }
+
+    return client;
+  };
+
+  const isRecoverableClientError = (error: unknown): error is Error => {
+    return error instanceof Error
+      && (
+        /Client is not running/i.test(error.message)
+        || /disposed and can't be restarted/i.test(error.message)
+        || /connection got disposed/i.test(error.message)
+      );
+  };
 
   const sendRequest = async (): Promise<T> => {
-    if (client!.needsStart()) {
-      await client!.start();
-    }
-    const result = await client!.sendRequest('workspace/executeCommand', {
+    const activeClient = await ensureClientAvailable();
+    const result = await activeClient.sendRequest('workspace/executeCommand', {
       command,
       arguments: args,
     });
@@ -1905,12 +2030,13 @@ async function executeServerCommand<T>(command: string, args: unknown[] = []): P
   try {
     return await sendRequest();
   } catch (error) {
-    if (!(error instanceof Error) || !/Client is not running/i.test(error.message)) {
+    if (!isRecoverableClientError(error)) {
       throw error;
     }
 
-    if (client.needsStart()) {
-      await client.start();
+    await stopClient();
+    if (extensionContextRef) {
+      await startClient(extensionContextRef);
     }
     return sendRequest();
   }
@@ -1921,6 +2047,126 @@ function clonePlainData<T>(value: T): T {
     return value;
   }
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function toApiSymbolFromWorkspaceSymbolCandidate(candidate: any): ApiSymbol | undefined {
+  const uri = candidate?.location?.uri ?? candidate?.uri;
+  const range = candidate?.location?.range ?? candidate?.range;
+  const line = range?.start?.line;
+  const character = range?.start?.character;
+
+  if (typeof candidate?.name !== 'string' || !(uri instanceof vscode.Uri) || typeof line !== 'number' || typeof character !== 'number') {
+    return undefined;
+  }
+
+  return {
+    name: candidate.name,
+    kind: typeof candidate.kind === 'number'
+      ? (vscode.SymbolKind[candidate.kind] ?? String(candidate.kind))
+      : String(candidate.kind ?? 'Unknown'),
+    uri: uri.toString(),
+    line,
+    character,
+  };
+}
+
+function createUnavailablePowerBuilderDependencyGraph(reason: string): ApiPowerBuilderDependencyGraph {
+  return {
+    schemaVersion: '1.0.0',
+    generatedAt: new Date().toISOString(),
+    available: false,
+    scope: 'immediate-neighborhood',
+    reason,
+    summary: {
+      nodeCount: 0,
+      edgeCount: 0,
+      dependencyCount: 0,
+      dependentCount: 0,
+      unresolvedDependencyCount: 0,
+      ambiguousDependencyCount: 0,
+    },
+    nodes: [],
+    edges: [],
+    mermaidFlowchart: 'flowchart LR\n  unavailable["Dependency graph unavailable"]',
+  };
+}
+
+function createUnavailableExplainSystemSymbolReport(
+  query: ApiExplainSystemSymbolRequest,
+  reason: string,
+): ApiExplainSystemSymbolReport {
+  return {
+    schemaVersion: '1.0.0',
+    generatedAt: new Date().toISOString(),
+    apiVersion: PUBLIC_API_VERSION,
+    available: false,
+    reason,
+    query,
+    resolution: {
+      state: 'unresolved',
+      candidateCount: 0,
+      confidence: 'unknown',
+    },
+    findings: [{
+      code: 'client-command-failed',
+      severity: 'error',
+      message: 'No se pudo explicar el símbolo del catálogo solicitado.',
+      detail: reason,
+    }],
+    recommendedActions: [
+      'Reintentar la explicación con el cursor sobre un símbolo del catálogo o con name explícito.',
+      'Volver a ejecutar la operación tras restablecer el cliente LSP.',
+    ],
+  };
+}
+
+function createUnavailableExplainSemanticQueryReport(
+  query: ApiExplainSemanticQueryRequest,
+  reason: string,
+): ApiExplainSemanticQueryReport {
+  return {
+    schemaVersion: '1.0.0',
+    generatedAt: new Date().toISOString(),
+    apiVersion: PUBLIC_API_VERSION,
+    available: false,
+    reason,
+    query,
+    ...(typeof query.uri === 'string' && typeof query.line === 'number' && typeof query.character === 'number'
+      ? {
+        document: {
+          uri: query.uri,
+          line: query.line,
+          character: query.character,
+        },
+      }
+      : {}),
+    resolution: {
+      state: 'no-context',
+      candidateCount: 0,
+      targetCount: 0,
+      confidence: 'unknown',
+      reasonCodes: ['client-command-failed'],
+      primaryReasonCode: 'client-command-failed',
+      evidenceKinds: [],
+    },
+    phases: [],
+    cost: {
+      approximate: 'low',
+      traceSteps: 0,
+      candidateCount: 0,
+      discardCount: 0,
+    },
+    findings: [{
+      code: 'client-command-failed',
+      severity: 'error',
+      message: 'No se pudo explicar la query semántica solicitada.',
+      detail: reason,
+    }],
+    recommendedActions: [
+      'Reintentar la explicación con un documento PowerBuilder activo y una posición válida.',
+      'Volver a ejecutar la operación tras restablecer el cliente LSP.',
+    ],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -3015,7 +3261,10 @@ async function exportHealthReport(options?: HealthReportCommandOptions): Promise
   const destinationUri = resolveHealthReportDestinationUri(workspaceFolder, generatedAt, workspaceLabel, options?.destinationUri);
   const stats = await withBoundedReadOnlyExportProbe<RuntimeStatusStats>(
     'health-report/server-stats',
-    () => refreshRuntimeStatusSnapshot().then((snapshot) => snapshot ?? createDegradedServerStats('missing:health-report/server-stats')),
+    () => refreshRuntimeStatusSnapshot({ refreshTooling: false }).then((snapshot) => ensureHealthReportServerStatsSnapshot(
+      snapshot ?? clonePlainData(lastStatusStats),
+      'missing:health-report/server-stats',
+    )),
     createDegradedServerStats,
   );
   const manifest = await withBoundedReadOnlyExportProbe(
@@ -3266,6 +3515,43 @@ function createDegradedServerStats(reason: string): ApiServerStats {
       state: 'degraded',
       detail: reason,
     },
+    workspace: {
+      mode: 'degraded',
+      files: 0,
+    },
+    health: {
+      status: 'warning',
+      summary: `Snapshot de runtime no disponible: ${reason}`,
+      findings: [
+        {
+          code: 'runtime-snapshot-unavailable',
+          severity: 'warning',
+          layer: 'runtime',
+          message: 'No se pudo obtener una snapshot fresca del runtime para el health report.',
+          detail: reason,
+        },
+      ],
+      counts: {
+        info: 0,
+        warning: 1,
+        error: 0,
+      },
+      checkedLayers: ['runtime'],
+    },
+  };
+}
+
+function ensureHealthReportServerStatsSnapshot(
+  stats: RuntimeStatusStats | ApiServerStats | undefined,
+  reason: string,
+): RuntimeStatusStats {
+  if (stats?.readiness || stats?.workspace || stats?.health) {
+    return stats;
+  }
+
+  return {
+    ...createDegradedServerStats(reason),
+    ...(stats ?? {}),
   };
 }
 
@@ -4699,6 +4985,45 @@ async function openExtensionUpgradeCompatibilityCheck(): Promise<void> {
   );
 }
 
+async function waitForActiveDocument(targetUri: vscode.Uri, timeoutMs = 1500): Promise<void> {
+  const expected = targetUri.toString();
+  if (vscode.window.activeTextEditor?.document.uri.toString() === expected) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = undefined;
+      }
+      changeSubscription.dispose();
+      resolve();
+    };
+
+    const changeSubscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (editor?.document.uri.toString() === expected) {
+        finish();
+      }
+    });
+
+    timeoutHandle = setTimeout(() => {
+      finish();
+    }, timeoutMs);
+
+    if (vscode.window.activeTextEditor?.document.uri.toString() === expected) {
+      finish();
+    }
+  });
+}
+
 async function openMarkdownReportDocument(content: string): Promise<string> {
   const document = await vscode.workspace.openTextDocument({
     language: 'markdown',
@@ -4709,6 +5034,7 @@ async function openMarkdownReportDocument(content: string): Promise<string> {
     preview: false,
     viewColumn: vscode.ViewColumn.Beside,
   });
+  await waitForActiveDocument(document.uri);
 
   return content;
 }

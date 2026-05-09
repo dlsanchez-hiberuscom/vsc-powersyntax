@@ -541,6 +541,7 @@ function recordInteractiveLatency(feature: string, elapsedMs: number): void {
 
 const managedRuntimeWorkloads = createManagedRuntimeWorkloads(scheduler);
 const {
+  runInteractiveWorkload,
   runBackgroundWorkload,
   runNearContextWorkload,
   runExportReportingWorkload,
@@ -884,6 +885,7 @@ registerServerCommandHandler({
     getActiveDocumentUri: () => activeDocumentUri,
     getWorkspaceFolders: () => workspaceFolders,
     basenameFromPathOrUri,
+    runInteractiveWorkload,
     runPbAutoBuildWithBackpressure,
     runOrcaWithBackpressure,
   },
@@ -904,6 +906,7 @@ registerServerCommandHandler({
     isLatencyPressureHigh,
     getDiagnosticsSummary,
     resolveAdaptiveLimit,
+    runInteractiveWorkload,
     runNearContextWorkload,
     runExportReportingWorkload,
     runOrcaWithBackpressure,
@@ -946,6 +949,7 @@ registerServerCommandHandler({
     },
     ensureRuntimeMemoryPressureRelief,
     resolveAdaptiveLimit,
+    runInteractiveWorkload,
     runNearContextWorkload,
     runExportReportingWorkload,
     runMaintenanceWorkload,

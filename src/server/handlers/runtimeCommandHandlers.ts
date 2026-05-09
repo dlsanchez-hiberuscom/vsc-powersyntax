@@ -78,6 +78,7 @@ export interface RuntimeCommandHandlerContext {
   setLastHealthJournalSignature(signature: string): void;
   ensureRuntimeMemoryPressureRelief(): RuntimeMemoryPressurePolicy;
   resolveAdaptiveLimit(requested: unknown, cap: number | undefined, minValue?: number): number | undefined;
+  runInteractiveWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runNearContextWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runExportReportingWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runMaintenanceWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
@@ -137,6 +138,7 @@ export async function tryHandleRuntimeCommand(
     setLastHealthJournalSignature,
     ensureRuntimeMemoryPressureRelief,
     resolveAdaptiveLimit,
+    runInteractiveWorkload,
     runNearContextWorkload,
     runExportReportingWorkload,
     runMaintenanceWorkload,
@@ -323,7 +325,7 @@ export async function tryHandleRuntimeCommand(
       const maxSymbols = resolveAdaptiveLimit(maxSymbolsArg, reportLimits?.maxSymbols, 1);
       const startedAt = performance.now();
       try {
-        const result = await runExportReportingWorkload('semantic-workspace-manifest', () => buildSemanticWorkspaceManifest(
+        const result = await runInteractiveWorkload('semantic-workspace-manifest', () => buildSemanticWorkspaceManifest(
           {
             ...(typeof maxObjects === 'number' ? { maxObjects } : {}),
             ...(typeof maxSymbols === 'number' ? { maxSymbols } : {}),

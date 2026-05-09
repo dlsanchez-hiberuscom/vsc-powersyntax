@@ -3,6 +3,7 @@ import type { RuntimeWorkloadClass } from './backpressurePolicy';
 import { TaskPriority, type TaskScheduler } from './scheduler';
 
 export interface ManagedRuntimeWorkloads {
+  runInteractiveWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runBackgroundWorkload<T>(
     idPrefix: string,
     workload: RuntimeWorkloadClass,
@@ -23,6 +24,15 @@ export function createManagedRuntimeWorkloads(scheduler: TaskScheduler): Managed
   function nextManagedBackgroundTaskId(prefix: string): string {
     managedBackgroundTaskSequence += 1;
     return `${prefix}-${managedBackgroundTaskSequence}`;
+  }
+
+  async function runInteractiveWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T> {
+    return scheduler.runInteractive({
+      id: nextManagedBackgroundTaskId(idPrefix),
+      priority: TaskPriority.Interactive,
+      workload: 'interactive',
+      execute: async () => execute(),
+    });
   }
 
   async function runBackgroundWorkload<T>(
@@ -68,6 +78,7 @@ export function createManagedRuntimeWorkloads(scheduler: TaskScheduler): Managed
   }
 
   return {
+    runInteractiveWorkload,
     runBackgroundWorkload,
     runNearContextWorkload,
     runExportReportingWorkload,

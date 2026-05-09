@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 
+import { waitForDocumentSymbols } from './semanticSmokeWait';
+
 const EXTENSION_ID = 'lopez.vsc-powersyntax';
 const FORCED_SEMANTIC_LANGUAGE = 'powerbuilder-userobject';
 const NON_SOURCE_FIXTURES = [
@@ -35,10 +37,7 @@ suite('smoke/lsp-guards-extension', () => {
     const sourceDocument = await vscode.workspace.openTextDocument(sourceUri);
     await vscode.window.showTextDocument(sourceDocument, { preview: false });
 
-    const sourceSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[] | undefined>(
-      'vscode.executeDocumentSymbolProvider',
-      sourceUri
-    );
+    const sourceSymbols = await waitForDocumentSymbols(sourceUri);
     assert.ok(Array.isArray(sourceSymbols), 'El control positivo sobre sample.sru debería seguir respondiendo Document Symbols');
 
     for (const fixture of NON_SOURCE_FIXTURES) {

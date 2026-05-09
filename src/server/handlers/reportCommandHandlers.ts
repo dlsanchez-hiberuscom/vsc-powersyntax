@@ -58,6 +58,7 @@ export interface ReportCommandHandlerContext {
   isLatencyPressureHigh(): boolean;
   getDiagnosticsSummary(uri?: string): DiagnosticsSnapshot | DiagnosticsSnapshot['documents'][number] | null;
   resolveAdaptiveLimit(requested: unknown, cap: number | undefined, minValue?: number): number | undefined;
+  runInteractiveWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runNearContextWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runExportReportingWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runOrcaWithBackpressure(request: { executablePath: string; scriptUri: string; timeoutMs?: number }): Promise<OrcaRunResult>;
@@ -129,6 +130,7 @@ export async function tryHandleReportCommand(
     isLatencyPressureHigh,
     getDiagnosticsSummary,
     resolveAdaptiveLimit,
+    runInteractiveWorkload,
     runNearContextWorkload,
     runExportReportingWorkload,
     runOrcaWithBackpressure,
@@ -206,7 +208,15 @@ export async function tryHandleReportCommand(
       const limit = typeof limitArg === 'number' && Number.isFinite(limitArg)
         ? Math.max(0, Math.trunc(limitArg))
         : 200;
-      return { handled: true, result: queryApiSymbols(query, knowledgeBase, limit) };
+      try {
+        const result = await runInteractiveWorkload('query-symbols', () => queryApiSymbols(query, knowledgeBase, limit));
+        return {
+          handled: true,
+          result: JSON.parse(JSON.stringify(result)) as typeof result,
+        };
+      } catch {
+        return { handled: true, result: [] };
+      }
     }
     case 'powerbuilder.currentObjectContext': {
       const [uriArg, lineArg, characterArg, excerptArg, refsArg] = params.arguments ?? [];
@@ -226,9 +236,9 @@ export async function tryHandleReportCommand(
         };
       }
 
-      return {
-        handled: true,
-        result: await runNearContextWorkload('current-object-context', () => buildCurrentObjectContext(
+        return {
+          handled: true,
+          result: await runInteractiveWorkload('current-object-context', () => buildCurrentObjectContext(
           document,
           {
             ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
@@ -326,7 +336,7 @@ export async function tryHandleReportCommand(
 
       return {
         handled: true,
-        result: await runExportReportingWorkload('safe-edit-plan', () => buildSafeEditPlan(
+        result: await runInteractiveWorkload('safe-edit-plan', () => buildSafeEditPlan(
           document,
           {
             ...(typeof lineArg === 'number' ? { line: Math.max(0, Math.trunc(lineArg)) } : {}),
@@ -504,7 +514,7 @@ export async function tryHandleReportCommand(
     case 'powerbuilder.workspaceCheckCatalogSummary': {
       return {
         handled: true,
-        result: await runExportReportingWorkload('workspace-check-catalog', () => buildWorkspaceCheckCatalogSummary())
+        result: await runInteractiveWorkload('workspace-check-catalog', () => buildWorkspaceCheckCatalogSummary())
       };
     }
     case 'powerbuilder.workspaceMigrationAssistant': {
@@ -513,7 +523,7 @@ export async function tryHandleReportCommand(
       const maxRecommendations = resolveAdaptiveLimit(maxRecommendationsArg, reportLimits?.maxRecommendations, 0);
       return {
         handled: true,
-        result: await runExportReportingWorkload('workspace-migration-assistant', () => buildWorkspaceMigrationAssistant(
+        result: await runInteractiveWorkload('workspace-migration-assistant', () => buildWorkspaceMigrationAssistant(
           {
             ...(preferredTargetModeArg === 'workspace' || preferredTargetModeArg === 'solution'
               ? { preferredTargetMode: preferredTargetModeArg }
@@ -536,7 +546,7 @@ export async function tryHandleReportCommand(
 
       return {
         handled: true,
-        result: await runNearContextWorkload('explain-system-symbol', () => buildExplainSystemSymbolReport(
+        result: await runInteractiveWorkload('explain-system-symbol', () => buildExplainSystemSymbolReport(
           effectiveUri && effectiveUri !== requestUri
             ? {
               ...(request ?? {}),
@@ -562,7 +572,7 @@ export async function tryHandleReportCommand(
 
       return {
         handled: true,
-        result: await runNearContextWorkload('explain-semantic-query', () => buildExplainSemanticQueryReport(
+        result: await runInteractiveWorkload('explain-semantic-query', () => buildExplainSemanticQueryReport(
           effectiveUri && effectiveUri !== requestUri
             ? {
               ...(request ?? {}),
@@ -582,7 +592,7 @@ export async function tryHandleReportCommand(
       const [uriArg, objectNameArg, maxDependenciesArg, maxDependentsArg] = params.arguments ?? [];
       return {
         handled: true,
-        result: await runNearContextWorkload('dependency-graph', () => buildPowerBuilderDependencyGraph(
+        result: await runInteractiveWorkload('dependency-graph', () => buildPowerBuilderDependencyGraph(
           {
             ...(typeof uriArg === 'string' ? { uri: uriArg } : {}),
             ...(typeof objectNameArg === 'string' && objectNameArg.trim().length > 0 ? { objectName: objectNameArg } : {}),

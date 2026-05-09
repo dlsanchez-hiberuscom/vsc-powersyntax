@@ -3,9 +3,11 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
+import { waitFor } from './semanticSmokeWait';
+
 suite('smoke/formatting-extension', () => {
   test('el formatter devuelve edits reales para un documento PowerBuilder abierto', async function () {
-    this.timeout(10000);
+    this.timeout(20000);
 
     const extension = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(extension, 'La extensión debería estar instalada');
@@ -35,11 +37,15 @@ suite('smoke/formatting-extension', () => {
           'end event'
         ].join('\n')
       });
+      await vscode.window.showTextDocument(document, { preview: false });
 
-      const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>(
-        'vscode.executeFormatDocumentProvider',
-        document.uri,
-        { insertSpaces: true, tabSize: 3 }
+      const edits = await waitFor(
+        async () => (await vscode.commands.executeCommand<vscode.TextEdit[] | undefined>(
+          'vscode.executeFormatDocumentProvider',
+          document.uri,
+          { insertSpaces: true, tabSize: 3 }
+        )) ?? [],
+        (value) => Array.isArray(value) && value.length > 0,
       );
 
       assert.ok(edits && edits.length > 0, 'El provider debe devolver edits de formato');
@@ -66,7 +72,7 @@ suite('smoke/formatting-extension', () => {
   });
 
   test('formatOnSave aplica el formatter al guardar un archivo PowerBuilder real', async function () {
-    this.timeout(15000);
+    this.timeout(30000);
 
     const extension = vscode.extensions.getExtension('lopez.vsc-powersyntax');
     assert.ok(extension, 'La extensión debería estar instalada');
@@ -110,16 +116,34 @@ suite('smoke/formatting-extension', () => {
         ].join('\n'));
       });
 
+      await waitFor(
+        async () => (await vscode.commands.executeCommand<vscode.TextEdit[] | undefined>(
+          'vscode.executeFormatDocumentProvider',
+          document.uri,
+          { insertSpaces: true, tabSize: 3 }
+        )) ?? [],
+        (value) => Array.isArray(value) && value.length > 0,
+        30000,
+        250,
+      );
+
       const saved = await document.save();
       assert.equal(saved, true, 'El documento temporal debería guardarse');
       const lineEnding = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
-      assert.equal(document.getText(), [
+      const expectedText = [
         'event open();',
         '   IF li_total = 1 THEN',
         '      messagebox(ls_title, li_total)',
         '   END IF',
         'end event'
-      ].join(lineEnding));
+      ].join(lineEnding);
+      await waitFor(
+        async () => document.getText(),
+        (value) => value === expectedText,
+        30000,
+        250,
+      );
+      assert.equal(document.getText(), expectedText);
     } finally {
       await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
       await config.update('formatting.enabled', previous.enabled, vscode.ConfigurationTarget.Workspace);

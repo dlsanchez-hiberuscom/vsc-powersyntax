@@ -101,6 +101,7 @@ function createRuntimeCommandContext(tracker: InteractiveServingStatsTracker): a
       }
       return typeof cap === 'number' ? Math.max(minValue, cap) : undefined;
     },
+    runInteractiveWorkload: async (_id: string, execute: () => unknown) => execute(),
     runNearContextWorkload: async (_id: string, execute: () => unknown) => execute(),
     runExportReportingWorkload: async (_id: string, execute: () => unknown) => execute(),
     runMaintenanceWorkload: async (_id: string, execute: () => unknown) => execute(),

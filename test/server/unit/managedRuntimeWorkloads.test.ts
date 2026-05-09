@@ -4,6 +4,16 @@ import { createManagedRuntimeWorkloads } from '../../../src/server/runtime/manag
 import { TaskScheduler } from '../../../src/server/runtime/scheduler';
 
 suite('unit/managedRuntimeWorkloads (B354)', () => {
+  test('runInteractiveWorkload ejecuta el callback sin dejar workloads pendientes', async () => {
+    const scheduler = new TaskScheduler();
+    const workloads = createManagedRuntimeWorkloads(scheduler);
+
+    const result = await workloads.runInteractiveWorkload('semantic-workspace-manifest', () => 'ready');
+
+    assert.equal(result, 'ready');
+    assert.equal(scheduler.getStatus().interactiveBusy, false);
+  });
+
   test('runNearContextWorkload usa workload near-context y respeta ids secuenciales', async () => {
     const scheduler = new TaskScheduler();
     const workloads = createManagedRuntimeWorkloads(scheduler);

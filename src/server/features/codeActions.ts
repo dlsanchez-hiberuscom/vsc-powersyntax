@@ -18,6 +18,7 @@ import {
 import { DIAGNOSTIC_CODES, getDiagnosticCode } from '../../shared/diagnosticCodes';
 import type { ApiInvocationRisk } from '../../shared/publicApi';
 import type { SourceOrigin } from '../../shared/sourceOrigin';
+import { buildObsoleteIndex } from '../knowledge/obsoleteCatalog';
 import { PB_IDENTIFIER_SOURCE } from '../parsing/grammar';
 import { hasBlockingDynamicStringReference } from './dynamicStringReferences';
 import { buildInvocationRiskSummary } from './invocationRiskModel';
@@ -26,6 +27,7 @@ import { validateRenameTarget } from './renamePreflight';
 const SUGGESTION_RE = /Sugerencia:\s*([^.]+?)\./i;
 const SAFE_REPLACEMENT_RE = new RegExp(`^${PB_IDENTIFIER_SOURCE}$`, 'i');
 const CODE_ACTION_CATALOG_VERSION = '2.0.0';
+const OBSOLETE_FUNCTION_INDEX = buildObsoleteIndex();
 const CANONICAL_SOURCE_ORIGINS = new Set<SourceOrigin>([
   'solution-source',
   'workspace-ws_objects',
@@ -57,6 +59,34 @@ function isCanonicalSourceOrigin(sourceOrigin: SourceOrigin | undefined): boolea
   return !sourceOrigin || CANONICAL_SOURCE_ORIGINS.has(sourceOrigin);
 }
 
+function matchesObsoleteFunctionDiagnostic(diagnostic: Diagnostic): boolean {
+  const diagnosticCode = getDiagnosticCode(diagnostic)?.toUpperCase();
+  if (diagnosticCode === DIAGNOSTIC_CODES.sd7ObsoleteFunction) {
+    return true;
+  }
+
+  if (typeof diagnostic.source === 'string' && diagnostic.source.toUpperCase().endsWith(`:${DIAGNOSTIC_CODES.sd7ObsoleteFunction}`)) {
+    return true;
+  }
+
+  return /obsolet/i.test(diagnostic.message ?? '') && /runfork|yield|halt/i.test(diagnostic.message ?? '');
+}
+
+function resolveObsoleteReplacement(original: string, diagnostic: Diagnostic): string | undefined {
+  const catalogReplacement = OBSOLETE_FUNCTION_INDEX.get(original.toLowerCase())?.replacement?.trim();
+  if (catalogReplacement && SAFE_REPLACEMENT_RE.test(catalogReplacement)) {
+    return catalogReplacement;
+  }
+
+  const suggestionMatch = SUGGESTION_RE.exec(diagnostic.message ?? '');
+  const suggestedReplacement = suggestionMatch?.[1]?.trim();
+  if (suggestedReplacement && SAFE_REPLACEMENT_RE.test(suggestedReplacement)) {
+    return suggestedReplacement;
+  }
+
+  return undefined;
+}
+
 function buildObsoleteReplacementAction(
   uri: string,
   content: string,
@@ -64,15 +94,12 @@ function buildObsoleteReplacementAction(
   lines: string[],
   context: CodeActionRequestContext,
 ): CodeAction | null {
-  const match = SUGGESTION_RE.exec(diagnostic.message ?? '');
-  if (!match) return null;
-
-  const replacement = match[1].trim();
-  if (!replacement || !SAFE_REPLACEMENT_RE.test(replacement)) return null;
-
   const lineText = lines[diagnostic.range.start.line] ?? '';
   const original = lineText.slice(diagnostic.range.start.character, diagnostic.range.end.character);
   if (!original) return null;
+
+  const replacement = resolveObsoleteReplacement(original, diagnostic);
+  if (!replacement) return null;
 
   const data: VersionedCodeActionData = {
     actionId: 'obsolete-function-replacement',
@@ -175,10 +202,11 @@ export function provideCodeActions(
 
   for (const d of diagnostics) {
     const diagnosticCode = getDiagnosticCode(d)?.toUpperCase();
-    if (!diagnosticCode) continue;
 
     for (const entry of CODE_ACTION_CATALOG) {
-      if (diagnosticCode !== entry.diagnosticCode) continue;
+      const matchesEntry = diagnosticCode === entry.diagnosticCode
+        || (entry.diagnosticCode === DIAGNOSTIC_CODES.sd7ObsoleteFunction && matchesObsoleteFunctionDiagnostic(d));
+      if (!matchesEntry) continue;
       const action = entry.build(uri, content, d, lines, context);
       if (action) {
         out.push(action);

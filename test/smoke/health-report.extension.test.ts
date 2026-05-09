@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 
+import { waitForDocumentSymbols } from './semanticSmokeWait';
+
 const EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 suite('smoke/health-report-extension', () => {
@@ -22,6 +24,7 @@ suite('smoke/health-report-extension', () => {
     try {
       const document = await vscode.workspace.openTextDocument(sourceUri);
       await vscode.window.showTextDocument(document, { preview: false });
+      await waitForDocumentSymbols(sourceUri);
 
       const result = await vscode.commands.executeCommand<{
         directoryUri: string;

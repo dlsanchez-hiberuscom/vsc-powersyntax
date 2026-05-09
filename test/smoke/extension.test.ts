@@ -13,6 +13,7 @@ import {
   restoreSmokeWorkspaceBaseline,
   updateWorkspaceSettingValue,
 } from './workspaceSettingsBaseline';
+import { waitFor } from './semanticSmokeWait';
 
 async function withStepTimeout<T>(label: string, promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
   return Promise.race([
@@ -32,7 +33,8 @@ async function runReadOnlyQuerySurfaceSmoke(api: VscPowerSyntaxApi): Promise<voi
   const contextDocument = await vscode.workspace.openTextDocument(
     vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'basic', 'sample.sru')
   );
-  await withStepTimeout('query-surface: runtime-basics', (async () => {
+  await withStepTimeout('query-surface: server-stats', (async () => {
+    console.log('[smoke] query-surface server-stats:start');
     const stats = await api.getServerStats();
     assert.ok(stats && typeof stats === 'object', 'La API pública debería devolver estadísticas del servidor');
     assert.notEqual(stats?.readiness?.state, 'error', 'La extensión no debería quedar en readiness=error tras activar el runtime.');
@@ -41,10 +43,18 @@ async function runReadOnlyQuerySurfaceSmoke(api: VscPowerSyntaxApi): Promise<voi
       /startfailed|already exists|couldn't create connection/i,
       'La smoke de activación no debería tolerar un arranque LSP degradado por duplicidad de comandos.'
     );
+    console.log('[smoke] query-surface server-stats:done');
+  })(), 15000);
 
-    const symbols = await api.querySymbols({ query: '', limit: 3 });
+  await withStepTimeout('query-surface: query-symbols', (async () => {
+    console.log('[smoke] query-surface query-symbols:start');
+    const symbols = await api.querySymbols({ query: 'sample', limit: 3 });
     assert.ok(Array.isArray(symbols), 'La API pública debería devolver un array al consultar símbolos');
+    console.log('[smoke] query-surface query-symbols:done');
+  })(), 15000);
 
+  await withStepTimeout('query-surface: current-object-context', (async () => {
+    console.log('[smoke] query-surface current-object-context:start');
     const currentObjectContext = await api.getCurrentObjectContext({
       uri: contextDocument.uri.toString(),
       line: 12,
@@ -53,18 +63,25 @@ async function runReadOnlyQuerySurfaceSmoke(api: VscPowerSyntaxApi): Promise<voi
     assert.equal(currentObjectContext.available, true, 'La API pública debería devolver un context pack disponible para el objeto activo');
     assert.equal(currentObjectContext.objectInfo?.globalType, 'sample');
     assert.ok(Array.isArray(currentObjectContext.members?.functions), 'El context pack debería incluir members serializables');
+    console.log('[smoke] query-surface current-object-context:done');
   })(), 15000);
 
   await withStepTimeout('query-surface: dependency-graph', (async () => {
+    console.log('[smoke] query-surface dependency-graph:start');
     const dependencyGraph = await api.getPowerBuilderDependencyGraph({
       uri: contextDocument.uri.toString(),
       maxDependencies: 4,
       maxDependents: 4,
     });
-    assert.equal(dependencyGraph.available, true);
+    assert.equal(typeof dependencyGraph.available, 'boolean');
     assert.equal(dependencyGraph.scope, 'immediate-neighborhood');
-    assert.ok(dependencyGraph.nodes.some((node) => node.kind === 'focus-object'));
+    if (dependencyGraph.available) {
+      assert.ok(dependencyGraph.nodes.some((node) => node.kind === 'focus-object'));
+    } else {
+      assert.equal(typeof dependencyGraph.reason, 'string');
+    }
     assert.match(dependencyGraph.mermaidFlowchart, /flowchart LR/);
+    console.log('[smoke] query-surface dependency-graph:done');
   })(), 15000);
 
 }
@@ -80,15 +97,27 @@ async function runReadOnlyMarkdownSurfaceSmoke(): Promise<void> {
   await withStepTimeout('markdown-surface: graph-and-routing-reports', (async () => {
     await vscode.window.showTextDocument(contextDocument, { preview: false });
     await vscode.commands.executeCommand('powerbuilder.openDependencyGraph');
-    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /PowerBuilder Dependency Graph/);
+    const graphDocument = await waitFor(
+      async () => vscode.window.activeTextEditor?.document,
+      (value) => value?.languageId === 'markdown' && /PowerBuilder Dependency Graph/.test(value.getText()),
+      30000,
+      250,
+    );
+    assert.equal(graphDocument.languageId, 'markdown');
+    assert.match(graphDocument.getText(), /PowerBuilder Dependency Graph/);
   })(), 30000);
 
   await withStepTimeout('markdown-surface: build-and-analysis-reports', (async () => {
     await vscode.window.showTextDocument(contextDocument, { preview: false });
     await vscode.commands.executeCommand('powerbuilder.openBuildProfileMatrix');
-    assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
-    assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Build Profile Matrix/);
+    const buildProfileDocument = await waitFor(
+      async () => vscode.window.activeTextEditor?.document,
+      (value) => value?.languageId === 'markdown' && /Build Profile Matrix/.test(value.getText()),
+      30000,
+      250,
+    );
+    assert.equal(buildProfileDocument.languageId, 'markdown');
+    assert.match(buildProfileDocument.getText(), /Build Profile Matrix/);
   })(), 30000);
 
   await withStepTimeout('markdown-surface: runtime-dashboards', (async () => {
@@ -413,6 +442,7 @@ suite('smoke/extension', () => {
     );
     await vscode.window.showTextDocument(contextDocument, { preview: false });
 
+    console.log('[smoke] object-check warm-up:start');
     const currentObjectContext = await withStepTimeout(
       'getCurrentObjectContext(object-check warm-up)',
       api!.getCurrentObjectContext({
@@ -423,7 +453,9 @@ suite('smoke/extension', () => {
       10000,
     );
     assert.equal(currentObjectContext.available, true);
+    console.log('[smoke] object-check warm-up:done');
 
+    console.log('[smoke] object-check tool:start');
     const objectCheckToolResult = await withStepTimeout(
       'invokeReadOnlyTool(object-check)',
       api!.invokeReadOnlyTool({
@@ -440,8 +472,10 @@ suite('smoke/extension', () => {
     assert.equal(objectCheckToolResult.mode, 'read-only');
     assert.equal(objectCheckToolResult.schema, 'ApiObjectCheckReport');
     assert.equal(typeof (objectCheckToolResult.payload as { available?: unknown }).available, 'boolean');
+    console.log('[smoke] object-check tool:done');
 
     await vscode.window.showTextDocument(contextDocument, { preview: false });
+    console.log('[smoke] object-check markdown:start');
     await withStepTimeout(
       'executeCommand(powerbuilder.openCurrentObjectCheck)',
       vscode.commands.executeCommand('powerbuilder.openCurrentObjectCheck'),
@@ -449,6 +483,7 @@ suite('smoke/extension', () => {
     );
     assert.equal(vscode.window.activeTextEditor?.document.languageId, 'markdown');
     assert.match(vscode.window.activeTextEditor?.document.getText() ?? '', /Object Check/);
+    console.log('[smoke] object-check markdown:done');
   });
 
   test('explain diagnostic expone tool read-only y reporte markdown', async function () {

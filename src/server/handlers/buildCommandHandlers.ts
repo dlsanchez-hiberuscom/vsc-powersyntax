@@ -26,6 +26,7 @@ export interface BuildCommandHandlerContext {
   getActiveDocumentUri(): string | null;
   getWorkspaceFolders(): string[];
   basenameFromPathOrUri(value: string): string;
+  runInteractiveWorkload<T>(idPrefix: string, execute: () => Promise<T> | T): Promise<T>;
   runPbAutoBuildWithBackpressure(request: PbAutoBuildRunnerRequest): Promise<PbAutoBuildRunResult>;
   runOrcaWithBackpressure(request: OrcaRunnerRequest): Promise<OrcaRunResult>;
 }
@@ -45,6 +46,7 @@ export async function tryHandleBuildCommand(
     getActiveDocumentUri,
     getWorkspaceFolders,
     basenameFromPathOrUri,
+    runInteractiveWorkload,
     runPbAutoBuildWithBackpressure,
     runOrcaWithBackpressure,
   } = context;
@@ -170,11 +172,11 @@ export async function tryHandleBuildCommand(
 
       return {
         handled: true,
-        result: await runOrcaWithBackpressure({
+        result: await runInteractiveWorkload('orca-script', () => orcaRunner.run({
           executablePath,
           scriptUri,
           timeoutMs
-        })
+        }))
       };
     }
     case 'powerbuilder.cancelOrcaScript': {
