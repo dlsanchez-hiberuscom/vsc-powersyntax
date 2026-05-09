@@ -8,6 +8,11 @@ import {
   type VscPowerSyntaxApi,
 } from '../../src/shared/publicApi';
 import { getCoreMaintenanceCommandModels } from '../../src/client/coreMaintenanceCommandCatalog';
+import {
+  getWorkspaceSettingValue,
+  restoreSmokeWorkspaceBaseline,
+  updateWorkspaceSettingValue,
+} from './workspaceSettingsBaseline';
 
 async function withStepTimeout<T>(label: string, promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
   return Promise.race([
@@ -172,6 +177,16 @@ async function runSnapshotSurfaceSmoke(api: VscPowerSyntaxApi): Promise<void> {
 }
 
 suite('smoke/extension', () => {
+  suiteSetup(async function () {
+    this.timeout(10000);
+    await restoreSmokeWorkspaceBaseline();
+  });
+
+  teardown(async function () {
+    this.timeout(10000);
+    await restoreSmokeWorkspaceBaseline();
+  });
+
   test('la extensión se activa en menos de 500ms', async function () {
     this.timeout(30000);
     const ext = vscode.extensions.getExtension('lopez.vsc-powersyntax');
@@ -816,29 +831,33 @@ suite('smoke/extension', () => {
     assert.ok(commands.includes('powerbuilder.regenerateOrcaLibraries'), 'El comando ORCA de regenerate debería estar registrado');
     assert.ok(commands.includes('powerbuilder.rebuildOrcaProject'), 'El comando ORCA de rebuild debería estar registrado');
 
-    await vscode.workspace.getConfiguration('vscPowerSyntax').update('legacy.orcaPath', process.execPath, vscode.ConfigurationTarget.Workspace);
+    const previousOrcaPath = getWorkspaceSettingValue<string>('legacy.orcaPath');
 
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
+    try {
+      await updateWorkspaceSettingValue('legacy.orcaPath', process.execPath);
 
-    const document = await vscode.workspace.openTextDocument(
-      vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'orca', 'echo-orca.js')
-    );
-    await vscode.window.showTextDocument(document, { preview: false });
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      assert.ok(workspaceFolder, 'La prueba smoke requiere un workspace abierto');
 
-    const result = await vscode.commands.executeCommand<{ snapshot?: { state?: string; scriptUri?: string } }>('powerbuilder.runActiveOrcaScript');
-    assert.ok(result, 'El comando debería devolver un resultado ORCA.');
-    assert.equal(result!.snapshot?.state, 'succeeded');
-    assert.equal(result!.snapshot?.scriptUri, document.uri.toString());
+      const document = await vscode.workspace.openTextDocument(
+        vscode.Uri.joinPath(workspaceFolder!.uri, 'test', 'fixtures', 'orca', 'echo-orca.js')
+      );
+      await vscode.window.showTextDocument(document, { preview: false });
 
-    const stats = await api!.getServerStats();
-    assert.equal(stats.orcaTooling?.status, 'available');
-    assert.equal(stats.orcaTooling?.source, 'config');
-    assert.equal(stats.orcaTooling?.packagingPolicy?.exposure, 'not-exposed');
-    assert.equal(stats.orcaTooling?.packagingPolicy?.requiresFeatureFlag, true);
-    assert.equal(stats.orcaRunner?.state, 'succeeded');
+      const result = await vscode.commands.executeCommand<{ snapshot?: { state?: string; scriptUri?: string } }>('powerbuilder.runActiveOrcaScript');
+      assert.ok(result, 'El comando debería devolver un resultado ORCA.');
+      assert.equal(result!.snapshot?.state, 'succeeded');
+      assert.equal(result!.snapshot?.scriptUri, document.uri.toString());
 
-    await vscode.workspace.getConfiguration('vscPowerSyntax').update('legacy.orcaPath', '', vscode.ConfigurationTarget.Workspace);
+      const stats = await api!.getServerStats();
+      assert.equal(stats.orcaTooling?.status, 'available');
+      assert.equal(stats.orcaTooling?.source, 'config');
+      assert.equal(stats.orcaTooling?.packagingPolicy?.exposure, 'not-exposed');
+      assert.equal(stats.orcaTooling?.packagingPolicy?.requiresFeatureFlag, true);
+      assert.equal(stats.orcaRunner?.state, 'succeeded');
+    } finally {
+      await updateWorkspaceSettingValue('legacy.orcaPath', previousOrcaPath);
+    }
   });
 
   test('registra y abre el dashboard de salud del proyecto', async function () {

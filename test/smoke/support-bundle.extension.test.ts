@@ -1,9 +1,21 @@
 import assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 
+import { restoreSmokeWorkspaceBaseline } from './workspaceSettingsBaseline';
+
 const EXTENSION_ID = 'lopez.vsc-powersyntax';
 
 suite('smoke/support-bundle-extension', () => {
+  suiteSetup(async function () {
+    this.timeout(10000);
+    await restoreSmokeWorkspaceBaseline();
+  });
+
+  teardown(async function () {
+    this.timeout(10000);
+    await restoreSmokeWorkspaceBaseline();
+  });
+
   test('exporta un support bundle saneado desde el workspace activo', async function () {
     this.timeout(20000);
 
